@@ -1,0 +1,201 @@
+<resources>
+    <string name="app_name">Ausgegeben</string>
+    <string name="app_tagline">Ausgaben erfassen</string>
+
+    <string name="nav_record">Erfassen</string>
+    <string name="nav_bills">Auswertung</string>
+    <string name="nav_settings">Einstellungen</string>
+    <string name="nav_add_transaction">Transaktion hinzufügen</string>
+
+    <string name="screen_record">Erfassen</string>
+    <string name="screen_bills">Auswertung</string>
+    <string name="screen_settings">Einstellungen</string>
+    <string name="settings_version_subtitle">Ausgegeben · v%1$s</string>
+
+    <string name="record_search_placeholder">Notizen, Kategorien, Beträge suchen</string>
+    <string name="record_clear_search">Suche löschen</string>
+    <string name="record_no_matches_title">Keine Treffer</string>
+    <string name="record_no_matches_subtitle">Andere Suche oder Filter versuchen</string>
+    <string name="record_empty_title">Noch keine Transaktionen</string>
+    <string name="record_empty_subtitle">Tippe unten auf + für die erste Ausgabe oder Einnahme</string>
+    <string name="record_empty_hint">Lange drücken zum Duplizieren</string>
+    <string name="record_period_this_month">Dieser Monat</string>
+    <string name="record_period_all_time">Gesamt</string>
+    <string name="record_delete_title">Transaktion löschen?</string>
+    <string name="record_delete_message">Das lässt sich nicht rückgängig machen.</string>
+    <string name="record_delete_confirm">Löschen</string>
+    <string name="record_delete_cancel">Abbrechen</string>
+    <string name="record_view_receipt">Beleg anzeigen</string>
+    <string name="record_swipe_delete">Löschen</string>
+    <string name="record_unknown_category">Unbekannt</string>
+    <string name="filter_all">Alle</string>
+    <string name="filter_expense">Ausgabe</string>
+    <string name="filter_income">Einnahme</string>
+    <string name="filter_transfer">Umbuchung</string>
+
+    <string name="bills_empty_title">Noch keine Auswertung</string>
+    <string name="bills_empty_subtitle">Erfasse Ausgaben oder Einnahmen für Diagramme</string>
+
+    <string name="settings_section_appearance">Darstellung</string>
+    <string name="settings_section_notifications">Benachrichtigungen</string>
+    <string name="settings_section_budget">Budget</string>
+    <string name="settings_section_management">Verwaltung</string>
+    <string name="settings_section_export">Export</string>
+    <string name="settings_section_about">Über</string>
+    <string name="settings_theme">Design</string>
+    <string name="settings_currency">Währung</string>
+    <string name="settings_evening_reminder">Abend-Erinnerung</string>
+    <string name="settings_reminder_subtitle">Etwa %1$s, wenn heute nichts erfasst wurde</string>
+    <string name="settings_reminder_enabled">Abend-Erinnerung aktiviert</string>
+    <string name="settings_reminder_disabled">Abend-Erinnerung deaktiviert</string>
+    <string name="settings_reminder_time">Erinnerungszeit</string>
+    <string name="settings_reminder_set">Erinnerung auf %1$s gesetzt</string>
+    <string name="settings_monthly_limit">Monatliches Ausgabenlimit</string>
+    <string name="settings_monthly_limit_not_set">Nicht festgelegt</string>
+    <string name="settings_categories">Kategorien verwalten</string>
+    <string name="settings_categories_subtitle">Kategorien hinzufügen oder entfernen</string>
+    <string name="settings_export_csv">Als CSV exportieren</string>
+    <string name="settings_export_subtitle">Tabelle teilen</string>
+    <string name="settings_export_ok">CSV zum Teilen bereit</string>
+    <string name="settings_export_failed">Export fehlgeschlagen</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_support">Support kontaktieren</string>
+    <string name="settings_no_email_app">Keine E-Mail-App gefunden</string>
+    <string name="settings_choose_theme">Design wählen</string>
+    <string name="settings_choose_currency">Währung wählen</string>
+    <string name="settings_budget_dialog_title">Monatliches Ausgabenlimit</string>
+    <string name="settings_budget_dialog_body">Monatliches Limit festlegen. Fortschritt siehst du unter Erfassen.</string>
+    <string name="settings_budget_amount_label">Betrag (%1$s)</string>
+    <string name="settings_budget_set">Monatslimit gesetzt</string>
+    <string name="settings_budget_cleared">Monatslimit entfernt</string>
+
+    <string name="add_save_changes">Änderungen speichern</string>
+    <string name="add_income">Einnahme hinzufügen</string>
+    <string name="add_transfer">Umbuchung hinzufügen</string>
+    <string name="add_expense">Ausgabe hinzufügen</string>
+    <string name="add_edit_title">Transaktion bearbeiten</string>
+    <string name="add_new_title">Neue Transaktion</string>
+    <string name="add_scan_receipt">Beleg scannen</string>
+    <string name="add_type_expense">Ausgabe</string>
+    <string name="add_type_income">Einnahme</string>
+    <string name="add_type_transfer">Umbuchung</string>
+    <string name="add_category_label">KATEGORIE</string>
+    <string name="add_manage">Verwalten</string>
+    <string name="add_no_categories_title">Noch keine Kategorien</string>
+    <string name="add_no_categories_subtitle">Tippe unten auf Neu oder Verwalten</string>
+    <string name="add_create_category">Kategorie erstellen</string>
+    <string name="add_note_placeholder">Notiz hinzufügen…</string>
+    <string name="add_remove_receipt">Beleg entfernen</string>
+    <string name="add_new_category">Neu</string>
+    <string name="add_add_category">Kategorie hinzufügen</string>
+    <string name="add_backspace">Rücktaste</string>
+    <string name="add_date_label">Datum</string>
+    <string name="add_amount_expense">Ausgabenbetrag</string>
+    <string name="add_amount_income">Einnahmenbetrag</string>
+    <string name="add_amount_transfer">Umbuchungsbetrag</string>
+    <string name="add_delete_category_title">Kategorie löschen?</string>
+    <string name="add_delete_category_none">Keine Transaktionen verknüpft.</string>
+    <string name="add_delete_category_one">1 verknüpfte Transaktion wird gelöscht.</string>
+    <string name="add_delete_category_many">%1$d verknüpfte Transaktionen werden gelöscht.</string>
+    <string name="add_delete_category_fallback">Verknüpfte Transaktionen werden gelöscht.</string>
+    <string name="add_delete_category_body">„%1$s“ löschen ist endgültig. %2$s</string>
+    <string name="action_ok">OK</string>
+
+    <string name="error_select_category">Kategorie auswählen</string>
+    <string name="error_amount_required">Betrag größer als 0 eingeben</string>
+    <string name="error_category_type_mismatch">Diese Kategorie ist für %1$s-Transaktionen</string>
+    <string name="error_budget_exceeded">Monatsbudget überschritten: %1$s von %2$s</string>
+
+    <string name="snackbar_transaction_deleted">Transaktion gelöscht</string>
+    <string name="snackbar_undo">Rückgängig</string>
+    <string name="snackbar_transaction_duplicated">Für heute dupliziert</string>
+    <string name="snackbar_transaction_saved">Transaktion gespeichert</string>
+    <string name="snackbar_transaction_updated">Transaktion aktualisiert</string>
+
+    <string name="period_this_month">Dieser Monat</string>
+    <string name="period_last_month">Letzter Monat</string>
+    <string name="period_all_time">Gesamt</string>
+
+    <string name="theme_system">System</string>
+    <string name="theme_dark">Dunkel</string>
+    <string name="theme_light">Hell</string>
+
+    <string name="onboarding_title_track">Jede Ausgabe erfassen</string>
+    <string name="onboarding_body_track">Ausgaben, Einnahmen und Umbuchungen in Sekunden. Alles bleibt auf diesem Gerät.</string>
+    <string name="onboarding_title_insights">Sehen, wohin das Geld geht</string>
+    <string name="onboarding_body_insights">Diagramme und Einblicke nach Kategorie und Monat.</string>
+    <string name="onboarding_title_reminders">Gewohnheiten im Blick</string>
+    <string name="onboarding_body_reminders">Optionale Abend-Erinnerungen. Jederzeit in den Einstellungen änderbar.</string>
+    <string name="onboarding_next">Weiter</string>
+    <string name="onboarding_skip">Überspringen</string>
+    <string name="onboarding_get_started">Loslegen</string>
+    <string name="onboarding_enable_reminders">Erinnerungen aktivieren</string>
+
+    <string name="notification_channel_name">Tägliche Erinnerungen</string>
+    <string name="notification_channel_description">Abendliche Erinnerung zum Erfassen</string>
+    <string name="notification_reminder_title">Heutige Ausgaben erfassen?</string>
+    <string name="notification_reminder_body">Heute noch nichts erfasst. Tippe, um eine Ausgabe hinzuzufügen.</string>
+
+    <string name="action_close">Schließen</string>
+    <string name="action_cancel">Abbrechen</string>
+    <string name="action_save">Speichern</string>
+    <string name="action_back">Zurück</string>
+    <string name="action_delete">Löschen</string>
+
+    <string name="screen_categories">Kategorien</string>
+    <string name="category_total_count">%1$d gesamt</string>
+    <string name="category_new">Neu</string>
+    <string name="category_empty_title">Noch keine Kategorien</string>
+    <string name="category_empty_subtitle">Tippe auf Neu für die erste Kategorie</string>
+    <string name="category_new_title">Neue Kategorie</string>
+    <string name="category_edit_title">Kategorie bearbeiten</string>
+    <string name="category_name_label">NAME</string>
+    <string name="category_name_placeholder">z. B. Lebensmittel, Miete, Gehalt…</string>
+    <string name="category_type_label">TYP</string>
+    <string name="category_icon_label">SYMBOL</string>
+    <string name="category_color_label">FARBE</string>
+    <string name="category_preview_name">Kategoriename</string>
+    <string name="category_preview">Vorschau</string>
+    <string name="category_manage_title">Kategorien verwalten</string>
+    <string name="category_manage_subtitle">%1$s · %2$d Einträge</string>
+    <string name="category_manage_empty_subtitle">Erstelle eine Kategorie zum Erfassen</string>
+    <string name="category_add_button">Kategorie hinzufügen</string>
+    <string name="category_save_changes">Änderungen speichern</string>
+    <string name="category_move_up">Nach oben</string>
+    <string name="category_move_down">Nach unten</string>
+    <string name="category_edit">Bearbeiten</string>
+    <string name="category_add">Kategorie hinzufügen</string>
+
+    <string name="summary_balance_period">Saldo · %1$s</string>
+    <string name="summary_spent">Ausgegeben</string>
+    <string name="summary_earned">Einnahmen</string>
+    <plurals name="summary_transfers">
+        <item quantity="one">%1$d Umbuchung · %2$s</item>
+        <item quantity="other">%1$d Umbuchungen · %2$s</item>
+    </plurals>
+
+    <string name="insight_top_category">Top: %1$s · %2$s</string>
+    <string name="insight_month_prefix">Monat </string>
+    <string name="budget_monthly_label">Monatsbudget</string>
+    <string name="budget_progress">%1$s / %2$s</string>
+    <string name="budget_over_by">%1$s über Budget</string>
+    <plurals name="insight_days_logged">
+        <item quantity="one">%d Tag diese Woche erfasst</item>
+        <item quantity="other">%d Tage diese Woche erfasst</item>
+    </plurals>
+
+    <string name="bills_section_expenses">Ausgaben</string>
+    <string name="bills_section_income">Einnahmen</string>
+    <string name="bills_section_transfers">Umbuchungen</string>
+
+    <string name="receipt_preview">Belegvorschau</string>
+    <string name="receipt_title">Beleg</string>
+    <string name="receipt_image">Belegbild</string>
+    <string name="camera_permission_title">Kamerazugriff nötig</string>
+    <string name="camera_permission_body">Erlaube den Kamerazugriff für Belegfotos.</string>
+    <string name="camera_try_again">Erneut versuchen</string>
+    <string name="camera_go_back">Zurück</string>
+    <string name="camera_capture">Beleg aufnehmen</string>
+    <string name="camera_start_failed">Kamera konnte nicht gestartet werden</string>
+    <string name="camera_capture_failed">Aufnahme fehlgeschlagen</string>
+</resources>
