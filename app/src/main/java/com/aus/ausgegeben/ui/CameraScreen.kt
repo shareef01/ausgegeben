@@ -30,7 +30,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.aus.ausgegeben.R
-import com.aus.ausgegeben.ui.theme.AccentRed
+import com.aus.ausgegeben.ui.theme.AccentCoral
 import com.aus.ausgegeben.util.ReceiptFileUtils
 import java.io.File
 import java.text.SimpleDateFormat
@@ -123,7 +123,7 @@ fun CameraScreen(
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 32.dp)
                 .navigationBarsPadding(),
-            containerColor = AccentRed
+            containerColor = AccentCoral
         ) {
             Icon(Icons.Rounded.CameraAlt, contentDescription = stringResource(R.string.camera_capture))
         }

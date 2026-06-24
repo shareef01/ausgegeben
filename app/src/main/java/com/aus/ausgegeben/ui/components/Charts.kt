@@ -34,9 +34,11 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.theme.AmountTextStyle
 import com.aus.ausgegeben.ui.theme.AppChartSpring
 import com.aus.ausgegeben.ui.theme.chartColorAt
@@ -63,12 +65,12 @@ fun DonutChart(
     val shadowColor = Color.Black.copy(alpha = if (colorScheme.background.luminance() < 0.5f) 0.28f else 0.08f)
 
     val chartDescription = if (total <= 0.0) {
-        "No chart data"
+        stringResource(R.string.chart_no_data)
     } else {
-        buildString {
-            append("Breakdown by category, total ")
-            append(centerLabel ?: CurrencyUtils.formatAmount(total, "EUR"))
-        }
+        stringResource(
+            R.string.chart_breakdown_description,
+            centerLabel ?: CurrencyUtils.formatAmount(total, "EUR")
+        )
     }
 
     val progress by animateFloatAsState(
