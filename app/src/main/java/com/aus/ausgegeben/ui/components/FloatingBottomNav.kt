@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,6 +22,7 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -35,6 +37,8 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.Route
@@ -44,7 +48,7 @@ import com.aus.ausgegeben.ui.theme.AppSpringSnappy
 private data class NavItem(
     val route: Route,
     val icon: ImageVector,
-    val contentDescription: String
+    val label: String
 )
 
 @Composable
@@ -77,7 +81,7 @@ fun FloatingBottomNav(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 40.dp, vertical = 10.dp),
+                .padding(horizontal = 28.dp, vertical = 10.dp),
             shape = RoundedCornerShape(28.dp),
             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
             shadowElevation = 12.dp,
@@ -86,8 +90,8 @@ fun FloatingBottomNav(
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
-                    .padding(horizontal = 8.dp)
+                    .height(64.dp)
+                    .padding(horizontal = 6.dp)
             ) {
                 val density = LocalDensity.current
                 val itemWidth = maxWidth / items.size
@@ -100,15 +104,15 @@ fun FloatingBottomNav(
                         .offset(x = indicatorOffset)
                         .width(itemWidth)
                         .fillMaxHeight()
-                        .padding(vertical = 6.dp, horizontal = 4.dp)
+                        .padding(vertical = 4.dp, horizontal = 2.dp)
                         .clip(RoundedCornerShape(18.dp))
                         .background(
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                AccentCoral.copy(alpha = 0.18f),
-                                AccentCoral.copy(alpha = 0.08f)
+                            Brush.horizontalGradient(
+                                colors = listOf(
+                                    AccentCoral.copy(alpha = 0.18f),
+                                    AccentCoral.copy(alpha = 0.08f)
+                                )
                             )
-                        )
                         )
                 )
 
@@ -119,9 +123,9 @@ fun FloatingBottomNav(
                 ) {
                     items.forEachIndexed { index, item ->
                         val selected = index == selectedIndex
-                        NavIcon(
+                        NavTab(
                             icon = item.icon,
-                            contentDescription = item.contentDescription,
+                            label = item.label,
                             isSelected = selected,
                             onClick = { onNavigate(item.route) }
                         )
@@ -133,29 +137,40 @@ fun FloatingBottomNav(
 }
 
 @Composable
-private fun NavIcon(
+private fun NavTab(
     icon: ImageVector,
-    contentDescription: String,
+    label: String,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
     val tint = if (isSelected) AccentCoral else MaterialTheme.colorScheme.onSurfaceVariant
 
-    Box(
+    Column(
         modifier = Modifier
-            .size(52.dp)
+            .width(72.dp)
             .semantics {
                 role = Role.Tab
                 selected = isSelected
             }
-            .smoothClickable(onClick = onClick),
-        contentAlignment = Alignment.Center
+            .smoothClickable(onClick = onClick)
+            .padding(vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
         Icon(
             imageVector = icon,
-            contentDescription = contentDescription,
+            contentDescription = label,
             tint = tint,
-            modifier = Modifier.size(if (isSelected) 27.dp else 25.dp)
+            modifier = Modifier.size(if (isSelected) 24.dp else 22.dp)
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = tint,
+            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 2.dp)
         )
     }
 }
