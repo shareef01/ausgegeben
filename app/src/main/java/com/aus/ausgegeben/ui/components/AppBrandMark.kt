@@ -12,9 +12,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.theme.AccentCoral
 import com.aus.ausgegeben.ui.theme.AccentCoralSoft
 
@@ -49,14 +51,14 @@ fun AppBrandMark(
         if (!compact) {
             Column {
                 Text(
-                    text = "Ausgegeben",
+                    text = stringResource(R.string.app_name),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onBackground,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = (-0.3).sp
                 )
                 Text(
-                    text = "Track spending",
+                    text = stringResource(R.string.app_tagline),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

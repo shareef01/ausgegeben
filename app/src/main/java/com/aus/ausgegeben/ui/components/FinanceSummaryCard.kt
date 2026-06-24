@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.TrendingDown
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -69,7 +70,7 @@ fun FinanceSummaryCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .defaultMinSize(minHeight = 180.dp)
+            .defaultMinSize(minHeight = 156.dp)
             .padding(horizontal = 16.dp)
             .shadow(16.dp, shape, ambientColor = AccentCoral.copy(alpha = 0.1f))
             .clip(shape)
@@ -189,7 +190,9 @@ fun EmptyStateMessage(
     icon: ImageVector,
     title: String,
     subtitle: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null
 ) {
     Column(
         modifier = modifier
@@ -226,5 +229,14 @@ fun EmptyStateMessage(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 24.dp)
         )
+        if (actionLabel != null && onAction != null) {
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(
+                onClick = onAction,
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Text(actionLabel)
+            }
+        }
     }
 }
