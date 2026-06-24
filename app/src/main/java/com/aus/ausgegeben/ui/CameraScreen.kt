@@ -31,6 +31,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.theme.AccentRed
+import com.aus.ausgegeben.util.ReceiptFileUtils
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -164,9 +165,5 @@ private fun takePhoto(
     )
 }
 
-private fun getOutputDirectory(context: Context): File {
-    val mediaDir = context.externalMediaDirs.firstOrNull()?.let {
-        File(it, "ausgegeben").apply { mkdirs() }
-    }
-    return if (mediaDir != null && mediaDir.exists()) mediaDir else context.filesDir
-}
+private fun getOutputDirectory(context: Context): File =
+    ReceiptFileUtils.receiptOutputDirectory(context)

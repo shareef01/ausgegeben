@@ -127,12 +127,7 @@ class ExpenseViewModel(
 
     fun duplicateExpense(expense: Expense) {
         viewModelScope.launch {
-            repository.insertExpense(
-                expense.copy(
-                    id = 0L,
-                    dateMillis = System.currentTimeMillis()
-                )
-            )
+            repository.duplicateExpense(expense)
         }
     }
 
@@ -146,6 +141,12 @@ class ExpenseViewModel(
     fun restoreExpense(expense: Expense) {
         viewModelScope.launch {
             repository.insertExpense(expense)
+        }
+    }
+
+    fun finalizeDeletedExpense(expense: Expense) {
+        viewModelScope.launch {
+            repository.purgeReceiptIfUnreferenced(expense.receiptImagePath)
         }
     }
 }
