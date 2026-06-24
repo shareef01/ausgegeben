@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <cache-path name="export" path="." />
+    <files-path name="receipts" path="." />
+    <external-media-path name="media" path="." />
+</paths>
