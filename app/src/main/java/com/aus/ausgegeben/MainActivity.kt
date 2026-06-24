@@ -281,6 +281,8 @@ fun MainApp(
                                         )
                                         if (result == SnackbarResult.ActionPerformed) {
                                             expenseViewModel.restoreExpense(expense)
+                                        } else {
+                                            expenseViewModel.finalizeDeletedExpense(expense)
                                         }
                                     }
                                 },
