@@ -153,7 +153,7 @@ fun AddTransactionScreen(
                         color = MaterialTheme.colorScheme.onBackground
                     )
                     Text(
-                        text = "Ausgegeben",
+                        text = stringResource(R.string.app_name),
                         style = MaterialTheme.typography.labelSmall,
                         color = AccentCoral,
                         fontWeight = FontWeight.Medium
@@ -678,7 +678,7 @@ private fun CategoryAddTile(accentColor: Color, onClick: () -> Unit) {
         ) {
             Icon(
                 Icons.Rounded.Add,
-                contentDescription = "Add category",
+                contentDescription = stringResource(R.string.add_add_category),
                 tint = accentColor,
                 modifier = Modifier.size(24.dp)
             )
@@ -845,7 +845,7 @@ private fun CalcKey(
         if (isBackspace) {
             Icon(
                 Icons.AutoMirrored.Rounded.Backspace,
-                contentDescription = "Backspace",
+                contentDescription = stringResource(R.string.add_backspace),
                 tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(22.dp)
             )

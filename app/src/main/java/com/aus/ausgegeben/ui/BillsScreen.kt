@@ -86,11 +86,13 @@ fun BillsScreen(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
 
-        RecordHeader(
-            expenses = uiState.periodTransactions,
-            currencyCode = currencyCode,
-            periodLabel = headerPeriodLabel
-        )
+        if (hasAnalytics) {
+            RecordHeader(
+                expenses = uiState.periodTransactions,
+                currencyCode = currencyCode,
+                periodLabel = headerPeriodLabel
+            )
+        }
 
         LazyColumn(
             modifier = Modifier
@@ -207,7 +209,7 @@ fun AnalyticsSection(
                 data = sorted.associate { (category, amount) -> category.name to amount },
                 colors = chartColors,
                 centerLabel = CurrencyUtils.formatAmount(total, currencyCode),
-                centerSubLabel = "total",
+                centerSubLabel = stringResource(R.string.chart_total_label),
                 modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
             )
 

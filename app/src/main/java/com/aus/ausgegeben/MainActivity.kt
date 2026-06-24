@@ -268,6 +268,10 @@ fun MainApp(
                             RecordScreen(
                                 viewModel = expenseViewModel,
                                 currencyCode = currency,
+                                onAddTransaction = {
+                                    addViewModel.resetForm()
+                                    backStack.push(Route.Dashboard as NavKey)
+                                },
                                 onExpenseClick = { expense ->
                                     addViewModel.loadForEdit(expense, recordCategories)
                                     backStack.push(Route.Dashboard as NavKey)

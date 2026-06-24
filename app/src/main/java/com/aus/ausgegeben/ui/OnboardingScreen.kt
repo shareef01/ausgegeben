@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Analytics
 import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -50,6 +51,11 @@ fun OnboardingScreen(
             icon = Icons.Rounded.NotificationsActive,
             title = stringResource(R.string.onboarding_title_reminders),
             body = stringResource(R.string.onboarding_body_reminders)
+        ),
+        OnboardingPage(
+            icon = Icons.Rounded.TouchApp,
+            title = stringResource(R.string.onboarding_title_gestures),
+            body = stringResource(R.string.onboarding_body_gestures)
         )
     )
     val pagerState = rememberPagerState(pageCount = { pages.size })

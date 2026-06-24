@@ -64,6 +64,7 @@ fun RecordScreen(
     onExpenseDeleted: (Expense) -> Unit = {},
     onExpenseClick: (Expense) -> Unit = {},
     onExpenseDuplicated: () -> Unit = {},
+    onAddTransaction: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -92,129 +93,162 @@ fun RecordScreen(
     val hasActiveFilter = uiState.searchQuery.isNotBlank() ||
         uiState.typeFilter != TransactionTypeFilter.ALL
     val isListLoading = lazyExpenses.loadState.refresh is LoadState.Loading
+    val isListError = lazyExpenses.loadState.refresh is LoadState.Error
     val isListEmpty = lazyExpenses.itemCount == 0 &&
         lazyExpenses.loadState.refresh is LoadState.NotLoading
 
-    Column(modifier = modifier.fillMaxSize()) {
-        ScreenTitle(title = stringResource(R.string.screen_record))
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = recordListBottomPadding()
+    ) {
+        item(key = "title") {
+            ScreenTitle(title = stringResource(R.string.screen_record))
+        }
 
-        InsightsStrip(
-            insights = uiState.insights,
-            currencyCode = currencyCode
-        )
-
-        uiState.monthlyBudget?.let { budget ->
-            BudgetProgressBar(
-                spent = monthSpent,
-                budget = budget,
+        item(key = "insights") {
+            InsightsStrip(
+                insights = uiState.insights,
                 currencyCode = currencyCode
             )
         }
 
-        RecordHeader(
-            expenses = uiState.headerExpenses,
-            currencyCode = currencyCode,
-            periodLabel = listPeriodLabel
-        )
+        uiState.monthlyBudget?.let { budget ->
+            item(key = "budget") {
+                BudgetProgressBar(
+                    spent = monthSpent,
+                    budget = budget,
+                    currencyCode = currencyCode
+                )
+            }
+        }
 
-        RecordListPeriodToggle(
-            selected = uiState.listPeriod,
-            onSelected = viewModel::setListPeriod
-        )
+        item(key = "summary") {
+            RecordHeader(
+                expenses = uiState.headerExpenses,
+                currencyCode = currencyCode,
+                periodLabel = listPeriodLabel
+            )
+        }
 
-        RecordSearchBar(
-            query = uiState.searchQuery,
-            onQueryChange = viewModel::setSearchQuery
-        )
+        item(key = "period-toggle") {
+            RecordListPeriodToggle(
+                selected = uiState.listPeriod,
+                onSelected = viewModel::setListPeriod
+            )
+        }
 
-        RecordTypeFilters(
-            selected = uiState.typeFilter,
-            onSelected = viewModel::setTypeFilter
-        )
+        item(key = "search") {
+            RecordSearchBar(
+                query = uiState.searchQuery,
+                onQueryChange = viewModel::setSearchQuery
+            )
+        }
+
+        item(key = "type-filters") {
+            RecordTypeFilters(
+                selected = uiState.typeFilter,
+                onSelected = viewModel::setTypeFilter
+            )
+        }
 
         when {
+            isListError -> {
+                item(key = "error") {
+                    val error = lazyExpenses.loadState.refresh as LoadState.Error
+                    EmptyStateMessage(
+                        icon = Icons.AutoMirrored.Rounded.ReceiptLong,
+                        title = stringResource(R.string.record_error_title),
+                        subtitle = error.error.localizedMessage
+                            ?: stringResource(R.string.record_error_retry),
+                        actionLabel = stringResource(R.string.record_error_retry),
+                        onAction = { lazyExpenses.retry() },
+                        modifier = Modifier.defaultMinSize(minHeight = 220.dp)
+                    )
+                }
+            }
             isListLoading && isListEmpty -> {
-                Box(
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
+                item(key = "loading") {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 220.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
                 }
             }
             isListEmpty && hasActiveFilter -> {
-                EmptyStateMessage(
-                    icon = Icons.AutoMirrored.Rounded.ReceiptLong,
-                    title = stringResource(R.string.record_no_matches_title),
-                    subtitle = stringResource(R.string.record_no_matches_subtitle),
-                    modifier = Modifier.weight(1f)
-                )
+                item(key = "no-matches") {
+                    EmptyStateMessage(
+                        icon = Icons.AutoMirrored.Rounded.ReceiptLong,
+                        title = stringResource(R.string.record_no_matches_title),
+                        subtitle = stringResource(R.string.record_no_matches_subtitle),
+                        modifier = Modifier.defaultMinSize(minHeight = 220.dp)
+                    )
+                }
             }
             isListEmpty -> {
-                EmptyRecordState(modifier = Modifier.weight(1f))
+                item(key = "empty") {
+                    EmptyRecordState(onAddTransaction = onAddTransaction)
+                }
             }
             else -> {
-                LazyColumn(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    contentPadding = recordListBottomPadding()
-                ) {
-                    groupedExpenses.forEach { (date, dayItems) ->
-                        val billable = dayItems.filter { !it.isTransfer() }
-                        val dayIncome = billable.filter { it.isIncome() }.sumOf { it.amount }
-                        val dayExpense = billable.filter { it.isExpense() }.sumOf { it.amount }
+                groupedExpenses.forEach { (date, dayItems) ->
+                    val billable = dayItems.filter { !it.isTransfer() }
+                    val dayIncome = billable.filter { it.isIncome() }.sumOf { it.amount }
+                    val dayExpense = billable.filter { it.isExpense() }.sumOf { it.amount }
 
-                        item(key = "header-$date") {
-                            DatePill(date, dayIncome, dayExpense, currencyCode)
-                        }
+                    item(key = "header-$date") {
+                        DatePill(date, dayIncome, dayExpense, currencyCode)
+                    }
 
-                        item(key = "group-$date") {
-                            GroupedSection(modifier = Modifier.padding(bottom = 12.dp)) {
-                                Column(modifier = Modifier.clip(GroupedSectionClip)) {
-                                    dayItems
-                                        .sortedByDescending { it.dateMillis }
-                                        .forEachIndexed { index, expense ->
-                                            key(expense.id) {
-                                                if (index > 0) IosSeparator()
-                                                val category = categoryById[expense.categoryId]
-                                                val time = timeFormat.format(Date(expense.dateMillis))
-                                                val categoryName = category?.name
-                                                    ?: stringResource(R.string.record_unknown_category)
-                                                SwipeableTransactionRow(
-                                                    expense = expense,
-                                                    categoryName = categoryName,
-                                                    categoryColor = category?.colorInt,
-                                                    icon = iconForCategory(category?.iconName, category?.name),
-                                                    time = time,
-                                                    currencyCode = currencyCode,
-                                                    onClick = { onExpenseClick(expense) },
-                                                    onLongClick = {
-                                                        viewModel.duplicateExpense(expense)
-                                                        onExpenseDuplicated()
-                                                    },
-                                                    onDeleteRequest = {
-                                                        expensePendingDelete = expense
-                                                    },
-                                                    onReceiptClick = expense.receiptImagePath?.let { path ->
-                                                        { receiptToView = path }
-                                                    }
-                                                )
-                                            }
+                    item(key = "group-$date") {
+                        GroupedSection(modifier = Modifier.padding(bottom = 12.dp)) {
+                            Column(modifier = Modifier.clip(GroupedSectionClip)) {
+                                dayItems
+                                    .sortedByDescending { it.dateMillis }
+                                    .forEachIndexed { index, expense ->
+                                        key(expense.id) {
+                                            if (index > 0) IosSeparator()
+                                            val category = categoryById[expense.categoryId]
+                                            val time = timeFormat.format(Date(expense.dateMillis))
+                                            val categoryName = category?.name
+                                                ?: stringResource(R.string.record_unknown_category)
+                                            SwipeableTransactionRow(
+                                                expense = expense,
+                                                categoryName = categoryName,
+                                                categoryColor = category?.colorInt,
+                                                icon = iconForCategory(category?.iconName, category?.name),
+                                                time = time,
+                                                currencyCode = currencyCode,
+                                                onClick = { onExpenseClick(expense) },
+                                                onLongClick = {
+                                                    viewModel.duplicateExpense(expense)
+                                                    onExpenseDuplicated()
+                                                },
+                                                onDeleteRequest = {
+                                                    expensePendingDelete = expense
+                                                },
+                                                onReceiptClick = expense.receiptImagePath?.let { path ->
+                                                    { receiptToView = path }
+                                                }
+                                            )
                                         }
-                                }
+                                    }
                             }
                         }
                     }
-                    if (lazyExpenses.loadState.append is LoadState.Loading) {
-                        item(key = "loading-footer") {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator(modifier = Modifier.size(28.dp))
-                            }
+                }
+                if (lazyExpenses.loadState.append is LoadState.Loading) {
+                    item(key = "loading-footer") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(28.dp))
                         }
                     }
                 }
@@ -282,7 +316,7 @@ private fun RecordSearchBar(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
         placeholder = { Text(stringResource(R.string.record_search_placeholder)) },
-        leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+        leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.record_search)) },
         trailingIcon = {
             if (query.isNotEmpty()) {
                 IconButton(onClick = { onQueryChange("") }) {
@@ -312,22 +346,45 @@ private fun RecordTypeFilters(
 private val GroupedSectionClip = RoundedCornerShape(14.dp)
 
 @Composable
-private fun EmptyRecordState(modifier: Modifier = Modifier) {
+private fun EmptyRecordState(
+    onAddTransaction: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Column(
-        modifier = modifier,
+        modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         EmptyStateMessage(
             icon = Icons.AutoMirrored.Rounded.ReceiptLong,
             title = stringResource(R.string.record_empty_title),
             subtitle = stringResource(R.string.record_empty_subtitle),
-            modifier = Modifier.weight(1f, fill = false)
+            actionLabel = stringResource(R.string.record_empty_action),
+            onAction = onAddTransaction,
+            modifier = Modifier.defaultMinSize(minHeight = 200.dp)
         )
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 24.dp, vertical = 8.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+        ) {
+            GestureHintChip(text = stringResource(R.string.gesture_swipe_delete))
+            GestureHintChip(text = stringResource(R.string.gesture_long_press_duplicate))
+        }
+    }
+}
+
+@Composable
+private fun GestureHintChip(text: String) {
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+    ) {
         Text(
-            text = stringResource(R.string.record_empty_hint),
-            style = MaterialTheme.typography.bodySmall,
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp)
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
         )
     }
 }
