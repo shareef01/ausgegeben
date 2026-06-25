@@ -37,6 +37,13 @@ val Typography = Typography(
         lineHeight = 30.sp,
         letterSpacing = (-0.4).sp
     ),
+    headlineSmall = TextStyle(
+        fontFamily = InterFontFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 20.sp,
+        lineHeight = 26.sp,
+        letterSpacing = (-0.3).sp
+    ),
     titleLarge = TextStyle(
         fontFamily = InterFontFamily,
         fontWeight = FontWeight.SemiBold,
@@ -50,6 +57,13 @@ val Typography = Typography(
         fontSize = 16.sp,
         lineHeight = 22.sp,
         letterSpacing = (-0.15).sp
+    ),
+    titleSmall = TextStyle(
+        fontFamily = InterFontFamily,
+        fontWeight = FontWeight.Medium,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        letterSpacing = (-0.1).sp
     ),
     bodyLarge = TextStyle(
         fontFamily = InterFontFamily,

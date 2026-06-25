@@ -7,8 +7,19 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -33,22 +44,24 @@ import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.ui.theme.AppColors
 import com.aus.ausgegeben.ui.theme.AppDpSpring
 import com.aus.ausgegeben.ui.theme.AppElevation
+import com.aus.ausgegeben.ui.theme.AppLayoutTokens
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.AppSpringSnappy
 import com.aus.ausgegeben.ui.theme.CapsuleShape
 import com.aus.ausgegeben.ui.theme.GroupedShape
 import com.aus.ausgegeben.ui.theme.SectionLabelStyle
-import com.aus.ausgegeben.ui.theme.SurfaceBorderLight
+import com.aus.ausgegeben.ui.theme.appBorderColor
+import com.aus.ausgegeben.ui.theme.appDividerColor
+import com.aus.ausgegeben.ui.theme.isAppDarkTheme
 
 @Composable
 fun Modifier.appCard(
     shape: Shape = GroupedShape,
-    horizontalPadding: Dp = 0.dp
+    horizontalPadding: Dp = 0.dp,
 ): Modifier {
-    val isDark = isSystemInDarkTheme()
-    val surface = if (isDark) AppColors.CardSurface else MaterialTheme.colorScheme.surface
-    val borderColor = if (isDark) AppColors.CardBorder else SurfaceBorderLight
+    val surface = MaterialTheme.colorScheme.surface
+    val borderColor = appBorderColor()
     return this
         .then(if (horizontalPadding > 0.dp) Modifier.padding(horizontal = horizontalPadding) else Modifier)
         .clip(shape)
@@ -60,28 +73,28 @@ fun Modifier.appCard(
 fun ScreenTitle(
     title: String,
     subtitle: String? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(AppColors.Background)
-            .padding(horizontal = AppSpacing.lg)
-            .padding(top = AppSpacing.xs, bottom = AppSpacing.sm)
+            .background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = AppSpacing.md)
+            .padding(top = AppSpacing.sm, bottom = AppSpacing.sm),
     ) {
         Text(
             text = title,
             style = MaterialTheme.typography.headlineMedium,
-            color = AppColors.OnBackground,
+            color = MaterialTheme.colorScheme.onBackground,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.semantics { heading() }
+            modifier = Modifier.semantics { heading() },
         )
         if (subtitle != null) {
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodyMedium,
-                color = AppColors.OnSurfaceVariant,
-                modifier = Modifier.padding(top = AppSpacing.xxs)
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = AppSpacing.xxs),
             )
         }
     }
@@ -91,13 +104,13 @@ fun ScreenTitle(
 fun GroupedSection(
     modifier: Modifier = Modifier,
     horizontalPadding: Dp = AppSpacing.md,
-    content: @Composable ColumnScope.() -> Unit
+    content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
         modifier = modifier
             .fillMaxWidth()
             .appCard(shape = GroupedShape, horizontalPadding = horizontalPadding),
-        content = content
+        content = content,
     )
 }
 
@@ -105,24 +118,24 @@ fun GroupedSection(
 fun GroupedSectionLabel(
     text: String,
     modifier: Modifier = Modifier,
-    uppercase: Boolean = true
+    uppercase: Boolean = true,
 ) {
     Text(
         text = if (uppercase) text.uppercase() else text,
         style = SectionLabelStyle,
-        color = AppColors.OnSurfaceVariant,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = AppSpacing.lg, vertical = AppSpacing.xs)
+            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs),
     )
 }
 
 @Composable
-fun IosSeparator(modifier: Modifier = Modifier, insetStart: Dp = 68.dp) {
+fun IosSeparator(modifier: Modifier = Modifier, insetStart: Dp = AppLayoutTokens.listSeparatorInset) {
     HorizontalDivider(
         modifier = modifier.padding(start = insetStart),
-        thickness = 1.dp,
-        color = AppColors.CardBorder
+        thickness = AppElevation.cardBorder,
+        color = appDividerColor(),
     )
 }
 
@@ -131,13 +144,13 @@ fun IosSegmentedControl(
     options: List<String>,
     selectedIndex: Int,
     onSelected: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val trackShape = RoundedCornerShape(AppRadius.pill)
     val indicatorShape = RoundedCornerShape(AppRadius.pill)
-    val isDark = isSystemInDarkTheme()
-    val trackColor = if (isDark) AppColors.Background else MaterialTheme.colorScheme.surfaceVariant
-    val innerPadding = 4.dp
+    val isDark = isAppDarkTheme()
+    val trackColor = if (isDark) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.surfaceVariant
+    val innerPadding = AppSpacing.xxs
     val safeIndex = selectedIndex.coerceIn(0, (options.size - 1).coerceAtLeast(0))
 
     BoxWithConstraints(
@@ -146,14 +159,14 @@ fun IosSegmentedControl(
             .height(40.dp)
             .clip(trackShape)
             .background(trackColor)
-            .border(AppElevation.cardBorder, AppColors.CardBorder, trackShape)
-            .padding(innerPadding)
+            .border(AppElevation.cardBorder, appBorderColor(), trackShape)
+            .padding(innerPadding),
     ) {
         val segmentWidth = maxWidth / options.size.coerceAtLeast(1)
         val indicatorOffset by animateDpAsState(
             targetValue = segmentWidth * safeIndex,
             animationSpec = AppDpSpring,
-            label = "segmentSlide"
+            label = "segmentSlide",
         )
 
         Box(
@@ -162,8 +175,8 @@ fun IosSegmentedControl(
                 .width(segmentWidth)
                 .fillMaxHeight()
                 .clip(indicatorShape)
-                .background(if (isDark) AppColors.CardSurface else MaterialTheme.colorScheme.surface)
-                .border(AppElevation.cardBorder, AppColors.CardBorder, indicatorShape)
+                .background(MaterialTheme.colorScheme.surface)
+                .border(AppElevation.cardBorder, appBorderColor(), indicatorShape),
         )
 
         Row(modifier = Modifier.fillMaxSize()) {
@@ -174,17 +187,21 @@ fun IosSegmentedControl(
                         .weight(1f)
                         .fillMaxHeight()
                         .smoothClickable { onSelected(index) },
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = label,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                        color = if (selected) AppColors.OnBackground else AppColors.OnSurfaceVariant,
+                        color = if (selected) {
+                            MaterialTheme.colorScheme.onBackground
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = AppSpacing.xxs)
+                        modifier = Modifier.padding(horizontal = AppSpacing.xxs),
                     )
                 }
             }
@@ -195,14 +212,14 @@ fun IosSegmentedControl(
 @Composable
 fun Modifier.smoothClickable(
     enabled: Boolean = true,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ): Modifier {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (pressed) 0.96f else 1f,
         animationSpec = AppSpringSnappy,
-        label = "pressScale"
+        label = "pressScale",
     )
     return this
         .scale(scale)
@@ -210,7 +227,7 @@ fun Modifier.smoothClickable(
             interactionSource = interactionSource,
             indication = null,
             enabled = enabled,
-            onClick = onClick
+            onClick = onClick,
         )
 }
 
@@ -219,16 +236,20 @@ fun SmoothIconButton(
     onClick: () -> Unit,
     icon: ImageVector,
     contentDescription: String?,
-    tint: Color = AppColors.OnBackground,
-    modifier: Modifier = Modifier
+    tint: Color = MaterialTheme.colorScheme.onBackground,
+    modifier: Modifier = Modifier,
 ) {
     Box(
         modifier = modifier
             .size(44.dp)
             .clip(CapsuleShape)
             .smoothClickable(onClick = onClick),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
-        AppIcon(imageVector = icon, contentDescription = contentDescription, tint = tint)
+        AppIcon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = tint,
+        )
     }
 }

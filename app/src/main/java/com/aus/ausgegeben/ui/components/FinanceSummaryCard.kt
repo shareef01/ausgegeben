@@ -19,6 +19,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.TrendingDown
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,14 +32,17 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextAlign
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.theme.AppColors
+import com.aus.ausgegeben.ui.theme.AppIconSize
+import com.aus.ausgegeben.ui.theme.AppLayoutTokens
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.ExpenseMuted
 import com.aus.ausgegeben.ui.theme.IncomeGreen
 import com.aus.ausgegeben.util.CurrencyUtils
+import androidx.compose.ui.unit.dp
 
 @Composable
 fun FinanceSummaryCard(
@@ -56,7 +61,7 @@ fun FinanceSummaryCard(
     val netColor = when {
         net > 0 -> IncomeGreen
         net < 0 -> ExpenseMuted
-        else -> AppColors.OnBackground
+        else -> MaterialTheme.colorScheme.onBackground
     }
     val contentPadding = if (compact) AppSpacing.md else AppSpacing.lg
 
@@ -73,7 +78,7 @@ fun FinanceSummaryCard(
             Text(
                 text = stringResource(R.string.summary_balance_period, periodLabel).uppercase(),
                 style = MaterialTheme.typography.labelSmall,
-                color = AppColors.OnSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.SemiBold
             )
             MoneyText(
@@ -87,7 +92,7 @@ fun FinanceSummaryCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .then(if (!compact) Modifier.height(IntrinsicSize.Min) else Modifier),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm)
             ) {
                 BalancePill(
                     modifier = Modifier.weight(1f).then(if (!compact) Modifier.fillMaxHeight() else Modifier),
@@ -111,7 +116,7 @@ fun FinanceSummaryCard(
                 Text(
                     text = line,
                     style = MaterialTheme.typography.labelSmall,
-                    color = AppColors.OnSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 12.dp)
                 )
             }
@@ -125,7 +130,7 @@ fun FinanceSummaryCard(
                         CurrencyUtils.formatAmount(transferTotal, currencyCode)
                     ),
                     style = MaterialTheme.typography.labelSmall,
-                    color = AppColors.OnSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = if (insightLine != null) 6.dp else 12.dp)
                 )
             }
@@ -142,24 +147,24 @@ private fun BalancePill(
     compact: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(12.dp)
-    val verticalPadding = if (compact) 10.dp else 12.dp
+    val shape = RoundedCornerShape(AppRadius.md)
+    val verticalPadding = if (compact) AppSpacing.sm + AppSpacing.xxs else AppSpacing.sm
     Column(
         modifier = modifier
             .fillMaxWidth()
             .clip(shape)
             .background(tint.copy(alpha = 0.1f))
-            .padding(horizontal = 12.dp, vertical = verticalPadding),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+            .padding(horizontal = AppSpacing.sm, vertical = verticalPadding),
+        verticalArrangement = Arrangement.spacedBy(AppSpacing.xxs),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(AppSpacing.sm + AppSpacing.xxs))
-            Spacer(modifier = Modifier.width(6.dp))
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(AppIconSize.md))
+            Spacer(modifier = Modifier.width(AppSpacing.xxs))
             Text(
                 text = label.uppercase(),
                 style = MaterialTheme.typography.labelSmall,
-                color = AppColors.OnSurfaceVariant,
-                fontWeight = FontWeight.SemiBold
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.SemiBold,
             )
         }
         MoneyText(
@@ -177,49 +182,70 @@ fun EmptyStateMessage(
     title: String,
     subtitle: String,
     modifier: Modifier = Modifier,
+    hint: String? = null,
     actionLabel: String? = null,
-    onAction: (() -> Unit)? = null
+    onAction: (() -> Unit)? = null,
 ) {
     val primary = MaterialTheme.colorScheme.primary
+    val onPrimary = MaterialTheme.colorScheme.onPrimary
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 32.dp, vertical = 40.dp),
+            .defaultMinSize(minHeight = AppLayoutTokens.emptyStateMinHeight)
+            .padding(horizontal = AppSpacing.xl, vertical = AppSpacing.xxl),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Center,
     ) {
         Box(
             modifier = Modifier
-                .size(68.dp)
-                .clip(RoundedCornerShape(34.dp))
-                .background(primary.copy(alpha = 0.12f)),
-            contentAlignment = Alignment.Center
+                .size(AppLayoutTokens.emptyStateIconWell)
+                .clip(RoundedCornerShape(AppRadius.pill))
+                .background(primary.copy(alpha = 0.1f)),
+            contentAlignment = Alignment.Center,
         ) {
             Icon(
                 icon,
                 contentDescription = null,
                 tint = primary,
-                modifier = Modifier.size(30.dp)
+                modifier = Modifier.size(AppIconSize.lg + AppSpacing.xxs),
             )
         }
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(AppSpacing.md))
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onBackground,
-            fontWeight = FontWeight.SemiBold
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
         )
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(AppSpacing.xxs))
         Text(
             text = subtitle,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp)
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = AppSpacing.md),
         )
+        if (hint != null) {
+            Spacer(modifier = Modifier.height(AppSpacing.xs))
+            Text(
+                text = hint,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                textAlign = TextAlign.Center,
+            )
+        }
         if (actionLabel != null && onAction != null) {
-            Spacer(modifier = Modifier.height(20.dp))
-            androidx.compose.material3.TextButton(onClick = onAction) {
-                Text(actionLabel, color = primary)
+            Spacer(modifier = Modifier.height(AppSpacing.lg))
+            Button(
+                onClick = onAction,
+                shape = RoundedCornerShape(AppRadius.md),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = primary,
+                    contentColor = onPrimary,
+                ),
+            ) {
+                Text(actionLabel, fontWeight = FontWeight.SemiBold)
             }
         }
     }
