@@ -245,11 +245,12 @@ fun DonutChart(
     centerLabel: String? = null,
     centerSubLabel: String? = null,
     chartSize: Dp = 148.dp,
-    compact: Boolean = false
+    compact: Boolean = false,
+    currencyCode: String = "EUR",
 ) {
     val total = data.values.sum()
     val sorted = data.entries.sortedByDescending { it.value }
-    val trackColor = AppColors.Expense.copy(alpha = 0.08f)
+    val trackColor = AppColors.OnSurfaceVariant.copy(alpha = 0.12f)
     val holeColor = AppColors.CardSurface
     val animationKey = remember(data) { data.entries.sortedBy { it.key }.hashCode() }
     val progress = remember { Animatable(0f) }
@@ -264,7 +265,7 @@ fun DonutChart(
     } else {
         stringResource(
             R.string.chart_breakdown_description,
-            centerLabel ?: CurrencyUtils.formatAmount(total, "EUR")
+            centerLabel ?: CurrencyUtils.formatAmount(total, currencyCode)
         )
     }
 
@@ -380,7 +381,7 @@ private fun AnimatedChartSegmentBar(
         modifier = modifier
             .height(4.dp)
             .clip(shape)
-            .background(AppColors.Expense.copy(alpha = 0.08f))
+            .background(AppColors.OnSurfaceVariant.copy(alpha = 0.12f))
     ) {
         segments.forEach { (color, weight) ->
             if (weight > 0f) {

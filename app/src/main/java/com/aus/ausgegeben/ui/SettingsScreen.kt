@@ -389,7 +389,7 @@ private fun ThemeOption(label: String, selected: Boolean, onClick: () -> Unit) {
     ) {
         Text(label, color = AppColors.OnBackground)
         if (selected) {
-            Icon(Icons.Rounded.Check, contentDescription = null, tint = AppColors.Expense)
+            Icon(Icons.Rounded.Check, contentDescription = null, tint = AppColors.Income)
         }
     }
 }
@@ -505,13 +505,13 @@ private fun SettingIconWell(icon: ImageVector, contentDescription: String) {
         modifier = Modifier
             .size(36.dp)
             .clip(RoundedCornerShape(AppRadius.sm + AppSpacing.xxs))
-            .background(AppColors.Expense.copy(alpha = 0.12f)),
+            .background(AppColors.NumpadPress),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             icon,
             contentDescription = contentDescription,
-            tint = AppColors.Expense,
+            tint = AppColors.OnBackground,
             modifier = Modifier.size(18.dp)
         )
     }

@@ -12,8 +12,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,6 +22,13 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -234,14 +241,32 @@ fun MainApp(
             containerColor = Color.Transparent,
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             snackbarHost = { SnackbarHost(snackbarHostState) },
+            floatingActionButton = {
+                if (showBottomNav && selectedTab == Route.ExpenseList) {
+                    FloatingActionButton(
+                        onClick = ::openAddFlow,
+                        containerColor = AppColors.Accent,
+                        contentColor = AppColors.OnAccent,
+                        elevation = FloatingActionButtonDefaults.elevation(
+                            defaultElevation = 4.dp,
+                            pressedElevation = 8.dp,
+                        ),
+                        shape = CircleShape,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Add,
+                            contentDescription = stringResource(R.string.nav_add_transaction),
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
+                }
+            },
             bottomBar = {
                 if (showBottomNav) {
-                    val navBarInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(AppColors.Background)
-                            .padding(bottom = navBarInset),
+                            .background(AppColors.CardSurface),
                     ) {
                         MainBottomBar(
                             currentRoute = selectedTab,
@@ -250,7 +275,12 @@ fun MainApp(
                                     selectedTab = route
                                 }
                             },
-                            onAddClick = ::openAddFlow,
+                        )
+                        Spacer(
+                            Modifier
+                                .fillMaxWidth()
+                                .windowInsetsBottomHeight(WindowInsets.navigationBars)
+                                .background(AppColors.CardSurface),
                         )
                     }
                 }
@@ -333,7 +363,7 @@ fun MainApp(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.background)
+                            .background(AppColors.Background)
                     ) {
                         if (overlayStack.contains(Route.Dashboard)) {
                             AddTransactionScreen(
@@ -380,7 +410,7 @@ fun MainApp(
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(MaterialTheme.colorScheme.background)
+                                    .background(AppColors.Background)
                             ) {
                                 when {
                                     permissionState.status.isGranted -> {

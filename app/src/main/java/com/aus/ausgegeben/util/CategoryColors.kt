@@ -28,24 +28,24 @@ fun iconTintOnCategoryFill(categoryColor: Color): Color =
 private fun relativeLuminance(color: Color): Float =
     0.2126f * color.red + 0.7152f * color.green + 0.0722f * color.blue
 
-/** Harmonized palette aligned with chart colors — distinct and pleasant together. */
+/** Harmonized palette aligned with [com.aus.ausgegeben.ui.theme.ChartPalette]. */
 val CategoryColorPaletteInts: List<Int> = listOf(
-    0xFFFF8A7A.toInt(),
-    0xFFFFBE7A.toInt(),
-    0xFF5ED49A.toInt(),
-    0xFF6EC8E8.toInt(),
-    0xFF9B8FEF.toInt(),
-    0xFFE89BC4.toInt(),
-    0xFF7BC8B5.toInt(),
-    0xFFD4A96A.toInt(),
-    0xFFFF8578.toInt(),
-    0xFF72AEFF.toInt(),
-    0xFFA894F6.toInt(),
-    0xFF5ECFC0.toInt(),
-    0xFFC4A882.toInt(),
+    0xFFD9A0A0.toInt(),
+    0xFF8FBFA9.toInt(),
+    0xFF7EB0E8.toInt(),
+    0xFFA99AE0.toInt(),
+    0xFFDDB98A.toInt(),
+    0xFF7ABFB4.toInt(),
+    0xFFC9A0B0.toInt(),
+    0xFFB8A888.toInt(),
+    0xFFB8A0A0.toInt(),
+    0xFF9AAFC4.toInt(),
+    0xFF9B93C8.toInt(),
+    0xFF8AB5AC.toInt(),
+    0xFFC4B090.toInt(),
     0xFF9B9BA8.toInt(),
     0xFF6E6E78.toInt(),
-    0xFF48484E.toInt()
+    0xFF48484E.toInt(),
 )
 
 val CategoryColorPalette: List<Color> = CategoryColorPaletteInts.map { colorIntToCompose(it) }

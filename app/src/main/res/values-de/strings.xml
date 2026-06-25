@@ -3,8 +3,8 @@
     <string name="app_tagline">Ausgaben erfassen</string>
 
     <string name="nav_record">Erfassen</string>
-    <string name="nav_bills">Berichte</string>
-    <string name="nav_settings">Optionen</string>
+    <string name="nav_bills">Auswertung</string>
+    <string name="nav_settings">Einstellungen</string>
     <string name="nav_add_transaction">Transaktion hinzufügen</string>
 
     <string name="screen_record">Erfassen</string>
