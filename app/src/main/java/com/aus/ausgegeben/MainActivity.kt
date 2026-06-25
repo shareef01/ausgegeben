@@ -4,6 +4,7 @@ import android.Manifest
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
@@ -135,7 +136,7 @@ fun MainApp(
     openAddFromNotification: Boolean = false
 ) {
     val context = LocalContext.current
-    val activity = context as ComponentActivity
+    val activity = LocalActivity.current as? ComponentActivity ?: return
     var selectedTab by remember { mutableStateOf<Route>(Route.ExpenseList) }
     val overlayStack = remember { mutableStateListOf<Route>() }
     val currentOverlay = overlayStack.lastOrNull()
