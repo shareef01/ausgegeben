@@ -47,14 +47,18 @@ fun FinanceSummaryCard(
     transferCount: Int = 0,
     transferTotal: Double = 0.0,
     periodLabel: String = "all time",
+    insightLine: String? = null,
+    compact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(if (compact) 16.dp else 18.dp)
     val netColor = when {
         net > 0 -> IncomeGreen
         net < 0 -> ExpenseMuted
         else -> MaterialTheme.colorScheme.onBackground
     }
+    val verticalPadding = if (compact) 14.dp else 20.dp
+    val horizontalPadding = if (compact) 16.dp else 20.dp
 
     Column(
         modifier = modifier
@@ -63,7 +67,7 @@ fun FinanceSummaryCard(
             .clip(shape)
             .background(MaterialTheme.colorScheme.surface)
             .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), shape)
-            .padding(horizontal = 20.dp, vertical = 20.dp)
+            .padding(horizontal = horizontalPadding, vertical = verticalPadding)
     ) {
         Text(
             text = stringResource(R.string.summary_balance_period, periodLabel),
@@ -73,35 +77,66 @@ fun FinanceSummaryCard(
         )
         Text(
             text = CurrencyUtils.formatAmount(net, currencyCode),
-            style = MaterialTheme.typography.headlineLarge.merge(AmountTextStyle),
+            style = if (compact) {
+                MaterialTheme.typography.headlineMedium.merge(AmountTextStyle)
+            } else {
+                MaterialTheme.typography.headlineLarge.merge(AmountTextStyle)
+            },
             color = netColor,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = 6.dp, bottom = 18.dp)
+            modifier = Modifier.padding(top = 4.dp, bottom = if (compact) 10.dp else 18.dp)
         )
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(IntrinsicSize.Min),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            BalancePill(
+        if (compact) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                SummaryInlineStat(
+                    label = stringResource(R.string.summary_spent),
+                    value = CurrencyUtils.formatAmount(expenseTotal, currencyCode),
+                    tint = ExpenseMuted
+                )
+                SummaryInlineStat(
+                    label = stringResource(R.string.summary_earned),
+                    value = CurrencyUtils.formatAmount(incomeTotal, currencyCode),
+                    tint = IncomeGreen
+                )
+            }
+        } else {
+            Row(
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
-                label = stringResource(R.string.summary_spent),
-                value = CurrencyUtils.formatAmount(expenseTotal, currencyCode),
-                icon = Icons.AutoMirrored.Rounded.TrendingDown,
-                tint = ExpenseMuted
-            )
-            BalancePill(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
-                label = stringResource(R.string.summary_earned),
-                value = CurrencyUtils.formatAmount(incomeTotal, currencyCode),
-                icon = Icons.AutoMirrored.Rounded.TrendingUp,
-                tint = IncomeGreen
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                BalancePill(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    label = stringResource(R.string.summary_spent),
+                    value = CurrencyUtils.formatAmount(expenseTotal, currencyCode),
+                    icon = Icons.AutoMirrored.Rounded.TrendingDown,
+                    tint = ExpenseMuted
+                )
+                BalancePill(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    label = stringResource(R.string.summary_earned),
+                    value = CurrencyUtils.formatAmount(incomeTotal, currencyCode),
+                    icon = Icons.AutoMirrored.Rounded.TrendingUp,
+                    tint = IncomeGreen
+                )
+            }
+        }
+
+        insightLine?.let { line ->
+            Text(
+                text = line,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 10.dp)
             )
         }
 
@@ -115,9 +150,31 @@ fun FinanceSummaryCard(
                 ),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 14.dp)
+                modifier = Modifier.padding(top = if (insightLine != null) 6.dp else 14.dp)
             )
         }
+    }
+}
+
+@Composable
+private fun SummaryInlineStat(
+    label: String,
+    value: String,
+    tint: Color
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.labelLarge.merge(AmountTextStyle),
+            color = tint,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(start = 6.dp)
+        )
     }
 }
 
