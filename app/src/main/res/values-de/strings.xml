@@ -17,7 +17,7 @@
     <string name="record_no_matches_title">Keine Treffer</string>
     <string name="record_no_matches_subtitle">Andere Suche oder Filter versuchen</string>
     <string name="record_empty_title">Noch keine Transaktionen</string>
-    <string name="record_empty_subtitle">Tippe unten auf + für die erste Ausgabe oder Einnahme</string>
+    <string name="record_empty_subtitle">Tippe auf + für die erste Ausgabe oder Einnahme</string>
     <string name="record_empty_hint">Lange drücken zum Duplizieren</string>
     <string name="record_empty_action">Transaktion hinzufügen</string>
     <string name="record_error_title">Transaktionen konnten nicht geladen werden</string>
