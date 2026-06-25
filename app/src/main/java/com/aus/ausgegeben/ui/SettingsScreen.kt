@@ -65,10 +65,12 @@ import com.aus.ausgegeben.ui.components.GroupedSection
 import com.aus.ausgegeben.ui.components.GroupedSectionLabel
 import com.aus.ausgegeben.ui.components.ScreenTitle
 import com.aus.ausgegeben.ui.components.tabScreenListBottomPadding
-import com.aus.ausgegeben.ui.theme.AppColors
+import com.aus.ausgegeben.ui.theme.AppLayoutTokens
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
+import com.aus.ausgegeben.ui.theme.IncomeGreen
 import com.aus.ausgegeben.ui.theme.ThemeMode
+import com.aus.ausgegeben.ui.theme.appDividerColor
 import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.ExportUtils
 import kotlinx.coroutines.launch
@@ -338,7 +340,7 @@ fun SettingsScreen(
                     Text(
                         stringResource(R.string.settings_budget_dialog_body),
                         style = MaterialTheme.typography.bodySmall,
-                        color = AppColors.OnSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(AppSpacing.sm))
                     OutlinedTextField(
@@ -387,9 +389,9 @@ private fun ThemeOption(label: String, selected: Boolean, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(label, color = AppColors.OnBackground)
+        Text(label, color = MaterialTheme.colorScheme.onBackground)
         if (selected) {
-            Icon(Icons.Rounded.Check, contentDescription = null, tint = AppColors.Income)
+            Icon(Icons.Rounded.Check, contentDescription = null, tint = IncomeGreen)
         }
     }
 }
@@ -410,9 +412,9 @@ fun SettingSectionTitle(title: String) {
 @Composable
 private fun SettingsDivider() {
     HorizontalDivider(
-        modifier = Modifier.padding(start = 64.dp),
+        modifier = Modifier.padding(start = AppLayoutTokens.listSeparatorInset),
         thickness = 1.dp,
-        color = AppColors.CardBorder
+        color = appDividerColor()
     )
 }
 
@@ -435,13 +437,13 @@ fun SettingSwitchRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                color = AppColors.OnBackground,
+                color = MaterialTheme.colorScheme.onBackground,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium
             )
             Text(
                 text = subtitle,
-                color = AppColors.OnSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall
             )
         }
@@ -449,10 +451,10 @@ fun SettingSwitchRow(
             checked = checked,
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = AppColors.OnBackground,
-                checkedTrackColor = AppColors.Income,
-                uncheckedThumbColor = AppColors.OnSurfaceVariant,
-                uncheckedTrackColor = AppColors.CardSurface
+                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                checkedTrackColor = IncomeGreen,
+                uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
             )
         )
     }
@@ -478,13 +480,13 @@ fun SettingRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                color = AppColors.OnBackground,
+                color = MaterialTheme.colorScheme.onBackground,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium
             )
             Text(
                 text = subtitle,
-                color = AppColors.OnSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(top = 2.dp)
             )
@@ -493,7 +495,7 @@ fun SettingRow(
             Icon(
                 Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                 contentDescription = null,
-                tint = AppColors.OnSurfaceVariant
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -505,13 +507,13 @@ private fun SettingIconWell(icon: ImageVector, contentDescription: String) {
         modifier = Modifier
             .size(36.dp)
             .clip(RoundedCornerShape(AppRadius.sm + AppSpacing.xxs))
-            .background(AppColors.NumpadPress),
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             icon,
             contentDescription = contentDescription,
-            tint = AppColors.OnBackground,
+            tint = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.size(18.dp)
         )
     }
