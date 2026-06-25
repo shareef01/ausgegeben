@@ -67,7 +67,11 @@ private val DefaultLightColorScheme = lightColorScheme(
     onErrorContainer = Color(0xFF5C3A3A)
 )
 
-private val AmoledColorScheme = baseDarkScheme()
+private val AmoledColorScheme = baseDarkScheme().copy(
+    background = Color.Black,
+    surface = Color(0xFF0A0A0A),
+    surfaceVariant = Color(0xFF141414),
+)
 
 private val MidnightColorScheme = baseDarkScheme(
     primary = Color(0xFF93C5FD),

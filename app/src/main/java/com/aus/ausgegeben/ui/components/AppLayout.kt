@@ -8,15 +8,13 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.aus.ausgegeben.ui.theme.AppLayoutTokens
 
 /** Bottom nav bar height (Scaffold already reserves this in content padding). */
 val BottomNavBarHeight = MainBottomBarHeight + 1.dp
 
 /** Extra space so the last list row clears the nav comfortably. */
 val BottomScrollExtraPadding = 16.dp
-
-/** FAB diameter + margin above the nav bar on the Record tab. */
-private val RecordFabClearance = 64.dp
 
 @Composable
 fun statusBarTopPadding(): Dp =
@@ -34,4 +32,4 @@ fun tabScreenListBottomPadding(): PaddingValues =
 /** Extra clearance for Record tab FAB floating above the nav bar. */
 @Composable
 fun recordListBottomPadding(): PaddingValues =
-    PaddingValues(bottom = BottomScrollExtraPadding + RecordFabClearance)
+    PaddingValues(bottom = BottomScrollExtraPadding + AppLayoutTokens.fabClearance)

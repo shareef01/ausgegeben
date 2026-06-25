@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -99,7 +98,7 @@ fun BillsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(AppColors.Background)
+                    .background(MaterialTheme.colorScheme.background)
                     .padding(bottom = AppSpacing.xxs)
             ) {
                 IosSegmentedControl(
@@ -150,99 +149,28 @@ fun BillsScreen(
             }
 
             if (showDualCharts) {
-                item(key = "dual-charts") {
-                    BoxWithConstraints(
+                item(key = "category-analytics") {
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs),
+                        verticalArrangement = Arrangement.spacedBy(AppSpacing.sm),
                     ) {
-                        val stackVertically = maxWidth < 360.dp
-                        if (stackVertically) {
-                            Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.sm)) {
-                                if (hasExpenseChart) {
-                                    SideCategoryChartCard(
-                                        title = stringResource(R.string.bills_section_expenses),
-                                        accent = AppColors.Expense,
-                                        data = uiState.expensesByCategory,
-                                        currencyCode = currencyCode,
-                                    )
-                                }
-                                if (hasIncomeChart) {
-                                    SideCategoryChartCard(
-                                        title = stringResource(R.string.bills_section_income),
-                                        accent = AppColors.Income,
-                                        data = uiState.incomeByCategory,
-                                        currencyCode = currencyCode,
-                                    )
-                                }
-                            }
-                        } else {
-                            Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm)) {
-                                if (hasExpenseChart) {
-                                    SideCategoryChartCard(
-                                        title = stringResource(R.string.bills_section_expenses),
-                                        accent = AppColors.Expense,
-                                        data = uiState.expensesByCategory,
-                                        currencyCode = currencyCode,
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                }
-                                if (hasIncomeChart) {
-                                    SideCategoryChartCard(
-                                        title = stringResource(R.string.bills_section_income),
-                                        accent = AppColors.Income,
-                                        data = uiState.incomeByCategory,
-                                        currencyCode = currencyCode,
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                }
-                            }
+                        if (hasExpenseChart) {
+                            CategoryAnalyticsCard(
+                                title = stringResource(R.string.bills_section_expenses),
+                                accent = AppColors.Expense,
+                                data = uiState.expensesByCategory,
+                                currencyCode = currencyCode,
+                            )
                         }
-                    }
-                }
-
-                item(key = "dual-breakdowns") {
-                    BoxWithConstraints(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = AppSpacing.md),
-                    ) {
-                        val stackVertically = maxWidth < 360.dp
-                        if (stackVertically) {
-                            Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.sm)) {
-                                if (hasExpenseChart) {
-                                    CategoryBreakdownColumn(
-                                        data = uiState.expensesByCategory,
-                                        currencyCode = currencyCode,
-                                    )
-                                }
-                                if (hasIncomeChart) {
-                                    CategoryBreakdownColumn(
-                                        data = uiState.incomeByCategory,
-                                        currencyCode = currencyCode,
-                                    )
-                                }
-                            }
-                        } else {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm),
-                                verticalAlignment = Alignment.Top,
-                            ) {
-                                if (hasExpenseChart) {
-                                    CategoryBreakdownColumn(
-                                        data = uiState.expensesByCategory,
-                                        currencyCode = currencyCode,
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                }
-                                if (hasIncomeChart) {
-                                    CategoryBreakdownColumn(
-                                        data = uiState.incomeByCategory,
-                                        currencyCode = currencyCode,
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                }
-                            }
+                        if (hasIncomeChart) {
+                            CategoryAnalyticsCard(
+                                title = stringResource(R.string.bills_section_income),
+                                accent = AppColors.Income,
+                                data = uiState.incomeByCategory,
+                                currencyCode = currencyCode,
+                            )
                         }
                     }
                 }
@@ -268,84 +196,70 @@ fun BillsScreen(
 }
 
 @Composable
-private fun SideCategoryChartCard(
+private fun CategoryAnalyticsCard(
     title: String,
     accent: Color,
     data: Map<Category, Double>,
     currencyCode: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val total = data.values.sum()
     if (total <= 0.0) return
 
     val sorted = data.toList().sortedByDescending { it.second }
     val chartColors = harmonizedChartColors(
-        sorted.map { (category, _) -> category.name to category.colorInt }
+        sorted.map { (category, _) -> category.name to category.colorInt },
     )
     val cardShape = RoundedCornerShape(AppRadius.lg)
 
     Column(
         modifier = modifier
+            .fillMaxWidth()
             .clip(cardShape)
             .appCard(shape = cardShape)
-            .padding(bottom = AppSpacing.sm)
+            .padding(bottom = AppSpacing.sm),
     ) {
         Text(
             text = title.uppercase(),
             style = MaterialTheme.typography.labelSmall,
             color = accent,
             fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = AppSpacing.sm, bottom = AppSpacing.xxs)
+                .padding(
+                    start = AppSpacing.md,
+                    end = AppSpacing.md,
+                    top = AppSpacing.md,
+                    bottom = AppSpacing.xxs,
+                ),
         )
         DonutChart(
             data = sorted.associate { (category, amount) -> category.name to amount },
             colors = chartColors,
             centerLabel = CurrencyUtils.formatAmount(total, currencyCode, showSymbol = false),
             centerSubLabel = stringResource(R.string.chart_total_label),
-            chartSize = 108.dp,
+            chartSize = 120.dp,
             compact = true,
             currencyCode = currencyCode,
-            modifier = Modifier.padding(horizontal = AppSpacing.xxs)
+            modifier = Modifier.padding(horizontal = AppSpacing.xs),
         )
-    }
-}
-
-@Composable
-private fun CategoryBreakdownColumn(
-    data: Map<Category, Double>,
-    currencyCode: String,
-    modifier: Modifier = Modifier
-) {
-    val total = data.values.sum()
-    if (total <= 0.0) return
-
-    val sorted = data.toList().sortedByDescending { it.second }.take(5)
-    val chartColors = harmonizedChartColors(
-        sorted.map { (category, _) -> category.name to category.colorInt }
-    )
-    val cardShape = RoundedCornerShape(AppRadius.lg)
-
-    Column(
-        modifier = modifier
-            .padding(bottom = AppSpacing.sm)
-            .clip(cardShape)
-            .appCard(shape = cardShape)
-            .padding(horizontal = AppSpacing.sm, vertical = AppSpacing.sm)
-    ) {
-        sorted.forEachIndexed { index, (category, amount) ->
-            if (index > 0) Spacer(modifier = Modifier.height(AppSpacing.xxs))
-            val rowColor = chartColors[category.name]
-                ?: colorIntToCompose(category.colorInt).forChartDisplay(index)
-            CompactCategoryRow(
-                category = category,
-                amount = amount,
-                total = total,
-                displayColor = rowColor,
-                currencyCode = currencyCode
-            )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm),
+        ) {
+            sorted.take(5).forEachIndexed { index, (category, amount) ->
+                if (index > 0) Spacer(modifier = Modifier.height(AppSpacing.xs))
+                val rowColor = chartColors[category.name]
+                    ?: colorIntToCompose(category.colorInt).forChartDisplay(index)
+                CompactCategoryRow(
+                    category = category,
+                    amount = amount,
+                    total = total,
+                    displayColor = rowColor,
+                    currencyCode = currencyCode,
+                )
+            }
         }
     }
 }
@@ -386,7 +300,7 @@ private fun CompactCategoryRow(
                 Text(
                     text = category.name,
                     style = MaterialTheme.typography.labelSmall,
-                    color = AppColors.OnBackground,
+                    color = MaterialTheme.colorScheme.onBackground,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
