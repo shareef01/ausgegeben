@@ -10,17 +10,19 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.FloatingActionButton
@@ -72,7 +74,6 @@ import com.aus.ausgegeben.ui.components.CameraPermissionDenied
 import com.aus.ausgegeben.ui.components.MainBottomBar
 import com.aus.ausgegeben.ui.components.MainTabPager
 import com.aus.ausgegeben.ui.theme.AppColors
-import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AusgegebenTheme
 import com.aus.ausgegeben.ui.theme.ThemeMode
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -243,35 +244,38 @@ fun MainApp(
                 if (showBottomNav && selectedTab == Route.ExpenseList) {
                     FloatingActionButton(
                         onClick = ::openAddFlow,
-                        modifier = Modifier
-                            .navigationBarsPadding()
-                            .border(1.dp, AppColors.CardBorder, RoundedCornerShape(AppRadius.lg)),
                         containerColor = AppColors.Expense,
                         contentColor = AppColors.Background,
                         elevation = FloatingActionButtonDefaults.elevation(
-                            defaultElevation = 6.dp,
-                            pressedElevation = 10.dp,
+                            defaultElevation = 4.dp,
+                            pressedElevation = 8.dp,
                         ),
-                        shape = RoundedCornerShape(AppRadius.lg),
+                        shape = CircleShape,
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Add,
                             contentDescription = stringResource(R.string.nav_add_transaction),
-                            modifier = Modifier.size(28.dp),
+                            modifier = Modifier.size(26.dp),
                         )
                     }
                 }
             },
             bottomBar = {
                 if (showBottomNav) {
-                    Box(modifier = Modifier.navigationBarsPadding()) {
+                    val navBarInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(AppColors.CardSurface)
+                            .padding(bottom = navBarInset),
+                    ) {
                         MainBottomBar(
                             currentRoute = selectedTab,
                             onNavigate = { route ->
                                 if (selectedTab != route) {
                                     selectedTab = route
                                 }
-                            }
+                            },
                         )
                     }
                 }
