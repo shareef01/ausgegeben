@@ -35,7 +35,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.Route
-import com.aus.ausgegeben.ui.theme.AccentCoral
 
 private data class NavItem(
     val route: Route,
@@ -104,7 +103,11 @@ private fun NavTab(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val tint = if (isSelected) AccentCoral else MaterialTheme.colorScheme.onSurfaceVariant
+    val tint = if (isSelected) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
 
     Column(
         modifier = modifier
@@ -139,7 +142,7 @@ private fun NavTab(
                 .width(18.dp)
                 .height(3.dp)
                 .clip(RoundedCornerShape(2.dp))
-                .background(if (isSelected) AccentCoral else MaterialTheme.colorScheme.surface)
+                .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
         )
     }
 }

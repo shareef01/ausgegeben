@@ -71,8 +71,8 @@ import com.aus.ausgegeben.ui.components.IosSeparator
 import com.aus.ausgegeben.ui.components.ReceiptImageDialog
 import com.aus.ausgegeben.ui.components.ScreenTitle
 import com.aus.ausgegeben.ui.components.recordListBottomPadding
-import com.aus.ausgegeben.ui.theme.AccentCoral
-import com.aus.ausgegeben.ui.theme.AmountTextStyle
+import com.aus.ausgegeben.ui.components.MoneyText
+import com.aus.ausgegeben.ui.components.MoneySize
 import com.aus.ausgegeben.ui.theme.IncomeGreen
 import com.aus.ausgegeben.ui.theme.TransferGray
 import com.aus.ausgegeben.util.AnalyticsPeriod
@@ -392,7 +392,7 @@ private fun RecordListToolbar(
                     imageVector = if (searchExpanded) Icons.Rounded.Close else Icons.Rounded.Search,
                     contentDescription = stringResource(R.string.record_search),
                     tint = if (searchQuery.isNotBlank() || searchExpanded) {
-                        AccentCoral
+                        MaterialTheme.colorScheme.primary
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     }
@@ -465,6 +465,7 @@ private fun RecordTypeFilters(
     ) {
         items(options, key = { it.name }) { filter ->
             val isSelected = selected == filter
+            val primary = MaterialTheme.colorScheme.primary
             FilterChip(
                 selected = isSelected,
                 onClick = { onSelected(filter) },
@@ -479,13 +480,13 @@ private fun RecordTypeFilters(
                     enabled = true,
                     selected = isSelected,
                     borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-                    selectedBorderColor = AccentCoral.copy(alpha = 0.4f)
+                    selectedBorderColor = primary.copy(alpha = 0.4f)
                 ),
                 colors = FilterChipDefaults.filterChipColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
                     labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    selectedContainerColor = AccentCoral.copy(alpha = 0.12f),
-                    selectedLabelColor = AccentCoral
+                    selectedContainerColor = primary.copy(alpha = 0.12f),
+                    selectedLabelColor = primary
                 )
             )
         }
@@ -552,16 +553,16 @@ fun DatePill(date: String, dayIncome: Double, dayExpense: Double, currencyCode: 
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (dayIncome > 0) {
-                Text(
+                MoneyText(
                     text = "+${CurrencyUtils.formatAmount(dayIncome, currencyCode)}",
-                    style = MaterialTheme.typography.labelMedium.merge(AmountTextStyle),
+                    size = MoneySize.Body,
                     color = IncomeGreen
                 )
             }
             if (dayExpense > 0) {
-                Text(
+                MoneyText(
                     text = "−${CurrencyUtils.formatAmount(dayExpense, currencyCode)}",
-                    style = MaterialTheme.typography.labelMedium.merge(AmountTextStyle),
+                    size = MoneySize.Body,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -715,15 +716,14 @@ fun TransactionRow(
                 )
             }
         }
-        Text(
+        MoneyText(
             text = when {
                 expense.isIncome() -> "+${CurrencyUtils.formatAmount(expense.amount, currencyCode)}"
                 expense.isTransfer() -> CurrencyUtils.formatAmount(expense.amount, currencyCode)
                 else -> "−${CurrencyUtils.formatAmount(expense.amount, currencyCode)}"
             },
-            style = MaterialTheme.typography.bodyMedium.merge(AmountTextStyle),
-            color = amountColor,
-            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+            size = MoneySize.Title,
+            color = amountColor
         )
     }
 }
