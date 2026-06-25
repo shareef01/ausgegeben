@@ -642,6 +642,7 @@ private fun CategoryIconTile(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
+            .fillMaxWidth()
             .clip(tileShape)
             .background(
                 if (isSelected) categoryColor.copy(alpha = 0.08f)
@@ -681,9 +682,10 @@ private fun CategoryAddTile(onClick: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(AppRadius.lg))
             .smoothClickable(onClick = onClick)
-            .padding(vertical = 8.dp, horizontal = 4.dp)
+            .padding(vertical = AppSpacing.sm, horizontal = AppSpacing.xxs)
     ) {
         Box(
             modifier = Modifier
@@ -795,6 +797,7 @@ private fun CalculatorKeypad(
                     CalcKey(
                         key = key,
                         modifier = Modifier.weight(1f),
+                        enabled = true,
                         onClick = {
                             when (key) {
                                 "back" -> onBackspace()
@@ -812,6 +815,7 @@ private fun CalculatorKeypad(
 private fun CalcKey(
     key: String,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     onClick: () -> Unit
 ) {
     val isBackspace = key == "back"
@@ -827,6 +831,7 @@ private fun CalcKey(
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
+                enabled = enabled,
                 onClick = onClick
             ),
         contentAlignment = Alignment.Center
@@ -855,7 +860,7 @@ fun KeyItem(
     enabled: Boolean,
     modifier: Modifier,
     onClick: () -> Unit
-) = CalcKey(key = key, modifier = modifier, onClick = onClick)
+) = CalcKey(key = key, modifier = modifier, enabled = enabled, onClick = onClick)
 private fun handleKeyInput(
     current: String,
     input: String,
