@@ -1,26 +1,41 @@
 package com.aus.ausgegeben.ui.components
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Analytics
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.Route
+import com.aus.ausgegeben.ui.theme.AppColorSpring
+import com.aus.ausgegeben.ui.theme.AppRadius
+import com.aus.ausgegeben.ui.theme.AppSpacing
+import com.aus.ausgegeben.ui.theme.AppSpringSnappy
 
 val MainBottomBarHeight = 64.dp
 
@@ -54,13 +69,14 @@ fun MainBottomBar(
         ),
     )
 
-    NavigationBar(
+    Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.background),
-        containerColor = MaterialTheme.colorScheme.background,
-        tonalElevation = 0.dp,
-        contentColor = MaterialTheme.colorScheme.onSurface,
+            .height(MainBottomBarHeight)
+            .background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs),
+        horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         destinations.forEach { destination ->
             val selected = when (destination.route) {
@@ -69,30 +85,76 @@ fun MainBottomBar(
                 Route.Settings -> currentRoute is Route.Settings
                 else -> false
             }
-            NavigationBarItem(
+            MainBottomBarItem(
+                destination = destination,
                 selected = selected,
                 onClick = { onNavigate(destination.route) },
-                icon = {
-                    Icon(
-                        imageVector = destination.icon,
-                        contentDescription = destination.label,
-                    )
-                },
-                label = {
-                    Text(
-                        text = destination.label,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
-                    )
-                },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = MaterialTheme.colorScheme.onBackground,
-                    selectedTextColor = MaterialTheme.colorScheme.onBackground,
-                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
-                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
-                    indicatorColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.06f),
-                ),
+                modifier = Modifier.weight(1f),
             )
         }
+    }
+}
+
+@Composable
+private fun MainBottomBarItem(
+    destination: NavDestination,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scale by animateFloatAsState(
+        targetValue = if (selected) 1f else 0.96f,
+        animationSpec = AppSpringSnappy,
+        label = "bottomItemScale"
+    )
+    val containerColor by animateColorAsState(
+        targetValue = if (selected) {
+            MaterialTheme.colorScheme.onBackground.copy(alpha = 0.07f)
+        } else {
+            Color.Transparent
+        },
+        animationSpec = AppColorSpring,
+        label = "bottomItemContainer"
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (selected) {
+            MaterialTheme.colorScheme.onBackground
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f)
+        },
+        animationSpec = AppColorSpring,
+        label = "bottomItemContent"
+    )
+
+    Column(
+        modifier = modifier
+            .height(52.dp)
+            .scale(scale)
+            .clip(RoundedCornerShape(AppRadius.pill))
+            .background(containerColor)
+            .smoothClickable(onClick = onClick)
+            .padding(vertical = AppSpacing.xs),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(24.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = destination.icon,
+                contentDescription = destination.label,
+                tint = contentColor,
+                modifier = Modifier.size(if (selected) 21.dp else 20.dp),
+            )
+        }
+        Text(
+            text = destination.label,
+            style = MaterialTheme.typography.labelSmall,
+            color = contentColor,
+            fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+            modifier = Modifier.padding(top = 2.dp),
+        )
     }
 }
