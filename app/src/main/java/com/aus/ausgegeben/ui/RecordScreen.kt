@@ -55,9 +55,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.Shape
-import com.aus.ausgegeben.ui.components.appCard
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -78,13 +77,11 @@ import com.aus.ausgegeben.ui.components.ReceiptImageDialog
 import com.aus.ausgegeben.ui.components.ScreenTitle
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.aus.ausgegeben.ui.components.recordListBottomPadding
-import com.aus.ausgegeben.ui.theme.AppIconSize
 import com.aus.ausgegeben.ui.theme.AppLayoutTokens
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.ExpenseMuted
 import com.aus.ausgegeben.ui.theme.IncomeGreen
-import com.aus.ausgegeben.ui.theme.SectionLabelStyle
 import com.aus.ausgegeben.ui.theme.TransferGray
 import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.util.CurrencyUtils
@@ -486,8 +483,8 @@ private fun RecordTypeFilters(
         horizontalArrangement = Arrangement.spacedBy(AppSpacing.xxs + AppSpacing.xxs)
     ) {
         items(options, key = { it.name }) { filter ->
+            val primary = MaterialTheme.colorScheme.onBackground
             val isSelected = selected == filter
-            val primary = MaterialTheme.colorScheme.primary
             FilterChip(
                 selected = isSelected,
                 onClick = { onSelected(filter) },
@@ -497,25 +494,24 @@ private fun RecordTypeFilters(
                         style = MaterialTheme.typography.labelMedium
                     )
                 },
-                shape = RoundedCornerShape(AppRadius.md),
+                shape = RoundedCornerShape(AppRadius.pill),
                 border = FilterChipDefaults.filterChipBorder(
                     enabled = true,
                     selected = isSelected,
-                    borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-                    selectedBorderColor = primary.copy(alpha = 0.4f)
+                    borderColor = Color.Transparent,
+                    selectedBorderColor = Color.Transparent,
                 ),
                 colors = FilterChipDefaults.filterChipColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                    containerColor = Color.Transparent,
                     labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    selectedContainerColor = primary.copy(alpha = 0.12f),
-                    selectedLabelColor = primary
+                    selectedContainerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f),
+                    selectedLabelColor = MaterialTheme.colorScheme.onBackground,
                 )
             )
         }
     }
 }
 
-private const val TransactionIconWellSizeDp = 36
 
 @Composable
 private fun DateSectionHeader(
@@ -527,15 +523,15 @@ private fun DateSectionHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs),
+            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = date,
-            style = SectionLabelStyle,
+            style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Normal,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm)) {
             if (dayIncome > 0) {
@@ -614,36 +610,18 @@ private fun TransactionDayRow(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    val shape: Shape = when {
-        isFirstInDay && isLastInDay -> RoundedCornerShape(AppRadius.card)
-        isFirstInDay -> RoundedCornerShape(
-            topStart = AppRadius.card,
-            topEnd = AppRadius.card,
-            bottomStart = AppRadius.xs,
-            bottomEnd = AppRadius.xs,
-        )
-        isLastInDay -> RoundedCornerShape(
-            topStart = AppRadius.xs,
-            topEnd = AppRadius.xs,
-            bottomStart = AppRadius.card,
-            bottomEnd = AppRadius.card,
-        )
-        else -> RoundedCornerShape(AppRadius.xs)
-    }
     Column(
         modifier = modifier
-            .padding(
-                start = AppSpacing.md,
-                end = AppSpacing.md,
-                bottom = if (isLastInDay) AppSpacing.xs else 0.dp,
-            )
-            .clip(shape)
-            .appCard(shape = shape),
+            .fillMaxWidth()
+            .padding(horizontal = AppSpacing.md),
     ) {
         if (showSeparator) {
-            IosSeparator()
+            IosSeparator(insetStart = AppLayoutTokens.listSeparatorInset)
         }
         content()
+        if (!isLastInDay) {
+            IosSeparator(insetStart = AppLayoutTokens.listSeparatorInset)
+        }
     }
 }
 
@@ -661,7 +639,7 @@ private fun SwipeableTransactionRow(
     onDeleteRequest: () -> Unit,
     onReceiptClick: (() -> Unit)? = null
 ) {
-    val rowBackground = MaterialTheme.colorScheme.surface
+    val rowBackground = MaterialTheme.colorScheme.background
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             if (value == SwipeToDismissBoxValue.EndToStart) {
@@ -735,53 +713,39 @@ fun TransactionRow(
         else -> MaterialTheme.colorScheme.onBackground
     }
     val fillColor = categoryColor?.let { colorIntToCompose(it) }
-    val stripeColor = fillColor ?: when {
-        expense.isIncome() -> IncomeGreen
-        expense.isTransfer() -> TransferGray
-        else -> MaterialTheme.colorScheme.primary
-    }
 
     Row(
         modifier = modifier.padding(
-            end = AppSpacing.sm + AppSpacing.xxs,
-            top = AppSpacing.sm - AppSpacing.xxs,
-            bottom = AppSpacing.sm - AppSpacing.xxs,
+            horizontal = AppSpacing.xxs,
+            vertical = AppSpacing.sm,
         ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
-                .width(AppLayoutTokens.stripeWidth)
-                .height(40.dp)
-                .clip(RoundedCornerShape(topEnd = AppRadius.xs, bottomEnd = AppRadius.xs))
-                .background(stripeColor),
-        )
-        Spacer(modifier = Modifier.width(AppSpacing.sm - AppSpacing.xxs))
-        Box(
-            modifier = Modifier
-                .size(TransactionIconWellSizeDp.dp)
-                .clip(RoundedCornerShape(AppRadius.md))
+                .size(36.dp)
+                .clip(RoundedCornerShape(AppRadius.pill))
                 .background(
-                    fillColor?.copy(alpha = 0.18f)
-                        ?: MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                    (fillColor ?: MaterialTheme.colorScheme.onSurfaceVariant)
+                        .copy(alpha = if (fillColor != null) 0.14f else 0.08f),
                 ),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 icon,
                 contentDescription = categoryName,
-                tint = fillColor ?: stripeColor,
-                modifier = Modifier.size(AppIconSize.sm),
+                tint = fillColor ?: MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(16.dp),
             )
         }
         Spacer(modifier = Modifier.width(AppSpacing.sm))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = categoryName,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onBackground,
                 maxLines = 1,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Normal,
             )
             val subtitle = buildString {
                 if (time != null) append(time)

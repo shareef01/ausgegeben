@@ -34,16 +34,12 @@ fun BudgetProgressBar(
     val displayRatio = ratio.coerceAtMost(1f)
     val overBudget = spent > budget
     val barColor = if (overBudget) ExpenseMuted else IncomeGreen
-    val shape = RoundedCornerShape(AppRadius.sm)
-    val cardShape = RoundedCornerShape(AppRadius.lg)
+    val trackShape = RoundedCornerShape(AppRadius.pill)
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xxs)
-            .clip(cardShape)
-            .appCard(shape = cardShape)
-            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm + AppSpacing.xxs)
+            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -54,9 +50,8 @@ fun BudgetProgressBar(
                 text = androidx.compose.ui.res.stringResource(
                     com.aus.ausgegeben.R.string.budget_monthly_label
                 ),
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Medium
             )
             MoneyText(
                 text = androidx.compose.ui.res.stringResource(
@@ -68,20 +63,20 @@ fun BudgetProgressBar(
                 color = if (overBudget) ExpenseMuted else MaterialTheme.colorScheme.onBackground
             )
         }
-        Spacer(modifier = Modifier.height(AppSpacing.sm - AppSpacing.xxs))
+        Spacer(modifier = Modifier.height(AppSpacing.sm))
         androidx.compose.foundation.layout.Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(8.dp)
-                .clip(shape)
-                .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                .height(3.dp)
+                .clip(trackShape)
+                .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.12f))
         ) {
             androidx.compose.foundation.layout.Box(
                 modifier = Modifier
                     .fillMaxWidth(displayRatio)
-                    .height(8.dp)
-                    .clip(shape)
-                    .background(barColor)
+                    .height(3.dp)
+                    .clip(trackShape)
+                    .background(barColor.copy(alpha = 0.85f))
             )
         }
         if (overBudget) {
@@ -90,7 +85,7 @@ fun BudgetProgressBar(
                     com.aus.ausgegeben.R.string.budget_over_by,
                     com.aus.ausgegeben.util.CurrencyUtils.formatAmount(spent - budget, currencyCode)
                 ),
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.bodySmall,
                 color = ExpenseMuted,
                 modifier = Modifier.padding(top = AppSpacing.xs)
             )

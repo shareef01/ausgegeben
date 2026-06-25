@@ -116,11 +116,11 @@ val AmountTextStyle = TextStyle(
     letterSpacing = (-0.3).sp
 )
 
-/** Uppercase section labels with increased tracking */
+/** Section labels — sentence case, quiet */
 val SectionLabelStyle = TextStyle(
     fontFamily = InterFontFamily,
-    fontWeight = FontWeight.SemiBold,
-    fontSize = 11.sp,
-    lineHeight = 14.sp,
-    letterSpacing = 1.2.sp
+    fontWeight = FontWeight.Medium,
+    fontSize = 13.sp,
+    lineHeight = 18.sp,
+    letterSpacing = 0.1.sp
 )
