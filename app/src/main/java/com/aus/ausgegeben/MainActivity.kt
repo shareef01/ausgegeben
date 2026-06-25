@@ -9,6 +9,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +26,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Snackbar
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.FloatingActionButton
@@ -75,6 +79,7 @@ import com.aus.ausgegeben.ui.components.CameraPermissionDenied
 import com.aus.ausgegeben.ui.components.MainBottomBar
 import com.aus.ausgegeben.ui.components.MainTabPager
 import com.aus.ausgegeben.ui.theme.AppColors
+import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AusgegebenTheme
 import com.aus.ausgegeben.ui.theme.ThemeMode
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -240,7 +245,16 @@ fun MainApp(
         Scaffold(
             containerColor = Color.Transparent,
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
-            snackbarHost = { SnackbarHost(snackbarHostState) },
+            snackbarHost = {
+                SnackbarHost(snackbarHostState) { data ->
+                    Snackbar(
+                        snackbarData = data,
+                        shape = RoundedCornerShape(AppRadius.md),
+                        containerColor = MaterialTheme.colorScheme.inverseSurface,
+                        contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                    )
+                }
+            },
             floatingActionButton = {
                 if (showBottomNav && selectedTab == Route.ExpenseList) {
                     FloatingActionButton(
@@ -266,7 +280,7 @@ fun MainApp(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(AppColors.CardSurface),
+                            .background(MaterialTheme.colorScheme.surface),
                     ) {
                         MainBottomBar(
                             currentRoute = selectedTab,
@@ -280,7 +294,7 @@ fun MainApp(
                             Modifier
                                 .fillMaxWidth()
                                 .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                                .background(AppColors.CardSurface),
+                                .background(MaterialTheme.colorScheme.surface),
                         )
                     }
                 }
@@ -357,13 +371,13 @@ fun MainApp(
 
                 AnimatedVisibility(
                     visible = currentOverlay != null,
-                    enter = fadeIn(),
-                    exit = fadeOut()
+                    enter = slideInVertically { it / 4 } + fadeIn(),
+                    exit = slideOutVertically { it / 4 } + fadeOut(),
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(AppColors.Background)
+                            .background(MaterialTheme.colorScheme.background),
                     ) {
                         if (overlayStack.contains(Route.Dashboard)) {
                             AddTransactionScreen(
@@ -410,7 +424,7 @@ fun MainApp(
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(AppColors.Background)
+                                    .background(MaterialTheme.colorScheme.background)
                             ) {
                                 when {
                                     permissionState.status.isGranted -> {
