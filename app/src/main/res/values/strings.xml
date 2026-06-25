@@ -135,6 +135,10 @@
     <string name="theme_system">System</string>
     <string name="theme_dark">Dark</string>
     <string name="theme_light">Light</string>
+    <string name="theme_amoled">AMOLED black</string>
+    <string name="theme_midnight">Midnight blue</string>
+    <string name="theme_ocean">Ocean teal</string>
+    <string name="theme_soft_light">Soft warm</string>
 
     <!-- Onboarding -->
     <string name="onboarding_title_track">Track every expense</string>

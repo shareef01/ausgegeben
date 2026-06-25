@@ -33,7 +33,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
-import com.aus.ausgegeben.ui.theme.AmountTextStyle
+import com.aus.ausgegeben.ui.components.MoneyText
+import com.aus.ausgegeben.ui.components.MoneySize
 import com.aus.ausgegeben.ui.theme.ExpenseMuted
 import com.aus.ausgegeben.ui.theme.IncomeGreen
 import com.aus.ausgegeben.util.CurrencyUtils
@@ -75,15 +76,10 @@ fun FinanceSummaryCard(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = FontWeight.Medium
         )
-        Text(
+        MoneyText(
             text = CurrencyUtils.formatAmount(net, currencyCode),
-            style = if (compact) {
-                MaterialTheme.typography.headlineMedium.merge(AmountTextStyle)
-            } else {
-                MaterialTheme.typography.headlineLarge.merge(AmountTextStyle)
-            },
+            size = if (compact) MoneySize.Headline else MoneySize.Display,
             color = netColor,
-            fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(top = 4.dp, bottom = if (compact) 10.dp else 18.dp)
         )
 
@@ -92,11 +88,11 @@ fun FinanceSummaryCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                SummaryInlineStat(
-                    label = stringResource(R.string.summary_spent),
-                    value = CurrencyUtils.formatAmount(expenseTotal, currencyCode),
-                    tint = ExpenseMuted
-                )
+        SummaryInlineStat(
+            label = stringResource(R.string.summary_spent),
+            value = CurrencyUtils.formatAmount(expenseTotal, currencyCode),
+            tint = ExpenseMuted
+        )
                 SummaryInlineStat(
                     label = stringResource(R.string.summary_earned),
                     value = CurrencyUtils.formatAmount(incomeTotal, currencyCode),
@@ -168,11 +164,10 @@ private fun SummaryInlineStat(
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Text(
+        MoneyText(
             text = value,
-            style = MaterialTheme.typography.labelLarge.merge(AmountTextStyle),
+            size = MoneySize.Title,
             color = tint,
-            fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(start = 6.dp)
         )
     }
@@ -206,11 +201,10 @@ private fun BalancePill(
                 fontWeight = FontWeight.Medium
             )
         }
-        Text(
+        MoneyText(
             text = value,
-            style = MaterialTheme.typography.titleMedium.merge(AmountTextStyle),
-            color = MaterialTheme.colorScheme.onBackground,
-            fontWeight = FontWeight.SemiBold
+            size = MoneySize.Title,
+            color = MaterialTheme.colorScheme.onBackground
         )
     }
 }

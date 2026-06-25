@@ -139,8 +139,12 @@ class PreferenceManager(private val context: Context) {
     suspend fun updateThemeMode(mode: ThemeMode) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.THEME_MODE] = mode.storageKey
-            if (mode != ThemeMode.SYSTEM) {
-                preferences[PreferencesKeys.DARK_MODE] = mode == ThemeMode.DARK
+            when (mode) {
+                ThemeMode.LIGHT, ThemeMode.SOFT_LIGHT ->
+                    preferences[PreferencesKeys.DARK_MODE] = false
+                ThemeMode.DARK, ThemeMode.AMOLED, ThemeMode.MIDNIGHT, ThemeMode.OCEAN ->
+                    preferences[PreferencesKeys.DARK_MODE] = true
+                ThemeMode.SYSTEM -> Unit
             }
         }
     }

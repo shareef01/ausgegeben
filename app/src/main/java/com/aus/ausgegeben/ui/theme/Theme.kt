@@ -5,8 +5,6 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
@@ -27,64 +25,15 @@ private val AppShapes = Shapes(
     extraLarge = RoundedCornerShape(28.dp)
 )
 
-private val CustomDarkColorScheme = darkColorScheme(
-    primary = AccentCoral,
-    onPrimary = OnPrimaryDark,
-    primaryContainer = Color(0xFF3A2220),
-    onPrimaryContainer = Color(0xFFFFDDD6),
-    secondary = SecondaryDark,
-    onSecondary = OnSecondaryDark,
-    tertiary = SystemViolet,
-    onTertiary = Color.White,
-    background = BackgroundDark,
-    onBackground = OnBackgroundDark,
-    surface = SurfaceDark,
-    onSurface = OnSurfaceDark,
-    surfaceVariant = SurfaceVariantDark,
-    onSurfaceVariant = OnSurfaceVariantDark,
-    outline = OutlineDark,
-    outlineVariant = OutlineVariantDark,
-    error = ErrorRed,
-    onError = OnErrorDark,
-    errorContainer = ErrorContainerDark,
-    onErrorContainer = OnErrorContainerDark
-)
-
-private val CustomLightColorScheme = lightColorScheme(
-    primary = AccentCoral,
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFFFE4DF),
-    onPrimaryContainer = Color(0xFF4A1E18),
-    secondary = Color(0xFFE8E8EE),
-    onSecondary = Color(0xFF3A3A42),
-    tertiary = SystemViolet,
-    onTertiary = Color.White,
-    background = BackgroundLight,
-    onBackground = OnBackgroundLight,
-    surface = SurfaceLight,
-    onSurface = OnSurfaceLight,
-    surfaceVariant = SurfaceVariantLight,
-    onSurfaceVariant = OnSurfaceVariantLight,
-    outline = OutlineLight,
-    outlineVariant = Color(0xFFE0E0E8),
-    error = ErrorRed,
-    onError = Color.White,
-    errorContainer = Color(0xFFFFE4DF),
-    onErrorContainer = Color(0xFF4A1E18)
-)
-
 @Composable
 fun AusgegebenTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     darkTheme: Boolean? = null,
     content: @Composable () -> Unit
 ) {
-    val resolvedDark = darkTheme ?: when (themeMode) {
-        ThemeMode.DARK -> true
-        ThemeMode.LIGHT -> false
-        ThemeMode.SYSTEM -> isSystemInDarkTheme()
-    }
-    val colorScheme = if (resolvedDark) CustomDarkColorScheme else CustomLightColorScheme
+    val systemDark = isSystemInDarkTheme()
+    val resolvedDark = darkTheme ?: themeMode.resolvesDark(systemDark)
+    val colorScheme = colorSchemeFor(themeMode, systemDark)
     val view = LocalView.current
 
     if (!view.isInEditMode) {
