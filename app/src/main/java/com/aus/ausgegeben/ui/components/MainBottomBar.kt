@@ -1,6 +1,8 @@
 package com.aus.ausgegeben.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,17 +13,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
-import androidx.compose.material.icons.rounded.PieChart
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material3.Icon
+import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
+import androidx.compose.material.icons.outlined.PieChart
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -33,6 +35,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.Route
+import com.aus.ausgegeben.ui.theme.AppRadius
+import com.aus.ausgegeben.ui.theme.AppSpacing
+import com.aus.ausgegeben.ui.theme.SurfaceBorderDark
+import com.aus.ausgegeben.ui.theme.SurfaceBorderLight
 
 private data class NavItem(
     val route: Route,
@@ -47,25 +53,34 @@ fun MainBottomBar(
     modifier: Modifier = Modifier
 ) {
     val items = listOf(
-        NavItem(Route.ExpenseList, Icons.AutoMirrored.Rounded.ReceiptLong, stringResource(R.string.nav_record)),
-        NavItem(Route.CategoryManagement, Icons.Rounded.PieChart, stringResource(R.string.nav_bills)),
-        NavItem(Route.Settings, Icons.Rounded.Settings, stringResource(R.string.nav_settings))
+        NavItem(Route.ExpenseList, Icons.AutoMirrored.Outlined.ReceiptLong, stringResource(R.string.nav_record)),
+        NavItem(Route.CategoryManagement, Icons.Outlined.PieChart, stringResource(R.string.nav_bills)),
+        NavItem(Route.Settings, Icons.Outlined.Settings, stringResource(R.string.nav_settings))
     )
+    val isDark = isSystemInDarkTheme()
+    val glassShape = RoundedCornerShape(AppRadius.xl)
+    val glassColor = MaterialTheme.colorScheme.surface.copy(alpha = if (isDark) 0.72f else 0.88f)
+    val borderColor = if (isDark) SurfaceBorderDark else SurfaceBorderLight
 
-    Surface(
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(26.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-        tonalElevation = 3.dp,
-        shadowElevation = 0.dp
+            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(62.dp)
-                .padding(horizontal = 6.dp, vertical = 6.dp),
+                .shadow(
+                    elevation = 24.dp,
+                    shape = glassShape,
+                    ambientColor = Color.Black.copy(alpha = 0.35f),
+                    spotColor = Color.Black.copy(alpha = 0.2f)
+                )
+                .clip(glassShape)
+                .background(glassColor)
+                .border(0.5.dp, borderColor, glassShape)
+                .height(60.dp)
+                .padding(horizontal = AppSpacing.xs, vertical = AppSpacing.xs),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -98,32 +113,31 @@ private fun NavTab(
 ) {
     val primary = MaterialTheme.colorScheme.primary
     val tint = if (isSelected) primary else MaterialTheme.colorScheme.onSurfaceVariant
-    val tabShape = RoundedCornerShape(18.dp)
+    val tabShape = RoundedCornerShape(AppRadius.md)
 
     Box(
         modifier = modifier
             .padding(horizontal = 2.dp)
             .clip(tabShape)
             .background(
-                if (isSelected) primary.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surface
+                if (isSelected) primary.copy(alpha = 0.12f) else Color.Transparent
             )
             .semantics {
                 role = Role.Tab
                 selected = isSelected
             }
             .smoothClickable(onClick = onClick)
-            .padding(vertical = 8.dp),
+            .padding(vertical = AppSpacing.xs),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(
+            AppIcon(
                 imageVector = icon,
                 contentDescription = label,
-                tint = tint,
-                modifier = Modifier.size(22.dp)
+                tint = tint
             )
             Text(
                 text = label,
@@ -132,7 +146,7 @@ private fun NavTab(
                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 4.dp)
+                modifier = Modifier.padding(top = AppSpacing.xxs)
             )
         }
     }

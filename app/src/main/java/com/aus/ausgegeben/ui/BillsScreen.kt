@@ -43,6 +43,8 @@ import com.aus.ausgegeben.ui.components.IosSegmentedControl
 import com.aus.ausgegeben.ui.components.ScreenTitle
 import com.aus.ausgegeben.ui.components.tabScreenListBottomPadding
 import com.aus.ausgegeben.ui.components.appCard
+import com.aus.ausgegeben.ui.theme.AppRadius
+import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.components.MoneyText
 import com.aus.ausgegeben.ui.components.MoneySize
 import com.aus.ausgegeben.ui.theme.IncomeGreen
@@ -175,12 +177,12 @@ fun AnalyticsSection(
     val chartColors = harmonizedChartColors(
         sorted.map { (category, _) -> category.name to category.colorInt }
     )
-    val cardShape = RoundedCornerShape(16.dp)
+    val cardShape = RoundedCornerShape(AppRadius.lg)
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs)
     ) {
         GroupedSectionLabel(text = title)
 

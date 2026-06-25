@@ -2,95 +2,111 @@ package com.aus.ausgegeben.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.aus.ausgegeben.R
 
-private val AppFontFamily = FontFamily.SansSerif
+val InterFontFamily = FontFamily(
+    Font(R.font.inter_regular, FontWeight.Normal),
+    Font(R.font.inter_medium, FontWeight.Medium),
+    Font(R.font.inter_semibold, FontWeight.SemiBold),
+    Font(R.font.inter_bold, FontWeight.Bold)
+)
 
 val Typography = Typography(
     displayLarge = TextStyle(
-        fontFamily = AppFontFamily,
+        fontFamily = InterFontFamily,
         fontWeight = FontWeight.Bold,
         fontSize = 48.sp,
         lineHeight = 52.sp,
-        letterSpacing = (-1.2).sp
+        letterSpacing = (-1.5).sp
     ),
     headlineLarge = TextStyle(
-        fontFamily = AppFontFamily,
+        fontFamily = InterFontFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = 34.sp,
-        lineHeight = 40.sp,
+        fontSize = 32.sp,
+        lineHeight = 38.sp,
         letterSpacing = (-0.8).sp
     ),
     headlineMedium = TextStyle(
-        fontFamily = AppFontFamily,
+        fontFamily = InterFontFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 24.sp,
         lineHeight = 30.sp,
         letterSpacing = (-0.4).sp
     ),
     titleLarge = TextStyle(
-        fontFamily = AppFontFamily,
+        fontFamily = InterFontFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 20.sp,
         lineHeight = 26.sp,
-        letterSpacing = (-0.2).sp
+        letterSpacing = (-0.3).sp
     ),
     titleMedium = TextStyle(
-        fontFamily = AppFontFamily,
+        fontFamily = InterFontFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = 17.sp,
+        fontSize = 16.sp,
         lineHeight = 22.sp,
-        letterSpacing = (-0.1).sp
+        letterSpacing = (-0.15).sp
     ),
     bodyLarge = TextStyle(
-        fontFamily = AppFontFamily,
+        fontFamily = InterFontFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 17.sp,
+        fontSize = 16.sp,
         lineHeight = 24.sp,
         letterSpacing = (-0.1).sp
     ),
     bodyMedium = TextStyle(
-        fontFamily = AppFontFamily,
+        fontFamily = InterFontFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 15.sp,
+        fontSize = 14.sp,
         lineHeight = 20.sp,
-        letterSpacing = (-0.05).sp
+        letterSpacing = 0.sp
     ),
     bodySmall = TextStyle(
-        fontFamily = AppFontFamily,
+        fontFamily = InterFontFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 13.sp,
-        lineHeight = 18.sp,
-        letterSpacing = 0.sp
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.1.sp
     ),
     labelLarge = TextStyle(
-        fontFamily = AppFontFamily,
+        fontFamily = InterFontFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = 15.sp,
+        fontSize = 14.sp,
         lineHeight = 18.sp,
-        letterSpacing = (-0.05).sp
+        letterSpacing = 0.1.sp
     ),
     labelMedium = TextStyle(
-        fontFamily = AppFontFamily,
+        fontFamily = InterFontFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = 13.sp,
+        fontSize = 12.sp,
         lineHeight = 16.sp,
-        letterSpacing = 0.sp
+        letterSpacing = 0.4.sp
     ),
     labelSmall = TextStyle(
-        fontFamily = AppFontFamily,
+        fontFamily = InterFontFamily,
         fontWeight = FontWeight.Medium,
         fontSize = 11.sp,
-        lineHeight = 13.sp,
-        letterSpacing = 0.05.sp
+        lineHeight = 14.sp,
+        letterSpacing = 0.6.sp
     )
 )
 
 val AmountTextStyle = TextStyle(
-    fontFamily = FontFamily.Monospace,
+    fontFamily = InterFontFamily,
     fontWeight = FontWeight.SemiBold,
     fontFeatureSettings = "tnum, lnum",
-    letterSpacing = (-0.25).sp
+    letterSpacing = (-0.3).sp
+)
+
+/** Uppercase section labels with increased tracking */
+val SectionLabelStyle = TextStyle(
+    fontFamily = InterFontFamily,
+    fontWeight = FontWeight.SemiBold,
+    fontSize = 11.sp,
+    lineHeight = 14.sp,
+    letterSpacing = 1.2.sp
 )

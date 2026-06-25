@@ -25,7 +25,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
@@ -35,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.theme.ExpenseMuted
 import com.aus.ausgegeben.ui.theme.IncomeGreen
+import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.util.CurrencyUtils
 
 @Composable
@@ -50,45 +50,29 @@ fun FinanceSummaryCard(
     compact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(if (compact) 18.dp else 20.dp)
+    val shape = RoundedCornerShape(AppSpacing.lg - AppSpacing.xxs)
     val netColor = when {
         net > 0 -> IncomeGreen
         net < 0 -> ExpenseMuted
         else -> MaterialTheme.colorScheme.onBackground
     }
-    val primary = MaterialTheme.colorScheme.primary
-    val contentPadding = if (compact) 16.dp else 20.dp
+    val contentPadding = if (compact) AppSpacing.md else AppSpacing.lg
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = AppSpacing.md)
             .clip(shape)
             .appCard(shape = shape)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(3.dp)
-                .background(
-                    Brush.horizontalGradient(
-                        colors = listOf(
-                            primary.copy(alpha = 0.85f),
-                            primary.copy(alpha = 0.2f),
-                            Color.Transparent
-                        )
-                    )
-                )
-        )
-
         Column(
             modifier = Modifier.padding(horizontal = contentPadding, vertical = contentPadding)
         ) {
             Text(
-                text = stringResource(R.string.summary_balance_period, periodLabel),
-                style = MaterialTheme.typography.labelMedium,
+                text = stringResource(R.string.summary_balance_period, periodLabel).uppercase(),
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.SemiBold
             )
             MoneyText(
                 text = CurrencyUtils.formatAmount(net, currencyCode),
@@ -167,13 +151,13 @@ private fun BalancePill(
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(14.dp))
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(AppSpacing.sm + AppSpacing.xxs))
             Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = label,
+                text = label.uppercase(),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.SemiBold
             )
         }
         MoneyText(
