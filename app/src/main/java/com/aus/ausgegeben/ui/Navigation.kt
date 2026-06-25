@@ -1,6 +1,5 @@
 package com.aus.ausgegeben.ui
 
-import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import kotlinx.serialization.Serializable
 
@@ -38,10 +37,3 @@ val MainTabRoutes = listOf(
 )
 
 fun Route.isMainTab(): Boolean = this in MainTabRoutes
-
-/** Opens add-transaction with a clean stack to avoid duplicate overlays and nav crashes. */
-fun NavBackStack<NavKey>.openAddTransaction(home: NavKey) {
-    clear()
-    add(home)
-    add(Route.Dashboard as NavKey)
-}
