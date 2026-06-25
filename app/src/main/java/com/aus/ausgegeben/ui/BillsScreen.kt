@@ -42,7 +42,7 @@ import com.aus.ausgegeben.ui.components.IosSegmentedControl
 import com.aus.ausgegeben.ui.components.ScreenTitle
 import com.aus.ausgegeben.ui.components.tabScreenListBottomPadding
 import com.aus.ausgegeben.util.AnalyticsPeriod
-import com.aus.ausgegeben.ui.theme.AccentCoral
+import com.aus.ausgegeben.ui.components.appCard
 import com.aus.ausgegeben.ui.components.MoneyText
 import com.aus.ausgegeben.ui.components.MoneySize
 import com.aus.ausgegeben.ui.theme.IncomeGreen
@@ -114,7 +114,7 @@ fun BillsScreen(
                 item(key = "expenses-section") {
                     AnalyticsSection(
                         title = stringResource(R.string.bills_section_expenses),
-                        accent = AccentCoral,
+                        accent = MaterialTheme.colorScheme.primary,
                         accentSecondary = Color(0xFFFFBE7A),
                         data = uiState.expensesByCategory,
                         currencyCode = currencyCode
@@ -179,12 +179,7 @@ fun AnalyticsSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(cardShape)
-                .border(
-                    width = 1.dp,
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
-                    shape = cardShape
-                )
-                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .appCard(shape = cardShape)
         ) {
             DonutChart(
                 data = sorted.associate { (category, amount) -> category.name to amount },

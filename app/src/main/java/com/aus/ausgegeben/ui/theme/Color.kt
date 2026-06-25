@@ -22,9 +22,9 @@ val AccentCoral = Color(0xFFFF6B57)
 val AccentCoralSoft = Color(0xFFFFB4A8)
 val AccentRed = Color(0xFFFF5C5C)
 
-val IncomeGreen = Color(0xFF5FD492)
+val IncomeGreen = Color(0xFF62E0A0)
 val IncomeGreenSoft = Color(0xFF9AE8BE)
-val ExpenseMuted = Color(0xFFFF8575)
+val ExpenseMuted = Color(0xFFFF7A6B)
 val ExpenseSoft = Color(0xFFFFB8AE)
 val TransferGray = Color(0xFF9B9BA3)
 
