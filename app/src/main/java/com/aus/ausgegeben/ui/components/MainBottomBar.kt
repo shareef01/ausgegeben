@@ -7,7 +7,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Analytics
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -19,14 +18,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.Route
-import com.aus.ausgegeben.ui.theme.appDividerColor
 
-/** Material navigation bar content height. */
-val MainBottomBarHeight = 80.dp
+val MainBottomBarHeight = 64.dp
 
 private data class NavDestination(
     val route: Route,
@@ -58,52 +54,45 @@ fun MainBottomBar(
         ),
     )
 
-    Column(
+    NavigationBar(
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface),
+            .background(MaterialTheme.colorScheme.background),
+        containerColor = MaterialTheme.colorScheme.background,
+        tonalElevation = 0.dp,
+        contentColor = MaterialTheme.colorScheme.onSurface,
     ) {
-        HorizontalDivider(color = appDividerColor(), thickness = 1.dp)
-        NavigationBar(
-            modifier = Modifier.fillMaxWidth(),
-            containerColor = MaterialTheme.colorScheme.surface,
-            tonalElevation = 0.dp,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-        ) {
-            destinations.forEach { destination ->
-                val selected = when (destination.route) {
-                    Route.ExpenseList -> currentRoute is Route.ExpenseList
-                    Route.CategoryManagement -> currentRoute is Route.CategoryManagement
-                    Route.Settings -> currentRoute is Route.Settings
-                    else -> false
-                }
-                NavigationBarItem(
-                    selected = selected,
-                    onClick = { onNavigate(destination.route) },
-                    icon = {
-                        Icon(
-                            imageVector = destination.icon,
-                            contentDescription = destination.label,
-                        )
-                    },
-                    label = {
-                        Text(
-                            text = destination.label,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                            style = MaterialTheme.typography.labelSmall,
-                        )
-                    },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = MaterialTheme.colorScheme.primary,
-                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                    ),
-                )
+        destinations.forEach { destination ->
+            val selected = when (destination.route) {
+                Route.ExpenseList -> currentRoute is Route.ExpenseList
+                Route.CategoryManagement -> currentRoute is Route.CategoryManagement
+                Route.Settings -> currentRoute is Route.Settings
+                else -> false
             }
+            NavigationBarItem(
+                selected = selected,
+                onClick = { onNavigate(destination.route) },
+                icon = {
+                    Icon(
+                        imageVector = destination.icon,
+                        contentDescription = destination.label,
+                    )
+                },
+                label = {
+                    Text(
+                        text = destination.label,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+                    )
+                },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = MaterialTheme.colorScheme.onBackground,
+                    selectedTextColor = MaterialTheme.colorScheme.onBackground,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                    indicatorColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.06f),
+                ),
+            )
         }
     }
 }
