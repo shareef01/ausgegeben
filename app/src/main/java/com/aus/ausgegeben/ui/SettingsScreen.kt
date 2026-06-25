@@ -387,15 +387,13 @@ fun SettingsScreen(
 
                             )
 
-                            HorizontalDivider(
+                        }
 
-                                modifier = Modifier.padding(start = 72.dp),
+                    }
 
-                                thickness = 0.5.dp,
+                    item {
 
-                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)
-
-                            )
+                        SettingsGroup {
 
                             SettingRow(
                                 Icons.Rounded.SupportAgent,

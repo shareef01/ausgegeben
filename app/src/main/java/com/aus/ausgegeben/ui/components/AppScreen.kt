@@ -20,9 +20,9 @@ fun AppScreen(
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val base = MaterialTheme.colorScheme.background
     val accent = if (isDark) {
-        Color(0xFF1E181A)
+        Color(0xFF1A1416)
     } else {
-        Color(0xFFF8EEEC)
+        Color(0xFFFFF5F3)
     }
 
     Box(
@@ -31,9 +31,9 @@ fun AppScreen(
             .background(base)
             .background(
                 Brush.linearGradient(
-                    colors = listOf(accent.copy(alpha = 0.55f), Color.Transparent),
+                    colors = listOf(accent.copy(alpha = 0.35f), Color.Transparent),
                     start = Offset(0f, 0f),
-                    end = Offset(800f, 600f)
+                    end = Offset(600f, 500f)
                 )
             ),
         content = content
