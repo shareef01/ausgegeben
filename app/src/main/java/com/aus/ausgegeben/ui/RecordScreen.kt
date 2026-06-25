@@ -459,13 +459,13 @@ private fun RecordSearchBar(
             }
         },
         singleLine = true,
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(AppRadius.md),
         textStyle = MaterialTheme.typography.bodyMedium,
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
-            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f),
-            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+            focusedBorderColor = Color.Transparent,
+            unfocusedBorderColor = Color.Transparent,
+            focusedContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
+            unfocusedContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
         )
     )
 }

@@ -81,7 +81,7 @@ fun WealthTrendChart(
                 Text(
                     text = stringResource(R.string.chart_wealth_trend_title),
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Normal,
                     color = MaterialTheme.colorScheme.onBackground,
                 )
                 Text(

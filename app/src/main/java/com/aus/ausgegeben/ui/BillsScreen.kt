@@ -2,7 +2,6 @@ package com.aus.ausgegeben.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -52,7 +51,6 @@ import com.aus.ausgegeben.ui.components.appCard
 import com.aus.ausgegeben.ui.components.tabScreenListBottomPadding
 import com.aus.ausgegeben.ui.theme.ExpenseMuted
 import com.aus.ausgegeben.ui.theme.IncomeGreen
-import com.aus.ausgegeben.ui.theme.AppLayoutTokens
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.SystemViolet
@@ -221,11 +219,8 @@ private fun CategoryAnalyticsCard(
             .appCard(shape = cardShape)
             .padding(bottom = AppSpacing.sm),
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelSmall,
-            color = accent,
-            fontWeight = FontWeight.SemiBold,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
@@ -234,7 +229,21 @@ private fun CategoryAnalyticsCard(
                     top = AppSpacing.md,
                     bottom = AppSpacing.xxs,
                 ),
-        )
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(accent),
+            )
+            Spacer(modifier = Modifier.width(AppSpacing.xs))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onBackground,
+                fontWeight = FontWeight.Normal,
+            )
+        }
         DonutChart(
             data = chartData,
             colors = chartColors,
@@ -284,44 +293,49 @@ private fun CompactCategoryRow(
         ) {
             Box(
                 modifier = Modifier
-                    .size(24.dp)
+                    .size(28.dp)
                     .clip(CircleShape)
-                    .background(displayColor.copy(alpha = 0.18f))
-                    .border(1.dp, displayColor.copy(alpha = 0.35f), CircleShape),
+                    .background(displayColor.copy(alpha = 0.14f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     iconForCategory(category),
                     contentDescription = category.name,
                     tint = displayColor,
-                    modifier = Modifier.size(12.dp)
+                    modifier = Modifier.size(14.dp)
                 )
             }
+            Spacer(modifier = Modifier.width(AppSpacing.sm))
+            Text(
+                text = category.name,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+                fontWeight = FontWeight.Normal,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(modifier = Modifier.width(AppSpacing.sm))
+            MoneyText(
+                text = CurrencyUtils.formatAmount(amount, currencyCode, showSymbol = true),
+                size = MoneySize.Body,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
+        Spacer(modifier = Modifier.height(AppSpacing.xs))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            AnimatedCategoryBar(
+                ratio = ratio,
+                color = displayColor,
+                modifier = Modifier.weight(1f),
+            )
             Spacer(modifier = Modifier.width(AppSpacing.xs))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = category.name,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                MoneyText(
-                    text = CurrencyUtils.formatAmount(amount, currencyCode, showSymbol = true),
-                    size = MoneySize.Body,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-            }
             Text(
                 text = "$pct%",
                 style = MaterialTheme.typography.labelSmall,
-                color = displayColor,
-                fontWeight = FontWeight.SemiBold
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Spacer(modifier = Modifier.height(4.dp))
-        AnimatedCategoryBar(ratio = ratio, color = displayColor)
     }
 }
 
@@ -401,57 +415,47 @@ fun CategoryProgressRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .defaultMinSize(minHeight = 56.dp),
+            .defaultMinSize(minHeight = 52.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .width(AppLayoutTokens.stripeWidth)
-                .height(40.dp)
-                .clip(RoundedCornerShape(AppRadius.xs))
-                .background(displayColor)
-        )
-        Spacer(modifier = Modifier.width(AppSpacing.sm))
-        Box(
-            modifier = Modifier
-                .size(AppSpacing.lg + AppSpacing.sm + AppSpacing.xxs)
+                .size(36.dp)
                 .clip(CircleShape)
-                .background(displayColor.copy(alpha = 0.18f))
-                .border(1.dp, displayColor.copy(alpha = 0.35f), CircleShape),
+                .background(displayColor.copy(alpha = 0.14f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 iconForCategory(category),
                 contentDescription = category.name,
                 tint = displayColor,
-                modifier = Modifier.size(17.dp)
+                modifier = Modifier.size(16.dp)
             )
         }
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(AppSpacing.sm))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = category.name,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onBackground,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.Normal,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(AppSpacing.xs))
             AnimatedCategoryBar(ratio = ratio, color = displayColor)
         }
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(AppSpacing.md))
         Column(horizontalAlignment = Alignment.End) {
             MoneyText(
                 text = CurrencyUtils.formatAmount(amount, currencyCode, showSymbol = true),
-                size = MoneySize.Title,
+                size = MoneySize.Body,
                 color = MaterialTheme.colorScheme.onBackground
             )
             Text(
                 text = "$pct%",
                 style = MaterialTheme.typography.labelSmall,
-                color = displayColor,
-                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 2.dp)
             )
         }
