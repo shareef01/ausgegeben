@@ -6,10 +6,10 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
@@ -20,7 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -375,7 +375,10 @@ private fun RecordListToolbar(
         ) {
             val periodOptions = RecordListPeriod.entries
             IosSegmentedControl(
-                options = periodOptions.map { it.label() },
+                options = listOf(
+                    RecordListPeriod.THIS_MONTH.label(),
+                    RecordListPeriod.ALL_TIME.label(),
+                ),
                 selectedIndex = periodOptions.indexOf(listPeriod).coerceAtLeast(0),
                 onSelected = { onListPeriod(periodOptions[it]) },
                 modifier = Modifier.weight(1f)
@@ -477,12 +480,14 @@ private fun RecordTypeFilters(
     modifier: Modifier = Modifier
 ) {
     val options = TransactionTypeFilter.entries
-    LazyRow(
-        modifier = modifier,
-        contentPadding = PaddingValues(horizontal = AppSpacing.xs),
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = AppSpacing.xs),
         horizontalArrangement = Arrangement.spacedBy(AppSpacing.xxs + AppSpacing.xxs)
     ) {
-        items(options, key = { it.name }) { filter ->
+        options.forEach { filter ->
             val primary = MaterialTheme.colorScheme.onBackground
             val isSelected = selected == filter
             FilterChip(
@@ -495,12 +500,7 @@ private fun RecordTypeFilters(
                     )
                 },
                 shape = RoundedCornerShape(AppRadius.pill),
-                border = FilterChipDefaults.filterChipBorder(
-                    enabled = true,
-                    selected = isSelected,
-                    borderColor = Color.Transparent,
-                    selectedBorderColor = Color.Transparent,
-                ),
+                border = null,
                 colors = FilterChipDefaults.filterChipColors(
                     containerColor = Color.Transparent,
                     labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
