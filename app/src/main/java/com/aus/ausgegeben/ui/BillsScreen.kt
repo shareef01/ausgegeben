@@ -3,6 +3,7 @@ package com.aus.ausgegeben.ui
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -31,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
@@ -39,16 +41,17 @@ import com.aus.ausgegeben.ui.components.AnimatedCategoryBar
 import com.aus.ausgegeben.ui.components.DonutChart
 import com.aus.ausgegeben.ui.components.EmptyStateMessage
 import com.aus.ausgegeben.ui.components.GroupedSectionLabel
+import com.aus.ausgegeben.ui.components.IncomeExpenseOverviewChart
 import com.aus.ausgegeben.ui.components.IosSegmentedControl
+import com.aus.ausgegeben.ui.components.MoneySize
+import com.aus.ausgegeben.ui.components.MoneyText
 import com.aus.ausgegeben.ui.components.ScreenTitle
-import com.aus.ausgegeben.ui.components.tabScreenListBottomPadding
 import com.aus.ausgegeben.ui.components.appCard
+import com.aus.ausgegeben.ui.components.tabScreenListBottomPadding
+import com.aus.ausgegeben.ui.theme.AppColors
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
-import com.aus.ausgegeben.ui.components.MoneyText
-import com.aus.ausgegeben.ui.components.MoneySize
 import com.aus.ausgegeben.ui.theme.IncomeGreen
-import com.aus.ausgegeben.ui.theme.SystemTeal
 import com.aus.ausgegeben.ui.theme.SystemViolet
 import com.aus.ausgegeben.ui.theme.TransferGray
 import com.aus.ausgegeben.ui.theme.forChartDisplay
@@ -76,6 +79,13 @@ fun BillsScreen(
         else -> uiState.periodLabel
     }
 
+    val expenseTotal = uiState.totalExpenses
+    val incomeTotal = uiState.totalIncome
+    val hasExpenseChart = uiState.expensesByCategory.isNotEmpty()
+    val hasIncomeChart = uiState.incomeByCategory.isNotEmpty()
+    val showOverview = expenseTotal > 0 && incomeTotal > 0
+    val showDualCharts = hasExpenseChart || hasIncomeChart
+
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = tabScreenListBottomPadding()
@@ -88,14 +98,14 @@ fun BillsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.background)
-                    .padding(bottom = 4.dp)
+                    .background(AppColors.Background)
+                    .padding(bottom = AppSpacing.xxs)
             ) {
                 IosSegmentedControl(
                     options = periodOptions,
                     selectedIndex = AnalyticsPeriod.entries.indexOf(uiState.period).coerceAtLeast(0),
                     onSelected = { viewModel.setPeriod(AnalyticsPeriod.entries[it]) },
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                    modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs)
                 )
             }
         }
@@ -119,27 +129,68 @@ fun BillsScreen(
                 )
             }
 
-            if (uiState.expensesByCategory.isNotEmpty()) {
-                item(key = "expenses-section") {
-                    AnalyticsSection(
-                        title = stringResource(R.string.bills_section_expenses),
-                        accent = MaterialTheme.colorScheme.primary,
-                        accentSecondary = Color(0xFFFFBE7A),
-                        data = uiState.expensesByCategory,
+            if (showOverview) {
+                item(key = "overview-chart") {
+                    IncomeExpenseOverviewChart(
+                        expenseTotal = expenseTotal,
+                        incomeTotal = incomeTotal,
                         currencyCode = currencyCode
                     )
                 }
             }
 
-            if (uiState.incomeByCategory.isNotEmpty()) {
-                item(key = "income-section") {
-                    AnalyticsSection(
-                        title = stringResource(R.string.bills_section_income),
-                        accent = IncomeGreen,
-                        accentSecondary = SystemTeal,
-                        data = uiState.incomeByCategory,
-                        currencyCode = currencyCode
-                    )
+            if (showDualCharts) {
+                item(key = "dual-charts") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs),
+                        horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm)
+                    ) {
+                        if (hasExpenseChart) {
+                            SideCategoryChartCard(
+                                title = stringResource(R.string.bills_section_expenses),
+                                accent = AppColors.Expense,
+                                data = uiState.expensesByCategory,
+                                currencyCode = currencyCode,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        if (hasIncomeChart) {
+                            SideCategoryChartCard(
+                                title = stringResource(R.string.bills_section_income),
+                                accent = AppColors.Income,
+                                data = uiState.incomeByCategory,
+                                currencyCode = currencyCode,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+
+                item(key = "dual-breakdowns") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = AppSpacing.md),
+                        horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        if (hasExpenseChart) {
+                            CategoryBreakdownColumn(
+                                data = uiState.expensesByCategory,
+                                currencyCode = currencyCode,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        if (hasIncomeChart) {
+                            CategoryBreakdownColumn(
+                                data = uiState.incomeByCategory,
+                                currencyCode = currencyCode,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -156,9 +207,150 @@ fun BillsScreen(
             }
 
             item(key = "footer-spacer") {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(AppSpacing.xs))
             }
         }
+    }
+}
+
+@Composable
+private fun SideCategoryChartCard(
+    title: String,
+    accent: Color,
+    data: Map<Category, Double>,
+    currencyCode: String,
+    modifier: Modifier = Modifier
+) {
+    val total = data.values.sum()
+    if (total <= 0.0) return
+
+    val sorted = data.toList().sortedByDescending { it.second }
+    val chartColors = harmonizedChartColors(
+        sorted.map { (category, _) -> category.name to category.colorInt }
+    )
+    val cardShape = RoundedCornerShape(AppRadius.lg)
+
+    Column(
+        modifier = modifier
+            .clip(cardShape)
+            .appCard(shape = cardShape)
+            .padding(bottom = AppSpacing.sm)
+    ) {
+        Text(
+            text = title.uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            color = accent,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = AppSpacing.sm, bottom = AppSpacing.xxs)
+        )
+        DonutChart(
+            data = sorted.associate { (category, amount) -> category.name to amount },
+            colors = chartColors,
+            centerLabel = CurrencyUtils.formatAmount(total, currencyCode, showSymbol = false),
+            centerSubLabel = stringResource(R.string.chart_total_label),
+            chartSize = 108.dp,
+            compact = true,
+            modifier = Modifier.padding(horizontal = AppSpacing.xxs)
+        )
+    }
+}
+
+@Composable
+private fun CategoryBreakdownColumn(
+    data: Map<Category, Double>,
+    currencyCode: String,
+    modifier: Modifier = Modifier
+) {
+    val total = data.values.sum()
+    if (total <= 0.0) return
+
+    val sorted = data.toList().sortedByDescending { it.second }.take(5)
+    val chartColors = harmonizedChartColors(
+        sorted.map { (category, _) -> category.name to category.colorInt }
+    )
+    val cardShape = RoundedCornerShape(AppRadius.lg)
+
+    Column(
+        modifier = modifier
+            .padding(bottom = AppSpacing.sm)
+            .clip(cardShape)
+            .appCard(shape = cardShape)
+            .padding(horizontal = AppSpacing.sm, vertical = AppSpacing.sm)
+    ) {
+        sorted.forEachIndexed { index, (category, amount) ->
+            if (index > 0) Spacer(modifier = Modifier.height(AppSpacing.xxs))
+            val rowColor = chartColors[category.name]
+                ?: colorIntToCompose(category.colorInt).forChartDisplay(index)
+            CompactCategoryRow(
+                category = category,
+                amount = amount,
+                total = total,
+                displayColor = rowColor,
+                currencyCode = currencyCode
+            )
+        }
+    }
+}
+
+@Composable
+private fun CompactCategoryRow(
+    category: Category,
+    amount: Double,
+    total: Double,
+    displayColor: Color,
+    currencyCode: String
+) {
+    val ratio = (amount / total).toFloat().coerceIn(0f, 1f)
+    val pct = (ratio * 100).toInt()
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(displayColor.copy(alpha = 0.18f))
+                    .border(1.dp, displayColor.copy(alpha = 0.35f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    iconForCategory(category),
+                    contentDescription = category.name,
+                    tint = displayColor,
+                    modifier = Modifier.size(12.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(AppSpacing.xs))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = category.name,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AppColors.OnBackground,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                MoneyText(
+                    text = CurrencyUtils.formatAmount(amount, currencyCode, showSymbol = true),
+                    size = MoneySize.Body,
+                    color = AppColors.OnBackground
+                )
+            }
+            Text(
+                text = "$pct%",
+                style = MaterialTheme.typography.labelSmall,
+                color = displayColor,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        AnimatedCategoryBar(ratio = ratio, color = displayColor)
     }
 }
 
@@ -197,13 +389,13 @@ fun AnalyticsSection(
                 colors = chartColors,
                 centerLabel = CurrencyUtils.formatAmount(total, currencyCode),
                 centerSubLabel = stringResource(R.string.chart_total_label),
-                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                modifier = Modifier.padding(top = AppSpacing.md, bottom = AppSpacing.xs)
             )
 
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+                    .padding(start = AppSpacing.md, end = AppSpacing.md, bottom = AppSpacing.md)
             ) {
                 sorted.forEachIndexed { index, (category, amount) ->
                     if (index > 0) Spacer(modifier = Modifier.height(2.dp))
@@ -269,7 +461,7 @@ fun CategoryProgressRow(
             Text(
                 text = category.name,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onBackground,
+                color = AppColors.OnBackground,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -282,7 +474,7 @@ fun CategoryProgressRow(
             MoneyText(
                 text = CurrencyUtils.formatAmount(amount, currencyCode, showSymbol = true),
                 size = MoneySize.Title,
-                color = MaterialTheme.colorScheme.onBackground
+                color = AppColors.OnBackground
             )
             Text(
                 text = "$pct%",
