@@ -32,7 +32,10 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -44,6 +47,7 @@ import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.AppSpringSnappy
 import com.aus.ausgegeben.ui.theme.CapsuleShape
+import com.aus.ausgegeben.ui.theme.ExpenseMuted
 import com.aus.ausgegeben.ui.theme.GroupedShape
 import com.aus.ausgegeben.ui.theme.SectionLabelStyle
 import com.aus.ausgegeben.ui.theme.appBorderColor
@@ -82,7 +86,14 @@ fun ScreenTitle(
             .padding(top = AppSpacing.md, bottom = AppSpacing.sm),
     ) {
         Text(
-            text = title,
+            text = buildAnnotatedString {
+                if (title.isNotEmpty()) {
+                    withStyle(SpanStyle(color = ExpenseMuted)) {
+                        append(title.first())
+                    }
+                    append(title.drop(1))
+                }
+            },
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground,
             fontWeight = FontWeight.Normal,

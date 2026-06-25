@@ -5,7 +5,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,7 +17,6 @@ import androidx.compose.material.icons.rounded.Analytics
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -28,7 +26,6 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.Route
@@ -37,7 +34,7 @@ import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.AppSpringSnappy
 
-val MainBottomBarHeight = 64.dp
+val MainBottomBarHeight = 68.dp
 
 private data class NavDestination(
     val route: Route,
@@ -126,35 +123,21 @@ private fun MainBottomBarItem(
         label = "bottomItemContent"
     )
 
-    Column(
+    Box(
         modifier = modifier
-            .height(52.dp)
+            .height(56.dp)
             .scale(scale)
             .clip(RoundedCornerShape(AppRadius.pill))
             .background(containerColor)
             .smoothClickable(onClick = onClick)
             .padding(vertical = AppSpacing.xs),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+        contentAlignment = Alignment.Center,
     ) {
-        Box(
-            modifier = Modifier
-                .size(24.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = destination.icon,
-                contentDescription = destination.label,
-                tint = contentColor,
-                modifier = Modifier.size(if (selected) 21.dp else 20.dp),
-            )
-        }
-        Text(
-            text = destination.label,
-            style = MaterialTheme.typography.labelSmall,
-            color = contentColor,
-            fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
-            modifier = Modifier.padding(top = 2.dp),
+        Icon(
+            imageVector = destination.icon,
+            contentDescription = destination.label,
+            tint = contentColor,
+            modifier = Modifier.size(if (selected) 31.dp else 28.dp),
         )
     }
 }
