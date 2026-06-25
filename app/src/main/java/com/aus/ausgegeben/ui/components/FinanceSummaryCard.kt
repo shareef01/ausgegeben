@@ -1,6 +1,9 @@
 package com.aus.ausgegeben.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.Button
@@ -17,18 +21,22 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.theme.AppIconSize
 import com.aus.ausgegeben.ui.theme.AppLayoutTokens
 import com.aus.ausgegeben.ui.theme.AppRadius
+import com.aus.ausgegeben.ui.theme.AppSpringSnappy
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.ExpenseMuted
 import com.aus.ausgegeben.ui.theme.IncomeGreen
@@ -52,47 +60,84 @@ fun FinanceSummaryCard(
         net < 0 -> ExpenseMuted
         else -> MaterialTheme.colorScheme.onBackground
     }
+    val totalFlow = expenseTotal + incomeTotal
+    val incomeRatio by animateFloatAsState(
+        targetValue = if (totalFlow > 0.0) (incomeTotal / totalFlow).toFloat().coerceIn(0.08f, 0.92f) else 0.5f,
+        animationSpec = AppSpringSnappy,
+        label = "summaryIncomeRatio"
+    )
 
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = AppSpacing.md)
-            .padding(bottom = if (compact) AppSpacing.xs else AppSpacing.sm),
+            .padding(bottom = if (compact) AppSpacing.xs else AppSpacing.sm)
+            .clip(RoundedCornerShape(AppRadius.xl))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(AppSpacing.md),
     ) {
-        Text(
-            text = stringResource(R.string.summary_balance_period, periodLabel),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        MoneyText(
-            text = CurrencyUtils.formatAmount(net, currencyCode),
-            size = if (compact) MoneySize.Headline else MoneySize.Display,
-            color = netColor,
-            modifier = Modifier.padding(top = AppSpacing.xxs, bottom = AppSpacing.md),
-        )
-
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(AppSpacing.lg),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.summary_balance_period, periodLabel),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                MoneyText(
+                    text = CurrencyUtils.formatAmount(net, currencyCode),
+                    size = if (compact) MoneySize.Display else MoneySize.Hero,
+                    color = netColor,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(top = AppSpacing.xxs),
+                )
+            }
+            NetStatusPill(
+                text = when {
+                    net > 0 -> "+"
+                    net < 0 -> "-"
+                    else -> "="
+                },
+                color = netColor,
+            )
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = AppSpacing.md),
+            horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm),
         ) {
             SummaryStat(
                 label = stringResource(R.string.summary_spent),
                 value = CurrencyUtils.formatAmount(expenseTotal, currencyCode),
                 color = ExpenseMuted,
+                modifier = Modifier.weight(1f),
             )
             SummaryStat(
                 label = stringResource(R.string.summary_earned),
                 value = CurrencyUtils.formatAmount(incomeTotal, currencyCode),
                 color = IncomeGreen,
+                modifier = Modifier.weight(1f),
             )
         }
+
+        FlowBalanceBar(
+            incomeRatio = incomeRatio,
+            expenseColor = ExpenseMuted,
+            incomeColor = IncomeGreen,
+            modifier = Modifier.padding(top = AppSpacing.md),
+        )
 
         insightLine?.let { line ->
             Text(
                 text = line,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                modifier = Modifier.padding(top = AppSpacing.md),
+                modifier = Modifier.padding(top = AppSpacing.sm),
             )
         }
 
@@ -117,18 +162,82 @@ private fun SummaryStat(
     label: String,
     value: String,
     color: Color,
+    modifier: Modifier = Modifier,
 ) {
-    Column {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(AppRadius.lg))
+            .background(color.copy(alpha = 0.1f))
+            .padding(horizontal = AppSpacing.sm, vertical = AppSpacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(color),
         )
-        MoneyText(
-            text = value,
-            size = MoneySize.Body,
+        Column(modifier = Modifier.padding(start = AppSpacing.xs)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Normal,
+            )
+            MoneyText(
+                text = value,
+                size = MoneySize.Body,
+                color = color,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(top = 1.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun FlowBalanceBar(
+    incomeRatio: Float,
+    expenseColor: Color,
+    incomeColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(8.dp)
+            .clip(RoundedCornerShape(AppRadius.pill))
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)),
+    ) {
+        Box(
+            modifier = Modifier
+                .weight((1f - incomeRatio).coerceAtLeast(0.05f))
+                .height(8.dp)
+                .background(expenseColor.copy(alpha = 0.85f)),
+        )
+        Box(
+            modifier = Modifier
+                .weight(incomeRatio.coerceAtLeast(0.05f))
+                .height(8.dp)
+                .background(incomeColor.copy(alpha = 0.9f)),
+        )
+    }
+}
+
+@Composable
+private fun NetStatusPill(text: String, color: Color) {
+    Box(
+        modifier = Modifier
+            .size(34.dp)
+            .clip(CircleShape)
+            .background(color.copy(alpha = 0.14f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.titleMedium,
             color = color,
-            modifier = Modifier.padding(top = AppSpacing.xxs),
+            fontWeight = FontWeight.Medium,
         )
     }
 }
