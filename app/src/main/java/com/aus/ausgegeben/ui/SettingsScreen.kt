@@ -701,7 +701,7 @@ private fun ThemeOption(label: String, selected: Boolean, onClick: () -> Unit) {
 
                 contentDescription = null,
 
-                tint = com.aus.ausgegeben.ui.theme.AccentCoral
+                tint = MaterialTheme.colorScheme.primary
 
             )
 
@@ -775,7 +775,7 @@ fun SettingSwitchRow(
 
                 .clip(RoundedCornerShape(8.dp))
 
-                .background(MaterialTheme.colorScheme.surfaceVariant),
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
 
             contentAlignment = Alignment.Center
 
@@ -787,7 +787,7 @@ fun SettingSwitchRow(
 
                 contentDescription = title,
 
-                tint = MaterialTheme.colorScheme.onSurface,
+                tint = MaterialTheme.colorScheme.primary,
 
                 modifier = Modifier.size(20.dp)
 
@@ -875,7 +875,7 @@ fun SettingRow(
 
                 .clip(RoundedCornerShape(8.dp))
 
-                .background(MaterialTheme.colorScheme.surfaceVariant),
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
 
             contentAlignment = Alignment.Center
 
@@ -887,7 +887,7 @@ fun SettingRow(
 
                 contentDescription = title,
 
-                tint = MaterialTheme.colorScheme.onSurface,
+                tint = MaterialTheme.colorScheme.primary,
 
                 modifier = Modifier.size(20.dp)
 

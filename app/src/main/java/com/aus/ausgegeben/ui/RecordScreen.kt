@@ -250,7 +250,7 @@ fun RecordScreen(
                                     .sortedByDescending { it.dateMillis }
                                     .forEachIndexed { index, expense ->
                                         androidx.compose.runtime.key(expense.id) {
-                                            if (index > 0) IosSeparator(insetStart = 60.dp)
+                                            if (index > 0) IosSeparator(insetStart = 56.dp)
                                             val category = categoryById[expense.categoryId]
                                             val time = timeFormat.format(Date(expense.dateMillis))
                                             val categoryName = category?.name
@@ -584,7 +584,7 @@ private fun SwipeableTransactionRow(
     onDeleteRequest: () -> Unit,
     onReceiptClick: (() -> Unit)? = null
 ) {
-    val rowBackground = MaterialTheme.colorScheme.surfaceVariant
+    val rowBackground = MaterialTheme.colorScheme.surface
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             if (value == SwipeToDismissBoxValue.EndToStart) {
