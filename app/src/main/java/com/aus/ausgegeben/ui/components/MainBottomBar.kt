@@ -1,24 +1,19 @@
 package com.aus.ausgegeben.ui.components
 
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.PieChart
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
@@ -26,13 +21,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -44,7 +36,6 @@ import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.Route
 import com.aus.ausgegeben.ui.theme.AccentCoral
-import com.aus.ausgegeben.ui.theme.AppSpringSnappy
 
 private data class NavItem(
     val route: Route,
@@ -56,8 +47,6 @@ private data class NavItem(
 fun MainBottomBar(
     currentRoute: Route?,
     onNavigate: (Route) -> Unit,
-    onAddTransaction: () -> Unit,
-    showAddButton: Boolean,
     modifier: Modifier = Modifier
 ) {
     val items = listOf(
@@ -65,93 +54,42 @@ fun MainBottomBar(
         NavItem(Route.CategoryManagement, Icons.Rounded.PieChart, stringResource(R.string.nav_bills)),
         NavItem(Route.Settings, Icons.Rounded.Settings, stringResource(R.string.nav_settings))
     )
-    val selectedIndex = items.indexOfFirst { item ->
-        when (item.route) {
-            Route.ExpenseList -> currentRoute is Route.ExpenseList
-            Route.CategoryManagement -> currentRoute is Route.CategoryManagement
-            Route.Settings -> currentRoute is Route.Settings
-            else -> false
-        }
-    }.coerceAtLeast(0)
 
-    val animatedIndex by animateFloatAsState(
-        targetValue = selectedIndex.toFloat(),
-        animationSpec = AppSpringSnappy,
-        label = "navIndicator"
-    )
-    val addLabel = stringResource(R.string.nav_add_transaction)
-
-    Box(
+    Surface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = if (showAddButton) 10.dp else 0.dp)
+            .padding(horizontal = 24.dp, vertical = 10.dp),
+        shape = RoundedCornerShape(22.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 2.dp,
+        shadowElevation = 0.dp
     ) {
-        Surface(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 8.dp)
-                .align(Alignment.BottomCenter),
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 6.dp,
-            tonalElevation = 1.dp
-        ) {
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp)
-                    .padding(horizontal = 4.dp)
-            ) {
-                val density = LocalDensity.current
-                val itemWidth = maxWidth / items.size
-                val indicatorOffset = with(density) {
-                    (animatedIndex * itemWidth.toPx()).toDp()
-                }
-
-                Box(
-                    modifier = Modifier
-                        .offset(x = indicatorOffset)
-                        .width(itemWidth)
-                        .fillMaxHeight()
-                        .padding(vertical = 6.dp, horizontal = 4.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(AccentCoral.copy(alpha = 0.10f))
+                .height(58.dp)
+                .border(
+                    width = 0.5.dp,
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f),
+                    shape = RoundedCornerShape(22.dp)
                 )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    items.forEachIndexed { index, item ->
-                        NavTab(
-                            icon = item.icon,
-                            label = item.label,
-                            isSelected = index == selectedIndex,
-                            onClick = { onNavigate(item.route) }
-                        )
-                    }
+                .padding(horizontal = 6.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            items.forEach { item ->
+                val isSelected = when (item.route) {
+                    Route.ExpenseList -> currentRoute is Route.ExpenseList
+                    Route.CategoryManagement -> currentRoute is Route.CategoryManagement
+                    Route.Settings -> currentRoute is Route.Settings
+                    else -> false
                 }
-            }
-        }
-
-        if (showAddButton) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .offset(y = (-4).dp)
-                    .size(52.dp)
-                    .clip(CircleShape)
-                    .background(AccentCoral)
-                    .semantics { role = Role.Button }
-                    .smoothClickable(onClick = onAddTransaction),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Add,
-                    contentDescription = addLabel,
-                    tint = Color.White,
-                    modifier = Modifier.size(26.dp)
+                NavTab(
+                    icon = item.icon,
+                    label = item.label,
+                    isSelected = isSelected,
+                    onClick = { onNavigate(item.route) },
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
@@ -163,19 +101,20 @@ private fun NavTab(
     icon: ImageVector,
     label: String,
     isSelected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val tint = if (isSelected) AccentCoral else MaterialTheme.colorScheme.onSurfaceVariant
 
     Column(
-        modifier = Modifier
-            .width(76.dp)
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
             .semantics {
                 role = Role.Tab
                 selected = isSelected
             }
             .smoothClickable(onClick = onClick)
-            .padding(vertical = 6.dp),
+            .padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -183,16 +122,24 @@ private fun NavTab(
             imageVector = icon,
             contentDescription = label,
             tint = tint,
-            modifier = Modifier.size(if (isSelected) 22.dp else 20.dp)
+            modifier = Modifier.size(22.dp)
         )
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
             color = tint,
-            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 2.dp)
+            modifier = Modifier.padding(top = 3.dp)
+        )
+        Box(
+            modifier = Modifier
+                .padding(top = 5.dp)
+                .width(18.dp)
+                .height(3.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(if (isSelected) AccentCoral else MaterialTheme.colorScheme.surface)
         )
     }
 }

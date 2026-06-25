@@ -36,6 +36,7 @@ import com.aus.ausgegeben.ui.components.IosSeparator
 import com.aus.ausgegeben.ui.components.ReceiptImageDialog
 import com.aus.ausgegeben.ui.components.ScreenTitle
 import com.aus.ausgegeben.ui.components.recordListBottomPadding
+import com.aus.ausgegeben.ui.theme.AccentCoral
 import com.aus.ausgegeben.ui.theme.AmountTextStyle
 import com.aus.ausgegeben.ui.theme.IncomeGreen
 import com.aus.ausgegeben.ui.theme.TransferGray
@@ -171,7 +172,6 @@ fun RecordScreen(
             }
             isListEmpty -> {
                 EmptyRecordState(
-                    onAddTransaction = onAddTransaction,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -302,8 +302,19 @@ private fun RecordSearchBar(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
-        placeholder = { Text(stringResource(R.string.record_search_placeholder)) },
-        leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.record_search)) },
+        placeholder = {
+            Text(
+                stringResource(R.string.record_search_placeholder),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        leadingIcon = {
+            Icon(
+                Icons.Rounded.Search,
+                contentDescription = stringResource(R.string.record_search),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
         trailingIcon = {
             if (query.isNotEmpty()) {
                 IconButton(onClick = { onQueryChange("") }) {
@@ -312,68 +323,68 @@ private fun RecordSearchBar(
             }
         },
         singleLine = true,
-        shape = RoundedCornerShape(14.dp)
+        shape = RoundedCornerShape(14.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+        )
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RecordTypeFilters(
     selected: TransactionTypeFilter,
     onSelected: (TransactionTypeFilter) -> Unit
 ) {
     val options = TransactionTypeFilter.entries
-    IosSegmentedControl(
-        options = options.map { it.label() },
-        selectedIndex = options.indexOf(selected).coerceAtLeast(0),
-        onSelected = { onSelected(options[it]) },
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-    )
+    FlowRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        options.forEach { filter ->
+            val isSelected = selected == filter
+            FilterChip(
+                selected = isSelected,
+                onClick = { onSelected(filter) },
+                label = { Text(filter.label()) },
+                shape = RoundedCornerShape(12.dp),
+                border = FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = isSelected,
+                    borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                    selectedBorderColor = AccentCoral.copy(alpha = 0.45f)
+                ),
+                colors = FilterChipDefaults.filterChipColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    selectedContainerColor = AccentCoral.copy(alpha = 0.14f),
+                    selectedLabelColor = AccentCoral
+                )
+            )
+        }
+    }
 }
 
 private val GroupedSectionClip = RoundedCornerShape(14.dp)
 
 @Composable
 private fun EmptyRecordState(
-    onAddTransaction: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        EmptyStateMessage(
-            icon = Icons.AutoMirrored.Rounded.ReceiptLong,
-            title = stringResource(R.string.record_empty_title),
-            subtitle = stringResource(R.string.record_empty_subtitle),
-            actionLabel = stringResource(R.string.record_empty_action),
-            onAction = onAddTransaction,
-            modifier = Modifier.defaultMinSize(minHeight = 200.dp)
-        )
-        Row(
-            modifier = Modifier
-                .padding(horizontal = 24.dp, vertical = 8.dp)
-                .fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
-        ) {
-            GestureHintChip(text = stringResource(R.string.gesture_swipe_delete))
-            GestureHintChip(text = stringResource(R.string.gesture_long_press_duplicate))
-        }
-    }
-}
-
-@Composable
-private fun GestureHintChip(text: String) {
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-        )
-    }
+    EmptyStateMessage(
+        icon = Icons.AutoMirrored.Rounded.ReceiptLong,
+        title = stringResource(R.string.record_empty_title),
+        subtitle = stringResource(R.string.record_empty_subtitle),
+        modifier = modifier
+            .fillMaxWidth()
+            .defaultMinSize(minHeight = 220.dp)
+    )
 }
 
 @Composable

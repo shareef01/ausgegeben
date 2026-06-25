@@ -19,7 +19,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.TrendingDown
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -50,7 +49,7 @@ fun FinanceSummaryCard(
     periodLabel: String = "all time",
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(18.dp)
     val netColor = when {
         net > 0 -> IncomeGreen
         net < 0 -> ExpenseMuted
@@ -62,21 +61,22 @@ fun FinanceSummaryCard(
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .clip(shape)
-            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f), shape)
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(horizontal = 20.dp, vertical = 18.dp)
+            .background(MaterialTheme.colorScheme.surface)
+            .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), shape)
+            .padding(horizontal = 20.dp, vertical = 20.dp)
     ) {
         Text(
             text = stringResource(R.string.summary_balance_period, periodLabel),
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.Medium
         )
         Text(
             text = CurrencyUtils.formatAmount(net, currencyCode),
             style = MaterialTheme.typography.headlineLarge.merge(AmountTextStyle),
             color = netColor,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
+            modifier = Modifier.padding(top = 6.dp, bottom = 18.dp)
         )
 
         Row(
@@ -115,7 +115,7 @@ fun FinanceSummaryCard(
                 ),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 12.dp)
+                modifier = Modifier.padding(top = 14.dp)
             )
         }
     }
@@ -129,28 +129,31 @@ private fun BalancePill(
     tint: Color,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(12.dp)
+    val shape = RoundedCornerShape(14.dp)
     Column(
         modifier = modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(tint.copy(alpha = 0.08f))
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+            .background(tint.copy(alpha = 0.1f))
+            .border(0.5.dp, tint.copy(alpha = 0.18f), shape)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(14.dp))
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(15.dp))
             Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Medium
             )
         }
         Text(
             text = value,
             style = MaterialTheme.typography.titleMedium.merge(AmountTextStyle),
-            color = MaterialTheme.colorScheme.onBackground
+            color = MaterialTheme.colorScheme.onBackground,
+            fontWeight = FontWeight.SemiBold
         )
     }
 }
@@ -167,45 +170,42 @@ fun EmptyStateMessage(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(48.dp),
+            .padding(horizontal = 32.dp, vertical = 40.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Box(
             modifier = Modifier
-                .size(72.dp)
-                .clip(RoundedCornerShape(36.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant),
+                .size(64.dp)
+                .clip(RoundedCornerShape(32.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 icon,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(28.dp)
             )
         }
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(18.dp))
         Text(
             text = title,
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onBackground,
             fontWeight = FontWeight.SemiBold
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = subtitle,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 24.dp)
+            modifier = Modifier.padding(horizontal = 16.dp)
         )
         if (actionLabel != null && onAction != null) {
-            Spacer(modifier = Modifier.height(24.dp))
-            FilledTonalButton(
-                onClick = onAction,
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                Text(actionLabel)
+            Spacer(modifier = Modifier.height(20.dp))
+            androidx.compose.material3.TextButton(onClick = onAction) {
+                Text(actionLabel, color = MaterialTheme.colorScheme.primary)
             }
         }
     }

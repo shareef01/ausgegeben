@@ -20,7 +20,7 @@
     <string name="record_no_matches_title">No matches</string>
     <string name="record_no_matches_subtitle">Try a different search or filter</string>
     <string name="record_empty_title">No transactions yet</string>
-    <string name="record_empty_subtitle">Tap + below to add your first expense or income</string>
+    <string name="record_empty_subtitle">Tap the + button to add your first expense or income</string>
     <string name="record_empty_hint">Long-press a transaction to duplicate it</string>
     <string name="record_empty_action">Add transaction</string>
     <string name="record_error_title">Couldn\'t load transactions</string>
