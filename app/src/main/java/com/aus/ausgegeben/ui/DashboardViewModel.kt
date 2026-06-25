@@ -9,13 +9,18 @@ import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.util.WealthTrendPoint
 import com.aus.ausgegeben.util.computeWealthTrend
+import com.aus.ausgegeben.util.dateRangeMillis
 import com.aus.ausgegeben.util.displayTitle
-import com.aus.ausgegeben.util.filterByPeriod
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -40,13 +45,53 @@ class DashboardViewModel(
 
     private val _period = MutableStateFlow(AnalyticsPeriod.THIS_MONTH)
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val periodExpensesFlow = _period.flatMapLatest { period ->
+        val range = period.dateRangeMillis()
+        if (range == null) {
+            repository.allExpenses
+        } else {
+            repository.getExpensesInRange(range.first, range.second)
+        }
+    }
+
     val uiState: StateFlow<DashboardUiState> = combine(
         preferenceManager.currencyFlow,
         repository.allCategories,
-        repository.allExpenses,
-        _period
-    ) { currency, categories, allExpenses, period ->
-        val scoped = allExpenses.filterByPeriod(period)
+        periodExpensesFlow,
+        _period,
+    ) { currency, categories, scopedExpenses, period ->
+        buildDashboardState(currency, categories, scopedExpenses, period)
+    }
+        .flowOn(Dispatchers.Default)
+        .distinctUntilChanged()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = DashboardUiState()
+        )
+
+    init {
+        viewModelScope.launch {
+            _period.value = AnalyticsPeriod.fromStorageKey(
+                preferenceManager.analyticsPeriodFlow.first()
+            )
+        }
+    }
+
+    fun setPeriod(period: AnalyticsPeriod) {
+        _period.value = period
+        viewModelScope.launch {
+            preferenceManager.updateAnalyticsPeriod(period)
+        }
+    }
+
+    private fun buildDashboardState(
+        currency: String,
+        categories: List<Category>,
+        scoped: List<Expense>,
+        period: AnalyticsPeriod,
+    ): DashboardUiState {
         val categoryById = categories.associateBy { it.id }
 
         var totalExpenses = 0.0
@@ -81,7 +126,7 @@ class DashboardViewModel(
                 categoryById[categoryId]?.let { it to amount }
             }.toMap()
 
-        DashboardUiState(
+        return DashboardUiState(
             period = period,
             periodLabel = period.displayTitle(),
             totalExpenses = totalExpenses,
@@ -92,26 +137,7 @@ class DashboardViewModel(
             incomeByCategory = mapTotals(incomeTotals),
             transfersByCategory = mapTotals(transferTotals),
             periodTransactions = scoped,
-            wealthTrend = allExpenses.computeWealthTrend(period),
+            wealthTrend = scoped.computeWealthTrend(period),
         )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = DashboardUiState()
-    )
-
-    init {
-        viewModelScope.launch {
-            _period.value = AnalyticsPeriod.fromStorageKey(
-                preferenceManager.analyticsPeriodFlow.first()
-            )
-        }
-    }
-
-    fun setPeriod(period: AnalyticsPeriod) {
-        _period.value = period
-        viewModelScope.launch {
-            preferenceManager.updateAnalyticsPeriod(period)
-        }
     }
 }

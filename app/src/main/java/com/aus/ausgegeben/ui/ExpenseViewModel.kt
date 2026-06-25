@@ -14,7 +14,7 @@ import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.util.RecordListPeriod
 import com.aus.ausgegeben.util.computeSpendingInsights
 import com.aus.ausgegeben.util.dateRangeMillis
-import com.aus.ausgegeben.util.filterByPeriod
+import com.aus.ausgegeben.util.recentWeekRangeMillis
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.aus.ausgegeben.util.SpendingInsights
@@ -49,6 +50,20 @@ class ExpenseViewModel(
     private val _debouncedSearch = _searchQuery.debounce(250)
     private val _typeFilter = MutableStateFlow(TransactionTypeFilter.ALL)
     private val _listPeriod = MutableStateFlow(RecordListPeriod.THIS_MONTH)
+
+    private val monthExpensesFlow = flowOf(AnalyticsPeriod.THIS_MONTH.dateRangeMillis())
+        .flatMapLatest { range ->
+            if (range == null) {
+                repository.allExpenses
+            } else {
+                repository.getExpensesInRange(range.first, range.second)
+            }
+        }
+
+    private val weekExpensesFlow = flowOf(recentWeekRangeMillis())
+        .flatMapLatest { (start, end) ->
+            repository.getExpensesInRange(start, end)
+        }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val listExpensesFlow = _listPeriod.flatMapLatest { period ->
@@ -86,30 +101,32 @@ class ExpenseViewModel(
 
     val uiState: StateFlow<RecordUiState> = combine(
         combine(
-            repository.allExpenses,
             repository.allCategories,
-            preferenceManager.monthlyBudgetFlow
-        ) { expenses, categories, budget ->
-            Triple(expenses, categories, budget)
+            preferenceManager.monthlyBudgetFlow,
+            listExpensesFlow,
+            monthExpensesFlow,
+            weekExpensesFlow,
+        ) { categories, budget, periodExpenses, monthExpenses, weekExpenses ->
+            RecordListData(categories, budget, periodExpenses, monthExpenses, weekExpenses)
         },
-        listExpensesFlow,
         _searchQuery,
         _typeFilter,
-        _listPeriod
-    ) { triple, periodExpenses, query, typeFilter, listPeriod ->
-        val (allExpenses, categories, budget) = triple
-        val categoryNames = categories.associate { it.id to it.name }
-        val monthExpenses = allExpenses.filterByPeriod(AnalyticsPeriod.THIS_MONTH)
-
+        _listPeriod,
+    ) { listData, query, typeFilter, listPeriod ->
+        val categoryNames = listData.categories.associate { it.id to it.name }
         RecordUiState(
-            headerExpenses = periodExpenses,
-            categories = categories,
+            headerExpenses = listData.periodExpenses,
+            categories = listData.categories,
             searchQuery = query,
             typeFilter = typeFilter,
             listPeriod = listPeriod,
-            insights = computeSpendingInsights(allExpenses, categoryNames),
-            monthlyBudget = budget,
-            monthExpenses = monthExpenses
+            insights = computeSpendingInsights(
+                listData.monthExpenses,
+                listData.weekExpenses,
+                categoryNames,
+            ),
+            monthlyBudget = listData.budget,
+            monthExpenses = listData.monthExpenses,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -161,3 +178,11 @@ private fun TransactionTypeFilter.toFilterKey(): TransactionTypeFilterKey = when
     TransactionTypeFilter.INCOME -> TransactionTypeFilterKey.INCOME
     TransactionTypeFilter.TRANSFER -> TransactionTypeFilterKey.TRANSFER
 }
+
+private data class RecordListData(
+    val categories: List<Category>,
+    val budget: Double?,
+    val periodExpenses: List<Expense>,
+    val monthExpenses: List<Expense>,
+    val weekExpenses: List<Expense>,
+)
