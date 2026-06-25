@@ -10,7 +10,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /** Height of the floating bottom nav pill (excluding system gesture inset). */
-val BottomNavBarHeight = 68.dp
+val BottomNavBarHeight = 80.dp
 
 /** Extra space so the last list row clears FAB / nav comfortably. */
 val BottomScrollExtraPadding = 24.dp
