@@ -2,7 +2,6 @@ package com.aus.ausgegeben.ui.theme
 
 import androidx.compose.ui.unit.dp
 
-/** Strict 8pt spacing grid */
 object AppSpacing {
     val xxs = 4.dp
     val xs = 8.dp
@@ -20,6 +19,8 @@ object AppIconSize {
 }
 
 object AppRadius {
+    val card = 16.dp
+    val cardLarge = 20.dp
     val sm = 8.dp
     val md = 12.dp
     val lg = 16.dp
@@ -28,6 +29,7 @@ object AppRadius {
 }
 
 object AppElevation {
-    val cardBorder = 0.5.dp
-    val glassBorder = 0.5.dp
+    /** User spec: 1px solid rgba(255,255,255,0.08) */
+    val cardBorder = 1.dp
+    val glassBorder = 1.dp
 }
