@@ -222,7 +222,7 @@ private fun CategoryAnalyticsCard(
             .padding(bottom = AppSpacing.sm),
     ) {
         Text(
-            text = title.uppercase(),
+            text = title,
             style = MaterialTheme.typography.labelSmall,
             color = accent,
             fontWeight = FontWeight.SemiBold,
