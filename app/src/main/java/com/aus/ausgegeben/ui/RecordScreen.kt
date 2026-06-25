@@ -236,7 +236,8 @@ fun RecordScreen(
             isListEmpty -> {
                 item(key = "empty") {
                     EmptyRecordState(
-                        modifier = Modifier.defaultMinSize(minHeight = 220.dp)
+                        onAdd = onAddTransaction,
+                        modifier = Modifier.defaultMinSize(minHeight = 220.dp),
                     )
                 }
             }
@@ -504,13 +505,16 @@ private val GroupedSectionClip = RoundedCornerShape(14.dp)
 
 @Composable
 private fun EmptyRecordState(
-    modifier: Modifier = Modifier
+    onAdd: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     EmptyStateMessage(
         icon = Icons.AutoMirrored.Rounded.ReceiptLong,
         title = stringResource(R.string.record_empty_title),
         subtitle = stringResource(R.string.record_empty_subtitle),
-        modifier = modifier.fillMaxWidth()
+        actionLabel = stringResource(R.string.record_empty_action),
+        onAction = onAdd,
+        modifier = modifier.fillMaxWidth(),
     )
 }
 

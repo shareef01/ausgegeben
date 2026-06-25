@@ -55,7 +55,7 @@ val AccentRed = AppColors.Expense
 
 val IncomeGreen = AppColors.Income
 val IncomeGreenSoft = Color(0xFFB5D4C8)
-val ExpenseMuted = Color(0xFFC49292)
+val ExpenseMuted = AppColors.Expense
 val ExpenseSoft = Color(0xFFE0BCBC)
 val TransferGray = AppColors.Transfer
 
