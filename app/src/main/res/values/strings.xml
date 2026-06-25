@@ -221,6 +221,10 @@
     <string name="chart_net_label">Net balance</string>
     <string name="chart_no_data">No chart data</string>
     <string name="chart_breakdown_description">Breakdown by category, total %1$s</string>
+    <string name="chart_wealth_trend_title">Wealth trend</string>
+    <string name="chart_wealth_trend_subtitle">Cumulative net balance over time</string>
+    <string name="chart_wealth_trend_delta_up">+%1$s this period</string>
+    <string name="chart_wealth_trend_delta_down">-%1$s this period</string>
 
     <!-- Receipt & camera -->
     <string name="receipt_preview">Receipt preview</string>

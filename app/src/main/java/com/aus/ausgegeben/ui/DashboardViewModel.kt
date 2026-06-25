@@ -7,6 +7,8 @@ import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.util.AnalyticsPeriod
+import com.aus.ausgegeben.util.WealthTrendPoint
+import com.aus.ausgegeben.util.computeWealthTrend
 import com.aus.ausgegeben.util.displayTitle
 import com.aus.ausgegeben.util.filterByPeriod
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,7 +29,8 @@ data class DashboardUiState(
     val expensesByCategory: Map<Category, Double> = emptyMap(),
     val incomeByCategory: Map<Category, Double> = emptyMap(),
     val transfersByCategory: Map<Category, Double> = emptyMap(),
-    val periodTransactions: List<Expense> = emptyList()
+    val periodTransactions: List<Expense> = emptyList(),
+    val wealthTrend: List<WealthTrendPoint> = emptyList(),
 )
 
 class DashboardViewModel(
@@ -88,7 +91,8 @@ class DashboardViewModel(
             expensesByCategory = mapTotals(expenseTotals),
             incomeByCategory = mapTotals(incomeTotals),
             transfersByCategory = mapTotals(transferTotals),
-            periodTransactions = scoped
+            periodTransactions = scoped,
+            wealthTrend = allExpenses.computeWealthTrend(period),
         )
     }.stateIn(
         scope = viewModelScope,
