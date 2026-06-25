@@ -227,16 +227,17 @@ private fun CategoryAnalyticsCard(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
+                .background(accent.copy(alpha = 0.08f))
                 .padding(
                     start = AppSpacing.md,
                     end = AppSpacing.md,
-                    top = AppSpacing.md,
-                    bottom = AppSpacing.xxs,
+                    top = AppSpacing.sm,
+                    bottom = AppSpacing.sm,
                 ),
         ) {
             Box(
                 modifier = Modifier
-                    .size(6.dp)
+                    .size(9.dp)
                     .clip(CircleShape)
                     .background(accent),
             )
@@ -244,8 +245,8 @@ private fun CategoryAnalyticsCard(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onBackground,
-                fontWeight = FontWeight.Normal,
+                color = accent,
+                fontWeight = FontWeight.Medium,
             )
         }
         DonutChart(

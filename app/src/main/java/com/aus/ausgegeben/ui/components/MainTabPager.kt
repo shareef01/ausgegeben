@@ -9,7 +9,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -18,7 +17,6 @@ import com.aus.ausgegeben.ui.Route
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
 
 private val TabScrollSpring = spring<Float>(
@@ -36,16 +34,8 @@ fun MainTabPager(
     settingsContent: @Composable () -> Unit,
 ) {
     val tabs = MainTabRoutes
-    val scope = rememberCoroutineScope()
     val initialPage = tabs.indexOfFirst { it == currentRoute }.coerceAtLeast(0)
     val pagerState = rememberPagerState(initialPage = initialPage) { tabs.size }
-
-    fun scrollToPage(page: Int) {
-        val clamped = page.coerceIn(0, tabs.lastIndex)
-        scope.launch {
-            pagerState.animateScrollToPage(clamped, animationSpec = TabScrollSpring)
-        }
-    }
 
     LaunchedEffect(currentRoute) {
         val target = tabs.indexOfFirst { it == currentRoute }.coerceAtLeast(0)
@@ -61,9 +51,7 @@ fun MainTabPager(
             .distinctUntilChanged()
             .collect { page ->
                 val route = tabs[page]
-                if (route != currentRoute) {
-                    onRouteChange(route)
-                }
+                onRouteChange(route)
             }
     }
 
@@ -78,27 +66,20 @@ fun MainTabPager(
             (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
         ).absoluteValue.coerceIn(0f, 1f)
         key(route) {
-            SwipeableTabSurface(
-                canSwipeToPrevious = page > 0,
-                canSwipeToNext = page < tabs.lastIndex,
-                onSwipeToPrevious = { scrollToPage(page - 1) },
-                onSwipeToNext = { scrollToPage(page + 1) }
-            ) {
-                Box(
-                    Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            alpha = 1f - pageOffset * 0.18f
-                            scaleX = 1f - pageOffset * 0.025f
-                            scaleY = 1f - pageOffset * 0.025f
-                        }
-                ) {
-                    when (route) {
-                        Route.ExpenseList -> recordContent()
-                        Route.CategoryManagement -> billsContent()
-                        Route.Settings -> settingsContent()
-                        else -> recordContent()
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        alpha = 1f - pageOffset * 0.18f
+                        scaleX = 1f - pageOffset * 0.025f
+                        scaleY = 1f - pageOffset * 0.025f
                     }
+            ) {
+                when (route) {
+                    Route.ExpenseList -> recordContent()
+                    Route.CategoryManagement -> billsContent()
+                    Route.Settings -> settingsContent()
+                    else -> recordContent()
                 }
             }
         }
