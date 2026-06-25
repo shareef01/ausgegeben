@@ -74,7 +74,11 @@ fun BillsScreen(
         uiState.incomeByCategory.isNotEmpty() ||
         uiState.transfersByCategory.isNotEmpty()
 
-    val periodOptions = AnalyticsPeriod.entries.map { it.label() }
+    val periodOptions = listOf(
+        AnalyticsPeriod.THIS_MONTH.label(),
+        AnalyticsPeriod.LAST_MONTH.label(),
+        AnalyticsPeriod.ALL_TIME.label(),
+    )
     val headerPeriodLabel = when (uiState.period) {
         AnalyticsPeriod.ALL_TIME -> stringResource(R.string.period_all_time)
         else -> uiState.periodLabel
