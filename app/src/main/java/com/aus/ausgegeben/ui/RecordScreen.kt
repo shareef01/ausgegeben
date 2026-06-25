@@ -5,7 +5,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -71,17 +70,18 @@ import com.aus.ausgegeben.ui.components.FinanceSummaryCard
 import com.aus.ausgegeben.ui.components.GroupedSection
 import com.aus.ausgegeben.ui.components.IosSegmentedControl
 import com.aus.ausgegeben.ui.components.IosSeparator
+import com.aus.ausgegeben.ui.components.MoneySize
+import com.aus.ausgegeben.ui.components.MoneyText
 import com.aus.ausgegeben.ui.components.ReceiptImageDialog
 import com.aus.ausgegeben.ui.components.ScreenTitle
-import com.aus.ausgegeben.ui.components.MoneyText
-import com.aus.ausgegeben.ui.components.MoneySize
 import com.aus.ausgegeben.ui.components.recordListBottomPadding
-import com.aus.ausgegeben.ui.theme.AppColors
-import com.aus.ausgegeben.ui.theme.AppElevation
+import com.aus.ausgegeben.ui.theme.AppIconSize
+import com.aus.ausgegeben.ui.theme.AppLayoutTokens
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.ExpenseMuted
 import com.aus.ausgegeben.ui.theme.IncomeGreen
+import com.aus.ausgegeben.ui.theme.SectionLabelStyle
 import com.aus.ausgegeben.ui.theme.TransferGray
 import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.util.CurrencyUtils
@@ -248,17 +248,17 @@ fun RecordScreen(
                     val dayExpense = billable.filter { it.isExpense() }.sumOf { it.amount }
 
                     item(key = "header-$date") {
-                        DatePill(date, dayIncome, dayExpense, currencyCode)
+                        DateSectionHeader(date, dayIncome, dayExpense, currencyCode)
                     }
 
                     item(key = "group-$date") {
-                        GroupedSection(modifier = Modifier.padding(bottom = 8.dp)) {
-                            Column(modifier = Modifier.clip(GroupedSectionClip)) {
+                        GroupedSection(modifier = Modifier.padding(bottom = AppSpacing.xs)) {
+                            Column(modifier = Modifier.clip(RoundedCornerShape(AppRadius.card))) {
                                 dayItems
                                     .sortedByDescending { it.dateMillis }
                                     .forEachIndexed { index, expense ->
                                         androidx.compose.runtime.key(expense.id) {
-                                            if (index > 0) IosSeparator(insetStart = 62.dp)
+                                            if (index > 0) IosSeparator()
                                             val category = categoryById[expense.categoryId]
                                             val time = timeFormat.format(Date(expense.dateMillis))
                                             val categoryName = category?.name
@@ -353,7 +353,7 @@ private fun RecordListToolbar(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(AppColors.Background)
+            .background(MaterialTheme.colorScheme.background)
             .padding(bottom = AppSpacing.xs)
     ) {
         Row(
@@ -468,8 +468,8 @@ private fun RecordTypeFilters(
     val options = TransactionTypeFilter.entries
     LazyRow(
         modifier = modifier,
-        contentPadding = PaddingValues(horizontal = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+        contentPadding = PaddingValues(horizontal = AppSpacing.xs),
+        horizontalArrangement = Arrangement.spacedBy(AppSpacing.xxs + AppSpacing.xxs)
     ) {
         items(options, key = { it.name }) { filter ->
             val isSelected = selected == filter
@@ -483,7 +483,7 @@ private fun RecordTypeFilters(
                         style = MaterialTheme.typography.labelMedium
                     )
                 },
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(AppRadius.md),
                 border = FilterChipDefaults.filterChipBorder(
                     enabled = true,
                     selected = isSelected,
@@ -501,7 +501,46 @@ private fun RecordTypeFilters(
     }
 }
 
-private val GroupedSectionClip = RoundedCornerShape(14.dp)
+private const val TransactionIconWellSizeDp = 36
+
+@Composable
+private fun DateSectionHeader(
+    date: String,
+    dayIncome: Double,
+    dayExpense: Double,
+    currencyCode: String = "EUR",
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = date,
+            style = SectionLabelStyle,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm)) {
+            if (dayIncome > 0) {
+                MoneyText(
+                    text = "+${CurrencyUtils.formatAmount(dayIncome, currencyCode)}",
+                    size = MoneySize.Body,
+                    color = IncomeGreen,
+                )
+            }
+            if (dayExpense > 0) {
+                MoneyText(
+                    text = "−${CurrencyUtils.formatAmount(dayExpense, currencyCode)}",
+                    size = MoneySize.Body,
+                    color = ExpenseMuted,
+                )
+            }
+        }
+    }
+}
 
 @Composable
 private fun EmptyRecordState(
@@ -550,41 +589,7 @@ fun RecordHeader(
 
 @Composable
 fun DatePill(date: String, dayIncome: Double, dayExpense: Double, currencyCode: String = "EUR") {
-    val shape = RoundedCornerShape(AppRadius.card)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xxs)
-            .clip(shape)
-            .background(AppColors.CardSurface)
-            .border(AppElevation.cardBorder, AppColors.CardBorder, shape)
-            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = date,
-            style = MaterialTheme.typography.labelLarge,
-            color = AppColors.OnBackground,
-            fontWeight = FontWeight.SemiBold
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (dayIncome > 0) {
-                MoneyText(
-                    text = "+${CurrencyUtils.formatAmount(dayIncome, currencyCode)}",
-                    size = MoneySize.Body,
-                    color = IncomeGreen
-                )
-            }
-            if (dayExpense > 0) {
-                MoneyText(
-                    text = "−${CurrencyUtils.formatAmount(dayExpense, currencyCode)}",
-                    size = MoneySize.Body,
-                    color = ExpenseMuted
-                )
-            }
-        }
-    }
+    DateSectionHeader(date, dayIncome, dayExpense, currencyCode)
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -601,7 +606,7 @@ private fun SwipeableTransactionRow(
     onDeleteRequest: () -> Unit,
     onReceiptClick: (() -> Unit)? = null
 ) {
-    val rowBackground = AppColors.CardSurface
+    val rowBackground = MaterialTheme.colorScheme.surface
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             if (value == SwipeToDismissBoxValue.EndToStart) {
@@ -672,7 +677,7 @@ fun TransactionRow(
     val amountColor = when {
         expense.isIncome() -> IncomeGreen
         expense.isTransfer() -> TransferGray
-        else -> AppColors.OnBackground
+        else -> MaterialTheme.colorScheme.onBackground
     }
     val fillColor = categoryColor?.let { colorIntToCompose(it) }
     val stripeColor = fillColor ?: when {
@@ -682,32 +687,39 @@ fun TransactionRow(
     }
 
     Row(
-        modifier = modifier.padding(end = 14.dp, top = 10.dp, bottom = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
+        modifier = modifier.padding(
+            end = AppSpacing.sm + AppSpacing.xxs,
+            top = AppSpacing.sm - AppSpacing.xxs,
+            bottom = AppSpacing.sm - AppSpacing.xxs,
+        ),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
-                .width(3.dp)
+                .width(AppLayoutTokens.stripeWidth)
                 .height(40.dp)
-                .clip(RoundedCornerShape(topEnd = 2.dp, bottomEnd = 2.dp))
-                .background(stripeColor)
+                .clip(RoundedCornerShape(topEnd = AppRadius.xs, bottomEnd = AppRadius.xs))
+                .background(stripeColor),
         )
-        Spacer(modifier = Modifier.width(11.dp))
+        Spacer(modifier = Modifier.width(AppSpacing.sm - AppSpacing.xxs))
         Box(
             modifier = Modifier
-                .size(36.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(fillColor?.copy(alpha = 0.18f) ?: MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
-            contentAlignment = Alignment.Center
+                .size(TransactionIconWellSizeDp.dp)
+                .clip(RoundedCornerShape(AppRadius.md))
+                .background(
+                    fillColor?.copy(alpha = 0.18f)
+                        ?: MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                ),
+            contentAlignment = Alignment.Center,
         ) {
             Icon(
                 icon,
                 contentDescription = categoryName,
                 tint = fillColor ?: stripeColor,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(AppIconSize.sm),
             )
         }
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(AppSpacing.sm))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = categoryName,

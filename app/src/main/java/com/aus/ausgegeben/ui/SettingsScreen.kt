@@ -104,7 +104,7 @@ fun SettingsScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(AppColors.Background)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         ScreenTitle(
             title = stringResource(R.string.screen_settings),

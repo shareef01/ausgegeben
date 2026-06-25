@@ -52,11 +52,14 @@ import com.aus.ausgegeben.ui.components.SmoothIconButton
 import com.aus.ausgegeben.ui.components.smoothClickable
 import com.aus.ausgegeben.ui.components.MoneyText
 import com.aus.ausgegeben.ui.components.MoneySize
+import com.aus.ausgegeben.ui.components.appCard
+import com.aus.ausgegeben.ui.theme.appBorderColor
 import com.aus.ausgegeben.ui.theme.AppColorSpring
-import com.aus.ausgegeben.ui.theme.AppColors
+import com.aus.ausgegeben.ui.theme.AppIconSize
 import com.aus.ausgegeben.ui.theme.AppElevation
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
+import com.aus.ausgegeben.ui.theme.AppColors
 import com.aus.ausgegeben.ui.theme.IncomeGreen
 import com.aus.ausgegeben.ui.theme.TransferGray
 import com.aus.ausgegeben.util.CurrencyUtils
@@ -149,7 +152,11 @@ fun AddTransactionScreen(
     }
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dateMillis)
 
-    Column(modifier = modifier.fillMaxSize().background(AppColors.Background)) {
+    val sheetShape = RoundedCornerShape(topStart = AppRadius.cardLarge, topEnd = AppRadius.cardLarge)
+    val dockBorder = appBorderColor()
+    val surfaceColor = MaterialTheme.colorScheme.surface
+
+    Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -195,7 +202,7 @@ fun AddTransactionScreen(
                 ),
                 selectedIndex = selectedTab,
                 onSelected = { selectedTab = it },
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.xxs)
             )
             DatePickerRow(
                 dateMillis = dateMillis,
@@ -217,7 +224,7 @@ fun AddTransactionScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 28.dp, vertical = 4.dp),
+                    .padding(horizontal = AppSpacing.md + AppSpacing.sm, vertical = AppSpacing.xxs),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -279,15 +286,16 @@ fun AddTransactionScreen(
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
             }
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(AppSpacing.lg))
             }
         }
-        val sheetShape = RoundedCornerShape(topStart = AppRadius.cardLarge, topEnd = AppRadius.cardLarge)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .clip(sheetShape)
+                .background(MaterialTheme.colorScheme.background)
+                .border(AppElevation.cardBorder, dockBorder, sheetShape)
                 .navigationBarsPadding()
-                .background(AppColors.Background)
         ) {
             Column(
                 modifier = Modifier
@@ -295,8 +303,7 @@ fun AddTransactionScreen(
                     .padding(horizontal = AppSpacing.md)
                     .padding(top = AppSpacing.sm, bottom = AppSpacing.xs)
                     .clip(RoundedCornerShape(AppRadius.card))
-                    .background(AppColors.CardSurface)
-                    .border(AppElevation.cardBorder, AppColors.CardBorder, RoundedCornerShape(AppRadius.card))
+                    .appCard(shape = RoundedCornerShape(AppRadius.card))
                     .padding(AppSpacing.md)
             ) {
                 selectedCategory?.let { category ->
@@ -323,8 +330,8 @@ fun AddTransactionScreen(
                     colors = ButtonDefaults.buttonColors(
                         containerColor = saveAccent,
                         contentColor = saveContentColor,
-                        disabledContainerColor = AppColors.CardSurface,
-                        disabledContentColor = AppColors.OnSurfaceVariant
+                        disabledContainerColor = surfaceColor,
+                        disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 ) {
                     Text(
@@ -349,7 +356,6 @@ fun AddTransactionScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(AppColors.Background)
                     .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm)
             )
         }
@@ -487,11 +493,11 @@ private fun AmountCard(
         amount.length > 7 -> 44.sp
         else -> 52.sp
     }
-    GroupedSection(modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)) {
+    GroupedSection(modifier = Modifier.padding(top = AppSpacing.xs, bottom = AppSpacing.xxs)) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 20.dp),
+                .padding(horizontal = AppSpacing.md, vertical = AppSpacing.md),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -500,7 +506,7 @@ private fun AmountCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.Medium
             )
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(AppSpacing.sm - AppSpacing.xxs))
             Row(
                 verticalAlignment = Alignment.Bottom,
                 horizontalArrangement = Arrangement.Center
@@ -510,7 +516,7 @@ private fun AmountCard(
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(end = 6.dp, bottom = 8.dp)
+                    modifier = Modifier.padding(end = AppSpacing.xxs + AppSpacing.xxs, bottom = AppSpacing.xs)
                 )
                 MoneyText(
                     text = amount,
@@ -522,7 +528,7 @@ private fun AmountCard(
             HorizontalDivider(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 16.dp),
+                    .padding(vertical = AppSpacing.md),
                 thickness = 0.5.dp,
                 color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
             )
@@ -553,7 +559,7 @@ private fun AmountCard(
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(top = 12.dp)
+                    modifier = Modifier.padding(top = AppSpacing.sm)
                 ) {
                     ReceiptThumbnail(uri = receiptPath, onClick = onReceiptClick)
                     TextButton(onClick = onClearReceipt) {
@@ -824,7 +830,8 @@ private fun CalcKey(
     val isBackspace = key == "back"
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
-    val bg = if (pressed) AppColors.NumpadPress else Color.Transparent
+    val pressedBg = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+    val bg = if (pressed) pressedBg else Color.Transparent
     Box(
         modifier = modifier
             .fillMaxHeight()
@@ -841,14 +848,14 @@ private fun CalcKey(
             Icon(
                 Icons.AutoMirrored.Rounded.Backspace,
                 contentDescription = stringResource(R.string.add_backspace),
-                tint = AppColors.OnBackground,
-                modifier = Modifier.size(24.dp)
+                tint = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.size(AppIconSize.lg)
             )
         } else {
             Text(
                 text = key,
                 style = MaterialTheme.typography.headlineMedium,
-                color = AppColors.OnBackground,
+                color = MaterialTheme.colorScheme.onBackground,
                 fontWeight = FontWeight.Medium
             )
         }
@@ -889,20 +896,20 @@ private fun DatePickerRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xxs + AppSpacing.xxs)
+            .clip(RoundedCornerShape(AppRadius.card))
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
             .smoothClickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             Icons.Rounded.CalendarToday,
             contentDescription = null,
             tint = accentColor,
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(AppIconSize.sm)
         )
-        Spacer(modifier = Modifier.width(10.dp))
+        Spacer(modifier = Modifier.width(AppSpacing.sm - AppSpacing.xxs))
         Text(
             text = stringResource(R.string.add_date_label),
             style = MaterialTheme.typography.labelLarge,

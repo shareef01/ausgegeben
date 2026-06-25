@@ -85,7 +85,10 @@ fun FinanceSummaryCard(
                 text = CurrencyUtils.formatAmount(net, currencyCode),
                 size = if (compact) MoneySize.Headline else MoneySize.Display,
                 color = netColor,
-                modifier = Modifier.padding(top = 6.dp, bottom = if (compact) 12.dp else 18.dp)
+                modifier = Modifier.padding(
+                    top = AppSpacing.xxs + AppSpacing.xxs,
+                    bottom = if (compact) AppSpacing.sm else AppSpacing.md + AppSpacing.xxs,
+                )
             )
 
             Row(
@@ -117,7 +120,7 @@ fun FinanceSummaryCard(
                     text = line,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 12.dp)
+                    modifier = Modifier.padding(top = AppSpacing.sm)
                 )
             }
 
@@ -131,7 +134,9 @@ fun FinanceSummaryCard(
                     ),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = if (insightLine != null) 6.dp else 12.dp)
+                    modifier = Modifier.padding(
+                        top = if (insightLine != null) AppSpacing.xxs + AppSpacing.xxs else AppSpacing.sm,
+                    )
                 )
             }
         }
