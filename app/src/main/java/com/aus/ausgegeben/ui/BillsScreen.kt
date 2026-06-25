@@ -49,7 +49,9 @@ import com.aus.ausgegeben.ui.components.MoneyText
 import com.aus.ausgegeben.ui.components.ScreenTitle
 import com.aus.ausgegeben.ui.components.appCard
 import com.aus.ausgegeben.ui.components.tabScreenListBottomPadding
-import com.aus.ausgegeben.ui.theme.AppColors
+import com.aus.ausgegeben.ui.theme.ExpenseMuted
+import com.aus.ausgegeben.ui.theme.IncomeGreen
+import com.aus.ausgegeben.ui.theme.AppLayoutTokens
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.SystemViolet
@@ -159,7 +161,7 @@ fun BillsScreen(
                         if (hasExpenseChart) {
                             CategoryAnalyticsCard(
                                 title = stringResource(R.string.bills_section_expenses),
-                                accent = AppColors.Expense,
+                                accent = ExpenseMuted,
                                 data = uiState.expensesByCategory,
                                 currencyCode = currencyCode,
                             )
@@ -167,7 +169,7 @@ fun BillsScreen(
                         if (hasIncomeChart) {
                             CategoryAnalyticsCard(
                                 title = stringResource(R.string.bills_section_income),
-                                accent = AppColors.Income,
+                                accent = IncomeGreen,
                                 data = uiState.incomeByCategory,
                                 currencyCode = currencyCode,
                             )
@@ -306,7 +308,7 @@ private fun CompactCategoryRow(
                 MoneyText(
                     text = CurrencyUtils.formatAmount(amount, currencyCode, showSymbol = true),
                     size = MoneySize.Body,
-                    color = AppColors.OnBackground
+                    color = MaterialTheme.colorScheme.onBackground
                 )
             }
             Text(
@@ -401,15 +403,15 @@ fun CategoryProgressRow(
     ) {
         Box(
             modifier = Modifier
-                .width(3.dp)
+                .width(AppLayoutTokens.stripeWidth)
                 .height(40.dp)
-                .clip(RoundedCornerShape(2.dp))
+                .clip(RoundedCornerShape(AppRadius.xs))
                 .background(displayColor)
         )
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(AppSpacing.sm))
         Box(
             modifier = Modifier
-                .size(34.dp)
+                .size(AppSpacing.lg + AppSpacing.sm + AppSpacing.xxs)
                 .clip(CircleShape)
                 .background(displayColor.copy(alpha = 0.18f))
                 .border(1.dp, displayColor.copy(alpha = 0.35f), CircleShape),
@@ -427,7 +429,7 @@ fun CategoryProgressRow(
             Text(
                 text = category.name,
                 style = MaterialTheme.typography.bodyMedium,
-                color = AppColors.OnBackground,
+                color = MaterialTheme.colorScheme.onBackground,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -440,7 +442,7 @@ fun CategoryProgressRow(
             MoneyText(
                 text = CurrencyUtils.formatAmount(amount, currencyCode, showSymbol = true),
                 size = MoneySize.Title,
-                color = AppColors.OnBackground
+                color = MaterialTheme.colorScheme.onBackground
             )
             Text(
                 text = "$pct%",

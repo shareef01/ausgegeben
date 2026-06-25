@@ -22,7 +22,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aus.ausgegeben.R
-import com.aus.ausgegeben.ui.theme.AppColors
+import com.aus.ausgegeben.ui.theme.AppRadius
+import com.aus.ausgegeben.ui.theme.AppSpacing
+import com.aus.ausgegeben.ui.theme.appBorderColor
 
 @Composable
 fun AppBrandMark(
@@ -37,18 +39,25 @@ fun AppBrandMark(
         Box(
             modifier = Modifier
                 .size(if (compact) 28.dp else 36.dp)
-                .clip(RoundedCornerShape(if (compact) 8.dp else 10.dp))
+                .clip(RoundedCornerShape(if (compact) AppRadius.sm else AppRadius.md))
                 .background(
                     Brush.linearGradient(
-                        listOf(AppColors.CardSurface, Color(0xFF27272A))
-                    )
+                        listOf(
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant,
+                        ),
+                    ),
                 )
-                .border(1.dp, AppColors.CardBorder, RoundedCornerShape(if (compact) 8.dp else 10.dp)),
+                .border(
+                    1.dp,
+                    appBorderColor(),
+                    RoundedCornerShape(if (compact) AppRadius.sm else AppRadius.md),
+                ),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = "€",
-                color = AppColors.OnBackground,
+                color = MaterialTheme.colorScheme.onBackground,
                 fontWeight = FontWeight.Bold,
                 fontSize = if (compact) 14.sp else 18.sp
             )
@@ -78,6 +87,6 @@ fun AppBrandDot(modifier: Modifier = Modifier) {
         modifier = modifier
             .size(8.dp)
             .clip(CircleShape)
-            .background(AppColors.OnSurfaceVariant)
+            .background(MaterialTheme.colorScheme.onSurfaceVariant)
     )
 }
