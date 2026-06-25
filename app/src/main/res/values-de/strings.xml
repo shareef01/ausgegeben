@@ -125,6 +125,10 @@
     <string name="theme_system">System</string>
     <string name="theme_dark">Dunkel</string>
     <string name="theme_light">Hell</string>
+    <string name="theme_amoled">AMOLED Schwarz</string>
+    <string name="theme_midnight">Mitternachtsblau</string>
+    <string name="theme_ocean">Ozean Türkis</string>
+    <string name="theme_soft_light">Warm hell</string>
 
     <string name="onboarding_title_track">Jede Ausgabe erfassen</string>
     <string name="onboarding_body_track">Ausgaben, Einnahmen und Umbuchungen in Sekunden. Alles bleibt auf diesem Gerät.</string>
