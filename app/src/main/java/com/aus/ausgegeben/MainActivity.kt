@@ -78,7 +78,6 @@ import com.aus.ausgegeben.ui.components.AppScreen
 import com.aus.ausgegeben.ui.components.CameraPermissionDenied
 import com.aus.ausgegeben.ui.components.MainBottomBar
 import com.aus.ausgegeben.ui.components.MainTabPager
-import com.aus.ausgegeben.ui.theme.AppColors
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AusgegebenTheme
 import com.aus.ausgegeben.ui.theme.ThemeMode
@@ -259,8 +258,8 @@ fun MainApp(
                 if (showBottomNav && selectedTab == Route.ExpenseList) {
                     FloatingActionButton(
                         onClick = ::openAddFlow,
-                        containerColor = AppColors.Accent,
-                        contentColor = AppColors.OnAccent,
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
                         elevation = FloatingActionButtonDefaults.elevation(
                             defaultElevation = 4.dp,
                             pressedElevation = 8.dp,
