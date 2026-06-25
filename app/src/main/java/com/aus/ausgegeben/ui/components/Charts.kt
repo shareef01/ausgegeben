@@ -90,7 +90,7 @@ fun IncomeExpenseOverviewChart(
             .padding(vertical = AppSpacing.md)
     ) {
         Text(
-            text = stringResource(R.string.chart_overview_title).uppercase(),
+            text = stringResource(R.string.chart_overview_title),
             style = MaterialTheme.typography.labelSmall,
             color = onSurfaceVariant,
             fontWeight = FontWeight.SemiBold,
@@ -171,7 +171,7 @@ fun IncomeExpenseOverviewChart(
                     }
                 )
                 Text(
-                    text = stringResource(R.string.chart_net_label).uppercase(),
+                    text = stringResource(R.string.chart_net_label),
                     style = MaterialTheme.typography.labelSmall,
                     color = onSurfaceVariant,
                     modifier = Modifier.padding(top = 2.dp)
@@ -228,7 +228,7 @@ private fun OverviewLegendItem(
         Spacer(modifier = Modifier.width(AppSpacing.xs))
         Column {
             Text(
-                text = label.uppercase(),
+                text = label,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.SemiBold
@@ -363,7 +363,7 @@ fun DonutChart(
                     )
                     if (centerSubLabel != null) {
                         Text(
-                            text = centerSubLabel.uppercase(),
+                            text = centerSubLabel,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
