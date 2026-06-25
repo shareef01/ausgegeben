@@ -122,8 +122,8 @@ fun AddTransactionScreen(
         }
     }
     BackHandler(onBack = onBack)
-    val saveAccent = MaterialTheme.colorScheme.primary
-    val saveContentColor = MaterialTheme.colorScheme.onPrimary
+    val saveAccent = MaterialTheme.colorScheme.onBackground
+    val saveContentColor = MaterialTheme.colorScheme.background
     val typeAccent by animateColorAsState(
         targetValue = when (transactionType) {
             TransactionType.INCOME -> IncomeGreen
@@ -151,9 +151,6 @@ fun AddTransactionScreen(
         else -> stringResource(R.string.add_expense)
     }
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dateMillis)
-
-    val sheetShape = RoundedCornerShape(topStart = AppRadius.cardLarge, topEnd = AppRadius.cardLarge)
-    val dockBorder = appBorderColor()
     val surfaceColor = MaterialTheme.colorScheme.surface
 
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -171,7 +168,7 @@ fun AddTransactionScreen(
             Text(
                 text = if (isEditing) stringResource(R.string.add_edit_title) else stringResource(R.string.add_new_title),
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Normal,
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier
                     .weight(1f)
@@ -292,19 +289,14 @@ fun AddTransactionScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(sheetShape)
                 .background(MaterialTheme.colorScheme.background)
-                .border(AppElevation.cardBorder, dockBorder, sheetShape)
                 .navigationBarsPadding()
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = AppSpacing.md)
-                    .padding(top = AppSpacing.sm, bottom = AppSpacing.xs)
-                    .clip(RoundedCornerShape(AppRadius.card))
-                    .appCard(shape = RoundedCornerShape(AppRadius.card))
-                    .padding(AppSpacing.md)
+                    .padding(top = AppSpacing.sm, bottom = AppSpacing.xs),
             ) {
                 selectedCategory?.let { category ->
                     SelectedCategoryChip(category = category, accentColor = typeAccent)

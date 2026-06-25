@@ -257,18 +257,19 @@ fun MainApp(
                 if (showBottomNav && selectedTab == Route.ExpenseList) {
                     FloatingActionButton(
                         onClick = ::openAddFlow,
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        containerColor = MaterialTheme.colorScheme.onBackground,
+                        contentColor = MaterialTheme.colorScheme.background,
                         elevation = FloatingActionButtonDefaults.elevation(
-                            defaultElevation = 4.dp,
-                            pressedElevation = 8.dp,
+                            defaultElevation = 0.dp,
+                            pressedElevation = 2.dp,
                         ),
                         shape = CircleShape,
+                        modifier = Modifier.size(52.dp),
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Add,
                             contentDescription = stringResource(R.string.nav_add_transaction),
-                            modifier = Modifier.size(24.dp),
+                            modifier = Modifier.size(22.dp),
                         )
                     }
                 }
@@ -278,7 +279,7 @@ fun MainApp(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surface),
+                            .background(MaterialTheme.colorScheme.background),
                     ) {
                         MainBottomBar(
                             currentRoute = selectedTab,
@@ -292,7 +293,7 @@ fun MainApp(
                             Modifier
                                 .fillMaxWidth()
                                 .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                                .background(MaterialTheme.colorScheme.surface),
+                                .background(MaterialTheme.colorScheme.background),
                         )
                     }
                 }
