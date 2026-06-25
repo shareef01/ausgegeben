@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
@@ -29,17 +30,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.aus.ausgegeben.ui.theme.AppColors
+import com.aus.ausgegeben.ui.theme.AppDpSpring
 import com.aus.ausgegeben.ui.theme.AppElevation
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
-import com.aus.ausgegeben.ui.theme.AppDpSpring
 import com.aus.ausgegeben.ui.theme.AppSpringSnappy
 import com.aus.ausgegeben.ui.theme.CapsuleShape
 import com.aus.ausgegeben.ui.theme.GroupedShape
 import com.aus.ausgegeben.ui.theme.SectionLabelStyle
-import com.aus.ausgegeben.ui.theme.SurfaceBorderDark
 import com.aus.ausgegeben.ui.theme.SurfaceBorderLight
-import androidx.compose.foundation.isSystemInDarkTheme
 
 @Composable
 fun Modifier.appCard(
@@ -47,11 +47,12 @@ fun Modifier.appCard(
     horizontalPadding: Dp = 0.dp
 ): Modifier {
     val isDark = isSystemInDarkTheme()
-    val borderColor = if (isDark) SurfaceBorderDark else SurfaceBorderLight
+    val surface = if (isDark) AppColors.CardSurface else MaterialTheme.colorScheme.surface
+    val borderColor = if (isDark) AppColors.CardBorder else SurfaceBorderLight
     return this
         .then(if (horizontalPadding > 0.dp) Modifier.padding(horizontal = horizontalPadding) else Modifier)
         .clip(shape)
-        .background(MaterialTheme.colorScheme.surface)
+        .background(surface)
         .border(AppElevation.cardBorder, borderColor, shape)
 }
 
@@ -64,13 +65,14 @@ fun ScreenTitle(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = AppSpacing.md + AppSpacing.xxs)
+            .background(AppColors.Background)
+            .padding(horizontal = AppSpacing.lg)
             .padding(top = AppSpacing.xs, bottom = AppSpacing.sm)
     ) {
         Text(
             text = title,
             style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground,
+            color = AppColors.OnBackground,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.semantics { heading() }
         )
@@ -78,25 +80,11 @@ fun ScreenTitle(
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppColors.OnSurfaceVariant,
                 modifier = Modifier.padding(top = AppSpacing.xxs)
             )
         }
     }
-}
-
-@Composable
-fun BrandedScreenHeader(
-    accentLetter: Char,
-    titleRest: String,
-    subtitle: String? = null,
-    modifier: Modifier = Modifier
-) {
-    ScreenTitle(
-        title = accentLetter + titleRest,
-        subtitle = subtitle,
-        modifier = modifier
-    )
 }
 
 @Composable
@@ -122,10 +110,10 @@ fun GroupedSectionLabel(
     Text(
         text = if (uppercase) text.uppercase() else text,
         style = SectionLabelStyle,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        color = AppColors.OnSurfaceVariant,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = AppSpacing.md + AppSpacing.xxs, vertical = AppSpacing.xs)
+            .padding(horizontal = AppSpacing.lg, vertical = AppSpacing.xs)
     )
 }
 
@@ -133,14 +121,11 @@ fun GroupedSectionLabel(
 fun IosSeparator(modifier: Modifier = Modifier, insetStart: Dp = 68.dp) {
     HorizontalDivider(
         modifier = modifier.padding(start = insetStart),
-        thickness = 0.5.dp,
-        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+        thickness = 1.dp,
+        color = AppColors.CardBorder
     )
 }
 
-/**
- * Premium pill segmented control with smooth sliding indicator.
- */
 @Composable
 fun IosSegmentedControl(
     options: List<String>,
@@ -150,9 +135,8 @@ fun IosSegmentedControl(
 ) {
     val trackShape = RoundedCornerShape(AppRadius.pill)
     val indicatorShape = RoundedCornerShape(AppRadius.pill)
-    val trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
     val isDark = isSystemInDarkTheme()
-    val trackBorder = if (isDark) SurfaceBorderDark else SurfaceBorderLight
+    val trackColor = if (isDark) AppColors.Background else MaterialTheme.colorScheme.surfaceVariant
     val innerPadding = 4.dp
     val safeIndex = selectedIndex.coerceIn(0, (options.size - 1).coerceAtLeast(0))
 
@@ -162,10 +146,10 @@ fun IosSegmentedControl(
             .height(40.dp)
             .clip(trackShape)
             .background(trackColor)
-            .border(AppElevation.cardBorder, trackBorder, trackShape)
+            .border(AppElevation.cardBorder, AppColors.CardBorder, trackShape)
             .padding(innerPadding)
     ) {
-        val segmentWidth = (maxWidth - innerPadding * 0) / options.size.coerceAtLeast(1)
+        val segmentWidth = maxWidth / options.size.coerceAtLeast(1)
         val indicatorOffset by animateDpAsState(
             targetValue = segmentWidth * safeIndex,
             animationSpec = AppDpSpring,
@@ -178,12 +162,8 @@ fun IosSegmentedControl(
                 .width(segmentWidth)
                 .fillMaxHeight()
                 .clip(indicatorShape)
-                .background(MaterialTheme.colorScheme.surface)
-                .border(
-                    AppElevation.cardBorder,
-                    MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
-                    indicatorShape
-                )
+                .background(if (isDark) AppColors.CardSurface else MaterialTheme.colorScheme.surface)
+                .border(AppElevation.cardBorder, AppColors.CardBorder, indicatorShape)
         )
 
         Row(modifier = Modifier.fillMaxSize()) {
@@ -200,12 +180,11 @@ fun IosSegmentedControl(
                         text = label,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                        color = if (selected) MaterialTheme.colorScheme.onBackground
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (selected) AppColors.OnBackground else AppColors.OnSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 4.dp)
+                        modifier = Modifier.padding(horizontal = AppSpacing.xxs)
                     )
                 }
             }
@@ -240,7 +219,7 @@ fun SmoothIconButton(
     onClick: () -> Unit,
     icon: ImageVector,
     contentDescription: String?,
-    tint: Color = MaterialTheme.colorScheme.onBackground,
+    tint: Color = AppColors.OnBackground,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -250,24 +229,6 @@ fun SmoothIconButton(
             .smoothClickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        AppIcon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = tint
-        )
+        AppIcon(imageVector = icon, contentDescription = contentDescription, tint = tint)
     }
-}
-
-@Composable
-fun IosLargeTitle(
-    title: String,
-    accentLetter: Char? = null,
-    subtitle: String? = null,
-    modifier: Modifier = Modifier
-) {
-    ScreenTitle(
-        title = if (accentLetter != null) accentLetter + title else title,
-        subtitle = subtitle,
-        modifier = modifier
-    )
 }

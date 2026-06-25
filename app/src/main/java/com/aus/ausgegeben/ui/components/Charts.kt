@@ -33,10 +33,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
+import com.aus.ausgegeben.ui.theme.AppColors
 import com.aus.ausgegeben.ui.theme.AppSpacing
+import com.aus.ausgegeben.ui.theme.ChartStrokeWidth
 import com.aus.ausgegeben.ui.theme.chartColorAt
 import com.aus.ausgegeben.ui.theme.forChartDisplay
 import com.aus.ausgegeben.util.CurrencyUtils
+
+private val DONUT_STROKE = ChartStrokeWidth
 
 @Composable
 fun DonutChart(
@@ -45,15 +49,12 @@ fun DonutChart(
     colors: Map<String, Color> = emptyMap(),
     centerLabel: String? = null,
     centerSubLabel: String? = null,
-    chartSize: Dp = 160.dp,
-    strokeWidth: Dp = 9.dp
+    chartSize: Dp = 148.dp
 ) {
     val total = data.values.sum()
     val sorted = data.entries.sortedByDescending { it.value }
-    val colorScheme = MaterialTheme.colorScheme
-    val primary = colorScheme.primary
-    val trackColor = primary.copy(alpha = 0.08f)
-    val holeColor = colorScheme.surface
+    val trackColor = AppColors.Expense.copy(alpha = 0.08f)
+    val holeColor = AppColors.CardSurface
 
     val chartDescription = if (total <= 0.0) {
         stringResource(R.string.chart_no_data)
@@ -90,7 +91,7 @@ fun DonutChart(
             contentAlignment = Alignment.Center
         ) {
             Canvas(modifier = Modifier.size(chartSize)) {
-                val strokePx = strokeWidth.toPx()
+                val strokePx = DONUT_STROKE.toPx()
                 val arcSize = size.minDimension - strokePx * 2f
                 val arcTopLeft = Offset(strokePx, strokePx)
                 val arcBoxSize = Size(arcSize, arcSize)
@@ -107,7 +108,7 @@ fun DonutChart(
 
                 if (total > 0.0) {
                     var startAngle = -90f
-                    val gapDegrees = if (sorted.size > 1) 2.5f else 0f
+                    val gapDegrees = if (sorted.size > 1) 2f else 0f
 
                     sorted.forEachIndexed { index, (name, value) ->
                         val fullSweep =
@@ -127,7 +128,7 @@ fun DonutChart(
                     }
                 }
 
-                val holeRadius = (size.minDimension / 2f) - strokePx * 1.4f
+                val holeRadius = (size.minDimension / 2f) - strokePx * 1.5f
                 drawCircle(color = holeColor, radius = holeRadius, center = center)
             }
 
@@ -139,14 +140,14 @@ fun DonutChart(
                     MoneyText(
                         text = centerLabel,
                         size = MoneySize.Headline,
-                        color = MaterialTheme.colorScheme.onBackground,
+                        color = AppColors.OnBackground,
                         modifier = Modifier.padding(horizontal = AppSpacing.xxs)
                     )
                     if (centerSubLabel != null) {
                         Text(
                             text = centerSubLabel.uppercase(),
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = AppColors.OnSurfaceVariant,
                             modifier = Modifier.padding(top = 2.dp)
                         )
                     }
@@ -166,7 +167,7 @@ private fun ChartSegmentBar(
         modifier = modifier
             .height(4.dp)
             .clip(shape)
-            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.06f))
+            .background(AppColors.Expense.copy(alpha = 0.08f))
     ) {
         segments.forEach { (color, weight) ->
             if (weight > 0f) {
