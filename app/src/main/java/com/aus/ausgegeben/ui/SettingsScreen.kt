@@ -507,7 +507,7 @@ private fun SettingIconWell(icon: ImageVector, contentDescription: String) {
         modifier = Modifier
             .size(36.dp)
             .clip(RoundedCornerShape(AppRadius.sm + AppSpacing.xxs))
-            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)),
         contentAlignment = Alignment.Center
     ) {
         Icon(
