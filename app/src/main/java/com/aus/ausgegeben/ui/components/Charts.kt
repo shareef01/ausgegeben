@@ -43,10 +43,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.theme.AppChartRevealSpring
-import com.aus.ausgegeben.ui.theme.AppColors
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.ChartStrokeWidth
+import com.aus.ausgegeben.ui.theme.ExpenseMuted
+import com.aus.ausgegeben.ui.theme.IncomeGreen
+import com.aus.ausgegeben.ui.theme.appDividerColor
 import com.aus.ausgegeben.ui.theme.chartColorAt
 import com.aus.ausgegeben.ui.theme.forChartDisplay
 import com.aus.ausgegeben.util.CurrencyUtils
@@ -76,6 +78,9 @@ fun IncomeExpenseOverviewChart(
 
     val cardShape = RoundedCornerShape(AppRadius.lg)
     val chartSurface = MaterialTheme.colorScheme.surface
+    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+    val onBackground = MaterialTheme.colorScheme.onBackground
+    val chartTrack = appDividerColor()
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -87,7 +92,7 @@ fun IncomeExpenseOverviewChart(
         Text(
             text = stringResource(R.string.chart_overview_title).uppercase(),
             style = MaterialTheme.typography.labelSmall,
-            color = AppColors.OnSurfaceVariant,
+            color = onSurfaceVariant,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier
                 .padding(horizontal = AppSpacing.md)
@@ -110,7 +115,7 @@ fun IncomeExpenseOverviewChart(
                 val reveal = progress.value
 
                 drawArc(
-                    color = AppColors.CardBorder,
+                    color = chartTrack,
                     startAngle = 0f,
                     sweepAngle = 360f,
                     useCenter = false,
@@ -122,7 +127,7 @@ fun IncomeExpenseOverviewChart(
                 val expenseSweep = ((expenseRatio * 360f) - gap).coerceAtLeast(0.5f) * reveal
                 if (expenseSweep > 0f) {
                     drawArc(
-                        color = AppColors.Expense,
+                        color = ExpenseMuted,
                         startAngle = -90f + gap / 2f,
                         sweepAngle = expenseSweep,
                         useCenter = false,
@@ -136,7 +141,7 @@ fun IncomeExpenseOverviewChart(
                 if (incomeSweep > 0f) {
                     val incomeStart = -90f + expenseRatio * 360f * reveal + gap / 2f
                     drawArc(
-                        color = AppColors.Income,
+                        color = IncomeGreen,
                         startAngle = incomeStart,
                         sweepAngle = incomeSweep,
                         useCenter = false,
@@ -160,15 +165,15 @@ fun IncomeExpenseOverviewChart(
                     text = CurrencyUtils.formatAmount(net, currencyCode),
                     size = MoneySize.Headline,
                     color = when {
-                        net > 0 -> AppColors.Income
-                        net < 0 -> AppColors.Expense
-                        else -> AppColors.OnBackground
+                        net > 0 -> IncomeGreen
+                        net < 0 -> ExpenseMuted
+                        else -> onBackground
                     }
                 )
                 Text(
                     text = stringResource(R.string.chart_net_label).uppercase(),
                     style = MaterialTheme.typography.labelSmall,
-                    color = AppColors.OnSurfaceVariant,
+                    color = onSurfaceVariant,
                     modifier = Modifier.padding(top = 2.dp)
                 )
             }
@@ -181,7 +186,7 @@ fun IncomeExpenseOverviewChart(
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             OverviewLegendItem(
-                color = AppColors.Expense,
+                color = ExpenseMuted,
                 label = stringResource(R.string.summary_spent),
                 value = CurrencyUtils.formatAmount(expenseTotal, currencyCode),
                 percent = (expenseRatio * 100).toInt(),
@@ -189,7 +194,7 @@ fun IncomeExpenseOverviewChart(
                 stagger = 0.1f,
             )
             OverviewLegendItem(
-                color = AppColors.Income,
+                color = IncomeGreen,
                 label = stringResource(R.string.summary_earned),
                 value = CurrencyUtils.formatAmount(incomeTotal, currencyCode),
                 percent = (incomeRatio * 100).toInt(),
@@ -225,7 +230,7 @@ private fun OverviewLegendItem(
             Text(
                 text = label.uppercase(),
                 style = MaterialTheme.typography.labelSmall,
-                color = AppColors.OnSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.SemiBold
             )
             MoneyText(text = value, size = MoneySize.Body, color = color)
@@ -251,7 +256,7 @@ fun DonutChart(
 ) {
     val total = data.values.sum()
     val sorted = data.entries.sortedByDescending { it.value }
-    val trackColor = AppColors.OnSurfaceVariant.copy(alpha = 0.12f)
+    val trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
     val holeColor = MaterialTheme.colorScheme.surface
     val animationKey = remember(data) { data.entries.sortedBy { it.key }.hashCode() }
     val progress = remember { Animatable(0f) }
@@ -353,14 +358,14 @@ fun DonutChart(
                     MoneyText(
                         text = centerLabel,
                         size = if (compact) MoneySize.Title else MoneySize.Headline,
-                        color = AppColors.OnBackground,
+                        color = MaterialTheme.colorScheme.onBackground,
                         modifier = Modifier.padding(horizontal = AppSpacing.xxs)
                     )
                     if (centerSubLabel != null) {
                         Text(
                             text = centerSubLabel.uppercase(),
                             style = MaterialTheme.typography.labelSmall,
-                            color = AppColors.OnSurfaceVariant,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.padding(top = 2.dp)
                         )
@@ -382,7 +387,7 @@ private fun AnimatedChartSegmentBar(
         modifier = modifier
             .height(4.dp)
             .clip(shape)
-            .background(AppColors.OnSurfaceVariant.copy(alpha = 0.12f))
+            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
     ) {
         segments.forEach { (color, weight) ->
             if (weight > 0f) {

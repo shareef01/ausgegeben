@@ -59,7 +59,7 @@ import com.aus.ausgegeben.ui.theme.AppIconSize
 import com.aus.ausgegeben.ui.theme.AppElevation
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
-import com.aus.ausgegeben.ui.theme.AppColors
+import com.aus.ausgegeben.ui.theme.ExpenseMuted
 import com.aus.ausgegeben.ui.theme.IncomeGreen
 import com.aus.ausgegeben.ui.theme.TransferGray
 import com.aus.ausgegeben.util.CurrencyUtils
@@ -122,13 +122,13 @@ fun AddTransactionScreen(
         }
     }
     BackHandler(onBack = onBack)
-    val saveAccent = AppColors.Accent
-    val saveContentColor = AppColors.OnAccent
+    val saveAccent = MaterialTheme.colorScheme.primary
+    val saveContentColor = MaterialTheme.colorScheme.onPrimary
     val typeAccent by animateColorAsState(
         targetValue = when (transactionType) {
             TransactionType.INCOME -> IncomeGreen
             TransactionType.TRANSFER -> TransferGray
-            else -> AppColors.Expense
+            else -> ExpenseMuted
         },
         animationSpec = AppColorSpring,
         label = "typeAccent"

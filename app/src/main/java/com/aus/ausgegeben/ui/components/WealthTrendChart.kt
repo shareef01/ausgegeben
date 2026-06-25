@@ -29,9 +29,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.theme.AppChartRevealSpring
-import com.aus.ausgegeben.ui.theme.AppColors
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
+import com.aus.ausgegeben.ui.theme.ExpenseMuted
+import com.aus.ausgegeben.ui.theme.IncomeGreen
+import com.aus.ausgegeben.ui.theme.appDividerColor
 import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.WealthTrendPoint
 import kotlin.math.abs
@@ -49,7 +51,7 @@ fun WealthTrendChart(
     val start = points.first().cumulativeNet
     val delta = latest.cumulativeNet - start
     val isPositive = delta >= 0
-    val trendColor = if (isPositive) AppColors.Income else AppColors.Expense
+    val trendColor = if (isPositive) IncomeGreen else ExpenseMuted
     val animationKey = remember(points) { points.map { it.bucketStartMillis }.hashCode() }
 
     val reveal = remember { Animatable(0f) }
@@ -59,6 +61,8 @@ fun WealthTrendChart(
     }
 
     val cardShape = RoundedCornerShape(AppRadius.lg)
+    val dividerColor = appDividerColor()
+    val chartSurfaceColor = MaterialTheme.colorScheme.surface
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -78,19 +82,19 @@ fun WealthTrendChart(
                     text = stringResource(R.string.chart_wealth_trend_title),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
-                    color = AppColors.OnBackground,
+                    color = MaterialTheme.colorScheme.onBackground,
                 )
                 Text(
                     text = stringResource(R.string.chart_wealth_trend_subtitle),
                     style = MaterialTheme.typography.bodySmall,
-                    color = AppColors.OnSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Column(horizontalAlignment = Alignment.End) {
                 MoneyText(
                     text = CurrencyUtils.formatAmount(latest.cumulativeNet, currencyCode, showSymbol = true),
                     size = MoneySize.Title,
-                    color = if (latest.cumulativeNet >= 0) AppColors.Income else AppColors.Expense,
+                    color = if (latest.cumulativeNet >= 0) IncomeGreen else ExpenseMuted,
                 )
                 Text(
                     text = stringResource(
@@ -138,7 +142,7 @@ fun WealthTrendChart(
 
             if (zeroY != null) {
                 drawLine(
-                    color = AppColors.CardBorder,
+                    color = dividerColor,
                     start = Offset(padX, zeroY),
                     end = Offset(padX + chartW, zeroY),
                     strokeWidth = 1.dp.toPx(),
@@ -199,7 +203,7 @@ fun WealthTrendChart(
                 center = endpoint,
             )
             drawCircle(
-                color = AppColors.CardSurface,
+                color = chartSurfaceColor,
                 radius = dotR * 0.4f,
                 center = endpoint,
             )
@@ -212,12 +216,12 @@ fun WealthTrendChart(
             Text(
                 text = points.first().label,
                 style = MaterialTheme.typography.labelSmall,
-                color = AppColors.OnSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
                 text = points.last().label,
                 style = MaterialTheme.typography.labelSmall,
-                color = AppColors.OnSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
