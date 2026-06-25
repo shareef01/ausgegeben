@@ -5,6 +5,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -72,10 +73,14 @@ import com.aus.ausgegeben.ui.components.IosSegmentedControl
 import com.aus.ausgegeben.ui.components.IosSeparator
 import com.aus.ausgegeben.ui.components.ReceiptImageDialog
 import com.aus.ausgegeben.ui.components.ScreenTitle
-import com.aus.ausgegeben.ui.components.recordListBottomPadding
-import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.components.MoneyText
 import com.aus.ausgegeben.ui.components.MoneySize
+import com.aus.ausgegeben.ui.components.recordListBottomPadding
+import com.aus.ausgegeben.ui.theme.AppColors
+import com.aus.ausgegeben.ui.theme.AppElevation
+import com.aus.ausgegeben.ui.theme.AppRadius
+import com.aus.ausgegeben.ui.theme.AppSpacing
+import com.aus.ausgegeben.ui.theme.ExpenseMuted
 import com.aus.ausgegeben.ui.theme.IncomeGreen
 import com.aus.ausgegeben.ui.theme.TransferGray
 import com.aus.ausgegeben.util.AnalyticsPeriod
@@ -347,7 +352,7 @@ private fun RecordListToolbar(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.background)
+            .background(AppColors.Background)
             .padding(bottom = AppSpacing.xs)
     ) {
         Row(
@@ -540,20 +545,22 @@ fun RecordHeader(
 
 @Composable
 fun DatePill(date: String, dayIncome: Double, dayExpense: Double, currencyCode: String = "EUR") {
+    val shape = RoundedCornerShape(AppRadius.card)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
-            .padding(horizontal = 14.dp, vertical = 8.dp),
+            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xxs)
+            .clip(shape)
+            .background(AppColors.CardSurface)
+            .border(AppElevation.cardBorder, AppColors.CardBorder, shape)
+            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = date,
             style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onBackground,
+            color = AppColors.OnBackground,
             fontWeight = FontWeight.SemiBold
         )
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -568,7 +575,7 @@ fun DatePill(date: String, dayIncome: Double, dayExpense: Double, currencyCode: 
                 MoneyText(
                     text = "−${CurrencyUtils.formatAmount(dayExpense, currencyCode)}",
                     size = MoneySize.Body,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = ExpenseMuted
                 )
             }
         }
@@ -589,7 +596,7 @@ private fun SwipeableTransactionRow(
     onDeleteRequest: () -> Unit,
     onReceiptClick: (() -> Unit)? = null
 ) {
-    val rowBackground = MaterialTheme.colorScheme.surface
+    val rowBackground = AppColors.CardSurface
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             if (value == SwipeToDismissBoxValue.EndToStart) {
@@ -612,7 +619,7 @@ private fun SwipeableTransactionRow(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.error),
+                    .background(ExpenseMuted),
                 contentAlignment = Alignment.CenterEnd
             ) {
                 Icon(
@@ -660,7 +667,7 @@ fun TransactionRow(
     val amountColor = when {
         expense.isIncome() -> IncomeGreen
         expense.isTransfer() -> TransferGray
-        else -> MaterialTheme.colorScheme.onBackground
+        else -> AppColors.OnBackground
     }
     val fillColor = categoryColor?.let { colorIntToCompose(it) }
     val stripeColor = fillColor ?: when {

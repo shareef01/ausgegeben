@@ -32,9 +32,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
+import com.aus.ausgegeben.ui.theme.AppColors
+import com.aus.ausgegeben.ui.theme.AppRadius
+import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.ExpenseMuted
 import com.aus.ausgegeben.ui.theme.IncomeGreen
-import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.util.CurrencyUtils
 
 @Composable
@@ -50,11 +52,11 @@ fun FinanceSummaryCard(
     compact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(AppSpacing.lg - AppSpacing.xxs)
+    val shape = RoundedCornerShape(AppRadius.card)
     val netColor = when {
         net > 0 -> IncomeGreen
         net < 0 -> ExpenseMuted
-        else -> MaterialTheme.colorScheme.onBackground
+        else -> AppColors.OnBackground
     }
     val contentPadding = if (compact) AppSpacing.md else AppSpacing.lg
 
@@ -71,7 +73,7 @@ fun FinanceSummaryCard(
             Text(
                 text = stringResource(R.string.summary_balance_period, periodLabel).uppercase(),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppColors.OnSurfaceVariant,
                 fontWeight = FontWeight.SemiBold
             )
             MoneyText(
@@ -109,7 +111,7 @@ fun FinanceSummaryCard(
                 Text(
                     text = line,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppColors.OnSurfaceVariant,
                     modifier = Modifier.padding(top = 12.dp)
                 )
             }
@@ -123,7 +125,7 @@ fun FinanceSummaryCard(
                         CurrencyUtils.formatAmount(transferTotal, currencyCode)
                     ),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppColors.OnSurfaceVariant,
                     modifier = Modifier.padding(top = if (insightLine != null) 6.dp else 12.dp)
                 )
             }
@@ -156,7 +158,7 @@ private fun BalancePill(
             Text(
                 text = label.uppercase(),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppColors.OnSurfaceVariant,
                 fontWeight = FontWeight.SemiBold
             )
         }
