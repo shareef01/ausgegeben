@@ -5,20 +5,20 @@ import androidx.compose.ui.unit.dp
 
 // ── DESIGN TOKENS ───────────────────────────────────────────────────────────
 object AppColors {
-    /** Primary app background — never #000000 */
-    val Background = Color(0xFF09090B)
+    /** Primary app background */
+    val Background = Color(0xFF0C0C0E)
 
-    /** Every card / elevated section */
-    val CardSurface = Color(0xFF18181B)
+    /** Elevated surface — barely lifted from background */
+    val CardSurface = Color(0xFF141416)
 
-    /** 1px border: rgba(255, 255, 255, 0.08) */
-    val CardBorder = Color(0x14FFFFFF)
+    /** Hairline separators */
+    val CardBorder = Color(0x0FFFFFFF)
 
-    /** Expenses & negative amounts — dusty rose (not neon red) */
-    val Expense = Color(0xFFD9A0A0)
+    /** Expenses — whisper rose */
+    val Expense = Color(0xFFC9A8A8)
 
-    /** Income & positive amounts — sage mint (not neon green) */
-    val Income = Color(0xFF8FBFA9)
+    /** Income — whisper sage */
+    val Income = Color(0xFF9BB8AB)
 
     /** Primary CTA on dark surfaces — neutral, not semantic red */
     val Accent = Color(0xFFFAFAFA)
@@ -29,7 +29,7 @@ object AppColors {
     val NumpadPress = Color(0x1AFFFFFF)
 
     val OnBackground = Color(0xFFFAFAFA)
-    val OnSurfaceVariant = Color(0xFFA1A1AA)
+    val OnSurfaceVariant = Color(0xFF8E8E93)
     val Transfer = Color(0xFFA1A1AA)
 }
 
@@ -92,5 +92,5 @@ val SurfaceBorderLight = Color(0x14000000)
 val BackgroundGlowCoral = BackgroundGlowWarm
 val BackgroundGlowBlue = BackgroundGlowCool
 
-/** Donut chart ring stroke — hardcoded max 8px */
-val ChartStrokeWidth = 8.dp
+/** Chart ring stroke */
+val ChartStrokeWidth = 6.dp
