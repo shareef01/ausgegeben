@@ -42,6 +42,7 @@ import com.aus.ausgegeben.ui.components.DonutChart
 import com.aus.ausgegeben.ui.components.EmptyStateMessage
 import com.aus.ausgegeben.ui.components.GroupedSectionLabel
 import com.aus.ausgegeben.ui.components.IncomeExpenseOverviewChart
+import com.aus.ausgegeben.ui.components.WealthTrendChart
 import com.aus.ausgegeben.ui.components.IosSegmentedControl
 import com.aus.ausgegeben.ui.components.MoneySize
 import com.aus.ausgegeben.ui.components.MoneyText
@@ -127,6 +128,15 @@ fun BillsScreen(
                     periodLabel = headerPeriodLabel,
                     compact = true
                 )
+            }
+
+            if (uiState.wealthTrend.isNotEmpty()) {
+                item(key = "wealth-trend") {
+                    WealthTrendChart(
+                        points = uiState.wealthTrend,
+                        currencyCode = currencyCode,
+                    )
+                }
             }
 
             if (showOverview) {
