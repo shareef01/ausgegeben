@@ -45,12 +45,13 @@ fun ScreenTitle(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
-            .padding(top = 8.dp, bottom = 16.dp)
+            .padding(top = 4.dp, bottom = 12.dp)
     ) {
         Text(
             text = title,
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground,
+            fontWeight = FontWeight.Bold,
             modifier = Modifier.semantics { heading() }
         )
         if (subtitle != null) {
@@ -166,25 +167,25 @@ fun IosSegmentedControl(
     onSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val trackShape = RoundedCornerShape(14.dp)
-    val trackColor = MaterialTheme.colorScheme.surfaceVariant
-    val trackBorder = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+    val trackShape = RoundedCornerShape(12.dp)
+    val trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
+    val trackBorder = MaterialTheme.colorScheme.outline.copy(alpha = 0.22f)
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(trackShape)
             .background(trackColor)
             .border(0.5.dp, trackBorder, trackShape)
-            .padding(4.dp)
+            .padding(3.dp)
     ) {
         options.forEachIndexed { index, label ->
             val selected = selectedIndex == index
             val bg = if (selected) {
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                MaterialTheme.colorScheme.surface
             } else {
                 Color.Transparent
             }
-            val shape = RoundedCornerShape(11.dp)
+            val shape = RoundedCornerShape(10.dp)
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -192,11 +193,15 @@ fun IosSegmentedControl(
                     .background(bg)
                     .then(
                         if (selected) {
-                            Modifier.border(0.5.dp, Color.White.copy(alpha = 0.1f), shape)
+                            Modifier.border(
+                                0.5.dp,
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                                shape
+                            )
                         } else Modifier
                     )
                     .smoothClickable { onSelected(index) }
-                    .padding(vertical = 10.dp),
+                    .padding(vertical = 11.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
