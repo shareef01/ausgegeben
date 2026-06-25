@@ -1,17 +1,56 @@
 package com.aus.ausgegeben.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.paging.LoadState
-import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.AttachFile
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -19,19 +58,15 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.paging.LoadState
+import androidx.paging.compose.collectAsLazyPagingItems
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.entity.Expense
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Search
 import com.aus.ausgegeben.ui.components.BudgetProgressBar
 import com.aus.ausgegeben.ui.components.EmptyStateMessage
-import com.aus.ausgegeben.ui.components.InsightsStrip
-import com.aus.ausgegeben.ui.components.IosSegmentedControl
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import com.aus.ausgegeben.ui.components.FinanceSummaryCard
 import com.aus.ausgegeben.ui.components.GroupedSection
+import com.aus.ausgegeben.ui.components.IosSegmentedControl
 import com.aus.ausgegeben.ui.components.IosSeparator
 import com.aus.ausgegeben.ui.components.ReceiptImageDialog
 import com.aus.ausgegeben.ui.components.ScreenTitle
@@ -40,14 +75,14 @@ import com.aus.ausgegeben.ui.theme.AccentCoral
 import com.aus.ausgegeben.ui.theme.AmountTextStyle
 import com.aus.ausgegeben.ui.theme.IncomeGreen
 import com.aus.ausgegeben.ui.theme.TransferGray
-import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.AnalyticsPeriod
+import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.RecordListPeriod
-import com.aus.ausgegeben.util.displayTitle
-import com.aus.ausgegeben.util.localDayStartMillis
 import com.aus.ausgegeben.util.colorIntToCompose
+import com.aus.ausgegeben.util.displayTitle
 import com.aus.ausgegeben.util.iconForCategory
 import com.aus.ausgegeben.util.iconTintOnCategoryFill
+import com.aus.ausgegeben.util.localDayStartMillis
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -57,7 +92,7 @@ private fun dateFormatsFor(currencyCode: String): Pair<SimpleDateFormat, SimpleD
     return SimpleDateFormat("HH:mm", locale) to SimpleDateFormat("dd.MM EEE", locale)
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun RecordScreen(
     viewModel: ExpenseViewModel,
@@ -76,6 +111,7 @@ fun RecordScreen(
     val categoryById = remember(categories) { categories.associateBy { it.id } }
     var receiptToView by remember { mutableStateOf<String?>(null) }
     var expensePendingDelete by remember { mutableStateOf<Expense?>(null) }
+    var searchExpanded by rememberSaveable { mutableStateOf(false) }
     val (timeFormat, dateFormat) = remember(currencyCode) { dateFormatsFor(currencyCode) }
     val monthLabel = remember { AnalyticsPeriod.THIS_MONTH.displayTitle() }
     val listPeriodLabel = when (uiState.listPeriod) {
@@ -85,6 +121,15 @@ fun RecordScreen(
     val monthSpent = remember(allMonthExpenses) {
         allMonthExpenses.filter { it.isExpense() }.sumOf { it.amount }
     }
+    val insightLine = uiState.insights.topExpenseCategoryName
+        ?.takeIf { uiState.insights.topExpenseCategoryAmount > 0 }
+        ?.let { name ->
+            stringResource(
+                R.string.insight_top_category,
+                name,
+                CurrencyUtils.formatAmount(uiState.insights.topExpenseCategoryAmount, currencyCode)
+            )
+        }
 
     val groupedExpenses = remember(expenses) {
         expenses.groupBy {
@@ -98,144 +143,153 @@ fun RecordScreen(
     val isListEmpty = lazyExpenses.itemCount == 0 &&
         lazyExpenses.loadState.refresh is LoadState.NotLoading
 
-    Column(modifier = modifier.fillMaxSize()) {
-        ScreenTitle(title = stringResource(R.string.screen_record))
+    if (uiState.searchQuery.isNotBlank()) {
+        searchExpanded = true
+    }
 
-        InsightsStrip(
-            insights = uiState.insights,
-            currencyCode = currencyCode
-        )
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = recordListBottomPadding()
+    ) {
+        item(key = "title") {
+            ScreenTitle(title = stringResource(R.string.screen_record))
+        }
 
-        uiState.monthlyBudget?.let { budget ->
-            BudgetProgressBar(
-                spent = monthSpent,
-                budget = budget,
-                currencyCode = currencyCode
+        item(key = "summary") {
+            RecordHeader(
+                expenses = uiState.headerExpenses,
+                currencyCode = currencyCode,
+                periodLabel = listPeriodLabel,
+                insightLine = insightLine,
+                compact = true
             )
         }
 
-        RecordHeader(
-            expenses = uiState.headerExpenses,
-            currencyCode = currencyCode,
-            periodLabel = listPeriodLabel
-        )
+        uiState.monthlyBudget?.let { budget ->
+            item(key = "budget") {
+                BudgetProgressBar(
+                    spent = monthSpent,
+                    budget = budget,
+                    currencyCode = currencyCode,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+            }
+        }
 
-        RecordListPeriodToggle(
-            selected = uiState.listPeriod,
-            onSelected = viewModel::setListPeriod
-        )
-
-        RecordSearchBar(
-            query = uiState.searchQuery,
-            onQueryChange = viewModel::setSearchQuery
-        )
-
-        RecordTypeFilters(
-            selected = uiState.typeFilter,
-            onSelected = viewModel::setTypeFilter
-        )
+        stickyHeader(key = "toolbar") {
+            RecordListToolbar(
+                listPeriod = uiState.listPeriod,
+                onListPeriod = viewModel::setListPeriod,
+                searchQuery = uiState.searchQuery,
+                onSearchChange = viewModel::setSearchQuery,
+                searchExpanded = searchExpanded,
+                onSearchExpandedChange = { searchExpanded = it },
+                typeFilter = uiState.typeFilter,
+                onTypeFilter = viewModel::setTypeFilter
+            )
+        }
 
         when {
             isListError -> {
                 val error = lazyExpenses.loadState.refresh as LoadState.Error
-                EmptyStateMessage(
-                    icon = Icons.AutoMirrored.Rounded.ReceiptLong,
-                    title = stringResource(R.string.record_error_title),
-                    subtitle = error.error.localizedMessage
-                        ?: stringResource(R.string.record_error_retry),
-                    actionLabel = stringResource(R.string.record_error_retry),
-                    onAction = { lazyExpenses.retry() },
-                    modifier = Modifier
-                        .weight(1f)
-                        .defaultMinSize(minHeight = 180.dp)
-                )
+                item(key = "error") {
+                    EmptyStateMessage(
+                        icon = Icons.AutoMirrored.Rounded.ReceiptLong,
+                        title = stringResource(R.string.record_error_title),
+                        subtitle = error.error.localizedMessage
+                            ?: stringResource(R.string.record_error_retry),
+                        actionLabel = stringResource(R.string.record_error_retry),
+                        onAction = { lazyExpenses.retry() },
+                        modifier = Modifier.defaultMinSize(minHeight = 200.dp)
+                    )
+                }
             }
             isListLoading && isListEmpty -> {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
+                item(key = "loading") {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
                 }
             }
             isListEmpty && hasActiveFilter -> {
-                EmptyStateMessage(
-                    icon = Icons.AutoMirrored.Rounded.ReceiptLong,
-                    title = stringResource(R.string.record_no_matches_title),
-                    subtitle = stringResource(R.string.record_no_matches_subtitle),
-                    modifier = Modifier
-                        .weight(1f)
-                        .defaultMinSize(minHeight = 180.dp)
-                )
+                item(key = "no-matches") {
+                    EmptyStateMessage(
+                        icon = Icons.AutoMirrored.Rounded.ReceiptLong,
+                        title = stringResource(R.string.record_no_matches_title),
+                        subtitle = stringResource(R.string.record_no_matches_subtitle),
+                        modifier = Modifier.defaultMinSize(minHeight = 200.dp)
+                    )
+                }
             }
             isListEmpty -> {
-                EmptyRecordState(
-                    modifier = Modifier.weight(1f)
-                )
+                item(key = "empty") {
+                    EmptyRecordState(
+                        modifier = Modifier.defaultMinSize(minHeight = 220.dp)
+                    )
+                }
             }
             else -> {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    contentPadding = recordListBottomPadding()
-                ) {
-                    groupedExpenses.forEach { (date, dayItems) ->
-                        val billable = dayItems.filter { !it.isTransfer() }
-                        val dayIncome = billable.filter { it.isIncome() }.sumOf { it.amount }
-                        val dayExpense = billable.filter { it.isExpense() }.sumOf { it.amount }
+                groupedExpenses.forEach { (date, dayItems) ->
+                    val billable = dayItems.filter { !it.isTransfer() }
+                    val dayIncome = billable.filter { it.isIncome() }.sumOf { it.amount }
+                    val dayExpense = billable.filter { it.isExpense() }.sumOf { it.amount }
 
-                        item(key = "header-$date") {
-                            DatePill(date, dayIncome, dayExpense, currencyCode)
-                        }
+                    item(key = "header-$date") {
+                        DatePill(date, dayIncome, dayExpense, currencyCode)
+                    }
 
-                        item(key = "group-$date") {
-                            GroupedSection(modifier = Modifier.padding(bottom = 12.dp)) {
-                                Column(modifier = Modifier.clip(GroupedSectionClip)) {
-                                    dayItems
-                                        .sortedByDescending { it.dateMillis }
-                                        .forEachIndexed { index, expense ->
-                                            key(expense.id) {
-                                                if (index > 0) IosSeparator()
-                                                val category = categoryById[expense.categoryId]
-                                                val time = timeFormat.format(Date(expense.dateMillis))
-                                                val categoryName = category?.name
-                                                    ?: stringResource(R.string.record_unknown_category)
-                                                SwipeableTransactionRow(
-                                                    expense = expense,
-                                                    categoryName = categoryName,
-                                                    categoryColor = category?.colorInt,
-                                                    icon = iconForCategory(category?.iconName, category?.name),
-                                                    time = time,
-                                                    currencyCode = currencyCode,
-                                                    onClick = { onExpenseClick(expense) },
-                                                    onLongClick = {
-                                                        viewModel.duplicateExpense(expense)
-                                                        onExpenseDuplicated()
-                                                    },
-                                                    onDeleteRequest = {
-                                                        expensePendingDelete = expense
-                                                    },
-                                                    onReceiptClick = expense.receiptImagePath?.let { path ->
-                                                        { receiptToView = path }
-                                                    }
-                                                )
-                                            }
+                    item(key = "group-$date") {
+                        GroupedSection(modifier = Modifier.padding(bottom = 8.dp)) {
+                            Column(modifier = Modifier.clip(GroupedSectionClip)) {
+                                dayItems
+                                    .sortedByDescending { it.dateMillis }
+                                    .forEachIndexed { index, expense ->
+                                        androidx.compose.runtime.key(expense.id) {
+                                            if (index > 0) IosSeparator(insetStart = 60.dp)
+                                            val category = categoryById[expense.categoryId]
+                                            val time = timeFormat.format(Date(expense.dateMillis))
+                                            val categoryName = category?.name
+                                                ?: stringResource(R.string.record_unknown_category)
+                                            SwipeableTransactionRow(
+                                                expense = expense,
+                                                categoryName = categoryName,
+                                                categoryColor = category?.colorInt,
+                                                icon = iconForCategory(category?.iconName, category?.name),
+                                                time = time,
+                                                currencyCode = currencyCode,
+                                                onClick = { onExpenseClick(expense) },
+                                                onLongClick = {
+                                                    viewModel.duplicateExpense(expense)
+                                                    onExpenseDuplicated()
+                                                },
+                                                onDeleteRequest = {
+                                                    expensePendingDelete = expense
+                                                },
+                                                onReceiptClick = expense.receiptImagePath?.let { path ->
+                                                    { receiptToView = path }
+                                                }
+                                            )
                                         }
-                                }
+                                    }
                             }
                         }
                     }
-                    if (lazyExpenses.loadState.append is LoadState.Loading) {
-                        item(key = "loading-footer") {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator(modifier = Modifier.size(28.dp))
-                            }
+                }
+
+                if (lazyExpenses.loadState.append is LoadState.Loading) {
+                    item(key = "loading-footer") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
                         }
                     }
                 }
@@ -278,30 +332,88 @@ fun RecordScreen(
 }
 
 @Composable
-private fun RecordListPeriodToggle(
-    selected: RecordListPeriod,
-    onSelected: (RecordListPeriod) -> Unit
+private fun RecordListToolbar(
+    listPeriod: RecordListPeriod,
+    onListPeriod: (RecordListPeriod) -> Unit,
+    searchQuery: String,
+    onSearchChange: (String) -> Unit,
+    searchExpanded: Boolean,
+    onSearchExpandedChange: (Boolean) -> Unit,
+    typeFilter: TransactionTypeFilter,
+    onTypeFilter: (TransactionTypeFilter) -> Unit
 ) {
-    val options = RecordListPeriod.entries
-    IosSegmentedControl(
-        options = options.map { it.label() },
-        selectedIndex = options.indexOf(selected).coerceAtLeast(0),
-        onSelected = { onSelected(options[it]) },
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-    )
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(top = 4.dp, bottom = 8.dp)
+    ) {
+        val periodOptions = RecordListPeriod.entries
+        IosSegmentedControl(
+            options = periodOptions.map { it.label() },
+            selectedIndex = periodOptions.indexOf(listPeriod).coerceAtLeast(0),
+            onSelected = { onListPeriod(periodOptions[it]) },
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+        )
+
+        AnimatedVisibility(
+            visible = searchExpanded,
+            enter = expandVertically(),
+            exit = shrinkVertically()
+        ) {
+            RecordSearchBar(
+                query = searchQuery,
+                onQueryChange = onSearchChange,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 8.dp, end = 4.dp, top = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RecordTypeFilters(
+                selected = typeFilter,
+                onSelected = onTypeFilter,
+                modifier = Modifier.weight(1f)
+            )
+            IconButton(
+                onClick = {
+                    when {
+                        searchQuery.isNotBlank() -> onSearchChange("")
+                        searchExpanded -> onSearchExpandedChange(false)
+                        else -> onSearchExpandedChange(true)
+                    }
+                }
+            ) {
+                Icon(
+                    imageVector = if (searchExpanded) Icons.Rounded.Close else Icons.Rounded.Search,
+                    contentDescription = stringResource(R.string.record_search),
+                    tint = if (searchQuery.isNotBlank() || searchExpanded) {
+                        AccentCoral
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                )
+            }
+        }
+    }
 }
 
 @Composable
 private fun RecordSearchBar(
     query: String,
-    onQueryChange: (String) -> Unit
+    onQueryChange: (String) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     OutlinedTextField(
         value = query,
         onValueChange = onQueryChange,
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+            .padding(horizontal = 16.dp),
         placeholder = {
             Text(
                 stringResource(R.string.record_search_placeholder),
@@ -311,59 +423,68 @@ private fun RecordSearchBar(
         leadingIcon = {
             Icon(
                 Icons.Rounded.Search,
-                contentDescription = stringResource(R.string.record_search),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
             )
         },
         trailingIcon = {
             if (query.isNotEmpty()) {
                 IconButton(onClick = { onQueryChange("") }) {
-                    Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.record_clear_search))
+                    Icon(
+                        Icons.Rounded.Close,
+                        contentDescription = stringResource(R.string.record_clear_search),
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
         },
         singleLine = true,
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(12.dp),
+        textStyle = MaterialTheme.typography.bodyMedium,
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
-            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f),
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
         )
     )
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RecordTypeFilters(
     selected: TransactionTypeFilter,
-    onSelected: (TransactionTypeFilter) -> Unit
+    onSelected: (TransactionTypeFilter) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val options = TransactionTypeFilter.entries
-    FlowRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+    LazyRow(
+        modifier = modifier,
+        contentPadding = PaddingValues(horizontal = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        options.forEach { filter ->
+        items(options, key = { it.name }) { filter ->
             val isSelected = selected == filter
             FilterChip(
                 selected = isSelected,
                 onClick = { onSelected(filter) },
-                label = { Text(filter.label()) },
-                shape = RoundedCornerShape(12.dp),
+                label = {
+                    Text(
+                        filter.label(),
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                },
+                shape = RoundedCornerShape(10.dp),
                 border = FilterChipDefaults.filterChipBorder(
                     enabled = true,
                     selected = isSelected,
-                    borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
-                    selectedBorderColor = AccentCoral.copy(alpha = 0.45f)
+                    borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                    selectedBorderColor = AccentCoral.copy(alpha = 0.4f)
                 ),
                 colors = FilterChipDefaults.filterChipColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
                     labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    selectedContainerColor = AccentCoral.copy(alpha = 0.14f),
+                    selectedContainerColor = AccentCoral.copy(alpha = 0.12f),
                     selectedLabelColor = AccentCoral
                 )
             )
@@ -381,9 +502,7 @@ private fun EmptyRecordState(
         icon = Icons.AutoMirrored.Rounded.ReceiptLong,
         title = stringResource(R.string.record_empty_title),
         subtitle = stringResource(R.string.record_empty_subtitle),
-        modifier = modifier
-            .fillMaxWidth()
-            .defaultMinSize(minHeight = 220.dp)
+        modifier = modifier.fillMaxWidth()
     )
 }
 
@@ -391,7 +510,9 @@ private fun EmptyRecordState(
 fun RecordHeader(
     expenses: List<Expense>,
     currencyCode: String = "EUR",
-    periodLabel: String = "all time"
+    periodLabel: String = "all time",
+    insightLine: String? = null,
+    compact: Boolean = false
 ) {
     val billable = expenses.filter { !it.isTransfer() }
     val totalExpense = billable.filter { it.isExpense() }.sumOf { it.amount }
@@ -408,7 +529,9 @@ fun RecordHeader(
         transferCount = transferCount,
         transferTotal = transferTotal,
         periodLabel = periodLabel,
-        modifier = Modifier.padding(bottom = 8.dp)
+        insightLine = insightLine,
+        compact = compact,
+        modifier = Modifier.padding(bottom = 4.dp)
     )
 }
 
@@ -417,16 +540,17 @@ fun DatePill(date: String, dayIncome: Double, dayExpense: Double, currencyCode: 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 28.dp, vertical = 8.dp),
+            .padding(horizontal = 20.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = date,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onBackground
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (dayIncome > 0) {
                 Text(
                     text = "+${CurrencyUtils.formatAmount(dayIncome, currencyCode)}",
@@ -489,7 +613,7 @@ private fun SwipeableTransactionRow(
                     Icons.Rounded.Delete,
                     contentDescription = stringResource(R.string.record_swipe_delete),
                     tint = MaterialTheme.colorScheme.onError,
-                    modifier = Modifier.padding(end = 24.dp)
+                    modifier = Modifier.padding(end = 20.dp)
                 )
             }
         }
@@ -535,13 +659,13 @@ fun TransactionRow(
     val fillColor = categoryColor?.let { colorIntToCompose(it) }
 
     Row(
-        modifier = modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier = modifier.padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .size(36.dp)
+                .clip(RoundedCornerShape(10.dp))
                 .background(fillColor ?: MaterialTheme.colorScheme.surface),
             contentAlignment = Alignment.Center
         ) {
@@ -550,16 +674,17 @@ fun TransactionRow(
                 contentDescription = categoryName,
                 tint = fillColor?.let { iconTintOnCategoryFill(it) }
                     ?: MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(18.dp)
             )
         }
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = categoryName,
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onBackground,
-                maxLines = 1
+                maxLines = 1,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
             )
             val subtitle = buildString {
                 if (time != null) append(time)
@@ -571,7 +696,7 @@ fun TransactionRow(
             if (subtitle.isNotBlank()) {
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1
                 )
@@ -580,15 +705,13 @@ fun TransactionRow(
         if (onReceiptClick != null) {
             IconButton(
                 onClick = onReceiptClick,
-                modifier = Modifier
-                    .padding(end = 4.dp)
-                    .size(48.dp)
+                modifier = Modifier.size(36.dp)
             ) {
                 Icon(
                     Icons.Rounded.AttachFile,
                     contentDescription = stringResource(R.string.record_view_receipt),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }
@@ -596,10 +719,11 @@ fun TransactionRow(
             text = when {
                 expense.isIncome() -> "+${CurrencyUtils.formatAmount(expense.amount, currencyCode)}"
                 expense.isTransfer() -> CurrencyUtils.formatAmount(expense.amount, currencyCode)
-                else -> "-${CurrencyUtils.formatAmount(expense.amount, currencyCode)}"
+                else -> "−${CurrencyUtils.formatAmount(expense.amount, currencyCode)}"
             },
-            style = MaterialTheme.typography.bodyLarge.merge(AmountTextStyle),
-            color = amountColor
+            style = MaterialTheme.typography.bodyMedium.merge(AmountTextStyle),
+            color = amountColor,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
         )
     }
 }
