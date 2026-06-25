@@ -2,7 +2,7 @@ package com.aus.ausgegeben.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,10 +35,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.Route
+import com.aus.ausgegeben.ui.theme.AppColors
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
-import com.aus.ausgegeben.ui.theme.SurfaceBorderDark
-import com.aus.ausgegeben.ui.theme.SurfaceBorderLight
 
 private data class NavItem(
     val route: Route,
@@ -57,10 +56,9 @@ fun MainBottomBar(
         NavItem(Route.CategoryManagement, Icons.Outlined.PieChart, stringResource(R.string.nav_bills)),
         NavItem(Route.Settings, Icons.Outlined.Settings, stringResource(R.string.nav_settings))
     )
-    val isDark = isSystemInDarkTheme()
     val glassShape = RoundedCornerShape(AppRadius.xl)
-    val glassColor = MaterialTheme.colorScheme.surface.copy(alpha = if (isDark) 0.72f else 0.88f)
-    val borderColor = if (isDark) SurfaceBorderDark else SurfaceBorderLight
+    val glassColor = AppColors.CardSurface.copy(alpha = 0.92f)
+    val borderColor = AppColors.CardBorder
 
     Box(
         modifier = modifier
@@ -71,14 +69,14 @@ fun MainBottomBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .shadow(
-                    elevation = 24.dp,
+                    elevation = 16.dp,
                     shape = glassShape,
-                    ambientColor = Color.Black.copy(alpha = 0.35f),
-                    spotColor = Color.Black.copy(alpha = 0.2f)
+                    ambientColor = AppColors.Background.copy(alpha = 0.8f),
+                    spotColor = AppColors.Background.copy(alpha = 0.5f)
                 )
                 .clip(glassShape)
                 .background(glassColor)
-                .border(0.5.dp, borderColor, glassShape)
+                .border(1.dp, borderColor, glassShape)
                 .height(60.dp)
                 .padding(horizontal = AppSpacing.xs, vertical = AppSpacing.xs),
             horizontalArrangement = Arrangement.SpaceEvenly,

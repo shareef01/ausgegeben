@@ -3,8 +3,22 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,6 +53,10 @@ import com.aus.ausgegeben.ui.components.smoothClickable
 import com.aus.ausgegeben.ui.components.MoneyText
 import com.aus.ausgegeben.ui.components.MoneySize
 import com.aus.ausgegeben.ui.theme.AppColorSpring
+import com.aus.ausgegeben.ui.theme.AppColors
+import com.aus.ausgegeben.ui.theme.AppElevation
+import com.aus.ausgegeben.ui.theme.AppRadius
+import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.IncomeGreen
 import com.aus.ausgegeben.ui.theme.TransferGray
 import com.aus.ausgegeben.util.CurrencyUtils
@@ -130,7 +148,7 @@ fun AddTransactionScreen(
     }
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dateMillis)
 
-    Column(modifier = modifier.fillMaxSize()) {
+    Column(modifier = modifier.fillMaxSize().background(AppColors.Background)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -263,55 +281,57 @@ fun AddTransactionScreen(
             Spacer(modifier = Modifier.height(24.dp))
             }
         }
-        val sheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+        val sheetShape = RoundedCornerShape(topStart = AppRadius.cardLarge, topEnd = AppRadius.cardLarge)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .clip(sheetShape)
-                .background(MaterialTheme.colorScheme.surface)
-                .border(
-                    width = 0.5.dp,
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f),
-                    shape = sheetShape
-                )
-                .padding(horizontal = 16.dp)
-                .padding(top = 14.dp, bottom = 12.dp)
+                .background(AppColors.Background)
         ) {
-            selectedCategory?.let { category ->
-                SelectedCategoryChip(category = category, accentColor = typeAccent)
-                Spacer(modifier = Modifier.height(10.dp))
-            }
-            Button(
-                onClick = {
-                    val wasEditing = isEditing
-                    viewModel.onAmountChange(amountText)
-                    viewModel.onNoteChange(remarkText)
-                    viewModel.saveExpense(
-                        type = transactionType,
-                        onSuccess = { onTransactionSaved(wasEditing) },
-                        onError = onValidationError,
-                        onBudgetAlert = onBudgetAlert
-                    )
-                },
-                enabled = canSave,
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = typeAccent,
-                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                    .padding(horizontal = AppSpacing.md)
+                    .padding(top = AppSpacing.sm, bottom = AppSpacing.xs)
+                    .clip(RoundedCornerShape(AppRadius.card))
+                    .background(AppColors.CardSurface)
+                    .border(AppElevation.cardBorder, AppColors.CardBorder, RoundedCornerShape(AppRadius.card))
+                    .padding(AppSpacing.md)
             ) {
-                Text(
-                    text = saveLabel,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
+                selectedCategory?.let { category ->
+                    SelectedCategoryChip(category = category, accentColor = typeAccent)
+                    Spacer(modifier = Modifier.height(AppSpacing.sm))
+                }
+                Button(
+                    onClick = {
+                        val wasEditing = isEditing
+                        viewModel.onAmountChange(amountText)
+                        viewModel.onNoteChange(remarkText)
+                        viewModel.saveExpense(
+                            type = transactionType,
+                            onSuccess = { onTransactionSaved(wasEditing) },
+                            onError = onValidationError,
+                            onBudgetAlert = onBudgetAlert
+                        )
+                    },
+                    enabled = canSave,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(AppRadius.md),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = typeAccent,
+                        disabledContainerColor = AppColors.CardSurface,
+                        disabledContentColor = AppColors.OnSurfaceVariant
+                    )
+                ) {
+                    Text(
+                        text = saveLabel,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
-            Spacer(modifier = Modifier.height(12.dp))
             CalculatorKeypad(
                 accentColor = typeAccent,
                 decimalSeparator = CurrencyUtils.decimalSeparator(currencyCode).toString(),
@@ -324,7 +344,11 @@ fun AddTransactionScreen(
                 },
                 onBackspace = {
                     amountText = if (amountText.length > 1) amountText.dropLast(1) else "0"
-                }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(AppColors.Background)
+                    .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm)
             )
         }
     }
@@ -769,8 +793,8 @@ private fun CalculatorKeypad(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .height(56.dp),
+                horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs)
             ) {
                 row.forEach { key ->
                     CalcKey(
@@ -785,7 +809,7 @@ private fun CalculatorKeypad(
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(AppSpacing.xs))
         }
     }
 }
@@ -796,27 +820,33 @@ private fun CalcKey(
     onClick: () -> Unit
 ) {
     val isBackspace = key == "back"
-    val keyBackground = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val bg = if (pressed) AppColors.NumpadPress else Color.Transparent
     Box(
         modifier = modifier
             .fillMaxHeight()
-            .clip(RoundedCornerShape(12.dp))
-            .background(keyBackground)
-            .smoothClickable(onClick = onClick),
+            .clip(RoundedCornerShape(AppRadius.sm))
+            .background(bg)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
         contentAlignment = Alignment.Center
     ) {
         if (isBackspace) {
             Icon(
                 Icons.AutoMirrored.Rounded.Backspace,
                 contentDescription = stringResource(R.string.add_backspace),
-                tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(22.dp)
+                tint = AppColors.OnBackground,
+                modifier = Modifier.size(24.dp)
             )
         } else {
             Text(
                 text = key,
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onBackground,
+                style = MaterialTheme.typography.headlineMedium,
+                color = AppColors.OnBackground,
                 fontWeight = FontWeight.Medium
             )
         }
