@@ -2,7 +2,6 @@ package com.aus.ausgegeben.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -52,11 +51,9 @@ import com.aus.ausgegeben.ui.components.SmoothIconButton
 import com.aus.ausgegeben.ui.components.smoothClickable
 import com.aus.ausgegeben.ui.components.MoneyText
 import com.aus.ausgegeben.ui.components.MoneySize
-import com.aus.ausgegeben.ui.components.appCard
-import com.aus.ausgegeben.ui.theme.appBorderColor
+import com.aus.ausgegeben.ui.theme.appDividerColor
 import com.aus.ausgegeben.ui.theme.AppColorSpring
 import com.aus.ausgegeben.ui.theme.AppIconSize
-import com.aus.ausgegeben.ui.theme.AppElevation
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.ExpenseMuted
@@ -65,7 +62,6 @@ import com.aus.ausgegeben.ui.theme.TransferGray
 import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.colorIntToCompose
 import com.aus.ausgegeben.util.iconForCategory
-import com.aus.ausgegeben.util.iconTintOnCategoryFill
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -157,7 +153,7 @@ fun AddTransactionScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 8.dp),
+                .padding(horizontal = AppSpacing.xs, vertical = AppSpacing.xs),
             verticalAlignment = Alignment.CenterVertically
         ) {
             SmoothIconButton(
@@ -229,10 +225,15 @@ fun AddTransactionScreen(
                     text = stringResource(R.string.add_category_label),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.Normal
                 )
                 TextButton(onClick = { showManageSheet = true }) {
-                    Text(stringResource(R.string.add_manage), color = typeAccent, style = MaterialTheme.typography.labelLarge)
+                    Text(
+                        stringResource(R.string.add_manage),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Normal,
+                    )
                 }
             }
             if (filteredCategories.isEmpty()) {
@@ -274,7 +275,6 @@ fun AddTransactionScreen(
                 CategoryIconGrid(
                     categories = filteredCategories,
                     selectedCategory = selectedCategory,
-                    accentColor = typeAccent,
                     onCategorySelected = { viewModel.onCategorySelect(it) },
                     onAddCategory = {
                         editingCategory = null
@@ -299,7 +299,7 @@ fun AddTransactionScreen(
                     .padding(top = AppSpacing.sm, bottom = AppSpacing.xs),
             ) {
                 selectedCategory?.let { category ->
-                    SelectedCategoryChip(category = category, accentColor = typeAccent)
+                    SelectedCategoryChip(category = category)
                     Spacer(modifier = Modifier.height(AppSpacing.sm))
                 }
                 Button(
@@ -318,7 +318,7 @@ fun AddTransactionScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp),
-                    shape = RoundedCornerShape(AppRadius.md),
+                    shape = RoundedCornerShape(AppRadius.pill),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = saveAccent,
                         contentColor = saveContentColor,
@@ -329,7 +329,7 @@ fun AddTransactionScreen(
                     Text(
                         text = saveLabel,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
@@ -489,14 +489,14 @@ private fun AmountCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = AppSpacing.md, vertical = AppSpacing.md),
+                .padding(horizontal = AppSpacing.md, vertical = AppSpacing.lg),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = typeLabel,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Normal
             )
             Spacer(modifier = Modifier.height(AppSpacing.sm - AppSpacing.xxs))
             Row(
@@ -522,7 +522,7 @@ private fun AmountCard(
                     .fillMaxWidth()
                     .padding(vertical = AppSpacing.md),
                 thickness = 0.5.dp,
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+                color = appDividerColor()
             )
             BasicTextField(
                 value = remark,
@@ -569,7 +569,6 @@ private fun AmountCard(
 fun CategoryIconGrid(
     categories: List<Category>,
     selectedCategory: Category?,
-    accentColor: Color,
     onCategorySelected: (Category) -> Unit,
     onAddCategory: () -> Unit,
     modifier: Modifier = Modifier
@@ -579,8 +578,8 @@ fun CategoryIconGrid(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+                .padding(horizontal = AppSpacing.xs, vertical = AppSpacing.sm),
+            verticalArrangement = Arrangement.spacedBy(AppSpacing.xxs)
         ) {
             cells.chunked(4).forEach { rowCells ->
                 Row(
@@ -593,11 +592,10 @@ fun CategoryIconGrid(
                                 CategoryIconTile(
                                     category = category,
                                     isSelected = selectedCategory?.id == category.id,
-                                    accentColor = accentColor,
                                     onClick = { onCategorySelected(category) }
                                 )
                             } else {
-                                CategoryAddTile(accentColor = accentColor, onClick = onAddCategory)
+                                CategoryAddTile(onClick = onAddCategory)
                             }
                         }
                     }
@@ -620,7 +618,6 @@ fun CategoryRow(
     CategoryIconGrid(
         categories = categories,
         selectedCategory = selectedCategory,
-        accentColor = MaterialTheme.colorScheme.primary,
         onCategorySelected = onCategorySelected,
         onAddCategory = onAddCategory,
         modifier = modifier
@@ -639,48 +636,48 @@ private fun CategoryIconTile(
     category: Category,
     isSelected: Boolean,
     onClick: () -> Unit,
-    accentColor: Color = MaterialTheme.colorScheme.primary
 ) {
     val categoryColor = colorIntToCompose(category.colorInt)
+    val tileShape = RoundedCornerShape(AppRadius.lg)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(tileShape)
+            .background(
+                if (isSelected) categoryColor.copy(alpha = 0.08f)
+                else Color.Transparent,
+            )
             .smoothClickable(onClick = onClick)
-            .padding(vertical = 8.dp, horizontal = 4.dp)
+            .padding(vertical = AppSpacing.sm, horizontal = AppSpacing.xxs)
     ) {
         Box(
             modifier = Modifier
-                .size(52.dp)
+                .size(44.dp)
                 .clip(CircleShape)
-                .background(categoryColor)
-                .then(
-                    if (isSelected) Modifier.border(2.dp, accentColor, CircleShape)
-                    else Modifier
-                ),
+                .background(categoryColor.copy(alpha = if (isSelected) 0.2f else 0.14f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = iconForCategory(category),
                 contentDescription = category.name,
-                tint = iconTintOnCategoryFill(categoryColor),
-                modifier = Modifier.size(24.dp)
+                tint = categoryColor,
+                modifier = Modifier.size(18.dp)
             )
         }
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(AppSpacing.xs))
         Text(
             text = category.name,
             style = MaterialTheme.typography.labelSmall,
             color = if (isSelected) MaterialTheme.colorScheme.onBackground
             else MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
             maxLines = 1,
             textAlign = TextAlign.Center
         )
     }
 }
 @Composable
-private fun CategoryAddTile(accentColor: Color, onClick: () -> Unit) {
+private fun CategoryAddTile(onClick: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
@@ -690,17 +687,16 @@ private fun CategoryAddTile(accentColor: Color, onClick: () -> Unit) {
     ) {
         Box(
             modifier = Modifier
-                .size(52.dp)
+                .size(44.dp)
                 .clip(CircleShape)
-                .border(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 Icons.Rounded.Add,
                 contentDescription = stringResource(R.string.add_add_category),
-                tint = accentColor,
-                modifier = Modifier.size(24.dp)
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp)
             )
         }
         Spacer(modifier = Modifier.height(6.dp))
@@ -713,43 +709,42 @@ private fun CategoryAddTile(accentColor: Color, onClick: () -> Unit) {
     }
 }
 @Composable
-private fun SelectedCategoryChip(category: Category, accentColor: Color) {
+private fun SelectedCategoryChip(category: Category) {
     val categoryColor = colorIntToCompose(category.colorInt)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(categoryColor.copy(alpha = 0.12f))
-            .border(1.dp, categoryColor.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
-            .padding(horizontal = 14.dp, vertical = 10.dp),
+            .clip(RoundedCornerShape(AppRadius.lg))
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
                 .size(28.dp)
                 .clip(CircleShape)
-                .background(categoryColor),
+                .background(categoryColor.copy(alpha = 0.16f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 iconForCategory(category),
                 contentDescription = null,
-                tint = iconTintOnCategoryFill(categoryColor),
-                modifier = Modifier.size(16.dp)
+                tint = categoryColor,
+                modifier = Modifier.size(14.dp)
             )
         }
-        Spacer(modifier = Modifier.width(10.dp))
+        Spacer(modifier = Modifier.width(AppSpacing.sm))
         Text(
             text = category.name,
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onBackground,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Normal,
             modifier = Modifier.weight(1f)
         )
         Icon(
             Icons.Rounded.CheckCircle,
             contentDescription = null,
-            tint = accentColor,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(18.dp)
         )
     }
