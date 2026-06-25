@@ -14,9 +14,11 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.PieChart
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
@@ -28,15 +30,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -52,9 +53,11 @@ private data class NavItem(
 )
 
 @Composable
-fun FloatingBottomNav(
+fun MainBottomBar(
     currentRoute: Route?,
     onNavigate: (Route) -> Unit,
+    onAddTransaction: () -> Unit,
+    showAddButton: Boolean,
     modifier: Modifier = Modifier
 ) {
     val items = listOf(
@@ -76,22 +79,28 @@ fun FloatingBottomNav(
         animationSpec = AppSpringSnappy,
         label = "navIndicator"
     )
+    val addLabel = stringResource(R.string.nav_add_transaction)
 
-    Box(modifier = modifier.fillMaxWidth()) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = if (showAddButton) 10.dp else 0.dp)
+    ) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 28.dp, vertical = 10.dp),
-            shape = RoundedCornerShape(28.dp),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
-            shadowElevation = 4.dp,
-            tonalElevation = 2.dp
+                .padding(horizontal = 20.dp, vertical = 8.dp)
+                .align(Alignment.BottomCenter),
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 6.dp,
+            tonalElevation = 1.dp
         ) {
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(64.dp)
-                    .padding(horizontal = 6.dp)
+                    .height(60.dp)
+                    .padding(horizontal = 4.dp)
             ) {
                 val density = LocalDensity.current
                 val itemWidth = maxWidth / items.size
@@ -104,16 +113,9 @@ fun FloatingBottomNav(
                         .offset(x = indicatorOffset)
                         .width(itemWidth)
                         .fillMaxHeight()
-                        .padding(vertical = 4.dp, horizontal = 2.dp)
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(
-                            Brush.horizontalGradient(
-                                colors = listOf(
-                                    AccentCoral.copy(alpha = 0.18f),
-                                    AccentCoral.copy(alpha = 0.08f)
-                                )
-                            )
-                        )
+                        .padding(vertical = 6.dp, horizontal = 4.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(AccentCoral.copy(alpha = 0.10f))
                 )
 
                 Row(
@@ -122,15 +124,35 @@ fun FloatingBottomNav(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     items.forEachIndexed { index, item ->
-                        val selected = index == selectedIndex
                         NavTab(
                             icon = item.icon,
                             label = item.label,
-                            isSelected = selected,
+                            isSelected = index == selectedIndex,
                             onClick = { onNavigate(item.route) }
                         )
                     }
                 }
+            }
+        }
+
+        if (showAddButton) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .offset(y = (-4).dp)
+                    .size(52.dp)
+                    .clip(CircleShape)
+                    .background(AccentCoral)
+                    .semantics { role = Role.Button }
+                    .smoothClickable(onClick = onAddTransaction),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Add,
+                    contentDescription = addLabel,
+                    tint = Color.White,
+                    modifier = Modifier.size(26.dp)
+                )
             }
         }
     }
@@ -147,7 +169,7 @@ private fun NavTab(
 
     Column(
         modifier = Modifier
-            .width(72.dp)
+            .width(76.dp)
             .semantics {
                 role = Role.Tab
                 selected = isSelected
@@ -161,7 +183,7 @@ private fun NavTab(
             imageVector = icon,
             contentDescription = label,
             tint = tint,
-            modifier = Modifier.size(if (isSelected) 24.dp else 22.dp)
+            modifier = Modifier.size(if (isSelected) 22.dp else 20.dp)
         )
         Text(
             text = label,
