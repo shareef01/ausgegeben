@@ -1,8 +1,7 @@
 package com.aus.ausgegeben.ui.components
 
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -16,34 +15,233 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.aus.ausgegeben.ui.theme.AmountTextStyle
-import com.aus.ausgegeben.ui.theme.AppChartSpring
+import com.aus.ausgegeben.R
+import com.aus.ausgegeben.ui.theme.AppChartRevealSpring
+import com.aus.ausgegeben.ui.theme.AppRadius
+import com.aus.ausgegeben.ui.theme.AppSpacing
+import com.aus.ausgegeben.ui.theme.ChartStrokeWidth
+import com.aus.ausgegeben.ui.theme.ExpenseMuted
+import com.aus.ausgegeben.ui.theme.IncomeGreen
+import com.aus.ausgegeben.ui.theme.appDividerColor
 import com.aus.ausgegeben.ui.theme.chartColorAt
-import com.aus.ausgegeben.ui.theme.chartHighlight
-import com.aus.ausgegeben.ui.theme.chartShadow
 import com.aus.ausgegeben.ui.theme.forChartDisplay
 import com.aus.ausgegeben.util.CurrencyUtils
+
+private val DONUT_STROKE = ChartStrokeWidth
+
+@Composable
+fun IncomeExpenseOverviewChart(
+    expenseTotal: Double,
+    incomeTotal: Double,
+    currencyCode: String,
+    modifier: Modifier = Modifier
+) {
+    val combined = expenseTotal + incomeTotal
+    if (combined <= 0.0) return
+
+    val expenseRatio = (expenseTotal / combined).toFloat()
+    val incomeRatio = (incomeTotal / combined).toFloat()
+    val net = incomeTotal - expenseTotal
+    val animationKey = expenseTotal to incomeTotal
+    val progress = remember { Animatable(0f) }
+
+    LaunchedEffect(animationKey) {
+        progress.snapTo(0f)
+        progress.animateTo(1f, AppChartRevealSpring)
+    }
+
+    val cardShape = RoundedCornerShape(AppRadius.lg)
+    val chartSurface = MaterialTheme.colorScheme.surface
+    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+    val onBackground = MaterialTheme.colorScheme.onBackground
+    val chartTrack = appDividerColor()
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs)
+            .clip(cardShape)
+            .appCard(shape = cardShape)
+            .padding(vertical = AppSpacing.md)
+    ) {
+        Text(
+            text = stringResource(R.string.chart_overview_title).uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            color = onSurfaceVariant,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier
+                .padding(horizontal = AppSpacing.md)
+                .padding(bottom = AppSpacing.sm)
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(176.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            val chartSize = 160.dp
+            Canvas(modifier = Modifier.size(chartSize)) {
+                val strokePx = DONUT_STROKE.toPx()
+                val arcSize = size.minDimension - strokePx * 2f
+                val arcTopLeft = Offset(strokePx, strokePx)
+                val arcBoxSize = Size(arcSize, arcSize)
+                val gap = 3f
+                val reveal = progress.value
+
+                drawArc(
+                    color = chartTrack,
+                    startAngle = 0f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    style = Stroke(width = strokePx, cap = StrokeCap.Round),
+                    size = arcBoxSize,
+                    topLeft = arcTopLeft
+                )
+
+                val expenseSweep = ((expenseRatio * 360f) - gap).coerceAtLeast(0.5f) * reveal
+                if (expenseSweep > 0f) {
+                    drawArc(
+                        color = ExpenseMuted,
+                        startAngle = -90f + gap / 2f,
+                        sweepAngle = expenseSweep,
+                        useCenter = false,
+                        style = Stroke(width = strokePx, cap = StrokeCap.Round),
+                        size = arcBoxSize,
+                        topLeft = arcTopLeft
+                    )
+                }
+
+                val incomeSweep = ((incomeRatio * 360f) - gap).coerceAtLeast(0.5f) * reveal
+                if (incomeSweep > 0f) {
+                    val incomeStart = -90f + expenseRatio * 360f * reveal + gap / 2f
+                    drawArc(
+                        color = IncomeGreen,
+                        startAngle = incomeStart,
+                        sweepAngle = incomeSweep,
+                        useCenter = false,
+                        style = Stroke(width = strokePx, cap = StrokeCap.Round),
+                        size = arcBoxSize,
+                        topLeft = arcTopLeft
+                    )
+                }
+
+                val holeRadius = (size.minDimension / 2f) - strokePx * 1.5f
+                drawCircle(color = chartSurface, radius = holeRadius, center = center)
+            }
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .scale(0.88f + 0.12f * progress.value)
+                    .alpha(((progress.value - 0.2f) / 0.8f).coerceIn(0f, 1f))
+            ) {
+                MoneyText(
+                    text = CurrencyUtils.formatAmount(net, currencyCode),
+                    size = MoneySize.Headline,
+                    color = when {
+                        net > 0 -> IncomeGreen
+                        net < 0 -> ExpenseMuted
+                        else -> onBackground
+                    }
+                )
+                Text(
+                    text = stringResource(R.string.chart_net_label).uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = AppSpacing.md),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            OverviewLegendItem(
+                color = ExpenseMuted,
+                label = stringResource(R.string.summary_spent),
+                value = CurrencyUtils.formatAmount(expenseTotal, currencyCode),
+                percent = (expenseRatio * 100).toInt(),
+                reveal = progress.value,
+                stagger = 0.1f,
+            )
+            OverviewLegendItem(
+                color = IncomeGreen,
+                label = stringResource(R.string.summary_earned),
+                value = CurrencyUtils.formatAmount(incomeTotal, currencyCode),
+                percent = (incomeRatio * 100).toInt(),
+                reveal = progress.value,
+                stagger = 0.25f,
+            )
+        }
+    }
+}
+
+@Composable
+private fun OverviewLegendItem(
+    color: Color,
+    label: String,
+    value: String,
+    percent: Int,
+    reveal: Float = 1f,
+    stagger: Float = 0f,
+) {
+    val itemAlpha = ((reveal - stagger) / (1f - stagger)).coerceIn(0f, 1f)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.alpha(itemAlpha),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .clip(CircleShape)
+                .background(color)
+        )
+        Spacer(modifier = Modifier.width(AppSpacing.xs))
+        Column {
+            Text(
+                text = label.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.SemiBold
+            )
+            MoneyText(text = value, size = MoneySize.Body, color = color)
+            Text(
+                text = "$percent%",
+                style = MaterialTheme.typography.labelSmall,
+                color = color.copy(alpha = 0.85f)
+            )
+        }
+    }
+}
 
 @Composable
 fun DonutChart(
@@ -52,30 +250,30 @@ fun DonutChart(
     colors: Map<String, Color> = emptyMap(),
     centerLabel: String? = null,
     centerSubLabel: String? = null,
-    chartSize: Dp = 212.dp
+    chartSize: Dp = 148.dp,
+    compact: Boolean = false,
+    currencyCode: String = "EUR",
 ) {
     val total = data.values.sum()
     val sorted = data.entries.sortedByDescending { it.value }
-    val colorScheme = MaterialTheme.colorScheme
-    val trackColor = colorScheme.outlineVariant.copy(alpha = 0.35f)
-    val holeColor = colorScheme.surface
-    val holeRing = colorScheme.outline.copy(alpha = 0.12f)
-    val shadowColor = Color.Black.copy(alpha = if (colorScheme.background.luminance() < 0.5f) 0.28f else 0.08f)
+    val trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+    val holeColor = MaterialTheme.colorScheme.surface
+    val animationKey = remember(data) { data.entries.sortedBy { it.key }.hashCode() }
+    val progress = remember { Animatable(0f) }
 
-    val chartDescription = if (total <= 0.0) {
-        "No chart data"
-    } else {
-        buildString {
-            append("Breakdown by category, total ")
-            append(centerLabel ?: CurrencyUtils.formatAmount(total, "EUR"))
-        }
+    LaunchedEffect(animationKey) {
+        progress.snapTo(0f)
+        progress.animateTo(1f, AppChartRevealSpring)
     }
 
-    val progress by animateFloatAsState(
-        targetValue = if (total > 0.0) 1f else 0f,
-        animationSpec = AppChartSpring,
-        label = "donutProgress"
-    )
+    val chartDescription = if (total <= 0.0) {
+        stringResource(R.string.chart_no_data)
+    } else {
+        stringResource(
+            R.string.chart_breakdown_description,
+            centerLabel ?: CurrencyUtils.formatAmount(total, currencyCode)
+        )
+    }
 
     Column(
         modifier = modifier
@@ -83,75 +281,61 @@ fun DonutChart(
             .semantics { contentDescription = chartDescription },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        if (sorted.isNotEmpty() && total > 0.0) {
-            ChartSegmentBar(
+        if (!compact && sorted.isNotEmpty() && total > 0.0) {
+            AnimatedChartSegmentBar(
                 segments = sorted.mapIndexed { index, (_, value) ->
                     val name = sorted[index].key
-                    val color = colors[name]?.forChartDisplay(index)
-                        ?: chartColorAt(index)
+                    val color = colors[name]?.forChartDisplay(index) ?: chartColorAt(index)
                     color to (value / total).toFloat()
                 },
+                progress = progress.value,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 28.dp, vertical = 8.dp)
+                    .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs)
             )
         }
 
         Box(
             modifier = Modifier
-                .defaultMinSize(minHeight = chartSize + 24.dp)
-                .height(chartSize + 24.dp),
+                .defaultMinSize(minHeight = chartSize + if (compact) AppSpacing.xs else AppSpacing.md)
+                .height(chartSize + if (compact) AppSpacing.xs else AppSpacing.md),
             contentAlignment = Alignment.Center
         ) {
             Canvas(modifier = Modifier.size(chartSize)) {
-                val strokeWidth = size.minDimension * 0.095f
-                val arcSize = size.minDimension - strokeWidth * 2f
-                val arcTopLeft = Offset(strokeWidth, strokeWidth)
+                val strokePx = DONUT_STROKE.toPx()
+                val arcSize = size.minDimension - strokePx * 2f
+                val arcTopLeft = Offset(strokePx, strokePx)
                 val arcBoxSize = Size(arcSize, arcSize)
-
-                // Soft drop shadow ring
-                drawArc(
-                    color = shadowColor,
-                    startAngle = -90f,
-                    sweepAngle = 360f,
-                    useCenter = false,
-                    style = Stroke(width = strokeWidth * 1.35f, cap = StrokeCap.Round),
-                    size = arcBoxSize,
-                    topLeft = Offset(arcTopLeft.x, arcTopLeft.y + 3f)
-                )
+                val reveal = progress.value
 
                 drawArc(
                     color = trackColor,
                     startAngle = 0f,
                     sweepAngle = 360f,
                     useCenter = false,
-                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+                    style = Stroke(width = strokePx, cap = StrokeCap.Round),
                     size = arcBoxSize,
                     topLeft = arcTopLeft
                 )
 
                 if (total > 0.0) {
                     var startAngle = -90f
-                    val gapDegrees = if (sorted.size > 1) 4.5f else 0f
+                    val gapDegrees = if (sorted.size > 1) 2f else 0f
 
                     sorted.forEachIndexed { index, (name, value) ->
                         val fullSweep =
-                            ((value / total).toFloat() * 360f - gapDegrees).coerceAtLeast(0.8f)
-                        val sweep = fullSweep * progress
+                            ((value / total).toFloat() * 360f - gapDegrees).coerceAtLeast(0.5f)
+                        val segmentReveal = ((reveal * sorted.size) - index).coerceIn(0f, 1f)
+                        val sweep = fullSweep * segmentReveal
+                        if (sweep <= 0f) return@forEachIndexed
                         val base = colors[name]?.forChartDisplay(index) ?: chartColorAt(index)
-                        val segmentBrush = Brush.sweepGradient(
-                            0f to base.chartShadow(),
-                            0.45f to base,
-                            1f to base.chartHighlight(),
-                            center = center
-                        )
 
                         drawArc(
-                            brush = segmentBrush,
+                            color = base,
                             startAngle = startAngle + gapDegrees / 2f,
                             sweepAngle = sweep,
                             useCenter = false,
-                            style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+                            style = Stroke(width = strokePx, cap = StrokeCap.Round),
                             size = arcBoxSize,
                             topLeft = arcTopLeft
                         )
@@ -159,33 +343,30 @@ fun DonutChart(
                     }
                 }
 
-                val holeRadius = (size.minDimension / 2f) - strokeWidth * 1.35f
+                val holeRadius = (size.minDimension / 2f) - strokePx * 1.5f
                 drawCircle(color = holeColor, radius = holeRadius, center = center)
-                drawCircle(
-                    color = holeRing,
-                    radius = holeRadius,
-                    center = center,
-                    style = Stroke(width = 1.5f)
-                )
             }
 
             if (centerLabel != null) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(horizontal = 24.dp)
+                    modifier = Modifier
+                        .padding(horizontal = AppSpacing.sm)
+                        .scale(0.9f + 0.1f * progress.value)
+                        .alpha(((progress.value - 0.15f) / 0.85f).coerceIn(0f, 1f))
                 ) {
-                    Text(
+                    MoneyText(
                         text = centerLabel,
-                        style = MaterialTheme.typography.headlineSmall.merge(AmountTextStyle),
+                        size = if (compact) MoneySize.Title else MoneySize.Headline,
                         color = MaterialTheme.colorScheme.onBackground,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1
+                        modifier = Modifier.padding(horizontal = AppSpacing.xxs)
                     )
                     if (centerSubLabel != null) {
                         Text(
-                            text = centerSubLabel,
-                            style = MaterialTheme.typography.labelMedium,
+                            text = centerSubLabel.uppercase(),
+                            style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
                             modifier = Modifier.padding(top = 2.dp)
                         )
                     }
@@ -196,16 +377,17 @@ fun DonutChart(
 }
 
 @Composable
-private fun ChartSegmentBar(
+private fun AnimatedChartSegmentBar(
     segments: List<Pair<Color, Float>>,
+    progress: Float,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(4.dp)
+    val shape = RoundedCornerShape(3.dp)
     Row(
         modifier = modifier
-            .height(6.dp)
+            .height(4.dp)
             .clip(shape)
-            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
+            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
     ) {
         segments.forEach { (color, weight) ->
             if (weight > 0f) {
@@ -213,7 +395,7 @@ private fun ChartSegmentBar(
                     modifier = Modifier
                         .weight(weight.coerceAtLeast(0.01f))
                         .fillMaxHeight()
-                        .background(color)
+                        .background(color.copy(alpha = color.alpha * progress.coerceIn(0f, 1f)))
                 )
             }
         }
@@ -229,32 +411,24 @@ fun AnimatedCategoryBar(
     val displayColor = color.forChartDisplay(0)
     val animatedRatio by animateFloatAsState(
         targetValue = ratio.coerceIn(0f, 1f),
-        animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing),
+        animationSpec = AppChartRevealSpring,
         label = "barFill"
     )
-    val trackShape = RoundedCornerShape(5.dp)
+    val trackShape = RoundedCornerShape(2.dp)
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(5.dp)
+            .height(4.dp)
             .clip(trackShape)
-            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f))
+            .background(displayColor.copy(alpha = 0.12f))
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth(animatedRatio)
-                .height(5.dp)
+                .height(4.dp)
                 .clip(trackShape)
-                .background(
-                    Brush.horizontalGradient(
-                        colors = listOf(
-                            displayColor.chartShadow(),
-                            displayColor,
-                            displayColor.chartHighlight()
-                        )
-                    )
-                )
+                .background(displayColor)
         )
     }
 }

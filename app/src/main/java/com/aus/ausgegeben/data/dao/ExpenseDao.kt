@@ -48,6 +48,17 @@ interface ExpenseDao {
     @Query("SELECT * FROM expenses WHERE categoryId = :categoryId ORDER BY dateMillis DESC")
     fun getExpensesByCategory(categoryId: Long): Flow<List<Expense>>
 
+    @Query("SELECT * FROM expenses WHERE categoryId = :categoryId")
+    suspend fun getExpensesForCategory(categoryId: Long): List<Expense>
+
+    @Query("SELECT * FROM expenses WHERE id = :id")
+    suspend fun getById(id: Long): Expense?
+
+    @Query(
+        "SELECT COUNT(*) FROM expenses WHERE receiptImagePath = :path AND id != :excludeId"
+    )
+    suspend fun countByReceiptPath(path: String, excludeId: Long): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(expense: Expense)
 

@@ -1,13 +1,25 @@
 package com.aus.ausgegeben.ui.components
 
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -19,146 +31,111 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.aus.ausgegeben.ui.theme.AppColorSpring
-import com.aus.ausgegeben.ui.theme.AppSpring
+import com.aus.ausgegeben.ui.theme.AppDpSpring
+import com.aus.ausgegeben.ui.theme.AppElevation
+import com.aus.ausgegeben.ui.theme.AppLayoutTokens
+import com.aus.ausgegeben.ui.theme.AppRadius
+import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.AppSpringSnappy
 import com.aus.ausgegeben.ui.theme.CapsuleShape
-import com.aus.ausgegeben.ui.theme.GlassShape
 import com.aus.ausgegeben.ui.theme.GroupedShape
-import com.aus.ausgegeben.ui.theme.SurfaceElevatedDark
+import com.aus.ausgegeben.ui.theme.SectionLabelStyle
+import com.aus.ausgegeben.ui.theme.appBorderColor
+import com.aus.ausgegeben.ui.theme.appDividerColor
+import com.aus.ausgegeben.ui.theme.isAppDarkTheme
+
+@Composable
+fun Modifier.appCard(
+    shape: Shape = GroupedShape,
+    horizontalPadding: Dp = 0.dp,
+): Modifier {
+    val surface = MaterialTheme.colorScheme.surface
+    val borderColor = appBorderColor()
+    return this
+        .then(if (horizontalPadding > 0.dp) Modifier.padding(horizontal = horizontalPadding) else Modifier)
+        .clip(shape)
+        .background(surface)
+        .border(AppElevation.cardBorder, borderColor, shape)
+}
 
 @Composable
 fun ScreenTitle(
     title: String,
     subtitle: String? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp)
-            .padding(top = 8.dp, bottom = 16.dp)
+            .background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = AppSpacing.md)
+            .padding(top = AppSpacing.sm, bottom = AppSpacing.sm),
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.headlineMedium,
+            style = MaterialTheme.typography.headlineLarge,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.semantics { heading() }
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.semantics { heading() },
         )
         if (subtitle != null) {
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp)
+                modifier = Modifier.padding(top = AppSpacing.xxs),
             )
         }
     }
 }
 
 @Composable
-fun BrandedScreenHeader(
-    accentLetter: Char,
-    titleRest: String,
-    subtitle: String? = null,
-    modifier: Modifier = Modifier
-) {
-    ScreenTitle(
-        title = accentLetter + titleRest,
-        subtitle = subtitle,
-        modifier = modifier
-    )
-}
-
-@Composable
 fun GroupedSection(
     modifier: Modifier = Modifier,
-    horizontalPadding: Dp = 16.dp,
-    content: @Composable ColumnScope.() -> Unit
+    horizontalPadding: Dp = AppSpacing.md,
+    content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = horizontalPadding)
-            .shadow(12.dp, GroupedShape, ambientColor = Color.Black.copy(alpha = 0.25f))
-            .clip(GroupedShape)
-            .background(MaterialTheme.colorScheme.surfaceVariant),
-        content = content
+            .appCard(shape = GroupedShape, horizontalPadding = horizontalPadding),
+        content = content,
     )
 }
 
 @Composable
 fun GroupedSectionLabel(
     text: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    uppercase: Boolean = true,
 ) {
     Text(
-        text = text.uppercase(),
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
-        fontWeight = FontWeight.SemiBold,
+        text = if (uppercase) text.uppercase() else text,
+        style = SectionLabelStyle,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 28.dp, vertical = 10.dp)
+            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs),
     )
 }
 
 @Composable
-fun IosSeparator(modifier: Modifier = Modifier, insetStart: Dp = 68.dp) {
+fun IosSeparator(modifier: Modifier = Modifier, insetStart: Dp = AppLayoutTokens.listSeparatorInset) {
     HorizontalDivider(
         modifier = modifier.padding(start = insetStart),
-        thickness = 0.5.dp,
-        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+        thickness = AppElevation.cardBorder,
+        color = appDividerColor(),
     )
-}
-
-@Composable
-fun GlassFloatingBar(
-    modifier: Modifier = Modifier,
-    content: @Composable RowScope.() -> Unit
-) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .navigationBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 12.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(64.dp)
-                .shadow(28.dp, GlassShape, ambientColor = Color.Black.copy(alpha = 0.5f))
-                .clip(GlassShape)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF2A2A32).copy(alpha = 0.92f),
-                            Color(0xFF1A1A20).copy(alpha = 0.96f)
-                        )
-                    )
-                )
-                .border(
-                    width = 0.5.dp,
-                    brush = Brush.verticalGradient(
-                        listOf(Color.White.copy(alpha = 0.14f), Color.White.copy(alpha = 0.04f))
-                    ),
-                    shape = GlassShape
-                )
-                .padding(horizontal = 6.dp),
-            horizontalArrangement = Arrangement.SpaceAround,
-            verticalAlignment = Alignment.CenterVertically,
-            content = content
-        )
-    }
 }
 
 @Composable
@@ -166,52 +143,66 @@ fun IosSegmentedControl(
     options: List<String>,
     selectedIndex: Int,
     onSelected: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
-    val trackShape = RoundedCornerShape(14.dp)
-    val trackColor = MaterialTheme.colorScheme.surfaceVariant
-    val trackBorder = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
-    Row(
+    val trackShape = RoundedCornerShape(AppRadius.pill)
+    val indicatorShape = RoundedCornerShape(AppRadius.pill)
+    val isDark = isAppDarkTheme()
+    val trackColor = if (isDark) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.surfaceVariant
+    val innerPadding = AppSpacing.xxs
+    val safeIndex = selectedIndex.coerceIn(0, (options.size - 1).coerceAtLeast(0))
+
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
+            .height(40.dp)
             .clip(trackShape)
             .background(trackColor)
-            .border(0.5.dp, trackBorder, trackShape)
-            .padding(4.dp)
+            .border(AppElevation.cardBorder, appBorderColor(), trackShape)
+            .padding(innerPadding),
     ) {
-        options.forEachIndexed { index, label ->
-            val selected = selectedIndex == index
-            val bg by animateColorAsState(
-                targetValue = if (selected) {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
-                } else {
-                    Color.Transparent
-                },
-                animationSpec = AppColorSpring,
-                label = "segmentBg"
-            )
-            val shape = RoundedCornerShape(11.dp)
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(shape)
-                    .background(bg)
-                    .then(
-                        if (selected) {
-                            Modifier.border(0.5.dp, Color.White.copy(alpha = 0.1f), shape)
-                        } else Modifier
+        val segmentWidth = maxWidth / options.size.coerceAtLeast(1)
+        val indicatorOffset by animateDpAsState(
+            targetValue = segmentWidth * safeIndex,
+            animationSpec = AppDpSpring,
+            label = "segmentSlide",
+        )
+
+        Box(
+            modifier = Modifier
+                .offset(x = indicatorOffset)
+                .width(segmentWidth)
+                .fillMaxHeight()
+                .clip(indicatorShape)
+                .background(MaterialTheme.colorScheme.surface)
+                .border(AppElevation.cardBorder, appBorderColor(), indicatorShape),
+        )
+
+        Row(modifier = Modifier.fillMaxSize()) {
+            options.forEachIndexed { index, label ->
+                val selected = safeIndex == index
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .smoothClickable { onSelected(index) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                        color = if (selected) {
+                            MaterialTheme.colorScheme.onBackground
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = AppSpacing.xxs),
                     )
-                    .smoothClickable { onSelected(index) }
-                    .padding(vertical = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                    color = if (selected) MaterialTheme.colorScheme.onBackground
-                    else MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                }
             }
         }
     }
@@ -220,14 +211,14 @@ fun IosSegmentedControl(
 @Composable
 fun Modifier.smoothClickable(
     enabled: Boolean = true,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ): Modifier {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.94f else 1f,
+        targetValue = if (pressed) 0.96f else 1f,
         animationSpec = AppSpringSnappy,
-        label = "pressScale"
+        label = "pressScale",
     )
     return this
         .scale(scale)
@@ -235,7 +226,7 @@ fun Modifier.smoothClickable(
             interactionSource = interactionSource,
             indication = null,
             enabled = enabled,
-            onClick = onClick
+            onClick = onClick,
         )
 }
 
@@ -245,34 +236,19 @@ fun SmoothIconButton(
     icon: ImageVector,
     contentDescription: String?,
     tint: Color = MaterialTheme.colorScheme.onBackground,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Box(
         modifier = modifier
             .size(44.dp)
             .clip(CapsuleShape)
             .smoothClickable(onClick = onClick),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
-        androidx.compose.material3.Icon(
+        AppIcon(
             imageVector = icon,
             contentDescription = contentDescription,
             tint = tint,
-            modifier = Modifier.size(22.dp)
         )
     }
-}
-
-@Composable
-fun IosLargeTitle(
-    title: String,
-    accentLetter: Char? = null,
-    subtitle: String? = null,
-    modifier: Modifier = Modifier
-) {
-    ScreenTitle(
-        title = if (accentLetter != null) accentLetter + title else title,
-        subtitle = subtitle,
-        modifier = modifier
-    )
 }
