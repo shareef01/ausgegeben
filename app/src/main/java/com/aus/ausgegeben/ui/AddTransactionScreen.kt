@@ -119,12 +119,13 @@ fun AddTransactionScreen(
         }
     }
     BackHandler(onBack = onBack)
-    val expenseAccent = AppColors.Expense
+    val saveAccent = AppColors.Accent
+    val saveContentColor = AppColors.OnAccent
     val typeAccent by animateColorAsState(
         targetValue = when (transactionType) {
             TransactionType.INCOME -> IncomeGreen
             TransactionType.TRANSFER -> TransferGray
-            else -> expenseAccent
+            else -> AppColors.Expense
         },
         animationSpec = AppColorSpring,
         label = "typeAccent"
@@ -320,7 +321,8 @@ fun AddTransactionScreen(
                         .height(52.dp),
                     shape = RoundedCornerShape(AppRadius.md),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = typeAccent,
+                        containerColor = saveAccent,
+                        contentColor = saveContentColor,
                         disabledContainerColor = AppColors.CardSurface,
                         disabledContentColor = AppColors.OnSurfaceVariant
                     )
