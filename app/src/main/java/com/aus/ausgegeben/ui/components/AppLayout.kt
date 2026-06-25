@@ -30,9 +30,9 @@ fun tabScreenListBottomPadding(): PaddingValues {
     return PaddingValues(bottom = BottomScrollExtraPadding + gestureInset)
 }
 
-/** Bottom padding when FAB is visible on the Record tab (nav bar is already in Scaffold insets). */
+/** Bottom padding when the center add button is shown in the bottom bar. */
 @Composable
 fun recordListBottomPadding(): PaddingValues {
     val gestureInset = navigationBarBottomPadding()
-    return PaddingValues(bottom = 72.dp + BottomScrollExtraPadding + gestureInset)
+    return PaddingValues(bottom = 88.dp + BottomScrollExtraPadding + gestureInset)
 }

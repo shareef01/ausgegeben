@@ -19,8 +19,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
@@ -129,11 +127,13 @@ fun AddTransactionScreen(
         transactionType == TransactionType.TRANSFER -> stringResource(R.string.add_transfer)
         else -> stringResource(R.string.add_expense)
     }
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dateMillis)
+
     Column(modifier = modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .padding(horizontal = 4.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             SmoothIconButton(
@@ -141,30 +141,20 @@ fun AddTransactionScreen(
                 icon = Icons.AutoMirrored.Rounded.ArrowBack,
                 contentDescription = stringResource(R.string.action_back)
             )
-            Box(
-                modifier = Modifier.weight(1f),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = if (isEditing) stringResource(R.string.add_edit_title) else stringResource(R.string.add_new_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                    Text(
-                        text = stringResource(R.string.app_name),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = AccentCoral,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
+            Text(
+                text = if (isEditing) stringResource(R.string.add_edit_title) else stringResource(R.string.add_new_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 8.dp)
+            )
             SmoothIconButton(
                 onClick = onOpenCamera,
                 icon = Icons.Rounded.CameraAlt,
                 contentDescription = stringResource(R.string.add_scan_receipt),
-                tint = if (receiptPath != null) AccentCoral else MaterialTheme.colorScheme.onSurfaceVariant
+                tint = if (receiptPath != null) typeAccent else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         Box(
@@ -276,19 +266,15 @@ fun AddTransactionScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
                 .background(MaterialTheme.colorScheme.surface)
                 .padding(horizontal = 16.dp)
-                .padding(top = 12.dp, bottom = 8.dp)
+                .padding(top = 12.dp, bottom = 12.dp)
         ) {
             selectedCategory?.let { category ->
                 SelectedCategoryChip(category = category, accentColor = typeAccent)
                 Spacer(modifier = Modifier.height(10.dp))
             }
-            SaveButton(
-                label = saveLabel,
-                enabled = canSave,
-                accentColor = typeAccent,
+            Button(
                 onClick = {
                     val wasEditing = isEditing
                     viewModel.onAmountChange(amountText)
@@ -299,9 +285,25 @@ fun AddTransactionScreen(
                         onError = onValidationError,
                         onBudgetAlert = onBudgetAlert
                     )
-                }
-            )
-            Spacer(modifier = Modifier.height(10.dp))
+                },
+                enabled = canSave,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = typeAccent,
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            ) {
+                Text(
+                    text = saveLabel,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
             CalculatorKeypad(
                 accentColor = typeAccent,
                 decimalSeparator = CurrencyUtils.decimalSeparator(currencyCode).toString(),
@@ -322,7 +324,6 @@ fun AddTransactionScreen(
         ReceiptImageDialog(uri = receiptPath!!, onDismiss = { showReceiptPreview = false })
     }
     if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dateMillis)
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
@@ -452,22 +453,11 @@ private fun AmountCard(
         amount.length > 7 -> 42.sp
         else -> 52.sp
     }
-    GroupedSection(modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)) {
-        // Accent stripe
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(3.dp)
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(accentColor.copy(alpha = 0.1f), accentColor, accentColor.copy(alpha = 0.1f))
-                    )
-                )
-        )
+    GroupedSection(modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 20.dp),
+                .padding(horizontal = 20.dp, vertical = 18.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -571,6 +561,7 @@ fun CategoryIconGrid(
                                 CategoryIconTile(
                                     category = category,
                                     isSelected = selectedCategory?.id == category.id,
+                                    accentColor = accentColor,
                                     onClick = { onCategorySelected(category) }
                                 )
                             } else {
@@ -615,7 +606,8 @@ fun CategoryGrid(
 private fun CategoryIconTile(
     category: Category,
     isSelected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    accentColor: Color = AccentCoral
 ) {
     val categoryColor = colorIntToCompose(category.colorInt)
     Column(
@@ -628,14 +620,10 @@ private fun CategoryIconTile(
         Box(
             modifier = Modifier
                 .size(52.dp)
-                .then(
-                    if (isSelected) Modifier.shadow(8.dp, CircleShape, ambientColor = categoryColor.copy(0.35f))
-                    else Modifier
-                )
                 .clip(CircleShape)
                 .background(categoryColor)
                 .then(
-                    if (isSelected) Modifier.border(2.5.dp, Color.White, CircleShape)
+                    if (isSelected) Modifier.border(2.dp, accentColor, CircleShape)
                     else Modifier
                 ),
             contentAlignment = Alignment.Center
@@ -734,41 +722,8 @@ private fun SelectedCategoryChip(category: Category, accentColor: Color) {
         )
     }
 }
-// ─────────────────────────────────────────────
-// Save button
-// ─────────────────────────────────────────────
-@Composable
-private fun SaveButton(
-    label: String,
-    enabled: Boolean,
-    accentColor: Color,
-    onClick: () -> Unit
-) {
-    val shape = RoundedCornerShape(16.dp)
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(52.dp)
-            .shadow(if (enabled) 12.dp else 0.dp, shape, ambientColor = accentColor.copy(0.3f))
-            .clip(shape)
-            .background(
-                if (enabled) accentColor
-                else MaterialTheme.colorScheme.surfaceVariant
-            )
-            .smoothClickable(enabled = enabled, onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleMedium,
-            color = if (enabled) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.SemiBold
-        )
-    }
-}
-// ─────────────────────────────────────────────
-// Calculator keypad
-// ─────────────────────────────────────────────
+// Save button uses Material3 Button inline in AddTransactionScreen
+
 @Composable
 fun CustomNumericKeypad(
     onKeyPress: (String) -> Unit,
@@ -833,7 +788,7 @@ private fun CalcKey(
     onClick: () -> Unit
 ) {
     val isBackspace = key == "back"
-    val keyBackground = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+    val keyBackground = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
     Box(
         modifier = modifier
             .fillMaxHeight()

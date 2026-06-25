@@ -6,12 +6,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.calculateEndPadding
@@ -20,9 +14,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -40,7 +31,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.aus.ausgegeben.R
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
@@ -66,11 +59,9 @@ import com.aus.ausgegeben.ui.Route
 import com.aus.ausgegeben.ui.SettingsScreen
 import com.aus.ausgegeben.ui.components.AppScreen
 import com.aus.ausgegeben.ui.components.CameraPermissionDenied
-import com.aus.ausgegeben.ui.components.FloatingBottomNav
-import androidx.compose.ui.res.stringResource
-import com.aus.ausgegeben.R
+import com.aus.ausgegeben.ui.components.MainBottomBar
 import com.aus.ausgegeben.ui.components.MainTabPager
-import com.aus.ausgegeben.ui.components.RedFab
+import com.aus.ausgegeben.ui.openAddTransaction
 import com.aus.ausgegeben.ui.isMainTab
 import com.aus.ausgegeben.ui.theme.AusgegebenTheme
 import com.aus.ausgegeben.ui.theme.ThemeMode
@@ -163,7 +154,6 @@ fun MainApp(
     val duplicatedMessage = stringResource(R.string.snackbar_transaction_duplicated)
     val savedMessage = stringResource(R.string.snackbar_transaction_saved)
     val updatedMessage = stringResource(R.string.snackbar_transaction_updated)
-    val addTransactionLabel = stringResource(R.string.nav_add_transaction)
 
     fun showSnackbar(message: String) {
         scope.launch { snackbarHostState.showSnackbar(message) }
@@ -183,11 +173,73 @@ fun MainApp(
     }
     val recordCategories by addViewModel.categories.collectAsState()
 
+    fun openAddFlow() {
+        addViewModel.resetForm()
+        backStack.openAddTransaction(homeRoute)
+    }
+
     LaunchedEffect(pendingOpenAdd) {
         if (pendingOpenAdd) {
-            addViewModel.resetForm()
-            backStack.push(Route.Dashboard as NavKey)
+            openAddFlow()
             pendingOpenAdd = false
+        }
+    }
+
+    val overlayEntryProvider = entryProvider {
+        entry<Route.Dashboard> {
+            AddTransactionScreen(
+                viewModel = addViewModel,
+                categoryViewModel = categoryViewModel,
+                currencyCode = currency,
+                onTransactionSaved = { wasEditing ->
+                    backStack.setNavBackStack(listOf(Route.ExpenseList as NavKey))
+                    showSnackbar(if (wasEditing) updatedMessage else savedMessage)
+                },
+                onBack = {
+                    addViewModel.resetForm()
+                    backStack.popOrGoHome(homeRoute)
+                },
+                onOpenCamera = { backStack.push(Route.Camera as NavKey) },
+                onValidationError = { message -> showSnackbar(message) },
+                onBudgetAlert = { message -> showSnackbar(message) }
+            )
+        }
+        entry<Route.CategoryList> {
+            CategoryScreen(
+                viewModel = categoryViewModel,
+                onBack = { backStack.popOrGoHome(homeRoute) }
+            )
+        }
+        entry<Route.Camera> {
+            val permissionState = rememberPermissionState(Manifest.permission.CAMERA)
+            var askedOnce by remember { mutableStateOf(false) }
+
+            LaunchedEffect(permissionState.status.isGranted) {
+                if (!permissionState.status.isGranted && !askedOnce) {
+                    permissionState.launchPermissionRequest()
+                    askedOnce = true
+                }
+            }
+
+            when {
+                permissionState.status.isGranted -> {
+                    CameraScreen(
+                        onImageCaptured = { uri ->
+                            addViewModel.setReceiptPath(uri.toString())
+                            if (backStack.size > 1) {
+                                backStack.removeLastOrNull()
+                            }
+                        },
+                        onBack = { backStack.popOrGoHome(homeRoute) }
+                    )
+                }
+                else -> {
+                    CameraPermissionDenied(
+                        onRetry = { permissionState.launchPermissionRequest() },
+                        onBack = { backStack.popOrGoHome(homeRoute) }
+                    )
+                }
+            }
         }
     }
 
@@ -219,27 +271,17 @@ fun MainApp(
             bottomBar = {
                 if (showBottomNav) {
                     Box(modifier = Modifier.navigationBarsPadding()) {
-                        FloatingBottomNav(
+                        MainBottomBar(
                             currentRoute = currentRoute,
+                            showAddButton = currentRoute == Route.ExpenseList,
+                            onAddTransaction = ::openAddFlow,
                             onNavigate = { route ->
                                 if (currentRoute != route) {
-                                    backStack.setNavBackStack(listOf(route))
+                                    backStack.setNavBackStack(listOf(route as NavKey))
                                 }
                             }
                         )
                     }
-                }
-            },
-            floatingActionButton = {
-                if (currentRoute == Route.ExpenseList) {
-                    RedFab(
-                        icon = Icons.Rounded.Add,
-                        contentDescription = addTransactionLabel,
-                        onClick = {
-                            addViewModel.resetForm()
-                            backStack.push(Route.Dashboard as NavKey)
-                        }
-                    )
                 }
             }
         ) { innerPadding ->
@@ -266,13 +308,10 @@ fun MainApp(
                             RecordScreen(
                                 viewModel = expenseViewModel,
                                 currencyCode = currency,
-                                onAddTransaction = {
-                                    addViewModel.resetForm()
-                                    backStack.push(Route.Dashboard as NavKey)
-                                },
+                                onAddTransaction = ::openAddFlow,
                                 onExpenseClick = { expense ->
                                     addViewModel.loadForEdit(expense, recordCategories)
-                                    backStack.push(Route.Dashboard as NavKey)
+                                    backStack.openAddTransaction(homeRoute)
                                 },
                                 onExpenseDeleted = { expense ->
                                     scope.launch {
@@ -303,7 +342,11 @@ fun MainApp(
                             SettingsScreen(
                                 repository = repository,
                                 preferenceManager = preferenceManager,
-                                onNavigateToCategories = { backStack.push(Route.CategoryList as NavKey) },
+                                onNavigateToCategories = {
+                                    backStack.setNavBackStack(
+                                        listOf(Route.Settings as NavKey, Route.CategoryList as NavKey)
+                                    )
+                                },
                                 onShowMessage = ::showSnackbar,
                                 onRequestNotificationPermission = {
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
@@ -315,82 +358,17 @@ fun MainApp(
                             )
                         }
                     )
-                }
-
-                AnimatedVisibility(
-                    visible = !currentRoute.isMainTab(),
-                    enter = slideInHorizontally(animationSpec = tween(280)) { it / 3 } + fadeIn(tween(220)),
-                    exit = slideOutHorizontally(animationSpec = tween(220)) { it / 3 } + fadeOut(tween(180))
-                ) {
-                if (!currentRoute.isMainTab()) {
-                    val overlayProvider = entryProvider {
-                        entry<Route.Dashboard> {
-                            AddTransactionScreen(
-                                viewModel = addViewModel,
-                                categoryViewModel = categoryViewModel,
-                                currencyCode = currency,
-                                onTransactionSaved = { wasEditing ->
-                                    backStack.setNavBackStack(listOf(Route.ExpenseList))
-                                    showSnackbar(
-                                        if (wasEditing) updatedMessage else savedMessage
-                                    )
-                                },
-                                onBack = {
-                                    addViewModel.resetForm()
-                                    backStack.popOrGoHome(homeRoute)
-                                },
-                                onOpenCamera = { backStack.push(Route.Camera as NavKey) },
-                                onValidationError = { message -> showSnackbar(message) },
-                                onBudgetAlert = { message -> showSnackbar(message) }
-                            )
-                        }
-                        entry<Route.CategoryList> {
-                            CategoryScreen(
-                                viewModel = categoryViewModel,
-                                onBack = { backStack.popOrGoHome(homeRoute) }
-                            )
-                        }
-                        entry<Route.Camera> {
-                            val permissionState = rememberPermissionState(Manifest.permission.CAMERA)
-                            var askedOnce by remember { mutableStateOf(false) }
-
-                            LaunchedEffect(permissionState.status.isGranted) {
-                                if (!permissionState.status.isGranted && !askedOnce) {
-                                    permissionState.launchPermissionRequest()
-                                    askedOnce = true
-                                }
-                            }
-
-                            when {
-                                permissionState.status.isGranted -> {
-                                    CameraScreen(
-                                        onImageCaptured = { uri ->
-                                            addViewModel.setReceiptPath(uri.toString())
-                                            backStack.popOrGoHome(homeRoute)
-                                        },
-                                        onBack = { backStack.popOrGoHome(homeRoute) }
-                                    )
-                                }
-                                else -> {
-                                    CameraPermissionDenied(
-                                        onRetry = { permissionState.launchPermissionRequest() },
-                                        onBack = { backStack.popOrGoHome(homeRoute) }
-                                    )
-                                }
-                            }
-                        }
-                    }
-
+                } else {
                     NavDisplay(
                         backStack = backStack,
                         entryProvider = { key ->
                             @Suppress("UNCHECKED_CAST")
-                            val resolve = overlayProvider as (NavKey) -> androidx.navigation3.runtime.NavEntry<NavKey>
-                            resolve(key)
+                            val provider = overlayEntryProvider as (NavKey) ->
+                                androidx.navigation3.runtime.NavEntry<NavKey>
+                            provider(key)
                         },
                         onBack = { backStack.popOrGoHome(homeRoute) }
                     )
-                }
                 }
             }
         }
@@ -403,7 +381,9 @@ fun NavBackStack<NavKey>.setNavBackStack(newElements: List<NavKey>) {
 }
 
 fun NavBackStack<NavKey>.push(route: NavKey) {
-    add(route)
+    if (lastOrNull() != route) {
+        add(route)
+    }
 }
 
 fun NavBackStack<NavKey>.popOrGoHome(home: NavKey) {
