@@ -1,15 +1,41 @@
 package com.aus.ausgegeben.ui.theme
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 
-// ── Premium dark base (off-black, never pure #000) ─────────────────────────
-val BackgroundDark = Color(0xFF09090B)
+// ── STRICT DESIGN TOKENS (do not approximate) ───────────────────────────────
+object AppColors {
+    /** Primary app background — never #000000 */
+    val Background = Color(0xFF09090B)
+
+    /** Every card / elevated section */
+    val CardSurface = Color(0xFF18181B)
+
+    /** 1px border: rgba(255, 255, 255, 0.08) */
+    val CardBorder = Color(0x14FFFFFF)
+
+    /** Expenses, warnings, negative amounts */
+    val Expense = Color(0xFFFF7A7A)
+
+    /** Income, success, positive amounts */
+    val Income = Color(0xFF4ADE80)
+
+    /** Numpad key press / hover */
+    val NumpadPress = Color(0x1AFFFFFF)
+
+    val OnBackground = Color(0xFFFAFAFA)
+    val OnSurfaceVariant = Color(0xFFA1A1AA)
+    val Transfer = Color(0xFFA1A1AA)
+}
+
+// ── Palette aliases (all screens must use these) ────────────────────────────
+val BackgroundDark = AppColors.Background
 val BackgroundElevated = Color(0xFF111113)
 val BackgroundGlowWarm = Color(0xFF141218)
 val BackgroundGlowCool = Color(0xFF101218)
 val BackgroundGlowMint = Color(0xFF101412)
 
-val SurfaceDark = Color(0xFF18181B)
+val SurfaceDark = AppColors.CardSurface
 val SurfaceElevatedDark = Color(0xFF1F1F23)
 val SurfaceVariantDark = Color(0xFF27272A)
 val TertiarySurfaceDark = Color(0xFF2E2E33)
@@ -18,36 +44,33 @@ val OutlineVariantDark = Color(0xFF52525B)
 val SeparatorDark = Color(0xFF52525B)
 val GlassOverlayDark = Color(0xE618181B)
 
-// ── Premium semantic accents (muted, sophisticated) ────────────────────────
-val AccentCoral = Color(0xFFFF7A7A)
+val AccentCoral = AppColors.Expense
 val AccentCoralSoft = Color(0xFFFFA8A8)
-val AccentRed = Color(0xFFF87171)
+val AccentRed = AppColors.Expense
 
-val IncomeGreen = Color(0xFF4ADE80)
+val IncomeGreen = AppColors.Income
 val IncomeGreenSoft = Color(0xFF86EFAC)
-val ExpenseMuted = Color(0xFFFF7A7A)
+val ExpenseMuted = AppColors.Expense
 val ExpenseSoft = Color(0xFFFFA8A8)
-val TransferGray = Color(0xFFA1A1AA)
+val TransferGray = AppColors.Transfer
 
 val SystemBlue = Color(0xFF60A5FA)
 val SystemViolet = Color(0xFFA78BFA)
 val SystemTeal = Color(0xFF2DD4BF)
 
-// ── On-colors ──────────────────────────────────────────────────────────────
-val OnBackgroundDark = Color(0xFFFAFAFA)
+val OnBackgroundDark = AppColors.OnBackground
 val OnSurfaceDark = Color(0xFFF4F4F5)
-val OnSurfaceVariantDark = Color(0xFFA1A1AA)
-val OnPrimaryDark = Color(0xFF09090B)
+val OnSurfaceVariantDark = AppColors.OnSurfaceVariant
+val OnPrimaryDark = AppColors.Background
 
 val SecondaryDark = Color(0xFF27272A)
 val OnSecondaryDark = Color(0xFFE4E4E7)
 
-val ErrorRed = Color(0xFFF87171)
-val OnErrorDark = Color(0xFF09090B)
+val ErrorRed = AppColors.Expense
+val OnErrorDark = AppColors.Background
 val ErrorContainerDark = Color(0xFF3F1F1F)
 val OnErrorContainerDark = Color(0xFFFECACA)
 
-// ── Light surfaces (clean, Vercel-inspired) ────────────────────────────────
 val BackgroundLight = Color(0xFFFAFAFA)
 val GroupedBackgroundLight = Color(0xFFFFFFFF)
 val SurfaceLight = Color(0xFFFFFFFF)
@@ -58,10 +81,11 @@ val OnBackgroundLight = Color(0xFF09090B)
 val OnSurfaceLight = Color(0xFF09090B)
 val OnSurfaceVariantLight = Color(0xFF71717A)
 
-// Surface border token (semi-transparent white on dark)
-val SurfaceBorderDark = Color(0x0DFFFFFF)
-val SurfaceBorderLight = Color(0x0A000000)
+val SurfaceBorderDark = AppColors.CardBorder
+val SurfaceBorderLight = Color(0x14000000)
 
-// Legacy aliases
 val BackgroundGlowCoral = BackgroundGlowWarm
 val BackgroundGlowBlue = BackgroundGlowCool
+
+/** Donut chart ring stroke — hardcoded max 8px */
+val ChartStrokeWidth = 8.dp
