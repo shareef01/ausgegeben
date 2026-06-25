@@ -2,60 +2,60 @@ package com.aus.ausgegeben.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// ── Dark surfaces (warm charcoal, not pure black) ──────────────────────────
-val BackgroundDark = Color(0xFF0A0A0F)
-val BackgroundGlowWarm = Color(0xFF1C1218)
-val BackgroundGlowCool = Color(0xFF101420)
-val BackgroundGlowMint = Color(0xFF0F1A16)
+// ── Dark surfaces (neutral base, minimal warmth) ───────────────────────────
+val BackgroundDark = Color(0xFF121214)
+val BackgroundGlowWarm = Color(0xFF1A1518)
+val BackgroundGlowCool = Color(0xFF14161A)
+val BackgroundGlowMint = Color(0xFF141816)
 
-val SurfaceDark = Color(0xFF15151C)
-val SurfaceElevatedDark = Color(0xFF1C1C24)
-val SurfaceVariantDark = Color(0xFF22222C)
-val TertiarySurfaceDark = Color(0xFF2A2A34)
-val OutlineDark = Color(0xFF3A3A46)
-val OutlineVariantDark = Color(0xFF484854)
-val SeparatorDark = Color(0xFF54545E)
-val GlassOverlayDark = Color(0xE615151C)
+val SurfaceDark = Color(0xFF1C1C1F)
+val SurfaceElevatedDark = Color(0xFF242428)
+val SurfaceVariantDark = Color(0xFF2A2A2F)
+val TertiarySurfaceDark = Color(0xFF323238)
+val OutlineDark = Color(0xFF3D3D44)
+val OutlineVariantDark = Color(0xFF4A4A52)
+val SeparatorDark = Color(0xFF52525A)
+val GlassOverlayDark = Color(0xE61C1C1F)
 
-// ── Brand & semantic accents (soft, not neon) ──────────────────────────────
-val AccentCoral = Color(0xFFFF8578)
-val AccentCoralSoft = Color(0xFFFFB5A8)
-val AccentRed = Color(0xFFFF6B6B)
+// ── Brand & semantic accents (restrained, cohesive) ────────────────────────
+val AccentCoral = Color(0xFFE86B5A)
+val AccentCoralSoft = Color(0xFFF4A99E)
+val AccentRed = Color(0xFFE05555)
 
-val IncomeGreen = Color(0xFF5ED49A)
-val IncomeGreenSoft = Color(0xFF8EE8BE)
-val ExpenseMuted = Color(0xFFFF9A8F)
-val ExpenseSoft = Color(0xFFFFBDB5)
-val TransferGray = Color(0xFF9B9BA8)
+val IncomeGreen = Color(0xFF5CB88A)
+val IncomeGreenSoft = Color(0xFF8FD4B0)
+val ExpenseMuted = Color(0xFFE07A6E)
+val ExpenseSoft = Color(0xFFF0A89E)
+val TransferGray = Color(0xFF8E8E96)
 
-val SystemBlue = Color(0xFF72AEFF)
-val SystemViolet = Color(0xFFA894F6)
-val SystemTeal = Color(0xFF5ECFC0)
+val SystemBlue = Color(0xFF6A9FD4)
+val SystemViolet = Color(0xFF9A8FD4)
+val SystemTeal = Color(0xFF5AB8AA)
 
 // ── On-colors ──────────────────────────────────────────────────────────────
-val OnBackgroundDark = Color(0xFFF4F4F8)
-val OnSurfaceDark = Color(0xFFEEEEF2)
-val OnSurfaceVariantDark = Color(0xFF9B9BA8)
+val OnBackgroundDark = Color(0xFFF2F2F5)
+val OnSurfaceDark = Color(0xFFEBEBEF)
+val OnSurfaceVariantDark = Color(0xFF9898A0)
 val OnPrimaryDark = Color(0xFFFFFFFF)
 
-val SecondaryDark = Color(0xFF22222C)
-val OnSecondaryDark = Color(0xFFEBEBF0)
+val SecondaryDark = Color(0xFF2A2A2F)
+val OnSecondaryDark = Color(0xFFE8E8EC)
 
-val ErrorRed = Color(0xFFFF6B6B)
+val ErrorRed = Color(0xFFE05555)
 val OnErrorDark = Color(0xFFFFFFFF)
-val ErrorContainerDark = Color(0xFF3A1818)
-val OnErrorContainerDark = Color(0xFFFFC8C4)
+val ErrorContainerDark = Color(0xFF3A2020)
+val OnErrorContainerDark = Color(0xFFF5C4C0)
 
 // ── Light surfaces ─────────────────────────────────────────────────────────
-val BackgroundLight = Color(0xFFF5F5FA)
+val BackgroundLight = Color(0xFFF4F4F6)
 val GroupedBackgroundLight = Color(0xFFFFFFFF)
 val SurfaceLight = Color(0xFFFFFFFF)
-val SurfaceVariantLight = Color(0xFFEEEEF4)
-val OutlineLight = Color(0xFFC8C8D0)
-val GlassOverlayLight = Color(0xF0FFFFFF)
-val OnBackgroundLight = Color(0xFF121218)
-val OnSurfaceLight = Color(0xFF121218)
-val OnSurfaceVariantLight = Color(0xFF6E6E78)
+val SurfaceVariantLight = Color(0xFFEDEDF0)
+val OutlineLight = Color(0xFFD4D4DA)
+val GlassOverlayLight = Color(0xF5FFFFFF)
+val OnBackgroundLight = Color(0xFF161618)
+val OnSurfaceLight = Color(0xFF161618)
+val OnSurfaceVariantLight = Color(0xFF6A6A72)
 
 // Legacy aliases (used by AppScreen)
 val BackgroundGlowCoral = BackgroundGlowWarm

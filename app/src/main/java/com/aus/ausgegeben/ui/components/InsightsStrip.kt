@@ -58,7 +58,7 @@ fun InsightsStrip(
                         name,
                         CurrencyUtils.formatAmount(insights.topExpenseCategoryAmount, currencyCode)
                     ),
-                    tint = IncomeGreen
+                    tint = AccentCoral
                 ))
             }
         }

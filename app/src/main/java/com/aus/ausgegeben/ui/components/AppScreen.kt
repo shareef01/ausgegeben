@@ -11,12 +11,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
-import com.aus.ausgegeben.ui.theme.AccentCoral
-import com.aus.ausgegeben.ui.theme.BackgroundGlowCool
-import com.aus.ausgegeben.ui.theme.BackgroundGlowMint
-import com.aus.ausgegeben.ui.theme.BackgroundGlowWarm
-import com.aus.ausgegeben.ui.theme.SystemBlue
-import com.aus.ausgegeben.ui.theme.SystemViolet
 
 @Composable
 fun AppScreen(
@@ -24,77 +18,23 @@ fun AppScreen(
     content: @Composable BoxScope.() -> Unit
 ) {
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val base = MaterialTheme.colorScheme.background
+    val accent = if (isDark) {
+        Color(0xFF1E181A)
+    } else {
+        Color(0xFFF8EEEC)
+    }
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .then(
-                if (isDark) {
-                    Modifier
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(
-                                    BackgroundGlowWarm.copy(alpha = 0.42f),
-                                    Color.Transparent
-                                ),
-                                center = Offset(0.1f, 0.05f),
-                                radius = 900f
-                            )
-                        )
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(
-                                    BackgroundGlowCool.copy(alpha = 0.32f),
-                                    Color.Transparent
-                                ),
-                                center = Offset(0.9f, 0.15f),
-                                radius = 780f
-                            )
-                        )
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(
-                                    BackgroundGlowMint.copy(alpha = 0.2f),
-                                    Color.Transparent
-                                ),
-                                center = Offset(0.5f, 1f),
-                                radius = 1100f
-                            )
-                        )
-                } else {
-                    Modifier
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(
-                                    AccentCoral.copy(alpha = 0.08f),
-                                    Color.Transparent
-                                ),
-                                center = Offset(0.08f, 0.04f),
-                                radius = 750f
-                            )
-                        )
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(
-                                    SystemBlue.copy(alpha = 0.06f),
-                                    Color.Transparent
-                                ),
-                                center = Offset(0.92f, 0.18f),
-                                radius = 680f
-                            )
-                        )
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(
-                                    SystemViolet.copy(alpha = 0.05f),
-                                    Color.Transparent
-                                ),
-                                center = Offset(0.5f, 0.95f),
-                                radius = 900f
-                            )
-                        )
-                }
+            .background(base)
+            .background(
+                Brush.linearGradient(
+                    colors = listOf(accent.copy(alpha = 0.55f), Color.Transparent),
+                    start = Offset(0f, 0f),
+                    end = Offset(800f, 600f)
+                )
             ),
         content = content
     )

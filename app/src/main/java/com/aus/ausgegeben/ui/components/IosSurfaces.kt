@@ -1,6 +1,5 @@
 package com.aus.ausgegeben.ui.components
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -89,7 +88,6 @@ fun GroupedSection(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = horizontalPadding)
-            .shadow(12.dp, GroupedShape, ambientColor = Color.Black.copy(alpha = 0.25f))
             .clip(GroupedShape)
             .background(MaterialTheme.colorScheme.surfaceVariant),
         content = content
@@ -181,15 +179,11 @@ fun IosSegmentedControl(
     ) {
         options.forEachIndexed { index, label ->
             val selected = selectedIndex == index
-            val bg by animateColorAsState(
-                targetValue = if (selected) {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
-                } else {
-                    Color.Transparent
-                },
-                animationSpec = AppColorSpring,
-                label = "segmentBg"
-            )
+            val bg = if (selected) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+            } else {
+                Color.Transparent
+            }
             val shape = RoundedCornerShape(11.dp)
             Box(
                 modifier = Modifier
