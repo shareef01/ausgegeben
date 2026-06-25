@@ -164,12 +164,12 @@ fun MainBottomBar(
                 .shadow(
                     elevation = 10.dp,
                     shape = CircleShape,
-                    ambientColor = AppColors.Expense.copy(alpha = 0.35f),
-                    spotColor = AppColors.Expense.copy(alpha = 0.5f),
+                    ambientColor = Color.Black.copy(alpha = 0.3f),
+                    spotColor = Color.Black.copy(alpha = 0.4f),
                 )
                 .clip(CircleShape)
-                .background(AppColors.Expense)
-                .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape)
+                .background(AppColors.Accent)
+                .border(1.dp, AppColors.CardBorder, CircleShape)
                 .semantics {
                     role = Role.Button
                     contentDescription = addLabel
@@ -180,7 +180,7 @@ fun MainBottomBar(
             Icon(
                 imageVector = Icons.Rounded.Add,
                 contentDescription = null,
-                tint = AppColors.Background,
+                tint = AppColors.OnAccent,
                 modifier = Modifier.size(28.dp),
             )
         }
