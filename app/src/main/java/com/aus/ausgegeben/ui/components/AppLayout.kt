@@ -9,8 +9,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/** Bottom nav tab row height (divider + gesture inset are outside this). */
-val BottomNavBarHeight = MainBottomBarHeight + 1.dp
+/** Bottom nav shell height (raised add button included). */
+val BottomNavBarHeight = MainBottomBarHeight
 
 /** Extra space so the last list row clears FAB / nav comfortably. */
 val BottomScrollExtraPadding = 24.dp
@@ -30,9 +30,6 @@ fun tabScreenListBottomPadding(): PaddingValues {
     return PaddingValues(bottom = BottomScrollExtraPadding + gestureInset)
 }
 
-/** Bottom padding for scrollable lists on the record tab (nav bar + FAB). */
+/** Bottom padding for the record tab list (add button is inside the nav shell). */
 @Composable
-fun recordListBottomPadding(): PaddingValues {
-    val gestureInset = navigationBarBottomPadding()
-    return PaddingValues(bottom = BottomNavBarHeight + 56.dp + BottomScrollExtraPadding + gestureInset)
-}
+fun recordListBottomPadding(): PaddingValues = tabScreenListBottomPadding()

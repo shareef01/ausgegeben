@@ -22,12 +22,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -240,33 +234,13 @@ fun MainApp(
             containerColor = Color.Transparent,
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             snackbarHost = { SnackbarHost(snackbarHostState) },
-            floatingActionButton = {
-                if (showBottomNav && selectedTab == Route.ExpenseList) {
-                    FloatingActionButton(
-                        onClick = ::openAddFlow,
-                        containerColor = AppColors.Expense,
-                        contentColor = AppColors.Background,
-                        elevation = FloatingActionButtonDefaults.elevation(
-                            defaultElevation = 4.dp,
-                            pressedElevation = 8.dp,
-                        ),
-                        shape = CircleShape,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Add,
-                            contentDescription = stringResource(R.string.nav_add_transaction),
-                            modifier = Modifier.size(26.dp),
-                        )
-                    }
-                }
-            },
             bottomBar = {
                 if (showBottomNav) {
                     val navBarInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(AppColors.CardSurface)
+                            .background(AppColors.Background)
                             .padding(bottom = navBarInset),
                     ) {
                         MainBottomBar(
@@ -276,6 +250,7 @@ fun MainApp(
                                     selectedTab = route
                                 }
                             },
+                            onAddClick = ::openAddFlow,
                         )
                     }
                 }
