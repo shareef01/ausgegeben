@@ -20,12 +20,12 @@ object AppIconSize {
 
 object AppRadius {
     val xs = 4.dp
-    val card = 16.dp
-    val cardLarge = 20.dp
-    val sm = 8.dp
-    val md = 12.dp
-    val lg = 16.dp
-    val xl = 20.dp
+    val card = 12.dp
+    val cardLarge = 16.dp
+    val sm = 6.dp
+    val md = 10.dp
+    val lg = 12.dp
+    val xl = 16.dp
     val pill = 50.dp
 }
 
@@ -36,9 +36,9 @@ object AppElevation {
 }
 
 object AppLayoutTokens {
-    val listSeparatorInset = 64.dp
-    val emptyStateIconWell = 64.dp
-    val emptyStateMinHeight = 240.dp
-    val fabClearance = 72.dp
-    val stripeWidth = 4.dp
+    val listSeparatorInset = 52.dp
+    val emptyStateIconWell = 48.dp
+    val emptyStateMinHeight = 200.dp
+    val fabClearance = 64.dp
+    val stripeWidth = 0.dp
 }
