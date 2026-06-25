@@ -258,7 +258,11 @@ fun RecordScreen(
                     val previousDateLabel = previous?.let {
                         dateFormat.format(Date(localDayStartMillis(it.dateMillis)))
                     }
-                    val next = lazyExpenses.peek(index + 1)
+                    val next = if (index + 1 < lazyExpenses.itemCount) {
+                        lazyExpenses.peek(index + 1)
+                    } else {
+                        null
+                    }
                     val nextDateLabel = next?.let {
                         dateFormat.format(Date(localDayStartMillis(it.dateMillis)))
                     }
