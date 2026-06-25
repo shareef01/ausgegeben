@@ -10,6 +10,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -255,7 +257,11 @@ fun MainApp(
                 }
             },
             floatingActionButton = {
-                if (showBottomNav && selectedTab == Route.ExpenseList) {
+                AnimatedVisibility(
+                    visible = showBottomNav && selectedTab == Route.ExpenseList,
+                    enter = scaleIn(initialScale = 0.86f) + fadeIn(),
+                    exit = scaleOut(targetScale = 0.86f) + fadeOut(),
+                ) {
                     FloatingActionButton(
                         onClick = ::openAddFlow,
                         containerColor = MaterialTheme.colorScheme.onBackground,
@@ -371,8 +377,8 @@ fun MainApp(
 
                 AnimatedVisibility(
                     visible = currentOverlay != null,
-                    enter = slideInVertically { it / 4 } + fadeIn(),
-                    exit = slideOutVertically { it / 4 } + fadeOut(),
+                    enter = slideInVertically { it / 5 } + scaleIn(initialScale = 0.98f) + fadeIn(),
+                    exit = slideOutVertically { it / 5 } + scaleOut(targetScale = 0.98f) + fadeOut(),
                 ) {
                     Box(
                         modifier = Modifier
