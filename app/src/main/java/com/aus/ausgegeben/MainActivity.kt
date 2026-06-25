@@ -10,6 +10,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.calculateEndPadding
@@ -17,8 +18,9 @@ import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.FloatingActionButton
@@ -69,6 +71,8 @@ import com.aus.ausgegeben.ui.components.AppScreen
 import com.aus.ausgegeben.ui.components.CameraPermissionDenied
 import com.aus.ausgegeben.ui.components.MainBottomBar
 import com.aus.ausgegeben.ui.components.MainTabPager
+import com.aus.ausgegeben.ui.theme.AppColors
+import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AusgegebenTheme
 import com.aus.ausgegeben.ui.theme.ThemeMode
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -239,18 +243,21 @@ fun MainApp(
                 if (showBottomNav && selectedTab == Route.ExpenseList) {
                     FloatingActionButton(
                         onClick = ::openAddFlow,
-                        modifier = Modifier.navigationBarsPadding(),
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier
+                            .navigationBarsPadding()
+                            .border(1.dp, AppColors.CardBorder, RoundedCornerShape(AppRadius.lg)),
+                        containerColor = AppColors.Expense,
+                        contentColor = AppColors.Background,
                         elevation = FloatingActionButtonDefaults.elevation(
-                            defaultElevation = 4.dp,
-                            pressedElevation = 6.dp
+                            defaultElevation = 6.dp,
+                            pressedElevation = 10.dp,
                         ),
-                        shape = CircleShape
+                        shape = RoundedCornerShape(AppRadius.lg),
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Add,
-                            contentDescription = stringResource(R.string.nav_add_transaction)
+                            contentDescription = stringResource(R.string.nav_add_transaction),
+                            modifier = Modifier.size(28.dp),
                         )
                     }
                 }
