@@ -8,10 +8,8 @@ import com.aus.ausgegeben.data.AppRepository
 import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
-import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.datePickerMillisToLocalDayStart
-import com.aus.ausgegeben.util.filterByPeriod
 import com.aus.ausgegeben.util.localDayStartMillis
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -143,10 +141,8 @@ class AddExpenseViewModel(
     ): String? {
         if (type != TransactionType.EXPENSE) return null
         val budget = preferenceManager.monthlyBudgetFlow.first() ?: return null
-        val monthExpenses = repository.allExpenses.first()
-            .filterByPeriod(AnalyticsPeriod.THIS_MONTH)
-            .filter { it.isExpense() && it.id != editingId }
-        val projected = monthExpenses.sumOf { it.amount } + newAmount
+        val spent = repository.sumMonthExpenses(editingId ?: 0L)
+        val projected = spent + newAmount
         if (projected <= budget) return null
         val currency = preferenceManager.currencyFlow.first()
         val app = getApplication<Application>()

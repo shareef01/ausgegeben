@@ -61,7 +61,8 @@ class PeriodUtilsTest {
             transactionType = "expense"
         )
         val insights = computeSpendingInsights(
-            expenses = listOf(expense),
+            monthExpenses = listOf(expense),
+            weekExpenses = listOf(expense),
             categoryNames = mapOf(1L to "Food")
         )
         assertEquals(25.0, insights.monthExpenseTotal, 0.001)

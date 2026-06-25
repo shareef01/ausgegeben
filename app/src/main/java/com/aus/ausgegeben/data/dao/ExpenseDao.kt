@@ -77,6 +77,20 @@ interface ExpenseDao {
     @Query("SELECT COUNT(*) FROM expenses WHERE dateMillis >= :startMillis AND dateMillis < :endMillis")
     suspend fun countInDateRange(startMillis: Long, endMillis: Long): Int
 
+    @Query(
+        """
+        SELECT COALESCE(SUM(amount), 0) FROM expenses
+        WHERE dateMillis >= :startMillis AND dateMillis < :endMillis
+          AND transactionType = 'expense'
+          AND (:excludeId = 0 OR id != :excludeId)
+        """
+    )
+    suspend fun sumExpensesInRange(
+        startMillis: Long,
+        endMillis: Long,
+        excludeId: Long = 0L,
+    ): Double
+
     @Query("UPDATE expenses SET transactionType = :transactionType WHERE categoryId = :categoryId")
     suspend fun updateTransactionTypeForCategory(categoryId: Long, transactionType: String)
 }
