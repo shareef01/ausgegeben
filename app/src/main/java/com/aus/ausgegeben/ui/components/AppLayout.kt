@@ -8,12 +8,13 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.aus.ausgegeben.ui.theme.AppLayoutTokens
 
-/** Height of the floating bottom nav pill (excluding system gesture inset). */
-val BottomNavBarHeight = 76.dp
+/** Bottom nav bar height (Scaffold already reserves this in content padding). */
+val BottomNavBarHeight = MainBottomBarHeight + 1.dp
 
-/** Extra space so the last list row clears FAB / nav comfortably. */
-val BottomScrollExtraPadding = 24.dp
+/** Extra space so the last list row clears the nav comfortably. */
+val BottomScrollExtraPadding = 16.dp
 
 @Composable
 fun statusBarTopPadding(): Dp =
@@ -23,16 +24,12 @@ fun statusBarTopPadding(): Dp =
 fun navigationBarBottomPadding(): Dp =
     WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
-/** Bottom padding for scrollable lists on tab screens (nav bar is in Scaffold). */
+/** Bottom padding for Bills and Settings lists. Scaffold handles nav bar inset. */
 @Composable
-fun tabScreenListBottomPadding(): PaddingValues {
-    val gestureInset = navigationBarBottomPadding()
-    return PaddingValues(bottom = BottomScrollExtraPadding + gestureInset)
-}
+fun tabScreenListBottomPadding(): PaddingValues =
+    PaddingValues(bottom = BottomScrollExtraPadding)
 
-/** Bottom padding when FAB is visible on the Record tab (nav bar is already in Scaffold insets). */
+/** Extra clearance for Record tab FAB floating above the nav bar. */
 @Composable
-fun recordListBottomPadding(): PaddingValues {
-    val gestureInset = navigationBarBottomPadding()
-    return PaddingValues(bottom = 72.dp + BottomScrollExtraPadding + gestureInset)
-}
+fun recordListBottomPadding(): PaddingValues =
+    PaddingValues(bottom = BottomScrollExtraPadding + AppLayoutTokens.fabClearance)

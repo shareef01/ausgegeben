@@ -31,6 +31,7 @@ object NotificationHelper {
     }
 
     fun showDailyReminder(context: Context) {
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
         ensureChannel(context)
 
         val launchIntent = Intent(context, MainActivity::class.java).apply {

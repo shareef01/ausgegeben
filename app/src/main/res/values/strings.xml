@@ -4,7 +4,7 @@
 
     <!-- Navigation -->
     <string name="nav_record">Record</string>
-    <string name="nav_bills">Bills</string>
+    <string name="nav_bills">Insights</string>
     <string name="nav_settings">Settings</string>
     <string name="nav_add_transaction">Add transaction</string>
 
@@ -20,8 +20,14 @@
     <string name="record_no_matches_title">No matches</string>
     <string name="record_no_matches_subtitle">Try a different search or filter</string>
     <string name="record_empty_title">No transactions yet</string>
-    <string name="record_empty_subtitle">Tap + below to add your first expense or income</string>
+    <string name="record_empty_subtitle">Tap the + button to add your first expense or income</string>
     <string name="record_empty_hint">Long-press a transaction to duplicate it</string>
+    <string name="record_empty_action">Add transaction</string>
+    <string name="record_error_title">Couldn\'t load transactions</string>
+    <string name="record_error_retry">Try again</string>
+    <string name="record_search">Search</string>
+    <string name="gesture_swipe_delete">Swipe to delete</string>
+    <string name="gesture_long_press_duplicate">Long-press to duplicate</string>
     <string name="record_period_this_month">This month</string>
     <string name="record_period_all_time">All time</string>
     <string name="record_delete_title">Delete transaction?</string>
@@ -129,6 +135,10 @@
     <string name="theme_system">System</string>
     <string name="theme_dark">Dark</string>
     <string name="theme_light">Light</string>
+    <string name="theme_amoled">AMOLED black</string>
+    <string name="theme_midnight">Midnight blue</string>
+    <string name="theme_ocean">Ocean teal</string>
+    <string name="theme_soft_light">Soft warm</string>
 
     <!-- Onboarding -->
     <string name="onboarding_title_track">Track every expense</string>
@@ -141,6 +151,8 @@
     <string name="onboarding_skip">Skip</string>
     <string name="onboarding_get_started">Get started</string>
     <string name="onboarding_enable_reminders">Enable reminders &amp; continue</string>
+    <string name="onboarding_title_gestures">Quick gestures</string>
+    <string name="onboarding_body_gestures">Swipe left on a transaction to delete. Long-press to duplicate. Tap + anytime to add a new entry.</string>
 
     <!-- Notifications -->
     <string name="notification_channel_name">Daily reminders</string>
@@ -204,6 +216,15 @@
     <string name="bills_section_expenses">Expenses</string>
     <string name="bills_section_income">Income</string>
     <string name="bills_section_transfers">Transfers</string>
+    <string name="chart_total_label">total</string>
+    <string name="chart_overview_title">Income vs expenses</string>
+    <string name="chart_net_label">Net balance</string>
+    <string name="chart_no_data">No chart data</string>
+    <string name="chart_breakdown_description">Breakdown by category, total %1$s</string>
+    <string name="chart_wealth_trend_title">Wealth trend</string>
+    <string name="chart_wealth_trend_subtitle">Cumulative net balance over time</string>
+    <string name="chart_wealth_trend_delta_up">+%1$s this period</string>
+    <string name="chart_wealth_trend_delta_down">-%1$s this period</string>
 
     <!-- Receipt & camera -->
     <string name="receipt_preview">Receipt preview</string>
