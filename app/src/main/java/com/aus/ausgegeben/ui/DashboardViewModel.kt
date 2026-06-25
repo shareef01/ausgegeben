@@ -7,6 +7,8 @@ import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.util.AnalyticsPeriod
+import com.aus.ausgegeben.util.WealthTrendPoint
+import com.aus.ausgegeben.util.computeWealthTrend
 import com.aus.ausgegeben.util.displayTitle
 import com.aus.ausgegeben.util.filterByPeriod
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,7 +29,8 @@ data class DashboardUiState(
     val expensesByCategory: Map<Category, Double> = emptyMap(),
     val incomeByCategory: Map<Category, Double> = emptyMap(),
     val transfersByCategory: Map<Category, Double> = emptyMap(),
-    val periodTransactions: List<Expense> = emptyList()
+    val periodTransactions: List<Expense> = emptyList(),
+    val wealthTrend: List<WealthTrendPoint> = emptyList(),
 )
 
 class DashboardViewModel(
@@ -44,36 +47,52 @@ class DashboardViewModel(
         _period
     ) { currency, categories, allExpenses, period ->
         val scoped = allExpenses.filterByPeriod(period)
-        val billable = scoped.filter { !it.isTransfer() }
-        val transfers = scoped.filter { it.isTransfer() }
+        val categoryById = categories.associateBy { it.id }
 
-        val expensesByCategory = categories.associateWith { category ->
-            billable
-                .filter { it.categoryId == category.id && it.isExpense() }
-                .sumOf { it.amount }
-        }.filterValues { it > 0 }
+        var totalExpenses = 0.0
+        var totalIncome = 0.0
+        var totalTransfers = 0.0
+        val expenseTotals = mutableMapOf<Long, Double>()
+        val incomeTotals = mutableMapOf<Long, Double>()
+        val transferTotals = mutableMapOf<Long, Double>()
 
-        val incomeByCategory = categories.associateWith { category ->
-            billable
-                .filter { it.categoryId == category.id && it.isIncome() }
-                .sumOf { it.amount }
-        }.filterValues { it > 0 }
+        for (expense in scoped) {
+            when {
+                expense.isTransfer() -> {
+                    totalTransfers += expense.amount
+                    transferTotals[expense.categoryId] =
+                        (transferTotals[expense.categoryId] ?: 0.0) + expense.amount
+                }
+                expense.isIncome() -> {
+                    totalIncome += expense.amount
+                    incomeTotals[expense.categoryId] =
+                        (incomeTotals[expense.categoryId] ?: 0.0) + expense.amount
+                }
+                expense.isExpense() -> {
+                    totalExpenses += expense.amount
+                    expenseTotals[expense.categoryId] =
+                        (expenseTotals[expense.categoryId] ?: 0.0) + expense.amount
+                }
+            }
+        }
 
-        val transfersByCategory = categories.associateWith { category ->
-            transfers.filter { it.categoryId == category.id }.sumOf { it.amount }
-        }.filterValues { it > 0 }
+        fun mapTotals(totals: Map<Long, Double>): Map<Category, Double> =
+            totals.mapNotNull { (categoryId, amount) ->
+                categoryById[categoryId]?.let { it to amount }
+            }.toMap()
 
         DashboardUiState(
             period = period,
             periodLabel = period.displayTitle(),
-            totalExpenses = billable.filter { it.isExpense() }.sumOf { it.amount },
-            totalIncome = billable.filter { it.isIncome() }.sumOf { it.amount },
-            totalTransfers = transfers.sumOf { it.amount },
+            totalExpenses = totalExpenses,
+            totalIncome = totalIncome,
+            totalTransfers = totalTransfers,
             currency = currency,
-            expensesByCategory = expensesByCategory,
-            incomeByCategory = incomeByCategory,
-            transfersByCategory = transfersByCategory,
-            periodTransactions = scoped
+            expensesByCategory = mapTotals(expenseTotals),
+            incomeByCategory = mapTotals(incomeTotals),
+            transfersByCategory = mapTotals(transferTotals),
+            periodTransactions = scoped,
+            wealthTrend = allExpenses.computeWealthTrend(period),
         )
     }.stateIn(
         scope = viewModelScope,

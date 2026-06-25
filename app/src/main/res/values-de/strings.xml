@@ -17,8 +17,14 @@
     <string name="record_no_matches_title">Keine Treffer</string>
     <string name="record_no_matches_subtitle">Andere Suche oder Filter versuchen</string>
     <string name="record_empty_title">Noch keine Transaktionen</string>
-    <string name="record_empty_subtitle">Tippe unten auf + für die erste Ausgabe oder Einnahme</string>
+    <string name="record_empty_subtitle">Tippe auf + für die erste Ausgabe oder Einnahme</string>
     <string name="record_empty_hint">Lange drücken zum Duplizieren</string>
+    <string name="record_empty_action">Transaktion hinzufügen</string>
+    <string name="record_error_title">Transaktionen konnten nicht geladen werden</string>
+    <string name="record_error_retry">Erneut versuchen</string>
+    <string name="record_search">Suchen</string>
+    <string name="gesture_swipe_delete">Wischen zum Löschen</string>
+    <string name="gesture_long_press_duplicate">Lange drücken zum Duplizieren</string>
     <string name="record_period_this_month">Dieser Monat</string>
     <string name="record_period_all_time">Gesamt</string>
     <string name="record_delete_title">Transaktion löschen?</string>
@@ -119,6 +125,10 @@
     <string name="theme_system">System</string>
     <string name="theme_dark">Dunkel</string>
     <string name="theme_light">Hell</string>
+    <string name="theme_amoled">AMOLED Schwarz</string>
+    <string name="theme_midnight">Mitternachtsblau</string>
+    <string name="theme_ocean">Ozean Türkis</string>
+    <string name="theme_soft_light">Warm hell</string>
 
     <string name="onboarding_title_track">Jede Ausgabe erfassen</string>
     <string name="onboarding_body_track">Ausgaben, Einnahmen und Umbuchungen in Sekunden. Alles bleibt auf diesem Gerät.</string>
@@ -130,6 +140,8 @@
     <string name="onboarding_skip">Überspringen</string>
     <string name="onboarding_get_started">Loslegen</string>
     <string name="onboarding_enable_reminders">Erinnerungen aktivieren</string>
+    <string name="onboarding_title_gestures">Schnelle Gesten</string>
+    <string name="onboarding_body_gestures">Nach links wischen zum Löschen. Lange drücken zum Duplizieren. Tippe jederzeit auf + für einen neuen Eintrag.</string>
 
     <string name="notification_channel_name">Tägliche Erinnerungen</string>
     <string name="notification_channel_description">Abendliche Erinnerung zum Erfassen</string>
@@ -187,6 +199,15 @@
     <string name="bills_section_expenses">Ausgaben</string>
     <string name="bills_section_income">Einnahmen</string>
     <string name="bills_section_transfers">Umbuchungen</string>
+    <string name="chart_total_label">gesamt</string>
+    <string name="chart_overview_title">Einnahmen vs Ausgaben</string>
+    <string name="chart_net_label">Saldo</string>
+    <string name="chart_no_data">Keine Diagrammdaten</string>
+    <string name="chart_breakdown_description">Aufschlüsselung nach Kategorie, gesamt %1$s</string>
+    <string name="chart_wealth_trend_title">Vermögensverlauf</string>
+    <string name="chart_wealth_trend_subtitle">Kumulierter Saldo im Zeitraum</string>
+    <string name="chart_wealth_trend_delta_up">+%1$s in diesem Zeitraum</string>
+    <string name="chart_wealth_trend_delta_down">-%1$s in diesem Zeitraum</string>
 
     <string name="receipt_preview">Belegvorschau</string>
     <string name="receipt_title">Beleg</string>
