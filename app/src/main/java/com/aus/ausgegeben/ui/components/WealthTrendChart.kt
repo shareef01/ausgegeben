@@ -1,12 +1,6 @@
 package com.aus.ausgegeben.ui.components
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -63,16 +57,6 @@ fun WealthTrendChart(
         reveal.snapTo(0f)
         reveal.animateTo(1f, AppChartRevealSpring)
     }
-
-    val pulse by rememberInfiniteTransition(label = "wealthPulse").animateFloat(
-        initialValue = 0.82f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1400, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "pulse",
-    )
 
     val cardShape = RoundedCornerShape(AppRadius.lg)
     Column(
@@ -148,15 +132,19 @@ fun WealthTrendChart(
             }
 
             val coords = points.indices.map { i -> Offset(xFor(i), yFor(points[i].cumulativeNet)) }
-            val zeroY = yFor(0.0).coerceIn(padY, padY + chartH)
+            val chartBottom = padY + chartH
+            val zeroInRange = minV <= 0.0 && maxV >= 0.0
+            val zeroY = if (zeroInRange) yFor(0.0).coerceIn(padY, chartBottom) else null
 
-            drawLine(
-                color = AppColors.CardBorder,
-                start = Offset(padX, zeroY),
-                end = Offset(padX + chartW, zeroY),
-                strokeWidth = 1.dp.toPx(),
-                pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 8f)),
-            )
+            if (zeroY != null) {
+                drawLine(
+                    color = AppColors.CardBorder,
+                    start = Offset(padX, zeroY),
+                    end = Offset(padX + chartW, zeroY),
+                    strokeWidth = 1.dp.toPx(),
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 8f)),
+                )
+            }
 
             val revealT = reveal.value.coerceIn(0f, 1f)
             val partial = buildPartialPolyline(coords, revealT)
@@ -199,10 +187,10 @@ fun WealthTrendChart(
             )
 
             val endpoint = partial.last()
-            val dotR = 5.dp.toPx() * pulse * revealT
+            val dotR = 5.dp.toPx() * revealT
             drawCircle(
-                color = trendColor.copy(alpha = 0.35f * revealT),
-                radius = dotR * 2.2f,
+                color = trendColor.copy(alpha = 0.3f * revealT),
+                radius = dotR * 2f,
                 center = endpoint,
             )
             drawCircle(
@@ -212,7 +200,7 @@ fun WealthTrendChart(
             )
             drawCircle(
                 color = AppColors.CardSurface,
-                radius = dotR * 0.45f,
+                radius = dotR * 0.4f,
                 center = endpoint,
             )
         }
