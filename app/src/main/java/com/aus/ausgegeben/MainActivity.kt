@@ -67,7 +67,6 @@ import com.aus.ausgegeben.ui.components.AppScreen
 import com.aus.ausgegeben.ui.components.CameraPermissionDenied
 import com.aus.ausgegeben.ui.components.MainBottomBar
 import com.aus.ausgegeben.ui.components.MainTabPager
-import com.aus.ausgegeben.ui.theme.AccentCoral
 import com.aus.ausgegeben.ui.theme.AusgegebenTheme
 import com.aus.ausgegeben.ui.theme.ThemeMode
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -239,7 +238,7 @@ fun MainApp(
                     FloatingActionButton(
                         onClick = ::openAddFlow,
                         modifier = Modifier.navigationBarsPadding(),
-                        containerColor = AccentCoral,
+                        containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = Color.White,
                         shape = CircleShape
                     ) {
@@ -278,11 +277,6 @@ fun MainApp(
             ) {
                 MainTabPager(
                     currentRoute = selectedTab,
-                    onTabSelected = { route ->
-                        if (selectedTab != route) {
-                            selectedTab = route
-                        }
-                    },
                     recordContent = {
                         RecordScreen(
                             viewModel = expenseViewModel,

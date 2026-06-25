@@ -43,7 +43,8 @@ import com.aus.ausgegeben.ui.components.ScreenTitle
 import com.aus.ausgegeben.ui.components.tabScreenListBottomPadding
 import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.ui.theme.AccentCoral
-import com.aus.ausgegeben.ui.theme.AmountTextStyle
+import com.aus.ausgegeben.ui.components.MoneyText
+import com.aus.ausgegeben.ui.components.MoneySize
 import com.aus.ausgegeben.ui.theme.IncomeGreen
 import com.aus.ausgegeben.ui.theme.SystemTeal
 import com.aus.ausgegeben.ui.theme.SystemViolet
@@ -272,11 +273,10 @@ fun CategoryProgressRow(
         }
         Spacer(modifier = Modifier.width(12.dp))
         Column(horizontalAlignment = Alignment.End) {
-            Text(
+            MoneyText(
                 text = CurrencyUtils.formatAmount(amount, currencyCode, showSymbol = true),
-                style = MaterialTheme.typography.bodyMedium.merge(AmountTextStyle),
-                color = MaterialTheme.colorScheme.onBackground,
-                fontWeight = FontWeight.SemiBold
+                size = MoneySize.Title,
+                color = MaterialTheme.colorScheme.onBackground
             )
             Text(
                 text = "$pct%",

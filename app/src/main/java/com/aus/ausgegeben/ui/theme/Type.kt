@@ -89,8 +89,8 @@ val Typography = Typography(
 )
 
 val AmountTextStyle = TextStyle(
-    fontFamily = AppFontFamily,
+    fontFamily = FontFamily.Monospace,
     fontWeight = FontWeight.SemiBold,
-    fontFeatureSettings = "tnum",
-    letterSpacing = (-0.2).sp
+    fontFeatureSettings = "tnum, lnum",
+    letterSpacing = (-0.25).sp
 )
