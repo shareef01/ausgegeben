@@ -18,6 +18,11 @@ val AppChartSpring = spring<Float>(
     stiffness = Spring.StiffnessMediumLow
 )
 
+val AppDpSpring = spring<androidx.compose.ui.unit.Dp>(
+    dampingRatio = Spring.DampingRatioNoBouncy,
+    stiffness = Spring.StiffnessHigh
+)
+
 val AppColorSpring = spring<androidx.compose.ui.graphics.Color>(
     dampingRatio = Spring.DampingRatioNoBouncy,
     stiffness = Spring.StiffnessHigh

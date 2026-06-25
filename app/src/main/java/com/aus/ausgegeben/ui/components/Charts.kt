@@ -30,12 +30,10 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
-import com.aus.ausgegeben.ui.components.MoneyText
-import com.aus.ausgegeben.ui.components.MoneySize
+import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.chartColorAt
 import com.aus.ausgegeben.ui.theme.forChartDisplay
 import com.aus.ausgegeben.util.CurrencyUtils
@@ -47,12 +45,14 @@ fun DonutChart(
     colors: Map<String, Color> = emptyMap(),
     centerLabel: String? = null,
     centerSubLabel: String? = null,
-    chartSize: Dp = 200.dp
+    chartSize: Dp = 160.dp,
+    strokeWidth: Dp = 9.dp
 ) {
     val total = data.values.sum()
     val sorted = data.entries.sortedByDescending { it.value }
     val colorScheme = MaterialTheme.colorScheme
-    val trackColor = colorScheme.outlineVariant.copy(alpha = 0.4f)
+    val primary = colorScheme.primary
+    val trackColor = primary.copy(alpha = 0.08f)
     val holeColor = colorScheme.surface
 
     val chartDescription = if (total <= 0.0) {
@@ -79,20 +79,20 @@ fun DonutChart(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 28.dp, vertical = 8.dp)
+                    .padding(horizontal = AppSpacing.lg, vertical = AppSpacing.xs)
             )
         }
 
         Box(
             modifier = Modifier
-                .defaultMinSize(minHeight = chartSize + 16.dp)
-                .height(chartSize + 16.dp),
+                .defaultMinSize(minHeight = chartSize + AppSpacing.md)
+                .height(chartSize + AppSpacing.md),
             contentAlignment = Alignment.Center
         ) {
             Canvas(modifier = Modifier.size(chartSize)) {
-                val strokeWidth = size.minDimension * 0.09f
-                val arcSize = size.minDimension - strokeWidth * 2f
-                val arcTopLeft = Offset(strokeWidth, strokeWidth)
+                val strokePx = strokeWidth.toPx()
+                val arcSize = size.minDimension - strokePx * 2f
+                val arcTopLeft = Offset(strokePx, strokePx)
                 val arcBoxSize = Size(arcSize, arcSize)
 
                 drawArc(
@@ -100,18 +100,18 @@ fun DonutChart(
                     startAngle = 0f,
                     sweepAngle = 360f,
                     useCenter = false,
-                    style = Stroke(width = strokeWidth, cap = StrokeCap.Butt),
+                    style = Stroke(width = strokePx, cap = StrokeCap.Round),
                     size = arcBoxSize,
                     topLeft = arcTopLeft
                 )
 
                 if (total > 0.0) {
                     var startAngle = -90f
-                    val gapDegrees = if (sorted.size > 1) 3f else 0f
+                    val gapDegrees = if (sorted.size > 1) 2.5f else 0f
 
                     sorted.forEachIndexed { index, (name, value) ->
                         val fullSweep =
-                            ((value / total).toFloat() * 360f - gapDegrees).coerceAtLeast(0.8f)
+                            ((value / total).toFloat() * 360f - gapDegrees).coerceAtLeast(0.5f)
                         val base = colors[name]?.forChartDisplay(index) ?: chartColorAt(index)
 
                         drawArc(
@@ -119,7 +119,7 @@ fun DonutChart(
                             startAngle = startAngle + gapDegrees / 2f,
                             sweepAngle = fullSweep,
                             useCenter = false,
-                            style = Stroke(width = strokeWidth, cap = StrokeCap.Butt),
+                            style = Stroke(width = strokePx, cap = StrokeCap.Round),
                             size = arcBoxSize,
                             topLeft = arcTopLeft
                         )
@@ -127,25 +127,25 @@ fun DonutChart(
                     }
                 }
 
-                val holeRadius = (size.minDimension / 2f) - strokeWidth * 1.2f
+                val holeRadius = (size.minDimension / 2f) - strokePx * 1.4f
                 drawCircle(color = holeColor, radius = holeRadius, center = center)
             }
 
             if (centerLabel != null) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(horizontal = 24.dp)
+                    modifier = Modifier.padding(horizontal = AppSpacing.lg)
                 ) {
                     MoneyText(
                         text = centerLabel,
                         size = MoneySize.Headline,
                         color = MaterialTheme.colorScheme.onBackground,
-                        modifier = Modifier.padding(horizontal = 4.dp)
+                        modifier = Modifier.padding(horizontal = AppSpacing.xxs)
                     )
                     if (centerSubLabel != null) {
                         Text(
-                            text = centerSubLabel,
-                            style = MaterialTheme.typography.labelMedium,
+                            text = centerSubLabel.uppercase(),
+                            style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 2.dp)
                         )
@@ -161,12 +161,12 @@ private fun ChartSegmentBar(
     segments: List<Pair<Color, Float>>,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(4.dp)
+    val shape = RoundedCornerShape(3.dp)
     Row(
         modifier = modifier
-            .height(5.dp)
+            .height(4.dp)
             .clip(shape)
-            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.06f))
     ) {
         segments.forEach { (color, weight) ->
             if (weight > 0f) {
@@ -190,22 +190,22 @@ fun AnimatedCategoryBar(
     val displayColor = color.forChartDisplay(0)
     val animatedRatio by animateFloatAsState(
         targetValue = ratio.coerceIn(0f, 1f),
-        animationSpec = tween(durationMillis = 250),
+        animationSpec = tween(durationMillis = 300),
         label = "barFill"
     )
-    val trackShape = RoundedCornerShape(4.dp)
+    val trackShape = RoundedCornerShape(3.dp)
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(4.dp)
+            .height(3.dp)
             .clip(trackShape)
-            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f))
+            .background(displayColor.copy(alpha = 0.1f))
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth(animatedRatio)
-                .height(4.dp)
+                .height(3.dp)
                 .clip(trackShape)
                 .background(displayColor)
         )

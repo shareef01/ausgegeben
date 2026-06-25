@@ -54,7 +54,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -64,15 +63,17 @@ import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.entity.Expense
+import com.aus.ausgegeben.ui.components.AppIcon
 import com.aus.ausgegeben.ui.components.BudgetProgressBar
 import com.aus.ausgegeben.ui.components.EmptyStateMessage
 import com.aus.ausgegeben.ui.components.FinanceSummaryCard
 import com.aus.ausgegeben.ui.components.GroupedSection
+import com.aus.ausgegeben.ui.components.IosSegmentedControl
 import com.aus.ausgegeben.ui.components.IosSeparator
 import com.aus.ausgegeben.ui.components.ReceiptImageDialog
 import com.aus.ausgegeben.ui.components.ScreenTitle
 import com.aus.ausgegeben.ui.components.recordListBottomPadding
-import com.aus.ausgegeben.ui.components.smoothClickable
+import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.components.MoneyText
 import com.aus.ausgegeben.ui.components.MoneySize
 import com.aus.ausgegeben.ui.theme.IncomeGreen
@@ -347,49 +348,21 @@ private fun RecordListToolbar(
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.background)
-            .padding(bottom = 6.dp)
+            .padding(bottom = AppSpacing.xs)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 8.dp, top = 4.dp),
+                .padding(start = AppSpacing.md, end = AppSpacing.xs, top = AppSpacing.xxs),
             verticalAlignment = Alignment.CenterVertically
         ) {
             val periodOptions = RecordListPeriod.entries
-            val periodShape = RoundedCornerShape(10.dp)
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(periodShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
-                    .padding(3.dp)
-            ) {
-                periodOptions.forEachIndexed { index, period ->
-                    val selected = listPeriod == period
-                    val chipShape = RoundedCornerShape(8.dp)
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(chipShape)
-                            .background(
-                                if (selected) MaterialTheme.colorScheme.surface
-                                else Color.Transparent
-                            )
-                            .smoothClickable { onListPeriod(period) }
-                            .padding(vertical = 8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = period.label(),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                            color = if (selected) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
-                        )
-                    }
-                }
-            }
+            IosSegmentedControl(
+                options = periodOptions.map { it.label() },
+                selectedIndex = periodOptions.indexOf(listPeriod).coerceAtLeast(0),
+                onSelected = { onListPeriod(periodOptions[it]) },
+                modifier = Modifier.weight(1f)
+            )
             IconButton(
                 onClick = {
                     when {
@@ -399,7 +372,7 @@ private fun RecordListToolbar(
                     }
                 }
             ) {
-                Icon(
+                AppIcon(
                     imageVector = if (searchExpanded) Icons.Rounded.Close else Icons.Rounded.Search,
                     contentDescription = stringResource(R.string.record_search),
                     tint = if (searchQuery.isNotBlank() || searchExpanded) {
@@ -419,14 +392,14 @@ private fun RecordListToolbar(
             RecordSearchBar(
                 query = searchQuery,
                 onQueryChange = onSearchChange,
-                modifier = Modifier.padding(top = 2.dp)
+                modifier = Modifier.padding(top = AppSpacing.xxs)
             )
         }
 
         RecordTypeFilters(
             selected = typeFilter,
             onSelected = onTypeFilter,
-            modifier = Modifier.padding(top = 2.dp)
+            modifier = Modifier.padding(top = AppSpacing.xxs)
         )
     }
 }
