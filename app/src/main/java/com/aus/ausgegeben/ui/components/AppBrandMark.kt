@@ -1,7 +1,12 @@
 package com.aus.ausgegeben.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -17,8 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aus.ausgegeben.R
-import com.aus.ausgegeben.ui.theme.AccentCoral
-import com.aus.ausgegeben.ui.theme.AccentCoralSoft
+import com.aus.ausgegeben.ui.theme.AppColors
 
 @Composable
 fun AppBrandMark(
@@ -36,14 +40,15 @@ fun AppBrandMark(
                 .clip(RoundedCornerShape(if (compact) 8.dp else 10.dp))
                 .background(
                     Brush.linearGradient(
-                        listOf(AccentCoral, AccentCoralSoft)
+                        listOf(AppColors.CardSurface, Color(0xFF27272A))
                     )
-                ),
+                )
+                .border(1.dp, AppColors.CardBorder, RoundedCornerShape(if (compact) 8.dp else 10.dp)),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = "€",
-                color = Color.White,
+                color = AppColors.OnBackground,
                 fontWeight = FontWeight.Bold,
                 fontSize = if (compact) 14.sp else 18.sp
             )
@@ -73,6 +78,6 @@ fun AppBrandDot(modifier: Modifier = Modifier) {
         modifier = modifier
             .size(8.dp)
             .clip(CircleShape)
-            .background(AccentCoral)
+            .background(AppColors.OnSurfaceVariant)
     )
 }

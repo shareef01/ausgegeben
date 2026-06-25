@@ -5,14 +5,14 @@ import androidx.compose.ui.graphics.luminance
 
 /** Muted, harmonious palette for charts and category colors. */
 val ChartPalette: List<Color> = listOf(
-    Color(0xFFE86B5A), // coral
-    Color(0xFF5CB88A), // sage
-    Color(0xFF6A9FD4), // slate blue
-    Color(0xFF9A8FD4), // lavender
-    Color(0xFFE8A060), // amber
-    Color(0xFF5AB8AA), // teal
-    Color(0xFFD4849A), // rose
-    Color(0xFFB8A060), // ochre
+    Color(0xFFD9A0A0), // dusty rose
+    Color(0xFF8FBFA9), // sage
+    Color(0xFF7EB0E8), // slate blue
+    Color(0xFFA99AE0), // lavender
+    Color(0xFFDDB98A), // sand
+    Color(0xFF7ABFB4), // teal
+    Color(0xFFC9A0B0), // mauve
+    Color(0xFFB8A888), // ochre
 )
 
 /** Tunes a category color so it reads well on charts (boosts darks, softens harsh brights). */
