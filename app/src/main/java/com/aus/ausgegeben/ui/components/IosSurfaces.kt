@@ -1,6 +1,7 @@
 package com.aus.ausgegeben.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -37,6 +38,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.ui.theme.AppElevation
+import com.aus.ausgegeben.ui.theme.AppColorSpring
 import com.aus.ausgegeben.ui.theme.AppLayoutTokens
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
@@ -146,39 +148,48 @@ fun IosSegmentedControl(
     val safeIndex = selectedIndex.coerceIn(0, (options.size - 1).coerceAtLeast(0))
     val accent = MaterialTheme.colorScheme.onBackground
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val containerShape = RoundedCornerShape(AppRadius.pill)
 
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = AppSpacing.md),
+            .clip(containerShape)
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+            .padding(3.dp),
     ) {
         options.forEachIndexed { index, label ->
             val selected = safeIndex == index
-            Column(
+            val background by animateColorAsState(
+                targetValue = if (selected) {
+                    MaterialTheme.colorScheme.surface
+                } else {
+                    Color.Transparent
+                },
+                animationSpec = AppColorSpring,
+                label = "segmentBackground"
+            )
+            val contentColor by animateColorAsState(
+                targetValue = if (selected) accent else muted.copy(alpha = 0.78f),
+                animationSpec = AppColorSpring,
+                label = "segmentContent"
+            )
+            Box(
                 modifier = Modifier
                     .weight(1f)
+                    .clip(containerShape)
+                    .background(background)
                     .smoothClickable { onSelected(index) }
                     .padding(vertical = AppSpacing.xs),
-                horizontalAlignment = Alignment.CenterHorizontally,
+                contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
-                    color = if (selected) accent else muted.copy(alpha = 0.75f),
+                    color = contentColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center,
-                )
-                Spacer(modifier = Modifier.height(AppSpacing.xs))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(0.5f)
-                        .height(2.dp)
-                        .clip(RoundedCornerShape(AppRadius.pill))
-                        .background(
-                            if (selected) accent else Color.Transparent,
-                        ),
                 )
             }
         }
