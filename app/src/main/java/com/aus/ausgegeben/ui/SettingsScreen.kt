@@ -189,7 +189,7 @@ fun SettingsScreen(
 
                             HorizontalDivider(
 
-                                modifier = Modifier.padding(start = 72.dp),
+                                modifier = Modifier.padding(start = 64.dp),
 
                                 thickness = 0.5.dp,
 
@@ -263,7 +263,7 @@ fun SettingsScreen(
 
                             HorizontalDivider(
 
-                                modifier = Modifier.padding(start = 72.dp),
+                                modifier = Modifier.padding(start = 64.dp),
 
                                 thickness = 0.5.dp,
 
@@ -771,11 +771,11 @@ fun SettingSwitchRow(
 
             modifier = Modifier
 
-                .size(40.dp)
+                .size(36.dp)
 
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(10.dp))
 
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
 
             contentAlignment = Alignment.Center
 
@@ -789,7 +789,7 @@ fun SettingSwitchRow(
 
                 tint = MaterialTheme.colorScheme.primary,
 
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(18.dp)
 
             )
 
@@ -861,7 +861,7 @@ fun SettingRow(
 
             .clickable(enabled = onClick != null) { onClick?.invoke() }
 
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
 
         verticalAlignment = Alignment.CenterVertically
 
@@ -871,11 +871,11 @@ fun SettingRow(
 
             modifier = Modifier
 
-                .size(40.dp)
+                .size(36.dp)
 
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(10.dp))
 
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
 
             contentAlignment = Alignment.Center
 
@@ -889,7 +889,7 @@ fun SettingRow(
 
                 tint = MaterialTheme.colorScheme.primary,
 
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(18.dp)
 
             )
 
@@ -905,7 +905,7 @@ fun SettingRow(
 
                 color = MaterialTheme.colorScheme.onBackground,
 
-                fontSize = 16.sp,
+                style = MaterialTheme.typography.bodyLarge,
 
                 fontWeight = FontWeight.Medium
 
@@ -917,7 +917,9 @@ fun SettingRow(
 
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
 
-                fontSize = 12.sp
+                style = MaterialTheme.typography.bodySmall,
+
+                modifier = Modifier.padding(top = 2.dp)
 
             )
 
