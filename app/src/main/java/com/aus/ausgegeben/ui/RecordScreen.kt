@@ -512,6 +512,7 @@ private fun EmptyRecordState(
         icon = Icons.AutoMirrored.Rounded.ReceiptLong,
         title = stringResource(R.string.record_empty_title),
         subtitle = stringResource(R.string.record_empty_subtitle),
+        hint = stringResource(R.string.record_empty_hint),
         actionLabel = stringResource(R.string.record_empty_action),
         onAction = onAdd,
         modifier = modifier.fillMaxWidth(),
