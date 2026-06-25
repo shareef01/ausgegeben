@@ -1,7 +1,6 @@
 package com.aus.ausgegeben.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
@@ -33,8 +33,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
-import com.aus.ausgegeben.ui.components.MoneyText
-import com.aus.ausgegeben.ui.components.MoneySize
 import com.aus.ausgegeben.ui.theme.ExpenseMuted
 import com.aus.ausgegeben.ui.theme.IncomeGreen
 import com.aus.ausgegeben.util.CurrencyUtils
@@ -52,124 +50,100 @@ fun FinanceSummaryCard(
     compact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(if (compact) 16.dp else 18.dp)
+    val shape = RoundedCornerShape(if (compact) 18.dp else 20.dp)
     val netColor = when {
         net > 0 -> IncomeGreen
         net < 0 -> ExpenseMuted
         else -> MaterialTheme.colorScheme.onBackground
     }
-    val verticalPadding = if (compact) 14.dp else 20.dp
-    val horizontalPadding = if (compact) 16.dp else 20.dp
+    val primary = MaterialTheme.colorScheme.primary
+    val contentPadding = if (compact) 16.dp else 20.dp
 
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .clip(shape)
-            .background(MaterialTheme.colorScheme.surface)
-            .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), shape)
-            .padding(horizontal = horizontalPadding, vertical = verticalPadding)
+            .appCard(shape = shape)
     ) {
-        Text(
-            text = stringResource(R.string.summary_balance_period, periodLabel),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.Medium
-        )
-        MoneyText(
-            text = CurrencyUtils.formatAmount(net, currencyCode),
-            size = if (compact) MoneySize.Headline else MoneySize.Display,
-            color = netColor,
-            modifier = Modifier.padding(top = 4.dp, bottom = if (compact) 10.dp else 18.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(3.dp)
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            primary.copy(alpha = 0.85f),
+                            primary.copy(alpha = 0.2f),
+                            Color.Transparent
+                        )
+                    )
+                )
         )
 
-        if (compact) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-        SummaryInlineStat(
-            label = stringResource(R.string.summary_spent),
-            value = CurrencyUtils.formatAmount(expenseTotal, currencyCode),
-            tint = ExpenseMuted
-        )
-                SummaryInlineStat(
-                    label = stringResource(R.string.summary_earned),
-                    value = CurrencyUtils.formatAmount(incomeTotal, currencyCode),
-                    tint = IncomeGreen
-                )
-            }
-        } else {
+        Column(
+            modifier = Modifier.padding(horizontal = contentPadding, vertical = contentPadding)
+        ) {
+            Text(
+                text = stringResource(R.string.summary_balance_period, periodLabel),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Medium
+            )
+            MoneyText(
+                text = CurrencyUtils.formatAmount(net, currencyCode),
+                size = if (compact) MoneySize.Headline else MoneySize.Display,
+                color = netColor,
+                modifier = Modifier.padding(top = 6.dp, bottom = if (compact) 12.dp else 18.dp)
+            )
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(IntrinsicSize.Min),
+                    .then(if (!compact) Modifier.height(IntrinsicSize.Min) else Modifier),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 BalancePill(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight(),
+                    modifier = Modifier.weight(1f).then(if (!compact) Modifier.fillMaxHeight() else Modifier),
                     label = stringResource(R.string.summary_spent),
                     value = CurrencyUtils.formatAmount(expenseTotal, currencyCode),
                     icon = Icons.AutoMirrored.Rounded.TrendingDown,
-                    tint = ExpenseMuted
+                    tint = ExpenseMuted,
+                    compact = compact
                 )
                 BalancePill(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight(),
+                    modifier = Modifier.weight(1f).then(if (!compact) Modifier.fillMaxHeight() else Modifier),
                     label = stringResource(R.string.summary_earned),
                     value = CurrencyUtils.formatAmount(incomeTotal, currencyCode),
                     icon = Icons.AutoMirrored.Rounded.TrendingUp,
-                    tint = IncomeGreen
+                    tint = IncomeGreen,
+                    compact = compact
+                )
+            }
+
+            insightLine?.let { line ->
+                Text(
+                    text = line,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 12.dp)
+                )
+            }
+
+            if (transferCount > 0) {
+                Text(
+                    text = pluralStringResource(
+                        R.plurals.summary_transfers,
+                        transferCount,
+                        transferCount,
+                        CurrencyUtils.formatAmount(transferTotal, currencyCode)
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = if (insightLine != null) 6.dp else 12.dp)
                 )
             }
         }
-
-        insightLine?.let { line ->
-            Text(
-                text = line,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 10.dp)
-            )
-        }
-
-        if (transferCount > 0) {
-            Text(
-                text = pluralStringResource(
-                    R.plurals.summary_transfers,
-                    transferCount,
-                    transferCount,
-                    CurrencyUtils.formatAmount(transferTotal, currencyCode)
-                ),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = if (insightLine != null) 6.dp else 14.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun SummaryInlineStat(
-    label: String,
-    value: String,
-    tint: Color
-) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        MoneyText(
-            text = value,
-            size = MoneySize.Title,
-            color = tint,
-            modifier = Modifier.padding(start = 6.dp)
-        )
     }
 }
 
@@ -179,20 +153,21 @@ private fun BalancePill(
     value: String,
     icon: ImageVector,
     tint: Color,
+    compact: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(14.dp)
+    val shape = RoundedCornerShape(12.dp)
+    val verticalPadding = if (compact) 10.dp else 12.dp
     Column(
         modifier = modifier
             .fillMaxWidth()
             .clip(shape)
             .background(tint.copy(alpha = 0.1f))
-            .border(0.5.dp, tint.copy(alpha = 0.18f), shape)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(horizontal = 12.dp, vertical = verticalPadding),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(15.dp))
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(14.dp))
             Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = label,
@@ -203,8 +178,9 @@ private fun BalancePill(
         }
         MoneyText(
             text = value,
-            size = MoneySize.Title,
-            color = MaterialTheme.colorScheme.onBackground
+            size = if (compact) MoneySize.Body else MoneySize.Title,
+            color = tint,
+            fontWeight = FontWeight.Bold
         )
     }
 }
@@ -218,6 +194,7 @@ fun EmptyStateMessage(
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null
 ) {
+    val primary = MaterialTheme.colorScheme.primary
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -227,16 +204,16 @@ fun EmptyStateMessage(
     ) {
         Box(
             modifier = Modifier
-                .size(64.dp)
-                .clip(RoundedCornerShape(32.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)),
+                .size(68.dp)
+                .clip(RoundedCornerShape(34.dp))
+                .background(primary.copy(alpha = 0.12f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 icon,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(28.dp)
+                tint = primary,
+                modifier = Modifier.size(30.dp)
             )
         }
         Spacer(modifier = Modifier.height(18.dp))
@@ -256,7 +233,7 @@ fun EmptyStateMessage(
         if (actionLabel != null && onAction != null) {
             Spacer(modifier = Modifier.height(20.dp))
             androidx.compose.material3.TextButton(onClick = onAction) {
-                Text(actionLabel, color = MaterialTheme.colorScheme.primary)
+                Text(actionLabel, color = primary)
             }
         }
     }

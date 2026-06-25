@@ -22,11 +22,13 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.aus.ausgegeben.ui.theme.AppColorSpring
 import com.aus.ausgegeben.ui.theme.AppSpring
 import com.aus.ausgegeben.ui.theme.AppSpringSnappy
@@ -34,6 +36,19 @@ import com.aus.ausgegeben.ui.theme.CapsuleShape
 import com.aus.ausgegeben.ui.theme.GlassShape
 import com.aus.ausgegeben.ui.theme.GroupedShape
 import com.aus.ausgegeben.ui.theme.SurfaceElevatedDark
+
+@Composable
+fun Modifier.appCard(
+    shape: Shape = GroupedShape,
+    horizontalPadding: Dp = 0.dp
+): Modifier {
+    val outline = MaterialTheme.colorScheme.outline.copy(alpha = 0.14f)
+    return this
+        .then(if (horizontalPadding > 0.dp) Modifier.padding(horizontal = horizontalPadding) else Modifier)
+        .clip(shape)
+        .background(MaterialTheme.colorScheme.surface)
+        .border(0.5.dp, outline, shape)
+}
 
 @Composable
 fun ScreenTitle(
@@ -45,11 +60,11 @@ fun ScreenTitle(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
-            .padding(top = 4.dp, bottom = 12.dp)
+            .padding(top = 8.dp, bottom = 14.dp)
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.headlineMedium,
+            style = MaterialTheme.typography.headlineMedium.copy(letterSpacing = (-0.5).sp),
             color = MaterialTheme.colorScheme.onBackground,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.semantics { heading() }
@@ -88,9 +103,7 @@ fun GroupedSection(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = horizontalPadding)
-            .clip(GroupedShape)
-            .background(MaterialTheme.colorScheme.surfaceVariant),
+            .appCard(shape = GroupedShape, horizontalPadding = horizontalPadding),
         content = content
     )
 }
@@ -181,7 +194,7 @@ fun IosSegmentedControl(
         options.forEachIndexed { index, label ->
             val selected = selectedIndex == index
             val bg = if (selected) {
-                MaterialTheme.colorScheme.surface
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
             } else {
                 Color.Transparent
             }
@@ -195,7 +208,7 @@ fun IosSegmentedControl(
                         if (selected) {
                             Modifier.border(
                                 0.5.dp,
-                                MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
                                 shape
                             )
                         } else Modifier
@@ -207,8 +220,8 @@ fun IosSegmentedControl(
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelLarge,
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                    color = if (selected) MaterialTheme.colorScheme.onBackground
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                    color = if (selected) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
