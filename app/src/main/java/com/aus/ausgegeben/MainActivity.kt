@@ -187,7 +187,6 @@ fun MainApp(
     val dashboardViewModel: DashboardViewModel = viewModel(activity) {
         DashboardViewModel(repository, preferenceManager)
     }
-    val recordCategories by addViewModel.categories.collectAsState()
 
     fun closeOverlay() {
         overlayStack.clear()
@@ -208,7 +207,7 @@ fun MainApp(
     }
 
     fun openEditFlow(expense: com.aus.ausgegeben.data.entity.Expense) {
-        addViewModel.loadForEdit(expense, recordCategories)
+        addViewModel.loadForEdit(expense, expenseViewModel.uiState.value.categories)
         overlayStack.clear()
         overlayStack.add(Route.Dashboard)
     }
