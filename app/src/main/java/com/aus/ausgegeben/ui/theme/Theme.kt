@@ -10,19 +10,21 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 
-val GroupedShape = RoundedCornerShape(14.dp)
-val GlassShape = RoundedCornerShape(28.dp)
-val CapsuleShape = RoundedCornerShape(50)
+import com.aus.ausgegeben.ui.theme.AppRadius
+import com.aus.ausgegeben.ui.theme.AppSpacing
+
+val GroupedShape = RoundedCornerShape(AppRadius.lg)
+val GlassShape = RoundedCornerShape(AppRadius.xl + AppSpacing.xs)
+val CapsuleShape = RoundedCornerShape(AppRadius.pill)
 
 private val AppShapes = Shapes(
-    extraSmall = RoundedCornerShape(10.dp),
-    small = RoundedCornerShape(14.dp),
-    medium = RoundedCornerShape(18.dp),
-    large = RoundedCornerShape(22.dp),
-    extraLarge = RoundedCornerShape(28.dp)
+    extraSmall = RoundedCornerShape(AppRadius.sm),
+    small = RoundedCornerShape(AppRadius.md),
+    medium = RoundedCornerShape(AppRadius.lg),
+    large = RoundedCornerShape(AppRadius.xl),
+    extraLarge = RoundedCornerShape(AppRadius.xl + AppSpacing.xs)
 )
 
 @Composable
