@@ -79,10 +79,13 @@ import com.aus.ausgegeben.ui.components.GroupedSection
 
 import com.aus.ausgegeben.ui.components.GroupedSectionLabel
 
+import com.aus.ausgegeben.ui.components.AppIcon
+
 import com.aus.ausgegeben.ui.components.ScreenTitle
 
 import com.aus.ausgegeben.ui.components.tabScreenListBottomPadding
 
+import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.ThemeMode
 import com.aus.ausgegeben.util.CurrencyUtils
 
@@ -789,7 +792,7 @@ fun SettingSwitchRow(
 
                 tint = MaterialTheme.colorScheme.primary,
 
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(AppSpacing.md + AppSpacing.xxs)
 
             )
 
@@ -889,7 +892,7 @@ fun SettingRow(
 
                 tint = MaterialTheme.colorScheme.primary,
 
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(AppSpacing.md + AppSpacing.xxs)
 
             )
 

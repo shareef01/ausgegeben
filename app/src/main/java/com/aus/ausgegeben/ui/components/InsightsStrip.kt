@@ -17,6 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.aus.ausgegeben.ui.theme.AppRadius
+import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.ExpenseMuted
 import com.aus.ausgegeben.ui.theme.IncomeGreen
 
@@ -32,13 +34,13 @@ fun BudgetProgressBar(
     val displayRatio = ratio.coerceAtMost(1f)
     val overBudget = spent > budget
     val barColor = if (overBudget) ExpenseMuted else IncomeGreen
-    val shape = RoundedCornerShape(8.dp)
-    val cardShape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(AppRadius.sm)
+    val cardShape = RoundedCornerShape(AppRadius.lg)
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xxs)
             .clip(cardShape)
             .appCard(shape = cardShape)
             .padding(horizontal = 16.dp, vertical = 14.dp)
