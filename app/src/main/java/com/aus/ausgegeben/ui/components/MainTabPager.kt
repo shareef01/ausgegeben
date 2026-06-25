@@ -50,7 +50,7 @@ fun MainTabPager(
     HorizontalPager(
         state = pagerState,
         modifier = modifier.fillMaxSize(),
-        beyondViewportPageCount = 1,
+        beyondViewportPageCount = 0,
         key = { tabRoutes[it].hashCode() }
     ) { page ->
         when (tabRoutes[page]) {

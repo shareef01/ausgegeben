@@ -84,8 +84,8 @@ fun FloatingBottomNav(
                 .padding(horizontal = 28.dp, vertical = 10.dp),
             shape = RoundedCornerShape(28.dp),
             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
-            shadowElevation = 12.dp,
-            tonalElevation = 4.dp
+            shadowElevation = 4.dp,
+            tonalElevation = 2.dp
         ) {
             BoxWithConstraints(
                 modifier = Modifier

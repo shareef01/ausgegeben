@@ -97,158 +97,145 @@ fun RecordScreen(
     val isListEmpty = lazyExpenses.itemCount == 0 &&
         lazyExpenses.loadState.refresh is LoadState.NotLoading
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = recordListBottomPadding()
-    ) {
-        item(key = "title") {
-            ScreenTitle(title = stringResource(R.string.screen_record))
-        }
+    Column(modifier = modifier.fillMaxSize()) {
+        ScreenTitle(title = stringResource(R.string.screen_record))
 
-        item(key = "insights") {
-            InsightsStrip(
-                insights = uiState.insights,
+        InsightsStrip(
+            insights = uiState.insights,
+            currencyCode = currencyCode
+        )
+
+        uiState.monthlyBudget?.let { budget ->
+            BudgetProgressBar(
+                spent = monthSpent,
+                budget = budget,
                 currencyCode = currencyCode
             )
         }
 
-        uiState.monthlyBudget?.let { budget ->
-            item(key = "budget") {
-                BudgetProgressBar(
-                    spent = monthSpent,
-                    budget = budget,
-                    currencyCode = currencyCode
-                )
-            }
-        }
+        RecordHeader(
+            expenses = uiState.headerExpenses,
+            currencyCode = currencyCode,
+            periodLabel = listPeriodLabel
+        )
 
-        item(key = "summary") {
-            RecordHeader(
-                expenses = uiState.headerExpenses,
-                currencyCode = currencyCode,
-                periodLabel = listPeriodLabel
-            )
-        }
+        RecordListPeriodToggle(
+            selected = uiState.listPeriod,
+            onSelected = viewModel::setListPeriod
+        )
 
-        item(key = "period-toggle") {
-            RecordListPeriodToggle(
-                selected = uiState.listPeriod,
-                onSelected = viewModel::setListPeriod
-            )
-        }
+        RecordSearchBar(
+            query = uiState.searchQuery,
+            onQueryChange = viewModel::setSearchQuery
+        )
 
-        item(key = "search") {
-            RecordSearchBar(
-                query = uiState.searchQuery,
-                onQueryChange = viewModel::setSearchQuery
-            )
-        }
-
-        item(key = "type-filters") {
-            RecordTypeFilters(
-                selected = uiState.typeFilter,
-                onSelected = viewModel::setTypeFilter
-            )
-        }
+        RecordTypeFilters(
+            selected = uiState.typeFilter,
+            onSelected = viewModel::setTypeFilter
+        )
 
         when {
             isListError -> {
-                item(key = "error") {
-                    val error = lazyExpenses.loadState.refresh as LoadState.Error
-                    EmptyStateMessage(
-                        icon = Icons.AutoMirrored.Rounded.ReceiptLong,
-                        title = stringResource(R.string.record_error_title),
-                        subtitle = error.error.localizedMessage
-                            ?: stringResource(R.string.record_error_retry),
-                        actionLabel = stringResource(R.string.record_error_retry),
-                        onAction = { lazyExpenses.retry() },
-                        modifier = Modifier.defaultMinSize(minHeight = 220.dp)
-                    )
-                }
+                val error = lazyExpenses.loadState.refresh as LoadState.Error
+                EmptyStateMessage(
+                    icon = Icons.AutoMirrored.Rounded.ReceiptLong,
+                    title = stringResource(R.string.record_error_title),
+                    subtitle = error.error.localizedMessage
+                        ?: stringResource(R.string.record_error_retry),
+                    actionLabel = stringResource(R.string.record_error_retry),
+                    onAction = { lazyExpenses.retry() },
+                    modifier = Modifier
+                        .weight(1f)
+                        .defaultMinSize(minHeight = 180.dp)
+                )
             }
             isListLoading && isListEmpty -> {
-                item(key = "loading") {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .defaultMinSize(minHeight = 220.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
                 }
             }
             isListEmpty && hasActiveFilter -> {
-                item(key = "no-matches") {
-                    EmptyStateMessage(
-                        icon = Icons.AutoMirrored.Rounded.ReceiptLong,
-                        title = stringResource(R.string.record_no_matches_title),
-                        subtitle = stringResource(R.string.record_no_matches_subtitle),
-                        modifier = Modifier.defaultMinSize(minHeight = 220.dp)
-                    )
-                }
+                EmptyStateMessage(
+                    icon = Icons.AutoMirrored.Rounded.ReceiptLong,
+                    title = stringResource(R.string.record_no_matches_title),
+                    subtitle = stringResource(R.string.record_no_matches_subtitle),
+                    modifier = Modifier
+                        .weight(1f)
+                        .defaultMinSize(minHeight = 180.dp)
+                )
             }
             isListEmpty -> {
-                item(key = "empty") {
-                    EmptyRecordState(onAddTransaction = onAddTransaction)
-                }
+                EmptyRecordState(
+                    onAddTransaction = onAddTransaction,
+                    modifier = Modifier.weight(1f)
+                )
             }
             else -> {
-                groupedExpenses.forEach { (date, dayItems) ->
-                    val billable = dayItems.filter { !it.isTransfer() }
-                    val dayIncome = billable.filter { it.isIncome() }.sumOf { it.amount }
-                    val dayExpense = billable.filter { it.isExpense() }.sumOf { it.amount }
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    contentPadding = recordListBottomPadding()
+                ) {
+                    groupedExpenses.forEach { (date, dayItems) ->
+                        val billable = dayItems.filter { !it.isTransfer() }
+                        val dayIncome = billable.filter { it.isIncome() }.sumOf { it.amount }
+                        val dayExpense = billable.filter { it.isExpense() }.sumOf { it.amount }
 
-                    item(key = "header-$date") {
-                        DatePill(date, dayIncome, dayExpense, currencyCode)
-                    }
+                        item(key = "header-$date") {
+                            DatePill(date, dayIncome, dayExpense, currencyCode)
+                        }
 
-                    item(key = "group-$date") {
-                        GroupedSection(modifier = Modifier.padding(bottom = 12.dp)) {
-                            Column(modifier = Modifier.clip(GroupedSectionClip)) {
-                                dayItems
-                                    .sortedByDescending { it.dateMillis }
-                                    .forEachIndexed { index, expense ->
-                                        key(expense.id) {
-                                            if (index > 0) IosSeparator()
-                                            val category = categoryById[expense.categoryId]
-                                            val time = timeFormat.format(Date(expense.dateMillis))
-                                            val categoryName = category?.name
-                                                ?: stringResource(R.string.record_unknown_category)
-                                            SwipeableTransactionRow(
-                                                expense = expense,
-                                                categoryName = categoryName,
-                                                categoryColor = category?.colorInt,
-                                                icon = iconForCategory(category?.iconName, category?.name),
-                                                time = time,
-                                                currencyCode = currencyCode,
-                                                onClick = { onExpenseClick(expense) },
-                                                onLongClick = {
-                                                    viewModel.duplicateExpense(expense)
-                                                    onExpenseDuplicated()
-                                                },
-                                                onDeleteRequest = {
-                                                    expensePendingDelete = expense
-                                                },
-                                                onReceiptClick = expense.receiptImagePath?.let { path ->
-                                                    { receiptToView = path }
-                                                }
-                                            )
+                        item(key = "group-$date") {
+                            GroupedSection(modifier = Modifier.padding(bottom = 12.dp)) {
+                                Column(modifier = Modifier.clip(GroupedSectionClip)) {
+                                    dayItems
+                                        .sortedByDescending { it.dateMillis }
+                                        .forEachIndexed { index, expense ->
+                                            key(expense.id) {
+                                                if (index > 0) IosSeparator()
+                                                val category = categoryById[expense.categoryId]
+                                                val time = timeFormat.format(Date(expense.dateMillis))
+                                                val categoryName = category?.name
+                                                    ?: stringResource(R.string.record_unknown_category)
+                                                SwipeableTransactionRow(
+                                                    expense = expense,
+                                                    categoryName = categoryName,
+                                                    categoryColor = category?.colorInt,
+                                                    icon = iconForCategory(category?.iconName, category?.name),
+                                                    time = time,
+                                                    currencyCode = currencyCode,
+                                                    onClick = { onExpenseClick(expense) },
+                                                    onLongClick = {
+                                                        viewModel.duplicateExpense(expense)
+                                                        onExpenseDuplicated()
+                                                    },
+                                                    onDeleteRequest = {
+                                                        expensePendingDelete = expense
+                                                    },
+                                                    onReceiptClick = expense.receiptImagePath?.let { path ->
+                                                        { receiptToView = path }
+                                                    }
+                                                )
+                                            }
                                         }
-                                    }
+                                }
                             }
                         }
                     }
-                }
-                if (lazyExpenses.loadState.append is LoadState.Loading) {
-                    item(key = "loading-footer") {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(modifier = Modifier.size(28.dp))
+                    if (lazyExpenses.loadState.append is LoadState.Loading) {
+                        item(key = "loading-footer") {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(modifier = Modifier.size(28.dp))
+                            }
                         }
                     }
                 }
