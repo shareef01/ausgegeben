@@ -80,27 +80,28 @@ data class SpendingInsights(
     val topExpenseCategoryAmount: Double = 0.0
 )
 
-fun computeSpendingInsights(
-    expenses: List<Expense>,
-    categoryNames: Map<Long, String>
-): SpendingInsights {
-    val now = System.currentTimeMillis()
+fun recentWeekRangeMillis(nowMillis: Long = System.currentTimeMillis()): Pair<Long, Long> {
     val weekStart = Calendar.getInstance().apply {
-        timeInMillis = now
+        timeInMillis = nowMillis
         add(Calendar.DAY_OF_YEAR, -6)
         set(Calendar.HOUR_OF_DAY, 0)
         set(Calendar.MINUTE, 0)
         set(Calendar.SECOND, 0)
         set(Calendar.MILLISECOND, 0)
     }.timeInMillis
+    return weekStart to nowMillis + 1
+}
 
-    val daysLogged = expenses
-        .filter { it.dateMillis >= weekStart }
+fun computeSpendingInsights(
+    monthExpenses: List<Expense>,
+    weekExpenses: List<Expense>,
+    categoryNames: Map<Long, String>,
+): SpendingInsights {
+    val daysLogged = weekExpenses
         .map { localDayStartMillis(it.dateMillis) }
         .distinct()
         .size
 
-    val monthExpenses = expenses.filterByPeriod(AnalyticsPeriod.THIS_MONTH, now)
     val billable = monthExpenses.filter { !it.isTransfer() }
     val monthExpenseTotal = billable.filter { it.isExpense() }.sumOf { it.amount }
     val monthIncomeTotal = billable.filter { it.isIncome() }.sumOf { it.amount }
