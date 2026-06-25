@@ -180,8 +180,6 @@ fun BillsScreen(
                 item(key = "transfers-section") {
                     AnalyticsSection(
                         title = stringResource(R.string.bills_section_transfers),
-                        accent = SystemViolet,
-                        accentSecondary = TransferGray,
                         data = uiState.transfersByCategory,
                         currencyCode = currencyCode
                     )
@@ -326,8 +324,6 @@ private fun CompactCategoryRow(
 @Composable
 fun AnalyticsSection(
     title: String,
-    accent: Color,
-    accentSecondary: Color,
     data: Map<Category, Double>,
     currencyCode: String = "EUR"
 ) {
