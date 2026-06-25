@@ -200,6 +200,8 @@
     <string name="bills_section_income">Einnahmen</string>
     <string name="bills_section_transfers">Umbuchungen</string>
     <string name="chart_total_label">gesamt</string>
+    <string name="chart_overview_title">Einnahmen vs Ausgaben</string>
+    <string name="chart_net_label">Saldo</string>
     <string name="chart_no_data">Keine Diagrammdaten</string>
     <string name="chart_breakdown_description">Aufschlüsselung nach Kategorie, gesamt %1$s</string>
 
