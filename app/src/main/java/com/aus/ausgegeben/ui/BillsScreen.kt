@@ -1,5 +1,6 @@
 package com.aus.ausgegeben.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -41,7 +42,6 @@ import com.aus.ausgegeben.ui.components.GroupedSectionLabel
 import com.aus.ausgegeben.ui.components.IosSegmentedControl
 import com.aus.ausgegeben.ui.components.ScreenTitle
 import com.aus.ausgegeben.ui.components.tabScreenListBottomPadding
-import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.ui.components.appCard
 import com.aus.ausgegeben.ui.components.MoneyText
 import com.aus.ausgegeben.ui.components.MoneySize
@@ -49,15 +49,14 @@ import com.aus.ausgegeben.ui.theme.IncomeGreen
 import com.aus.ausgegeben.ui.theme.SystemTeal
 import com.aus.ausgegeben.ui.theme.SystemViolet
 import com.aus.ausgegeben.ui.theme.TransferGray
-import com.aus.ausgegeben.ui.theme.chartHighlight
-import com.aus.ausgegeben.ui.theme.chartShadow
 import com.aus.ausgegeben.ui.theme.forChartDisplay
+import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.colorIntToCompose
 import com.aus.ausgegeben.util.harmonizedChartColors
 import com.aus.ausgegeben.util.iconForCategory
-import com.aus.ausgegeben.util.iconTintOnCategoryFill
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun BillsScreen(
     viewModel: DashboardViewModel,
@@ -75,39 +74,47 @@ fun BillsScreen(
         else -> uiState.periodLabel
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
-        ScreenTitle(title = stringResource(R.string.screen_bills))
-
-        IosSegmentedControl(
-            options = periodOptions,
-            selectedIndex = AnalyticsPeriod.entries.indexOf(uiState.period).coerceAtLeast(0),
-            onSelected = { viewModel.setPeriod(AnalyticsPeriod.entries[it]) },
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
-
-        if (hasAnalytics) {
-            RecordHeader(
-                expenses = uiState.periodTransactions,
-                currencyCode = currencyCode,
-                periodLabel = headerPeriodLabel
-            )
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = tabScreenListBottomPadding()
+    ) {
+        item(key = "title") {
+            ScreenTitle(title = stringResource(R.string.screen_bills))
         }
 
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            contentPadding = tabScreenListBottomPadding()
-        ) {
-            if (!hasAnalytics) {
-                item {
-                    EmptyStateMessage(
-                        icon = Icons.Rounded.Analytics,
-                        title = stringResource(R.string.bills_empty_title),
-                        subtitle = stringResource(R.string.bills_empty_subtitle),
-                        modifier = Modifier.defaultMinSize(minHeight = 240.dp)
-                    )
-                }
+        stickyHeader(key = "period") {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(bottom = 4.dp)
+            ) {
+                IosSegmentedControl(
+                    options = periodOptions,
+                    selectedIndex = AnalyticsPeriod.entries.indexOf(uiState.period).coerceAtLeast(0),
+                    onSelected = { viewModel.setPeriod(AnalyticsPeriod.entries[it]) },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                )
+            }
+        }
+
+        if (!hasAnalytics) {
+            item(key = "empty") {
+                EmptyStateMessage(
+                    icon = Icons.Rounded.Analytics,
+                    title = stringResource(R.string.bills_empty_title),
+                    subtitle = stringResource(R.string.bills_empty_subtitle),
+                    modifier = Modifier.defaultMinSize(minHeight = 280.dp)
+                )
+            }
+        } else {
+            item(key = "summary") {
+                RecordHeader(
+                    expenses = uiState.periodTransactions,
+                    currencyCode = currencyCode,
+                    periodLabel = headerPeriodLabel,
+                    compact = true
+                )
             }
 
             if (uiState.expensesByCategory.isNotEmpty()) {
@@ -146,7 +153,9 @@ fun BillsScreen(
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(8.dp)) }
+            item(key = "footer-spacer") {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
         }
     }
 }

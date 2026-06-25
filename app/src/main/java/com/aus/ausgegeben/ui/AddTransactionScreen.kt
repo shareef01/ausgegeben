@@ -36,7 +36,6 @@ import com.aus.ausgegeben.ui.components.ReceiptImageDialog
 import com.aus.ausgegeben.ui.components.ReceiptThumbnail
 import com.aus.ausgegeben.ui.components.SmoothIconButton
 import com.aus.ausgegeben.ui.components.smoothClickable
-import com.aus.ausgegeben.ui.theme.AccentCoral
 import com.aus.ausgegeben.ui.components.MoneyText
 import com.aus.ausgegeben.ui.components.MoneySize
 import com.aus.ausgegeben.ui.theme.AppColorSpring
@@ -102,11 +101,12 @@ fun AddTransactionScreen(
         }
     }
     BackHandler(onBack = onBack)
+    val expenseAccent = MaterialTheme.colorScheme.primary
     val typeAccent by animateColorAsState(
         targetValue = when (transactionType) {
             TransactionType.INCOME -> IncomeGreen
             TransactionType.TRANSFER -> TransferGray
-            else -> AccentCoral
+            else -> expenseAccent
         },
         animationSpec = AppColorSpring,
         label = "typeAccent"
@@ -263,13 +263,20 @@ fun AddTransactionScreen(
             Spacer(modifier = Modifier.height(24.dp))
             }
         }
+        val sheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
+                .clip(sheetShape)
                 .background(MaterialTheme.colorScheme.surface)
+                .border(
+                    width = 0.5.dp,
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f),
+                    shape = sheetShape
+                )
                 .padding(horizontal = 16.dp)
-                .padding(top = 12.dp, bottom = 12.dp)
+                .padding(top = 14.dp, bottom = 12.dp)
         ) {
             selectedCategory?.let { category ->
                 SelectedCategoryChip(category = category, accentColor = typeAccent)
@@ -462,11 +469,10 @@ private fun AmountCard(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = typeLabel.uppercase(),
-                style = MaterialTheme.typography.labelSmall,
+                text = typeLabel,
+                style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                letterSpacing = 1.sp,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.Medium
             )
             Spacer(modifier = Modifier.height(10.dp))
             Row(
@@ -590,7 +596,7 @@ fun CategoryRow(
     CategoryIconGrid(
         categories = categories,
         selectedCategory = selectedCategory,
-        accentColor = AccentCoral,
+        accentColor = MaterialTheme.colorScheme.primary,
         onCategorySelected = onCategorySelected,
         onAddCategory = onAddCategory,
         modifier = modifier
@@ -609,7 +615,7 @@ private fun CategoryIconTile(
     category: Category,
     isSelected: Boolean,
     onClick: () -> Unit,
-    accentColor: Color = AccentCoral
+    accentColor: Color = MaterialTheme.colorScheme.primary
 ) {
     val categoryColor = colorIntToCompose(category.colorInt)
     Column(
@@ -731,7 +737,7 @@ fun CustomNumericKeypad(
     onKeyPress: (String) -> Unit,
     onBackspace: () -> Unit,
     onSubmit: () -> Unit,
-    accentColor: Color = AccentCoral,
+    accentColor: Color = MaterialTheme.colorScheme.primary,
     canSubmit: Boolean = true,
     decimalSeparator: String = ",",
     modifier: Modifier = Modifier
@@ -790,11 +796,11 @@ private fun CalcKey(
     onClick: () -> Unit
 ) {
     val isBackspace = key == "back"
-    val keyBackground = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+    val keyBackground = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
     Box(
         modifier = modifier
             .fillMaxHeight()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(keyBackground)
             .smoothClickable(onClick = onClick),
         contentAlignment = Alignment.Center

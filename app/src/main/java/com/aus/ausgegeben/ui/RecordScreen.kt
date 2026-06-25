@@ -54,9 +54,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
@@ -66,11 +68,11 @@ import com.aus.ausgegeben.ui.components.BudgetProgressBar
 import com.aus.ausgegeben.ui.components.EmptyStateMessage
 import com.aus.ausgegeben.ui.components.FinanceSummaryCard
 import com.aus.ausgegeben.ui.components.GroupedSection
-import com.aus.ausgegeben.ui.components.IosSegmentedControl
 import com.aus.ausgegeben.ui.components.IosSeparator
 import com.aus.ausgegeben.ui.components.ReceiptImageDialog
 import com.aus.ausgegeben.ui.components.ScreenTitle
 import com.aus.ausgegeben.ui.components.recordListBottomPadding
+import com.aus.ausgegeben.ui.components.smoothClickable
 import com.aus.ausgegeben.ui.components.MoneyText
 import com.aus.ausgegeben.ui.components.MoneySize
 import com.aus.ausgegeben.ui.theme.IncomeGreen
@@ -81,7 +83,6 @@ import com.aus.ausgegeben.util.RecordListPeriod
 import com.aus.ausgegeben.util.colorIntToCompose
 import com.aus.ausgegeben.util.displayTitle
 import com.aus.ausgegeben.util.iconForCategory
-import com.aus.ausgegeben.util.iconTintOnCategoryFill
 import com.aus.ausgegeben.util.localDayStartMillis
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -250,7 +251,7 @@ fun RecordScreen(
                                     .sortedByDescending { it.dateMillis }
                                     .forEachIndexed { index, expense ->
                                         androidx.compose.runtime.key(expense.id) {
-                                            if (index > 0) IosSeparator(insetStart = 56.dp)
+                                            if (index > 0) IosSeparator(insetStart = 62.dp)
                                             val category = categoryById[expense.categoryId]
                                             val time = timeFormat.format(Date(expense.dateMillis))
                                             val categoryName = category?.name
@@ -346,39 +347,49 @@ private fun RecordListToolbar(
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.background)
-            .padding(top = 4.dp, bottom = 8.dp)
+            .padding(bottom = 6.dp)
     ) {
-        val periodOptions = RecordListPeriod.entries
-        IosSegmentedControl(
-            options = periodOptions.map { it.label() },
-            selectedIndex = periodOptions.indexOf(listPeriod).coerceAtLeast(0),
-            onSelected = { onListPeriod(periodOptions[it]) },
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-        )
-
-        AnimatedVisibility(
-            visible = searchExpanded,
-            enter = expandVertically(),
-            exit = shrinkVertically()
-        ) {
-            RecordSearchBar(
-                query = searchQuery,
-                onQueryChange = onSearchChange,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-        }
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 8.dp, end = 4.dp, top = 2.dp),
+                .padding(start = 16.dp, end = 8.dp, top = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            RecordTypeFilters(
-                selected = typeFilter,
-                onSelected = onTypeFilter,
-                modifier = Modifier.weight(1f)
-            )
+            val periodOptions = RecordListPeriod.entries
+            val periodShape = RoundedCornerShape(10.dp)
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(periodShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+                    .padding(3.dp)
+            ) {
+                periodOptions.forEachIndexed { index, period ->
+                    val selected = listPeriod == period
+                    val chipShape = RoundedCornerShape(8.dp)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(chipShape)
+                            .background(
+                                if (selected) MaterialTheme.colorScheme.surface
+                                else Color.Transparent
+                            )
+                            .smoothClickable { onListPeriod(period) }
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = period.label(),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                            color = if (selected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
             IconButton(
                 onClick = {
                     when {
@@ -399,6 +410,24 @@ private fun RecordListToolbar(
                 )
             }
         }
+
+        AnimatedVisibility(
+            visible = searchExpanded,
+            enter = expandVertically(),
+            exit = shrinkVertically()
+        ) {
+            RecordSearchBar(
+                query = searchQuery,
+                onQueryChange = onSearchChange,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+
+        RecordTypeFilters(
+            selected = typeFilter,
+            onSelected = onTypeFilter,
+            modifier = Modifier.padding(top = 2.dp)
+        )
     }
 }
 
@@ -541,17 +570,20 @@ fun DatePill(date: String, dayIncome: Double, dayExpense: Double, currencyCode: 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 6.dp),
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+            .padding(horizontal = 14.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = date,
             style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+            color = MaterialTheme.colorScheme.onBackground,
+            fontWeight = FontWeight.SemiBold
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             if (dayIncome > 0) {
                 MoneyText(
                     text = "+${CurrencyUtils.formatAmount(dayIncome, currencyCode)}",
@@ -658,23 +690,35 @@ fun TransactionRow(
         else -> MaterialTheme.colorScheme.onBackground
     }
     val fillColor = categoryColor?.let { colorIntToCompose(it) }
+    val stripeColor = fillColor ?: when {
+        expense.isIncome() -> IncomeGreen
+        expense.isTransfer() -> TransferGray
+        else -> MaterialTheme.colorScheme.primary
+    }
 
     Row(
-        modifier = modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+        modifier = modifier.padding(end = 14.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
+                .width(3.dp)
+                .height(40.dp)
+                .clip(RoundedCornerShape(topEnd = 2.dp, bottomEnd = 2.dp))
+                .background(stripeColor)
+        )
+        Spacer(modifier = Modifier.width(11.dp))
+        Box(
+            modifier = Modifier
                 .size(36.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(fillColor ?: MaterialTheme.colorScheme.surface),
+                .background(fillColor?.copy(alpha = 0.18f) ?: MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 icon,
                 contentDescription = categoryName,
-                tint = fillColor?.let { iconTintOnCategoryFill(it) }
-                    ?: MaterialTheme.colorScheme.onSurface,
+                tint = fillColor ?: stripeColor,
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -685,7 +729,7 @@ fun TransactionRow(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onBackground,
                 maxLines = 1,
-                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                fontWeight = FontWeight.Medium
             )
             val subtitle = buildString {
                 if (time != null) append(time)

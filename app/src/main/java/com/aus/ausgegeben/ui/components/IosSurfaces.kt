@@ -60,11 +60,11 @@ fun ScreenTitle(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
-            .padding(top = 8.dp, bottom = 14.dp)
+            .padding(top = 6.dp, bottom = 10.dp)
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.headlineMedium.copy(letterSpacing = (-0.5).sp),
+            style = MaterialTheme.typography.titleLarge.copy(letterSpacing = (-0.3).sp),
             color = MaterialTheme.colorScheme.onBackground,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.semantics { heading() }
@@ -114,13 +114,13 @@ fun GroupedSectionLabel(
     modifier: Modifier = Modifier
 ) {
     Text(
-        text = text.uppercase(),
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         fontWeight = FontWeight.SemiBold,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 28.dp, vertical = 10.dp)
+            .padding(horizontal = 20.dp, vertical = 8.dp)
     )
 }
 
