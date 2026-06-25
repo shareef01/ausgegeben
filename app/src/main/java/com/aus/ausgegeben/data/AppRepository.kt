@@ -34,7 +34,13 @@ class AppRepository(
 
     suspend fun insertAllCategories(categories: List<Category>) = categoryDao.insertAll(categories)
 
-    suspend fun deleteCategory(category: Category) = categoryDao.delete(category)
+    suspend fun deleteCategory(category: Category) {
+        val linkedExpenses = expenseDao.getExpensesForCategory(category.id)
+        categoryDao.delete(category)
+        linkedExpenses.forEach { expense ->
+            purgeReceiptIfUnreferenced(expense.receiptImagePath)
+        }
+    }
 
     // Expenses
     val allExpenses: Flow<List<Expense>> = expenseDao.getAllExpenses()
@@ -62,11 +68,34 @@ class AppRepository(
     suspend fun insertAllExpenses(expenses: List<Expense>) = expenseDao.insertAll(expenses)
 
     suspend fun deleteExpense(expense: Expense) {
-        ReceiptFileUtils.deleteIfStored(appContext, expense.receiptImagePath)
         expenseDao.delete(expense)
     }
 
-    suspend fun updateExpense(expense: Expense) = expenseDao.update(expense)
+    suspend fun duplicateExpense(expense: Expense) {
+        val copiedReceipt = ReceiptFileUtils.copyReceipt(appContext, expense.receiptImagePath)
+        insertExpense(
+            expense.copy(
+                id = 0L,
+                dateMillis = System.currentTimeMillis(),
+                receiptImagePath = copiedReceipt
+            )
+        )
+    }
+
+    suspend fun updateExpense(expense: Expense) {
+        val previous = expenseDao.getById(expense.id)
+        expenseDao.update(expense)
+        if (previous?.receiptImagePath != expense.receiptImagePath) {
+            purgeReceiptIfUnreferenced(previous?.receiptImagePath, excludeExpenseId = expense.id)
+        }
+    }
+
+    suspend fun purgeReceiptIfUnreferenced(path: String?, excludeExpenseId: Long = 0L) {
+        if (path.isNullOrBlank()) return
+        if (expenseDao.countByReceiptPath(path, excludeExpenseId) == 0) {
+            ReceiptFileUtils.deleteIfStored(appContext, path)
+        }
+    }
 
     suspend fun updateExpenseTypesForCategory(categoryId: Long, transactionType: String) =
         expenseDao.updateTransactionTypeForCategory(categoryId, transactionType)

@@ -2,62 +2,92 @@ package com.aus.ausgegeben.ui.components
 
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import com.aus.ausgegeben.ui.MainTabRoutes
 import com.aus.ausgegeben.ui.Route
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+
+private val TabScrollSpring = spring<Float>(
+    dampingRatio = Spring.DampingRatioNoBouncy,
+    stiffness = Spring.StiffnessMedium
+)
 
 @Composable
 fun MainTabPager(
     currentRoute: Route,
-    onTabSelected: (Route) -> Unit,
+    onRouteChange: (Route) -> Unit,
     modifier: Modifier = Modifier,
     recordContent: @Composable () -> Unit,
     billsContent: @Composable () -> Unit,
     settingsContent: @Composable () -> Unit,
 ) {
-    val tabRoutes = MainTabRoutes
-    val initialPage = tabRoutes.indexOf(currentRoute).coerceAtLeast(0)
-    val pagerState = rememberPagerState(
-        initialPage = initialPage,
-        pageCount = { tabRoutes.size }
-    )
+    val tabs = MainTabRoutes
+    val scope = rememberCoroutineScope()
+    val initialPage = tabs.indexOfFirst { it == currentRoute }.coerceAtLeast(0)
+    val pagerState = rememberPagerState(initialPage = initialPage) { tabs.size }
 
-    LaunchedEffect(currentRoute) {
-        val index = tabRoutes.indexOf(currentRoute)
-        if (index >= 0 && index != pagerState.currentPage && !pagerState.isScrollInProgress) {
-            pagerState.animateScrollToPage(
-                page = index,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioNoBouncy,
-                    stiffness = Spring.StiffnessMediumLow
-                )
-            )
+    fun scrollToPage(page: Int) {
+        val clamped = page.coerceIn(0, tabs.lastIndex)
+        scope.launch {
+            pagerState.animateScrollToPage(clamped, animationSpec = TabScrollSpring)
         }
     }
 
-    LaunchedEffect(pagerState.settledPage) {
-        val route = tabRoutes[pagerState.settledPage]
-        if (route != currentRoute) {
-            onTabSelected(route)
+    LaunchedEffect(currentRoute) {
+        val target = tabs.indexOfFirst { it == currentRoute }.coerceAtLeast(0)
+        if (pagerState.currentPage != target || pagerState.targetPage != target) {
+            pagerState.animateScrollToPage(target, animationSpec = TabScrollSpring)
         }
+    }
+
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.isScrollInProgress to pagerState.settledPage }
+            .filter { !it.first }
+            .map { it.second }
+            .distinctUntilChanged()
+            .collect { page ->
+                val route = tabs[page]
+                if (route != currentRoute) {
+                    onRouteChange(route)
+                }
+            }
     }
 
     HorizontalPager(
         state = pagerState,
         modifier = modifier.fillMaxSize(),
         beyondViewportPageCount = 1,
-        key = { tabRoutes[it].hashCode() }
+        userScrollEnabled = false
     ) { page ->
-        when (tabRoutes[page]) {
-            Route.ExpenseList -> recordContent()
-            Route.CategoryManagement -> billsContent()
-            Route.Settings -> settingsContent()
-            else -> Unit
+        val route = tabs[page]
+        key(route) {
+            SwipeableTabSurface(
+                canSwipeToPrevious = page > 0,
+                canSwipeToNext = page < tabs.lastIndex,
+                onSwipeToPrevious = { scrollToPage(page - 1) },
+                onSwipeToNext = { scrollToPage(page + 1) }
+            ) {
+                Box(Modifier.fillMaxSize()) {
+                    when (route) {
+                        Route.ExpenseList -> recordContent()
+                        Route.CategoryManagement -> billsContent()
+                        Route.Settings -> settingsContent()
+                        else -> recordContent()
+                    }
+                }
+            }
         }
     }
 }
