@@ -91,9 +91,9 @@ fun IncomeExpenseOverviewChart(
     ) {
         Text(
             text = stringResource(R.string.chart_overview_title),
-            style = MaterialTheme.typography.labelSmall,
-            color = onSurfaceVariant,
-            fontWeight = FontWeight.SemiBold,
+            style = MaterialTheme.typography.titleSmall,
+            color = onBackground,
+            fontWeight = FontWeight.Normal,
             modifier = Modifier
                 .padding(horizontal = AppSpacing.md)
                 .padding(bottom = AppSpacing.sm)
@@ -229,15 +229,15 @@ private fun OverviewLegendItem(
         Column {
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.Normal
             )
             MoneyText(text = value, size = MoneySize.Body, color = color)
             Text(
                 text = "$percent%",
                 style = MaterialTheme.typography.labelSmall,
-                color = color.copy(alpha = 0.85f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )
         }
     }
