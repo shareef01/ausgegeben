@@ -37,7 +37,8 @@ import com.aus.ausgegeben.ui.components.ReceiptThumbnail
 import com.aus.ausgegeben.ui.components.SmoothIconButton
 import com.aus.ausgegeben.ui.components.smoothClickable
 import com.aus.ausgegeben.ui.theme.AccentCoral
-import com.aus.ausgegeben.ui.theme.AmountTextStyle
+import com.aus.ausgegeben.ui.components.MoneyText
+import com.aus.ausgegeben.ui.components.MoneySize
 import com.aus.ausgegeben.ui.theme.AppColorSpring
 import com.aus.ausgegeben.ui.theme.IncomeGreen
 import com.aus.ausgegeben.ui.theme.TransferGray
@@ -449,40 +450,41 @@ private fun AmountCard(
         else -> stringResource(R.string.add_amount_expense)
     }
     val fontSize = when {
-        amount.length > 10 -> 32.sp
-        amount.length > 7 -> 42.sp
+        amount.length > 10 -> 34.sp
+        amount.length > 7 -> 44.sp
         else -> 52.sp
     }
     GroupedSection(modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 18.dp),
+                .padding(horizontal = 20.dp, vertical = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = typeLabel.uppercase(),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                letterSpacing = 1.sp
+                letterSpacing = 1.sp,
+                fontWeight = FontWeight.SemiBold
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
             Row(
                 verticalAlignment = Alignment.Bottom,
                 horizontalArrangement = Arrangement.Center
             ) {
                 Text(
                     text = CurrencyUtils.symbolFor(currencyCode),
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(end = 6.dp, bottom = 6.dp)
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(end = 6.dp, bottom = 8.dp)
                 )
-                Text(
+                MoneyText(
                     text = amount,
-                    style = MaterialTheme.typography.displayLarge.merge(AmountTextStyle).copy(
-                        color = amountColor,
-                        fontSize = fontSize
-                    )
+                    size = MoneySize.Hero,
+                    color = amountColor,
+                    fontSize = fontSize
                 )
             }
             HorizontalDivider(
