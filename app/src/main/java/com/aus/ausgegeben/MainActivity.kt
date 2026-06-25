@@ -18,6 +18,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -62,6 +67,7 @@ import com.aus.ausgegeben.ui.components.AppScreen
 import com.aus.ausgegeben.ui.components.CameraPermissionDenied
 import com.aus.ausgegeben.ui.components.MainBottomBar
 import com.aus.ausgegeben.ui.components.MainTabPager
+import com.aus.ausgegeben.ui.theme.AccentCoral
 import com.aus.ausgegeben.ui.theme.AusgegebenTheme
 import com.aus.ausgegeben.ui.theme.ThemeMode
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -228,13 +234,27 @@ fun MainApp(
             containerColor = Color.Transparent,
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             snackbarHost = { SnackbarHost(snackbarHostState) },
+            floatingActionButton = {
+                if (showBottomNav && selectedTab == Route.ExpenseList) {
+                    FloatingActionButton(
+                        onClick = ::openAddFlow,
+                        modifier = Modifier.navigationBarsPadding(),
+                        containerColor = AccentCoral,
+                        contentColor = Color.White,
+                        shape = CircleShape
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Add,
+                            contentDescription = stringResource(R.string.nav_add_transaction)
+                        )
+                    }
+                }
+            },
             bottomBar = {
                 if (showBottomNav) {
                     Box(modifier = Modifier.navigationBarsPadding()) {
                         MainBottomBar(
                             currentRoute = selectedTab,
-                            showAddButton = selectedTab == Route.ExpenseList,
-                            onAddTransaction = ::openAddFlow,
                             onNavigate = { route ->
                                 if (selectedTab != route) {
                                     selectedTab = route
