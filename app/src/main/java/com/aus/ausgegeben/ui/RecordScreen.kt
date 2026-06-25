@@ -44,6 +44,7 @@ import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -55,25 +56,27 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
+import com.aus.ausgegeben.ui.components.appCard
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.paging.LoadState
-import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.paging.compose.itemKey
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.ui.components.AppIcon
 import com.aus.ausgegeben.ui.components.BudgetProgressBar
 import com.aus.ausgegeben.ui.components.EmptyStateMessage
 import com.aus.ausgegeben.ui.components.FinanceSummaryCard
-import com.aus.ausgegeben.ui.components.GroupedSection
 import com.aus.ausgegeben.ui.components.IosSegmentedControl
 import com.aus.ausgegeben.ui.components.IosSeparator
 import com.aus.ausgegeben.ui.components.MoneySize
 import com.aus.ausgegeben.ui.components.MoneyText
 import com.aus.ausgegeben.ui.components.ReceiptImageDialog
 import com.aus.ausgegeben.ui.components.ScreenTitle
+import androidx.paging.compose.collectAsLazyPagingItems
 import com.aus.ausgegeben.ui.components.recordListBottomPadding
 import com.aus.ausgegeben.ui.theme.AppIconSize
 import com.aus.ausgegeben.ui.theme.AppLayoutTokens
@@ -112,7 +115,7 @@ fun RecordScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val lazyExpenses = viewModel.pagedExpenses.collectAsLazyPagingItems()
-    val expenses = lazyExpenses.itemSnapshotList.items
+    val snapshotVersion = lazyExpenses.itemSnapshotList.size
     val allMonthExpenses = uiState.monthExpenses
     val categories = uiState.categories
     val categoryById = remember(categories) { categories.associateBy { it.id } }
@@ -138,10 +141,14 @@ fun RecordScreen(
             )
         }
 
-    val groupedExpenses = remember(expenses) {
-        expenses.groupBy {
-            dateFormat.format(Date(localDayStartMillis(it.dateMillis)))
-        }
+    val dayTotalsByLabel = remember(snapshotVersion) {
+        lazyExpenses.itemSnapshotList.items
+            .groupBy { dateFormat.format(Date(localDayStartMillis(it.dateMillis))) }
+            .mapValues { (_, dayItems) ->
+                val billable = dayItems.filter { !it.isTransfer() }
+                billable.filter { it.isIncome() }.sumOf { it.amount } to
+                    billable.filter { it.isExpense() }.sumOf { it.amount }
+            }
     }
     val hasActiveFilter = uiState.searchQuery.isNotBlank() ||
         uiState.typeFilter != TransactionTypeFilter.ALL
@@ -150,8 +157,10 @@ fun RecordScreen(
     val isListEmpty = lazyExpenses.itemCount == 0 &&
         lazyExpenses.loadState.refresh is LoadState.NotLoading
 
-    if (uiState.searchQuery.isNotBlank()) {
-        searchExpanded = true
+    LaunchedEffect(uiState.searchQuery) {
+        if (uiState.searchQuery.isNotBlank()) {
+            searchExpanded = true
+        }
     }
 
     LazyColumn(
@@ -242,50 +251,55 @@ fun RecordScreen(
                 }
             }
             else -> {
-                groupedExpenses.forEach { (date, dayItems) ->
-                    val billable = dayItems.filter { !it.isTransfer() }
-                    val dayIncome = billable.filter { it.isIncome() }.sumOf { it.amount }
-                    val dayExpense = billable.filter { it.isExpense() }.sumOf { it.amount }
+                items(
+                    count = lazyExpenses.itemCount,
+                    key = lazyExpenses.itemKey { it.id },
+                ) { index ->
+                    val expense = lazyExpenses[index] ?: return@items
+                    val dateLabel = dateFormat.format(Date(localDayStartMillis(expense.dateMillis)))
+                    val previous = if (index > 0) lazyExpenses.peek(index - 1) else null
+                    val previousDateLabel = previous?.let {
+                        dateFormat.format(Date(localDayStartMillis(it.dateMillis)))
+                    }
+                    val next = lazyExpenses.peek(index + 1)
+                    val nextDateLabel = next?.let {
+                        dateFormat.format(Date(localDayStartMillis(it.dateMillis)))
+                    }
+                    val isFirstInDay = dateLabel != previousDateLabel
+                    val isLastInDay = dateLabel != nextDateLabel
 
-                    item(key = "header-$date") {
-                        DateSectionHeader(date, dayIncome, dayExpense, currencyCode)
+                    if (isFirstInDay) {
+                        val (dayIncome, dayExpense) = dayTotalsByLabel[dateLabel] ?: (0.0 to 0.0)
+                        DateSectionHeader(dateLabel, dayIncome, dayExpense, currencyCode)
                     }
 
-                    item(key = "group-$date") {
-                        GroupedSection(modifier = Modifier.padding(bottom = AppSpacing.xs)) {
-                            Column(modifier = Modifier.clip(RoundedCornerShape(AppRadius.card))) {
-                                dayItems
-                                    .sortedByDescending { it.dateMillis }
-                                    .forEachIndexed { index, expense ->
-                                        androidx.compose.runtime.key(expense.id) {
-                                            if (index > 0) IosSeparator()
-                                            val category = categoryById[expense.categoryId]
-                                            val time = timeFormat.format(Date(expense.dateMillis))
-                                            val categoryName = category?.name
-                                                ?: stringResource(R.string.record_unknown_category)
-                                            SwipeableTransactionRow(
-                                                expense = expense,
-                                                categoryName = categoryName,
-                                                categoryColor = category?.colorInt,
-                                                icon = iconForCategory(category?.iconName, category?.name),
-                                                time = time,
-                                                currencyCode = currencyCode,
-                                                onClick = { onExpenseClick(expense) },
-                                                onLongClick = {
-                                                    viewModel.duplicateExpense(expense)
-                                                    onExpenseDuplicated()
-                                                },
-                                                onDeleteRequest = {
-                                                    expensePendingDelete = expense
-                                                },
-                                                onReceiptClick = expense.receiptImagePath?.let { path ->
-                                                    { receiptToView = path }
-                                                }
-                                            )
-                                        }
-                                    }
-                            }
-                        }
+                    val category = categoryById[expense.categoryId]
+                    val time = timeFormat.format(Date(expense.dateMillis))
+                    val categoryName = category?.name
+                        ?: stringResource(R.string.record_unknown_category)
+
+                    TransactionDayRow(
+                        isFirstInDay = isFirstInDay,
+                        isLastInDay = isLastInDay,
+                        showSeparator = !isFirstInDay,
+                    ) {
+                        SwipeableTransactionRow(
+                            expense = expense,
+                            categoryName = categoryName,
+                            categoryColor = category?.colorInt,
+                            icon = iconForCategory(category?.iconName, category?.name),
+                            time = time,
+                            currencyCode = currencyCode,
+                            onClick = { onExpenseClick(expense) },
+                            onLongClick = {
+                                viewModel.duplicateExpense(expense)
+                                onExpenseDuplicated()
+                            },
+                            onDeleteRequest = { expensePendingDelete = expense },
+                            onReceiptClick = expense.receiptImagePath?.let { path ->
+                                { receiptToView = path }
+                            },
+                        )
                     }
                 }
 
@@ -590,6 +604,47 @@ fun RecordHeader(
 @Composable
 fun DatePill(date: String, dayIncome: Double, dayExpense: Double, currencyCode: String = "EUR") {
     DateSectionHeader(date, dayIncome, dayExpense, currencyCode)
+}
+
+@Composable
+private fun TransactionDayRow(
+    isFirstInDay: Boolean,
+    isLastInDay: Boolean,
+    showSeparator: Boolean,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val shape: Shape = when {
+        isFirstInDay && isLastInDay -> RoundedCornerShape(AppRadius.card)
+        isFirstInDay -> RoundedCornerShape(
+            topStart = AppRadius.card,
+            topEnd = AppRadius.card,
+            bottomStart = AppRadius.xs,
+            bottomEnd = AppRadius.xs,
+        )
+        isLastInDay -> RoundedCornerShape(
+            topStart = AppRadius.xs,
+            topEnd = AppRadius.xs,
+            bottomStart = AppRadius.card,
+            bottomEnd = AppRadius.card,
+        )
+        else -> RoundedCornerShape(AppRadius.xs)
+    }
+    Column(
+        modifier = modifier
+            .padding(
+                start = AppSpacing.md,
+                end = AppSpacing.md,
+                bottom = if (isLastInDay) AppSpacing.xs else 0.dp,
+            )
+            .clip(shape)
+            .appCard(shape = shape),
+    ) {
+        if (showSeparator) {
+            IosSeparator()
+        }
+        content()
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)

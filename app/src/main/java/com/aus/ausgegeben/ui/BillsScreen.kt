@@ -24,6 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -206,10 +207,11 @@ private fun CategoryAnalyticsCard(
     val total = data.values.sum()
     if (total <= 0.0) return
 
-    val sorted = data.toList().sortedByDescending { it.second }
-    val chartColors = harmonizedChartColors(
-        sorted.map { (category, _) -> category.name to category.colorInt },
-    )
+    val sorted = remember(data) { data.toList().sortedByDescending { it.second } }
+    val chartColors = remember(sorted) {
+        harmonizedChartColors(sorted.map { (category, _) -> category.name to category.colorInt })
+    }
+    val chartData = remember(sorted) { sorted.associate { (category, amount) -> category.name to amount } }
     val cardShape = RoundedCornerShape(AppRadius.lg)
 
     Column(
@@ -234,7 +236,7 @@ private fun CategoryAnalyticsCard(
                 ),
         )
         DonutChart(
-            data = sorted.associate { (category, amount) -> category.name to amount },
+            data = chartData,
             colors = chartColors,
             centerLabel = CurrencyUtils.formatAmount(total, currencyCode, showSymbol = false),
             centerSubLabel = stringResource(R.string.chart_total_label),
@@ -332,10 +334,11 @@ fun AnalyticsSection(
     val total = data.values.sum()
     if (total <= 0.0) return
 
-    val sorted = data.toList().sortedByDescending { it.second }
-    val chartColors = harmonizedChartColors(
-        sorted.map { (category, _) -> category.name to category.colorInt }
-    )
+    val sorted = remember(data) { data.toList().sortedByDescending { it.second } }
+    val chartColors = remember(sorted) {
+        harmonizedChartColors(sorted.map { (category, _) -> category.name to category.colorInt })
+    }
+    val chartData = remember(sorted) { sorted.associate { (category, amount) -> category.name to amount } }
     val cardShape = RoundedCornerShape(AppRadius.lg)
 
     Column(
@@ -352,7 +355,7 @@ fun AnalyticsSection(
                 .appCard(shape = cardShape)
         ) {
             DonutChart(
-                data = sorted.associate { (category, amount) -> category.name to amount },
+                data = chartData,
                 colors = chartColors,
                 centerLabel = CurrencyUtils.formatAmount(total, currencyCode),
                 centerSubLabel = stringResource(R.string.chart_total_label),
