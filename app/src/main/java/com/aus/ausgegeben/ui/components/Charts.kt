@@ -34,7 +34,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
-import com.aus.ausgegeben.ui.theme.AmountTextStyle
+import com.aus.ausgegeben.ui.components.MoneyText
+import com.aus.ausgegeben.ui.components.MoneySize
 import com.aus.ausgegeben.ui.theme.chartColorAt
 import com.aus.ausgegeben.ui.theme.forChartDisplay
 import com.aus.ausgegeben.util.CurrencyUtils
@@ -135,12 +136,11 @@ fun DonutChart(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.padding(horizontal = 24.dp)
                 ) {
-                    Text(
+                    MoneyText(
                         text = centerLabel,
-                        style = MaterialTheme.typography.headlineSmall.merge(AmountTextStyle),
+                        size = MoneySize.Headline,
                         color = MaterialTheme.colorScheme.onBackground,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1
+                        modifier = Modifier.padding(horizontal = 4.dp)
                     )
                     if (centerSubLabel != null) {
                         Text(

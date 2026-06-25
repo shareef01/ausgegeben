@@ -10,30 +10,38 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 
 @Composable
 fun AppScreen(
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit
 ) {
-    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val base = MaterialTheme.colorScheme.background
-    val accent = if (isDark) {
-        Color(0xFF1A1416)
-    } else {
-        Color(0xFFFFF5F3)
-    }
+    val primary = MaterialTheme.colorScheme.primary
+    val secondary = MaterialTheme.colorScheme.tertiary
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(base)
             .background(
-                Brush.linearGradient(
-                    colors = listOf(accent.copy(alpha = 0.35f), Color.Transparent),
-                    start = Offset(0f, 0f),
-                    end = Offset(600f, 500f)
+                Brush.radialGradient(
+                    colors = listOf(
+                        primary.copy(alpha = 0.07f),
+                        Color.Transparent
+                    ),
+                    center = Offset(0.15f, 0.05f),
+                    radius = 900f
+                )
+            )
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(
+                        secondary.copy(alpha = 0.04f),
+                        Color.Transparent
+                    ),
+                    center = Offset(0.95f, 0.85f),
+                    radius = 700f
                 )
             ),
         content = content
