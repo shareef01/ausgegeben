@@ -283,6 +283,11 @@ fun MainApp(
             ) {
                 MainTabPager(
                     currentRoute = selectedTab,
+                    onRouteChange = { route ->
+                        if (selectedTab != route) {
+                            selectedTab = route
+                        }
+                    },
                     recordContent = {
                         RecordScreen(
                             viewModel = expenseViewModel,
