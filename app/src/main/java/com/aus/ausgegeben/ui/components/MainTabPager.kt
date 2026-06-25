@@ -68,7 +68,7 @@ fun MainTabPager(
     HorizontalPager(
         state = pagerState,
         modifier = modifier.fillMaxSize(),
-        beyondViewportPageCount = 1,
+        beyondViewportPageCount = 0,
         userScrollEnabled = false
     ) { page ->
         val route = tabs[page]
