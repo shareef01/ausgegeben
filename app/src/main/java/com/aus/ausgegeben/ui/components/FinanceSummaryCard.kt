@@ -1,6 +1,7 @@
 package com.aus.ausgegeben.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,17 +27,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.foundation.border
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
-import com.aus.ausgegeben.ui.theme.AccentCoral
 import com.aus.ausgegeben.ui.theme.AmountTextStyle
 import com.aus.ausgegeben.ui.theme.ExpenseMuted
 import com.aus.ausgegeben.ui.theme.IncomeGreen
@@ -53,37 +50,21 @@ fun FinanceSummaryCard(
     periodLabel: String = "all time",
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(24.dp)
+    val shape = RoundedCornerShape(16.dp)
     val netColor = when {
         net > 0 -> IncomeGreen
         net < 0 -> ExpenseMuted
         else -> MaterialTheme.colorScheme.onBackground
     }
-    val borderBrush = Brush.linearGradient(
-        colors = listOf(
-            AccentCoral.copy(alpha = 0.3f),
-            IncomeGreen.copy(alpha = 0.18f),
-            MaterialTheme.colorScheme.outline.copy(alpha = 0.06f)
-        )
-    )
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .defaultMinSize(minHeight = 156.dp)
             .padding(horizontal = 16.dp)
-            .shadow(16.dp, shape, ambientColor = AccentCoral.copy(alpha = 0.1f))
             .clip(shape)
-            .border(1.dp, borderBrush, shape)
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f),
-                        MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
-                    )
-                )
-            )
-            .padding(24.dp)
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f), shape)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(horizontal = 20.dp, vertical = 18.dp)
     ) {
         Text(
             text = stringResource(R.string.summary_balance_period, periodLabel),
@@ -95,7 +76,7 @@ fun FinanceSummaryCard(
             style = MaterialTheme.typography.headlineLarge.merge(AmountTextStyle),
             color = netColor,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = 6.dp, bottom = 20.dp)
+            modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
         )
 
         Row(
@@ -107,8 +88,7 @@ fun FinanceSummaryCard(
             BalancePill(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxHeight()
-                    .defaultMinSize(minHeight = 84.dp),
+                    .fillMaxHeight(),
                 label = stringResource(R.string.summary_spent),
                 value = CurrencyUtils.formatAmount(expenseTotal, currencyCode),
                 icon = Icons.AutoMirrored.Rounded.TrendingDown,
@@ -117,8 +97,7 @@ fun FinanceSummaryCard(
             BalancePill(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxHeight()
-                    .defaultMinSize(minHeight = 84.dp),
+                    .fillMaxHeight(),
                 label = stringResource(R.string.summary_earned),
                 value = CurrencyUtils.formatAmount(incomeTotal, currencyCode),
                 icon = Icons.AutoMirrored.Rounded.TrendingUp,
@@ -136,7 +115,7 @@ fun FinanceSummaryCard(
                 ),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 14.dp)
+                modifier = Modifier.padding(top = 12.dp)
             )
         }
     }
@@ -150,22 +129,14 @@ private fun BalancePill(
     tint: Color,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(12.dp)
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .defaultMinSize(minHeight = 72.dp)
             .clip(shape)
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        tint.copy(alpha = 0.10f),
-                        MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)
-                    )
-                )
-            )
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.SpaceBetween
+            .background(tint.copy(alpha = 0.08f))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(14.dp))
@@ -179,8 +150,7 @@ private fun BalancePill(
         Text(
             text = value,
             style = MaterialTheme.typography.titleMedium.merge(AmountTextStyle),
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(top = 6.dp)
+            color = MaterialTheme.colorScheme.onBackground
         )
     }
 }

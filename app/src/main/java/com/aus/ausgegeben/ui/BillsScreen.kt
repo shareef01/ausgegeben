@@ -27,8 +27,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -167,7 +165,7 @@ fun AnalyticsSection(
     val chartColors = harmonizedChartColors(
         sorted.map { (category, _) -> category.name to category.colorInt }
     )
-    val cardShape = RoundedCornerShape(24.dp)
+    val cardShape = RoundedCornerShape(16.dp)
 
     Column(
         modifier = Modifier
@@ -179,32 +177,14 @@ fun AnalyticsSection(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .shadow(10.dp, cardShape, ambientColor = accent.copy(alpha = 0.12f))
                 .clip(cardShape)
                 .border(
                     width = 1.dp,
-                    brush = Brush.linearGradient(
-                        colors = listOf(
-                            accent.copy(alpha = 0.35f),
-                            accentSecondary.copy(alpha = 0.12f),
-                            MaterialTheme.colorScheme.outline.copy(alpha = 0.08f)
-                        )
-                    ),
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
                     shape = cardShape
                 )
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.72f))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(3.dp)
-                    .background(
-                        Brush.horizontalGradient(
-                            colors = listOf(accent, accentSecondary)
-                        )
-                    )
-            )
-
             DonutChart(
                 data = sorted.associate { (category, amount) -> category.name to amount },
                 colors = chartColors,
@@ -259,15 +239,7 @@ fun CategoryProgressRow(
                 .width(3.dp)
                 .height(40.dp)
                 .clip(RoundedCornerShape(2.dp))
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            displayColor.chartHighlight(),
-                            displayColor,
-                            displayColor.chartShadow()
-                        )
-                    )
-                )
+                .background(displayColor)
         )
         Spacer(modifier = Modifier.width(12.dp))
         Box(

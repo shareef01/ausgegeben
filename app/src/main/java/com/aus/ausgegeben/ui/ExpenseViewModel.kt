@@ -16,11 +16,13 @@ import com.aus.ausgegeben.util.computeSpendingInsights
 import com.aus.ausgegeben.util.dateRangeMillis
 import com.aus.ausgegeben.util.filterByPeriod
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -37,12 +39,14 @@ data class RecordUiState(
     val monthExpenses: List<Expense> = emptyList()
 )
 
+@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class ExpenseViewModel(
     private val repository: AppRepository,
     private val preferenceManager: PreferenceManager
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
+    private val _debouncedSearch = _searchQuery.debounce(250)
     private val _typeFilter = MutableStateFlow(TransactionTypeFilter.ALL)
     private val _listPeriod = MutableStateFlow(RecordListPeriod.THIS_MONTH)
 
@@ -61,7 +65,7 @@ class ExpenseViewModel(
     @OptIn(ExperimentalCoroutinesApi::class)
     val pagedExpenses: Flow<PagingData<Expense>> = combine(
         _listPeriod,
-        _searchQuery,
+        _debouncedSearch,
         _typeFilter
     ) { period, query, filter ->
         val (start, end) = when (period) {

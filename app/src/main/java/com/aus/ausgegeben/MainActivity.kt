@@ -74,7 +74,6 @@ import com.aus.ausgegeben.ui.components.RedFab
 import com.aus.ausgegeben.ui.isMainTab
 import com.aus.ausgegeben.ui.theme.AusgegebenTheme
 import com.aus.ausgegeben.ui.theme.ThemeMode
-import com.aus.ausgegeben.util.DisplayUtils
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
@@ -84,7 +83,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        DisplayUtils.enableHighRefreshRate(this)
         setContent {
             val context = LocalContext.current
             val database = remember { AusgegebenDatabase.getDatabase(context) }
