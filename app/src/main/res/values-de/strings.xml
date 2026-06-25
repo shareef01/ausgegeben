@@ -204,6 +204,10 @@
     <string name="chart_net_label">Saldo</string>
     <string name="chart_no_data">Keine Diagrammdaten</string>
     <string name="chart_breakdown_description">Aufschlüsselung nach Kategorie, gesamt %1$s</string>
+    <string name="chart_wealth_trend_title">Vermögensverlauf</string>
+    <string name="chart_wealth_trend_subtitle">Kumulierter Saldo im Zeitraum</string>
+    <string name="chart_wealth_trend_delta_up">+%1$s in diesem Zeitraum</string>
+    <string name="chart_wealth_trend_delta_down">-%1$s in diesem Zeitraum</string>
 
     <string name="receipt_preview">Belegvorschau</string>
     <string name="receipt_title">Beleg</string>
