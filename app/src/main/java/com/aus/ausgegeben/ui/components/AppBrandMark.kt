@@ -1,7 +1,12 @@
 package com.aus.ausgegeben.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -12,11 +17,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aus.ausgegeben.ui.theme.AccentCoral
-import com.aus.ausgegeben.ui.theme.AccentCoralSoft
+import com.aus.ausgegeben.R
+import com.aus.ausgegeben.ui.theme.AppRadius
+import com.aus.ausgegeben.ui.theme.AppSpacing
+import com.aus.ausgegeben.ui.theme.appBorderColor
 
 @Composable
 fun AppBrandMark(
@@ -31,17 +39,25 @@ fun AppBrandMark(
         Box(
             modifier = Modifier
                 .size(if (compact) 28.dp else 36.dp)
-                .clip(RoundedCornerShape(if (compact) 8.dp else 10.dp))
+                .clip(RoundedCornerShape(if (compact) AppRadius.sm else AppRadius.md))
                 .background(
                     Brush.linearGradient(
-                        listOf(AccentCoral, AccentCoralSoft)
-                    )
+                        listOf(
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant,
+                        ),
+                    ),
+                )
+                .border(
+                    1.dp,
+                    appBorderColor(),
+                    RoundedCornerShape(if (compact) AppRadius.sm else AppRadius.md),
                 ),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = "€",
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onBackground,
                 fontWeight = FontWeight.Bold,
                 fontSize = if (compact) 14.sp else 18.sp
             )
@@ -49,14 +65,14 @@ fun AppBrandMark(
         if (!compact) {
             Column {
                 Text(
-                    text = "Ausgegeben",
+                    text = stringResource(R.string.app_name),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onBackground,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = (-0.3).sp
                 )
                 Text(
-                    text = "Track spending",
+                    text = stringResource(R.string.app_tagline),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -71,6 +87,6 @@ fun AppBrandDot(modifier: Modifier = Modifier) {
         modifier = modifier
             .size(8.dp)
             .clip(CircleShape)
-            .background(AccentCoral)
+            .background(MaterialTheme.colorScheme.onSurfaceVariant)
     )
 }

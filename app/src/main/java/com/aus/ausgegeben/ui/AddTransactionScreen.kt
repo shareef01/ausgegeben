@@ -3,8 +3,22 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,8 +33,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
@@ -38,9 +50,16 @@ import com.aus.ausgegeben.ui.components.ReceiptImageDialog
 import com.aus.ausgegeben.ui.components.ReceiptThumbnail
 import com.aus.ausgegeben.ui.components.SmoothIconButton
 import com.aus.ausgegeben.ui.components.smoothClickable
-import com.aus.ausgegeben.ui.theme.AccentCoral
-import com.aus.ausgegeben.ui.theme.AmountTextStyle
+import com.aus.ausgegeben.ui.components.MoneyText
+import com.aus.ausgegeben.ui.components.MoneySize
+import com.aus.ausgegeben.ui.components.appCard
+import com.aus.ausgegeben.ui.theme.appBorderColor
 import com.aus.ausgegeben.ui.theme.AppColorSpring
+import com.aus.ausgegeben.ui.theme.AppIconSize
+import com.aus.ausgegeben.ui.theme.AppElevation
+import com.aus.ausgegeben.ui.theme.AppRadius
+import com.aus.ausgegeben.ui.theme.AppSpacing
+import com.aus.ausgegeben.ui.theme.ExpenseMuted
 import com.aus.ausgegeben.ui.theme.IncomeGreen
 import com.aus.ausgegeben.ui.theme.TransferGray
 import com.aus.ausgegeben.util.CurrencyUtils
@@ -103,11 +122,13 @@ fun AddTransactionScreen(
         }
     }
     BackHandler(onBack = onBack)
+    val saveAccent = MaterialTheme.colorScheme.primary
+    val saveContentColor = MaterialTheme.colorScheme.onPrimary
     val typeAccent by animateColorAsState(
         targetValue = when (transactionType) {
             TransactionType.INCOME -> IncomeGreen
             TransactionType.TRANSFER -> TransferGray
-            else -> AccentCoral
+            else -> ExpenseMuted
         },
         animationSpec = AppColorSpring,
         label = "typeAccent"
@@ -129,11 +150,17 @@ fun AddTransactionScreen(
         transactionType == TransactionType.TRANSFER -> stringResource(R.string.add_transfer)
         else -> stringResource(R.string.add_expense)
     }
-    Column(modifier = modifier.fillMaxSize()) {
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dateMillis)
+
+    val sheetShape = RoundedCornerShape(topStart = AppRadius.cardLarge, topEnd = AppRadius.cardLarge)
+    val dockBorder = appBorderColor()
+    val surfaceColor = MaterialTheme.colorScheme.surface
+
+    Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .padding(horizontal = 4.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             SmoothIconButton(
@@ -141,30 +168,20 @@ fun AddTransactionScreen(
                 icon = Icons.AutoMirrored.Rounded.ArrowBack,
                 contentDescription = stringResource(R.string.action_back)
             )
-            Box(
-                modifier = Modifier.weight(1f),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = if (isEditing) stringResource(R.string.add_edit_title) else stringResource(R.string.add_new_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                    Text(
-                        text = "Ausgegeben",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = AccentCoral,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
+            Text(
+                text = if (isEditing) stringResource(R.string.add_edit_title) else stringResource(R.string.add_new_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 8.dp)
+            )
             SmoothIconButton(
                 onClick = onOpenCamera,
                 icon = Icons.Rounded.CameraAlt,
                 contentDescription = stringResource(R.string.add_scan_receipt),
-                tint = if (receiptPath != null) AccentCoral else MaterialTheme.colorScheme.onSurfaceVariant
+                tint = if (receiptPath != null) typeAccent else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         Box(
@@ -185,7 +202,7 @@ fun AddTransactionScreen(
                 ),
                 selectedIndex = selectedTab,
                 onSelected = { selectedTab = it },
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.xxs)
             )
             DatePickerRow(
                 dateMillis = dateMillis,
@@ -207,7 +224,7 @@ fun AddTransactionScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 28.dp, vertical = 4.dp),
+                    .padding(horizontal = AppSpacing.md + AppSpacing.sm, vertical = AppSpacing.xxs),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -269,39 +286,61 @@ fun AddTransactionScreen(
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
             }
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(AppSpacing.lg))
             }
         }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .clip(sheetShape)
+                .background(MaterialTheme.colorScheme.background)
+                .border(AppElevation.cardBorder, dockBorder, sheetShape)
                 .navigationBarsPadding()
-                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                .background(MaterialTheme.colorScheme.surface)
-                .padding(horizontal = 16.dp)
-                .padding(top = 12.dp, bottom = 8.dp)
         ) {
-            selectedCategory?.let { category ->
-                SelectedCategoryChip(category = category, accentColor = typeAccent)
-                Spacer(modifier = Modifier.height(10.dp))
-            }
-            SaveButton(
-                label = saveLabel,
-                enabled = canSave,
-                accentColor = typeAccent,
-                onClick = {
-                    val wasEditing = isEditing
-                    viewModel.onAmountChange(amountText)
-                    viewModel.onNoteChange(remarkText)
-                    viewModel.saveExpense(
-                        type = transactionType,
-                        onSuccess = { onTransactionSaved(wasEditing) },
-                        onError = onValidationError,
-                        onBudgetAlert = onBudgetAlert
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = AppSpacing.md)
+                    .padding(top = AppSpacing.sm, bottom = AppSpacing.xs)
+                    .clip(RoundedCornerShape(AppRadius.card))
+                    .appCard(shape = RoundedCornerShape(AppRadius.card))
+                    .padding(AppSpacing.md)
+            ) {
+                selectedCategory?.let { category ->
+                    SelectedCategoryChip(category = category, accentColor = typeAccent)
+                    Spacer(modifier = Modifier.height(AppSpacing.sm))
+                }
+                Button(
+                    onClick = {
+                        val wasEditing = isEditing
+                        viewModel.onAmountChange(amountText)
+                        viewModel.onNoteChange(remarkText)
+                        viewModel.saveExpense(
+                            type = transactionType,
+                            onSuccess = { onTransactionSaved(wasEditing) },
+                            onError = onValidationError,
+                            onBudgetAlert = onBudgetAlert
+                        )
+                    },
+                    enabled = canSave,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(AppRadius.md),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = saveAccent,
+                        contentColor = saveContentColor,
+                        disabledContainerColor = surfaceColor,
+                        disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                ) {
+                    Text(
+                        text = saveLabel,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
-            )
-            Spacer(modifier = Modifier.height(10.dp))
+            }
             CalculatorKeypad(
                 accentColor = typeAccent,
                 decimalSeparator = CurrencyUtils.decimalSeparator(currencyCode).toString(),
@@ -314,7 +353,10 @@ fun AddTransactionScreen(
                 },
                 onBackspace = {
                     amountText = if (amountText.length > 1) amountText.dropLast(1) else "0"
-                }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm)
             )
         }
     }
@@ -322,7 +364,6 @@ fun AddTransactionScreen(
         ReceiptImageDialog(uri = receiptPath!!, onDismiss = { showReceiptPreview = false })
     }
     if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dateMillis)
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
@@ -448,57 +489,46 @@ private fun AmountCard(
         else -> stringResource(R.string.add_amount_expense)
     }
     val fontSize = when {
-        amount.length > 10 -> 32.sp
-        amount.length > 7 -> 42.sp
+        amount.length > 10 -> 34.sp
+        amount.length > 7 -> 44.sp
         else -> 52.sp
     }
-    GroupedSection(modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)) {
-        // Accent stripe
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(3.dp)
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(accentColor.copy(alpha = 0.1f), accentColor, accentColor.copy(alpha = 0.1f))
-                    )
-                )
-        )
+    GroupedSection(modifier = Modifier.padding(top = AppSpacing.xs, bottom = AppSpacing.xxs)) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 20.dp),
+                .padding(horizontal = AppSpacing.md, vertical = AppSpacing.md),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = typeLabel.uppercase(),
-                style = MaterialTheme.typography.labelSmall,
+                text = typeLabel,
+                style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                letterSpacing = 1.sp
+                fontWeight = FontWeight.Medium
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(AppSpacing.sm - AppSpacing.xxs))
             Row(
                 verticalAlignment = Alignment.Bottom,
                 horizontalArrangement = Arrangement.Center
             ) {
                 Text(
                     text = CurrencyUtils.symbolFor(currencyCode),
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(end = 6.dp, bottom = 6.dp)
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(end = AppSpacing.xxs + AppSpacing.xxs, bottom = AppSpacing.xs)
                 )
-                Text(
+                MoneyText(
                     text = amount,
-                    style = MaterialTheme.typography.displayLarge.merge(AmountTextStyle).copy(
-                        color = amountColor,
-                        fontSize = fontSize
-                    )
+                    size = MoneySize.Hero,
+                    color = amountColor,
+                    fontSize = fontSize
                 )
             }
             HorizontalDivider(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 16.dp),
+                    .padding(vertical = AppSpacing.md),
                 thickness = 0.5.dp,
                 color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
             )
@@ -529,7 +559,7 @@ private fun AmountCard(
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(top = 12.dp)
+                    modifier = Modifier.padding(top = AppSpacing.sm)
                 ) {
                     ReceiptThumbnail(uri = receiptPath, onClick = onReceiptClick)
                     TextButton(onClick = onClearReceipt) {
@@ -571,6 +601,7 @@ fun CategoryIconGrid(
                                 CategoryIconTile(
                                     category = category,
                                     isSelected = selectedCategory?.id == category.id,
+                                    accentColor = accentColor,
                                     onClick = { onCategorySelected(category) }
                                 )
                             } else {
@@ -597,7 +628,7 @@ fun CategoryRow(
     CategoryIconGrid(
         categories = categories,
         selectedCategory = selectedCategory,
-        accentColor = AccentCoral,
+        accentColor = MaterialTheme.colorScheme.primary,
         onCategorySelected = onCategorySelected,
         onAddCategory = onAddCategory,
         modifier = modifier
@@ -615,7 +646,8 @@ fun CategoryGrid(
 private fun CategoryIconTile(
     category: Category,
     isSelected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    accentColor: Color = MaterialTheme.colorScheme.primary
 ) {
     val categoryColor = colorIntToCompose(category.colorInt)
     Column(
@@ -628,14 +660,10 @@ private fun CategoryIconTile(
         Box(
             modifier = Modifier
                 .size(52.dp)
-                .then(
-                    if (isSelected) Modifier.shadow(8.dp, CircleShape, ambientColor = categoryColor.copy(0.35f))
-                    else Modifier
-                )
                 .clip(CircleShape)
                 .background(categoryColor)
                 .then(
-                    if (isSelected) Modifier.border(2.5.dp, Color.White, CircleShape)
+                    if (isSelected) Modifier.border(2.dp, accentColor, CircleShape)
                     else Modifier
                 ),
             contentAlignment = Alignment.Center
@@ -678,7 +706,7 @@ private fun CategoryAddTile(accentColor: Color, onClick: () -> Unit) {
         ) {
             Icon(
                 Icons.Rounded.Add,
-                contentDescription = "Add category",
+                contentDescription = stringResource(R.string.add_add_category),
                 tint = accentColor,
                 modifier = Modifier.size(24.dp)
             )
@@ -734,47 +762,14 @@ private fun SelectedCategoryChip(category: Category, accentColor: Color) {
         )
     }
 }
-// ─────────────────────────────────────────────
-// Save button
-// ─────────────────────────────────────────────
-@Composable
-private fun SaveButton(
-    label: String,
-    enabled: Boolean,
-    accentColor: Color,
-    onClick: () -> Unit
-) {
-    val shape = RoundedCornerShape(16.dp)
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(52.dp)
-            .shadow(if (enabled) 12.dp else 0.dp, shape, ambientColor = accentColor.copy(0.3f))
-            .clip(shape)
-            .background(
-                if (enabled) accentColor
-                else MaterialTheme.colorScheme.surfaceVariant
-            )
-            .smoothClickable(enabled = enabled, onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleMedium,
-            color = if (enabled) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.SemiBold
-        )
-    }
-}
-// ─────────────────────────────────────────────
-// Calculator keypad
-// ─────────────────────────────────────────────
+// Save button uses Material3 Button inline in AddTransactionScreen
+
 @Composable
 fun CustomNumericKeypad(
     onKeyPress: (String) -> Unit,
     onBackspace: () -> Unit,
     onSubmit: () -> Unit,
-    accentColor: Color = AccentCoral,
+    accentColor: Color = MaterialTheme.colorScheme.primary,
     canSubmit: Boolean = true,
     decimalSeparator: String = ",",
     modifier: Modifier = Modifier
@@ -806,8 +801,8 @@ private fun CalculatorKeypad(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .height(56.dp),
+                horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs)
             ) {
                 row.forEach { key ->
                     CalcKey(
@@ -822,7 +817,7 @@ private fun CalculatorKeypad(
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(AppSpacing.xs))
         }
     }
 }
@@ -833,26 +828,33 @@ private fun CalcKey(
     onClick: () -> Unit
 ) {
     val isBackspace = key == "back"
-    val keyBackground = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val pressedBg = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+    val bg = if (pressed) pressedBg else Color.Transparent
     Box(
         modifier = modifier
             .fillMaxHeight()
-            .clip(RoundedCornerShape(14.dp))
-            .background(keyBackground)
-            .smoothClickable(onClick = onClick),
+            .clip(RoundedCornerShape(AppRadius.sm))
+            .background(bg)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
         contentAlignment = Alignment.Center
     ) {
         if (isBackspace) {
             Icon(
                 Icons.AutoMirrored.Rounded.Backspace,
-                contentDescription = "Backspace",
-                tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(22.dp)
+                contentDescription = stringResource(R.string.add_backspace),
+                tint = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.size(AppIconSize.lg)
             )
         } else {
             Text(
                 text = key,
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onBackground,
                 fontWeight = FontWeight.Medium
             )
@@ -894,20 +896,20 @@ private fun DatePickerRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xxs + AppSpacing.xxs)
+            .clip(RoundedCornerShape(AppRadius.card))
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
             .smoothClickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             Icons.Rounded.CalendarToday,
             contentDescription = null,
             tint = accentColor,
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(AppIconSize.sm)
         )
-        Spacer(modifier = Modifier.width(10.dp))
+        Spacer(modifier = Modifier.width(AppSpacing.sm - AppSpacing.xxs))
         Text(
             text = stringResource(R.string.add_date_label),
             style = MaterialTheme.typography.labelLarge,

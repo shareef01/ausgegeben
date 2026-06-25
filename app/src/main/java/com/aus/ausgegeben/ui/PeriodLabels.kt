@@ -23,8 +23,12 @@ fun AnalyticsPeriod.label(): String = when (this) {
 @Composable
 fun ThemeMode.label(): String = when (this) {
     ThemeMode.SYSTEM -> stringResource(R.string.theme_system)
-    ThemeMode.DARK -> stringResource(R.string.theme_dark)
     ThemeMode.LIGHT -> stringResource(R.string.theme_light)
+    ThemeMode.DARK -> stringResource(R.string.theme_dark)
+    ThemeMode.AMOLED -> stringResource(R.string.theme_amoled)
+    ThemeMode.MIDNIGHT -> stringResource(R.string.theme_midnight)
+    ThemeMode.OCEAN -> stringResource(R.string.theme_ocean)
+    ThemeMode.SOFT_LIGHT -> stringResource(R.string.theme_soft_light)
 }
 
 @Composable

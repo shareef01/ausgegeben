@@ -7,21 +7,32 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Snackbar
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -32,6 +43,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -40,12 +52,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation3.runtime.NavBackStack
-import androidx.navigation3.runtime.NavKey
-import androidx.navigation3.runtime.entryProvider
-import androidx.navigation3.runtime.rememberNavBackStack
-import androidx.navigation3.ui.NavDisplay
+import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.AppRepository
 import com.aus.ausgegeben.data.AusgegebenDatabase
 import com.aus.ausgegeben.data.DataSeeder
@@ -66,15 +76,11 @@ import com.aus.ausgegeben.ui.Route
 import com.aus.ausgegeben.ui.SettingsScreen
 import com.aus.ausgegeben.ui.components.AppScreen
 import com.aus.ausgegeben.ui.components.CameraPermissionDenied
-import com.aus.ausgegeben.ui.components.FloatingBottomNav
-import androidx.compose.ui.res.stringResource
-import com.aus.ausgegeben.R
+import com.aus.ausgegeben.ui.components.MainBottomBar
 import com.aus.ausgegeben.ui.components.MainTabPager
-import com.aus.ausgegeben.ui.components.RedFab
-import com.aus.ausgegeben.ui.isMainTab
+import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AusgegebenTheme
 import com.aus.ausgegeben.ui.theme.ThemeMode
-import com.aus.ausgegeben.util.DisplayUtils
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
@@ -84,7 +90,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        DisplayUtils.enableHighRefreshRate(this)
         setContent {
             val context = LocalContext.current
             val database = remember { AusgegebenDatabase.getDatabase(context) }
@@ -131,10 +136,10 @@ fun MainApp(
 ) {
     val context = LocalContext.current
     val activity = context as ComponentActivity
-    val homeRoute = Route.ExpenseList as NavKey
-    val backStack = rememberNavBackStack(homeRoute)
-    val currentRoute = backStack.lastOrNull() as? Route ?: Route.ExpenseList
-    val showBottomNav = currentRoute.isMainTab()
+    var selectedTab by remember { mutableStateOf<Route>(Route.ExpenseList) }
+    val overlayStack = remember { mutableStateListOf<Route>() }
+    val currentOverlay = overlayStack.lastOrNull()
+    val showBottomNav = overlayStack.isEmpty()
     val currency by preferenceManager.currencyFlow.collectAsState(initial = "EUR")
     val dailyReminder by preferenceManager.dailyReminderFlow.collectAsState(initial = true)
     val onboardingComplete by preferenceManager.onboardingCompleteFlow.collectAsState(initial = false)
@@ -165,7 +170,6 @@ fun MainApp(
     val duplicatedMessage = stringResource(R.string.snackbar_transaction_duplicated)
     val savedMessage = stringResource(R.string.snackbar_transaction_saved)
     val updatedMessage = stringResource(R.string.snackbar_transaction_updated)
-    val addTransactionLabel = stringResource(R.string.nav_add_transaction)
 
     fun showSnackbar(message: String) {
         scope.launch { snackbarHostState.showSnackbar(message) }
@@ -185,10 +189,33 @@ fun MainApp(
     }
     val recordCategories by addViewModel.categories.collectAsState()
 
+    fun closeOverlay() {
+        overlayStack.clear()
+    }
+
+    fun popOverlay() {
+        if (overlayStack.size <= 1) {
+            closeOverlay()
+        } else {
+            overlayStack.removeLastOrNull()
+        }
+    }
+
+    fun openAddFlow() {
+        addViewModel.resetForm()
+        overlayStack.clear()
+        overlayStack.add(Route.Dashboard)
+    }
+
+    fun openEditFlow(expense: com.aus.ausgegeben.data.entity.Expense) {
+        addViewModel.loadForEdit(expense, recordCategories)
+        overlayStack.clear()
+        overlayStack.add(Route.Dashboard)
+    }
+
     LaunchedEffect(pendingOpenAdd) {
         if (pendingOpenAdd) {
-            addViewModel.resetForm()
-            backStack.push(Route.Dashboard as NavKey)
+            openAddFlow()
             pendingOpenAdd = false
         }
     }
@@ -217,31 +244,58 @@ fun MainApp(
         Scaffold(
             containerColor = Color.Transparent,
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
-            snackbarHost = { SnackbarHost(snackbarHostState) },
-            bottomBar = {
-                if (showBottomNav) {
-                    Box(modifier = Modifier.navigationBarsPadding()) {
-                        FloatingBottomNav(
-                            currentRoute = currentRoute,
-                            onNavigate = { route ->
-                                if (currentRoute != route) {
-                                    backStack.setNavBackStack(listOf(route))
-                                }
-                            }
+            snackbarHost = {
+                SnackbarHost(snackbarHostState) { data ->
+                    Snackbar(
+                        snackbarData = data,
+                        shape = RoundedCornerShape(AppRadius.md),
+                        containerColor = MaterialTheme.colorScheme.inverseSurface,
+                        contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                    )
+                }
+            },
+            floatingActionButton = {
+                if (showBottomNav && selectedTab == Route.ExpenseList) {
+                    FloatingActionButton(
+                        onClick = ::openAddFlow,
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        elevation = FloatingActionButtonDefaults.elevation(
+                            defaultElevation = 4.dp,
+                            pressedElevation = 8.dp,
+                        ),
+                        shape = CircleShape,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Add,
+                            contentDescription = stringResource(R.string.nav_add_transaction),
+                            modifier = Modifier.size(24.dp),
                         )
                     }
                 }
             },
-            floatingActionButton = {
-                if (currentRoute == Route.ExpenseList) {
-                    RedFab(
-                        icon = Icons.Rounded.Add,
-                        contentDescription = addTransactionLabel,
-                        onClick = {
-                            addViewModel.resetForm()
-                            backStack.push(Route.Dashboard as NavKey)
-                        }
-                    )
+            bottomBar = {
+                if (showBottomNav) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surface),
+                    ) {
+                        MainBottomBar(
+                            currentRoute = selectedTab,
+                            onNavigate = { route ->
+                                if (selectedTab != route) {
+                                    selectedTab = route
+                                }
+                            },
+                        )
+                        Spacer(
+                            Modifier
+                                .fillMaxWidth()
+                                .windowInsetsBottomHeight(WindowInsets.navigationBars)
+                                .background(MaterialTheme.colorScheme.surface),
+                        )
+                    }
                 }
             }
         ) { innerPadding ->
@@ -256,97 +310,106 @@ fun MainApp(
                         bottom = innerPadding.calculateBottomPadding()
                     )
             ) {
-                if (currentRoute.isMainTab()) {
-                    MainTabPager(
-                        currentRoute = currentRoute,
-                        onTabSelected = { route ->
-                            if (currentRoute != route) {
-                                backStack.setNavBackStack(listOf(route))
-                            }
-                        },
-                        recordContent = {
-                            RecordScreen(
-                                viewModel = expenseViewModel,
-                                currencyCode = currency,
-                                onExpenseClick = { expense ->
-                                    addViewModel.loadForEdit(expense, recordCategories)
-                                    backStack.push(Route.Dashboard as NavKey)
-                                },
-                                onExpenseDeleted = { expense ->
-                                    scope.launch {
-                                        val result = snackbarHostState.showSnackbar(
-                                            message = deletedMessage,
-                                            actionLabel = undoLabel,
-                                            duration = SnackbarDuration.Short
-                                        )
-                                        if (result == SnackbarResult.ActionPerformed) {
-                                            expenseViewModel.restoreExpense(expense)
-                                        }
-                                    }
-                                },
-                                onExpenseDuplicated = {
-                                    showSnackbar(duplicatedMessage)
-                                }
-                            )
-                        },
-                        billsContent = {
-                            BillsScreen(
-                                viewModel = dashboardViewModel,
-                                currencyCode = currency
-                            )
-                        },
-                        settingsContent = {
-                            SettingsScreen(
-                                repository = repository,
-                                preferenceManager = preferenceManager,
-                                onNavigateToCategories = { backStack.push(Route.CategoryList as NavKey) },
-                                onShowMessage = ::showSnackbar,
-                                onRequestNotificationPermission = {
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                                        !notificationPermission.status.isGranted
-                                    ) {
-                                        notificationPermission.launchPermissionRequest()
-                                    }
-                                }
-                            )
+                MainTabPager(
+                    currentRoute = selectedTab,
+                    onRouteChange = { route ->
+                        if (selectedTab != route) {
+                            selectedTab = route
                         }
-                    )
-                }
+                    },
+                    recordContent = {
+                        RecordScreen(
+                            viewModel = expenseViewModel,
+                            currencyCode = currency,
+                            onAddTransaction = ::openAddFlow,
+                            onExpenseClick = ::openEditFlow,
+                            onExpenseDeleted = { expense ->
+                                scope.launch {
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = deletedMessage,
+                                        actionLabel = undoLabel,
+                                        duration = SnackbarDuration.Short
+                                    )
+                                    if (result == SnackbarResult.ActionPerformed) {
+                                        expenseViewModel.restoreExpense(expense)
+                                    } else {
+                                        expenseViewModel.finalizeDeletedExpense(expense)
+                                    }
+                                }
+                            },
+                            onExpenseDuplicated = {
+                                showSnackbar(duplicatedMessage)
+                            }
+                        )
+                    },
+                    billsContent = {
+                        BillsScreen(
+                            viewModel = dashboardViewModel,
+                            currencyCode = currency
+                        )
+                    },
+                    settingsContent = {
+                        SettingsScreen(
+                            repository = repository,
+                            preferenceManager = preferenceManager,
+                            onNavigateToCategories = {
+                                overlayStack.clear()
+                                overlayStack.add(Route.CategoryList)
+                            },
+                            onShowMessage = ::showSnackbar,
+                            onRequestNotificationPermission = {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                    !notificationPermission.status.isGranted
+                                ) {
+                                    notificationPermission.launchPermissionRequest()
+                                }
+                            }
+                        )
+                    }
+                )
 
                 AnimatedVisibility(
-                    visible = !currentRoute.isMainTab(),
-                    enter = slideInHorizontally(animationSpec = tween(280)) { it / 3 } + fadeIn(tween(220)),
-                    exit = slideOutHorizontally(animationSpec = tween(220)) { it / 3 } + fadeOut(tween(180))
+                    visible = currentOverlay != null,
+                    enter = slideInVertically { it / 4 } + fadeIn(),
+                    exit = slideOutVertically { it / 4 } + fadeOut(),
                 ) {
-                if (!currentRoute.isMainTab()) {
-                    val overlayProvider = entryProvider {
-                        entry<Route.Dashboard> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.background),
+                    ) {
+                        if (overlayStack.contains(Route.Dashboard)) {
                             AddTransactionScreen(
                                 viewModel = addViewModel,
                                 categoryViewModel = categoryViewModel,
                                 currencyCode = currency,
                                 onTransactionSaved = { wasEditing ->
-                                    backStack.setNavBackStack(listOf(Route.ExpenseList))
-                                    showSnackbar(
-                                        if (wasEditing) updatedMessage else savedMessage
-                                    )
+                                    closeOverlay()
+                                    selectedTab = Route.ExpenseList
+                                    showSnackbar(if (wasEditing) updatedMessage else savedMessage)
                                 },
                                 onBack = {
                                     addViewModel.resetForm()
-                                    backStack.popOrGoHome(homeRoute)
+                                    closeOverlay()
                                 },
-                                onOpenCamera = { backStack.push(Route.Camera as NavKey) },
+                                onOpenCamera = {
+                                    if (overlayStack.lastOrNull() != Route.Camera) {
+                                        overlayStack.add(Route.Camera)
+                                    }
+                                },
                                 onValidationError = { message -> showSnackbar(message) },
                                 onBudgetAlert = { message -> showSnackbar(message) }
                             )
                         }
-                        entry<Route.CategoryList> {
+
+                        if (currentOverlay == Route.CategoryList) {
                             CategoryScreen(
                                 viewModel = categoryViewModel,
-                                onBack = { backStack.popOrGoHome(homeRoute) }
+                                onBack = ::closeOverlay
                             )
                         }
-                        entry<Route.Camera> {
+
+                        if (currentOverlay == Route.Camera) {
                             val permissionState = rememberPermissionState(Manifest.permission.CAMERA)
                             var askedOnce by remember { mutableStateOf(false) }
 
@@ -357,55 +420,33 @@ fun MainApp(
                                 }
                             }
 
-                            when {
-                                permissionState.status.isGranted -> {
-                                    CameraScreen(
-                                        onImageCaptured = { uri ->
-                                            addViewModel.setReceiptPath(uri.toString())
-                                            backStack.popOrGoHome(homeRoute)
-                                        },
-                                        onBack = { backStack.popOrGoHome(homeRoute) }
-                                    )
-                                }
-                                else -> {
-                                    CameraPermissionDenied(
-                                        onRetry = { permissionState.launchPermissionRequest() },
-                                        onBack = { backStack.popOrGoHome(homeRoute) }
-                                    )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(MaterialTheme.colorScheme.background)
+                            ) {
+                                when {
+                                    permissionState.status.isGranted -> {
+                                        CameraScreen(
+                                            onImageCaptured = { uri ->
+                                                addViewModel.setReceiptPath(uri.toString())
+                                                popOverlay()
+                                            },
+                                            onBack = ::popOverlay
+                                        )
+                                    }
+                                    else -> {
+                                        CameraPermissionDenied(
+                                            onRetry = { permissionState.launchPermissionRequest() },
+                                            onBack = ::popOverlay
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
-
-                    NavDisplay(
-                        backStack = backStack,
-                        entryProvider = { key ->
-                            @Suppress("UNCHECKED_CAST")
-                            val resolve = overlayProvider as (NavKey) -> androidx.navigation3.runtime.NavEntry<NavKey>
-                            resolve(key)
-                        },
-                        onBack = { backStack.popOrGoHome(homeRoute) }
-                    )
-                }
                 }
             }
         }
-    }
-}
-
-fun NavBackStack<NavKey>.setNavBackStack(newElements: List<NavKey>) {
-    clear()
-    addAll(newElements)
-}
-
-fun NavBackStack<NavKey>.push(route: NavKey) {
-    add(route)
-}
-
-fun NavBackStack<NavKey>.popOrGoHome(home: NavKey) {
-    if (size <= 1) {
-        setNavBackStack(listOf(home))
-    } else {
-        removeLastOrNull()
     }
 }
