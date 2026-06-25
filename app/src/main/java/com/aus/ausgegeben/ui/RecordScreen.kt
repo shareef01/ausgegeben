@@ -32,8 +32,6 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -147,8 +145,7 @@ fun RecordScreen(
                     billable.filter { it.isExpense() }.sumOf { it.amount }
             }
     }
-    val hasActiveFilter = uiState.searchQuery.isNotBlank() ||
-        uiState.typeFilter != TransactionTypeFilter.ALL
+    val hasActiveFilter = uiState.searchQuery.isNotBlank()
     val isListLoading = lazyExpenses.loadState.refresh is LoadState.Loading
     val isListError = lazyExpenses.loadState.refresh is LoadState.Error
     val isListEmpty = lazyExpenses.itemCount == 0 &&
@@ -197,8 +194,6 @@ fun RecordScreen(
                 onSearchChange = viewModel::setSearchQuery,
                 searchExpanded = searchExpanded,
                 onSearchExpandedChange = { searchExpanded = it },
-                typeFilter = uiState.typeFilter,
-                onTypeFilter = viewModel::setTypeFilter
             )
         }
 
@@ -362,8 +357,6 @@ private fun RecordListToolbar(
     onSearchChange: (String) -> Unit,
     searchExpanded: Boolean,
     onSearchExpandedChange: (Boolean) -> Unit,
-    typeFilter: TransactionTypeFilter,
-    onTypeFilter: (TransactionTypeFilter) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -420,11 +413,6 @@ private fun RecordListToolbar(
             )
         }
 
-        RecordTypeFilters(
-            selected = typeFilter,
-            onSelected = onTypeFilter,
-            modifier = Modifier.padding(top = AppSpacing.xxs)
-        )
     }
 }
 
@@ -476,46 +464,6 @@ private fun RecordSearchBar(
         )
     )
 }
-
-@Composable
-private fun RecordTypeFilters(
-    selected: TransactionTypeFilter,
-    onSelected: (TransactionTypeFilter) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val options = TransactionTypeFilter.entries
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = AppSpacing.xs),
-        horizontalArrangement = Arrangement.spacedBy(AppSpacing.xxs + AppSpacing.xxs)
-    ) {
-        options.forEach { filter ->
-            val primary = MaterialTheme.colorScheme.onBackground
-            val isSelected = selected == filter
-            FilterChip(
-                selected = isSelected,
-                onClick = { onSelected(filter) },
-                label = {
-                    Text(
-                        filter.label(),
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                },
-                shape = RoundedCornerShape(AppRadius.pill),
-                border = null,
-                colors = FilterChipDefaults.filterChipColors(
-                    containerColor = Color.Transparent,
-                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    selectedContainerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f),
-                    selectedLabelColor = MaterialTheme.colorScheme.onBackground,
-                )
-            )
-        }
-    }
-}
-
 
 @Composable
 private fun DateSectionHeader(

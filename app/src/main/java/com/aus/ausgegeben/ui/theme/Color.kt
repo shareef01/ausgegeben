@@ -14,11 +14,11 @@ object AppColors {
     /** Hairline separators */
     val CardBorder = Color(0x0FFFFFFF)
 
-    /** Expenses — soft rose with enough contrast on light surfaces */
-    val Expense = Color(0xFFD6928E)
+    /** Expenses — vibrant coral red */
+    val Expense = Color(0xFFE85D5D)
 
-    /** Income — soft sage green with enough contrast on light surfaces */
-    val Income = Color(0xFF7DB69A)
+    /** Income — vibrant finance green */
+    val Income = Color(0xFF22C55E)
 
     /** Primary CTA on dark surfaces — neutral, not semantic red */
     val Accent = Color(0xFFFAFAFA)
