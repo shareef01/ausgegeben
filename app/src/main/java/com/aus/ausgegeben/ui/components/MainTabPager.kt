@@ -12,16 +12,18 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import com.aus.ausgegeben.ui.MainTabRoutes
 import com.aus.ausgegeben.ui.Route
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlin.math.absoluteValue
 
 private val TabScrollSpring = spring<Float>(
     dampingRatio = Spring.DampingRatioNoBouncy,
-    stiffness = Spring.StiffnessMedium
+    stiffness = Spring.StiffnessMediumLow
 )
 
 @Composable
@@ -68,10 +70,13 @@ fun MainTabPager(
     HorizontalPager(
         state = pagerState,
         modifier = modifier.fillMaxSize(),
-        beyondViewportPageCount = 0,
-        userScrollEnabled = false
+        beyondViewportPageCount = 1,
+        userScrollEnabled = true,
     ) { page ->
         val route = tabs[page]
+        val pageOffset = (
+            (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
+        ).absoluteValue.coerceIn(0f, 1f)
         key(route) {
             SwipeableTabSurface(
                 canSwipeToPrevious = page > 0,
@@ -79,7 +84,15 @@ fun MainTabPager(
                 onSwipeToPrevious = { scrollToPage(page - 1) },
                 onSwipeToNext = { scrollToPage(page + 1) }
             ) {
-                Box(Modifier.fillMaxSize()) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            alpha = 1f - pageOffset * 0.18f
+                            scaleX = 1f - pageOffset * 0.025f
+                            scaleY = 1f - pageOffset * 0.025f
+                        }
+                ) {
                     when (route) {
                         Route.ExpenseList -> recordContent()
                         Route.CategoryManagement -> billsContent()
