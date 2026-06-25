@@ -119,7 +119,7 @@ fun AddTransactionScreen(
         }
     }
     BackHandler(onBack = onBack)
-    val expenseAccent = MaterialTheme.colorScheme.primary
+    val expenseAccent = AppColors.Expense
     val typeAccent by animateColorAsState(
         targetValue = when (transactionType) {
             TransactionType.INCOME -> IncomeGreen

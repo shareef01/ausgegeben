@@ -3,7 +3,7 @@ package com.aus.ausgegeben.ui.theme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-// ── STRICT DESIGN TOKENS (do not approximate) ───────────────────────────────
+// ── DESIGN TOKENS ───────────────────────────────────────────────────────────
 object AppColors {
     /** Primary app background — never #000000 */
     val Background = Color(0xFF09090B)
@@ -14,11 +14,16 @@ object AppColors {
     /** 1px border: rgba(255, 255, 255, 0.08) */
     val CardBorder = Color(0x14FFFFFF)
 
-    /** Expenses, warnings, negative amounts */
-    val Expense = Color(0xFFFF7A7A)
+    /** Expenses & negative amounts — dusty rose (not neon red) */
+    val Expense = Color(0xFFD9A0A0)
 
-    /** Income, success, positive amounts */
-    val Income = Color(0xFF4ADE80)
+    /** Income & positive amounts — sage mint (not neon green) */
+    val Income = Color(0xFF8FBFA9)
+
+    /** Primary CTA on dark surfaces — neutral, not semantic red */
+    val Accent = Color(0xFFFAFAFA)
+
+    val OnAccent = Color(0xFF09090B)
 
     /** Numpad key press / hover */
     val NumpadPress = Color(0x1AFFFFFF)
@@ -28,7 +33,7 @@ object AppColors {
     val Transfer = Color(0xFFA1A1AA)
 }
 
-// ── Palette aliases (all screens must use these) ────────────────────────────
+// ── Palette aliases ───────────────────────────────────────────────────────────
 val BackgroundDark = AppColors.Background
 val BackgroundElevated = Color(0xFF111113)
 val BackgroundGlowWarm = Color(0xFF141218)
@@ -45,31 +50,31 @@ val SeparatorDark = Color(0xFF52525B)
 val GlassOverlayDark = Color(0xE618181B)
 
 val AccentCoral = AppColors.Expense
-val AccentCoralSoft = Color(0xFFFFA8A8)
+val AccentCoralSoft = Color(0xFFE8C8C8)
 val AccentRed = AppColors.Expense
 
 val IncomeGreen = AppColors.Income
-val IncomeGreenSoft = Color(0xFF86EFAC)
-val ExpenseMuted = AppColors.Expense
-val ExpenseSoft = Color(0xFFFFA8A8)
+val IncomeGreenSoft = Color(0xFFB5D4C8)
+val ExpenseMuted = Color(0xFFC49292)
+val ExpenseSoft = Color(0xFFE0BCBC)
 val TransferGray = AppColors.Transfer
 
-val SystemBlue = Color(0xFF60A5FA)
-val SystemViolet = Color(0xFFA78BFA)
-val SystemTeal = Color(0xFF2DD4BF)
+val SystemBlue = Color(0xFF7EB0E8)
+val SystemViolet = Color(0xFFA99AE0)
+val SystemTeal = Color(0xFF7ABFB4)
 
 val OnBackgroundDark = AppColors.OnBackground
 val OnSurfaceDark = Color(0xFFF4F4F5)
 val OnSurfaceVariantDark = AppColors.OnSurfaceVariant
-val OnPrimaryDark = AppColors.Background
+val OnPrimaryDark = AppColors.OnAccent
 
 val SecondaryDark = Color(0xFF27272A)
 val OnSecondaryDark = Color(0xFFE4E4E7)
 
 val ErrorRed = AppColors.Expense
 val OnErrorDark = AppColors.Background
-val ErrorContainerDark = Color(0xFF3F1F1F)
-val OnErrorContainerDark = Color(0xFFFECACA)
+val ErrorContainerDark = Color(0xFF2A2224)
+val OnErrorContainerDark = Color(0xFFE8D0D0)
 
 val BackgroundLight = Color(0xFFFAFAFA)
 val GroupedBackgroundLight = Color(0xFFFFFFFF)
