@@ -9,11 +9,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/** Bottom nav shell height (raised add button included). */
-val BottomNavBarHeight = MainBottomBarHeight
+/** Bottom nav bar height (Scaffold already reserves this in content padding). */
+val BottomNavBarHeight = MainBottomBarHeight + 1.dp
 
-/** Extra space so the last list row clears FAB / nav comfortably. */
-val BottomScrollExtraPadding = 24.dp
+/** Extra space so the last list row clears the nav comfortably. */
+val BottomScrollExtraPadding = 16.dp
+
+/** FAB diameter + margin above the nav bar on the Record tab. */
+private val RecordFabClearance = 64.dp
 
 @Composable
 fun statusBarTopPadding(): Dp =
@@ -23,13 +26,12 @@ fun statusBarTopPadding(): Dp =
 fun navigationBarBottomPadding(): Dp =
     WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
-/** Bottom padding for scrollable lists on tab screens (nav bar is in Scaffold). */
+/** Bottom padding for Bills and Settings lists. Scaffold handles nav bar inset. */
 @Composable
-fun tabScreenListBottomPadding(): PaddingValues {
-    val gestureInset = navigationBarBottomPadding()
-    return PaddingValues(bottom = BottomScrollExtraPadding + gestureInset)
-}
+fun tabScreenListBottomPadding(): PaddingValues =
+    PaddingValues(bottom = BottomScrollExtraPadding)
 
-/** Bottom padding for the record tab list (add button is inside the nav shell). */
+/** Extra clearance for Record tab FAB floating above the nav bar. */
 @Composable
-fun recordListBottomPadding(): PaddingValues = tabScreenListBottomPadding()
+fun recordListBottomPadding(): PaddingValues =
+    PaddingValues(bottom = BottomScrollExtraPadding + RecordFabClearance)
