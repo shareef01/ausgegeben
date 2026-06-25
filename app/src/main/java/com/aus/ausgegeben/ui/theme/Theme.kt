@@ -1,6 +1,6 @@
 package com.aus.ausgegeben.ui.theme
 
-import android.app.Activity
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -22,10 +22,11 @@ fun AusgegebenTheme(
     val resolvedDark = darkTheme ?: themeMode.resolvesDark(systemDark)
     val colorScheme = colorSchemeFor(themeMode, systemDark)
     val view = LocalView.current
+    val activity = LocalActivity.current
 
-    if (!view.isInEditMode) {
+    if (!view.isInEditMode && activity != null) {
         SideEffect {
-            val window = (view.context as Activity).window
+            val window = activity.window
             window.statusBarColor = Color.Transparent.toArgb()
             window.navigationBarColor = colorScheme.surface.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !resolvedDark
