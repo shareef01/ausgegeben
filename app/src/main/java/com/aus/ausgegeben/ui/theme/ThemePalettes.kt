@@ -17,13 +17,13 @@ internal fun colorSchemeFor(mode: ThemeMode, systemDark: Boolean): ColorScheme {
 }
 
 private fun baseDarkScheme(
-    primary: Color = AppColors.Expense,
+    primary: Color = AppColors.Accent,
     tertiary: Color = SystemViolet
 ): ColorScheme = darkColorScheme(
     primary = primary,
-    onPrimary = AppColors.Background,
-    primaryContainer = Color(0xFF3F2222),
-    onPrimaryContainer = Color(0xFFFFD4D4),
+    onPrimary = AppColors.OnAccent,
+    primaryContainer = SurfaceVariantDark,
+    onPrimaryContainer = OnBackgroundDark,
     secondary = SecondaryDark,
     onSecondary = OnSecondaryDark,
     tertiary = tertiary,
@@ -45,10 +45,10 @@ private fun baseDarkScheme(
 private val DefaultDarkColorScheme = baseDarkScheme()
 
 private val DefaultLightColorScheme = lightColorScheme(
-    primary = AppColors.Expense,
+    primary = AppColors.Background,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFFFE4E4),
-    onPrimaryContainer = Color(0xFF4A1A1A),
+    primaryContainer = Color(0xFFF4F4F5),
+    onPrimaryContainer = AppColors.Background,
     secondary = Color(0xFFF4F4F5),
     onSecondary = Color(0xFF3F3F46),
     tertiary = SystemViolet,
@@ -63,8 +63,8 @@ private val DefaultLightColorScheme = lightColorScheme(
     outlineVariant = Color(0xFFD4D4D8),
     error = AppColors.Expense,
     onError = Color.White,
-    errorContainer = Color(0xFFFFE4E4),
-    onErrorContainer = Color(0xFF4A1A1A)
+    errorContainer = Color(0xFFF5E8E8),
+    onErrorContainer = Color(0xFF5C3A3A)
 )
 
 private val AmoledColorScheme = baseDarkScheme()
@@ -80,10 +80,10 @@ private val OceanColorScheme = baseDarkScheme(
 )
 
 private val SoftLightColorScheme = lightColorScheme(
-    primary = AppColors.Expense,
+    primary = AppColors.Background,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFFFE4E4),
-    onPrimaryContainer = Color(0xFF4A1A1A),
+    primaryContainer = Color(0xFFF4F4F5),
+    onPrimaryContainer = AppColors.Background,
     secondary = Color(0xFFF4F4F5),
     onSecondary = Color(0xFF3F3F46),
     tertiary = Color(0xFFA78BFA),
@@ -98,6 +98,6 @@ private val SoftLightColorScheme = lightColorScheme(
     outlineVariant = Color(0xFFD4D4D8),
     error = AppColors.Expense,
     onError = Color.White,
-    errorContainer = Color(0xFFFFE4E4),
-    onErrorContainer = Color(0xFF4A1A1A)
+    errorContainer = Color(0xFFF5E8E8),
+    onErrorContainer = Color(0xFF5C3A3A)
 )
