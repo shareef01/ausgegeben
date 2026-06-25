@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -51,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -252,7 +254,11 @@ fun SettingsScreen(
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     ThemeMode.entries.forEach { mode ->
-                        ThemeOption(mode.label(), selected = themeMode == mode) {
+                        ThemeOption(
+                            label = mode.label(),
+                            selected = themeMode == mode,
+                            colors = mode.previewColors(),
+                        ) {
                             scope.launch {
                                 preferenceManager.updateThemeMode(mode)
                                 showThemeDialog = false
@@ -379,21 +385,62 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun ThemeOption(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun ThemeOption(
+    label: String,
+    selected: Boolean,
+    colors: List<Color> = emptyList(),
+    onClick: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(AppRadius.sm))
+            .clip(RoundedCornerShape(AppRadius.lg))
+            .background(
+                if (selected) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
+                else Color.Transparent
+            )
             .clickable(onClick = onClick)
-            .padding(vertical = AppSpacing.sm, horizontal = AppSpacing.xs),
+            .padding(vertical = AppSpacing.sm, horizontal = AppSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm)
     ) {
-        Text(label, color = MaterialTheme.colorScheme.onBackground)
+        if (colors.isNotEmpty()) {
+            ThemeSwatches(colors = colors)
+        }
+        Text(
+            label,
+            color = MaterialTheme.colorScheme.onBackground,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f)
+        )
         if (selected) {
             Icon(Icons.Rounded.Check, contentDescription = null, tint = IncomeGreen)
         }
     }
+}
+
+@Composable
+private fun ThemeSwatches(colors: List<Color>) {
+    Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        colors.take(3).forEach { color ->
+            Box(
+                modifier = Modifier
+                    .size(16.dp)
+                    .clip(CircleShape)
+                    .background(color)
+            )
+        }
+    }
+}
+
+private fun ThemeMode.previewColors(): List<Color> = when (this) {
+    ThemeMode.SYSTEM -> listOf(Color(0xFFFAFAFA), Color(0xFF0C0C0E), Color(0xFF8E8E93))
+    ThemeMode.LIGHT -> listOf(Color(0xFFFAFAFA), Color(0xFFFFFFFF), Color(0xFF09090B))
+    ThemeMode.DARK -> listOf(Color(0xFF0C0C0E), Color(0xFF141416), Color(0xFFFAFAFA))
+    ThemeMode.AMOLED -> listOf(Color.Black, Color(0xFF050505), Color.White)
+    ThemeMode.MIDNIGHT -> listOf(Color(0xFF070B1A), Color(0xFF17203A), Color(0xFF8AB4FF))
+    ThemeMode.OCEAN -> listOf(Color(0xFF061412), Color(0xFF12332F), Color(0xFF56D6C9))
+    ThemeMode.SOFT_LIGHT -> listOf(Color(0xFFFAF7F2), Color(0xFFF0E8DC), Color(0xFF7C5E44))
 }
 
 @Composable
