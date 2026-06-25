@@ -18,6 +18,12 @@ val AppChartSpring = spring<Float>(
     stiffness = Spring.StiffnessMediumLow
 )
 
+/** Smooth chart reveal tuned for high-refresh displays */
+val AppChartRevealSpring = spring<Float>(
+    dampingRatio = Spring.DampingRatioLowBouncy,
+    stiffness = Spring.StiffnessMedium
+)
+
 val AppDpSpring = spring<androidx.compose.ui.unit.Dp>(
     dampingRatio = Spring.DampingRatioNoBouncy,
     stiffness = Spring.StiffnessHigh
