@@ -26,7 +26,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -147,7 +149,12 @@ fun IncomeExpenseOverviewChart(
                 drawCircle(color = AppColors.CardSurface, radius = holeRadius, center = center)
             }
 
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .scale(0.88f + 0.12f * progress.value)
+                    .alpha(((progress.value - 0.2f) / 0.8f).coerceIn(0f, 1f))
+            ) {
                 MoneyText(
                     text = CurrencyUtils.formatAmount(net, currencyCode),
                     size = MoneySize.Headline,
@@ -176,13 +183,17 @@ fun IncomeExpenseOverviewChart(
                 color = AppColors.Expense,
                 label = stringResource(R.string.summary_spent),
                 value = CurrencyUtils.formatAmount(expenseTotal, currencyCode),
-                percent = (expenseRatio * 100).toInt()
+                percent = (expenseRatio * 100).toInt(),
+                reveal = progress.value,
+                stagger = 0.1f,
             )
             OverviewLegendItem(
                 color = AppColors.Income,
                 label = stringResource(R.string.summary_earned),
                 value = CurrencyUtils.formatAmount(incomeTotal, currencyCode),
-                percent = (incomeRatio * 100).toInt()
+                percent = (incomeRatio * 100).toInt(),
+                reveal = progress.value,
+                stagger = 0.25f,
             )
         }
     }
@@ -193,9 +204,15 @@ private fun OverviewLegendItem(
     color: Color,
     label: String,
     value: String,
-    percent: Int
+    percent: Int,
+    reveal: Float = 1f,
+    stagger: Float = 0f,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    val itemAlpha = ((reveal - stagger) / (1f - stagger)).coerceIn(0f, 1f)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.alpha(itemAlpha),
+    ) {
         Box(
             modifier = Modifier
                 .size(10.dp)
@@ -326,7 +343,10 @@ fun DonutChart(
             if (centerLabel != null) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(horizontal = AppSpacing.sm)
+                    modifier = Modifier
+                        .padding(horizontal = AppSpacing.sm)
+                        .scale(0.9f + 0.1f * progress.value)
+                        .alpha(((progress.value - 0.15f) / 0.85f).coerceIn(0f, 1f))
                 ) {
                     MoneyText(
                         text = centerLabel,
