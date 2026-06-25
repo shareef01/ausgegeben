@@ -217,6 +217,8 @@
     <string name="bills_section_income">Income</string>
     <string name="bills_section_transfers">Transfers</string>
     <string name="chart_total_label">total</string>
+    <string name="chart_overview_title">Income vs expenses</string>
+    <string name="chart_net_label">Net balance</string>
     <string name="chart_no_data">No chart data</string>
     <string name="chart_breakdown_description">Breakdown by category, total %1$s</string>
 
