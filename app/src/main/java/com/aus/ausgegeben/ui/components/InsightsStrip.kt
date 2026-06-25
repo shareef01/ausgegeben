@@ -43,7 +43,7 @@ fun BudgetProgressBar(
             .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xxs)
             .clip(cardShape)
             .appCard(shape = cardShape)
-            .padding(horizontal = 16.dp, vertical = 14.dp)
+            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm + AppSpacing.xxs)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -68,7 +68,7 @@ fun BudgetProgressBar(
                 color = if (overBudget) ExpenseMuted else MaterialTheme.colorScheme.onBackground
             )
         }
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(AppSpacing.sm - AppSpacing.xxs))
         androidx.compose.foundation.layout.Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -92,7 +92,7 @@ fun BudgetProgressBar(
                 ),
                 style = MaterialTheme.typography.labelSmall,
                 color = ExpenseMuted,
-                modifier = Modifier.padding(top = 8.dp)
+                modifier = Modifier.padding(top = AppSpacing.xs)
             )
         }
     }
