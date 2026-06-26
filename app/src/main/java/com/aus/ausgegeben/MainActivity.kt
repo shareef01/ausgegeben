@@ -402,7 +402,6 @@ fun MainApp(
                             authRepository = authRepository,
                             authViewModel = authViewModel,
                             cloudSyncRepository = cloudSyncRepository,
-                            storageMode = storageMode,
                             onNavigateToCategories = {
                                 overlayStack.clear()
                                 overlayStack.add(Route.CategoryList)
