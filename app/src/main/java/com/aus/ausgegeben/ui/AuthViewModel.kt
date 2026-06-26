@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.TimeoutCancellationException
 
 enum class AuthTab {
     SIGN_IN,
@@ -28,6 +30,7 @@ data class AuthUiState(
     val password: String = "",
     val confirmPassword: String = "",
     val isLoading: Boolean = false,
+    val loadingMessage: String? = null,
     val errorMessage: String? = null,
     val infoMessage: String? = null,
     val passwordVisible: Boolean = false,
@@ -39,6 +42,10 @@ class AuthViewModel(
     private val preferenceManager: PreferenceManager,
     private val cloudSyncRepository: CloudSyncRepository,
 ) : AndroidViewModel(application) {
+
+    companion object {
+        private const val AUTH_TIMEOUT_MS = 25_000L
+    }
 
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
@@ -103,10 +110,20 @@ class AuthViewModel(
         }
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null, infoMessage = null) }
-            val result = when (state.selectedTab) {
-                AuthTab.SIGN_IN -> authRepository.signIn(email, password)
-                AuthTab.SIGN_UP -> authRepository.signUp(email, password)
+            val loadingMessage = when (state.selectedTab) {
+                AuthTab.SIGN_IN -> appString(com.aus.ausgegeben.R.string.auth_loading_sign_in)
+                AuthTab.SIGN_UP -> appString(com.aus.ausgegeben.R.string.auth_loading_sign_up)
+            }
+            _uiState.update {
+                it.copy(isLoading = true, loadingMessage = loadingMessage, errorMessage = null, infoMessage = null)
+            }
+            val result = runCatching {
+                withTimeout(AUTH_TIMEOUT_MS) {
+                    when (state.selectedTab) {
+                        AuthTab.SIGN_IN -> authRepository.signIn(email, password).getOrThrow()
+                        AuthTab.SIGN_UP -> authRepository.signUp(email, password).getOrThrow()
+                    }
+                }
             }
             handleAuthResult(result, onSuccess)
         }
@@ -114,8 +131,20 @@ class AuthViewModel(
 
     fun signInWithGoogle(idToken: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null, infoMessage = null) }
-            handleAuthResult(authRepository.signInWithGoogle(idToken), onSuccess)
+            _uiState.update {
+                it.copy(
+                    isLoading = true,
+                    loadingMessage = appString(com.aus.ausgegeben.R.string.auth_loading_sign_in),
+                    errorMessage = null,
+                    infoMessage = null,
+                )
+            }
+            val result = runCatching {
+                withTimeout(AUTH_TIMEOUT_MS) {
+                    authRepository.signInWithGoogle(idToken).getOrThrow()
+                }
+            }
+            handleAuthResult(result, onSuccess)
         }
     }
 
@@ -164,16 +193,19 @@ class AuthViewModel(
             onSuccess = {
                 preferenceManager.setStorageMode(StorageMode.CLOUD)
                 preferenceManager.setAuthGatewayComplete()
-                cloudSyncRepository.fullSync().onSuccess {
-                    preferenceManager.setLastCloudSyncAt(System.currentTimeMillis())
-                }
-                _uiState.update { it.copy(isLoading = false) }
+                _uiState.update { it.copy(isLoading = false, loadingMessage = null) }
                 onSuccess()
+                viewModelScope.launch {
+                    cloudSyncRepository.fullSync().onSuccess {
+                        preferenceManager.setLastCloudSyncAt(System.currentTimeMillis())
+                    }
+                }
             },
             onFailure = { error ->
                 _uiState.update {
                     it.copy(
                         isLoading = false,
+                        loadingMessage = null,
                         errorMessage = mapAuthError(error),
                     )
                 }
@@ -182,6 +214,9 @@ class AuthViewModel(
     }
 
     private fun mapAuthError(error: Throwable): String {
+        if (error is TimeoutCancellationException) {
+            return appString(com.aus.ausgegeben.R.string.auth_error_timeout)
+        }
         return when (error) {
             is FirebaseAuthInvalidUserException ->
                 appString(com.aus.ausgegeben.R.string.auth_error_user_not_found)
