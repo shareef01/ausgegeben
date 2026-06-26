@@ -14,6 +14,9 @@
     <string name="auth_sign_in">Anmelden</string>
     <string name="auth_create_account">Konto erstellen</string>
     <string name="auth_or">oder</string>
+    <string name="auth_continue_google">Mit Google fortfahren</string>
+    <string name="auth_forgot_password">Passwort vergessen?</string>
+    <string name="auth_reset_email_sent">E-Mail zum Zurücksetzen gesendet. Posteingang prüfen.</string>
     <string name="auth_continue_offline">Offline fortfahren</string>
     <string name="auth_continue_offline_subtitle">Alle Daten nur auf diesem Gerät</string>
     <string name="auth_privacy_note">Offline-Modus speichert alles lokal. Cloud-Konten nutzen Firebase Authentication.</string>
@@ -109,6 +112,12 @@
     <string name="settings_sign_out_subtitle">Zurück zum Offline-Modus</string>
     <string name="settings_sign_out_confirm">Abmelden und Offline-Modus nutzen? Lokale Daten bleiben auf diesem Gerät.</string>
     <string name="settings_signed_out">Abgemeldet. Du bist jetzt im Offline-Modus.</string>
+    <string name="settings_user_id">ID %1$s…</string>
+    <string name="settings_sync_now">Jetzt syncen</string>
+    <string name="settings_last_synced">Zuletzt sync %1$s</string>
+    <string name="settings_never_synced">Noch nicht sync — nach Anmeldung „Jetzt syncen“ tippen</string>
+    <string name="settings_sync_success">Cloud-Sync abgeschlossen</string>
+    <string name="settings_sync_failed">Cloud-Sync fehlgeschlagen</string>
 
     <string name="add_save_changes">Änderungen speichern</string>
     <string name="add_income">Einnahme hinzufügen</string>

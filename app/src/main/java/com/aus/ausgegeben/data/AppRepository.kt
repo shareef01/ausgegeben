@@ -1,6 +1,7 @@
 package com.aus.ausgegeben.data
 
 import android.content.Context
+import com.aus.ausgegeben.data.cloud.CloudSyncRepository
 import com.aus.ausgegeben.data.dao.CategoryDao
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
@@ -20,8 +21,16 @@ import kotlinx.coroutines.flow.map
 class AppRepository(
     private val categoryDao: CategoryDao,
     private val expenseDao: ExpenseDao,
-    private val appContext: Context
+    private val appContext: Context,
+    private val cloudSync: CloudSyncRepository? = null,
+    private val shouldSyncToCloud: suspend () -> Boolean = { false },
 ) {
+    private suspend fun syncToCloud(action: suspend CloudSyncRepository.() -> Unit) {
+        if (shouldSyncToCloud()) {
+            cloudSync?.action()
+        }
+    }
+
     // Categories
     val allCategories: Flow<List<Category>> = categoryDao.getAllCategories()
         .map { categories ->
@@ -32,9 +41,17 @@ class AppRepository(
         }
         .distinctUntilChanged()
 
-    suspend fun insertCategory(category: Category): Long = categoryDao.insert(category)
+    suspend fun insertCategory(category: Category): Long {
+        val id = categoryDao.insert(category)
+        val saved = category.copy(id = if (category.id == 0L) id else category.id)
+        syncToCloud { pushCategory(saved) }
+        return id
+    }
 
-    suspend fun updateCategory(category: Category) = categoryDao.update(category)
+    suspend fun updateCategory(category: Category) {
+        categoryDao.update(category)
+        syncToCloud { pushCategory(category) }
+    }
 
     suspend fun insertAllCategories(categories: List<Category>) = categoryDao.insertAll(categories)
 
@@ -44,6 +61,7 @@ class AppRepository(
         linkedExpenses.forEach { expense ->
             purgeReceiptIfUnreferenced(expense.receiptImagePath)
         }
+        syncToCloud { deleteCategory(category.id) }
     }
 
     // Expenses
@@ -72,12 +90,18 @@ class AppRepository(
     fun getExpensesByCategory(categoryId: Long): Flow<List<Expense>> =
         expenseDao.getExpensesByCategory(categoryId)
 
-    suspend fun insertExpense(expense: Expense) = expenseDao.insert(expense)
+    suspend fun insertExpense(expense: Expense): Long {
+        val id = expenseDao.insert(expense)
+        val saved = expense.copy(id = if (expense.id == 0L) id else expense.id)
+        syncToCloud { pushExpense(saved) }
+        return id
+    }
 
     suspend fun insertAllExpenses(expenses: List<Expense>) = expenseDao.insertAll(expenses)
 
     suspend fun deleteExpense(expense: Expense) {
         expenseDao.delete(expense)
+        syncToCloud { deleteExpense(expense.id) }
     }
 
     suspend fun duplicateExpense(expense: Expense) {
@@ -97,6 +121,7 @@ class AppRepository(
         if (previous?.receiptImagePath != expense.receiptImagePath) {
             purgeReceiptIfUnreferenced(previous?.receiptImagePath, excludeExpenseId = expense.id)
         }
+        syncToCloud { pushExpense(expense) }
     }
 
     suspend fun purgeReceiptIfUnreferenced(path: String?, excludeExpenseId: Long = 0L) {
