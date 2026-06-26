@@ -6,6 +6,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.aus.ausgegeben.data.entity.Expense
+import com.aus.ausgegeben.data.entity.ExpenseTableStamp
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -38,6 +39,15 @@ interface ExpenseDao {
 
     @Query("SELECT * FROM expenses ORDER BY dateMillis DESC")
     fun getAllExpenses(): Flow<List<Expense>>
+
+    @Query(
+        """
+        SELECT COUNT(*) AS row_count,
+            (COALESCE(SUM(amount), 0) + COALESCE(SUM(dateMillis), 0) / 1000.0) AS checksum
+        FROM expenses
+        """
+    )
+    fun observeExpenseTableStamp(): Flow<ExpenseTableStamp>
 
     @Query(
         "SELECT * FROM expenses WHERE dateMillis >= :startMillis AND dateMillis < :endMillis " +

@@ -206,3 +206,16 @@ fun computeSpendingInsights(
         topExpenseCategoryAmount = topCategory?.value ?: 0.0
     )
 }
+
+fun computeDayTotals(
+    expenses: List<Expense>,
+    locale: Locale,
+): Map<String, Pair<Double, Double>> {
+    val dateFormat = SimpleDateFormat("dd.MM EEE", locale)
+    return expenses.groupBy { dateFormat.format(Date(localDayStartMillis(it.dateMillis))) }
+        .mapValues { (_, dayItems) ->
+            val billable = dayItems.filter { !it.isTransfer() }
+            billable.filter { it.isIncome() }.sumOf { it.amount } to
+                billable.filter { it.isExpense() }.sumOf { it.amount }
+        }
+}
