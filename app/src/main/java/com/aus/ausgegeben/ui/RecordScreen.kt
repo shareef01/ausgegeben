@@ -663,35 +663,34 @@ fun TransactionRow(
     modifier: Modifier = Modifier
 ) {
     val incomeColor = financeIncomeColor()
+    val expenseColor = financeExpenseColor()
     val amountColor = when {
         expense.isIncome() -> incomeColor
         expense.isTransfer() -> TransferGray
-        else -> MaterialTheme.colorScheme.onBackground
+        else -> expenseColor
     }
     val fillColor = categoryColor?.let { colorIntToCompose(it) }
+        ?: MaterialTheme.colorScheme.primary
 
     Row(
         modifier = modifier.padding(
             horizontal = AppSpacing.xxs,
-            vertical = AppSpacing.sm,
+            vertical = AppSpacing.sm + AppSpacing.xxs,
         ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
-                .size(36.dp)
+                .size(38.dp)
                 .clip(RoundedCornerShape(AppRadius.pill))
-                .background(
-                    (fillColor ?: MaterialTheme.colorScheme.onSurfaceVariant)
-                        .copy(alpha = if (fillColor != null) 0.14f else 0.08f),
-                ),
+                .background(fillColor.copy(alpha = 0.22f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 icon,
                 contentDescription = categoryName,
-                tint = fillColor ?: MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(16.dp),
+                tint = fillColor,
+                modifier = Modifier.size(19.dp),
             )
         }
         Spacer(modifier = Modifier.width(AppSpacing.sm))
