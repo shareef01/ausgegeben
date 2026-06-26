@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
@@ -99,14 +100,14 @@ private fun MainBottomBarItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val scale by animateFloatAsState(
-        targetValue = if (selected) 1f else 0.96f,
+    val iconScale by animateFloatAsState(
+        targetValue = if (selected) 1f else 0.94f,
         animationSpec = AppSpringSnappy,
-        label = "bottomItemScale"
+        label = "bottomIconScale"
     )
     val containerColor by animateColorAsState(
         targetValue = if (selected) {
-            MaterialTheme.colorScheme.onBackground.copy(alpha = 0.07f)
+            MaterialTheme.colorScheme.onBackground.copy(alpha = 0.09f)
         } else {
             Color.Transparent
         },
@@ -126,18 +127,25 @@ private fun MainBottomBarItem(
     Box(
         modifier = modifier
             .height(56.dp)
-            .scale(scale)
             .clip(RoundedCornerShape(AppRadius.pill))
-            .background(containerColor)
             .smoothClickable(onClick = onClick)
             .padding(vertical = AppSpacing.xs),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            imageVector = destination.icon,
-            contentDescription = destination.label,
-            tint = contentColor,
-            modifier = Modifier.size(if (selected) 31.dp else 28.dp),
-        )
+        Box(
+            modifier = Modifier
+                .size(50.dp)
+                .scale(iconScale)
+                .clip(CircleShape)
+                .background(containerColor),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = destination.icon,
+                contentDescription = destination.label,
+                tint = contentColor,
+                modifier = Modifier.size(if (selected) 31.dp else 28.dp),
+            )
+        }
     }
 }
