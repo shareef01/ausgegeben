@@ -51,6 +51,7 @@ import com.aus.ausgegeben.ui.components.SmoothIconButton
 import com.aus.ausgegeben.ui.components.smoothClickable
 import com.aus.ausgegeben.ui.components.MoneyText
 import com.aus.ausgegeben.ui.components.MoneySize
+import com.aus.ausgegeben.ui.theme.AmountTextStyle
 import com.aus.ausgegeben.ui.theme.appDividerColor
 import com.aus.ausgegeben.ui.theme.AppColorSpring
 import com.aus.ausgegeben.ui.theme.AppIconSize
@@ -530,7 +531,9 @@ private fun AmountCard(
                     text = amount,
                     size = MoneySize.Hero,
                     color = amountColor,
-                    fontSize = fontSize
+                    fontSize = fontSize,
+                    fontWeight = FontWeight.SemiBold,
+                    animateChanges = true,
                 )
             }
             HorizontalDivider(
@@ -821,9 +824,13 @@ private fun CalcKey(
         } else {
             Text(
                 text = key,
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.headlineMedium
+                    .merge(AmountTextStyle)
+                    .copy(
+                        fontWeight = FontWeight.Medium,
+                        fontFeatureSettings = "tnum, lnum",
+                    ),
                 color = MaterialTheme.colorScheme.onBackground,
-                fontWeight = FontWeight.Medium
             )
         }
     }
