@@ -11,6 +11,9 @@ internal fun colorSchemeFor(mode: ThemeMode, systemDark: Boolean): ColorScheme {
         ThemeMode.AMOLED -> AmoledColorScheme
         ThemeMode.MIDNIGHT -> MidnightColorScheme
         ThemeMode.OCEAN -> OceanColorScheme
+        ThemeMode.FOREST -> ForestColorScheme
+        ThemeMode.SUNSET -> SunsetColorScheme
+        ThemeMode.LAVENDER -> LavenderColorScheme
         ThemeMode.SOFT_LIGHT -> SoftLightColorScheme
         ThemeMode.SYSTEM, ThemeMode.DARK, ThemeMode.LIGHT -> if (dark) DefaultDarkColorScheme else DefaultLightColorScheme
     }
@@ -108,6 +111,53 @@ private val OceanColorScheme = baseDarkScheme(
     outline = Color(0xFF24504B),
     outlineVariant = Color(0xFF346D66),
     onSurfaceVariant = Color(0xFFA0C7C1),
+)
+
+private val ForestColorScheme = baseDarkScheme(
+    primary = Color(0xFF86EFAC),
+    tertiary = Color(0xFFFACC15),
+    background = Color(0xFF06130B),
+    surface = Color(0xFF0C2013),
+    surfaceVariant = Color(0xFF16351F),
+    secondary = Color(0xFF102A19),
+    outline = Color(0xFF2A5735),
+    outlineVariant = Color(0xFF3D7449),
+    onSurfaceVariant = Color(0xFFA7CFB0),
+)
+
+private val SunsetColorScheme = baseDarkScheme(
+    primary = Color(0xFFFF9F6E),
+    tertiary = Color(0xFFFFD166),
+    background = Color(0xFF190B10),
+    surface = Color(0xFF271119),
+    surfaceVariant = Color(0xFF3B1A23),
+    secondary = Color(0xFF32151E),
+    outline = Color(0xFF6D3440),
+    outlineVariant = Color(0xFF8F4652),
+    onSurfaceVariant = Color(0xFFE6B2A8),
+)
+
+private val LavenderColorScheme = lightColorScheme(
+    primary = Color(0xFF7C3AED),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFEDE9FE),
+    onPrimaryContainer = Color(0xFF2E1065),
+    secondary = Color(0xFFF1EEFF),
+    onSecondary = Color(0xFF4C1D95),
+    tertiary = Color(0xFFDB2777),
+    onTertiary = Color.White,
+    background = Color(0xFFFCFAFF),
+    onBackground = Color(0xFF1E1B2E),
+    surface = Color(0xFFFFFFFF),
+    onSurface = Color(0xFF1E1B2E),
+    surfaceVariant = Color(0xFFF3EEFF),
+    onSurfaceVariant = Color(0xFF6D6382),
+    outline = Color(0xFFE2D8F4),
+    outlineVariant = Color(0xFFD4C5EB),
+    error = AppColors.Expense,
+    onError = Color.White,
+    errorContainer = Color(0xFFFCE7F3),
+    onErrorContainer = Color(0xFF831843)
 )
 
 private val SoftLightColorScheme = lightColorScheme(

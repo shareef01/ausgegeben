@@ -128,6 +128,9 @@
     <string name="theme_amoled">AMOLED Schwarz</string>
     <string name="theme_midnight">Mitternachtsblau</string>
     <string name="theme_ocean">Ozean Türkis</string>
+    <string name="theme_forest">Waldgrün</string>
+    <string name="theme_sunset">Sonnenuntergang</string>
+    <string name="theme_lavender">Lavendel hell</string>
     <string name="theme_soft_light">Warm hell</string>
 
     <string name="onboarding_title_track">Jede Ausgabe erfassen</string>

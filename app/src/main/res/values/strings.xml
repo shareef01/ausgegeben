@@ -138,6 +138,9 @@
     <string name="theme_amoled">AMOLED black</string>
     <string name="theme_midnight">Midnight blue</string>
     <string name="theme_ocean">Ocean teal</string>
+    <string name="theme_forest">Forest green</string>
+    <string name="theme_sunset">Sunset coral</string>
+    <string name="theme_lavender">Lavender light</string>
     <string name="theme_soft_light">Soft warm</string>
 
     <!-- Onboarding -->
