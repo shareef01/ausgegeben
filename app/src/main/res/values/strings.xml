@@ -127,6 +127,12 @@
     <string name="settings_never_synced">Not synced yet — tap Sync now after sign-in</string>
     <string name="settings_sync_success">Cloud sync complete</string>
     <string name="settings_sync_failed">Cloud sync failed</string>
+    <string name="settings_sync_in_progress">Syncing with cloud…</string>
+    <string name="settings_sync_failed_detail">Sync failed: %1$s</string>
+    <string name="settings_sync_error_permission">Permission denied. In Firebase Console open Firestore → Rules and publish the rules from firestore.rules in this project.</string>
+    <string name="settings_sync_error_network">No connection to Firebase. Check your internet.</string>
+    <string name="settings_sync_error_timeout">Sync timed out. Try again on a stable connection.</string>
+    <string name="settings_sync_error_firestore_missing">Firestore database not found. Create it in Firebase Console → Firestore Database.</string>
 
     <!-- Add transaction -->
     <string name="add_save_changes">Save changes</string>
