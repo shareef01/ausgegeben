@@ -65,8 +65,38 @@ npm run preview    # test production build
 
 ### Install on iPhone
 
-1. Deploy `dist/` to HTTPS (required for PWA).
+1. Deploy to Firebase Hosting (see below) or any HTTPS host.
 2. Open in Safari → Share → **Add to Home Screen**.
+
+### Deploy to Firebase Hosting
+
+Project: **ausgegeben01** → `https://ausgegeben01.web.app`
+
+1. Ensure `web/.env.local` has your Firebase Web config (used at build time).
+2. Install Firebase CLI and log in (once on your machine):
+
+```bash
+npm install -g firebase-tools
+firebase login
+```
+
+3. Deploy from the `web/` folder:
+
+```bash
+cd web
+npm install
+npm run deploy
+```
+
+This runs `vite build` then `firebase deploy --only hosting`.
+
+**Live URLs after deploy:**
+- https://ausgegeben01.web.app
+- https://ausgegeben01.firebaseapp.com
+
+These domains are automatically authorized for Firebase Auth. Google sign-in will work without extra domain setup.
+
+**CI deploy:** set a `FIREBASE_TOKEN` from `firebase login:ci` and run `npm run deploy` in CI.
 
 ### Firebase (Phase 3)
 
