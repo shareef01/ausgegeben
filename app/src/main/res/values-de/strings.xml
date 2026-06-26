@@ -103,6 +103,8 @@
     <string name="settings_account_signed_in_as">Angemeldet als %1$s</string>
     <string name="settings_account_cloud_subtitle">Mit Firebase angemeldet</string>
     <string name="settings_account_offline_subtitle">Daten bleiben nur auf diesem Gerät</string>
+    <string name="settings_sign_in">Anmelden / Konto erstellen</string>
+    <string name="settings_sign_in_subtitle">Mit Firebase sichern und synchronisieren</string>
     <string name="settings_sign_out">Abmelden</string>
     <string name="settings_sign_out_subtitle">Zurück zum Offline-Modus</string>
     <string name="settings_sign_out_confirm">Abmelden und Offline-Modus nutzen? Lokale Daten bleiben auf diesem Gerät.</string>

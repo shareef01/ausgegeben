@@ -158,6 +158,7 @@ fun MainApp(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var pendingOpenAdd by remember { mutableStateOf(openAddFromNotification) }
+    var showAuthFromSettings by remember { mutableStateOf(false) }
 
     val notificationPermission = rememberPermissionState(Manifest.permission.POST_NOTIFICATIONS)
 
@@ -254,10 +255,15 @@ fun MainApp(
         return
     }
 
-    if (!authGatewayComplete) {
+    if (!authGatewayComplete || showAuthFromSettings) {
         AuthScreen(
             viewModel = authViewModel,
-            onAuthenticated = { /* state flow updates automatically */ },
+            onAuthenticated = { showAuthFromSettings = false },
+            onDismiss = if (authGatewayComplete) {
+                { showAuthFromSettings = false }
+            } else {
+                null
+            },
         )
         return
     }
@@ -393,7 +399,8 @@ fun MainApp(
                                 ) {
                                     notificationPermission.launchPermissionRequest()
                                 }
-                            }
+                            },
+                            onRequestSignIn = { showAuthFromSettings = true },
                         )
                     }
                 )
