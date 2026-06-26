@@ -12,8 +12,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -93,7 +91,9 @@ import com.aus.ausgegeben.ui.theme.ThemeMode
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -125,9 +125,11 @@ class MainActivity : ComponentActivity() {
             val themeMode by preferenceManager.themeModeFlow.collectAsState(initial = ThemeMode.SYSTEM)
 
             AusgegebenTheme(themeMode = themeMode) {
-                LaunchedEffect(Unit) {
-                    DataSeeder.seedIfEmpty(repository)
-                    repository.repairBrokenCategoryColors()
+                LaunchedEffect(repository) {
+                    withContext(Dispatchers.IO) {
+                        DataSeeder.seedIfEmpty(repository)
+                        repository.repairBrokenCategoryColors()
+                    }
                 }
                 MainApp(
                     repository = repository,
@@ -421,8 +423,8 @@ fun MainApp(
 
                 AnimatedVisibility(
                     visible = currentOverlay != null,
-                    enter = slideInVertically { it / 5 } + scaleIn(initialScale = 0.98f) + fadeIn(),
-                    exit = slideOutVertically { it / 5 } + scaleOut(targetScale = 0.98f) + fadeOut(),
+                    enter = fadeIn(),
+                    exit = fadeOut(),
                 ) {
                     Box(
                         modifier = Modifier

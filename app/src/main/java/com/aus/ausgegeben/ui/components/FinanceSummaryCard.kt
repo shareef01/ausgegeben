@@ -54,6 +54,7 @@ fun FinanceSummaryCard(
     periodLabel: String = "all time",
     insightLine: String? = null,
     compact: Boolean = false,
+    animateChanges: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val incomeColor = financeIncomeColor()
@@ -64,11 +65,17 @@ fun FinanceSummaryCard(
         else -> MaterialTheme.colorScheme.onBackground
     }
     val totalFlow = expenseTotal + incomeTotal
-    val incomeRatio by animateFloatAsState(
-        targetValue = if (totalFlow > 0.0) (incomeTotal / totalFlow).toFloat().coerceIn(0.08f, 0.92f) else 0.5f,
+    val incomeRatio = if (totalFlow > 0.0) {
+        (incomeTotal / totalFlow).toFloat().coerceIn(0.08f, 0.92f)
+    } else {
+        0.5f
+    }
+    val animatedIncomeRatio by animateFloatAsState(
+        targetValue = incomeRatio,
         animationSpec = AppSpringSnappy,
-        label = "summaryIncomeRatio"
+        label = "summaryIncomeRatio",
     )
+    val displayIncomeRatio = if (animateChanges) animatedIncomeRatio else incomeRatio
 
     Box(
         modifier = modifier
@@ -109,7 +116,7 @@ fun FinanceSummaryCard(
                     size = MoneySize.Hero,
                     color = netColor,
                     fontWeight = FontWeight.SemiBold,
-                    animateChanges = true,
+                    animateChanges = animateChanges,
                     modifier = Modifier.padding(top = AppSpacing.xxs),
                 )
             }
@@ -155,7 +162,7 @@ fun FinanceSummaryCard(
         }
 
         FlowBalanceBar(
-            incomeRatio = incomeRatio,
+            incomeRatio = displayIncomeRatio,
             expenseColor = expenseColor,
             incomeColor = incomeColor,
             modifier = Modifier.padding(top = AppSpacing.md),

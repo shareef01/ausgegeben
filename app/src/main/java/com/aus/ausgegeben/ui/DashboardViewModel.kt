@@ -34,7 +34,6 @@ data class DashboardUiState(
     val expensesByCategory: Map<Category, Double> = emptyMap(),
     val incomeByCategory: Map<Category, Double> = emptyMap(),
     val transfersByCategory: Map<Category, Double> = emptyMap(),
-    val periodTransactions: List<Expense> = emptyList(),
     val cashFlowTrend: List<CashFlowPoint> = emptyList(),
 )
 
@@ -136,7 +135,6 @@ class DashboardViewModel(
             expensesByCategory = mapTotals(expenseTotals),
             incomeByCategory = mapTotals(incomeTotals),
             transfersByCategory = mapTotals(transferTotals),
-            periodTransactions = scoped,
             cashFlowTrend = scoped.computeCashFlowTrend(periodKey),
         )
     }
