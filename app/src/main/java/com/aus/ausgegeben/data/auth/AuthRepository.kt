@@ -63,4 +63,11 @@ class AuthRepository(
             GoogleSignIn.getClient(appContext, gso).signOut().await()
         }
     }
+
+    /** Forces a fresh ID token so Firestore requests include valid auth credentials. */
+    suspend fun ensureFreshAuthToken(): Result<Unit> = runCatching {
+        val user = firebaseAuth.currentUser
+            ?: error("Not signed in")
+        user.getIdToken(true).await()
+    }
 }

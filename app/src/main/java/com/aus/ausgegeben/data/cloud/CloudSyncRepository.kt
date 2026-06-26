@@ -19,6 +19,7 @@ class CloudSyncRepository(
 ) {
     companion object {
         private const val SYNC_TIMEOUT_MS = 45_000L
+        private const val MAX_BATCH_SIZE = 450
     }
 
     private fun userCollection(path: String) =
@@ -28,10 +29,17 @@ class CloudSyncRepository(
 
     suspend fun fullSync(): Result<Unit> = runCatching {
         val uid = authRepository.currentUserId ?: return@runCatching
+        authRepository.ensureFreshAuthToken().getOrThrow()
         withTimeout(SYNC_TIMEOUT_MS) {
+            verifyFirestoreAccess(uid)
             pushAllLocal(uid)
             pullAllRemote(uid)
         }
+    }
+
+    private suspend fun verifyFirestoreAccess(uid: String) {
+        val userRef = firestore.collection("users").document(uid)
+        userRef.set(mapOf("lastPushAt" to System.currentTimeMillis()), SetOptions.merge()).await()
     }
 
     suspend fun pushCategory(category: Category) {
@@ -65,18 +73,36 @@ class CloudSyncRepository(
     private suspend fun pushAllLocal(uid: String) {
         val categories = categoryDao.getAllCategories().first()
         val expenses = expenseDao.getAllExpenses().first()
-        val batch = firestore.batch()
         val userRef = firestore.collection("users").document(uid)
-        batch.set(userRef, mapOf("lastPushAt" to System.currentTimeMillis()), SetOptions.merge())
+        val writes = mutableListOf<(com.google.firebase.firestore.WriteBatch) -> Unit>()
+        writes += { batch ->
+            batch.set(
+                userRef,
+                mapOf("lastPushAt" to System.currentTimeMillis()),
+                SetOptions.merge(),
+            )
+        }
         categories.forEach { category ->
-            val ref = userRef.collection("categories").document(category.id.toString())
-            batch.set(ref, category.toFirestore(), SetOptions.merge())
+            writes += { batch ->
+                val ref = userRef.collection("categories").document(category.id.toString())
+                batch.set(ref, category.toFirestore(), SetOptions.merge())
+            }
         }
         expenses.forEach { expense ->
-            val ref = userRef.collection("expenses").document(expense.id.toString())
-            batch.set(ref, expense.toFirestore(), SetOptions.merge())
+            writes += { batch ->
+                val ref = userRef.collection("expenses").document(expense.id.toString())
+                batch.set(ref, expense.toFirestore(), SetOptions.merge())
+            }
         }
-        batch.commit().await()
+        commitInChunks(writes)
+    }
+
+    private suspend fun commitInChunks(writes: List<(com.google.firebase.firestore.WriteBatch) -> Unit>) {
+        writes.chunked(MAX_BATCH_SIZE).forEach { chunk ->
+            val batch = firestore.batch()
+            chunk.forEach { it(batch) }
+            batch.commit().await()
+        }
     }
 
     private suspend fun pullAllRemote(uid: String) {
