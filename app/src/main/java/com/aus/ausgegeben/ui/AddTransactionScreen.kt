@@ -283,7 +283,7 @@ fun AddTransactionScreen(
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
             }
-            Spacer(modifier = Modifier.height(AppSpacing.lg))
+            Spacer(modifier = Modifier.height(AppSpacing.xl))
             }
         }
         Column(
@@ -296,12 +296,8 @@ fun AddTransactionScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = AppSpacing.md)
-                    .padding(top = AppSpacing.sm, bottom = AppSpacing.xs),
+                    .padding(top = AppSpacing.xs, bottom = AppSpacing.xs),
             ) {
-                selectedCategory?.let { category ->
-                    SelectedCategoryChip(category = category)
-                    Spacer(modifier = Modifier.height(AppSpacing.sm))
-                }
                 Button(
                     onClick = {
                         val wasEditing = isEditing
@@ -317,7 +313,7 @@ fun AddTransactionScreen(
                     enabled = canSave,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp),
+                        .height(48.dp),
                     shape = RoundedCornerShape(AppRadius.pill),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = saveAccent,
@@ -348,7 +344,7 @@ fun AddTransactionScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm)
+                    .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs)
             )
         }
     }
@@ -481,15 +477,15 @@ private fun AmountCard(
         else -> stringResource(R.string.add_amount_expense)
     }
     val fontSize = when {
-        amount.length > 10 -> 34.sp
-        amount.length > 7 -> 44.sp
-        else -> 52.sp
+        amount.length > 10 -> 31.sp
+        amount.length > 7 -> 39.sp
+        else -> 48.sp
     }
     GroupedSection(modifier = Modifier.padding(top = AppSpacing.xs, bottom = AppSpacing.xxs)) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = AppSpacing.md, vertical = AppSpacing.lg),
+                .padding(horizontal = AppSpacing.md, vertical = AppSpacing.md),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -520,7 +516,7 @@ private fun AmountCard(
             HorizontalDivider(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = AppSpacing.md),
+                    .padding(vertical = AppSpacing.sm),
                 thickness = 0.5.dp,
                 color = appDividerColor()
             )
@@ -710,47 +706,6 @@ private fun CategoryAddTile(onClick: () -> Unit) {
         )
     }
 }
-@Composable
-private fun SelectedCategoryChip(category: Category) {
-    val categoryColor = colorIntToCompose(category.colorInt)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(AppRadius.lg))
-            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
-            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(28.dp)
-                .clip(CircleShape)
-                .background(categoryColor.copy(alpha = 0.16f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                iconForCategory(category),
-                contentDescription = null,
-                tint = categoryColor,
-                modifier = Modifier.size(14.dp)
-            )
-        }
-        Spacer(modifier = Modifier.width(AppSpacing.sm))
-        Text(
-            text = category.name,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-            fontWeight = FontWeight.Normal,
-            modifier = Modifier.weight(1f)
-        )
-        Icon(
-            Icons.Rounded.CheckCircle,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(18.dp)
-        )
-    }
-}
 // Save button uses Material3 Button inline in AddTransactionScreen
 
 @Composable
@@ -790,7 +745,7 @@ private fun CalculatorKeypad(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
+                    .height(48.dp),
                 horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs)
             ) {
                 row.forEach { key ->
@@ -807,7 +762,7 @@ private fun CalculatorKeypad(
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(AppSpacing.xs))
+            Spacer(modifier = Modifier.height(AppSpacing.xxs))
         }
     }
 }
@@ -846,7 +801,7 @@ private fun CalcKey(
         } else {
             Text(
                 text = key,
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onBackground,
                 fontWeight = FontWeight.Medium
             )
