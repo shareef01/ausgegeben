@@ -9,6 +9,7 @@ import androidx.paging.PagingData
 import com.aus.ausgegeben.data.dao.ExpenseDao
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
+import com.aus.ausgegeben.data.entity.ExpenseTableStamp
 import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.util.dateRangeMillis
 import com.aus.ausgegeben.util.ReceiptFileUtils
@@ -66,9 +67,8 @@ class AppRepository(
     // Expenses
     val allExpenses: Flow<List<Expense>> = expenseDao.getAllExpenses()
 
-    /** Emits a new value whenever expense rows change, used to invalidate paging. */
-    val expensesRevision: Flow<Int> = expenseDao.getAllExpenses()
-        .map { it.hashCode() }
+    /** Emits when expense rows change, used to invalidate paging without loading all rows. */
+    val expensesRevision: Flow<ExpenseTableStamp> = expenseDao.observeExpenseTableStamp()
         .distinctUntilChanged()
 
     fun getExpensesInRange(startMillis: Long, endMillis: Long): Flow<List<Expense>> =
