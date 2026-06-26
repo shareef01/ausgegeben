@@ -121,6 +121,7 @@
     <string name="period_this_month">Dieser Monat</string>
     <string name="period_last_month">Letzter Monat</string>
     <string name="period_all_time">Gesamt</string>
+    <string name="period_month_container">Monatscontainer</string>
 
     <string name="theme_system">System</string>
     <string name="theme_dark">Dunkel</string>
@@ -209,6 +210,8 @@
     <string name="chart_breakdown_description">Aufschlüsselung nach Kategorie, gesamt %1$s</string>
     <string name="chart_wealth_trend_title">Vermögensverlauf</string>
     <string name="chart_wealth_trend_subtitle">Kumulierter Saldo im Zeitraum</string>
+    <string name="chart_cash_flow_title">Cashflow</string>
+    <string name="chart_cash_flow_subtitle">Einnahmen %1$s · Ausgaben %2$s</string>
     <string name="chart_wealth_trend_delta_up">+%1$s in diesem Zeitraum</string>
     <string name="chart_wealth_trend_delta_down">-%1$s in diesem Zeitraum</string>
 
