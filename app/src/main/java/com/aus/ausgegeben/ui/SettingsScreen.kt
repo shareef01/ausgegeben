@@ -26,10 +26,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Euro
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Schedule
@@ -64,6 +67,8 @@ import com.aus.ausgegeben.BuildConfig
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.AppRepository
 import com.aus.ausgegeben.data.PreferenceManager
+import com.aus.ausgegeben.data.StorageMode
+import com.aus.ausgegeben.data.auth.AuthRepository
 import com.aus.ausgegeben.notification.ReminderScheduler
 import com.aus.ausgegeben.ui.components.GroupedSection
 import com.aus.ausgegeben.ui.components.GroupedSectionLabel
@@ -85,6 +90,9 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(
     repository: AppRepository,
     preferenceManager: PreferenceManager,
+    authRepository: AuthRepository,
+    authViewModel: AuthViewModel,
+    storageMode: StorageMode,
     onNavigateToCategories: () -> Unit,
     onShowMessage: (String) -> Unit = {},
     onRequestNotificationPermission: () -> Unit = {},
@@ -104,6 +112,9 @@ fun SettingsScreen(
     var showCurrencyDialog by remember { mutableStateOf(false) }
     var showReminderTimeDialog by remember { mutableStateOf(false) }
     var showBudgetDialog by remember { mutableStateOf(false) }
+    var showSignOutDialog by remember { mutableStateOf(false) }
+
+    val signedInEmail = authRepository.currentUserEmail
 
     val reminderTimeLabel = remember(reminderHour, reminderMinute) {
         String.format("%02d:%02d", reminderHour, reminderMinute)
@@ -188,6 +199,38 @@ fun SettingsScreen(
                 }
             }
 
+            item { SettingSectionTitle(stringResource(R.string.settings_section_account)) }
+            item {
+                SettingsGroup {
+                    SettingRow(
+                        icon = if (storageMode == StorageMode.CLOUD) Icons.Rounded.CloudSync else Icons.Rounded.CloudOff,
+                        title = if (storageMode == StorageMode.CLOUD) {
+                            stringResource(R.string.settings_account_cloud)
+                        } else {
+                            stringResource(R.string.settings_account_offline)
+                        },
+                        subtitle = when {
+                            storageMode == StorageMode.CLOUD && signedInEmail != null ->
+                                stringResource(R.string.settings_account_signed_in_as, signedInEmail)
+                            storageMode == StorageMode.CLOUD ->
+                                stringResource(R.string.settings_account_cloud_subtitle)
+                            else -> stringResource(R.string.settings_account_offline_subtitle)
+                        },
+                        onClick = null,
+                        hasChevron = false,
+                    )
+                    if (storageMode == StorageMode.CLOUD && signedInEmail != null) {
+                        SettingsDivider()
+                        SettingRow(
+                            icon = Icons.AutoMirrored.Rounded.Logout,
+                            title = stringResource(R.string.settings_sign_out),
+                            subtitle = stringResource(R.string.settings_sign_out_subtitle),
+                            onClick = { showSignOutDialog = true },
+                        )
+                    }
+                }
+            }
+
             item { SettingSectionTitle(stringResource(R.string.settings_section_management)) }
             item {
                 SettingsGroup {
@@ -250,6 +293,34 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+
+    if (showSignOutDialog) {
+        AlertDialog(
+            onDismissRequest = { showSignOutDialog = false },
+            title = { Text(stringResource(R.string.settings_sign_out)) },
+            text = { Text(stringResource(R.string.settings_sign_out_confirm)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showSignOutDialog = false
+                        authViewModel.signOut {
+                            scope.launch {
+                                preferenceManager.resetAuthGateway()
+                                onShowMessage(context.getString(R.string.settings_signed_out))
+                            }
+                        }
+                    }
+                ) {
+                    Text(stringResource(R.string.settings_sign_out))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSignOutDialog = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
+        )
     }
 
     if (showThemeDialog) {
