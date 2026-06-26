@@ -78,7 +78,9 @@ import com.aus.ausgegeben.ui.components.recordListBottomPadding
 import com.aus.ausgegeben.ui.theme.AppLayoutTokens
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
-import com.aus.ausgegeben.ui.theme.TransferGray
+import com.aus.ausgegeben.ui.theme.financeTransferColor
+import com.aus.ausgegeben.ui.theme.inputFocusedBorderColor
+import com.aus.ausgegeben.ui.theme.inputUnfocusedBorderColor
 import com.aus.ausgegeben.ui.theme.financeExpenseColor
 import com.aus.ausgegeben.ui.theme.financeIncomeColor
 import com.aus.ausgegeben.ui.theme.forChartDisplay
@@ -450,10 +452,11 @@ private fun RecordSearchBar(
         shape = RoundedCornerShape(AppRadius.md),
         textStyle = MaterialTheme.typography.bodyMedium,
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = Color.Transparent,
-            unfocusedBorderColor = Color.Transparent,
-            focusedContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
-            unfocusedContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+            focusedBorderColor = inputFocusedBorderColor(),
+            unfocusedBorderColor = inputUnfocusedBorderColor(),
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
+            cursorColor = inputFocusedBorderColor(),
         )
     )
 }
@@ -667,7 +670,7 @@ fun TransactionRow(
     val expenseColor = financeExpenseColor()
     val amountColor = when {
         expense.isIncome() -> incomeColor
-        expense.isTransfer() -> TransferGray
+        expense.isTransfer() -> financeTransferColor()
         else -> expenseColor
     }
     val fillColor = categoryColor?.let { colorIntToCompose(it).forChartDisplay() }

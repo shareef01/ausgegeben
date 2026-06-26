@@ -32,6 +32,7 @@ import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.Route
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
+import com.aus.ausgegeben.ui.theme.navigationInactiveColor
 
 val MainBottomBarHeight = 68.dp
 
@@ -99,7 +100,7 @@ private fun MainBottomBarItem(
     val contentColor = if (selected) {
         MaterialTheme.colorScheme.onBackground
     } else {
-        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f)
+        navigationInactiveColor()
     }
     val interactionSource = remember { MutableInteractionSource() }
 

@@ -19,8 +19,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
-import com.aus.ausgegeben.ui.theme.ExpenseMuted
-import com.aus.ausgegeben.ui.theme.IncomeGreen
+import com.aus.ausgegeben.ui.theme.financeExpenseColor
+import com.aus.ausgegeben.ui.theme.financeIncomeColor
 
 @Composable
 fun BudgetProgressBar(
@@ -33,7 +33,9 @@ fun BudgetProgressBar(
     val ratio = (spent / budget).toFloat().coerceIn(0f, 1.5f)
     val displayRatio = ratio.coerceAtMost(1f)
     val overBudget = spent > budget
-    val barColor = if (overBudget) ExpenseMuted else IncomeGreen
+    val incomeColor = financeIncomeColor()
+    val expenseColor = financeExpenseColor()
+    val barColor = if (overBudget) expenseColor else incomeColor
     val trackShape = RoundedCornerShape(AppRadius.pill)
 
     Column(
@@ -60,7 +62,7 @@ fun BudgetProgressBar(
                     com.aus.ausgegeben.util.CurrencyUtils.formatAmount(budget, currencyCode)
                 ),
                 size = MoneySize.Body,
-                color = if (overBudget) ExpenseMuted else MaterialTheme.colorScheme.onBackground
+                color = if (overBudget) expenseColor else MaterialTheme.colorScheme.onBackground
             )
         }
         Spacer(modifier = Modifier.height(AppSpacing.sm))
@@ -86,7 +88,7 @@ fun BudgetProgressBar(
                     com.aus.ausgegeben.util.CurrencyUtils.formatAmount(spent - budget, currencyCode)
                 ),
                 style = MaterialTheme.typography.bodySmall,
-                color = ExpenseMuted,
+                color = expenseColor,
                 modifier = Modifier.padding(top = AppSpacing.xs)
             )
         }

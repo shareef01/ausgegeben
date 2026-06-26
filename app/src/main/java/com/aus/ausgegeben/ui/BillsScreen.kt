@@ -57,7 +57,6 @@ import com.aus.ausgegeben.ui.components.tabScreenListBottomPadding
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.SystemViolet
-import com.aus.ausgegeben.ui.theme.TransferGray
 import com.aus.ausgegeben.ui.theme.forChartDisplay
 import com.aus.ausgegeben.ui.theme.financeExpenseColor
 import com.aus.ausgegeben.ui.theme.financeIncomeColor
