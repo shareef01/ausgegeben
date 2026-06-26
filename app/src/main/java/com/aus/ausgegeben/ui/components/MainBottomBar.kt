@@ -1,8 +1,8 @@
 package com.aus.ausgegeben.ui.components
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -18,22 +18,20 @@ import androidx.compose.material.icons.rounded.Analytics
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.Route
-import com.aus.ausgegeben.ui.theme.AppColorSpring
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
-import com.aus.ausgegeben.ui.theme.AppSpringSnappy
 
 val MainBottomBarHeight = 68.dp
 
@@ -49,23 +47,16 @@ fun MainBottomBar(
     onNavigate: (Route) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val destinations = listOf(
-        NavDestination(
-            route = Route.ExpenseList,
-            icon = Icons.AutoMirrored.Rounded.ReceiptLong,
-            label = stringResource(R.string.nav_record),
-        ),
-        NavDestination(
-            route = Route.CategoryManagement,
-            icon = Icons.Rounded.Analytics,
-            label = stringResource(R.string.nav_bills),
-        ),
-        NavDestination(
-            route = Route.Settings,
-            icon = Icons.Rounded.Settings,
-            label = stringResource(R.string.nav_settings),
-        ),
-    )
+    val recordLabel = stringResource(R.string.nav_record)
+    val billsLabel = stringResource(R.string.nav_bills)
+    val settingsLabel = stringResource(R.string.nav_settings)
+    val destinations = remember(recordLabel, billsLabel, settingsLabel) {
+        listOf(
+            NavDestination(Route.ExpenseList, Icons.AutoMirrored.Rounded.ReceiptLong, recordLabel),
+            NavDestination(Route.CategoryManagement, Icons.Rounded.Analytics, billsLabel),
+            NavDestination(Route.Settings, Icons.Rounded.Settings, settingsLabel),
+        )
+    }
 
     Row(
         modifier = modifier
@@ -100,42 +91,33 @@ private fun MainBottomBarItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val iconScale by animateFloatAsState(
-        targetValue = if (selected) 1f else 0.94f,
-        animationSpec = AppSpringSnappy,
-        label = "bottomIconScale"
-    )
-    val containerColor by animateColorAsState(
-        targetValue = if (selected) {
-            MaterialTheme.colorScheme.onBackground.copy(alpha = 0.09f)
-        } else {
-            Color.Transparent
-        },
-        animationSpec = AppColorSpring,
-        label = "bottomItemContainer"
-    )
-    val contentColor by animateColorAsState(
-        targetValue = if (selected) {
-            MaterialTheme.colorScheme.onBackground
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f)
-        },
-        animationSpec = AppColorSpring,
-        label = "bottomItemContent"
-    )
+    val containerColor = if (selected) {
+        MaterialTheme.colorScheme.onBackground.copy(alpha = 0.09f)
+    } else {
+        Color.Transparent
+    }
+    val contentColor = if (selected) {
+        MaterialTheme.colorScheme.onBackground
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f)
+    }
+    val interactionSource = remember { MutableInteractionSource() }
 
     Box(
         modifier = modifier
             .height(56.dp)
             .clip(RoundedCornerShape(AppRadius.pill))
-            .smoothClickable(onClick = onClick)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = ripple(bounded = true, radius = 28.dp),
+                onClick = onClick,
+            )
             .padding(vertical = AppSpacing.xs),
         contentAlignment = Alignment.Center,
     ) {
         Box(
             modifier = Modifier
                 .size(50.dp)
-                .scale(iconScale)
                 .clip(CircleShape)
                 .background(containerColor),
             contentAlignment = Alignment.Center,

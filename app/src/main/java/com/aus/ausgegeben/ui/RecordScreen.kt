@@ -111,7 +111,7 @@ fun RecordScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val lazyExpenses = viewModel.pagedExpenses.collectAsLazyPagingItems()
-    val snapshotVersion = lazyExpenses.itemSnapshotList.size
+    val dayTotalsByLabel = uiState.dayTotalsByLabel
     val allMonthExpenses = uiState.monthExpenses
     val categories = uiState.categories
     val categoryById = remember(categories) { categories.associateBy { it.id } }
@@ -137,15 +137,6 @@ fun RecordScreen(
             )
         }
 
-    val dayTotalsByLabel = remember(snapshotVersion) {
-        lazyExpenses.itemSnapshotList.items
-            .groupBy { dateFormat.format(Date(localDayStartMillis(it.dateMillis))) }
-            .mapValues { (_, dayItems) ->
-                val billable = dayItems.filter { !it.isTransfer() }
-                billable.filter { it.isIncome() }.sumOf { it.amount } to
-                    billable.filter { it.isExpense() }.sumOf { it.amount }
-            }
-    }
     val hasActiveFilter = uiState.searchQuery.isNotBlank()
     val isListLoading = lazyExpenses.loadState.refresh is LoadState.Loading
     val isListError = lazyExpenses.loadState.refresh is LoadState.Error
@@ -247,6 +238,7 @@ fun RecordScreen(
                 items(
                     count = lazyExpenses.itemCount,
                     key = lazyExpenses.itemKey { it.id },
+                    contentType = { "transaction" },
                 ) { index ->
                     val expense = lazyExpenses[index] ?: return@items
                     val dateLabel = dateFormat.format(Date(localDayStartMillis(expense.dateMillis)))
@@ -531,11 +523,18 @@ fun RecordHeader(
     insightLine: String? = null,
     compact: Boolean = false
 ) {
-    val billable = expenses.filter { !it.isTransfer() }
-    val totalExpense = billable.filter { it.isExpense() }.sumOf { it.amount }
-    val totalIncome = billable.filter { it.isIncome() }.sumOf { it.amount }
-    val transferCount = expenses.count { it.isTransfer() }
-    val transferTotal = expenses.filter { it.isTransfer() }.sumOf { it.amount }
+    val totals = remember(expenses) {
+        val billable = expenses.filter { !it.isTransfer() }
+        Triple(
+            billable.filter { it.isExpense() }.sumOf { it.amount },
+            billable.filter { it.isIncome() }.sumOf { it.amount },
+            expenses.count { it.isTransfer() } to expenses.filter { it.isTransfer() }.sumOf { it.amount },
+        )
+    }
+    val totalExpense = totals.first
+    val totalIncome = totals.second
+    val transferCount = totals.third.first
+    val transferTotal = totals.third.second
     val net = totalIncome - totalExpense
 
     FinanceSummaryCard(
@@ -548,6 +547,7 @@ fun RecordHeader(
         periodLabel = periodLabel,
         insightLine = insightLine,
         compact = compact,
+        animateChanges = !compact,
         modifier = Modifier.padding(bottom = 4.dp)
     )
 }
