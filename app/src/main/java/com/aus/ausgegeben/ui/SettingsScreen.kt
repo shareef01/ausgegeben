@@ -38,7 +38,6 @@ import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.SupportAgent
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Button
@@ -77,11 +76,14 @@ import com.aus.ausgegeben.data.cloud.CloudSyncRepository
 import com.aus.ausgegeben.data.cloud.FirebaseConfigHelper
 import com.aus.ausgegeben.data.cloud.mapCloudSyncError
 import com.aus.ausgegeben.notification.ReminderScheduler
+import com.aus.ausgegeben.ui.components.AppAlertDialog
 import com.aus.ausgegeben.ui.components.GroupedSection
 import com.aus.ausgegeben.ui.components.GroupedSectionLabel
 import com.aus.ausgegeben.ui.components.ScreenTitle
 import com.aus.ausgegeben.ui.components.tabScreenListBottomPadding
+import com.aus.ausgegeben.ui.theme.AppGradientAlpha
 import com.aus.ausgegeben.ui.theme.AppLayoutTokens
+import com.aus.ausgegeben.ui.theme.AppListItem
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.ThemeMode
@@ -325,7 +327,7 @@ fun SettingsScreen(
     }
 
     if (showSignOutDialog) {
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showSignOutDialog = false },
             title = { Text(stringResource(R.string.settings_sign_out)) },
             text = { Text(stringResource(R.string.settings_sign_out_confirm)) },
@@ -353,7 +355,7 @@ fun SettingsScreen(
     }
 
     if (showThemeDialog) {
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showThemeDialog = false },
             title = { Text(stringResource(R.string.settings_choose_theme)) },
             text = {
@@ -381,7 +383,7 @@ fun SettingsScreen(
     }
 
     if (showCurrencyDialog) {
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showCurrencyDialog = false },
             title = { Text(stringResource(R.string.settings_choose_currency)) },
             text = {
@@ -408,7 +410,7 @@ fun SettingsScreen(
     }
 
     if (showReminderTimeDialog) {
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showReminderTimeDialog = false },
             title = { Text(stringResource(R.string.settings_reminder_time)) },
             text = {
@@ -443,7 +445,7 @@ fun SettingsScreen(
         var budgetInput by remember(monthlyBudget) {
             mutableStateOf(monthlyBudget?.let { CurrencyUtils.formatAmountForInput(it) } ?: "")
         }
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showBudgetDialog = false },
             title = { Text(stringResource(R.string.settings_budget_dialog_title)) },
             text = {
@@ -499,7 +501,7 @@ private fun ThemeOption(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 3.dp)
+            .padding(vertical = AppListItem.selectionOuterVertical)
             .clip(RoundedCornerShape(AppRadius.xl))
             .background(
                 if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
@@ -512,7 +514,7 @@ private fun ThemeOption(
                 shape = RoundedCornerShape(AppRadius.xl)
             )
             .clickable(onClick = onClick)
-            .padding(vertical = AppSpacing.sm, horizontal = AppSpacing.sm),
+            .padding(vertical = AppListItem.selectionInnerVertical, horizontal = AppSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm)
     ) {
@@ -581,7 +583,7 @@ private fun AccountSignInCard(onSignIn: () -> Unit) {
                 .background(
                     Brush.linearGradient(
                         listOf(
-                            incomeColor.copy(alpha = 0.12f),
+                            incomeColor.copy(alpha = AppGradientAlpha.incomeSubtle),
                             MaterialTheme.colorScheme.surface,
                         ),
                     ),
@@ -674,9 +676,9 @@ private fun AccountProfileCard(
                 .background(
                     Brush.linearGradient(
                         listOf(
-                            incomeColor.copy(alpha = 0.14f),
+                            incomeColor.copy(alpha = AppGradientAlpha.incomeSoft),
                             MaterialTheme.colorScheme.surface,
-                            expenseColor.copy(alpha = 0.1f),
+                            expenseColor.copy(alpha = AppGradientAlpha.expenseSoft),
                         ),
                     ),
                 ),
@@ -806,9 +808,9 @@ private fun SettingsHeroHeader() {
                 .background(
                     Brush.linearGradient(
                         listOf(
-                            incomeColor.copy(alpha = 0.16f),
+                            incomeColor.copy(alpha = AppGradientAlpha.incomeMedium),
                             MaterialTheme.colorScheme.surface,
-                            expenseColor.copy(alpha = 0.12f),
+                            expenseColor.copy(alpha = AppGradientAlpha.expenseMedium),
                         )
                     )
                 )
@@ -884,7 +886,7 @@ fun SettingSwitchRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm),
+            .padding(horizontal = AppSpacing.md, vertical = AppListItem.rowVertical),
         verticalAlignment = Alignment.CenterVertically
     ) {
         SettingIconWell(icon = icon, contentDescription = title)
@@ -927,7 +929,7 @@ fun SettingRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(enabled = onClick != null) { onClick?.invoke() }
-            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm + AppSpacing.xxs),
+            .padding(horizontal = AppSpacing.md, vertical = AppListItem.rowVertical),
         verticalAlignment = Alignment.CenterVertically
     ) {
         SettingIconWell(icon = icon, contentDescription = title)

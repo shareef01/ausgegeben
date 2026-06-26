@@ -57,6 +57,8 @@ val AccentCoralSoft = Color(0xFFE8C8C8)
 val AccentRed = AppColors.Expense
 
 val IncomeGreen = AppColors.Income
+/** Light-mode income text — darkened for WCAG AA on pale income chips & gradients */
+val IncomeGreenLight = Color(0xFF157A3A)
 val IncomeGreenSoft = Color(0xFFB5D4C8)
 val ExpenseMuted = AppColors.Expense
 val ExpenseSoft = Color(0xFFE0BCBC)

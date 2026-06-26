@@ -28,7 +28,7 @@ fun navigationInactiveColor(): Color = MaterialTheme.colorScheme.onSurfaceVarian
 
 @Composable
 fun financeIncomeColor(): Color {
-    if (!isAppDarkTheme()) return IncomeGreen
+    if (!isAppDarkTheme()) return IncomeGreenLight
     val primary = MaterialTheme.colorScheme.primary
     return if (primary.luminance() > 0.82f) IncomeGreen else primary
 }

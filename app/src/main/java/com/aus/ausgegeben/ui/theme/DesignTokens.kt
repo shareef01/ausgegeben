@@ -1,5 +1,6 @@
 package com.aus.ausgegeben.ui.theme
 
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 object AppSpacing {
@@ -33,6 +34,39 @@ object AppElevation {
     /** User spec: 1px solid rgba(255,255,255,0.08) */
     val cardBorder = 1.dp
     val glassBorder = 1.dp
+    /** Premium diffuse shadow for dropdowns / popovers */
+    val popup = 10.dp
+    /** Elevated modal sheets */
+    val modal = 16.dp
+}
+
+/** Light-mode popup shadow — soft diffuse (matches CSS box-shadow spec) */
+object AppShadowColor {
+    val ambientLight = Color(0x0D000000) // rgba(0,0,0,0.05)
+    val spotLight = Color(0x03000000) // rgba(0,0,0,0.01)
+    val modalBorderLight = Color(0x0D000000) // rgba(0,0,0,0.05)
+    val ambientDark = Color(0x59000000)
+    val spotDark = Color(0x40000000)
+}
+
+/** Frosted-glass gradient stop alphas for hero cards */
+object AppGradientAlpha {
+    val incomeSoft = 0.08f
+    val expenseSoft = 0.06f
+    val incomeMedium = 0.09f
+    val expenseMedium = 0.07f
+    val incomeSubtle = 0.07f
+}
+
+object AppListItem {
+    /** Settings rows & modal selection items */
+    val rowVertical = 16.dp
+    val selectionOuterVertical = 8.dp
+    val selectionInnerVertical = 16.dp
+}
+
+object AppProgressBar {
+    val flowBalanceHeight = 5.dp
 }
 
 object AppLayoutTokens {

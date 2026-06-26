@@ -25,6 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -221,6 +222,18 @@ private fun DrawScope.drawCashFlowLine(
         moveTo(partial.first().x, partial.first().y)
         partial.drop(1).forEach { lineTo(it.x, it.y) }
     }
+
+    // Faint dashed connector so trajectory reads instantly between points
+    drawPath(
+        path = linePath,
+        color = color.copy(alpha = 0.22f * fraction),
+        style = Stroke(
+            width = 1.5.dp.toPx(),
+            cap = StrokeCap.Round,
+            pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 5.dp.toPx())),
+        ),
+    )
+
     drawPath(
         path = linePath,
         color = color.copy(alpha = 0.22f * fraction),
@@ -231,9 +244,19 @@ private fun DrawScope.drawCashFlowLine(
         color = color.copy(alpha = fraction),
         style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round),
     )
-    val endpoint = partial.last()
-    drawCircle(color = color.copy(alpha = 0.28f * fraction), radius = 9.dp.toPx() * fraction, center = endpoint)
-    drawCircle(color = color.copy(alpha = fraction), radius = 4.dp.toPx() * fraction, center = endpoint)
+
+    partial.forEach { point ->
+        drawCircle(
+            color = color.copy(alpha = 0.18f * fraction),
+            radius = 6.dp.toPx() * fraction,
+            center = point,
+        )
+        drawCircle(
+            color = color.copy(alpha = fraction),
+            radius = 3.dp.toPx() * fraction,
+            center = point,
+        )
+    }
 }
 
 private fun buildPartialPolyline(coords: List<Offset>, fraction: Float): List<Offset> {
