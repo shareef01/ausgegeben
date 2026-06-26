@@ -289,9 +289,29 @@ fun AddTransactionScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.background)
+                .clip(RoundedCornerShape(topStart = AppRadius.xl, topEnd = AppRadius.xl))
+                .background(surfaceColor)
                 .navigationBarsPadding()
         ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = AppSpacing.xs),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(34.dp)
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(AppRadius.pill))
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+                )
+            }
+            HorizontalDivider(
+                modifier = Modifier.padding(top = AppSpacing.xs),
+                thickness = 0.5.dp,
+                color = appDividerColor()
+            )
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
