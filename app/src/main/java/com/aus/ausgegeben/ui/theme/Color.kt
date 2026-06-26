@@ -30,7 +30,10 @@ object AppColors {
 
     val OnBackground = Color(0xFFFAFAFA)
     val OnSurfaceVariant = Color(0xFF8E8E93)
-    val Transfer = Color(0xFFA1A1AA)
+    /** Dark-theme transfer amounts — matches secondary label contrast */
+    val Transfer = Color(0xFF94A3B8)
+    /** Light-theme transfer amounts — ≥4.5:1 on white */
+    val TransferLight = Color(0xFF52525B)
 }
 
 // ── Palette aliases ───────────────────────────────────────────────────────────
@@ -58,6 +61,7 @@ val IncomeGreenSoft = Color(0xFFB5D4C8)
 val ExpenseMuted = AppColors.Expense
 val ExpenseSoft = Color(0xFFE0BCBC)
 val TransferGray = AppColors.Transfer
+val TransferGrayLight = AppColors.TransferLight
 
 val SystemBlue = Color(0xFF7EB0E8)
 val SystemViolet = Color(0xFFA99AE0)
@@ -84,13 +88,16 @@ val OutlineLight = Color(0xFFE4E4E7)
 val GlassOverlayLight = Color(0xF5FFFFFF)
 val OnBackgroundLight = Color(0xFF09090B)
 val OnSurfaceLight = Color(0xFF09090B)
-val OnSurfaceVariantLight = Color(0xFF71717A)
+val OnSurfaceVariantLight = Color(0xFF52525B)
 
 val SurfaceBorderDark = AppColors.CardBorder
 val SurfaceBorderLight = Color(0x14000000)
 
 val BackgroundGlowCoral = BackgroundGlowWarm
 val BackgroundGlowBlue = BackgroundGlowCool
+
+/** Focus ring for inputs — ≥3:1 on dark and light surfaces */
+val FocusRing = Color(0xFF3B82F6)
 
 /** Chart ring stroke */
 val ChartStrokeWidth = 6.dp

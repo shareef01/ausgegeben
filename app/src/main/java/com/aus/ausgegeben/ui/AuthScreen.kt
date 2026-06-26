@@ -69,7 +69,10 @@ import com.aus.ausgegeben.ui.components.SmoothIconButton
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.financeExpenseColor
+import com.aus.ausgegeben.ui.theme.financeExpenseColor
 import com.aus.ausgegeben.ui.theme.financeIncomeColor
+import com.aus.ausgegeben.ui.theme.inputFocusedBorderColor
+import com.aus.ausgegeben.ui.theme.inputUnfocusedBorderColor
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
@@ -429,8 +432,12 @@ private fun AuthTextField(
         keyboardActions = keyboardActions,
         shape = RoundedCornerShape(AppRadius.md),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
-            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+            focusedBorderColor = inputFocusedBorderColor(),
+            unfocusedBorderColor = inputUnfocusedBorderColor(),
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f),
+            focusedLabelColor = inputFocusedBorderColor(),
+            cursorColor = inputFocusedBorderColor(),
         ),
     )
 }

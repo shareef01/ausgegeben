@@ -60,7 +60,7 @@ import com.aus.ausgegeben.ui.theme.AppColorSpring
 import com.aus.ausgegeben.ui.theme.AppIconSize
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
-import com.aus.ausgegeben.ui.theme.TransferGray
+import com.aus.ausgegeben.ui.theme.financeTransferColor
 import com.aus.ausgegeben.ui.theme.financeExpenseColor
 import com.aus.ausgegeben.ui.theme.financeIncomeColor
 import com.aus.ausgegeben.util.CurrencyUtils
@@ -129,7 +129,7 @@ fun AddTransactionScreen(
     val typeAccent by animateColorAsState(
         targetValue = when (transactionType) {
             TransactionType.INCOME -> incomeColor
-            TransactionType.TRANSFER -> TransferGray
+            TransactionType.TRANSFER -> financeTransferColor()
             else -> expenseColor
         },
         animationSpec = AppColorSpring,
@@ -138,7 +138,7 @@ fun AddTransactionScreen(
     val amountColor by animateColorAsState(
         targetValue = when (transactionType) {
             TransactionType.INCOME -> incomeColor
-            TransactionType.TRANSFER -> TransferGray
+            TransactionType.TRANSFER -> financeTransferColor()
             else -> MaterialTheme.colorScheme.onBackground
         },
         animationSpec = AppColorSpring,
@@ -233,7 +233,7 @@ fun AddTransactionScreen(
                 Text(
                     text = stringResource(R.string.add_category_label),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Normal
                 )
                 TextButton(onClick = { showManageSheet = true }) {
