@@ -1,0 +1,129 @@
+import { useMemo } from 'react';
+import { ScreenTitle, EmptyState, categoryIcon } from '@/components/ui';
+import { FinanceSummaryCard } from '@/components/FinanceSummaryCard';
+import { PremiumPeriodSelector, recordPeriodOptions } from '@/components/PeriodSelector';
+import { useRecordViewModel } from '@/viewmodels/useRecordViewModel';
+import { usePreferencesStore } from '@/services/preferencesStore';
+import { strings } from '@/i18n/en';
+import { formatDateLabel, formatTime } from '@/utils/periodUtils';
+import { dayKey } from '@/utils/periodUtils';
+import type { Expense, Category, TransactionTypeFilter, RecordListPeriod } from '@/models/types';
+import { colorIntToHex } from '@/utils/currency';
+import { formatAmount } from '@/utils/currency';
+
+interface RecordViewProps {
+  onAdd: () => void;
+  onEdit: (id: number) => void;
+}
+
+export function RecordView({ onAdd, onEdit }: RecordViewProps) {
+  const currency = usePreferencesStore((s) => s.currency);
+  const { uiState, setSearchQuery, setTypeFilter, setListPeriod, deleteExpense } = useRecordViewModel();
+  const periodOptions = recordPeriodOptions();
+  const periodLabel = uiState.listPeriod === 'this_month' ? strings.recordPeriodThisMonth : strings.recordPeriodAllTime;
+
+  const grouped = useMemo(() => groupByDay(uiState.expenses), [uiState.expenses]);
+  const catMap = useMemo(() => new Map(uiState.categories.map((c) => [c.id!, c])), [uiState.categories]);
+
+  return (
+    <div>
+      <ScreenTitle title={strings.screenRecord} />
+      <FinanceSummaryCard expenses={uiState.expenses} currency={currency} periodLabel={periodLabel} />
+
+      <div style={{ padding: '0 16px 8px', display: 'flex', gap: 8, alignItems: 'center' }}>
+        <PremiumPeriodSelector
+          options={periodOptions}
+          selected={periodOptions.find((p) => p.key === uiState.listPeriod)!}
+          labelFor={(p) => p.label}
+          isSelected={(a, b) => a.key === b.key}
+          onSelected={(p) => setListPeriod(p.key as RecordListPeriod)}
+        />
+        <input
+          placeholder={strings.recordSearchPlaceholder}
+          value={uiState.searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{
+            flex: 1,
+            padding: '10px 14px',
+            borderRadius: 12,
+            border: '1px solid var(--color-outline)',
+            background: 'var(--color-surface)',
+            color: 'var(--color-on-background)',
+          }}
+        />
+      </div>
+
+      <div className="chip-row">
+        {(['all', 'expense', 'income', 'transfer'] as TransactionTypeFilter[]).map((f) => (
+          <button key={f} type="button" className={`chip ${uiState.typeFilter === f ? 'active' : ''}`} onClick={() => setTypeFilter(f)}>
+            {filterLabel(f)}
+          </button>
+        ))}
+      </div>
+
+      {uiState.loading ? (
+        <p style={{ textAlign: 'center', color: 'var(--color-on-surface-variant)' }}>Loading…</p>
+      ) : uiState.expenses.length === 0 ? (
+        <EmptyState title={strings.recordEmptyTitle} subtitle={strings.recordEmptySubtitle} action={<button className="fab" style={{ position: 'static', margin: '16px auto' }} onClick={onAdd}>+</button>} />
+      ) : (
+        <div className="card" style={{ margin: '8px 16px' }}>
+          {grouped.map(([label, items]) => (
+            <section key={label}>
+              <div style={{ padding: '10px 16px', fontSize: '0.8125rem', color: 'var(--color-on-surface-variant)', background: 'var(--color-surface-variant)' }}>{label}</div>
+              {items.map((expense) => (
+                <TransactionRow
+                  key={expense.id}
+                  expense={expense}
+                  category={catMap.get(expense.categoryId)}
+                  currency={currency}
+                  onClick={() => onEdit(expense.id!)}
+                  onDelete={() => void deleteExpense(expense.id!)}
+                />
+              ))}
+            </section>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TransactionRow({ expense, category, currency, onClick, onDelete }: { expense: Expense; category?: Category; currency: string; onClick: () => void; onDelete: () => void }) {
+  const color = category ? colorIntToHex(category.colorInt) : '#888';
+  const amountColor = expense.transactionType === 'income' ? 'var(--color-income)' : expense.transactionType === 'transfer' ? 'var(--color-transfer)' : 'var(--color-on-background)';
+  const prefix = expense.transactionType === 'income' ? '+' : expense.transactionType === 'expense' ? '-' : '';
+  return (
+    <div className="transaction-row" onClick={onClick} onKeyDown={(e) => e.key === 'Enter' && onClick()} role="button" tabIndex={0}>
+      <div className="transaction-row__icon" style={{ background: `color-mix(in srgb, ${color} 14%, transparent)` }}>
+        {category ? categoryIcon(category.iconName) : '•'}
+      </div>
+      <div className="transaction-row__meta">
+        <div className="transaction-row__title">{expense.note || category?.name || 'Transaction'}</div>
+        <div className="transaction-row__sub">{category?.name} · {formatTime(expense.dateMillis)}</div>
+      </div>
+      <div style={{ fontWeight: 500, color: amountColor, fontVariantNumeric: 'tabular-nums' }}>
+        {prefix}{formatAmount(expense.amount, currency)}
+      </div>
+      <button type="button" aria-label="Delete" onClick={(e) => { e.stopPropagation(); onDelete(); }} style={{ color: 'var(--color-error)', padding: 8 }}>✕</button>
+    </div>
+  );
+}
+
+function groupByDay(expenses: Expense[]): [string, Expense[]][] {
+  const map = new Map<string, Expense[]>();
+  for (const e of expenses) {
+    const key = dayKey(e.dateMillis);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(e);
+  }
+  return [...map.entries()].map(([, items]) => [formatDateLabel(items[0].dateMillis), items]);
+}
+
+function filterLabel(f: TransactionTypeFilter): string {
+  switch (f) {
+    case 'all': return strings.filterAll;
+    case 'expense': return strings.filterExpense;
+    case 'income': return strings.filterIncome;
+    case 'transfer': return strings.filterTransfer;
+  }
+}

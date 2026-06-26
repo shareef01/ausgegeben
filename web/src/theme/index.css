@@ -1,0 +1,10 @@
+@import './global.css';
+
+:root {
+  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --bottom-bar-height: 68px;
+  --fab-size: 60px;
+  --fab-clearance: 72px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
