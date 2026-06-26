@@ -402,6 +402,12 @@ private fun CompactCategoryRow(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)
             )
+            Spacer(modifier = Modifier.width(AppSpacing.sm))
+            MoneyText(
+                text = CurrencyUtils.formatAmount(amount, currencyCode, showSymbol = true),
+                size = MoneySize.Body,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
         }
         if (expanded) {
             Spacer(modifier = Modifier.height(AppSpacing.xs))
@@ -412,18 +418,11 @@ private fun CompactCategoryRow(
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(modifier = Modifier.width(AppSpacing.xs))
-                Column(horizontalAlignment = Alignment.End) {
-                    MoneyText(
-                        text = CurrencyUtils.formatAmount(amount, currencyCode, showSymbol = true),
-                        size = MoneySize.Body,
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
-                    Text(
-                        text = "$pct%",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                Text(
+                    text = "$pct%",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
