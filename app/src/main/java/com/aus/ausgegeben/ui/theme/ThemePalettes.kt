@@ -20,7 +20,7 @@ internal fun colorSchemeFor(mode: ThemeMode, systemDark: Boolean): ColorScheme {
 }
 
 private fun baseDarkScheme(
-    primary: Color = AppColors.Accent,
+    primary: Color = PremiumPalette.Accent,
     tertiary: Color = SystemViolet,
     background: Color = AppColors.Background,
     surface: Color = AppColors.CardSurface,

@@ -25,7 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
+import com.aus.ausgegeben.ui.theme.premiumGlassCard
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
@@ -41,6 +41,7 @@ import com.aus.ausgegeben.ui.theme.AppSpringSnappy
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.financeExpenseColor
 import com.aus.ausgegeben.ui.theme.financeIncomeColor
+import com.aus.ausgegeben.ui.theme.SecondaryLabelAlpha
 import com.aus.ausgegeben.util.CurrencyUtils
 
 @Composable
@@ -82,23 +83,9 @@ fun FinanceSummaryCard(
             .fillMaxWidth()
             .padding(horizontal = AppSpacing.md)
             .padding(bottom = if (compact) AppSpacing.xs else AppSpacing.sm)
-            .clip(RoundedCornerShape(AppRadius.xl))
-            .background(MaterialTheme.colorScheme.surface),
+            .premiumGlassCard(RoundedCornerShape(AppRadius.cardLarge)),
     ) {
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .background(
-                    Brush.linearGradient(
-                        listOf(
-                            incomeColor.copy(alpha = 0.14f),
-                            MaterialTheme.colorScheme.surface,
-                            expenseColor.copy(alpha = 0.10f),
-                        )
-                    )
-                )
-        )
-        Column(modifier = Modifier.padding(AppSpacing.md)) {
+        Column(modifier = Modifier.padding(AppSpacing.cardPadding)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -108,7 +95,7 @@ fun FinanceSummaryCard(
                 Text(
                     text = stringResource(R.string.summary_balance_period, periodLabel),
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = SecondaryLabelAlpha),
                     fontWeight = FontWeight.Normal,
                 )
                 MoneyText(

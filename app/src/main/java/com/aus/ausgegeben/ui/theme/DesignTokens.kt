@@ -10,6 +10,10 @@ object AppSpacing {
     val lg = 24.dp
     val xl = 32.dp
     val xxl = 40.dp
+
+    /** Standard internal card padding */
+    val cardPadding = 20.dp
+    val cardPaddingLarge = 24.dp
 }
 
 object AppIconSize {
@@ -19,20 +23,22 @@ object AppIconSize {
 }
 
 object AppRadius {
-    val xs = 4.dp
-    val card = 12.dp
-    val cardLarge = 16.dp
-    val sm = 6.dp
-    val md = 10.dp
-    val lg = 12.dp
-    val xl = 16.dp
+    val xs = 6.dp
+    val sm = 10.dp
+    val md = 14.dp
+    val lg = 16.dp
+    val xl = 20.dp
+    /** Primary card / input radius */
+    val card = 18.dp
+    val cardLarge = 20.dp
     val pill = 50.dp
 }
 
 object AppElevation {
-    /** User spec: 1px solid rgba(255,255,255,0.08) */
     val cardBorder = 1.dp
     val glassBorder = 1.dp
+    val fabDefault = 6.dp
+    val fabPressed = 10.dp
 }
 
 object AppLayoutTokens {

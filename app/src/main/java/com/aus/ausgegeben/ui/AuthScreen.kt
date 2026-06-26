@@ -38,8 +38,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -49,7 +47,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -68,8 +65,10 @@ import com.aus.ausgegeben.ui.components.IosSegmentedControl
 import com.aus.ausgegeben.ui.components.SmoothIconButton
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
-import com.aus.ausgegeben.ui.theme.financeExpenseColor
+import com.aus.ausgegeben.ui.theme.PremiumAuthTextField
+import com.aus.ausgegeben.ui.theme.PremiumOAuthButton
 import com.aus.ausgegeben.ui.theme.financeIncomeColor
+import com.aus.ausgegeben.ui.theme.PremiumPalette
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
@@ -83,7 +82,6 @@ fun AuthScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val expenseColor = financeExpenseColor()
     val incomeColor = financeIncomeColor()
     val webClientId = remember {
         val resId = context.resources.getIdentifier(
@@ -160,17 +158,14 @@ fun AuthScreen(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(
-                            Brush.linearGradient(
-                                listOf(
-                                    expenseColor.copy(alpha = 0.2f),
-                                    incomeColor.copy(alpha = 0.25f),
-                                ),
-                            ),
-                        ),
+                        .background(PremiumPalette.Accent.copy(alpha = 0.16f)),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("A", fontWeight = FontWeight.Bold, color = expenseColor)
+                    Text(
+                        "A",
+                        fontWeight = FontWeight.Bold,
+                        color = PremiumPalette.Accent,
+                    )
                 }
             }
         },
@@ -205,27 +200,19 @@ fun AuthScreen(
                     verticalArrangement = Arrangement.spacedBy(AppSpacing.sm),
                 ) {
                     if (googleSignInClient != null) {
-                        OutlinedButton(
+                        PremiumOAuthButton(
                             onClick = { googleLauncher.launch(googleSignInClient.signInIntent) },
                             enabled = !uiState.isLoading,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp),
-                            shape = RoundedCornerShape(AppRadius.pill),
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_google),
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp),
-                                tint = Color.Unspecified,
-                            )
-                            Spacer(modifier = Modifier.size(AppSpacing.sm))
-                            Text(
-                                text = stringResource(R.string.auth_continue_google),
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Medium,
-                            )
-                        }
+                            text = stringResource(R.string.auth_continue_google),
+                            icon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_google),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp),
+                                    tint = Color.Unspecified,
+                                )
+                            },
+                        )
                         AuthOrDivider()
                     }
 
@@ -240,7 +227,7 @@ fun AuthScreen(
                         },
                     )
 
-                    AuthTextField(
+                    PremiumAuthTextField(
                         value = uiState.email,
                         onValueChange = viewModel::onEmailChange,
                         label = stringResource(R.string.auth_email_label),
@@ -251,7 +238,7 @@ fun AuthScreen(
                         ),
                     )
 
-                    AuthTextField(
+                    PremiumAuthTextField(
                         value = uiState.password,
                         onValueChange = viewModel::onPasswordChange,
                         label = stringResource(R.string.auth_password_label),
@@ -291,7 +278,7 @@ fun AuthScreen(
                     )
 
                     if (uiState.selectedTab == AuthTab.SIGN_UP) {
-                        AuthTextField(
+                        PremiumAuthTextField(
                             value = uiState.confirmPassword,
                             onValueChange = viewModel::onConfirmPasswordChange,
                             label = stringResource(R.string.auth_confirm_password_label),
@@ -343,7 +330,11 @@ fun AuthScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(48.dp),
-                        shape = RoundedCornerShape(AppRadius.pill),
+                        shape = RoundedCornerShape(AppRadius.card),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PremiumPalette.Accent,
+                            contentColor = PremiumPalette.OnAccent,
+                        ),
                     ) {
                         if (uiState.isLoading) {
                             CircularProgressIndicator(
@@ -378,7 +369,7 @@ fun AuthScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp),
-                shape = RoundedCornerShape(AppRadius.pill),
+                shape = RoundedCornerShape(AppRadius.card),
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = MaterialTheme.colorScheme.onBackground,
                 ),
@@ -403,36 +394,6 @@ fun AuthScreen(
             )
         }
     }
-}
-
-@Composable
-private fun AuthTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    leading: @Composable (() -> Unit)? = null,
-    trailing: @Composable (() -> Unit)? = null,
-    visualTransformation: VisualTransformation = VisualTransformation.None,
-    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
-    keyboardActions: KeyboardActions = KeyboardActions.Default,
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = Modifier.fillMaxWidth(),
-        label = { Text(label) },
-        leadingIcon = leading,
-        trailingIcon = trailing,
-        singleLine = true,
-        visualTransformation = visualTransformation,
-        keyboardOptions = keyboardOptions,
-        keyboardActions = keyboardActions,
-        shape = RoundedCornerShape(AppRadius.md),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
-            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-        ),
-    )
 }
 
 @Composable

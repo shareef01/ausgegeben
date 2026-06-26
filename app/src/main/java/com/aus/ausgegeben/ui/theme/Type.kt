@@ -33,9 +33,9 @@ val Typography = Typography(
     headlineMedium = TextStyle(
         fontFamily = InterFontFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 24.sp,
-        lineHeight = 30.sp,
-        letterSpacing = (-0.4).sp
+        fontSize = 28.sp,
+        lineHeight = 34.sp,
+        letterSpacing = (-0.5).sp
     ),
     headlineSmall = TextStyle(
         fontFamily = InterFontFamily,
@@ -89,9 +89,9 @@ val Typography = Typography(
     labelLarge = TextStyle(
         fontFamily = InterFontFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
+        fontSize = 13.sp,
         lineHeight = 18.sp,
-        letterSpacing = 0.1.sp
+        letterSpacing = 0.2.sp
     ),
     labelMedium = TextStyle(
         fontFamily = InterFontFamily,

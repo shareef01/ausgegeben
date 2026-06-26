@@ -32,10 +32,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -51,26 +48,17 @@ import com.aus.ausgegeben.ui.theme.GroupedShape
 import com.aus.ausgegeben.ui.theme.SectionLabelStyle
 import com.aus.ausgegeben.ui.theme.appBorderColor
 import com.aus.ausgegeben.ui.theme.appDividerColor
-import com.aus.ausgegeben.ui.theme.financeExpenseColor
+import com.aus.ausgegeben.ui.theme.premiumGlassCard
 
 @Composable
 fun Modifier.appCard(
-    shape: Shape = GroupedShape,
+    shape: Shape = RoundedCornerShape(AppRadius.card),
     horizontalPadding: Dp = 0.dp,
-    bordered: Boolean = false,
+    bordered: Boolean = true,
 ): Modifier {
-    val surface = MaterialTheme.colorScheme.surface
     return this
         .then(if (horizontalPadding > 0.dp) Modifier.padding(horizontal = horizontalPadding) else Modifier)
-        .clip(shape)
-        .background(surface)
-        .then(
-            if (bordered) {
-                Modifier.border(AppElevation.cardBorder, appBorderColor(), shape)
-            } else {
-                Modifier
-            },
-        )
+        .premiumGlassCard(shape)
 }
 
 @Composable
@@ -86,17 +74,10 @@ fun ScreenTitle(
             .padding(top = AppSpacing.md, bottom = AppSpacing.sm),
     ) {
         Text(
-            text = buildAnnotatedString {
-                if (title.isNotEmpty()) {
-                    withStyle(SpanStyle(color = financeExpenseColor())) {
-                        append(title.first())
-                    }
-                    append(title.drop(1))
-                }
-            },
+            text = title,
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground,
-            fontWeight = FontWeight.Normal,
+            fontWeight = FontWeight.SemiBold,
             modifier = Modifier.semantics { heading() },
         )
         if (subtitle != null) {

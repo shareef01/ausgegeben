@@ -85,8 +85,10 @@ import com.aus.ausgegeben.ui.components.AppScreen
 import com.aus.ausgegeben.ui.components.CameraPermissionDenied
 import com.aus.ausgegeben.ui.components.MainBottomBar
 import com.aus.ausgegeben.ui.components.MainTabPager
+import com.aus.ausgegeben.ui.theme.AppElevation
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AusgegebenTheme
+import com.aus.ausgegeben.ui.theme.PremiumPalette
 import com.aus.ausgegeben.ui.theme.ThemeMode
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
@@ -306,11 +308,11 @@ fun MainApp(
                 ) {
                     FloatingActionButton(
                         onClick = ::openAddFlow,
-                        containerColor = MaterialTheme.colorScheme.onBackground,
-                        contentColor = MaterialTheme.colorScheme.background,
+                        containerColor = PremiumPalette.Accent,
+                        contentColor = PremiumPalette.OnAccent,
                         elevation = FloatingActionButtonDefaults.elevation(
-                            defaultElevation = 0.dp,
-                            pressedElevation = 2.dp,
+                            defaultElevation = AppElevation.fabDefault,
+                            pressedElevation = AppElevation.fabPressed,
                         ),
                         shape = CircleShape,
                         modifier = Modifier.size(52.dp),

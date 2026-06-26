@@ -76,11 +76,11 @@ fun IncomeExpenseOverviewChart(
         progress.animateTo(1f, AppChartRevealSpring)
     }
 
-    val cardShape = RoundedCornerShape(AppRadius.lg)
+    val cardShape = RoundedCornerShape(AppRadius.card)
     val chartSurface = MaterialTheme.colorScheme.surface
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
     val onBackground = MaterialTheme.colorScheme.onBackground
-    val chartTrack = appDividerColor().copy(alpha = 0.55f)
+    val chartTrack = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f)
     val expenseColor = financeExpenseColor()
     val incomeColor = financeIncomeColor()
     Column(
@@ -89,7 +89,7 @@ fun IncomeExpenseOverviewChart(
             .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs)
             .clip(cardShape)
             .appCard(shape = cardShape)
-            .padding(vertical = AppSpacing.md)
+            .padding(AppSpacing.cardPadding)
     ) {
         Text(
             text = stringResource(R.string.chart_overview_title),

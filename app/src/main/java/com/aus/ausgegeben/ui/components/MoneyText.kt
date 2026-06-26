@@ -42,7 +42,7 @@ fun MoneyText(
         MoneySize.Title -> MaterialTheme.typography.titleMedium
         MoneySize.Headline -> MaterialTheme.typography.headlineMedium.copy(fontSize = 26.sp, lineHeight = 30.sp)
         MoneySize.Display -> MaterialTheme.typography.displayLarge.copy(fontSize = 42.sp, lineHeight = 46.sp)
-        MoneySize.Hero -> MaterialTheme.typography.displayLarge.copy(fontSize = 50.sp, lineHeight = 54.sp)
+        MoneySize.Hero -> MaterialTheme.typography.displayLarge.copy(fontSize = 56.sp, lineHeight = 60.sp)
     }
     val weight = fontWeight ?: when (size) {
         MoneySize.Hero -> FontWeight.SemiBold
@@ -51,7 +51,7 @@ fun MoneyText(
         MoneySize.Body -> FontWeight.Medium
     }
     val letterSpacing = when (size) {
-        MoneySize.Hero -> (-1.35).sp
+        MoneySize.Hero -> (-1.5).sp
         MoneySize.Display -> (-1.1).sp
         MoneySize.Headline -> (-0.7).sp
         MoneySize.Title -> (-0.3).sp
