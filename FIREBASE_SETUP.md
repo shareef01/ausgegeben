@@ -15,12 +15,26 @@ Ausgegeben uses **Firebase Authentication** (email/password) and optional **Fire
 3. Download `google-services.json`
 4. Replace `app/google-services.json` with the downloaded file
 
-## 3. Enable Email/Password auth
+## 3. Enable sign-in methods
 
 1. **Build → Authentication → Get started**
-2. **Sign-in method → Email/Password → Enable**
+2. Enable **Email/Password**
+3. Enable **Google** and add your support email when prompted
 
-## 4. Build the Android app
+## 4. Enable Firestore
+
+1. **Build → Firestore Database → Create database**
+2. Start in **test mode** for development, then deploy rules from `firestore.rules`:
+   ```bash
+   firebase deploy --only firestore:rules
+   ```
+3. Data is stored per user at `users/{uid}/categories` and `users/{uid}/expenses`
+
+## 5. Google Sign-In on Android
+
+Your `google-services.json` must include a **Web client** OAuth entry (client_type 3). The Gradle plugin exposes it as `R.string.default_web_client_id`. Without it, the Google button is hidden.
+
+## 6. Build the Android app
 
 ```bash
 ./gradlew :app:assembleDebug

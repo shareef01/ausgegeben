@@ -15,6 +15,9 @@
     <string name="auth_sign_in">Sign in</string>
     <string name="auth_create_account">Create account</string>
     <string name="auth_or">or</string>
+    <string name="auth_continue_google">Continue with Google</string>
+    <string name="auth_forgot_password">Forgot password?</string>
+    <string name="auth_reset_email_sent">Password reset email sent. Check your inbox.</string>
     <string name="auth_continue_offline">Continue offline</string>
     <string name="auth_continue_offline_subtitle">Keep all data on this device only</string>
     <string name="auth_privacy_note">Offline mode stores everything locally. Cloud accounts use Firebase Authentication.</string>
@@ -115,6 +118,12 @@
     <string name="settings_sign_out_subtitle">Switch back to offline mode</string>
     <string name="settings_sign_out_confirm">Sign out and return to offline mode? Your local data will stay on this device.</string>
     <string name="settings_signed_out">Signed out. You are now in offline mode.</string>
+    <string name="settings_user_id">ID %1$s…</string>
+    <string name="settings_sync_now">Sync now</string>
+    <string name="settings_last_synced">Last synced %1$s</string>
+    <string name="settings_never_synced">Not synced yet — tap Sync now after sign-in</string>
+    <string name="settings_sync_success">Cloud sync complete</string>
+    <string name="settings_sync_failed">Cloud sync failed</string>
 
     <!-- Add transaction -->
     <string name="add_save_changes">Save changes</string>
