@@ -351,6 +351,11 @@ fun AuthScreen(
                                 strokeWidth = 2.dp,
                                 color = MaterialTheme.colorScheme.onPrimary,
                             )
+                            Spacer(modifier = Modifier.size(AppSpacing.sm))
+                            Text(
+                                text = uiState.loadingMessage.orEmpty(),
+                                fontWeight = FontWeight.Medium,
+                            )
                         } else {
                             Text(
                                 text = if (uiState.selectedTab == AuthTab.SIGN_IN) {
