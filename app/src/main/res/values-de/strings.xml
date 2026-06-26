@@ -2,6 +2,29 @@
     <string name="app_name">Ausgegeben</string>
     <string name="app_tagline">Ausgaben erfassen</string>
 
+    <string name="auth_tagline">Dein Geld, deine Wahl</string>
+    <string name="auth_headline">Willkommen zurück</string>
+    <string name="auth_subheadline">Anmelden zum Geräte-übergreifenden Sync — oder komplett offline bleiben.</string>
+    <string name="auth_tab_sign_in">Anmelden</string>
+    <string name="auth_tab_sign_up">Registrieren</string>
+    <string name="auth_email_label">E-Mail</string>
+    <string name="auth_password_label">Passwort</string>
+    <string name="auth_confirm_password_label">Passwort bestätigen</string>
+    <string name="auth_toggle_password">Passwort anzeigen</string>
+    <string name="auth_sign_in">Anmelden</string>
+    <string name="auth_create_account">Konto erstellen</string>
+    <string name="auth_or">oder</string>
+    <string name="auth_continue_offline">Offline fortfahren</string>
+    <string name="auth_continue_offline_subtitle">Alle Daten nur auf diesem Gerät</string>
+    <string name="auth_privacy_note">Offline-Modus speichert alles lokal. Cloud-Konten nutzen Firebase Authentication.</string>
+    <string name="auth_error_email_required">E-Mail-Adresse eingeben</string>
+    <string name="auth_error_password_short">Passwort muss mindestens 6 Zeichen haben</string>
+    <string name="auth_error_password_mismatch">Passwörter stimmen nicht überein</string>
+    <string name="auth_error_user_not_found">Kein Konto mit dieser E-Mail gefunden</string>
+    <string name="auth_error_invalid_credentials">E-Mail oder Passwort falsch</string>
+    <string name="auth_error_email_in_use">Diese E-Mail wird bereits verwendet</string>
+    <string name="auth_error_generic">Etwas ist schiefgelaufen. Bitte erneut versuchen.</string>
+
     <string name="nav_record">Erfassen</string>
     <string name="nav_bills">Auswertung</string>
     <string name="nav_settings">Einstellungen</string>
@@ -43,6 +66,7 @@
     <string name="bills_empty_subtitle">Erfasse Ausgaben oder Einnahmen für Diagramme</string>
 
     <string name="settings_section_appearance">Darstellung</string>
+    <string name="settings_section_account">Konto</string>
     <string name="settings_section_notifications">Benachrichtigungen</string>
     <string name="settings_section_budget">Budget</string>
     <string name="settings_section_management">Verwaltung</string>
@@ -74,6 +98,15 @@
     <string name="settings_budget_amount_label">Betrag (%1$s)</string>
     <string name="settings_budget_set">Monatslimit gesetzt</string>
     <string name="settings_budget_cleared">Monatslimit entfernt</string>
+    <string name="settings_account_cloud">Cloud-Konto</string>
+    <string name="settings_account_offline">Offline-Modus</string>
+    <string name="settings_account_signed_in_as">Angemeldet als %1$s</string>
+    <string name="settings_account_cloud_subtitle">Mit Firebase angemeldet</string>
+    <string name="settings_account_offline_subtitle">Daten bleiben nur auf diesem Gerät</string>
+    <string name="settings_sign_out">Abmelden</string>
+    <string name="settings_sign_out_subtitle">Zurück zum Offline-Modus</string>
+    <string name="settings_sign_out_confirm">Abmelden und Offline-Modus nutzen? Lokale Daten bleiben auf diesem Gerät.</string>
+    <string name="settings_signed_out">Abgemeldet. Du bist jetzt im Offline-Modus.</string>
 
     <string name="add_save_changes">Änderungen speichern</string>
     <string name="add_income">Einnahme hinzufügen</string>

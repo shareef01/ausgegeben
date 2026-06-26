@@ -63,10 +63,14 @@ import com.aus.ausgegeben.data.AppRepository
 import com.aus.ausgegeben.data.AusgegebenDatabase
 import com.aus.ausgegeben.data.DataSeeder
 import com.aus.ausgegeben.data.PreferenceManager
+import com.aus.ausgegeben.data.StorageMode
+import com.aus.ausgegeben.data.auth.AuthRepository
 import com.aus.ausgegeben.notification.NotificationHelper
 import com.aus.ausgegeben.notification.ReminderScheduler
 import com.aus.ausgegeben.ui.AddExpenseViewModel
 import com.aus.ausgegeben.ui.AddTransactionScreen
+import com.aus.ausgegeben.ui.AuthScreen
+import com.aus.ausgegeben.ui.AuthViewModel
 import com.aus.ausgegeben.ui.BillsScreen
 import com.aus.ausgegeben.ui.CameraScreen
 import com.aus.ausgegeben.ui.CategoryScreen
@@ -104,6 +108,7 @@ class MainActivity : ComponentActivity() {
                 )
             }
             val preferenceManager = remember { PreferenceManager(context) }
+            val authRepository = remember { AuthRepository() }
 
             val themeMode by preferenceManager.themeModeFlow.collectAsState(initial = ThemeMode.SYSTEM)
 
@@ -115,6 +120,7 @@ class MainActivity : ComponentActivity() {
                 MainApp(
                     repository = repository,
                     preferenceManager = preferenceManager,
+                    authRepository = authRepository,
                     openAddFromNotification = intent?.getBooleanExtra(
                         NotificationHelper.EXTRA_OPEN_ADD,
                         false
@@ -135,6 +141,7 @@ class MainActivity : ComponentActivity() {
 fun MainApp(
     repository: AppRepository,
     preferenceManager: PreferenceManager,
+    authRepository: AuthRepository,
     openAddFromNotification: Boolean = false
 ) {
     val context = LocalContext.current
@@ -146,6 +153,8 @@ fun MainApp(
     val currency by preferenceManager.currencyFlow.collectAsState(initial = "EUR")
     val dailyReminder by preferenceManager.dailyReminderFlow.collectAsState(initial = true)
     val onboardingComplete by preferenceManager.onboardingCompleteFlow.collectAsState(initial = false)
+    val authGatewayComplete by preferenceManager.authGatewayCompleteFlow.collectAsState(initial = false)
+    val storageMode by preferenceManager.storageModeFlow.collectAsState(initial = StorageMode.LOCAL)
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var pendingOpenAdd by remember { mutableStateOf(openAddFromNotification) }
@@ -189,6 +198,9 @@ fun MainApp(
     }
     val dashboardViewModel: DashboardViewModel = viewModel(activity) {
         DashboardViewModel(repository, preferenceManager)
+    }
+    val authViewModel: AuthViewModel = viewModel(activity) {
+        AuthViewModel(activity.application, authRepository, preferenceManager)
     }
 
     fun closeOverlay() {
@@ -238,6 +250,14 @@ fun MainApp(
                     ReminderScheduler.scheduleNext(context)
                 }
             }
+        )
+        return
+    }
+
+    if (!authGatewayComplete) {
+        AuthScreen(
+            viewModel = authViewModel,
+            onAuthenticated = { /* state flow updates automatically */ },
         )
         return
     }
@@ -359,6 +379,9 @@ fun MainApp(
                         SettingsScreen(
                             repository = repository,
                             preferenceManager = preferenceManager,
+                            authRepository = authRepository,
+                            authViewModel = authViewModel,
+                            storageMode = storageMode,
                             onNavigateToCategories = {
                                 overlayStack.clear()
                                 overlayStack.add(Route.CategoryList)
