@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.map
 import java.io.IOException
 import com.aus.ausgegeben.ui.theme.ThemeMode
 import com.aus.ausgegeben.util.AnalyticsPeriod
+import com.aus.ausgegeben.data.StorageMode
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
@@ -31,6 +32,8 @@ class PreferenceManager(private val context: Context) {
         val REMINDER_MINUTE = intPreferencesKey("reminder_minute")
         val ANALYTICS_PERIOD = stringPreferencesKey("analytics_period")
         val MONTHLY_BUDGET = stringPreferencesKey("monthly_budget")
+        val STORAGE_MODE = stringPreferencesKey("storage_mode")
+        val AUTH_GATEWAY_COMPLETE = booleanPreferencesKey("auth_gateway_complete")
     }
 
     val currencyFlow: Flow<String> = context.dataStore.data
@@ -118,6 +121,22 @@ class PreferenceManager(private val context: Context) {
             prefs[PreferencesKeys.MONTHLY_BUDGET]?.toDoubleOrNull()?.takeIf { it > 0 }
         }
 
+    val storageModeFlow: Flow<StorageMode> = context.dataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
+        }
+        .map { preferences ->
+            StorageMode.fromStorageKey(preferences[PreferencesKeys.STORAGE_MODE])
+        }
+
+    val authGatewayCompleteFlow: Flow<Boolean> = context.dataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
+        }
+        .map { preferences ->
+            preferences[PreferencesKeys.AUTH_GATEWAY_COMPLETE] ?: false
+        }
+
     suspend fun reminderTime(): Pair<Int, Int> {
         val prefs = context.dataStore.data.first()
         return (prefs[PreferencesKeys.REMINDER_HOUR] ?: 19) to (prefs[PreferencesKeys.REMINDER_MINUTE] ?: 0)
@@ -185,6 +204,24 @@ class PreferenceManager(private val context: Context) {
             } else {
                 preferences[PreferencesKeys.MONTHLY_BUDGET] = amount.toString()
             }
+        }
+    }
+
+    suspend fun setStorageMode(mode: StorageMode) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.STORAGE_MODE] = mode.storageKey
+        }
+    }
+
+    suspend fun setAuthGatewayComplete() {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.AUTH_GATEWAY_COMPLETE] = true
+        }
+    }
+
+    suspend fun resetAuthGateway() {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.AUTH_GATEWAY_COMPLETE] = false
         }
     }
 }
