@@ -81,6 +81,7 @@ import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.TransferGray
 import com.aus.ausgegeben.ui.theme.financeExpenseColor
 import com.aus.ausgegeben.ui.theme.financeIncomeColor
+import com.aus.ausgegeben.ui.theme.forChartDisplay
 import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.RecordListPeriod
@@ -669,7 +670,7 @@ fun TransactionRow(
         expense.isTransfer() -> TransferGray
         else -> expenseColor
     }
-    val fillColor = categoryColor?.let { colorIntToCompose(it) }
+    val fillColor = categoryColor?.let { colorIntToCompose(it).forChartDisplay() }
         ?: MaterialTheme.colorScheme.primary
 
     Row(
@@ -681,16 +682,16 @@ fun TransactionRow(
     ) {
         Box(
             modifier = Modifier
-                .size(38.dp)
+                .size(42.dp)
                 .clip(RoundedCornerShape(AppRadius.pill))
-                .background(fillColor.copy(alpha = 0.22f)),
+                .background(fillColor.copy(alpha = 0.14f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 icon,
                 contentDescription = categoryName,
                 tint = fillColor,
-                modifier = Modifier.size(19.dp),
+                modifier = Modifier.size(22.dp),
             )
         }
         Spacer(modifier = Modifier.width(AppSpacing.sm))

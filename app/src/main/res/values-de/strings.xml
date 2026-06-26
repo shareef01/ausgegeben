@@ -86,6 +86,7 @@
     <string name="add_type_income">Einnahme</string>
     <string name="add_type_transfer">Umbuchung</string>
     <string name="add_category_label">KATEGORIE</string>
+    <string name="add_select_category">Kategorie wählen</string>
     <string name="add_manage">Verwalten</string>
     <string name="add_no_categories_title">Noch keine Kategorien</string>
     <string name="add_no_categories_subtitle">Tippe unten auf Neu oder Verwalten</string>
