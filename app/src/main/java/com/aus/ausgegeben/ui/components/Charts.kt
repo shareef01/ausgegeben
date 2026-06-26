@@ -80,7 +80,7 @@ fun IncomeExpenseOverviewChart(
     val chartSurface = MaterialTheme.colorScheme.surface
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
     val onBackground = MaterialTheme.colorScheme.onBackground
-    val chartTrack = appDividerColor()
+    val chartTrack = appDividerColor().copy(alpha = 0.55f)
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -127,6 +127,15 @@ fun IncomeExpenseOverviewChart(
                 val expenseSweep = ((expenseRatio * 360f) - gap).coerceAtLeast(0.5f) * reveal
                 if (expenseSweep > 0f) {
                     drawArc(
+                        color = ExpenseMuted.copy(alpha = 0.20f * reveal),
+                        startAngle = -90f + gap / 2f,
+                        sweepAngle = expenseSweep,
+                        useCenter = false,
+                        style = Stroke(width = strokePx * 1.7f, cap = StrokeCap.Round),
+                        size = arcBoxSize,
+                        topLeft = arcTopLeft
+                    )
+                    drawArc(
                         color = ExpenseMuted,
                         startAngle = -90f + gap / 2f,
                         sweepAngle = expenseSweep,
@@ -140,6 +149,15 @@ fun IncomeExpenseOverviewChart(
                 val incomeSweep = ((incomeRatio * 360f) - gap).coerceAtLeast(0.5f) * reveal
                 if (incomeSweep > 0f) {
                     val incomeStart = -90f + expenseRatio * 360f * reveal + gap / 2f
+                    drawArc(
+                        color = IncomeGreen.copy(alpha = 0.22f * reveal),
+                        startAngle = incomeStart,
+                        sweepAngle = incomeSweep,
+                        useCenter = false,
+                        style = Stroke(width = strokePx * 1.7f, cap = StrokeCap.Round),
+                        size = arcBoxSize,
+                        topLeft = arcTopLeft
+                    )
                     drawArc(
                         color = IncomeGreen,
                         startAngle = incomeStart,
@@ -256,7 +274,7 @@ fun DonutChart(
 ) {
     val total = data.values.sum()
     val sorted = data.entries.sortedByDescending { it.value }
-    val trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+    val trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.18f)
     val holeColor = MaterialTheme.colorScheme.surface
     val animationKey = remember(data) { data.entries.sortedBy { it.key }.hashCode() }
     val progress = remember { Animatable(0f) }
@@ -326,10 +344,20 @@ fun DonutChart(
                         val fullSweep =
                             ((value / total).toFloat() * 360f - gapDegrees).coerceAtLeast(0.5f)
                         val segmentReveal = ((reveal * sorted.size) - index).coerceIn(0f, 1f)
-                        val sweep = fullSweep * segmentReveal
-                        if (sweep <= 0f) return@forEachIndexed
                         val base = colors[name]?.forChartDisplay(index) ?: chartColorAt(index)
+                        val easedReveal = segmentReveal * segmentReveal * (3f - 2f * segmentReveal)
+                        val sweep = fullSweep * easedReveal
+                        if (sweep <= 0f) return@forEachIndexed
 
+                        drawArc(
+                            color = base.copy(alpha = 0.20f * easedReveal),
+                            startAngle = startAngle + gapDegrees / 2f,
+                            sweepAngle = sweep,
+                            useCenter = false,
+                            style = Stroke(width = strokePx * 1.75f, cap = StrokeCap.Round),
+                            size = arcBoxSize,
+                            topLeft = arcTopLeft
+                        )
                         drawArc(
                             color = base,
                             startAngle = startAngle + gapDegrees / 2f,
@@ -382,12 +410,12 @@ private fun AnimatedChartSegmentBar(
     progress: Float,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(3.dp)
+    val shape = RoundedCornerShape(AppRadius.pill)
     Row(
         modifier = modifier
-            .height(4.dp)
+            .height(7.dp)
             .clip(shape)
-            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.18f))
     ) {
         segments.forEach { (color, weight) ->
             if (weight > 0f) {
@@ -414,19 +442,19 @@ fun AnimatedCategoryBar(
         animationSpec = AppChartRevealSpring,
         label = "barFill"
     )
-    val trackShape = RoundedCornerShape(2.dp)
+    val trackShape = RoundedCornerShape(AppRadius.pill)
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(4.dp)
+            .height(6.dp)
             .clip(trackShape)
             .background(displayColor.copy(alpha = 0.12f))
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth(animatedRatio)
-                .height(4.dp)
+                .height(6.dp)
                 .clip(trackShape)
                 .background(displayColor)
         )
