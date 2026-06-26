@@ -109,6 +109,8 @@
     <string name="settings_account_signed_in_as">Signed in as %1$s</string>
     <string name="settings_account_cloud_subtitle">Signed in with Firebase</string>
     <string name="settings_account_offline_subtitle">Data stays on this device only</string>
+    <string name="settings_sign_in">Sign in / Create account</string>
+    <string name="settings_sign_in_subtitle">Back up and sync with Firebase</string>
     <string name="settings_sign_out">Sign out</string>
     <string name="settings_sign_out_subtitle">Switch back to offline mode</string>
     <string name="settings_sign_out_confirm">Sign out and return to offline mode? Your local data will stay on this device.</string>
