@@ -57,9 +57,9 @@ import com.aus.ausgegeben.ui.theme.AppColorSpring
 import com.aus.ausgegeben.ui.theme.AppIconSize
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
-import com.aus.ausgegeben.ui.theme.ExpenseMuted
-import com.aus.ausgegeben.ui.theme.IncomeGreen
 import com.aus.ausgegeben.ui.theme.TransferGray
+import com.aus.ausgegeben.ui.theme.financeExpenseColor
+import com.aus.ausgegeben.ui.theme.financeIncomeColor
 import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.colorIntToCompose
 import com.aus.ausgegeben.util.iconForCategory
@@ -121,18 +121,20 @@ fun AddTransactionScreen(
     BackHandler(onBack = onBack)
     val saveAccent = MaterialTheme.colorScheme.onBackground
     val saveContentColor = MaterialTheme.colorScheme.background
+    val incomeColor = financeIncomeColor()
+    val expenseColor = financeExpenseColor()
     val typeAccent by animateColorAsState(
         targetValue = when (transactionType) {
-            TransactionType.INCOME -> IncomeGreen
+            TransactionType.INCOME -> incomeColor
             TransactionType.TRANSFER -> TransferGray
-            else -> ExpenseMuted
+            else -> expenseColor
         },
         animationSpec = AppColorSpring,
         label = "typeAccent"
     )
     val amountColor by animateColorAsState(
         targetValue = when (transactionType) {
-            TransactionType.INCOME -> IncomeGreen
+            TransactionType.INCOME -> incomeColor
             TransactionType.TRANSFER -> TransferGray
             else -> MaterialTheme.colorScheme.onBackground
         },

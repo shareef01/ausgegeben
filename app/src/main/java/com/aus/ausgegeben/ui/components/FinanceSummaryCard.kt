@@ -25,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
@@ -38,8 +39,8 @@ import com.aus.ausgegeben.ui.theme.AppLayoutTokens
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpringSnappy
 import com.aus.ausgegeben.ui.theme.AppSpacing
-import com.aus.ausgegeben.ui.theme.ExpenseMuted
-import com.aus.ausgegeben.ui.theme.IncomeGreen
+import com.aus.ausgegeben.ui.theme.financeExpenseColor
+import com.aus.ausgegeben.ui.theme.financeIncomeColor
 import com.aus.ausgegeben.util.CurrencyUtils
 
 @Composable
@@ -55,9 +56,11 @@ fun FinanceSummaryCard(
     compact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    val incomeColor = financeIncomeColor()
+    val expenseColor = financeExpenseColor()
     val netColor = when {
-        net > 0 -> IncomeGreen
-        net < 0 -> ExpenseMuted
+        net > 0 -> incomeColor
+        net < 0 -> expenseColor
         else -> MaterialTheme.colorScheme.onBackground
     }
     val totalFlow = expenseTotal + incomeTotal
@@ -67,15 +70,28 @@ fun FinanceSummaryCard(
         label = "summaryIncomeRatio"
     )
 
-    Column(
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = AppSpacing.md)
             .padding(bottom = if (compact) AppSpacing.xs else AppSpacing.sm)
             .clip(RoundedCornerShape(AppRadius.xl))
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(AppSpacing.md),
+            .background(MaterialTheme.colorScheme.surface),
     ) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            incomeColor.copy(alpha = 0.14f),
+                            MaterialTheme.colorScheme.surface,
+                            expenseColor.copy(alpha = 0.10f),
+                        )
+                    )
+                )
+        )
+        Column(modifier = Modifier.padding(AppSpacing.md)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -84,12 +100,13 @@ fun FinanceSummaryCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = stringResource(R.string.summary_balance_period, periodLabel),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Normal,
                 )
                 MoneyText(
                     text = CurrencyUtils.formatAmount(net, currencyCode),
-                    size = if (compact) MoneySize.Display else MoneySize.Hero,
+                    size = MoneySize.Hero,
                     color = netColor,
                     fontWeight = FontWeight.SemiBold,
                     animateChanges = true,
@@ -106,6 +123,17 @@ fun FinanceSummaryCard(
             )
         }
 
+        Text(
+            text = when {
+                net > 0 -> stringResource(R.string.summary_earned)
+                net < 0 -> stringResource(R.string.summary_spent)
+                else -> stringResource(R.string.chart_net_label)
+            },
+            style = MaterialTheme.typography.labelSmall,
+            color = netColor.copy(alpha = 0.82f),
+            modifier = Modifier.padding(top = AppSpacing.xxs),
+        )
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -113,23 +141,23 @@ fun FinanceSummaryCard(
             horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm),
         ) {
             SummaryStat(
-                label = stringResource(R.string.summary_spent),
-                value = CurrencyUtils.formatAmount(expenseTotal, currencyCode),
-                color = ExpenseMuted,
+                label = stringResource(R.string.summary_earned),
+                value = CurrencyUtils.formatAmount(incomeTotal, currencyCode),
+                color = incomeColor,
                 modifier = Modifier.weight(1f),
             )
             SummaryStat(
-                label = stringResource(R.string.summary_earned),
-                value = CurrencyUtils.formatAmount(incomeTotal, currencyCode),
-                color = IncomeGreen,
+                label = stringResource(R.string.summary_spent),
+                value = CurrencyUtils.formatAmount(expenseTotal, currencyCode),
+                color = expenseColor,
                 modifier = Modifier.weight(1f),
             )
         }
 
         FlowBalanceBar(
             incomeRatio = incomeRatio,
-            expenseColor = ExpenseMuted,
-            incomeColor = IncomeGreen,
+            expenseColor = expenseColor,
+            incomeColor = incomeColor,
             modifier = Modifier.padding(top = AppSpacing.md),
         )
 
@@ -154,6 +182,7 @@ fun FinanceSummaryCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 modifier = Modifier.padding(top = AppSpacing.xs),
             )
+        }
         }
     }
 }
