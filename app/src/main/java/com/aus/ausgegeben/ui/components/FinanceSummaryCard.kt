@@ -92,6 +92,7 @@ fun FinanceSummaryCard(
                     size = if (compact) MoneySize.Display else MoneySize.Hero,
                     color = netColor,
                     fontWeight = FontWeight.SemiBold,
+                    animateChanges = true,
                     modifier = Modifier.padding(top = AppSpacing.xxs),
                 )
             }
@@ -189,6 +190,7 @@ private fun SummaryStat(
                 size = MoneySize.Body,
                 color = color,
                 fontWeight = FontWeight.Medium,
+                animateChanges = true,
                 modifier = Modifier.padding(top = 1.dp),
             )
         }
