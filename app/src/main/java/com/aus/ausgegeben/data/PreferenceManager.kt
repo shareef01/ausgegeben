@@ -169,8 +169,12 @@ class PreferenceManager(private val context: Context) {
     }
 
     suspend fun updateAnalyticsPeriod(period: AnalyticsPeriod) {
+        updateAnalyticsPeriodKey(period.storageKey)
+    }
+
+    suspend fun updateAnalyticsPeriodKey(storageKey: String) {
         context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.ANALYTICS_PERIOD] = period.storageKey
+            preferences[PreferencesKeys.ANALYTICS_PERIOD] = storageKey
         }
     }
 
