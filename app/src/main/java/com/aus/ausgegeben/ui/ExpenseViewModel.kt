@@ -81,8 +81,9 @@ class ExpenseViewModel(
     val pagedExpenses: Flow<PagingData<Expense>> = combine(
         _listPeriod,
         _debouncedSearch,
-        _typeFilter
-    ) { period, query, filter ->
+        _typeFilter,
+        repository.expensesRevision,
+    ) { period, query, filter, _ ->
         val (start, end) = when (period) {
             RecordListPeriod.ALL_TIME -> 0L to Long.MAX_VALUE
             RecordListPeriod.THIS_MONTH -> {

@@ -49,6 +49,11 @@ class AppRepository(
     // Expenses
     val allExpenses: Flow<List<Expense>> = expenseDao.getAllExpenses()
 
+    /** Emits a new value whenever expense rows change, used to invalidate paging. */
+    val expensesRevision: Flow<Int> = expenseDao.getAllExpenses()
+        .map { it.hashCode() }
+        .distinctUntilChanged()
+
     fun getExpensesInRange(startMillis: Long, endMillis: Long): Flow<List<Expense>> =
         expenseDao.getExpensesInRange(startMillis, endMillis)
 
