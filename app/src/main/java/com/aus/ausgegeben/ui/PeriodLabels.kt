@@ -28,6 +28,9 @@ fun ThemeMode.label(): String = when (this) {
     ThemeMode.AMOLED -> stringResource(R.string.theme_amoled)
     ThemeMode.MIDNIGHT -> stringResource(R.string.theme_midnight)
     ThemeMode.OCEAN -> stringResource(R.string.theme_ocean)
+    ThemeMode.FOREST -> stringResource(R.string.theme_forest)
+    ThemeMode.SUNSET -> stringResource(R.string.theme_sunset)
+    ThemeMode.LAVENDER -> stringResource(R.string.theme_lavender)
     ThemeMode.SOFT_LIGHT -> stringResource(R.string.theme_soft_light)
 }
 

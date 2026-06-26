@@ -142,11 +142,21 @@ fun WealthTrendChart(
 
             if (zeroY != null) {
                 drawLine(
-                    color = dividerColor,
+                    color = dividerColor.copy(alpha = 0.7f),
                     start = Offset(padX, zeroY),
                     end = Offset(padX + chartW, zeroY),
                     strokeWidth = 1.dp.toPx(),
                     pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 8f)),
+                )
+            }
+
+            repeat(3) { index ->
+                val y = padY + chartH * ((index + 1) / 4f)
+                drawLine(
+                    color = dividerColor.copy(alpha = 0.22f * reveal.value.coerceIn(0f, 1f)),
+                    start = Offset(padX, y),
+                    end = Offset(padX + chartW, y),
+                    strokeWidth = 1.dp.toPx(),
                 )
             }
 
@@ -162,8 +172,8 @@ fun WealthTrendChart(
                 close()
             }
 
-            val gradientTop = trendColor.copy(alpha = (if (isPositive) 0.32f else 0.24f) * revealT)
-            val gradientBottom = trendColor.copy(alpha = 0.02f)
+            val gradientTop = trendColor.copy(alpha = (if (isPositive) 0.46f else 0.36f) * revealT)
+            val gradientBottom = trendColor.copy(alpha = 0.035f)
 
             drawPath(
                 path = areaPath,
@@ -181,13 +191,13 @@ fun WealthTrendChart(
 
             drawPath(
                 path = linePath,
-                color = trendColor.copy(alpha = 0.22f * revealT),
-                style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round),
+                color = trendColor.copy(alpha = 0.26f * revealT),
+                style = Stroke(width = 9.dp.toPx(), cap = StrokeCap.Round),
             )
             drawPath(
                 path = linePath,
                 color = trendColor.copy(alpha = revealT),
-                style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round),
+                style = Stroke(width = 3.25.dp.toPx(), cap = StrokeCap.Round),
             )
 
             val endpoint = partial.last()
