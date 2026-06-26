@@ -60,7 +60,7 @@ interface ExpenseDao {
     suspend fun countByReceiptPath(path: String, excludeId: Long): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(expense: Expense)
+    suspend fun insert(expense: Expense): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(expenses: List<Expense>)

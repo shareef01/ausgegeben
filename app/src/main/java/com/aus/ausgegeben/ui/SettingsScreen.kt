@@ -42,6 +42,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -70,6 +71,7 @@ import com.aus.ausgegeben.data.AppRepository
 import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.data.StorageMode
 import com.aus.ausgegeben.data.auth.AuthRepository
+import com.aus.ausgegeben.data.cloud.CloudSyncRepository
 import com.aus.ausgegeben.notification.ReminderScheduler
 import com.aus.ausgegeben.ui.components.GroupedSection
 import com.aus.ausgegeben.ui.components.GroupedSectionLabel
@@ -86,6 +88,8 @@ import com.aus.ausgegeben.ui.theme.financeIncomeColor
 import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.ExportUtils
 import kotlinx.coroutines.launch
+import java.text.DateFormat
+import java.util.Date
 
 @Composable
 fun SettingsScreen(
@@ -93,6 +97,7 @@ fun SettingsScreen(
     preferenceManager: PreferenceManager,
     authRepository: AuthRepository,
     authViewModel: AuthViewModel,
+    cloudSyncRepository: CloudSyncRepository,
     storageMode: StorageMode,
     onNavigateToCategories: () -> Unit,
     onShowMessage: (String) -> Unit = {},
@@ -109,6 +114,7 @@ fun SettingsScreen(
     val reminderHour by preferenceManager.reminderHourFlow.collectAsState(initial = 19)
     val reminderMinute by preferenceManager.reminderMinuteFlow.collectAsState(initial = 0)
     val monthlyBudget by preferenceManager.monthlyBudgetFlow.collectAsState(initial = null)
+    val lastCloudSyncAt by preferenceManager.lastCloudSyncAtFlow.collectAsState(initial = null)
 
     var showThemeDialog by remember { mutableStateOf(false) }
     var showCurrencyDialog by remember { mutableStateOf(false) }
@@ -117,6 +123,15 @@ fun SettingsScreen(
     var showSignOutDialog by remember { mutableStateOf(false) }
 
     val signedInEmail = authRepository.currentUserEmail
+    val signedInName = authRepository.currentUserDisplayName
+    val signedInUserId = authRepository.currentUserId
+    val profileLabel = signedInName?.takeIf { it.isNotBlank() }
+        ?: signedInEmail?.substringBefore("@")
+        ?: stringResource(R.string.settings_account_cloud)
+
+    val lastSyncLabel = remember(lastCloudSyncAt) {
+        lastCloudSyncAt?.let { DateFormat.getDateTimeInstance().format(Date(it)) }
+    }
 
     val reminderTimeLabel = remember(reminderHour, reminderMinute) {
         String.format("%02d:%02d", reminderHour, reminderMinute)
@@ -203,40 +218,42 @@ fun SettingsScreen(
 
             item { SettingSectionTitle(stringResource(R.string.settings_section_account)) }
             item {
-                SettingsGroup {
-                    SettingRow(
-                        icon = if (storageMode == StorageMode.CLOUD) Icons.Rounded.CloudSync else Icons.Rounded.CloudOff,
-                        title = if (storageMode == StorageMode.CLOUD) {
-                            stringResource(R.string.settings_account_cloud)
-                        } else {
-                            stringResource(R.string.settings_account_offline)
+                if (storageMode == StorageMode.CLOUD && signedInUserId != null) {
+                    AccountProfileCard(
+                        displayName = profileLabel,
+                        email = signedInEmail,
+                        userId = signedInUserId,
+                        lastSyncedLabel = lastSyncLabel,
+                        onSyncNow = {
+                            scope.launch {
+                                cloudSyncRepository.fullSync().fold(
+                                    onSuccess = {
+                                        preferenceManager.setLastCloudSyncAt(System.currentTimeMillis())
+                                        onShowMessage(context.getString(R.string.settings_sync_success))
+                                    },
+                                    onFailure = {
+                                        onShowMessage(context.getString(R.string.settings_sync_failed))
+                                    },
+                                )
+                            }
                         },
-                        subtitle = when {
-                            storageMode == StorageMode.CLOUD && signedInEmail != null ->
-                                stringResource(R.string.settings_account_signed_in_as, signedInEmail)
-                            storageMode == StorageMode.CLOUD ->
-                                stringResource(R.string.settings_account_cloud_subtitle)
-                            else -> stringResource(R.string.settings_account_offline_subtitle)
-                        },
-                        onClick = null,
-                        hasChevron = false,
+                        onSignOut = { showSignOutDialog = true },
                     )
-                    if (storageMode == StorageMode.LOCAL) {
+                } else {
+                    SettingsGroup {
+                        SettingRow(
+                            icon = Icons.Rounded.CloudOff,
+                            title = stringResource(R.string.settings_account_offline),
+                            subtitle = stringResource(R.string.settings_account_offline_subtitle),
+                            onClick = null,
+                            hasChevron = false,
+                        )
                         SettingsDivider()
                         SettingRow(
                             icon = Icons.AutoMirrored.Rounded.Login,
                             title = stringResource(R.string.settings_sign_in),
                             subtitle = stringResource(R.string.settings_sign_in_subtitle),
                             onClick = onRequestSignIn,
-                        )
-                    }
-                    if (storageMode == StorageMode.CLOUD && signedInEmail != null) {
-                        SettingsDivider()
-                        SettingRow(
-                            icon = Icons.AutoMirrored.Rounded.Logout,
-                            title = stringResource(R.string.settings_sign_out),
-                            subtitle = stringResource(R.string.settings_sign_out_subtitle),
-                            onClick = { showSignOutDialog = true },
                         )
                     }
                 }
@@ -545,6 +562,119 @@ private fun ThemeMode.previewColors(): List<Color> = when (this) {
     ThemeMode.SUNSET -> listOf(Color(0xFF190B10), Color(0xFF3B1A23), Color(0xFFFF9F6E), Color(0xFFFFD166))
     ThemeMode.LAVENDER -> listOf(Color(0xFFFCFAFF), Color(0xFFF3EEFF), Color(0xFF7C3AED), Color(0xFFDB2777))
     ThemeMode.SOFT_LIGHT -> listOf(Color(0xFFFAF7F2), Color(0xFFF0E8DC), Color(0xFF7C5E44))
+}
+
+@Composable
+private fun AccountProfileCard(
+    displayName: String,
+    email: String?,
+    userId: String,
+    lastSyncedLabel: String?,
+    onSyncNow: () -> Unit,
+    onSignOut: () -> Unit,
+) {
+    val incomeColor = financeIncomeColor()
+    val expenseColor = financeExpenseColor()
+    val initial = displayName.firstOrNull()?.uppercaseChar()?.toString() ?: "A"
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs)
+            .clip(RoundedCornerShape(AppRadius.xl))
+            .background(MaterialTheme.colorScheme.surface)
+    ) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            incomeColor.copy(alpha = 0.14f),
+                            MaterialTheme.colorScheme.surface,
+                            expenseColor.copy(alpha = 0.1f),
+                        ),
+                    ),
+                ),
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(AppSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(AppSpacing.md),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(expenseColor.copy(alpha = 0.16f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = initial,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = expenseColor,
+                    )
+                }
+                Spacer(modifier = Modifier.width(AppSpacing.md))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = displayName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                    )
+                    if (!email.isNullOrBlank()) {
+                        Text(
+                            text = email,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
+                    }
+                    Text(
+                        text = stringResource(R.string.settings_user_id, userId.take(8)),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm),
+            ) {
+                OutlinedButton(
+                    onClick = onSyncNow,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(AppRadius.pill),
+                ) {
+                    Icon(Icons.Rounded.CloudSync, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(AppSpacing.xs))
+                    Text(stringResource(R.string.settings_sync_now))
+                }
+                OutlinedButton(
+                    onClick = onSignOut,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(AppRadius.pill),
+                ) {
+                    Icon(Icons.AutoMirrored.Rounded.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(AppSpacing.xs))
+                    Text(stringResource(R.string.settings_sign_out))
+                }
+            }
+
+            Text(
+                text = lastSyncedLabel?.let {
+                    stringResource(R.string.settings_last_synced, it)
+                } ?: stringResource(R.string.settings_never_synced),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }
 
 @Composable
