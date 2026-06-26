@@ -2,12 +2,16 @@ package com.aus.ausgegeben.ui.components
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -31,9 +35,9 @@ import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.theme.AppChartRevealSpring
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
-import com.aus.ausgegeben.ui.theme.ExpenseMuted
-import com.aus.ausgegeben.ui.theme.IncomeGreen
 import com.aus.ausgegeben.ui.theme.appDividerColor
+import com.aus.ausgegeben.ui.theme.financeExpenseColor
+import com.aus.ausgegeben.ui.theme.financeIncomeColor
 import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.WealthTrendPoint
 import kotlin.math.abs
@@ -51,7 +55,9 @@ fun WealthTrendChart(
     val start = points.first().cumulativeNet
     val delta = latest.cumulativeNet - start
     val isPositive = delta >= 0
-    val trendColor = if (isPositive) IncomeGreen else ExpenseMuted
+    val incomeColor = financeIncomeColor()
+    val expenseColor = financeExpenseColor()
+    val trendColor = if (isPositive) incomeColor else expenseColor
     val animationKey = remember(points) { points.map { it.bucketStartMillis }.hashCode() }
 
     val reveal = remember { Animatable(0f) }
@@ -72,46 +78,44 @@ fun WealthTrendChart(
             .padding(AppSpacing.md),
         verticalArrangement = Arrangement.spacedBy(AppSpacing.sm),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top,
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.xs)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(
                     text = stringResource(R.string.chart_wealth_trend_title),
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Normal,
+                    fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onBackground,
                 )
-                Text(
-                    text = stringResource(R.string.chart_wealth_trend_subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                MoneyText(
-                    text = CurrencyUtils.formatAmount(latest.cumulativeNet, currencyCode, showSymbol = true),
-                    size = MoneySize.Title,
-                    color = if (latest.cumulativeNet >= 0) IncomeGreen else ExpenseMuted,
-                )
-                Text(
+                TrendDeltaPill(
                     text = stringResource(
                         if (isPositive) R.string.chart_wealth_trend_delta_up
                         else R.string.chart_wealth_trend_delta_down,
                         CurrencyUtils.formatAmount(abs(delta), currencyCode, showSymbol = true),
                     ),
-                    style = MaterialTheme.typography.labelSmall,
                     color = trendColor,
                 )
             }
+            MoneyText(
+                text = CurrencyUtils.formatAmount(latest.cumulativeNet, currencyCode, showSymbol = true),
+                size = MoneySize.Headline,
+                color = if (latest.cumulativeNet >= 0) incomeColor else expenseColor,
+                animateChanges = true,
+            )
+            Text(
+                text = stringResource(R.string.chart_wealth_trend_subtitle),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(148.dp),
+                .height(136.dp),
         ) {
             val w = size.width
             val h = size.height
@@ -234,6 +238,31 @@ fun WealthTrendChart(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+@Composable
+private fun TrendDeltaPill(text: String, color: androidx.compose.ui.graphics.Color) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(AppRadius.pill))
+            .background(color.copy(alpha = 0.12f))
+            .padding(horizontal = AppSpacing.xs, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .clip(CircleShape)
+                .background(color)
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            color = color,
+            fontWeight = FontWeight.Medium,
+        )
     }
 }
 

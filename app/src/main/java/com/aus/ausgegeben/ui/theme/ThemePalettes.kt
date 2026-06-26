@@ -29,6 +29,7 @@ private fun baseDarkScheme(
     outline: Color = OutlineDark,
     outlineVariant: Color = OutlineVariantDark,
     onSurfaceVariant: Color = OnSurfaceVariantDark,
+    error: Color = AppColors.Expense,
 ): ColorScheme = darkColorScheme(
     primary = primary,
     onPrimary = AppColors.OnAccent,
@@ -46,7 +47,7 @@ private fun baseDarkScheme(
     onSurfaceVariant = onSurfaceVariant,
     outline = outline,
     outlineVariant = outlineVariant,
-    error = AppColors.Expense,
+    error = error,
     onError = OnErrorDark,
     errorContainer = ErrorContainerDark,
     onErrorContainer = OnErrorContainerDark
@@ -99,6 +100,7 @@ private val MidnightColorScheme = baseDarkScheme(
     outline = Color(0xFF2B3657),
     outlineVariant = Color(0xFF3D4B73),
     onSurfaceVariant = Color(0xFFAAB4CF),
+    error = Color(0xFFFF8A9A),
 )
 
 private val OceanColorScheme = baseDarkScheme(
@@ -111,6 +113,7 @@ private val OceanColorScheme = baseDarkScheme(
     outline = Color(0xFF24504B),
     outlineVariant = Color(0xFF346D66),
     onSurfaceVariant = Color(0xFFA0C7C1),
+    error = Color(0xFFFF8F80),
 )
 
 private val ForestColorScheme = baseDarkScheme(
@@ -123,6 +126,7 @@ private val ForestColorScheme = baseDarkScheme(
     outline = Color(0xFF2A5735),
     outlineVariant = Color(0xFF3D7449),
     onSurfaceVariant = Color(0xFFA7CFB0),
+    error = Color(0xFFF97373),
 )
 
 private val SunsetColorScheme = baseDarkScheme(
@@ -135,6 +139,7 @@ private val SunsetColorScheme = baseDarkScheme(
     outline = Color(0xFF6D3440),
     outlineVariant = Color(0xFF8F4652),
     onSurfaceVariant = Color(0xFFE6B2A8),
+    error = Color(0xFFFF6B6B),
 )
 
 private val LavenderColorScheme = lightColorScheme(
@@ -154,7 +159,7 @@ private val LavenderColorScheme = lightColorScheme(
     onSurfaceVariant = Color(0xFF6D6382),
     outline = Color(0xFFE2D8F4),
     outlineVariant = Color(0xFFD4C5EB),
-    error = AppColors.Expense,
+    error = Color(0xFFE11D48),
     onError = Color.White,
     errorContainer = Color(0xFFFCE7F3),
     onErrorContainer = Color(0xFF831843)
@@ -177,7 +182,7 @@ private val SoftLightColorScheme = lightColorScheme(
     onSurfaceVariant = Color(0xFF7B6D61),
     outline = Color(0xFFE0D5C8),
     outlineVariant = Color(0xFFD1C4B6),
-    error = AppColors.Expense,
+    error = Color(0xFFC2410C),
     onError = Color.White,
     errorContainer = Color(0xFFF5E8E8),
     onErrorContainer = Color(0xFF5C3A3A)

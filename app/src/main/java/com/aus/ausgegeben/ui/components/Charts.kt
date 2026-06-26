@@ -46,10 +46,10 @@ import com.aus.ausgegeben.ui.theme.AppChartRevealSpring
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.ChartStrokeWidth
-import com.aus.ausgegeben.ui.theme.ExpenseMuted
-import com.aus.ausgegeben.ui.theme.IncomeGreen
 import com.aus.ausgegeben.ui.theme.appDividerColor
 import com.aus.ausgegeben.ui.theme.chartColorAt
+import com.aus.ausgegeben.ui.theme.financeExpenseColor
+import com.aus.ausgegeben.ui.theme.financeIncomeColor
 import com.aus.ausgegeben.ui.theme.forChartDisplay
 import com.aus.ausgegeben.util.CurrencyUtils
 
@@ -81,6 +81,8 @@ fun IncomeExpenseOverviewChart(
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
     val onBackground = MaterialTheme.colorScheme.onBackground
     val chartTrack = appDividerColor().copy(alpha = 0.55f)
+    val expenseColor = financeExpenseColor()
+    val incomeColor = financeIncomeColor()
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -127,7 +129,7 @@ fun IncomeExpenseOverviewChart(
                 val expenseSweep = ((expenseRatio * 360f) - gap).coerceAtLeast(0.5f) * reveal
                 if (expenseSweep > 0f) {
                     drawArc(
-                        color = ExpenseMuted.copy(alpha = 0.20f * reveal),
+                        color = expenseColor.copy(alpha = 0.20f * reveal),
                         startAngle = -90f + gap / 2f,
                         sweepAngle = expenseSweep,
                         useCenter = false,
@@ -136,7 +138,7 @@ fun IncomeExpenseOverviewChart(
                         topLeft = arcTopLeft
                     )
                     drawArc(
-                        color = ExpenseMuted,
+                        color = expenseColor,
                         startAngle = -90f + gap / 2f,
                         sweepAngle = expenseSweep,
                         useCenter = false,
@@ -150,7 +152,7 @@ fun IncomeExpenseOverviewChart(
                 if (incomeSweep > 0f) {
                     val incomeStart = -90f + expenseRatio * 360f * reveal + gap / 2f
                     drawArc(
-                        color = IncomeGreen.copy(alpha = 0.22f * reveal),
+                        color = incomeColor.copy(alpha = 0.22f * reveal),
                         startAngle = incomeStart,
                         sweepAngle = incomeSweep,
                         useCenter = false,
@@ -159,7 +161,7 @@ fun IncomeExpenseOverviewChart(
                         topLeft = arcTopLeft
                     )
                     drawArc(
-                        color = IncomeGreen,
+                        color = incomeColor,
                         startAngle = incomeStart,
                         sweepAngle = incomeSweep,
                         useCenter = false,
@@ -183,8 +185,8 @@ fun IncomeExpenseOverviewChart(
                     text = CurrencyUtils.formatAmount(net, currencyCode),
                     size = MoneySize.Headline,
                     color = when {
-                        net > 0 -> IncomeGreen
-                        net < 0 -> ExpenseMuted
+                        net > 0 -> incomeColor
+                        net < 0 -> expenseColor
                         else -> onBackground
                     }
                 )
@@ -204,7 +206,7 @@ fun IncomeExpenseOverviewChart(
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             OverviewLegendItem(
-                color = ExpenseMuted,
+                color = expenseColor,
                 label = stringResource(R.string.summary_spent),
                 value = CurrencyUtils.formatAmount(expenseTotal, currencyCode),
                 percent = (expenseRatio * 100).toInt(),
@@ -212,7 +214,7 @@ fun IncomeExpenseOverviewChart(
                 stagger = 0.1f,
             )
             OverviewLegendItem(
-                color = IncomeGreen,
+                color = incomeColor,
                 label = stringResource(R.string.summary_earned),
                 value = CurrencyUtils.formatAmount(incomeTotal, currencyCode),
                 percent = (incomeRatio * 100).toInt(),

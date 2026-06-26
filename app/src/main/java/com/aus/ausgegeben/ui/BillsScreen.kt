@@ -49,13 +49,13 @@ import com.aus.ausgegeben.ui.components.MoneyText
 import com.aus.ausgegeben.ui.components.ScreenTitle
 import com.aus.ausgegeben.ui.components.appCard
 import com.aus.ausgegeben.ui.components.tabScreenListBottomPadding
-import com.aus.ausgegeben.ui.theme.ExpenseMuted
-import com.aus.ausgegeben.ui.theme.IncomeGreen
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.SystemViolet
 import com.aus.ausgegeben.ui.theme.TransferGray
 import com.aus.ausgegeben.ui.theme.forChartDisplay
+import com.aus.ausgegeben.ui.theme.financeExpenseColor
+import com.aus.ausgegeben.ui.theme.financeIncomeColor
 import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.colorIntToCompose
@@ -79,17 +79,14 @@ fun BillsScreen(
         AnalyticsPeriod.LAST_MONTH.label(),
         AnalyticsPeriod.ALL_TIME.label(),
     )
-    val headerPeriodLabel = when (uiState.period) {
-        AnalyticsPeriod.ALL_TIME -> stringResource(R.string.period_all_time)
-        else -> uiState.periodLabel
-    }
-
     val expenseTotal = uiState.totalExpenses
     val incomeTotal = uiState.totalIncome
     val hasExpenseChart = uiState.expensesByCategory.isNotEmpty()
     val hasIncomeChart = uiState.incomeByCategory.isNotEmpty()
     val showOverview = expenseTotal > 0 && incomeTotal > 0
     val showDualCharts = hasExpenseChart || hasIncomeChart
+    val expenseAccent = financeExpenseColor()
+    val incomeAccent = financeIncomeColor()
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -125,15 +122,6 @@ fun BillsScreen(
                 )
             }
         } else {
-            item(key = "summary") {
-                RecordHeader(
-                    expenses = uiState.periodTransactions,
-                    currencyCode = currencyCode,
-                    periodLabel = headerPeriodLabel,
-                    compact = true
-                )
-            }
-
             if (uiState.wealthTrend.isNotEmpty()) {
                 item(key = "wealth-trend") {
                     WealthTrendChart(
@@ -155,26 +143,28 @@ fun BillsScreen(
 
             if (showDualCharts) {
                 item(key = "category-analytics") {
-                    Column(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs),
-                        verticalArrangement = Arrangement.spacedBy(AppSpacing.sm),
+                        horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm),
                     ) {
                         if (hasExpenseChart) {
                             CategoryAnalyticsCard(
                                 title = stringResource(R.string.bills_section_expenses),
-                                accent = ExpenseMuted,
+                                accent = expenseAccent,
                                 data = uiState.expensesByCategory,
                                 currencyCode = currencyCode,
+                                modifier = Modifier.weight(1f),
                             )
                         }
                         if (hasIncomeChart) {
                             CategoryAnalyticsCard(
                                 title = stringResource(R.string.bills_section_income),
-                                accent = IncomeGreen,
+                                accent = incomeAccent,
                                 data = uiState.incomeByCategory,
                                 currencyCode = currencyCode,
+                                modifier = Modifier.weight(1f),
                             )
                         }
                     }

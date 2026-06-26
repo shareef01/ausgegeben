@@ -78,9 +78,9 @@ import com.aus.ausgegeben.ui.components.recordListBottomPadding
 import com.aus.ausgegeben.ui.theme.AppLayoutTokens
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
-import com.aus.ausgegeben.ui.theme.ExpenseMuted
-import com.aus.ausgegeben.ui.theme.IncomeGreen
 import com.aus.ausgegeben.ui.theme.TransferGray
+import com.aus.ausgegeben.ui.theme.financeExpenseColor
+import com.aus.ausgegeben.ui.theme.financeIncomeColor
 import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.RecordListPeriod
@@ -472,6 +472,8 @@ private fun DateSectionHeader(
     dayExpense: Double,
     currencyCode: String = "EUR",
 ) {
+    val incomeColor = financeIncomeColor()
+    val expenseColor = financeExpenseColor()
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -490,14 +492,14 @@ private fun DateSectionHeader(
                 MoneyText(
                     text = "+${CurrencyUtils.formatAmount(dayIncome, currencyCode)}",
                     size = MoneySize.Body,
-                    color = IncomeGreen,
+                    color = incomeColor,
                 )
             }
             if (dayExpense > 0) {
                 MoneyText(
                     text = "−${CurrencyUtils.formatAmount(dayExpense, currencyCode)}",
                     size = MoneySize.Body,
-                    color = ExpenseMuted,
+                    color = expenseColor,
                 )
             }
         }
@@ -591,6 +593,7 @@ private fun SwipeableTransactionRow(
     onDeleteRequest: () -> Unit,
     onReceiptClick: (() -> Unit)? = null
 ) {
+    val expenseColor = financeExpenseColor()
     val rowBackground = MaterialTheme.colorScheme.background
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
@@ -614,7 +617,7 @@ private fun SwipeableTransactionRow(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(ExpenseMuted),
+                    .background(expenseColor),
                 contentAlignment = Alignment.CenterEnd
             ) {
                 Icon(
@@ -659,8 +662,9 @@ fun TransactionRow(
     onReceiptClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    val incomeColor = financeIncomeColor()
     val amountColor = when {
-        expense.isIncome() -> IncomeGreen
+        expense.isIncome() -> incomeColor
         expense.isTransfer() -> TransferGray
         else -> MaterialTheme.colorScheme.onBackground
     }
