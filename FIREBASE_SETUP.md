@@ -30,6 +30,14 @@ Ausgegeben uses **Firebase Authentication** (email/password) and optional **Fire
    ```
 3. Data is stored per user at `users/{uid}/categories` and `users/{uid}/expenses`
 
+**Important:** Deploy security rules or sync will fail with permission denied:
+
+```bash
+firebase deploy --only firestore:rules
+```
+
+Or paste the contents of `firestore.rules` into Firebase Console → **Firestore Database → Rules → Publish**.
+
 ## 5. Google Sign-In on Android
 
 Your `google-services.json` must include a **Web client** OAuth entry (client_type 3). The Gradle plugin exposes it as `R.string.default_web_client_id`. Without it, the Google button is hidden.
