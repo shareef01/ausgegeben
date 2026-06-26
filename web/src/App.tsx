@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { usePreferencesStore } from '@/services/preferencesStore';
+import { useAuthStore } from '@/services/authStore';
+import { authService } from '@/services/authService';
 import { resolveTheme, applyTheme } from '@/theme/tokens';
 import { ensureSeeded } from '@/services/database';
 import { OnboardingView } from '@/views/OnboardingView';
@@ -13,11 +15,14 @@ export function App() {
   const themeMode = usePreferencesStore((s) => s.themeMode);
   const locale = usePreferencesStore((s) => s.locale);
   const completeOnboarding = usePreferencesStore((s) => s.completeOnboarding);
-  const [ready, setReady] = useState(false);
+  const authReady = useAuthStore((s) => s.ready);
+  const [dbReady, setDbReady] = useState(false);
   const { t } = useTranslation();
 
   useEffect(() => {
-    void ensureSeeded().then(() => setReady(true));
+    void ensureSeeded().then(() => setDbReady(true));
+    authService.startListener();
+    return () => authService.stopListener();
   }, []);
 
   useEffect(() => {
@@ -32,7 +37,7 @@ export function App() {
     document.documentElement.lang = locale;
   }, [locale]);
 
-  if (!ready) {
+  if (!dbReady || !authReady) {
     return <div className="app-shell" style={{ placeItems: 'center', display: 'grid' }}>{t('loading')}</div>;
   }
 

@@ -1,4 +1,5 @@
 import { db, bumpRevision } from '@/services/database';
+import { syncService } from '@/services/syncService';
 import type { Category, Expense, TransactionType, TransactionTypeFilter } from '@/models/types';
 
 export interface ExpenseQueryParams {
@@ -20,18 +21,25 @@ export const expenseRepository = {
   async insertCategory(category: Omit<Category, 'id'>): Promise<number> {
     const id = await db.categories.add(category as Category);
     bumpRevision();
+    void syncService.pushCategory({ ...category, id });
     return id;
   },
 
   async updateCategory(category: Category): Promise<void> {
     await db.categories.put(category);
     bumpRevision();
+    void syncService.pushCategory(category);
   },
 
   async deleteCategory(id: number): Promise<void> {
+    const linked = await db.expenses.where('categoryId').equals(id).toArray();
     await db.expenses.where('categoryId').equals(id).delete();
     await db.categories.delete(id);
     bumpRevision();
+    void syncService.deleteCategory(id);
+    for (const expense of linked) {
+      if (expense.id != null) void syncService.deleteExpense(expense.id);
+    }
   },
 
   async getAllExpenses(): Promise<Expense[]> {
@@ -77,26 +85,30 @@ export const expenseRepository = {
   async insertExpense(expense: Omit<Expense, 'id'>): Promise<number> {
     const id = await db.expenses.add(expense as Expense);
     bumpRevision();
+    void syncService.pushExpense({ ...expense, id });
     return id;
   },
 
   async updateExpense(expense: Expense): Promise<void> {
     await db.expenses.put(expense);
     bumpRevision();
+    void syncService.pushExpense(expense);
   },
 
-  async deleteExpense(id: number): Promise<import('@/models/types').Expense | null> {
+  async deleteExpense(id: number): Promise<Expense | null> {
     const expense = await db.expenses.get(id);
     if (!expense) return null;
     await db.expenses.delete(id);
     bumpRevision();
+    void syncService.deleteExpense(id);
     return expense;
   },
 
-  async restoreExpense(expense: import('@/models/types').Expense): Promise<number> {
+  async restoreExpense(expense: Expense): Promise<number> {
     const { id: _id, ...rest } = expense;
-    const newId = await db.expenses.add(rest as import('@/models/types').Expense);
+    const newId = await db.expenses.add(rest as Expense);
     bumpRevision();
+    void syncService.pushExpense({ ...rest, id: newId });
     return newId;
   },
 

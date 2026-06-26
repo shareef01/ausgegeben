@@ -26,7 +26,7 @@ src/
   utils/            # periodUtils, analytics, currency
 ```
 
-## Implemented (Phase 0–2)
+## Implemented (Phase 0–3)
 
 - [x] PWA manifest + service worker (auto-update)
 - [x] IndexedDB schema + default category seed
@@ -41,12 +41,13 @@ src/
 - [x] **Receipt attach** (camera/file) stored as IndexedDB blobs
 - [x] **Budget progress bar** on Record tab when monthly limit is set
 - [x] **Swipe-delete** with undo toast; long-press to duplicate
+- [x] **Firebase Auth** (email/password + Google) with offline fallback
+- [x] **Firestore sync** at `users/{uid}/categories/{id}` and `users/{uid}/expenses/{id}`
 
 ## Roadmap (next phases)
 
 | Phase | Features |
 |-------|----------|
-| **3** | Firebase Auth (email + Google) + Firestore sync (same paths as Android) |
 | **4** | Evening reminders (Notification API), onboarding pager animations, chart polish |
 | **5** | Firebase Storage for receipts, conflict resolution, preference sync |
 
@@ -67,7 +68,7 @@ npm run preview    # test production build
 
 ### Firebase (Phase 3)
 
-Create `web/.env.local`:
+Copy `web/.env.example` to `web/.env.local` and fill in values from the Firebase Console (Web app):
 
 ```env
 VITE_FIREBASE_API_KEY=
@@ -76,7 +77,28 @@ VITE_FIREBASE_PROJECT_ID=
 VITE_FIREBASE_APP_ID=
 ```
 
-Use the **Web** client from the same Firebase project as Android (`google-services.json`).
+**Firebase Console setup:**
+
+1. Create or open your Firebase project
+2. Add a **Web** app and copy the config values above
+3. Enable **Authentication** → Email/Password and Google providers
+4. Create a **Firestore** database (production or test mode)
+5. Add your PWA host to **Authentication → Settings → Authorized domains** (include `localhost` for dev)
+
+Firestore security rules (adjust for production):
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
+```
+
+Without env vars the app runs fully offline — cloud sign-in is hidden until configured.
 
 ## Parity notes
 

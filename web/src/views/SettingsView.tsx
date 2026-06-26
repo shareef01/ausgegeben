@@ -1,6 +1,10 @@
 import { useState, type ReactNode } from 'react';
 import { ScreenTitle } from '@/components/ui';
 import { usePreferencesStore } from '@/services/preferencesStore';
+import { useAuthStore } from '@/services/authStore';
+import { authService } from '@/services/authService';
+import { syncService } from '@/services/syncService';
+import { isFirebaseConfigured } from '@/services/firebase';
 import { useTranslation, type Locale } from '@/i18n';
 import { currencyLabel, SUPPORTED_CURRENCIES } from '@/utils/currency';
 import type { ThemeMode } from '@/models/types';
@@ -31,7 +35,10 @@ export function SettingsView({ onManageCategories, onSignIn }: SettingsViewProps
   const locale = usePreferencesStore((s) => s.locale);
   const themeMode = usePreferencesStore((s) => s.themeMode);
   const monthlyBudget = usePreferencesStore((s) => s.monthlyBudget);
-  const authGatewayComplete = usePreferencesStore((s) => s.authGatewayComplete);
+  const storageMode = usePreferencesStore((s) => s.storageMode);
+  const lastCloudSyncAt = usePreferencesStore((s) => s.lastCloudSyncAt);
+  const user = useAuthStore((s) => s.user);
+  const syncing = useAuthStore((s) => s.syncing);
   const setCurrency = usePreferencesStore((s) => s.setCurrency);
   const setLocale = usePreferencesStore((s) => s.setLocale);
   const setThemeMode = usePreferencesStore((s) => s.setThemeMode);
@@ -53,11 +60,15 @@ export function SettingsView({ onManageCategories, onSignIn }: SettingsViewProps
     URL.revokeObjectURL(url);
   };
 
+  const syncLabel = lastCloudSyncAt
+    ? t('syncLastAt', { time: new Date(lastCloudSyncAt).toLocaleString() })
+    : t('syncNever');
+
   return (
     <div>
       <ScreenTitle title={t('screenSettings')} subtitle={`Ausgegeben · v1.0`} />
 
-      {!authGatewayComplete ? (
+      {storageMode === 'local' && isFirebaseConfigured() ? (
         <div className="offline-banner">
           <div className="offline-banner__stripe" />
           <div className="offline-banner__body">
@@ -73,6 +84,17 @@ export function SettingsView({ onManageCategories, onSignIn }: SettingsViewProps
             </button>
           </div>
         </div>
+      ) : null}
+
+      {storageMode === 'cloud' && user ? (
+        <Section title={t('settingsCloudAccount')}>
+          <SettingsRow
+            title={t('settingsSignedInAs', { email: user.email ?? user.uid })}
+            subtitle={syncing ? t('syncInProgress') : syncLabel}
+          />
+          <SettingsRow title={t('syncNow')} subtitle={syncLabel} onClick={() => void syncService.fullSync()} />
+          <SettingsRow title={t('settingsSignOut')} subtitle={user.email ?? ''} onClick={() => void authService.signOut()} />
+        </Section>
       ) : null}
 
       <Section title={t('settingsAppearance')}>
