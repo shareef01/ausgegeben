@@ -18,9 +18,9 @@ val AppChartSpring = spring<Float>(
     stiffness = Spring.StiffnessMediumLow
 )
 
-/** Smooth chart reveal tuned for high-refresh displays */
+/** Smooth chart reveal — no bounce to avoid frame drops on tab switch */
 val AppChartRevealSpring = spring<Float>(
-    dampingRatio = Spring.DampingRatioLowBouncy,
+    dampingRatio = Spring.DampingRatioNoBouncy,
     stiffness = Spring.StiffnessMedium
 )
 
