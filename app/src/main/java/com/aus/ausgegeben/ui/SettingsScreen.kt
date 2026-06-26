@@ -43,6 +43,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -73,6 +74,7 @@ import com.aus.ausgegeben.data.AppRepository
 import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.data.auth.AuthRepository
 import com.aus.ausgegeben.data.cloud.CloudSyncRepository
+import com.aus.ausgegeben.data.cloud.mapCloudSyncError
 import com.aus.ausgegeben.notification.ReminderScheduler
 import com.aus.ausgegeben.ui.components.GroupedSection
 import com.aus.ausgegeben.ui.components.GroupedSectionLabel
@@ -121,6 +123,9 @@ fun SettingsScreen(
     var showReminderTimeDialog by remember { mutableStateOf(false) }
     var showBudgetDialog by remember { mutableStateOf(false) }
     var showSignOutDialog by remember { mutableStateOf(false) }
+    var isCloudSyncing by remember { mutableStateOf(false) }
+    var cloudSyncStatus by remember { mutableStateOf<String?>(null) }
+    var cloudSyncIsError by remember { mutableStateOf(false) }
 
     val signedInEmail = authRepository.currentUserEmail
     val signedInName = authRepository.currentUserDisplayName
@@ -160,17 +165,26 @@ fun SettingsScreen(
                         email = signedInEmail,
                         userId = signedInUserId,
                         lastSyncedLabel = lastSyncLabel,
+                        isSyncing = isCloudSyncing,
+                        syncStatusMessage = cloudSyncStatus,
+                        syncStatusIsError = cloudSyncIsError,
                         onSyncNow = {
                             scope.launch {
+                                isCloudSyncing = true
+                                cloudSyncIsError = false
+                                cloudSyncStatus = context.getString(R.string.settings_sync_in_progress)
                                 cloudSyncRepository.fullSync().fold(
                                     onSuccess = {
                                         preferenceManager.setLastCloudSyncAt(System.currentTimeMillis())
-                                        onShowMessage(context.getString(R.string.settings_sync_success))
+                                        cloudSyncIsError = false
+                                        cloudSyncStatus = context.getString(R.string.settings_sync_success)
                                     },
-                                    onFailure = {
-                                        onShowMessage(context.getString(R.string.settings_sync_failed))
+                                    onFailure = { error ->
+                                        cloudSyncIsError = true
+                                        cloudSyncStatus = mapCloudSyncError(context, error)
                                     },
                                 )
+                                isCloudSyncing = false
                             }
                         },
                         onSignOut = { showSignOutDialog = true },
@@ -633,11 +647,15 @@ private fun AccountProfileCard(
     email: String?,
     userId: String,
     lastSyncedLabel: String?,
+    isSyncing: Boolean,
+    syncStatusMessage: String?,
+    syncStatusIsError: Boolean,
     onSyncNow: () -> Unit,
     onSignOut: () -> Unit,
 ) {
     val incomeColor = financeIncomeColor()
     val expenseColor = financeExpenseColor()
+    val successColor = incomeColor
     val initial = displayName.firstOrNull()?.uppercaseChar()?.toString() ?: "A"
 
     Box(
@@ -711,15 +729,24 @@ private fun AccountProfileCard(
             ) {
                 OutlinedButton(
                     onClick = onSyncNow,
+                    enabled = !isSyncing,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(AppRadius.pill),
                 ) {
-                    Icon(Icons.Rounded.CloudSync, contentDescription = null, modifier = Modifier.size(18.dp))
+                    if (isSyncing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Icon(Icons.Rounded.CloudSync, contentDescription = null, modifier = Modifier.size(18.dp))
+                    }
                     Spacer(modifier = Modifier.width(AppSpacing.xs))
                     Text(stringResource(R.string.settings_sync_now))
                 }
                 OutlinedButton(
                     onClick = onSignOut,
+                    enabled = !isSyncing,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(AppRadius.pill),
                 ) {
@@ -736,6 +763,18 @@ private fun AccountProfileCard(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            if (syncStatusMessage != null) {
+                Text(
+                    text = syncStatusMessage,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (syncStatusIsError) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        successColor
+                    },
+                )
+            }
         }
     }
 }
