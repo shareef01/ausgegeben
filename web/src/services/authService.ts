@@ -24,14 +24,14 @@ export const authService = {
 
     unsubscribe = onAuthStateChanged(auth, async (user) => {
       const { setUser, setReady } = useAuthStore.getState();
-      const { setStorageMode, completeAuthGateway, storageMode } = usePreferencesStore.getState();
+      const { setStorageMode, completeAuthGateway } = usePreferencesStore.getState();
       setUser(user);
       if (user) {
-        if (storageMode !== 'cloud') {
-          setStorageMode('cloud');
-          completeAuthGateway();
-        }
+        setStorageMode('cloud');
+        completeAuthGateway();
         await syncService.fullSync();
+      } else {
+        usePreferencesStore.getState().resetAuthGateway();
       }
       setReady(true);
     });
@@ -63,7 +63,7 @@ export const authService = {
   async signOut(): Promise<void> {
     const auth = getFirebaseAuth();
     if (auth) await signOut(auth);
-    usePreferencesStore.getState().setStorageMode('local');
+    usePreferencesStore.getState().resetAuthGateway();
     useAuthStore.getState().setUser(null);
   },
 

@@ -11,10 +11,10 @@ import { useTranslation } from '@/i18n';
 
 export function App() {
   const onboardingComplete = usePreferencesStore((s) => s.onboardingComplete);
-  const authGatewayComplete = usePreferencesStore((s) => s.authGatewayComplete);
   const themeMode = usePreferencesStore((s) => s.themeMode);
   const locale = usePreferencesStore((s) => s.locale);
   const completeOnboarding = usePreferencesStore((s) => s.completeOnboarding);
+  const user = useAuthStore((s) => s.user);
   const authReady = useAuthStore((s) => s.ready);
   const [dbReady, setDbReady] = useState(false);
   const { t } = useTranslation();
@@ -38,16 +38,32 @@ export function App() {
   }, [locale]);
 
   if (!dbReady || !authReady) {
-    return <div className="app-shell" style={{ placeItems: 'center', display: 'grid' }}>{t('loading')}</div>;
+    return (
+      <div className="app-viewport">
+        <div className="app-shell app-shell--centered">{t('loading')}</div>
+      </div>
+    );
   }
 
   if (!onboardingComplete) {
-    return <OnboardingView onComplete={() => completeOnboarding()} />;
+    return (
+      <div className="app-viewport">
+        <OnboardingView onComplete={() => completeOnboarding()} />
+      </div>
+    );
   }
 
-  if (!authGatewayComplete) {
-    return <AuthView onAuthenticated={() => {}} />;
+  if (!user) {
+    return (
+      <div className="app-viewport">
+        <AuthView />
+      </div>
+    );
   }
 
-  return <MainShell />;
+  return (
+    <div className="app-viewport">
+      <MainShell />
+    </div>
+  );
 }

@@ -4,7 +4,6 @@ import { usePreferencesStore } from '@/services/preferencesStore';
 import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
 import { syncService } from '@/services/syncService';
-import { isFirebaseConfigured } from '@/services/firebase';
 import { useTranslation, type Locale } from '@/i18n';
 import { currencyLabel, SUPPORTED_CURRENCIES } from '@/utils/currency';
 import type { ThemeMode } from '@/models/types';
@@ -26,16 +25,14 @@ const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
 
 interface SettingsViewProps {
   onManageCategories: () => void;
-  onSignIn: () => void;
 }
 
-export function SettingsView({ onManageCategories, onSignIn }: SettingsViewProps) {
+export function SettingsView({ onManageCategories }: SettingsViewProps) {
   const { t } = useTranslation();
   const currency = usePreferencesStore((s) => s.currency);
   const locale = usePreferencesStore((s) => s.locale);
   const themeMode = usePreferencesStore((s) => s.themeMode);
   const monthlyBudget = usePreferencesStore((s) => s.monthlyBudget);
-  const storageMode = usePreferencesStore((s) => s.storageMode);
   const lastCloudSyncAt = usePreferencesStore((s) => s.lastCloudSyncAt);
   const user = useAuthStore((s) => s.user);
   const syncing = useAuthStore((s) => s.syncing);
@@ -65,28 +62,10 @@ export function SettingsView({ onManageCategories, onSignIn }: SettingsViewProps
     : t('syncNever');
 
   return (
-    <div>
+    <div className="page-content">
       <ScreenTitle title={t('screenSettings')} subtitle={`Ausgegeben · v1.0`} />
 
-      {storageMode === 'local' && isFirebaseConfigured() ? (
-        <div className="offline-banner">
-          <div className="offline-banner__stripe" />
-          <div className="offline-banner__body">
-            <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 16 }}>
-              <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'color-mix(in srgb, var(--color-on-surface-variant) 14%, transparent)', display: 'grid', placeItems: 'center', fontSize: '1.5rem' }}>☁️̸</div>
-              <div>
-                <div style={{ fontWeight: 600 }}>{t('settingsOffline')}</div>
-                <div style={{ fontSize: '0.8125rem', color: 'var(--color-on-surface-variant)' }}>{t('settingsOfflineSub')}</div>
-              </div>
-            </div>
-            <button type="button" onClick={onSignIn} style={{ width: '100%', padding: '12px 16px', borderRadius: 999, background: 'var(--color-accent)', color: '#fff', fontWeight: 600 }}>
-              {t('settingsSignIn')}
-            </button>
-          </div>
-        </div>
-      ) : null}
-
-      {storageMode === 'cloud' && user ? (
+      {user ? (
         <Section title={t('settingsCloudAccount')}>
           <SettingsRow
             title={t('settingsSignedInAs', { email: user.email ?? user.uid })}
@@ -160,7 +139,7 @@ export function SettingsView({ onManageCategories, onSignIn }: SettingsViewProps
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
   <>
-    <div style={{ padding: '12px 16px 6px', fontSize: '0.8125rem', color: 'var(--color-on-surface-variant)', fontWeight: 500 }}>{title}</div>
+    <div className="section-title">{title}</div>
     <div className="settings-group">{children}</div>
   </>
   );

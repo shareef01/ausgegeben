@@ -13,8 +13,8 @@ export function OnboardingView({ onComplete }: OnboardingViewProps) {
     { title: t('onboardingPage4Title'), body: t('onboardingPage4Body') },
   ];
   return (
-    <div className="app-shell" style={{ justifyContent: 'center', padding: 24 }}>
-      <div style={{ maxWidth: 420, margin: '0 auto' }}>
+    <div className="app-shell auth-page onboarding-page">
+      <div className="auth-page__card">
         <h1 style={{ fontSize: '2rem', marginBottom: 8 }}>
           <span className="screen-title__accent">A</span>usgegeben
         </h1>
@@ -25,7 +25,7 @@ export function OnboardingView({ onComplete }: OnboardingViewProps) {
             <div style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.9375rem' }}>{p.body}</div>
           </div>
         ))}
-        <button type="button" onClick={onComplete} style={{ width: '100%', padding: 14, borderRadius: 999, background: 'var(--color-accent)', color: '#fff', fontWeight: 600, marginTop: 16 }}>
+        <button type="button" className="btn btn-primary btn-block" onClick={onComplete}>
           {t('onboardingGetStarted')}
         </button>
       </div>

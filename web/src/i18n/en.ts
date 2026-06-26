@@ -43,6 +43,11 @@ export const en = {
   authTagline: 'Your money, your way',
   authWelcome: 'Welcome back',
   authSubtitle: 'Sign in to sync across devices, or stay fully offline.',
+  authSubtitleCloud: 'Sign in with your account to sync with the Android app.',
+  authCloudHint: 'Use the same email or Google account as on your phone.',
+  authOr: 'or',
+  authErrorUnauthorizedDomain: 'This website is not authorized in Firebase. Add its domain under Authentication → Settings → Authorized domains.',
+  authErrorPopupClosed: 'Sign-in popup was closed. Please try again.',
   authSignIn: 'Sign in',
   authSignUp: 'Sign up',
   authEmail: 'Email',
@@ -104,8 +109,8 @@ export const en = {
   onboardingPage2Body: 'Donut charts and cash-flow trends turn your history into clear insights.',
   onboardingPage3Title: 'Stay on budget',
   onboardingPage3Body: 'Set a monthly cap and watch your progress on the Record tab.',
-  onboardingPage4Title: 'Works offline',
-  onboardingPage4Body: 'Your data lives on this device. Sign in later to sync across devices with Firebase.',
+  onboardingPage4Title: 'Sync everywhere',
+  onboardingPage4Body: 'Sign in to keep your data in sync with the Android app via Firebase.',
 } as const;
 
 export type TranslationKey = keyof typeof en;

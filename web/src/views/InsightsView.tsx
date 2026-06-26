@@ -31,7 +31,7 @@ export function InsightsView() {
       ) : (
         <>
           <OverviewCard currency={currency} income={uiState.totalIncome} expense={uiState.totalExpenses} />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '0 16px' }}>
+          <div className="insights-grid">
             <CategoryCard title={t('filterExpense')} map={uiState.expensesByCategory} categories={categories} currency={currency} accent="var(--color-expense)" />
             <CategoryCard title={t('filterIncome')} map={uiState.incomeByCategory} categories={categories} currency={currency} accent="var(--color-income)" />
           </div>

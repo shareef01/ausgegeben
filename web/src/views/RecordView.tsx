@@ -46,17 +46,10 @@ export function RecordView({ onAdd, onEdit }: RecordViewProps) {
           onSelected={(p) => setListPeriod(p.key as RecordListPeriod)}
         />
         <input
+          className="search-input"
           placeholder={t('recordSearchPlaceholder')}
           value={uiState.searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          style={{
-            flex: 1,
-            padding: '10px 14px',
-            borderRadius: 12,
-            border: '1px solid var(--color-outline)',
-            background: 'var(--color-surface)',
-            color: 'var(--color-on-background)',
-          }}
         />
       </div>
 
