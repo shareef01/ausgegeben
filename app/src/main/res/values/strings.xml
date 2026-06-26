@@ -28,6 +28,9 @@
     <string name="auth_error_invalid_credentials">Incorrect email or password</string>
     <string name="auth_error_email_in_use">An account with this email already exists</string>
     <string name="auth_error_generic">Something went wrong. Please try again.</string>
+    <string name="auth_loading_sign_in">Signing in…</string>
+    <string name="auth_loading_sign_up">Creating account…</string>
+    <string name="auth_error_timeout">Request timed out. Check your internet and Firebase setup.</string>
 
     <!-- Navigation -->
     <string name="nav_record">Record</string>
