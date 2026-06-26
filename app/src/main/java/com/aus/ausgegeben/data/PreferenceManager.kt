@@ -34,6 +34,7 @@ class PreferenceManager(private val context: Context) {
         val MONTHLY_BUDGET = stringPreferencesKey("monthly_budget")
         val STORAGE_MODE = stringPreferencesKey("storage_mode")
         val AUTH_GATEWAY_COMPLETE = booleanPreferencesKey("auth_gateway_complete")
+        val LAST_CLOUD_SYNC_AT = stringPreferencesKey("last_cloud_sync_at")
     }
 
     val currencyFlow: Flow<String> = context.dataStore.data
@@ -137,6 +138,14 @@ class PreferenceManager(private val context: Context) {
             preferences[PreferencesKeys.AUTH_GATEWAY_COMPLETE] ?: false
         }
 
+    val lastCloudSyncAtFlow: Flow<Long?> = context.dataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
+        }
+        .map { preferences ->
+            preferences[PreferencesKeys.LAST_CLOUD_SYNC_AT]?.toLongOrNull()
+        }
+
     suspend fun reminderTime(): Pair<Int, Int> {
         val prefs = context.dataStore.data.first()
         return (prefs[PreferencesKeys.REMINDER_HOUR] ?: 19) to (prefs[PreferencesKeys.REMINDER_MINUTE] ?: 0)
@@ -222,6 +231,12 @@ class PreferenceManager(private val context: Context) {
     suspend fun resetAuthGateway() {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.AUTH_GATEWAY_COMPLETE] = false
+        }
+    }
+
+    suspend fun setLastCloudSyncAt(millis: Long) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LAST_CLOUD_SYNC_AT] = millis.toString()
         }
     }
 }

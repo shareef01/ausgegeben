@@ -65,6 +65,8 @@ import com.aus.ausgegeben.data.DataSeeder
 import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.data.StorageMode
 import com.aus.ausgegeben.data.auth.AuthRepository
+import com.aus.ausgegeben.data.cloud.CloudSyncGate
+import com.aus.ausgegeben.data.cloud.CloudSyncRepository
 import com.aus.ausgegeben.notification.NotificationHelper
 import com.aus.ausgegeben.notification.ReminderScheduler
 import com.aus.ausgegeben.ui.AddExpenseViewModel
@@ -100,15 +102,25 @@ class MainActivity : ComponentActivity() {
         setContent {
             val context = LocalContext.current
             val database = remember { AusgegebenDatabase.getDatabase(context) }
-            val repository = remember {
-                AppRepository(
-                    database.categoryDao(),
-                    database.expenseDao(),
-                    context.applicationContext
+            val preferenceManager = remember { PreferenceManager(context) }
+            val authRepository = remember { AuthRepository(context.applicationContext) }
+            val cloudSyncGate = remember { CloudSyncGate(preferenceManager, authRepository) }
+            val cloudSyncRepository = remember {
+                CloudSyncRepository(
+                    authRepository = authRepository,
+                    categoryDao = database.categoryDao(),
+                    expenseDao = database.expenseDao(),
                 )
             }
-            val preferenceManager = remember { PreferenceManager(context) }
-            val authRepository = remember { AuthRepository() }
+            val repository = remember {
+                AppRepository(
+                    categoryDao = database.categoryDao(),
+                    expenseDao = database.expenseDao(),
+                    appContext = context.applicationContext,
+                    cloudSync = cloudSyncRepository,
+                    shouldSyncToCloud = { cloudSyncGate.isEnabled() },
+                )
+            }
 
             val themeMode by preferenceManager.themeModeFlow.collectAsState(initial = ThemeMode.SYSTEM)
 
@@ -121,6 +133,7 @@ class MainActivity : ComponentActivity() {
                     repository = repository,
                     preferenceManager = preferenceManager,
                     authRepository = authRepository,
+                    cloudSyncRepository = cloudSyncRepository,
                     openAddFromNotification = intent?.getBooleanExtra(
                         NotificationHelper.EXTRA_OPEN_ADD,
                         false
@@ -142,6 +155,7 @@ fun MainApp(
     repository: AppRepository,
     preferenceManager: PreferenceManager,
     authRepository: AuthRepository,
+    cloudSyncRepository: CloudSyncRepository,
     openAddFromNotification: Boolean = false
 ) {
     val context = LocalContext.current
@@ -201,7 +215,7 @@ fun MainApp(
         DashboardViewModel(repository, preferenceManager)
     }
     val authViewModel: AuthViewModel = viewModel(activity) {
-        AuthViewModel(activity.application, authRepository, preferenceManager)
+        AuthViewModel(activity.application, authRepository, preferenceManager, cloudSyncRepository)
     }
 
     fun closeOverlay() {
@@ -387,6 +401,7 @@ fun MainApp(
                             preferenceManager = preferenceManager,
                             authRepository = authRepository,
                             authViewModel = authViewModel,
+                            cloudSyncRepository = cloudSyncRepository,
                             storageMode = storageMode,
                             onNavigateToCategories = {
                                 overlayStack.clear()
