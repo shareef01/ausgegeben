@@ -53,6 +53,7 @@ import com.aus.ausgegeben.ui.components.MoneySize
 import com.aus.ausgegeben.ui.components.MoneyText
 import com.aus.ausgegeben.ui.components.ScreenTitle
 import com.aus.ausgegeben.ui.components.appCard
+import com.aus.ausgegeben.ui.components.appPopupElevation
 import com.aus.ausgegeben.ui.components.tabScreenListBottomPadding
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
@@ -204,6 +205,7 @@ private fun PeriodDropdown(
     modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val menuShape = RoundedCornerShape(AppRadius.lg)
     Box(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -238,7 +240,15 @@ private fun PeriodDropdown(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.appPopupElevation(menuShape),
+            shape = menuShape,
+            containerColor = MaterialTheme.colorScheme.surface,
+            tonalElevation = 0.dp,
+            shadowElevation = 0.dp,
+        ) {
             options.forEach { option ->
                 val label = if (option.storageKey == "all_time") {
                     stringResource(R.string.period_all_time)
