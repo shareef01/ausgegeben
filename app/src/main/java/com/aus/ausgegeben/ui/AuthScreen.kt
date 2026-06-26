@@ -21,6 +21,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.MailOutline
@@ -56,6 +57,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.components.AppScreen
 import com.aus.ausgegeben.ui.components.IosSegmentedControl
+import com.aus.ausgegeben.ui.components.SmoothIconButton
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.financeExpenseColor
@@ -65,6 +67,7 @@ import com.aus.ausgegeben.ui.theme.financeIncomeColor
 fun AuthScreen(
     viewModel: AuthViewModel,
     onAuthenticated: () -> Unit,
+    onDismiss: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -79,9 +82,25 @@ fun AuthScreen(
                 .navigationBarsPadding()
                 .verticalScroll(rememberScrollState()),
         ) {
+            if (onDismiss != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = AppSpacing.xs, vertical = AppSpacing.xs),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SmoothIconButton(
+                        onClick = onDismiss,
+                        icon = Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = stringResource(R.string.action_back),
+                    )
+                }
+            }
+
             AuthHeroHeader(
                 expenseColor = expenseColor,
                 incomeColor = incomeColor,
+                compact = onDismiss != null,
             )
 
             Column(
@@ -291,11 +310,12 @@ fun AuthScreen(
 private fun AuthHeroHeader(
     expenseColor: Color,
     incomeColor: Color,
+    compact: Boolean = false,
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(220.dp)
+            .height(if (compact) 160.dp else 220.dp)
             .background(
                 Brush.linearGradient(
                     colors = listOf(
