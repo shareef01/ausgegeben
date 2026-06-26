@@ -25,6 +25,12 @@ enum class AnalyticsPeriod(val label: String, val storageKey: String) {
     }
 }
 
+data class AnalyticsPeriodOption(
+    val label: String,
+    val storageKey: String,
+    val rangeMillis: Pair<Long, Long>?
+)
+
 /** Inclusive start, exclusive end in local time. Null range = no filtering. */
 fun AnalyticsPeriod.dateRangeMillis(nowMillis: Long = System.currentTimeMillis()): Pair<Long, Long>? {
     val cal = Calendar.getInstance().apply { timeInMillis = nowMillis }
@@ -37,6 +43,74 @@ fun AnalyticsPeriod.dateRangeMillis(nowMillis: Long = System.currentTimeMillis()
         AnalyticsPeriod.ALL_TIME -> null
     }
 }
+
+fun analyticsPeriodOptions(
+    nowMillis: Long = System.currentTimeMillis(),
+    monthsBack: Int = 12
+): List<AnalyticsPeriodOption> {
+    val cal = Calendar.getInstance().apply {
+        timeInMillis = nowMillis
+        set(Calendar.DAY_OF_MONTH, 1)
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }
+    return buildList {
+        repeat(monthsBack.coerceAtLeast(1)) {
+            val year = cal.get(Calendar.YEAR)
+            val month = cal.get(Calendar.MONTH)
+            val range = monthRange(year, month)
+            add(
+                AnalyticsPeriodOption(
+                    label = monthTitle(range.first),
+                    storageKey = monthStorageKey(year, month),
+                    rangeMillis = range
+                )
+            )
+            cal.add(Calendar.MONTH, -1)
+        }
+        add(
+            AnalyticsPeriodOption(
+                label = "All time",
+                storageKey = AnalyticsPeriod.ALL_TIME.storageKey,
+                rangeMillis = null
+            )
+        )
+    }
+}
+
+fun analyticsPeriodOptionFromStorage(
+    key: String?,
+    nowMillis: Long = System.currentTimeMillis()
+): AnalyticsPeriodOption {
+    val normalized = key ?: AnalyticsPeriod.THIS_MONTH.storageKey
+    analyticsMonthRangeFromStorageKey(normalized)?.let { range ->
+        return AnalyticsPeriodOption(
+            label = monthTitle(range.first),
+            storageKey = normalized,
+            rangeMillis = range
+        )
+    }
+    val legacy = AnalyticsPeriod.fromStorageKey(normalized)
+    val range = legacy.dateRangeMillis(nowMillis)
+    val storageKey = if (legacy == AnalyticsPeriod.ALL_TIME || range == null) {
+        legacy.storageKey
+    } else {
+        val cal = Calendar.getInstance().apply { timeInMillis = range.first }
+        monthStorageKey(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH))
+    }
+    return AnalyticsPeriodOption(
+        label = legacy.displayTitle(nowMillis),
+        storageKey = storageKey,
+        rangeMillis = range
+    )
+}
+
+fun analyticsDateRangeMillis(
+    storageKey: String,
+    nowMillis: Long = System.currentTimeMillis()
+): Pair<Long, Long>? = analyticsPeriodOptionFromStorage(storageKey, nowMillis).rangeMillis
 
 fun AnalyticsPeriod.displayTitle(nowMillis: Long = System.currentTimeMillis()): String = when (this) {
     AnalyticsPeriod.THIS_MONTH -> monthTitle(nowMillis)
@@ -59,6 +133,18 @@ private fun monthRange(year: Int, month: Int): Pair<Long, Long> {
         add(Calendar.MONTH, 1)
     }
     return start.timeInMillis to end.timeInMillis
+}
+
+private fun monthStorageKey(year: Int, zeroBasedMonth: Int): String =
+    "month:%04d-%02d".format(Locale.US, year, zeroBasedMonth + 1)
+
+private fun analyticsMonthRangeFromStorageKey(key: String): Pair<Long, Long>? {
+    if (!key.startsWith("month:")) return null
+    val parts = key.removePrefix("month:").split("-")
+    val year = parts.getOrNull(0)?.toIntOrNull() ?: return null
+    val month = parts.getOrNull(1)?.toIntOrNull()?.minus(1) ?: return null
+    if (month !in 0..11) return null
+    return monthRange(year, month)
 }
 
 private fun monthTitle(millis: Long): String {
