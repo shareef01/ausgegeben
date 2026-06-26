@@ -196,6 +196,7 @@ class AuthViewModel(
                 _uiState.update { it.copy(isLoading = false, loadingMessage = null) }
                 onSuccess()
                 viewModelScope.launch {
+                    authRepository.ensureFreshAuthToken()
                     cloudSyncRepository.fullSync().onSuccess {
                         preferenceManager.setLastCloudSyncAt(System.currentTimeMillis())
                     }

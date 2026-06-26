@@ -74,6 +74,7 @@ import com.aus.ausgegeben.data.AppRepository
 import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.data.auth.AuthRepository
 import com.aus.ausgegeben.data.cloud.CloudSyncRepository
+import com.aus.ausgegeben.data.cloud.FirebaseConfigHelper
 import com.aus.ausgegeben.data.cloud.mapCloudSyncError
 import com.aus.ausgegeben.notification.ReminderScheduler
 import com.aus.ausgegeben.ui.components.GroupedSection
@@ -130,6 +131,7 @@ fun SettingsScreen(
     val signedInEmail = authRepository.currentUserEmail
     val signedInName = authRepository.currentUserDisplayName
     val signedInUserId = authRepository.currentUserId
+    val firebaseProjectId = remember { FirebaseConfigHelper.projectId(context) }
     val profileLabel = signedInName?.takeIf { it.isNotBlank() }
         ?: signedInEmail?.substringBefore("@")
         ?: stringResource(R.string.settings_account_cloud)
@@ -164,6 +166,7 @@ fun SettingsScreen(
                         displayName = profileLabel,
                         email = signedInEmail,
                         userId = signedInUserId,
+                        firebaseProjectId = firebaseProjectId,
                         lastSyncedLabel = lastSyncLabel,
                         isSyncing = isCloudSyncing,
                         syncStatusMessage = cloudSyncStatus,
@@ -646,6 +649,7 @@ private fun AccountProfileCard(
     displayName: String,
     email: String?,
     userId: String,
+    firebaseProjectId: String?,
     lastSyncedLabel: String?,
     isSyncing: Boolean,
     syncStatusMessage: String?,
@@ -720,6 +724,13 @@ private fun AccountProfileCard(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (!firebaseProjectId.isNullOrBlank()) {
+                        Text(
+                            text = stringResource(R.string.settings_firebase_project, firebaseProjectId),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
 
