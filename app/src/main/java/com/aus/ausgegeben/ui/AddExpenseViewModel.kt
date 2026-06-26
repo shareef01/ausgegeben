@@ -10,7 +10,6 @@ import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.datePickerMillisToLocalDayStart
-import com.aus.ausgegeben.util.localDayStartMillis
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -76,7 +75,14 @@ class AddExpenseViewModel(
     }
 
     fun onDateChange(millis: Long) {
-        _dateMillis.value = datePickerMillisToLocalDayStart(millis)
+        // Keep the current time-of-day so saved transactions don't collapse to 00:00.
+        val dayStart = datePickerMillisToLocalDayStart(millis)
+        val now = java.util.Calendar.getInstance()
+        val timeOfDayMillis =
+            now.get(java.util.Calendar.HOUR_OF_DAY) * 3_600_000L +
+                now.get(java.util.Calendar.MINUTE) * 60_000L +
+                now.get(java.util.Calendar.SECOND) * 1_000L
+        _dateMillis.value = dayStart + timeOfDayMillis
     }
 
     fun loadForEdit(expense: Expense, categories: List<Category>) {
@@ -116,7 +122,7 @@ class AddExpenseViewModel(
                 val expense = Expense(
                     id = editingId ?: 0L,
                     amount = kotlin.math.abs(amt),
-                    dateMillis = localDayStartMillis(_dateMillis.value),
+                    dateMillis = _dateMillis.value,
                     categoryId = category.id,
                     note = _note.value.trim(),
                     receiptImagePath = _receiptImagePath.value,
