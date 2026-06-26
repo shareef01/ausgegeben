@@ -18,7 +18,7 @@ class CloudSyncRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
 ) {
     companion object {
-        private const val SYNC_TIMEOUT_MS = 20_000L
+        private const val SYNC_TIMEOUT_MS = 45_000L
     }
 
     private fun userCollection(path: String) =

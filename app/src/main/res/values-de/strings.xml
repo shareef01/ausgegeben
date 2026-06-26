@@ -121,6 +121,12 @@
     <string name="settings_never_synced">Noch nicht sync — nach Anmeldung „Jetzt syncen“ tippen</string>
     <string name="settings_sync_success">Cloud-Sync abgeschlossen</string>
     <string name="settings_sync_failed">Cloud-Sync fehlgeschlagen</string>
+    <string name="settings_sync_in_progress">Synchronisiere mit der Cloud…</string>
+    <string name="settings_sync_failed_detail">Sync fehlgeschlagen: %1$s</string>
+    <string name="settings_sync_error_permission">Zugriff verweigert. In der Firebase Console unter Firestore → Regeln die firestore.rules aus dem Projekt veröffentlichen.</string>
+    <string name="settings_sync_error_network">Keine Verbindung zu Firebase. Internet prüfen.</string>
+    <string name="settings_sync_error_timeout">Zeitüberschreitung. Bei stabiler Verbindung erneut versuchen.</string>
+    <string name="settings_sync_error_firestore_missing">Firestore-Datenbank fehlt. In Firebase Console → Firestore Database erstellen.</string>
 
     <string name="add_save_changes">Änderungen speichern</string>
     <string name="add_income">Einnahme hinzufügen</string>
