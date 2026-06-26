@@ -34,8 +34,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
+import com.aus.ausgegeben.ui.theme.AppGradientAlpha
 import com.aus.ausgegeben.ui.theme.AppIconSize
 import com.aus.ausgegeben.ui.theme.AppLayoutTokens
+import com.aus.ausgegeben.ui.theme.AppProgressBar
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpringSnappy
 import com.aus.ausgegeben.ui.theme.AppSpacing
@@ -91,9 +93,9 @@ fun FinanceSummaryCard(
                 .background(
                     Brush.linearGradient(
                         listOf(
-                            incomeColor.copy(alpha = 0.14f),
+                            incomeColor.copy(alpha = AppGradientAlpha.incomeSoft),
                             MaterialTheme.colorScheme.surface,
-                            expenseColor.copy(alpha = 0.10f),
+                            expenseColor.copy(alpha = AppGradientAlpha.expenseSoft),
                         )
                     )
                 )
@@ -240,23 +242,27 @@ private fun FlowBalanceBar(
     incomeColor: Color,
     modifier: Modifier = Modifier,
 ) {
+    val barHeight = AppProgressBar.flowBalanceHeight
+    val barShape = RoundedCornerShape(AppRadius.pill)
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(8.dp)
-            .clip(RoundedCornerShape(AppRadius.pill))
+            .height(barHeight)
+            .clip(barShape)
             .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)),
     ) {
         Box(
             modifier = Modifier
                 .weight((1f - incomeRatio).coerceAtLeast(0.05f))
-                .height(8.dp)
+                .height(barHeight)
+                .clip(barShape)
                 .background(expenseColor.copy(alpha = 0.85f)),
         )
         Box(
             modifier = Modifier
                 .weight(incomeRatio.coerceAtLeast(0.05f))
-                .height(8.dp)
+                .height(barHeight)
+                .clip(barShape)
                 .background(incomeColor.copy(alpha = 0.9f)),
         )
     }

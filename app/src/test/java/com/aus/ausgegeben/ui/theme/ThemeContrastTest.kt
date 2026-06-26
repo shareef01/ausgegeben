@@ -38,6 +38,23 @@ class ThemeContrastTest {
         assertTrue("lavender onSurfaceVariant: $ratio", ratio >= 4.5)
     }
 
+    @Test
+    fun lightTheme_incomeText_onIncomeChip_passesAa() {
+        val chipBackground = blendOnWhite(IncomeGreenLight, alpha = 0.1f)
+        val ratio = contrastRatio(IncomeGreenLight, chipBackground)
+        assertTrue("income on income chip: $ratio", ratio >= 4.5)
+    }
+
+    private fun blendOnWhite(foreground: androidx.compose.ui.graphics.Color, alpha: Float): androidx.compose.ui.graphics.Color {
+        val a = alpha.coerceIn(0f, 1f)
+        return androidx.compose.ui.graphics.Color(
+            red = 1f * (1f - a) + foreground.red * a,
+            green = 1f * (1f - a) + foreground.green * a,
+            blue = 1f * (1f - a) + foreground.blue * a,
+            alpha = 1f,
+        )
+    }
+
     private fun contrastRatio(foreground: androidx.compose.ui.graphics.Color, background: androidx.compose.ui.graphics.Color): Double {
         val l1 = relativeLuminance(foreground)
         val l2 = relativeLuminance(background)
