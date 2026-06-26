@@ -3,6 +3,7 @@ package com.aus.ausgegeben.ui
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -394,10 +395,17 @@ private fun ThemeOption(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(AppRadius.lg))
+            .padding(vertical = 3.dp)
+            .clip(RoundedCornerShape(AppRadius.xl))
             .background(
-                if (selected) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
-                else Color.Transparent
+                if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.035f)
+            )
+            .border(
+                width = 1.dp,
+                color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.36f)
+                else MaterialTheme.colorScheme.outline.copy(alpha = 0.12f),
+                shape = RoundedCornerShape(AppRadius.xl)
             )
             .clickable(onClick = onClick)
             .padding(vertical = AppSpacing.sm, horizontal = AppSpacing.sm),
@@ -410,7 +418,8 @@ private fun ThemeOption(
         Text(
             label,
             color = MaterialTheme.colorScheme.onBackground,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Normal,
             modifier = Modifier.weight(1f)
         )
         if (selected) {
@@ -421,11 +430,17 @@ private fun ThemeOption(
 
 @Composable
 private fun ThemeSwatches(colors: List<Color>) {
-    Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-        colors.take(3).forEach { color ->
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(AppRadius.pill))
+            .background(colors.firstOrNull()?.copy(alpha = 0.18f) ?: Color.Transparent)
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        colors.take(4).forEachIndexed { index, color ->
             Box(
                 modifier = Modifier
-                    .size(16.dp)
+                    .size(if (index == 0) 22.dp else 18.dp)
                     .clip(CircleShape)
                     .background(color)
             )
@@ -440,6 +455,9 @@ private fun ThemeMode.previewColors(): List<Color> = when (this) {
     ThemeMode.AMOLED -> listOf(Color.Black, Color(0xFF050505), Color.White)
     ThemeMode.MIDNIGHT -> listOf(Color(0xFF070B1A), Color(0xFF17203A), Color(0xFF8AB4FF))
     ThemeMode.OCEAN -> listOf(Color(0xFF061412), Color(0xFF12332F), Color(0xFF56D6C9))
+    ThemeMode.FOREST -> listOf(Color(0xFF06130B), Color(0xFF16351F), Color(0xFF86EFAC), Color(0xFFFACC15))
+    ThemeMode.SUNSET -> listOf(Color(0xFF190B10), Color(0xFF3B1A23), Color(0xFFFF9F6E), Color(0xFFFFD166))
+    ThemeMode.LAVENDER -> listOf(Color(0xFFFCFAFF), Color(0xFFF3EEFF), Color(0xFF7C3AED), Color(0xFFDB2777))
     ThemeMode.SOFT_LIGHT -> listOf(Color(0xFFFAF7F2), Color(0xFFF0E8DC), Color(0xFF7C5E44))
 }
 

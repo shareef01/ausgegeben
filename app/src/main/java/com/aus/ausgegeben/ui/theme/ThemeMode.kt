@@ -7,6 +7,9 @@ enum class ThemeMode(val storageKey: String) {
     AMOLED("amoled"),
     MIDNIGHT("midnight"),
     OCEAN("ocean"),
+    FOREST("forest"),
+    SUNSET("sunset"),
+    LAVENDER("lavender"),
     SOFT_LIGHT("soft_light");
 
     companion object {
@@ -16,7 +19,7 @@ enum class ThemeMode(val storageKey: String) {
 
     fun resolvesDark(systemDark: Boolean): Boolean = when (this) {
         SYSTEM -> systemDark
-        LIGHT, SOFT_LIGHT -> false
-        DARK, AMOLED, MIDNIGHT, OCEAN -> true
+        LIGHT, LAVENDER, SOFT_LIGHT -> false
+        DARK, AMOLED, MIDNIGHT, OCEAN, FOREST, SUNSET -> true
     }
 }
