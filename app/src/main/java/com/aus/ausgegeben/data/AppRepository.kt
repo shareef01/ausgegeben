@@ -26,9 +26,8 @@ class AppRepository(
     private val shouldSyncToCloud: suspend () -> Boolean = { false },
 ) {
     private suspend fun syncToCloud(action: suspend CloudSyncRepository.() -> Unit) {
-        if (shouldSyncToCloud()) {
-            cloudSync?.action()
-        }
+        if (!shouldSyncToCloud()) return
+        runCatching { cloudSync?.action() }
     }
 
     // Categories
