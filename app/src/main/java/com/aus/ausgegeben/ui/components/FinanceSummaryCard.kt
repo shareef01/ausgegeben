@@ -172,7 +172,7 @@ fun FinanceSummaryCard(
             Text(
                 text = line,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = AppSpacing.sm),
             )
         }
@@ -186,7 +186,7 @@ fun FinanceSummaryCard(
                     CurrencyUtils.formatAmount(transferTotal, currencyCode)
                 ),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = AppSpacing.xs),
             )
         }
@@ -326,7 +326,7 @@ fun EmptyStateMessage(
             Text(
                 text = hint,
                 style = MaterialTheme.typography.bodySmall,
-                color = muted.copy(alpha = 0.75f),
+                color = muted,
                 textAlign = TextAlign.Center,
             )
         }

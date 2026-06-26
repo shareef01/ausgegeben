@@ -32,10 +32,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -51,7 +48,7 @@ import com.aus.ausgegeben.ui.theme.GroupedShape
 import com.aus.ausgegeben.ui.theme.SectionLabelStyle
 import com.aus.ausgegeben.ui.theme.appBorderColor
 import com.aus.ausgegeben.ui.theme.appDividerColor
-import com.aus.ausgegeben.ui.theme.financeExpenseColor
+import com.aus.ausgegeben.ui.theme.navigationInactiveColor
 
 @Composable
 fun Modifier.appCard(
@@ -86,17 +83,10 @@ fun ScreenTitle(
             .padding(top = AppSpacing.md, bottom = AppSpacing.sm),
     ) {
         Text(
-            text = buildAnnotatedString {
-                if (title.isNotEmpty()) {
-                    withStyle(SpanStyle(color = financeExpenseColor())) {
-                        append(title.first())
-                    }
-                    append(title.drop(1))
-                }
-            },
+            text = title,
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground,
-            fontWeight = FontWeight.Normal,
+            fontWeight = FontWeight.SemiBold,
             modifier = Modifier.semantics { heading() },
         )
         if (subtitle != null) {
@@ -158,7 +148,7 @@ fun IosSegmentedControl(
 ) {
     val safeIndex = selectedIndex.coerceIn(0, (options.size - 1).coerceAtLeast(0))
     val accent = MaterialTheme.colorScheme.onBackground
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val muted = navigationInactiveColor()
     val containerShape = RoundedCornerShape(AppRadius.pill)
 
     Row(
@@ -180,7 +170,7 @@ fun IosSegmentedControl(
                 label = "segmentBackground"
             )
             val contentColor by animateColorAsState(
-                targetValue = if (selected) accent else muted.copy(alpha = 0.78f),
+                targetValue = if (selected) accent else muted,
                 animationSpec = AppColorSpring,
                 label = "segmentContent"
             )
