@@ -7,10 +7,10 @@ import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.util.AnalyticsPeriod
-import com.aus.ausgegeben.util.WealthTrendPoint
-import com.aus.ausgegeben.util.computeWealthTrend
-import com.aus.ausgegeben.util.dateRangeMillis
-import com.aus.ausgegeben.util.displayTitle
+import com.aus.ausgegeben.util.CashFlowPoint
+import com.aus.ausgegeben.util.analyticsDateRangeMillis
+import com.aus.ausgegeben.util.analyticsPeriodOptionFromStorage
+import com.aus.ausgegeben.util.computeCashFlowTrend
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,7 +25,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class DashboardUiState(
-    val period: AnalyticsPeriod = AnalyticsPeriod.THIS_MONTH,
+    val periodKey: String = AnalyticsPeriod.THIS_MONTH.storageKey,
     val periodLabel: String = "",
     val totalExpenses: Double = 0.0,
     val totalIncome: Double = 0.0,
@@ -35,7 +35,7 @@ data class DashboardUiState(
     val incomeByCategory: Map<Category, Double> = emptyMap(),
     val transfersByCategory: Map<Category, Double> = emptyMap(),
     val periodTransactions: List<Expense> = emptyList(),
-    val wealthTrend: List<WealthTrendPoint> = emptyList(),
+    val cashFlowTrend: List<CashFlowPoint> = emptyList(),
 )
 
 class DashboardViewModel(
@@ -43,11 +43,11 @@ class DashboardViewModel(
     private val preferenceManager: PreferenceManager
 ) : ViewModel() {
 
-    private val _period = MutableStateFlow(AnalyticsPeriod.THIS_MONTH)
+    private val _periodKey = MutableStateFlow(AnalyticsPeriod.THIS_MONTH.storageKey)
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val periodExpensesFlow = _period.flatMapLatest { period ->
-        val range = period.dateRangeMillis()
+    private val periodExpensesFlow = _periodKey.flatMapLatest { periodKey ->
+        val range = analyticsDateRangeMillis(periodKey)
         if (range == null) {
             repository.allExpenses
         } else {
@@ -59,9 +59,9 @@ class DashboardViewModel(
         preferenceManager.currencyFlow,
         repository.allCategories,
         periodExpensesFlow,
-        _period,
-    ) { currency, categories, scopedExpenses, period ->
-        buildDashboardState(currency, categories, scopedExpenses, period)
+        _periodKey,
+    ) { currency, categories, scopedExpenses, periodKey ->
+        buildDashboardState(currency, categories, scopedExpenses, periodKey)
     }
         .flowOn(Dispatchers.Default)
         .distinctUntilChanged()
@@ -73,16 +73,16 @@ class DashboardViewModel(
 
     init {
         viewModelScope.launch {
-            _period.value = AnalyticsPeriod.fromStorageKey(
+            _periodKey.value = analyticsPeriodOptionFromStorage(
                 preferenceManager.analyticsPeriodFlow.first()
-            )
+            ).storageKey
         }
     }
 
-    fun setPeriod(period: AnalyticsPeriod) {
-        _period.value = period
+    fun setPeriodKey(periodKey: String) {
+        _periodKey.value = periodKey
         viewModelScope.launch {
-            preferenceManager.updateAnalyticsPeriod(period)
+            preferenceManager.updateAnalyticsPeriodKey(periodKey)
         }
     }
 
@@ -90,7 +90,7 @@ class DashboardViewModel(
         currency: String,
         categories: List<Category>,
         scoped: List<Expense>,
-        period: AnalyticsPeriod,
+        periodKey: String,
     ): DashboardUiState {
         val categoryById = categories.associateBy { it.id }
 
@@ -127,8 +127,8 @@ class DashboardViewModel(
             }.toMap()
 
         return DashboardUiState(
-            period = period,
-            periodLabel = period.displayTitle(),
+            periodKey = periodKey,
+            periodLabel = analyticsPeriodOptionFromStorage(periodKey).label,
             totalExpenses = totalExpenses,
             totalIncome = totalIncome,
             totalTransfers = totalTransfers,
@@ -137,7 +137,7 @@ class DashboardViewModel(
             incomeByCategory = mapTotals(incomeTotals),
             transfersByCategory = mapTotals(transferTotals),
             periodTransactions = scoped,
-            wealthTrend = scoped.computeWealthTrend(period),
+            cashFlowTrend = scoped.computeCashFlowTrend(periodKey),
         )
     }
 }
