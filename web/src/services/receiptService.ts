@@ -1,4 +1,6 @@
 import { db } from '@/services/database';
+import { receiptStorageService } from '@/services/receiptStorageService';
+import { isCloudSyncActive } from '@/services/cloudSync';
 
 export interface StoredReceipt {
   id: string;
@@ -37,8 +39,25 @@ export const receiptService = {
     return receiptPathFromId(id);
   },
 
+  async ensureLocal(path: string | null | undefined): Promise<void> {
+    if (!isReceiptPath(path)) return;
+    const id = receiptIdFromPath(path);
+    const existing = await db.receipts.get(id);
+    if (existing) return;
+    if (!isCloudSyncActive()) return;
+    const blob = await receiptStorageService.downloadToBlob(path);
+    if (!blob) return;
+    await db.receipts.put({
+      id,
+      mimeType: blob.type || 'image/jpeg',
+      data: blob,
+      createdAt: Date.now(),
+    });
+  },
+
   async getBlob(path: string | null | undefined): Promise<Blob | null> {
     if (!isReceiptPath(path)) return null;
+    await this.ensureLocal(path);
     const row = await db.receipts.get(receiptIdFromPath(path));
     return row?.data ?? null;
   },
@@ -50,6 +69,7 @@ export const receiptService = {
 
   async copy(path: string | null | undefined): Promise<string | null> {
     if (!isReceiptPath(path)) return null;
+    await this.ensureLocal(path);
     const row = await db.receipts.get(receiptIdFromPath(path));
     if (!row) return null;
     const id = newId();
@@ -62,6 +82,14 @@ export const receiptService = {
     return receiptPathFromId(id);
   },
 
+  async uploadToCloud(path: string | null | undefined): Promise<void> {
+    if (!isReceiptPath(path) || !isCloudSyncActive()) return;
+    const id = receiptIdFromPath(path);
+    const row = await db.receipts.get(id);
+    if (!row) return;
+    await receiptStorageService.upload(path, row.data, row.mimeType);
+  },
+
   async deletePath(path: string | null | undefined, excludeExpenseId?: number): Promise<void> {
     if (!isReceiptPath(path)) return;
     const id = receiptIdFromPath(path);
@@ -70,6 +98,9 @@ export const receiptService = {
       .count();
     if (refs === 0) {
       await db.receipts.delete(id);
+      if (isCloudSyncActive()) {
+        await receiptStorageService.delete(path);
+      }
     }
   },
 };

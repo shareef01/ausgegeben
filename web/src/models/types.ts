@@ -9,6 +9,7 @@ export interface Category {
   colorInt: number;
   transactionType: TransactionType;
   sortOrder: number;
+  updatedAt?: number;
 }
 
 export interface Expense {
@@ -19,6 +20,7 @@ export interface Expense {
   note: string;
   receiptImagePath?: string | null;
   transactionType: TransactionType;
+  updatedAt?: number;
 }
 
 export type ThemeMode =
@@ -52,6 +54,20 @@ export interface AppPreferences {
   storageMode: StorageMode;
   authGatewayComplete: boolean;
   lastCloudSyncAt: number | null;
+  preferencesUpdatedAt: number;
+}
+
+/** Preferences synced to Firestore (device-local flags excluded). */
+export interface SyncedPreferences {
+  currency: string;
+  locale: Locale;
+  themeMode: ThemeMode;
+  dailyReminder: boolean;
+  reminderHour: number;
+  reminderMinute: number;
+  analyticsPeriod: string;
+  monthlyBudget: number | null;
+  updatedAt: number;
 }
 
 export interface AnalyticsPeriodOption {

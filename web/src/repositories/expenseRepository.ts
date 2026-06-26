@@ -9,6 +9,10 @@ export interface ExpenseQueryParams {
   searchQuery: string;
 }
 
+function now(): number {
+  return Date.now();
+}
+
 export const expenseRepository = {
   async getAllCategories(): Promise<Category[]> {
     return db.categories.orderBy('sortOrder').toArray();
@@ -19,16 +23,18 @@ export const expenseRepository = {
   },
 
   async insertCategory(category: Omit<Category, 'id'>): Promise<number> {
-    const id = await db.categories.add(category as Category);
+    const stamped = { ...category, updatedAt: now() };
+    const id = await db.categories.add(stamped as Category);
     bumpRevision();
-    void syncService.pushCategory({ ...category, id });
+    void syncService.pushCategory({ ...stamped, id });
     return id;
   },
 
   async updateCategory(category: Category): Promise<void> {
-    await db.categories.put(category);
+    const stamped = { ...category, updatedAt: now() };
+    await db.categories.put(stamped);
     bumpRevision();
-    void syncService.pushCategory(category);
+    void syncService.pushCategory(stamped);
   },
 
   async deleteCategory(id: number): Promise<void> {
@@ -83,16 +89,18 @@ export const expenseRepository = {
   },
 
   async insertExpense(expense: Omit<Expense, 'id'>): Promise<number> {
-    const id = await db.expenses.add(expense as Expense);
+    const stamped = { ...expense, updatedAt: now() };
+    const id = await db.expenses.add(stamped as Expense);
     bumpRevision();
-    void syncService.pushExpense({ ...expense, id });
+    void syncService.pushExpense({ ...stamped, id });
     return id;
   },
 
   async updateExpense(expense: Expense): Promise<void> {
-    await db.expenses.put(expense);
+    const stamped = { ...expense, updatedAt: now() };
+    await db.expenses.put(stamped);
     bumpRevision();
-    void syncService.pushExpense(expense);
+    void syncService.pushExpense(stamped);
   },
 
   async deleteExpense(id: number): Promise<Expense | null> {
@@ -106,9 +114,10 @@ export const expenseRepository = {
 
   async restoreExpense(expense: Expense): Promise<number> {
     const { id: _id, ...rest } = expense;
-    const newId = await db.expenses.add(rest as Expense);
+    const stamped = { ...rest, updatedAt: now() };
+    const newId = await db.expenses.add(stamped as Expense);
     bumpRevision();
-    void syncService.pushExpense({ ...rest, id: newId });
+    void syncService.pushExpense({ ...stamped, id: newId });
     return newId;
   },
 

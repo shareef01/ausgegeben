@@ -26,7 +26,7 @@ src/
   utils/            # periodUtils, analytics, currency
 ```
 
-## Implemented (Phase 0–3)
+## Implemented (Phase 0–5)
 
 - [x] PWA manifest + service worker (auto-update)
 - [x] IndexedDB schema + default category seed
@@ -43,13 +43,15 @@ src/
 - [x] **Swipe-delete** with undo toast; long-press to duplicate
 - [x] **Firebase Auth** (email/password + Google) with offline fallback
 - [x] **Firestore sync** at `users/{uid}/categories/{id}` and `users/{uid}/expenses/{id}`
+- [x] **Firebase Storage** for receipt images (`users/{uid}/receipts/{id}`)
+- [x] **Conflict resolution** via `updatedAt` timestamps + delete tombstones
+- [x] **Preference sync** (currency, locale, theme, budget, reminders) to `users/{uid}/preferences/settings`
 
 ## Roadmap (next phases)
 
 | Phase | Features |
 |-------|----------|
 | **4** | Evening reminders (Notification API), onboarding pager animations, chart polish |
-| **5** | Firebase Storage for receipts, conflict resolution, preference sync |
 
 ## Development
 
@@ -75,6 +77,7 @@ VITE_FIREBASE_API_KEY=
 VITE_FIREBASE_AUTH_DOMAIN=
 VITE_FIREBASE_PROJECT_ID=
 VITE_FIREBASE_APP_ID=
+VITE_FIREBASE_STORAGE_BUCKET=
 ```
 
 **Firebase Console setup:**
@@ -83,7 +86,8 @@ VITE_FIREBASE_APP_ID=
 2. Add a **Web** app and copy the config values above
 3. Enable **Authentication** → Email/Password and Google providers
 4. Create a **Firestore** database (production or test mode)
-5. Add your PWA host to **Authentication → Settings → Authorized domains** (include `localhost` for dev)
+5. Enable **Storage** and note the bucket name (`VITE_FIREBASE_STORAGE_BUCKET`)
+6. Add your PWA host to **Authentication → Settings → Authorized domains** (include `localhost` for dev)
 
 Firestore security rules (adjust for production):
 
@@ -98,10 +102,30 @@ service cloud.firestore {
 }
 ```
 
+Storage security rules:
+
+```
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /users/{userId}/receipts/{receiptId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
+```
+
+**Sync behavior (Phase 5):**
+
+- Categories, expenses, and preferences carry an `updatedAt` timestamp — newest wins on conflict
+- Deletes write tombstones (`deleted: true`) so other devices pick them up
+- Receipt blobs upload to Storage; other devices download on sync/view
+- Device-local flags (`onboardingComplete`, `authGatewayComplete`, `storageMode`) are not synced
+
 Without env vars the app runs fully offline — cloud sign-in is hidden until configured.
 
 ## Parity notes
 
-- Firestore paths: `users/{uid}/categories/{id}`, `users/{uid}/expenses/{id}`
-- Preferences stay local on Android too (except sync metadata)
-- Receipt images: local IndexedDB blobs in web; cross-device needs Firebase Storage (planned)
+- Firestore paths: `users/{uid}/categories/{id}`, `users/{uid}/expenses/{id}`, `users/{uid}/preferences/settings`
+- Storage path: `users/{uid}/receipts/{receiptId}`
+- Receipt images: cached locally in IndexedDB; uploaded to Firebase Storage when signed in
