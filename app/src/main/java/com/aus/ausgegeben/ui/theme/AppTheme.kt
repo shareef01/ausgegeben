@@ -17,3 +17,17 @@ fun appBorderColor(): Color =
 @Composable
 fun appDividerColor(): Color =
     if (isAppDarkTheme()) AppColors.CardBorder else OutlineLight.copy(alpha = 0.6f)
+
+@Composable
+fun financeIncomeColor(): Color {
+    val primary = MaterialTheme.colorScheme.primary
+    return if (isAppDarkTheme() && primary.luminance() > 0.82f) {
+        IncomeGreen
+    } else {
+        primary
+    }
+}
+
+@Composable
+fun financeExpenseColor(): Color =
+    MaterialTheme.colorScheme.error

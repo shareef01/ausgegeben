@@ -47,11 +47,11 @@ import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.AppSpringSnappy
 import com.aus.ausgegeben.ui.theme.CapsuleShape
-import com.aus.ausgegeben.ui.theme.ExpenseMuted
 import com.aus.ausgegeben.ui.theme.GroupedShape
 import com.aus.ausgegeben.ui.theme.SectionLabelStyle
 import com.aus.ausgegeben.ui.theme.appBorderColor
 import com.aus.ausgegeben.ui.theme.appDividerColor
+import com.aus.ausgegeben.ui.theme.financeExpenseColor
 
 @Composable
 fun Modifier.appCard(
@@ -88,7 +88,7 @@ fun ScreenTitle(
         Text(
             text = buildAnnotatedString {
                 if (title.isNotEmpty()) {
-                    withStyle(SpanStyle(color = ExpenseMuted)) {
+                    withStyle(SpanStyle(color = financeExpenseColor())) {
                         append(title.first())
                     }
                     append(title.drop(1))
