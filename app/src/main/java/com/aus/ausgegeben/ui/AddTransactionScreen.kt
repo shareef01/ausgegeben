@@ -8,6 +8,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -18,6 +19,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -205,17 +208,20 @@ fun AddTransactionScreen(
                 accentColor = typeAccent,
                 onClick = { showDatePicker = true }
             )
-            AmountCard(
+            CategoryAmountBar(
+                selectedCategory = selectedCategory,
                 amount = amountText,
                 currencyCode = currencyCode,
+                amountColor = amountColor,
+                transactionType = transactionType,
+            )
+            NoteField(
                 remark = remarkText,
                 onRemarkChange = { remarkText = it },
+                accentColor = typeAccent,
                 receiptPath = receiptPath,
                 onReceiptClick = { showReceiptPreview = true },
                 onClearReceipt = { viewModel.setReceiptPath(null) },
-                amountColor = amountColor,
-                accentColor = typeAccent,
-                transactionType = transactionType
             )
             Row(
                 modifier = Modifier
@@ -275,7 +281,7 @@ fun AddTransactionScreen(
                     }
                 }
             } else {
-                CategoryIconGrid(
+                CategorySlider(
                     categories = filteredCategories,
                     selectedCategory = selectedCategory,
                     onCategorySelected = { viewModel.onCategorySelect(it) },
@@ -283,10 +289,10 @@ fun AddTransactionScreen(
                         editingCategory = null
                         showEditorDialog = true
                     },
-                    modifier = Modifier.padding(horizontal = 16.dp)
+                    modifier = Modifier.padding(bottom = AppSpacing.sm)
                 )
             }
-            Spacer(modifier = Modifier.height(AppSpacing.xl))
+            Spacer(modifier = Modifier.height(AppSpacing.md))
             }
         }
         Column(
@@ -479,110 +485,273 @@ fun AddTransactionScreen(
     }
 }
 // ─────────────────────────────────────────────
-// Amount card
+// Category + amount bar (single row)
 // ─────────────────────────────────────────────
 @Composable
-private fun AmountCard(
+private fun CategoryAmountBar(
+    selectedCategory: Category?,
     amount: String,
     currencyCode: String,
-    remark: String,
-    onRemarkChange: (String) -> Unit,
-    receiptPath: String?,
-    onReceiptClick: () -> Unit,
-    onClearReceipt: () -> Unit,
     amountColor: Color,
-    accentColor: Color,
-    transactionType: TransactionType
+    transactionType: TransactionType,
 ) {
     val typeLabel = when (transactionType) {
         TransactionType.INCOME -> stringResource(R.string.add_amount_income)
         TransactionType.TRANSFER -> stringResource(R.string.add_amount_transfer)
         else -> stringResource(R.string.add_amount_expense)
     }
-    val fontSize = when {
-        amount.length > 10 -> 31.sp
-        amount.length > 7 -> 39.sp
-        else -> 48.sp
+    val amountFontSize = when {
+        amount.length > 10 -> 24.sp
+        amount.length > 7 -> 28.sp
+        else -> 34.sp
     }
     GroupedSection(modifier = Modifier.padding(top = AppSpacing.xs, bottom = AppSpacing.xxs)) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = AppSpacing.md, vertical = AppSpacing.md),
-            horizontalAlignment = Alignment.CenterHorizontally
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = typeLabel,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Normal
-            )
-            Spacer(modifier = Modifier.height(AppSpacing.sm - AppSpacing.xxs))
-            Row(
-                verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.Center
-            ) {
+            if (selectedCategory != null) {
+                val categoryColor = colorIntToCompose(selectedCategory.colorInt)
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(categoryColor.copy(alpha = 0.16f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = iconForCategory(selectedCategory),
+                        contentDescription = selectedCategory.name,
+                        tint = categoryColor,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+                Spacer(modifier = Modifier.width(AppSpacing.sm))
+                Column(modifier = Modifier.weight(1f, fill = false)) {
+                    Text(
+                        text = typeLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = selectedCategory.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                    )
+                }
+            } else {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = typeLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = stringResource(R.string.add_select_category),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(AppSpacing.sm))
+            Row(verticalAlignment = Alignment.Bottom) {
                 Text(
                     text = CurrencyUtils.symbolFor(currencyCode),
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(end = AppSpacing.xxs + AppSpacing.xxs, bottom = AppSpacing.xs)
+                    modifier = Modifier.padding(end = AppSpacing.xxs, bottom = AppSpacing.xxs),
                 )
                 MoneyText(
                     text = amount,
-                    size = MoneySize.Hero,
+                    size = MoneySize.Headline,
                     color = amountColor,
-                    fontSize = fontSize,
+                    fontSize = amountFontSize,
                     fontWeight = FontWeight.SemiBold,
                     animateChanges = true,
                 )
             }
-            HorizontalDivider(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = AppSpacing.sm),
-                thickness = 0.5.dp,
-                color = appDividerColor()
-            )
+        }
+    }
+}
+
+@Composable
+private fun NoteField(
+    remark: String,
+    onRemarkChange: (String) -> Unit,
+    accentColor: Color,
+    receiptPath: String?,
+    onReceiptClick: () -> Unit,
+    onClearReceipt: () -> Unit,
+) {
+    GroupedSection(modifier = Modifier.padding(bottom = AppSpacing.xxs)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm),
+        ) {
             BasicTextField(
                 value = remark,
                 onValueChange = onRemarkChange,
                 textStyle = MaterialTheme.typography.bodyLarge.copy(
                     color = MaterialTheme.colorScheme.onBackground,
-                    textAlign = TextAlign.Center
                 ),
                 cursorBrush = SolidColor(accentColor),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 decorationBox = { inner ->
-                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Box(modifier = Modifier.fillMaxWidth()) {
                         if (remark.isEmpty()) {
                             Text(
                                 stringResource(R.string.add_note_placeholder),
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                         inner()
                     }
-                }
+                },
             )
             if (receiptPath != null) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(top = AppSpacing.sm)
+                    modifier = Modifier.padding(top = AppSpacing.sm),
                 ) {
                     ReceiptThumbnail(uri = receiptPath, onClick = onReceiptClick)
                     TextButton(onClick = onClearReceipt) {
-                        Text(stringResource(R.string.add_remove_receipt), color = accentColor, style = MaterialTheme.typography.labelMedium)
+                        Text(
+                            stringResource(R.string.add_remove_receipt),
+                            color = accentColor,
+                            style = MaterialTheme.typography.labelMedium,
+                        )
                     }
                 }
             }
         }
     }
 }
+
+// ─────────────────────────────────────────────
+// Horizontal category slider
+// ─────────────────────────────────────────────
+@Composable
+private fun CategorySlider(
+    categories: List<Category>,
+    selectedCategory: Category?,
+    onCategorySelected: (Category) -> Unit,
+    onAddCategory: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LazyRow(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = AppSpacing.md),
+        horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs),
+    ) {
+        items(categories, key = { it.id }) { category ->
+            CategorySliderTile(
+                category = category,
+                isSelected = selectedCategory?.id == category.id,
+                onClick = { onCategorySelected(category) },
+            )
+        }
+        item(key = "add_category") {
+            CategoryAddSliderTile(onClick = onAddCategory)
+        }
+    }
+}
+
+@Composable
+private fun CategorySliderTile(
+    category: Category,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+) {
+    val categoryColor = colorIntToCompose(category.colorInt)
+    val tileShape = RoundedCornerShape(AppRadius.lg)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(68.dp)
+            .clip(tileShape)
+            .background(
+                if (isSelected) categoryColor.copy(alpha = 0.12f)
+                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+            )
+            .smoothClickable(onClick = onClick)
+            .padding(vertical = AppSpacing.sm, horizontal = AppSpacing.xxs),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(
+                    if (isSelected) categoryColor.copy(alpha = 0.24f)
+                    else categoryColor.copy(alpha = 0.14f),
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = iconForCategory(category),
+                contentDescription = category.name,
+                tint = categoryColor,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        Spacer(modifier = Modifier.height(AppSpacing.xs))
+        Text(
+            text = category.name,
+            style = MaterialTheme.typography.labelSmall,
+            color = if (isSelected) MaterialTheme.colorScheme.onBackground
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+            maxLines = 1,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+@Composable
+private fun CategoryAddSliderTile(onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(68.dp)
+            .clip(RoundedCornerShape(AppRadius.lg))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+            .smoothClickable(onClick = onClick)
+            .padding(vertical = AppSpacing.sm, horizontal = AppSpacing.xxs),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Rounded.Add,
+                contentDescription = stringResource(R.string.add_add_category),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        Spacer(modifier = Modifier.height(AppSpacing.xs))
+        Text(
+            text = stringResource(R.string.add_new_category),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
 // ─────────────────────────────────────────────
 // Category icon grid
 // ─────────────────────────────────────────────

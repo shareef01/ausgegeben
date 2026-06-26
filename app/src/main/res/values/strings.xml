@@ -92,6 +92,7 @@
     <string name="add_type_income">Income</string>
     <string name="add_type_transfer">Transfer</string>
     <string name="add_category_label">CATEGORY</string>
+    <string name="add_select_category">Select category</string>
     <string name="add_manage">Manage</string>
     <string name="add_no_categories_title">No categories yet</string>
     <string name="add_no_categories_subtitle">Tap New below or Manage to create one</string>
