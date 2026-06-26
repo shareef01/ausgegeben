@@ -70,7 +70,10 @@ npm run preview    # test production build
 
 ### Deploy to Firebase Hosting
 
-Project: **ausgegeben01** → `https://ausgegeben01.web.app`
+Project: **ausgegeben01** → PWA hosted at **`https://aus01.web.app`**
+
+> Note: This project has two Hosting sites. The PWA deploys to **`aus01`** (linked to your Web App).  
+> `https://ausgegeben01.web.app` is a separate default site and may show Firebase's placeholder page.
 
 1. Ensure `web/.env.local` has your Firebase Web config (used at build time).
 2. Install Firebase CLI and log in (once on your machine):
@@ -91,8 +94,8 @@ npm run deploy
 This runs `vite build` then `firebase deploy --only hosting`.
 
 **Live URLs after deploy:**
-- https://ausgegeben01.web.app
-- https://ausgegeben01.firebaseapp.com
+- https://aus01.web.app ← **use this one (PWA)**
+- https://aus01.firebaseapp.com
 
 These domains are automatically authorized for Firebase Auth. Google sign-in will work without extra domain setup.
 
