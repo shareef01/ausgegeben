@@ -116,6 +116,7 @@
     <string name="settings_sign_out_confirm">Abmelden und Offline-Modus nutzen? Lokale Daten bleiben auf diesem Gerät.</string>
     <string name="settings_signed_out">Abgemeldet. Du bist jetzt im Offline-Modus.</string>
     <string name="settings_user_id">ID %1$s…</string>
+    <string name="settings_firebase_project">Firebase-Projekt %1$s</string>
     <string name="settings_sync_now">Jetzt syncen</string>
     <string name="settings_last_synced">Zuletzt sync %1$s</string>
     <string name="settings_never_synced">Noch nicht sync — nach Anmeldung „Jetzt syncen“ tippen</string>
@@ -123,7 +124,8 @@
     <string name="settings_sync_failed">Cloud-Sync fehlgeschlagen</string>
     <string name="settings_sync_in_progress">Synchronisiere mit der Cloud…</string>
     <string name="settings_sync_failed_detail">Sync fehlgeschlagen: %1$s</string>
-    <string name="settings_sync_error_permission">Zugriff verweigert. In der Firebase Console unter Firestore → Regeln die firestore.rules aus dem Projekt veröffentlichen.</string>
+    <string name="settings_sync_error_permission">Cloud-Zugriff für Projekt %1$s verweigert. Falls firestore.rules schon veröffentlicht sind: Firestore in genau diesem Projekt anlegen (Firebase Console → Firestore Database) und Regeln veröffentlichen, nicht nur als Entwurf speichern. Detail: %2$s</string>
+    <string name="settings_sync_error_config_placeholder">Firebase ist in diesem Build nicht konfiguriert. google-services.json aus der Firebase Console nach app/google-services.json kopieren und die App neu bauen.</string>
     <string name="settings_sync_error_network">Keine Verbindung zu Firebase. Internet prüfen.</string>
     <string name="settings_sync_error_timeout">Zeitüberschreitung. Bei stabiler Verbindung erneut versuchen.</string>
     <string name="settings_sync_error_firestore_missing">Firestore-Datenbank fehlt. In Firebase Console → Firestore Database erstellen.</string>

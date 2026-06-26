@@ -122,6 +122,7 @@
     <string name="settings_sign_out_confirm">Sign out and return to offline mode? Your local data will stay on this device.</string>
     <string name="settings_signed_out">Signed out. You are now in offline mode.</string>
     <string name="settings_user_id">ID %1$s…</string>
+    <string name="settings_firebase_project">Firebase project %1$s</string>
     <string name="settings_sync_now">Sync now</string>
     <string name="settings_last_synced">Last synced %1$s</string>
     <string name="settings_never_synced">Not synced yet — tap Sync now after sign-in</string>
@@ -129,7 +130,8 @@
     <string name="settings_sync_failed">Cloud sync failed</string>
     <string name="settings_sync_in_progress">Syncing with cloud…</string>
     <string name="settings_sync_failed_detail">Sync failed: %1$s</string>
-    <string name="settings_sync_error_permission">Permission denied. In Firebase Console open Firestore → Rules and publish the rules from firestore.rules in this project.</string>
+    <string name="settings_sync_error_permission">Cloud access denied for project %1$s. If you already published firestore.rules, confirm Firestore was created in that same project (Firebase Console → Firestore Database) and rules are published, not just saved as a draft. Detail: %2$s</string>
+    <string name="settings_sync_error_config_placeholder">Firebase is not configured on this build. Copy your google-services.json from Firebase Console into app/google-services.json, then rebuild the app.</string>
     <string name="settings_sync_error_network">No connection to Firebase. Check your internet.</string>
     <string name="settings_sync_error_timeout">Sync timed out. Try again on a stable connection.</string>
     <string name="settings_sync_error_firestore_missing">Firestore database not found. Create it in Firebase Console → Firestore Database.</string>
