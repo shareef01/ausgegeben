@@ -26,7 +26,7 @@ src/
   utils/            # periodUtils, analytics, currency
 ```
 
-## Implemented (Phase 0–1)
+## Implemented (Phase 0–2)
 
 - [x] PWA manifest + service worker (auto-update)
 - [x] IndexedDB schema + default category seed
@@ -37,12 +37,15 @@ src/
 - [x] **Insights**: period selector, donuts (compact rings), overview, cash-flow trend
 - [x] **Settings**: theme, currency, budget, categories, CSV export, offline banner
 - [x] Category management (basic CRUD)
+- [x] **German locale** (EN/DE) with language picker in Settings
+- [x] **Receipt attach** (camera/file) stored as IndexedDB blobs
+- [x] **Budget progress bar** on Record tab when monthly limit is set
+- [x] **Swipe-delete** with undo toast; long-press to duplicate
 
 ## Roadmap (next phases)
 
 | Phase | Features |
 |-------|----------|
-| **2** | German locale, receipt attach (file/camera), budget progress bar, swipe-delete + undo toast |
 | **3** | Firebase Auth (email + Google) + Firestore sync (same paths as Android) |
 | **4** | Evening reminders (Notification API), onboarding pager animations, chart polish |
 | **5** | Firebase Storage for receipts, conflict resolution, preference sync |

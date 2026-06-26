@@ -1,3 +1,5 @@
+import type { Locale } from '@/i18n';
+
 export type TransactionType = 'expense' | 'income' | 'transfer';
 
 export interface Category {
@@ -39,6 +41,7 @@ export type TransactionTypeFilter = 'all' | 'expense' | 'income' | 'transfer';
 
 export interface AppPreferences {
   currency: string;
+  locale: Locale;
   themeMode: ThemeMode;
   onboardingComplete: boolean;
   dailyReminder: boolean;

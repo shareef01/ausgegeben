@@ -1,4 +1,4 @@
-import { strings } from '@/i18n/en';
+import { useTranslation } from '@/i18n';
 
 interface PremiumPeriodSelectorProps<T> {
   options: T[];
@@ -60,13 +60,10 @@ export function PremiumPeriodSelector<T>({ options, selected, labelFor, isSelect
   );
 }
 
-export function PeriodLabels() {
-  return null;
-}
-
 export function recordPeriodOptions() {
+  const { t } = useTranslation();
   return [
-    { key: 'this_month' as const, label: strings.recordPeriodThisMonth },
-    { key: 'all_time' as const, label: strings.recordPeriodAllTime },
+    { key: 'this_month' as const, label: t('recordPeriodThisMonth') },
+    { key: 'all_time' as const, label: t('recordPeriodAllTime') },
   ];
 }

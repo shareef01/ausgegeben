@@ -1,16 +1,23 @@
 import Dexie, { type Table } from 'dexie';
 import type { Category, Expense } from '@/models/types';
+import type { StoredReceipt } from '@/services/receiptService';
 import { seedCategories } from '@/services/dataSeeder';
 
 export class AusgegebenDatabase extends Dexie {
   categories!: Table<Category, number>;
   expenses!: Table<Expense, number>;
+  receipts!: Table<StoredReceipt, string>;
 
   constructor() {
     super('ausgegeben');
     this.version(1).stores({
       categories: '++id, transactionType, sortOrder',
       expenses: '++id, categoryId, transactionType, dateMillis',
+    });
+    this.version(2).stores({
+      categories: '++id, transactionType, sortOrder',
+      expenses: '++id, categoryId, transactionType, dateMillis, receiptImagePath',
+      receipts: 'id',
     });
   }
 }

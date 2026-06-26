@@ -1,6 +1,6 @@
 import { useState, type CSSProperties } from 'react';
 import { usePreferencesStore } from '@/services/preferencesStore';
-import { strings } from '@/i18n/en';
+import { useTranslation } from '@/i18n';
 
 interface AuthViewProps {
   onAuthenticated: () => void;
@@ -8,6 +8,7 @@ interface AuthViewProps {
 }
 
 export function AuthView({ onAuthenticated, onDismiss }: AuthViewProps) {
+  const { t } = useTranslation();
   const completeAuthGateway = usePreferencesStore((s) => s.completeAuthGateway);
   const [tab, setTab] = useState<'signin' | 'signup'>('signin');
 
@@ -38,7 +39,7 @@ export function AuthView({ onAuthenticated, onDismiss }: AuthViewProps) {
         </div>
 
         <button type="button" onClick={continueOffline} style={{ ...btnStyle, width: '100%', background: 'transparent', color: 'var(--color-on-background)', border: '1px solid var(--color-outline)' }}>
-          {strings.authContinueOffline}
+          {t('authContinueOffline')}
         </button>
         <p style={{ fontSize: '0.75rem', color: 'var(--color-on-surface-variant)', marginTop: 12, textAlign: 'center' }}>
           Offline mode stores everything in your browser via IndexedDB.

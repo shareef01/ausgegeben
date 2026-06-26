@@ -1,9 +1,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { AppPreferences, ThemeMode, StorageMode, RecordListPeriod } from '@/models/types';
+import type { Locale } from '@/i18n';
 
 const DEFAULT_PREFERENCES: AppPreferences = {
   currency: 'EUR',
+  locale: 'en',
   themeMode: 'system',
   onboardingComplete: false,
   dailyReminder: true,
@@ -18,6 +20,7 @@ const DEFAULT_PREFERENCES: AppPreferences = {
 
 interface PreferencesStore extends AppPreferences {
   setCurrency: (currency: string) => void;
+  setLocale: (locale: Locale) => void;
   setThemeMode: (mode: ThemeMode) => void;
   completeOnboarding: () => void;
   setDailyReminder: (enabled: boolean) => void;
@@ -35,6 +38,7 @@ export const usePreferencesStore = create<PreferencesStore>()(
     (set) => ({
       ...DEFAULT_PREFERENCES,
       setCurrency: (currency) => set({ currency }),
+      setLocale: (locale) => set({ locale }),
       setThemeMode: (themeMode) => set({ themeMode }),
       completeOnboarding: () => set({ onboardingComplete: true }),
       setDailyReminder: (dailyReminder) => set({ dailyReminder }),

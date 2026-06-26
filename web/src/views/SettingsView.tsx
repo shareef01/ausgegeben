@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { ScreenTitle } from '@/components/ui';
 import { usePreferencesStore } from '@/services/preferencesStore';
-import { strings } from '@/i18n/en';
+import { useTranslation, type Locale } from '@/i18n';
 import { currencyLabel, SUPPORTED_CURRENCIES } from '@/utils/currency';
 import type { ThemeMode } from '@/models/types';
 import { expenseRepository } from '@/repositories/expenseRepository';
@@ -26,15 +26,19 @@ interface SettingsViewProps {
 }
 
 export function SettingsView({ onManageCategories, onSignIn }: SettingsViewProps) {
+  const { t } = useTranslation();
   const currency = usePreferencesStore((s) => s.currency);
+  const locale = usePreferencesStore((s) => s.locale);
   const themeMode = usePreferencesStore((s) => s.themeMode);
   const monthlyBudget = usePreferencesStore((s) => s.monthlyBudget);
   const authGatewayComplete = usePreferencesStore((s) => s.authGatewayComplete);
   const setCurrency = usePreferencesStore((s) => s.setCurrency);
+  const setLocale = usePreferencesStore((s) => s.setLocale);
   const setThemeMode = usePreferencesStore((s) => s.setThemeMode);
   const setMonthlyBudget = usePreferencesStore((s) => s.setMonthlyBudget);
   const [showTheme, setShowTheme] = useState(false);
   const [showCurrency, setShowCurrency] = useState(false);
+  const [showLanguage, setShowLanguage] = useState(false);
 
   const exportData = async () => {
     const expenses = await expenseRepository.getAllExpenses();
@@ -51,7 +55,7 @@ export function SettingsView({ onManageCategories, onSignIn }: SettingsViewProps
 
   return (
     <div>
-      <ScreenTitle title={strings.screenSettings} subtitle={`Ausgegeben · v1.0`} />
+      <ScreenTitle title={t('screenSettings')} subtitle={`Ausgegeben · v1.0`} />
 
       {!authGatewayComplete ? (
         <div className="offline-banner">
@@ -60,28 +64,29 @@ export function SettingsView({ onManageCategories, onSignIn }: SettingsViewProps
             <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 16 }}>
               <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'color-mix(in srgb, var(--color-on-surface-variant) 14%, transparent)', display: 'grid', placeItems: 'center', fontSize: '1.5rem' }}>☁️̸</div>
               <div>
-                <div style={{ fontWeight: 600 }}>{strings.settingsOffline}</div>
-                <div style={{ fontSize: '0.8125rem', color: 'var(--color-on-surface-variant)' }}>{strings.settingsOfflineSub}</div>
+                <div style={{ fontWeight: 600 }}>{t('settingsOffline')}</div>
+                <div style={{ fontSize: '0.8125rem', color: 'var(--color-on-surface-variant)' }}>{t('settingsOfflineSub')}</div>
               </div>
             </div>
             <button type="button" onClick={onSignIn} style={{ width: '100%', padding: '12px 16px', borderRadius: 999, background: 'var(--color-accent)', color: '#fff', fontWeight: 600 }}>
-              {strings.settingsSignIn}
+              {t('settingsSignIn')}
             </button>
           </div>
         </div>
       ) : null}
 
-      <Section title="Appearance">
-        <SettingsRow title={strings.settingsTheme} subtitle={THEME_OPTIONS.find((t) => t.key === themeMode)?.label ?? themeMode} onClick={() => setShowTheme(true)} />
-        <SettingsRow title={strings.settingsCurrency} subtitle={currencyLabel(currency)} onClick={() => setShowCurrency(true)} />
+      <Section title={t('settingsAppearance')}>
+        <SettingsRow title={t('settingsTheme')} subtitle={THEME_OPTIONS.find((opt) => opt.key === themeMode)?.label ?? themeMode} onClick={() => setShowTheme(true)} />
+        <SettingsRow title={t('settingsLanguage')} subtitle={locale === 'de' ? t('langGerman') : t('langEnglish')} onClick={() => setShowLanguage(true)} />
+        <SettingsRow title={t('settingsCurrency')} subtitle={currencyLabel(currency)} onClick={() => setShowCurrency(true)} />
       </Section>
 
-      <Section title="Budget">
+      <Section title={t('settingsBudget')}>
         <SettingsRow
-          title="Monthly spending limit"
-          subtitle={monthlyBudget ? `${monthlyBudget}` : 'Not set'}
+          title={t('settingsMonthlyLimit')}
+          subtitle={monthlyBudget ? `${monthlyBudget}` : t('settingsMonthlyLimitNotSet')}
           onClick={() => {
-            const raw = prompt('Monthly limit amount', monthlyBudget?.toString() ?? '');
+            const raw = prompt(t('settingsMonthlyLimit'), monthlyBudget?.toString() ?? '');
             if (raw === null) return;
             const n = Number.parseFloat(raw.replace(',', '.'));
             setMonthlyBudget(Number.isFinite(n) && n > 0 ? n : null);
@@ -89,24 +94,35 @@ export function SettingsView({ onManageCategories, onSignIn }: SettingsViewProps
         />
       </Section>
 
-      <Section title="Management">
-        <SettingsRow title={strings.settingsCategories} subtitle="Add or remove categories" onClick={onManageCategories} />
-        <SettingsRow title={strings.settingsExport} subtitle="Download spreadsheet" onClick={() => void exportData()} />
+      <Section title={t('settingsManagement')}>
+        <SettingsRow title={t('settingsCategories')} subtitle={t('settingsCategoriesSub')} onClick={onManageCategories} />
+        <SettingsRow title={t('settingsExport')} subtitle={t('settingsExportSub')} onClick={() => void exportData()} />
       </Section>
 
+      {showLanguage ? (
+        <Modal title={t('settingsLanguage')} onClose={() => setShowLanguage(false)}>
+          {(['en', 'de'] as Locale[]).map((code) => (
+            <button key={code} type="button" className="settings-row" onClick={() => { setLocale(code); setShowLanguage(false); }}>
+              <span>{code === 'de' ? t('langGerman') : t('langEnglish')}</span>
+              {locale === code ? <span style={{ color: 'var(--color-income)' }}>✓</span> : null}
+            </button>
+          ))}
+        </Modal>
+      ) : null}
+
       {showTheme ? (
-        <Modal title="Choose theme" onClose={() => setShowTheme(false)}>
-          {THEME_OPTIONS.map((t) => (
-            <button key={t.key} type="button" className="settings-row" onClick={() => { setThemeMode(t.key); setShowTheme(false); }}>
-              <span>{t.label}</span>
-              {themeMode === t.key ? <span style={{ color: 'var(--color-income)' }}>✓</span> : null}
+        <Modal title={t('settingsChooseTheme')} onClose={() => setShowTheme(false)}>
+          {THEME_OPTIONS.map((opt) => (
+            <button key={opt.key} type="button" className="settings-row" onClick={() => { setThemeMode(opt.key); setShowTheme(false); }}>
+              <span>{opt.label}</span>
+              {themeMode === opt.key ? <span style={{ color: 'var(--color-income)' }}>✓</span> : null}
             </button>
           ))}
         </Modal>
       ) : null}
 
       {showCurrency ? (
-        <Modal title="Choose currency" onClose={() => setShowCurrency(false)}>
+        <Modal title={t('settingsChooseCurrency')} onClose={() => setShowCurrency(false)}>
           {SUPPORTED_CURRENCIES.map((c) => (
             <button key={c} type="button" className="settings-row" onClick={() => { setCurrency(c); setShowCurrency(false); }}>
               <span>{currencyLabel(c)}</span>
@@ -141,12 +157,13 @@ function SettingsRow({ title, subtitle, onClick }: { title: string; subtitle: st
 }
 
 function Modal({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
+  const { t } = useTranslation();
   return (
     <div className="overlay" onClick={onClose} role="presentation">
       <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <h2 style={{ margin: 0, fontSize: '1.125rem' }}>{title}</h2>
-          <button type="button" onClick={onClose}>{strings.actionClose}</button>
+          <button type="button" onClick={onClose}>{t('actionClose')}</button>
         </div>
         <div className="settings-group" style={{ margin: 0 }}>{children}</div>
       </div>

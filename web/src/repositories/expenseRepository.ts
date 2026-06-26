@@ -85,9 +85,19 @@ export const expenseRepository = {
     bumpRevision();
   },
 
-  async deleteExpense(id: number): Promise<void> {
+  async deleteExpense(id: number): Promise<import('@/models/types').Expense | null> {
+    const expense = await db.expenses.get(id);
+    if (!expense) return null;
     await db.expenses.delete(id);
     bumpRevision();
+    return expense;
+  },
+
+  async restoreExpense(expense: import('@/models/types').Expense): Promise<number> {
+    const { id: _id, ...rest } = expense;
+    const newId = await db.expenses.add(rest as import('@/models/types').Expense);
+    bumpRevision();
+    return newId;
   },
 
   async sumMonthExpenses(start: number, end: number): Promise<number> {

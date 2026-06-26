@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Category, Expense, RecordListPeriod, RecordUiState, TransactionTypeFilter } from '@/models/types';
 import { expenseRepository } from '@/repositories/expenseRepository';
+import { receiptService } from '@/services/receiptService';
 import { usePreferencesStore } from '@/services/preferencesStore';
-import { computeDayTotals } from '@/utils/analytics';
+import { useToastStore } from '@/services/toastStore';
+import { useTranslation } from '@/i18n';
+import { computeDayTotals, isExpense } from '@/utils/analytics';
 import { thisMonthRange } from '@/utils/periodUtils';
 
 export function useRecordViewModel() {
   const monthlyBudget = usePreferencesStore((s) => s.monthlyBudget);
+  const { t } = useTranslation();
+  const showToast = useToastStore((s) => s.show);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<TransactionTypeFilter>('all');
   const [listPeriod, setListPeriod] = useState<RecordListPeriod>('this_month');
@@ -14,6 +19,11 @@ export function useRecordViewModel() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [monthExpenses, setMonthExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const monthSpent = useMemo(
+    () => monthExpenses.filter(isExpense).reduce((s, e) => s + e.amount, 0),
+    [monthExpenses],
+  );
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -54,23 +64,39 @@ export function useRecordViewModel() {
     loading,
   };
 
+  const requestDelete = useCallback(async (id: number) => {
+    const deleted = await expenseRepository.deleteExpense(id);
+    if (!deleted) return;
+    await reload();
+    showToast(t('recordDeleted'), t('actionUndo'), async () => {
+      await expenseRepository.restoreExpense(deleted);
+      await reload();
+    });
+    setTimeout(() => {
+      void receiptService.deletePath(deleted.receiptImagePath);
+    }, 5500);
+  }, [reload, showToast, t]);
+
+  const duplicateExpense = useCallback(async (expense: Expense) => {
+    const copiedReceipt = await receiptService.copy(expense.receiptImagePath);
+    const { id: _id, ...rest } = expense;
+    await expenseRepository.insertExpense({
+      ...rest,
+      receiptImagePath: copiedReceipt,
+      dateMillis: Date.now(),
+    });
+    await reload();
+    showToast(t('recordDuplicated'));
+  }, [reload, showToast, t]);
+
   return {
     uiState,
+    monthSpent,
     setSearchQuery,
     setTypeFilter,
     setListPeriod,
-    deleteExpense: async (id: number) => {
-      await expenseRepository.deleteExpense(id);
-      await reload();
-    },
-    duplicateExpense: async (expense: Expense) => {
-      const { id: _id, ...rest } = expense;
-      await expenseRepository.insertExpense({
-        ...rest,
-        dateMillis: Date.now(),
-      });
-      await reload();
-    },
+    requestDelete,
+    duplicateExpense,
     reload,
   };
 }

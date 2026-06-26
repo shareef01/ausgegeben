@@ -1,4 +1,6 @@
 import type { AnalyticsPeriodOption } from '@/models/types';
+import { localeTag, t, type Locale } from '@/i18n';
+import { usePreferencesStore } from '@/services/preferencesStore';
 
 function monthRange(year: number, month: number): [number, number] {
   const start = new Date(year, month, 1, 0, 0, 0, 0).getTime();
@@ -6,8 +8,13 @@ function monthRange(year: number, month: number): [number, number] {
   return [start, end];
 }
 
-function monthTitle(millis: number, locale = 'en-US'): string {
-  return new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(new Date(millis));
+function resolveLocale(locale?: Locale): string {
+  const loc = locale ?? usePreferencesStore.getState().locale;
+  return localeTag(loc);
+}
+
+function monthTitle(millis: number, locale?: Locale): string {
+  return new Intl.DateTimeFormat(resolveLocale(locale), { month: 'long', year: 'numeric' }).format(new Date(millis));
 }
 
 function monthStorageKey(year: number, month: number): string {
@@ -37,7 +44,7 @@ export function analyticsPeriodOptions(monthsBack = 14, now = Date.now()): Analy
     cal.setMonth(cal.getMonth() - 1);
   }
 
-  options.push({ label: 'All time', storageKey: 'all_time', rangeMillis: null });
+  options.push({ label: t('periodAllTime'), storageKey: 'all_time', rangeMillis: null });
   return options;
 }
 
@@ -53,12 +60,12 @@ export function analyticsDateRangeMillis(storageKey: string, now = Date.now()): 
   return thisMonthRange(now);
 }
 
-export function formatDateLabel(millis: number, locale = 'en-US'): string {
-  return new Intl.DateTimeFormat(locale, { weekday: 'short', day: '2-digit', month: 'short' }).format(new Date(millis));
+export function formatDateLabel(millis: number, locale?: Locale): string {
+  return new Intl.DateTimeFormat(resolveLocale(locale), { weekday: 'short', day: '2-digit', month: 'short' }).format(new Date(millis));
 }
 
-export function formatTime(millis: number, locale = 'en-US'): string {
-  return new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(new Date(millis));
+export function formatTime(millis: number, locale?: Locale): string {
+  return new Intl.DateTimeFormat(resolveLocale(locale), { hour: '2-digit', minute: '2-digit' }).format(new Date(millis));
 }
 
 export function dayKey(millis: number): string {

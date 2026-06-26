@@ -5,14 +5,15 @@ import { SettingsView } from '@/views/SettingsView';
 import { AddTransactionView } from '@/views/AddTransactionView';
 import { CategoriesView } from '@/views/CategoriesView';
 import { SignatureNavLabel } from '@/components/ui';
-import { strings } from '@/i18n/en';
-
+import { ToastHost } from '@/components/ToastHost';
+import { useTranslation } from '@/i18n';
 import { AuthView } from '@/views/AuthView';
 
 type Tab = 'record' | 'insights' | 'settings';
 type Overlay = null | { type: 'add' | 'edit' | 'categories' | 'auth'; expenseId?: number };
 
 export function MainShell() {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>('record');
   const [overlay, setOverlay] = useState<Overlay>(null);
 
@@ -34,21 +35,23 @@ export function MainShell() {
       <nav className="bottom-bar" aria-label="Main">
         <button type="button" className={`bottom-bar__item ${tab === 'record' ? 'bottom-bar__item--active' : ''}`} onClick={() => setTab('record')}>
           <span>📋</span>
-          <SignatureNavLabel label={strings.navRecord} />
+          <SignatureNavLabel label={t('navRecord')} />
         </button>
         <button type="button" className={`bottom-bar__item ${tab === 'insights' ? 'bottom-bar__item--active' : ''}`} onClick={() => setTab('insights')}>
           <span>📊</span>
-          <SignatureNavLabel label={strings.navInsights} />
+          <SignatureNavLabel label={t('navInsights')} />
         </button>
         <button type="button" className={`bottom-bar__item ${tab === 'settings' ? 'bottom-bar__item--active' : ''}`} onClick={() => setTab('settings')}>
           <span>⚙️</span>
-          <SignatureNavLabel label={strings.navSettings} />
+          <SignatureNavLabel label={t('navSettings')} />
         </button>
       </nav>
 
       {tab === 'record' ? (
-        <button type="button" className="fab" aria-label={strings.navAdd} onClick={() => setOverlay({ type: 'add' })}>+</button>
+        <button type="button" className="fab" aria-label={t('navAdd')} onClick={() => setOverlay({ type: 'add' })}>+</button>
       ) : null}
+
+      <ToastHost />
 
       {overlay?.type === 'add' || overlay?.type === 'edit' ? (
         <AddTransactionView

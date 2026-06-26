@@ -1,8 +1,10 @@
 import type { TransactionType } from '@/models/types';
 import { useAddTransactionViewModel } from '@/viewmodels/useAddTransactionViewModel';
-import { strings } from '@/i18n/en';
+import { useTranslation } from '@/i18n';
 import { categoryIcon } from '@/components/ui';
+import { ReceiptThumbnail } from '@/components/ReceiptPreview';
 import { colorIntToHex } from '@/utils/currency';
+import { useRef } from 'react';
 
 interface AddTransactionViewProps {
   expenseId?: number;
@@ -11,25 +13,35 @@ interface AddTransactionViewProps {
 }
 
 export function AddTransactionView({ expenseId, onClose, onSaved }: AddTransactionViewProps) {
+  const { t } = useTranslation();
   const vm = useAddTransactionViewModel(expenseId);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = async () => {
     const ok = await vm.save();
     if (ok) onSaved();
   };
 
+  const typeLabel = (type: TransactionType) => {
+    switch (type) {
+      case 'expense': return t('typeExpense');
+      case 'income': return t('typeIncome');
+      case 'transfer': return t('typeTransfer');
+    }
+  };
+
   return (
     <div className="overlay" onClick={onClose} role="presentation">
       <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0 }}>{vm.isEditing ? strings.editTransaction : strings.addTransaction}</h2>
-          <button type="button" onClick={onClose}>{strings.actionClose}</button>
+          <h2 style={{ margin: 0 }}>{vm.isEditing ? t('editTransaction') : t('addTransaction')}</h2>
+          <button type="button" onClick={onClose}>{t('actionClose')}</button>
         </div>
 
         <div className="segmented" style={{ margin: '16px 0' }}>
-          {(['expense', 'income', 'transfer'] as TransactionType[]).map((t) => (
-            <button key={t} type="button" className={vm.form.transactionType === t ? 'active' : ''} onClick={() => vm.setForm((f) => ({ ...f, transactionType: t }))}>
-              {t.charAt(0).toUpperCase() + t.slice(1)}
+          {(['expense', 'income', 'transfer'] as TransactionType[]).map((type) => (
+            <button key={type} type="button" className={vm.form.transactionType === type ? 'active' : ''} onClick={() => vm.setForm((f) => ({ ...f, transactionType: type }))}>
+              {typeLabel(type)}
             </button>
           ))}
         </div>
@@ -64,14 +76,38 @@ export function AddTransactionView({ expenseId, onClose, onSaved }: AddTransacti
           ))}
         </div>
 
-        <label style={{ display: 'block', marginBottom: 8, fontSize: '0.875rem', color: 'var(--color-on-surface-variant)' }}>{strings.noteLabel}</label>
+        <label style={{ display: 'block', marginBottom: 8, fontSize: '0.875rem', color: 'var(--color-on-surface-variant)' }}>{t('noteLabel')}</label>
         <input
           value={vm.form.note}
           onChange={(e) => vm.setForm((f) => ({ ...f, note: e.target.value }))}
           style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid var(--color-outline)', marginBottom: 12, background: 'var(--color-surface)', color: 'inherit' }}
         />
 
-        <label style={{ display: 'block', marginBottom: 8, fontSize: '0.875rem', color: 'var(--color-on-surface-variant)' }}>{strings.dateLabel}</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            hidden
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void vm.attachReceipt(file);
+              e.target.value = '';
+            }}
+          />
+          <button type="button" onClick={() => fileInputRef.current?.click()} style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid var(--color-outline)', color: vm.form.receiptImagePath ? 'var(--color-accent)' : 'inherit' }}>
+            📷 {t('addScanReceipt')}
+          </button>
+          {vm.form.receiptImagePath ? (
+            <>
+              <ReceiptThumbnail path={vm.form.receiptImagePath} onClick={() => fileInputRef.current?.click()} />
+              <button type="button" onClick={() => void vm.removeReceipt()} style={{ color: 'var(--color-expense)', fontSize: '0.875rem' }}>{t('addRemoveReceipt')}</button>
+            </>
+          ) : null}
+        </div>
+
+        <label style={{ display: 'block', marginBottom: 8, fontSize: '0.875rem', color: 'var(--color-on-surface-variant)' }}>{t('dateLabel')}</label>
         <input
           type="datetime-local"
           value={toLocalInput(vm.form.dateMillis)}
@@ -87,7 +123,7 @@ export function AddTransactionView({ expenseId, onClose, onSaved }: AddTransacti
           disabled={vm.saving}
           style={{ width: '100%', padding: 14, borderRadius: 999, background: 'var(--color-accent)', color: '#fff', fontWeight: 600, opacity: vm.saving ? 0.7 : 1 }}
         >
-          {strings.actionSave}
+          {t('actionSave')}
         </button>
       </div>
     </div>

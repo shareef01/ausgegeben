@@ -1,11 +1,11 @@
 import type { Expense, Category, CashFlowPoint } from '@/models/types';
 import { dayKey } from '@/utils/periodUtils';
 
-export function isExpense(e: Expense): boolean {
+export function isExpense(e: { transactionType: string }): boolean {
   return e.transactionType === 'expense';
 }
 
-export function isIncome(e: Expense): boolean {
+export function isIncome(e: { transactionType: string }): boolean {
   return e.transactionType === 'income';
 }
 
