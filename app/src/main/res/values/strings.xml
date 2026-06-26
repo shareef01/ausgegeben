@@ -130,6 +130,7 @@
     <string name="period_this_month">This month</string>
     <string name="period_last_month">Last month</string>
     <string name="period_all_time">All time</string>
+    <string name="period_month_container">Monthly container</string>
 
     <!-- Theme -->
     <string name="theme_system">System</string>
@@ -226,6 +227,8 @@
     <string name="chart_breakdown_description">Breakdown by category, total %1$s</string>
     <string name="chart_wealth_trend_title">Wealth trend</string>
     <string name="chart_wealth_trend_subtitle">Cumulative net balance over time</string>
+    <string name="chart_cash_flow_title">Cash flow</string>
+    <string name="chart_cash_flow_subtitle">Income %1$s · Spending %2$s</string>
     <string name="chart_wealth_trend_delta_up">+%1$s this period</string>
     <string name="chart_wealth_trend_delta_down">-%1$s this period</string>
 

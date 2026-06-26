@@ -16,6 +16,63 @@ data class WealthTrendPoint(
     val cumulativeNet: Double
 )
 
+data class CashFlowPoint(
+    val bucketStartMillis: Long,
+    val label: String,
+    val income: Double,
+    val expense: Double
+)
+
+fun List<Expense>.computeCashFlowTrend(
+    periodStorageKey: String,
+    nowMillis: Long = System.currentTimeMillis()
+): List<CashFlowPoint> {
+    val range = analyticsDateRangeMillis(periodStorageKey, nowMillis)
+    val scoped = range?.let { (start, end) ->
+        filter { it.dateMillis in start until end }
+    } ?: this
+    val billable = scoped.filter { !it.isTransfer() }
+    if (billable.isEmpty()) return emptyList()
+
+    val locale = Locale.getDefault()
+    val dayLabel = SimpleDateFormat("d", locale)
+    val monthLabel = SimpleDateFormat("MMM yy", locale)
+
+    val buckets: List<Pair<Long, String>> = if (range == null) {
+        billable
+            .groupBy { monthBucketStart(it.dateMillis) }
+            .keys
+            .sorted()
+            .map { start -> start to monthLabel.format(Date(start)) }
+    } else {
+        val (rangeStart, rangeEnd) = range
+        buildList {
+            var cursor = localDayStartMillis(rangeStart)
+            val end = localDayStartMillis(rangeEnd - 1)
+            while (cursor <= end) {
+                add(cursor to dayLabel.format(Date(cursor)))
+                cursor += 24L * 60 * 60 * 1000
+            }
+        }
+    }
+
+    val itemsByBucket = if (range == null) {
+        billable.groupBy { monthBucketStart(it.dateMillis) }
+    } else {
+        billable.groupBy { localDayStartMillis(it.dateMillis) }
+    }
+
+    return buckets.map { (start, label) ->
+        val items = itemsByBucket[start].orEmpty()
+        CashFlowPoint(
+            bucketStartMillis = start,
+            label = label,
+            income = items.filter { it.isIncome() }.sumOf { it.amount },
+            expense = items.filter { it.isExpense() }.sumOf { it.amount }
+        )
+    }
+}
+
 fun List<Expense>.computeWealthTrend(
     period: AnalyticsPeriod,
     nowMillis: Long = System.currentTimeMillis()

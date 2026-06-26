@@ -2,6 +2,7 @@ package com.aus.ausgegeben.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,7 +19,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Analytics
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -26,6 +30,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,7 +49,6 @@ import com.aus.ausgegeben.ui.components.EmptyStateMessage
 import com.aus.ausgegeben.ui.components.GroupedSectionLabel
 import com.aus.ausgegeben.ui.components.IncomeExpenseOverviewChart
 import com.aus.ausgegeben.ui.components.WealthTrendChart
-import com.aus.ausgegeben.ui.components.IosSegmentedControl
 import com.aus.ausgegeben.ui.components.MoneySize
 import com.aus.ausgegeben.ui.components.MoneyText
 import com.aus.ausgegeben.ui.components.ScreenTitle
@@ -56,7 +61,8 @@ import com.aus.ausgegeben.ui.theme.TransferGray
 import com.aus.ausgegeben.ui.theme.forChartDisplay
 import com.aus.ausgegeben.ui.theme.financeExpenseColor
 import com.aus.ausgegeben.ui.theme.financeIncomeColor
-import com.aus.ausgegeben.util.AnalyticsPeriod
+import com.aus.ausgegeben.util.analyticsPeriodOptions
+import com.aus.ausgegeben.util.AnalyticsPeriodOption
 import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.colorIntToCompose
 import com.aus.ausgegeben.util.harmonizedChartColors
@@ -74,11 +80,7 @@ fun BillsScreen(
         uiState.incomeByCategory.isNotEmpty() ||
         uiState.transfersByCategory.isNotEmpty()
 
-    val periodOptions = listOf(
-        AnalyticsPeriod.THIS_MONTH.label(),
-        AnalyticsPeriod.LAST_MONTH.label(),
-        AnalyticsPeriod.ALL_TIME.label(),
-    )
+    val periodOptions = remember { analyticsPeriodOptions(monthsBack = 14) }
     val expenseTotal = uiState.totalExpenses
     val incomeTotal = uiState.totalIncome
     val hasExpenseChart = uiState.expensesByCategory.isNotEmpty()
@@ -87,6 +89,11 @@ fun BillsScreen(
     val showDualCharts = hasExpenseChart || hasIncomeChart
     val expenseAccent = financeExpenseColor()
     val incomeAccent = financeIncomeColor()
+    val selectedPeriodLabel = if (uiState.periodKey == "all_time") {
+        stringResource(R.string.period_all_time)
+    } else {
+        uiState.periodLabel.ifBlank { periodOptions.first().label }
+    }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -103,10 +110,11 @@ fun BillsScreen(
                     .background(MaterialTheme.colorScheme.background)
                     .padding(bottom = AppSpacing.xxs)
             ) {
-                IosSegmentedControl(
+                PeriodDropdown(
                     options = periodOptions,
-                    selectedIndex = AnalyticsPeriod.entries.indexOf(uiState.period).coerceAtLeast(0),
-                    onSelected = { viewModel.setPeriod(AnalyticsPeriod.entries[it]) },
+                    selectedKey = uiState.periodKey,
+                    selectedLabel = selectedPeriodLabel,
+                    onSelected = { viewModel.setPeriodKey(it.storageKey) },
                     modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs)
                 )
             }
@@ -122,10 +130,10 @@ fun BillsScreen(
                 )
             }
         } else {
-            if (uiState.wealthTrend.isNotEmpty()) {
-                item(key = "wealth-trend") {
+            if (uiState.cashFlowTrend.isNotEmpty()) {
+                item(key = "cash-flow") {
                     WealthTrendChart(
-                        points = uiState.wealthTrend,
+                        points = uiState.cashFlowTrend,
                         currencyCode = currencyCode,
                     )
                 }
@@ -189,6 +197,77 @@ fun BillsScreen(
 }
 
 @Composable
+private fun PeriodDropdown(
+    options: List<AnalyticsPeriodOption>,
+    selectedKey: String,
+    selectedLabel: String,
+    onSelected: (AnalyticsPeriodOption) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(AppRadius.xl))
+                .background(MaterialTheme.colorScheme.surface)
+                .clickable { expanded = true }
+                .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = selectedLabel,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontWeight = FontWeight.Medium,
+                )
+                Text(
+                    text = if (selectedKey == "all_time") {
+                        stringResource(R.string.period_all_time)
+                    } else {
+                        stringResource(R.string.period_month_container)
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Normal,
+                )
+            }
+            Icon(
+                Icons.Rounded.ArrowDropDown,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { option ->
+                val label = if (option.storageKey == "all_time") {
+                    stringResource(R.string.period_all_time)
+                } else {
+                    option.label
+                }
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = label,
+                            color = if (option.storageKey == selectedKey) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onBackground
+                            }
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+                        onSelected(option)
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun CategoryAnalyticsCard(
     title: String,
     accent: Color,
@@ -200,6 +279,7 @@ private fun CategoryAnalyticsCard(
     if (total <= 0.0) return
 
     val sorted = remember(data) { data.toList().sortedByDescending { it.second } }
+    var expandedCategoryId by remember(data) { mutableStateOf<Long?>(null) }
     val chartColors = remember(sorted) {
         harmonizedChartColors(sorted.map { (category, _) -> category.name to category.colorInt })
     }
@@ -264,6 +344,10 @@ private fun CategoryAnalyticsCard(
                     total = total,
                     displayColor = rowColor,
                     currencyCode = currencyCode,
+                    expanded = expandedCategoryId == category.id,
+                    onClick = {
+                        expandedCategoryId = if (expandedCategoryId == category.id) null else category.id
+                    },
                 )
             }
         }
@@ -276,12 +360,20 @@ private fun CompactCategoryRow(
     amount: Double,
     total: Double,
     displayColor: Color,
-    currencyCode: String
+    currencyCode: String,
+    expanded: Boolean,
+    onClick: () -> Unit,
 ) {
     val ratio = (amount / total).toFloat().coerceIn(0f, 1f)
     val pct = (ratio * 100).toInt()
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(AppRadius.lg))
+            .clickable(onClick = onClick)
+            .padding(vertical = AppSpacing.xxs)
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -310,26 +402,29 @@ private fun CompactCategoryRow(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)
             )
-            Spacer(modifier = Modifier.width(AppSpacing.sm))
-            MoneyText(
-                text = CurrencyUtils.formatAmount(amount, currencyCode, showSymbol = true),
-                size = MoneySize.Body,
-                color = MaterialTheme.colorScheme.onBackground
-            )
         }
-        Spacer(modifier = Modifier.height(AppSpacing.xs))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            AnimatedCategoryBar(
-                ratio = ratio,
-                color = displayColor,
-                modifier = Modifier.weight(1f),
-            )
-            Spacer(modifier = Modifier.width(AppSpacing.xs))
-            Text(
-                text = "$pct%",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        if (expanded) {
+            Spacer(modifier = Modifier.height(AppSpacing.xs))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                AnimatedCategoryBar(
+                    ratio = ratio,
+                    color = displayColor,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(modifier = Modifier.width(AppSpacing.xs))
+                Column(horizontalAlignment = Alignment.End) {
+                    MoneyText(
+                        text = CurrencyUtils.formatAmount(amount, currencyCode, showSymbol = true),
+                        size = MoneySize.Body,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                    Text(
+                        text = "$pct%",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
     }
 }

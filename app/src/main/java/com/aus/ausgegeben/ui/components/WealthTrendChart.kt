@@ -25,8 +25,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -39,25 +39,21 @@ import com.aus.ausgegeben.ui.theme.appDividerColor
 import com.aus.ausgegeben.ui.theme.financeExpenseColor
 import com.aus.ausgegeben.ui.theme.financeIncomeColor
 import com.aus.ausgegeben.util.CurrencyUtils
-import com.aus.ausgegeben.util.WealthTrendPoint
-import kotlin.math.abs
+import com.aus.ausgegeben.util.CashFlowPoint
 import kotlin.math.hypot
 
 @Composable
 fun WealthTrendChart(
-    points: List<WealthTrendPoint>,
+    points: List<CashFlowPoint>,
     currencyCode: String,
     modifier: Modifier = Modifier,
 ) {
     if (points.isEmpty()) return
 
-    val latest = points.last()
-    val start = points.first().cumulativeNet
-    val delta = latest.cumulativeNet - start
-    val isPositive = delta >= 0
     val incomeColor = financeIncomeColor()
     val expenseColor = financeExpenseColor()
-    val trendColor = if (isPositive) incomeColor else expenseColor
+    val totalIncome = points.sumOf { it.income }
+    val totalExpense = points.sumOf { it.expense }
     val animationKey = remember(points) { points.map { it.bucketStartMillis }.hashCode() }
 
     val reveal = remember { Animatable(0f) }
@@ -68,7 +64,6 @@ fun WealthTrendChart(
 
     val cardShape = RoundedCornerShape(AppRadius.lg)
     val dividerColor = appDividerColor()
-    val chartSurfaceColor = MaterialTheme.colorScheme.surface
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -85,28 +80,19 @@ fun WealthTrendChart(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = stringResource(R.string.chart_wealth_trend_title),
+                    text = stringResource(R.string.chart_cash_flow_title),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onBackground,
                 )
-                TrendDeltaPill(
-                    text = stringResource(
-                        if (isPositive) R.string.chart_wealth_trend_delta_up
-                        else R.string.chart_wealth_trend_delta_down,
-                        CurrencyUtils.formatAmount(abs(delta), currencyCode, showSymbol = true),
-                    ),
-                    color = trendColor,
-                )
+                FlowLegend(incomeColor = incomeColor, expenseColor = expenseColor)
             }
-            MoneyText(
-                text = CurrencyUtils.formatAmount(latest.cumulativeNet, currencyCode, showSymbol = true),
-                size = MoneySize.Headline,
-                color = if (latest.cumulativeNet >= 0) incomeColor else expenseColor,
-                animateChanges = true,
-            )
             Text(
-                text = stringResource(R.string.chart_wealth_trend_subtitle),
+                text = stringResource(
+                    R.string.chart_cash_flow_subtitle,
+                    CurrencyUtils.formatAmount(totalIncome, currencyCode, showSymbol = true),
+                    CurrencyUtils.formatAmount(totalExpense, currencyCode, showSymbol = true),
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -124,7 +110,7 @@ fun WealthTrendChart(
             val chartW = w - padX * 2
             val chartH = h - padY * 2
 
-            val values = points.map { it.cumulativeNet }
+            val values = points.flatMap { listOf(it.income, it.expense) }
             val minV = values.min()
             val maxV = values.max()
             val range = (maxV - minV).coerceAtLeast(1.0)
@@ -139,20 +125,8 @@ fun WealthTrendChart(
                 return padX + (i.toFloat() / (points.size - 1)) * chartW
             }
 
-            val coords = points.indices.map { i -> Offset(xFor(i), yFor(points[i].cumulativeNet)) }
-            val chartBottom = padY + chartH
-            val zeroInRange = minV <= 0.0 && maxV >= 0.0
-            val zeroY = if (zeroInRange) yFor(0.0).coerceIn(padY, chartBottom) else null
-
-            if (zeroY != null) {
-                drawLine(
-                    color = dividerColor.copy(alpha = 0.7f),
-                    start = Offset(padX, zeroY),
-                    end = Offset(padX + chartW, zeroY),
-                    strokeWidth = 1.dp.toPx(),
-                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 8f)),
-                )
-            }
+            val incomeCoords = points.indices.map { i -> Offset(xFor(i), yFor(points[i].income)) }
+            val expenseCoords = points.indices.map { i -> Offset(xFor(i), yFor(points[i].expense)) }
 
             repeat(3) { index ->
                 val y = padY + chartH * ((index + 1) / 4f)
@@ -165,61 +139,17 @@ fun WealthTrendChart(
             }
 
             val revealT = reveal.value.coerceIn(0f, 1f)
-            val partial = buildPartialPolyline(coords, revealT)
-            if (partial.isEmpty()) return@Canvas
-
-            val areaPath = Path().apply {
-                moveTo(partial.first().x, partial.first().y)
-                partial.drop(1).forEach { lineTo(it.x, it.y) }
-                lineTo(partial.last().x, padY + chartH)
-                lineTo(partial.first().x, padY + chartH)
-                close()
-            }
-
-            val gradientTop = trendColor.copy(alpha = (if (isPositive) 0.46f else 0.36f) * revealT)
-            val gradientBottom = trendColor.copy(alpha = 0.035f)
-
-            drawPath(
-                path = areaPath,
-                brush = Brush.verticalGradient(
-                    colors = listOf(gradientTop, gradientBottom),
-                    startY = padY,
-                    endY = padY + chartH,
-                ),
+            drawCashFlowLine(
+                coords = incomeCoords,
+                fraction = revealT,
+                color = incomeColor,
+                bottomY = padY + chartH,
             )
-
-            val linePath = Path().apply {
-                moveTo(partial.first().x, partial.first().y)
-                partial.drop(1).forEach { lineTo(it.x, it.y) }
-            }
-
-            drawPath(
-                path = linePath,
-                color = trendColor.copy(alpha = 0.26f * revealT),
-                style = Stroke(width = 9.dp.toPx(), cap = StrokeCap.Round),
-            )
-            drawPath(
-                path = linePath,
-                color = trendColor.copy(alpha = revealT),
-                style = Stroke(width = 3.25.dp.toPx(), cap = StrokeCap.Round),
-            )
-
-            val endpoint = partial.last()
-            val dotR = 5.dp.toPx() * revealT
-            drawCircle(
-                color = trendColor.copy(alpha = 0.3f * revealT),
-                radius = dotR * 2f,
-                center = endpoint,
-            )
-            drawCircle(
-                color = trendColor.copy(alpha = revealT),
-                radius = dotR,
-                center = endpoint,
-            )
-            drawCircle(
-                color = chartSurfaceColor,
-                radius = dotR * 0.4f,
-                center = endpoint,
+            drawCashFlowLine(
+                coords = expenseCoords,
+                fraction = revealT,
+                color = expenseColor,
+                bottomY = padY + chartH,
             )
         }
 
@@ -242,28 +172,68 @@ fun WealthTrendChart(
 }
 
 @Composable
-private fun TrendDeltaPill(text: String, color: androidx.compose.ui.graphics.Color) {
+private fun FlowLegend(incomeColor: androidx.compose.ui.graphics.Color, expenseColor: androidx.compose.ui.graphics.Color) {
     Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(AppRadius.pill))
-            .background(color.copy(alpha = 0.12f))
-            .padding(horizontal = AppSpacing.xs, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs),
     ) {
-        Box(
-            modifier = Modifier
-                .size(6.dp)
-                .clip(CircleShape)
-                .background(color)
-        )
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            color = color,
-            fontWeight = FontWeight.Medium,
-        )
+        LegendDot(incomeColor)
+        LegendDot(expenseColor)
     }
+}
+
+@Composable
+private fun LegendDot(color: androidx.compose.ui.graphics.Color) {
+    Box(
+        modifier = Modifier
+            .size(9.dp)
+            .clip(CircleShape)
+            .background(color)
+    )
+}
+
+private fun DrawScope.drawCashFlowLine(
+    coords: List<Offset>,
+    fraction: Float,
+    color: androidx.compose.ui.graphics.Color,
+    bottomY: Float,
+) {
+    val partial = buildPartialPolyline(coords, fraction.coerceIn(0f, 1f))
+    if (partial.isEmpty()) return
+
+    val areaPath = Path().apply {
+        moveTo(partial.first().x, partial.first().y)
+        partial.drop(1).forEach { lineTo(it.x, it.y) }
+        lineTo(partial.last().x, bottomY)
+        lineTo(partial.first().x, bottomY)
+        close()
+    }
+    drawPath(
+        path = areaPath,
+        brush = Brush.verticalGradient(
+            colors = listOf(color.copy(alpha = 0.24f * fraction), color.copy(alpha = 0.025f)),
+            startY = 0f,
+            endY = bottomY,
+        ),
+    )
+
+    val linePath = Path().apply {
+        moveTo(partial.first().x, partial.first().y)
+        partial.drop(1).forEach { lineTo(it.x, it.y) }
+    }
+    drawPath(
+        path = linePath,
+        color = color.copy(alpha = 0.22f * fraction),
+        style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round),
+    )
+    drawPath(
+        path = linePath,
+        color = color.copy(alpha = fraction),
+        style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round),
+    )
+    val endpoint = partial.last()
+    drawCircle(color = color.copy(alpha = 0.28f * fraction), radius = 9.dp.toPx() * fraction, center = endpoint)
+    drawCircle(color = color.copy(alpha = fraction), radius = 4.dp.toPx() * fraction, center = endpoint)
 }
 
 private fun buildPartialPolyline(coords: List<Offset>, fraction: Float): List<Offset> {
