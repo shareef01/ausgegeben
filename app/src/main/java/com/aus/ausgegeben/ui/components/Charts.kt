@@ -377,7 +377,7 @@ fun DonutChart(
                 drawCircle(color = holeColor, radius = holeRadius, center = center)
             }
 
-            if (centerLabel != null) {
+            if (centerLabel != null && !compact) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier

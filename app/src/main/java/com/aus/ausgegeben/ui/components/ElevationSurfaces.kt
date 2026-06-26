@@ -8,9 +8,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.ui.theme.AppElevation
+import com.aus.ausgegeben.ui.theme.AppFab
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppShadowColor
 import com.aus.ausgegeben.ui.theme.isAppDarkTheme
@@ -79,3 +82,12 @@ fun AppAlertDialog(
         dismissButton = dismissButton,
     )
 }
+
+/** Glowing accent shadow for the Record FAB */
+@Composable
+fun Modifier.appFabGlow(accent: Color): Modifier = shadow(
+    elevation = AppFab.glowElevation,
+    shape = CircleShape,
+    ambientColor = accent.copy(alpha = 0.40f),
+    spotColor = accent.copy(alpha = 0.40f),
+)

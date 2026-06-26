@@ -73,6 +73,19 @@ object AppLayoutTokens {
     val listSeparatorInset = 52.dp
     val emptyStateIconWell = 48.dp
     val emptyStateMinHeight = 200.dp
-    val fabClearance = 64.dp
+    val fabClearance = 72.dp
     val stripeWidth = 0.dp
+}
+
+object AppFab {
+    val size = 60.dp
+    val iconSize = 28.dp
+    val glowElevation = 12.dp
+}
+
+object AppSelector {
+    val pillHorizontal = 16.dp
+    val pillVertical = 8.dp
+    val pillBackgroundAlpha = 0.08f
+    val menuCorner = AppRadius.xl
 }

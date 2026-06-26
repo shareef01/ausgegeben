@@ -36,6 +36,9 @@ import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import com.aus.ausgegeben.ui.components.appFabGlow
+import com.aus.ausgegeben.ui.theme.AppFab
+import com.aus.ausgegeben.ui.theme.brandAccentColor
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -304,21 +307,24 @@ fun MainApp(
                     enter = scaleIn(initialScale = 0.86f) + fadeIn(),
                     exit = scaleOut(targetScale = 0.86f) + fadeOut(),
                 ) {
+                    val fabAccent = brandAccentColor()
                     FloatingActionButton(
                         onClick = ::openAddFlow,
-                        containerColor = MaterialTheme.colorScheme.onBackground,
-                        contentColor = MaterialTheme.colorScheme.background,
+                        containerColor = fabAccent,
+                        contentColor = Color.White,
                         elevation = FloatingActionButtonDefaults.elevation(
                             defaultElevation = 0.dp,
-                            pressedElevation = 2.dp,
+                            pressedElevation = 0.dp,
                         ),
                         shape = CircleShape,
-                        modifier = Modifier.size(52.dp),
+                        modifier = Modifier
+                            .size(AppFab.size)
+                            .appFabGlow(fabAccent),
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Add,
                             contentDescription = stringResource(R.string.nav_add_transaction),
-                            modifier = Modifier.size(22.dp),
+                            modifier = Modifier.size(AppFab.iconSize),
                         )
                     }
                 }

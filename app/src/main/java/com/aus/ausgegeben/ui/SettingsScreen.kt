@@ -13,7 +13,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -88,6 +90,7 @@ import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.ThemeMode
 import com.aus.ausgegeben.ui.theme.appDividerColor
+import com.aus.ausgegeben.ui.theme.brandAccentColor
 import com.aus.ausgegeben.ui.theme.financeExpenseColor
 import com.aus.ausgegeben.ui.theme.financeIncomeColor
 import com.aus.ausgegeben.util.CurrencyUtils
@@ -569,77 +572,102 @@ private fun ThemeMode.previewColors(): List<Color> = when (this) {
 
 @Composable
 private fun AccountSignInCard(onSignIn: () -> Unit) {
-    val incomeColor = financeIncomeColor()
+    val accent = brandAccentColor()
+    val offlineTint = MaterialTheme.colorScheme.onSurfaceVariant
+    val bannerShape = RoundedCornerShape(AppRadius.xl)
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs)
-            .clip(RoundedCornerShape(AppRadius.xl))
-            .background(MaterialTheme.colorScheme.surface)
-    ) {
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .background(
-                    Brush.linearGradient(
-                        listOf(
-                            incomeColor.copy(alpha = AppGradientAlpha.incomeSubtle),
-                            MaterialTheme.colorScheme.surface,
-                        ),
+            .clip(bannerShape)
+            .background(
+                Brush.linearGradient(
+                    colors = listOf(
+                        offlineTint.copy(alpha = 0.14f),
+                        accent.copy(alpha = 0.06f),
+                        MaterialTheme.colorScheme.surface,
                     ),
                 ),
-        )
-        Column(
+            )
+            .border(
+                width = 1.dp,
+                color = offlineTint.copy(alpha = 0.16f),
+                shape = bannerShape,
+            ),
+    ) {
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(AppSpacing.md),
-            verticalArrangement = Arrangement.spacedBy(AppSpacing.sm),
+                .height(IntrinsicSize.Min),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.Rounded.CloudOff,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Spacer(modifier = Modifier.width(AppSpacing.md))
-                Column {
-                    Text(
-                        text = stringResource(R.string.settings_account_offline),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_account_offline_subtitle),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            Button(
-                onClick = onSignIn,
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .fillMaxHeight()
+                    .background(offlineTint.copy(alpha = 0.55f)),
+            )
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp),
-                shape = RoundedCornerShape(AppRadius.pill),
+                    .padding(AppSpacing.md),
+                verticalArrangement = Arrangement.spacedBy(AppSpacing.md),
             ) {
-                Icon(
-                    Icons.AutoMirrored.Rounded.Login,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(modifier = Modifier.width(AppSpacing.sm))
-                Text(
-                    text = stringResource(R.string.settings_sign_in),
-                    fontWeight = FontWeight.Medium,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(AppSpacing.md),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(CircleShape)
+                            .background(offlineTint.copy(alpha = 0.14f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Rounded.CloudOff,
+                            contentDescription = null,
+                            tint = offlineTint,
+                            modifier = Modifier.size(26.dp),
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.settings_account_offline),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onBackground,
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_account_offline_subtitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = AppSpacing.xxs),
+                        )
+                    }
+                }
+                Button(
+                    onClick = onSignIn,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(AppRadius.pill),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = accent,
+                        contentColor = Color.White,
+                    ),
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Rounded.Login,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.width(AppSpacing.sm))
+                    Text(
+                        text = stringResource(R.string.settings_sign_in),
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
             }
         }
     }

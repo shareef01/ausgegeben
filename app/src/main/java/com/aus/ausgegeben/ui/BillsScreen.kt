@@ -19,10 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Analytics
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -51,13 +48,12 @@ import com.aus.ausgegeben.ui.components.IncomeExpenseOverviewChart
 import com.aus.ausgegeben.ui.components.WealthTrendChart
 import com.aus.ausgegeben.ui.components.MoneySize
 import com.aus.ausgegeben.ui.components.MoneyText
+import com.aus.ausgegeben.ui.components.PremiumPeriodSelector
 import com.aus.ausgegeben.ui.components.ScreenTitle
 import com.aus.ausgegeben.ui.components.appCard
-import com.aus.ausgegeben.ui.components.appPopupElevation
 import com.aus.ausgegeben.ui.components.tabScreenListBottomPadding
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
-import com.aus.ausgegeben.ui.theme.SystemViolet
 import com.aus.ausgegeben.ui.theme.forChartDisplay
 import com.aus.ausgegeben.ui.theme.financeExpenseColor
 import com.aus.ausgegeben.ui.theme.financeIncomeColor
@@ -89,11 +85,6 @@ fun BillsScreen(
     val showDualCharts = hasExpenseChart || hasIncomeChart
     val expenseAccent = financeExpenseColor()
     val incomeAccent = financeIncomeColor()
-    val selectedPeriodLabel = if (uiState.periodKey == "all_time") {
-        stringResource(R.string.period_all_time)
-    } else {
-        uiState.periodLabel.ifBlank { periodOptions.first().label }
-    }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -110,12 +101,20 @@ fun BillsScreen(
                     .background(MaterialTheme.colorScheme.background)
                     .padding(bottom = AppSpacing.xxs)
             ) {
-                PeriodDropdown(
+                PremiumPeriodSelector(
                     options = periodOptions,
-                    selectedKey = uiState.periodKey,
-                    selectedLabel = selectedPeriodLabel,
+                    selected = periodOptions.firstOrNull { it.storageKey == uiState.periodKey }
+                        ?: periodOptions.first(),
+                    labelFor = { option ->
+                        if (option.storageKey == "all_time") {
+                            stringResource(R.string.period_all_time)
+                        } else {
+                            option.label
+                        }
+                    },
+                    isSelected = { option, current -> option.storageKey == current.storageKey },
                     onSelected = { viewModel.setPeriodKey(it.storageKey) },
-                    modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs)
+                    modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs),
                 )
             }
         }
@@ -197,86 +196,6 @@ fun BillsScreen(
 }
 
 @Composable
-private fun PeriodDropdown(
-    options: List<AnalyticsPeriodOption>,
-    selectedKey: String,
-    selectedLabel: String,
-    onSelected: (AnalyticsPeriodOption) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val menuShape = RoundedCornerShape(AppRadius.lg)
-    Box(modifier = modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(AppRadius.xl))
-                .background(MaterialTheme.colorScheme.surface)
-                .clickable { expanded = true }
-                .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = selectedLabel,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontWeight = FontWeight.Medium,
-                )
-                Text(
-                    text = if (selectedKey == "all_time") {
-                        stringResource(R.string.period_all_time)
-                    } else {
-                        stringResource(R.string.period_month_container)
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Normal,
-                )
-            }
-            Icon(
-                Icons.Rounded.ArrowDropDown,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            modifier = Modifier.appPopupElevation(menuShape),
-            shape = menuShape,
-            containerColor = MaterialTheme.colorScheme.surface,
-            tonalElevation = 0.dp,
-            shadowElevation = 0.dp,
-        ) {
-            options.forEach { option ->
-                val label = if (option.storageKey == "all_time") {
-                    stringResource(R.string.period_all_time)
-                } else {
-                    option.label
-                }
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = label,
-                            color = if (option.storageKey == selectedKey) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onBackground
-                            }
-                        )
-                    },
-                    onClick = {
-                        expanded = false
-                        onSelected(option)
-                    }
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun CategoryAnalyticsCard(
     title: String,
     accent: Color,
@@ -331,8 +250,6 @@ private fun CategoryAnalyticsCard(
         DonutChart(
             data = chartData,
             colors = chartColors,
-            centerLabel = CurrencyUtils.formatAmount(total, currencyCode, showSymbol = false),
-            centerSubLabel = stringResource(R.string.chart_total_label),
             chartSize = 120.dp,
             compact = true,
             currencyCode = currencyCode,

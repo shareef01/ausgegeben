@@ -48,7 +48,11 @@ import com.aus.ausgegeben.ui.theme.GroupedShape
 import com.aus.ausgegeben.ui.theme.SectionLabelStyle
 import com.aus.ausgegeben.ui.theme.appBorderColor
 import com.aus.ausgegeben.ui.theme.appDividerColor
+import com.aus.ausgegeben.ui.theme.brandAccentColor
 import com.aus.ausgegeben.ui.theme.navigationInactiveColor
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 
 @Composable
 fun Modifier.appCard(
@@ -76,19 +80,40 @@ fun ScreenTitle(
     subtitle: String? = null,
     modifier: Modifier = Modifier,
 ) {
+    val accent = brandAccentColor()
+    val titleColor = MaterialTheme.colorScheme.onBackground
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = AppSpacing.md)
             .padding(top = AppSpacing.md, bottom = AppSpacing.sm),
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.semantics { heading() },
-        )
+        if (title.isNotEmpty()) {
+            val signatureTitle = buildAnnotatedString {
+                withStyle(
+                    SpanStyle(
+                        color = accent,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = MaterialTheme.typography.headlineMedium.fontSize * 1.12f,
+                    ),
+                ) {
+                    append(title.first())
+                }
+                withStyle(
+                    SpanStyle(
+                        color = titleColor,
+                        fontWeight = FontWeight.SemiBold,
+                    ),
+                ) {
+                    append(title.drop(1))
+                }
+            }
+            Text(
+                text = signatureTitle,
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.semantics { heading() },
+            )
+        }
         if (subtitle != null) {
             Text(
                 text = subtitle,

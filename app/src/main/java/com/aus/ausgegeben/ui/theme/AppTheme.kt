@@ -40,6 +40,18 @@ fun financeExpenseColor(): Color = MaterialTheme.colorScheme.error
 fun financeTransferColor(): Color =
     if (isAppDarkTheme()) MaterialTheme.colorScheme.onSurfaceVariant else TransferGrayLight
 
+/** Signature headers, FAB, and branded accents — theme primary when vibrant, else finance green */
+@Composable
+fun brandAccentColor(): Color {
+    val primary = MaterialTheme.colorScheme.primary
+    val luminance = primary.luminance()
+    return if (luminance > 0.90f || luminance < 0.10f) {
+        financeIncomeColor()
+    } else {
+        primary
+    }
+}
+
 @Composable
 fun inputFocusedBorderColor(): Color =
     if (isAppDarkTheme()) FocusRing else MaterialTheme.colorScheme.primary

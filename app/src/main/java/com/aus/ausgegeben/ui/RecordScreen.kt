@@ -67,7 +67,7 @@ import com.aus.ausgegeben.ui.components.AppIcon
 import com.aus.ausgegeben.ui.components.BudgetProgressBar
 import com.aus.ausgegeben.ui.components.EmptyStateMessage
 import com.aus.ausgegeben.ui.components.FinanceSummaryCard
-import com.aus.ausgegeben.ui.components.IosSegmentedControl
+import com.aus.ausgegeben.ui.components.PremiumPeriodSelector
 import com.aus.ausgegeben.ui.components.IosSeparator
 import com.aus.ausgegeben.ui.components.MoneySize
 import com.aus.ausgegeben.ui.components.MoneyText
@@ -365,15 +365,12 @@ private fun RecordListToolbar(
                 .padding(start = AppSpacing.md, end = AppSpacing.xs, top = AppSpacing.xxs),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            val periodOptions = RecordListPeriod.entries
-            IosSegmentedControl(
-                options = listOf(
-                    RecordListPeriod.THIS_MONTH.label(),
-                    RecordListPeriod.ALL_TIME.label(),
-                ),
-                selectedIndex = periodOptions.indexOf(listPeriod).coerceAtLeast(0),
-                onSelected = { onListPeriod(periodOptions[it]) },
-                modifier = Modifier.weight(1f)
+            PremiumPeriodSelector(
+                options = RecordListPeriod.entries,
+                selected = listPeriod,
+                labelFor = { it.label() },
+                onSelected = onListPeriod,
+                modifier = Modifier.weight(1f),
             )
             IconButton(
                 onClick = {
