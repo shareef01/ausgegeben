@@ -84,7 +84,6 @@ import com.aus.ausgegeben.ui.components.tabScreenListBottomPadding
 import com.aus.ausgegeben.ui.theme.AppLayoutTokens
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
-import com.aus.ausgegeben.ui.theme.IncomeGreen
 import com.aus.ausgegeben.ui.theme.ThemeMode
 import com.aus.ausgegeben.ui.theme.appDividerColor
 import com.aus.ausgegeben.ui.theme.financeExpenseColor
@@ -528,7 +527,7 @@ private fun ThemeOption(
             modifier = Modifier.weight(1f)
         )
         if (selected) {
-            Icon(Icons.Rounded.Check, contentDescription = null, tint = IncomeGreen)
+            Icon(Icons.Rounded.Check, contentDescription = null, tint = financeIncomeColor())
         }
     }
 }
@@ -908,7 +907,7 @@ fun SettingSwitchRow(
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                checkedTrackColor = IncomeGreen,
+                checkedTrackColor = financeIncomeColor(),
                 uncheckedThumbColor = MaterialTheme.colorScheme.outline,
                 uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
             )

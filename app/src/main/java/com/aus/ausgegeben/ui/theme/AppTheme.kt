@@ -18,16 +18,31 @@ fun appBorderColor(): Color =
 fun appDividerColor(): Color =
     if (isAppDarkTheme()) AppColors.CardBorder else OutlineLight.copy(alpha = 0.6f)
 
+/** Secondary labels, timestamps — full opacity for WCAG AA */
+@Composable
+fun readableSecondaryColor(): Color = MaterialTheme.colorScheme.onSurfaceVariant
+
+/** Bottom nav / tabs — inactive but still readable */
+@Composable
+fun navigationInactiveColor(): Color = MaterialTheme.colorScheme.onSurfaceVariant
+
 @Composable
 fun financeIncomeColor(): Color {
+    if (!isAppDarkTheme()) return IncomeGreen
     val primary = MaterialTheme.colorScheme.primary
-    return if (isAppDarkTheme() && primary.luminance() > 0.82f) {
-        IncomeGreen
-    } else {
-        primary
-    }
+    return if (primary.luminance() > 0.82f) IncomeGreen else primary
 }
 
 @Composable
-fun financeExpenseColor(): Color =
-    MaterialTheme.colorScheme.error
+fun financeExpenseColor(): Color = MaterialTheme.colorScheme.error
+
+@Composable
+fun financeTransferColor(): Color =
+    if (isAppDarkTheme()) MaterialTheme.colorScheme.onSurfaceVariant else TransferGrayLight
+
+@Composable
+fun inputFocusedBorderColor(): Color =
+    if (isAppDarkTheme()) FocusRing else MaterialTheme.colorScheme.primary
+
+@Composable
+fun inputUnfocusedBorderColor(): Color = MaterialTheme.colorScheme.outline
