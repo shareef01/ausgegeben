@@ -27,6 +27,9 @@
     <string name="auth_error_invalid_credentials">E-Mail oder Passwort falsch</string>
     <string name="auth_error_email_in_use">Diese E-Mail wird bereits verwendet</string>
     <string name="auth_error_generic">Etwas ist schiefgelaufen. Bitte erneut versuchen.</string>
+    <string name="auth_loading_sign_in">Anmeldung…</string>
+    <string name="auth_loading_sign_up">Konto wird erstellt…</string>
+    <string name="auth_error_timeout">Zeitüberschreitung. Internet und Firebase-Einrichtung prüfen.</string>
 
     <string name="nav_record">Erfassen</string>
     <string name="nav_bills">Auswertung</string>

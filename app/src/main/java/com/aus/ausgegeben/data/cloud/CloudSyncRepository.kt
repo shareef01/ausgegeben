@@ -9,6 +9,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeout
 
 class CloudSyncRepository(
     private val authRepository: AuthRepository,
@@ -16,6 +17,10 @@ class CloudSyncRepository(
     private val expenseDao: ExpenseDao,
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
 ) {
+    companion object {
+        private const val SYNC_TIMEOUT_MS = 20_000L
+    }
+
     private fun userCollection(path: String) =
         authRepository.currentUserId?.let { uid ->
             firestore.collection("users").document(uid).collection(path)
@@ -23,28 +28,38 @@ class CloudSyncRepository(
 
     suspend fun fullSync(): Result<Unit> = runCatching {
         val uid = authRepository.currentUserId ?: return@runCatching
-        pushAllLocal(uid)
-        pullAllRemote(uid)
+        withTimeout(SYNC_TIMEOUT_MS) {
+            pushAllLocal(uid)
+            pullAllRemote(uid)
+        }
     }
 
     suspend fun pushCategory(category: Category) {
-        userCollection("categories")?.document(category.id.toString())
-            ?.set(category.toFirestore(), SetOptions.merge())
-            ?.await()
+        withTimeout(SYNC_TIMEOUT_MS) {
+            userCollection("categories")?.document(category.id.toString())
+                ?.set(category.toFirestore(), SetOptions.merge())
+                ?.await()
+        }
     }
 
     suspend fun deleteCategory(categoryId: Long) {
-        userCollection("categories")?.document(categoryId.toString())?.delete()?.await()
+        withTimeout(SYNC_TIMEOUT_MS) {
+            userCollection("categories")?.document(categoryId.toString())?.delete()?.await()
+        }
     }
 
     suspend fun pushExpense(expense: Expense) {
-        userCollection("expenses")?.document(expense.id.toString())
-            ?.set(expense.toFirestore(), SetOptions.merge())
-            ?.await()
+        withTimeout(SYNC_TIMEOUT_MS) {
+            userCollection("expenses")?.document(expense.id.toString())
+                ?.set(expense.toFirestore(), SetOptions.merge())
+                ?.await()
+        }
     }
 
     suspend fun deleteExpense(expenseId: Long) {
-        userCollection("expenses")?.document(expenseId.toString())?.delete()?.await()
+        withTimeout(SYNC_TIMEOUT_MS) {
+            userCollection("expenses")?.document(expenseId.toString())?.delete()?.await()
+        }
     }
 
     private suspend fun pushAllLocal(uid: String) {
