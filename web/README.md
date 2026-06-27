@@ -1,6 +1,8 @@
 # Ausgegeben Web (PWA)
 
-Progressive Web App replica of the **Ausgegeben** Android finance tracker. Install on iPhone (Add to Home Screen), laptop, or desktop — works offline with IndexedDB.
+Installable web version of **Ausgegeben** — the same finance tracker as the Android app. Use it in the browser, add to your home screen on iPhone, or run it on a laptop or desktop. Works offline with IndexedDB; optional Firebase sync matches the Android app when signed in with the same account.
+
+**Live:** [https://aus01.web.app](https://aus01.web.app)
 
 ## Stack choice: React + TypeScript + Vite
 
