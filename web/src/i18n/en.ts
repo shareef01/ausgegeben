@@ -103,6 +103,7 @@ export const en = {
   billsOverviewTitle: 'Income vs expenses',
   billsNet: 'Net',
   billsCashFlow: 'Cash flow',
+  billsCashFlowSubtitle: 'Income {income} · Spending {expense}',
   billsCashFlowHint: 'Totals shown in {currency} — use list rows for exact figures.',
   addCategory: 'Add category',
   categoryNamePrompt: 'Category name',
