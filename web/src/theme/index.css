@@ -1,0 +1,20 @@
+@import './global.css';
+
+:root {
+  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --bottom-bar-height: 68px;
+  --fab-size: 60px;
+  --fab-clearance: 72px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --app-max-width: min(1320px, 98vw);
+  --app-sidebar-width: 260px;
+  --content-max-width: 880px;
+  --content-sidebar-gap: 32px;
+  --workspace-padding: 16px;
+  --workspace-padding-desktop: 28px;
+  --radius-lg: 24px;
+  --radius-md: 16px;
+  --radius-sm: 12px;
+  --glass-blur: 24px;
+}

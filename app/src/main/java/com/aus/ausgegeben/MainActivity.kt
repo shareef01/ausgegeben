@@ -41,6 +41,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -53,6 +54,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -282,6 +286,35 @@ fun MainApp(
             },
         )
         return
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    LaunchedEffect(storageMode, authRepository.currentUserId) {
+        if (storageMode == StorageMode.CLOUD && authRepository.currentUserId != null) {
+            withContext(Dispatchers.IO) {
+                cloudSyncRepository.fullSync().onSuccess {
+                    preferenceManager.setLastCloudSyncAt(System.currentTimeMillis())
+                }
+            }
+        }
+    }
+
+    DisposableEffect(lifecycleOwner, storageMode, authRepository.currentUserId) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME &&
+                storageMode == StorageMode.CLOUD &&
+                authRepository.currentUserId != null
+            ) {
+                scope.launch(Dispatchers.IO) {
+                    cloudSyncRepository.fullSync().onSuccess {
+                        preferenceManager.setLastCloudSyncAt(System.currentTimeMillis())
+                    }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     AppScreen {
