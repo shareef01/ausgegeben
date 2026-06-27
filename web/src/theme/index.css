@@ -1,5 +1,6 @@
 @import './global.css';
 @import './premium.css';
+@import './oled.css';
 
 :root {
   --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
@@ -19,7 +20,7 @@
   --radius-md: 14px;
   --radius-sm: 10px;
   --glass-blur: 20px;
-  --surface-border: rgba(255, 255, 255, 0.05);
+  --surface-border: rgba(255, 255, 255, 0.06);
   --transition-premium: 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
