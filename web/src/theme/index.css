@@ -11,7 +11,7 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --layout-breakpoint: 768px;
   --app-max-width: min(1440px, 98vw);
-  --app-sidebar-width: 248px;
+  --app-sidebar-width: 220px;
   --content-max-width: 1200px;
   --content-sidebar-gap: 28px;
   --workspace-padding: 16px;

@@ -1172,10 +1172,10 @@ a {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 8px;
+  gap: 3px;
+  padding: 8px 6px 6px;
   color: var(--color-on-surface-variant);
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 500;
 }
 
@@ -1190,11 +1190,22 @@ a {
   width: 28px;
   height: 28px;
   border-radius: 8px;
-  transition: background 0.15s ease, color 0.15s ease;
+  opacity: 0.72;
+  transition: background 0.15s ease, color 0.15s ease, opacity 0.15s ease;
 }
 
 .bottom-bar__item--active .bottom-bar__icon {
-  color: var(--color-accent);
+  color: var(--color-income);
+  opacity: 1;
+}
+
+.bottom-bar__indicator {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-income);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-income) 75%, transparent);
+  margin-top: 1px;
 }
 
 .fab {
@@ -1826,9 +1837,56 @@ a {
 .side-nav__menu {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   flex: 1;
   min-height: 0;
+  padding: 4px 0;
+}
+
+.side-nav__indicator {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 0;
+  border-radius: 0 3px 3px 0;
+  background: var(--color-income);
+  transition:
+    height 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.18s ease,
+    box-shadow 0.18s ease;
+  opacity: 0;
+}
+
+.side-nav__item--active .side-nav__indicator {
+  height: 18px;
+  opacity: 1;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--color-income) 65%, transparent);
+}
+
+.side-nav__label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.side-nav__item--active .side-nav__label {
+  font-weight: 600;
+  color: var(--color-on-background);
+}
+
+.bottom-bar__label {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+.bottom-bar__item--active .bottom-bar__label {
+  font-weight: 600;
+  color: var(--color-on-background);
 }
 
 /* ── Sync pill ── */
@@ -2172,7 +2230,7 @@ a {
     flex-direction: column;
     width: var(--app-sidebar-width);
     flex-shrink: 0;
-    padding: 20px 12px;
+    padding: 16px 10px 20px;
     background: var(--glass-bg);
     backdrop-filter: blur(var(--glass-blur));
     -webkit-backdrop-filter: blur(var(--glass-blur));
@@ -2182,35 +2240,39 @@ a {
   .side-nav__brand {
     font-size: 1rem;
     font-weight: 600;
-    padding: 4px 8px 14px;
-    margin-bottom: 6px;
-    border-bottom: 1px solid color-mix(in srgb, var(--color-outline) 35%, transparent);
+    padding: 6px 10px 18px;
+    margin-bottom: 0;
+    border-bottom: none;
   }
 
   .side-nav__item {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 11px;
     width: 100%;
-    min-height: 40px;
-    padding: 8px 10px;
-    border-radius: 10px;
-    border: 1px solid transparent;
+    min-height: 36px;
+    padding: 7px 10px 7px 14px;
+    border-radius: 8px;
+    border: none;
     color: var(--color-on-surface-variant);
     font-size: 0.875rem;
     font-weight: 500;
     text-align: left;
-    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+    transition:
+      background 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+      color 0.2s ease;
   }
 
-  .side-nav__item:hover {
+  .side-nav__item:hover:not(.side-nav__item--active) {
     background: color-mix(in srgb, var(--color-on-surface) 4%, transparent);
+    color: color-mix(in srgb, var(--color-on-background) 72%, var(--color-on-surface-variant));
   }
 
   .side-nav__item--active {
-    background: color-mix(in srgb, var(--color-on-surface) 6%, transparent);
+    background: color-mix(in srgb, var(--color-on-surface) 7%, transparent);
     color: var(--color-on-background);
-    border-color: color-mix(in srgb, var(--color-outline) 50%, transparent);
+    border: none;
     box-shadow: none;
   }
 
@@ -2218,16 +2280,20 @@ a {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
+    width: 20px;
+    height: 20px;
     flex-shrink: 0;
-    transition: background 0.18s ease, color 0.18s ease;
+    border: none;
+    background: none;
+    color: inherit;
+    opacity: 0.72;
+    transition: color 0.2s ease, opacity 0.2s ease;
   }
 
   .side-nav__item--active .side-nav__icon-wrap {
     color: var(--color-income);
-    background: color-mix(in srgb, var(--color-income) 10%, transparent);
+    opacity: 1;
+    background: none;
   }
 
   .bottom-bar {
