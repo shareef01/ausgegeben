@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.data.StorageMode
 import com.aus.ausgegeben.data.auth.AuthRepository
+import com.aus.ausgegeben.data.cloud.CloudSyncCoordinator
 import com.aus.ausgegeben.data.cloud.CloudSyncRepository
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
@@ -15,7 +16,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.TimeoutCancellationException
 
@@ -41,6 +44,7 @@ class AuthViewModel(
     private val authRepository: AuthRepository,
     private val preferenceManager: PreferenceManager,
     private val cloudSyncRepository: CloudSyncRepository,
+    private val cloudSyncCoordinator: CloudSyncCoordinator,
 ) : AndroidViewModel(application) {
 
     companion object {
@@ -178,8 +182,10 @@ class AuthViewModel(
                 onSuccess()
                 viewModelScope.launch {
                     authRepository.ensureFreshAuthToken()
-                    cloudSyncRepository.fullSync().onSuccess {
-                        preferenceManager.setLastCloudSyncAt(System.currentTimeMillis())
+                    withContext(Dispatchers.IO) {
+                        cloudSyncCoordinator.fullSync(cloudSyncRepository, force = true).onSuccess {
+                            preferenceManager.setLastCloudSyncAt(System.currentTimeMillis())
+                        }
                     }
                 }
             },

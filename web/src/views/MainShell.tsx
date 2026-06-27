@@ -18,7 +18,13 @@ export function MainShell() {
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>('record');
   const [overlay, setOverlay] = useState<Overlay>(null);
+  const [visitedTabs, setVisitedTabs] = useState<Set<Tab>>(() => new Set(['record']));
   const syncing = useAuthStore((s) => s.syncing);
+
+  const selectTab = (next: Tab) => {
+    setVisitedTabs((prev) => new Set(prev).add(next));
+    setTab(next);
+  };
 
   const navItems: { id: Tab; label: string; Icon: typeof IconRecord }[] = [
     { id: 'record', label: t('navRecord'), Icon: IconRecord },
@@ -38,7 +44,7 @@ export function MainShell() {
             key={id}
             type="button"
             className={`side-nav__item ${tab === id ? 'side-nav__item--active' : ''}`}
-            onClick={() => setTab(id)}
+            onClick={() => selectTab(id)}
           >
             <span className="side-nav__icon-wrap"><Icon width={20} height={20} /></span>
             <SignatureNavLabel label={label} />
@@ -54,15 +60,30 @@ export function MainShell() {
 
       <div className="app-shell__body">
         <main className={`app-main ${tab === 'record' ? 'app-main--fab' : ''}`}>
-          <div key={tab} className="tab-panel tab-panel--animate-in">
-            {tab === 'record' ? (
+          {visitedTabs.has('record') ? (
+            <div
+              className={`tab-panel ${tab === 'record' ? 'tab-panel--active tab-panel--animate-in' : 'tab-panel--hidden'}`}
+              aria-hidden={tab !== 'record'}
+            >
               <RecordView onAdd={() => setOverlay({ type: 'add' })} onEdit={(id) => setOverlay({ type: 'edit', expenseId: id })} />
-            ) : null}
-            {tab === 'insights' ? <InsightsView /> : null}
-            {tab === 'settings' ? (
+            </div>
+          ) : null}
+          {visitedTabs.has('insights') ? (
+            <div
+              className={`tab-panel ${tab === 'insights' ? 'tab-panel--active tab-panel--animate-in' : 'tab-panel--hidden'}`}
+              aria-hidden={tab !== 'insights'}
+            >
+              <InsightsView />
+            </div>
+          ) : null}
+          {visitedTabs.has('settings') ? (
+            <div
+              className={`tab-panel ${tab === 'settings' ? 'tab-panel--active tab-panel--animate-in' : 'tab-panel--hidden'}`}
+              aria-hidden={tab !== 'settings'}
+            >
               <SettingsView onManageCategories={() => setOverlay({ type: 'categories' })} />
-            ) : null}
-          </div>
+            </div>
+          ) : null}
         </main>
 
         <nav className="bottom-bar" aria-label="Main">
@@ -71,7 +92,7 @@ export function MainShell() {
               key={id}
               type="button"
               className={`bottom-bar__item ${tab === id ? 'bottom-bar__item--active' : ''}`}
-              onClick={() => setTab(id)}
+              onClick={() => selectTab(id)}
             >
               <span className="bottom-bar__icon"><Icon width={22} height={22} /></span>
               <SignatureNavLabel label={label} />

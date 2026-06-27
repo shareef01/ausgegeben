@@ -85,8 +85,10 @@ async function uploadReceiptsForExpenses(expenses: Expense[]): Promise<void> {
   }
 }
 
-export const syncService = {
-  async fullSync(): Promise<SyncResult> {
+const MIN_SYNC_INTERVAL_MS = 5 * 60 * 1000;
+let syncInFlight: Promise<SyncResult> | null = null;
+
+async function runFullSync(): Promise<SyncResult> {
     const firestore = getFirebaseFirestore();
     const userId = uid();
     if (!firestore || !userId) {
@@ -182,6 +184,27 @@ export const syncService = {
     } finally {
       setSyncing(false);
     }
+}
+
+export const syncService = {
+  async fullSync(force = false): Promise<SyncResult> {
+    const lastSyncAt = usePreferencesStore.getState().lastCloudSyncAt ?? 0;
+    if (!force && Date.now() - lastSyncAt < MIN_SYNC_INTERVAL_MS) {
+      return {
+        ok: true,
+        appliedCategories: 0,
+        appliedExpenses: 0,
+        remoteCategories: 0,
+        remoteExpenses: 0,
+      };
+    }
+    if (syncInFlight) {
+      return syncInFlight;
+    }
+    syncInFlight = runFullSync().finally(() => {
+      syncInFlight = null;
+    });
+    return syncInFlight;
   },
 
   async pushCategory(category: Category): Promise<void> {

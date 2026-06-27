@@ -48,6 +48,10 @@ export const expenseRepository = {
     }
   },
 
+  async getExpenseById(id: number): Promise<Expense | undefined> {
+    return db.expenses.get(id);
+  },
+
   async getAllExpenses(): Promise<Expense[]> {
     return db.expenses.orderBy('dateMillis').reverse().toArray();
   },
@@ -57,7 +61,7 @@ export const expenseRepository = {
       .where('dateMillis')
       .between(start, end, true, false)
       .reverse()
-      .sortBy('dateMillis');
+      .toArray();
   },
 
   async queryExpenses(params: ExpenseQueryParams): Promise<Expense[]> {
@@ -65,7 +69,7 @@ export const expenseRepository = {
       .where('dateMillis')
       .between(params.startMillis, params.endMillis, true, false)
       .reverse()
-      .sortBy('dateMillis');
+      .toArray();
 
     if (params.typeFilter !== 'all') {
       items = items.filter((e) => e.transactionType === params.typeFilter);
