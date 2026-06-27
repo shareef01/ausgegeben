@@ -26,3 +26,6 @@ out/
 captures/
 .idea/
 *.hprof
+
+# Firebase — each developer keeps their own copy from Firebase Console
+app/google-services.json
