@@ -1,22 +1,26 @@
 @import './global.css';
+@import './premium.css';
 
 :root {
-  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  --bottom-bar-height: 68px;
-  --fab-size: 60px;
-  --fab-clearance: 72px;
+  --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  --bottom-bar-height: 72px;
+  --fab-size: 58px;
+  --fab-clearance: 76px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --app-max-width: min(1320px, 98vw);
-  --app-sidebar-width: 260px;
-  --content-max-width: 880px;
-  --content-sidebar-gap: 32px;
+  --layout-breakpoint: 768px;
+  --app-max-width: min(1440px, 98vw);
+  --app-sidebar-width: 248px;
+  --content-max-width: 1200px;
+  --content-sidebar-gap: 28px;
   --workspace-padding: 16px;
-  --workspace-padding-desktop: 28px;
-  --radius-lg: 24px;
-  --radius-md: 16px;
-  --radius-sm: 12px;
-  --glass-blur: 24px;
+  --workspace-padding-desktop: 32px;
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+  --glass-blur: 20px;
+  --surface-border: rgba(255, 255, 255, 0.05);
+  --transition-premium: 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @media (min-width: 1200px) {

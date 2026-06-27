@@ -69,7 +69,7 @@ a {
   }
 }
 
-@media (min-width: 900px) {
+@media (min-width: 768px) {
   .tab-panel--animate-in {
     animation: tab-in-desktop 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   }
@@ -2119,7 +2119,7 @@ a {
 
 /* ── Desktop layout ── */
 
-@media (min-width: 900px) {
+@media (min-width: 768px) {
   .app-viewport {
     display: flex;
     justify-content: center;
