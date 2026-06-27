@@ -19,11 +19,7 @@ fun mapCloudSyncError(context: Context, error: Throwable): String {
     if (firestoreError != null) {
         return when (firestoreError.code) {
             FirebaseFirestoreException.Code.PERMISSION_DENIED ->
-                context.getString(
-                    R.string.settings_sync_error_permission,
-                    FirebaseConfigHelper.projectId(context) ?: "?",
-                    firestoreError.message ?: firestoreError.code.name,
-                )
+                context.getString(R.string.settings_sync_error_permission)
             FirebaseFirestoreException.Code.UNAVAILABLE ->
                 context.getString(R.string.settings_sync_error_network)
             FirebaseFirestoreException.Code.NOT_FOUND ->
@@ -41,11 +37,7 @@ fun mapCloudSyncError(context: Context, error: Throwable): String {
         if (message.contains("PERMISSION_DENIED", ignoreCase = true) ||
             message.contains("permission", ignoreCase = true)
         ) {
-            context.getString(
-                R.string.settings_sync_error_permission,
-                FirebaseConfigHelper.projectId(context) ?: "?",
-                message,
-            )
+            context.getString(R.string.settings_sync_error_permission)
         } else {
             context.getString(R.string.settings_sync_failed_detail, message)
         }

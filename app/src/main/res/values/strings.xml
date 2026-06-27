@@ -111,18 +111,17 @@
     <string name="settings_budget_set">Monthly limit set</string>
     <string name="settings_budget_cleared">Monthly limit cleared</string>
     <string name="settings_account_cloud">Cloud account</string>
+    <string name="settings_account_sync_enabled">Cloud backup enabled</string>
     <string name="settings_account_offline">Offline mode</string>
     <string name="settings_account_signed_in_as">Signed in as %1$s</string>
-    <string name="settings_account_cloud_subtitle">Signed in with Firebase</string>
+    <string name="settings_account_cloud_subtitle">Your data syncs across devices</string>
     <string name="settings_account_offline_subtitle">Data stays on this device only</string>
     <string name="settings_sign_in">Sign in / Create account</string>
-    <string name="settings_sign_in_subtitle">Back up and sync with Firebase</string>
+    <string name="settings_sign_in_subtitle">Back up and sync across devices</string>
     <string name="settings_sign_out">Sign out</string>
     <string name="settings_sign_out_subtitle">Switch back to offline mode</string>
     <string name="settings_sign_out_confirm">Sign out and return to offline mode? Your local data will stay on this device.</string>
     <string name="settings_signed_out">Signed out. You are now in offline mode.</string>
-    <string name="settings_user_id">ID %1$s…</string>
-    <string name="settings_firebase_project">Firebase project %1$s</string>
     <string name="settings_sync_now">Sync now</string>
     <string name="settings_last_synced">Last synced %1$s</string>
     <string name="settings_never_synced">Not synced yet — tap Sync now after sign-in</string>
@@ -130,11 +129,11 @@
     <string name="settings_sync_failed">Cloud sync failed</string>
     <string name="settings_sync_in_progress">Syncing with cloud…</string>
     <string name="settings_sync_failed_detail">Sync failed: %1$s</string>
-    <string name="settings_sync_error_permission">Cloud access denied for project %1$s. If you already published firestore.rules, confirm Firestore was created in that same project (Firebase Console → Firestore Database) and rules are published, not just saved as a draft. Detail: %2$s</string>
-    <string name="settings_sync_error_config_placeholder">Firebase is not configured on this build. Copy your google-services.json from Firebase Console into app/google-services.json, then rebuild the app.</string>
-    <string name="settings_sync_error_network">No connection to Firebase. Check your internet.</string>
+    <string name="settings_sync_error_permission">Cloud sync could not access your account. Check your connection and try signing out and back in.</string>
+    <string name="settings_sync_error_config_placeholder">Cloud backup is not available in this build.</string>
+    <string name="settings_sync_error_network">No internet connection. Check your network and try again.</string>
     <string name="settings_sync_error_timeout">Sync timed out. Try again on a stable connection.</string>
-    <string name="settings_sync_error_firestore_missing">Firestore database not found. Create it in Firebase Console → Firestore Database.</string>
+    <string name="settings_sync_error_firestore_missing">Cloud backup is temporarily unavailable. Please try again later.</string>
 
     <!-- Add transaction -->
     <string name="add_save_changes">Save changes</string>
@@ -187,7 +186,10 @@
     <string name="period_this_month">This month</string>
     <string name="period_last_month">Last month</string>
     <string name="period_all_time">All time</string>
-    <string name="period_month_container">Monthly container</string>
+    <string name="period_picker_label">Showing</string>
+    <string name="period_picker_title">Choose period</string>
+    <string name="period_picker_subtitle">View your bills and charts for a month or your full history.</string>
+    <string name="period_picker_months">By month</string>
 
     <!-- Theme -->
     <string name="theme_system">System</string>
