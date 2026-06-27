@@ -409,3 +409,275 @@
 .sheet--transaction-premium .segmented button.active {
   box-shadow: 0 2px 12px color-mix(in srgb, var(--color-accent) 22%, transparent);
 }
+
+/* ── Finance colors: red expenses, green income (Android parity) ── */
+
+:root {
+  --transition-premium: 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── iOS segmented control ── */
+
+.ios-segmented {
+  display: flex;
+  gap: 0;
+  padding: 3px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-on-surface) 5%, transparent);
+  border: 1px solid var(--surface-border);
+}
+
+.ios-segmented__item {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-on-surface-variant);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition:
+    background var(--transition-premium),
+    color var(--transition-premium),
+    box-shadow var(--transition-premium);
+}
+
+.ios-segmented__item--active {
+  background: var(--color-surface);
+  color: var(--color-on-background);
+  box-shadow:
+    0 1px 4px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.ios-segmented__item[data-segment='expense'].ios-segmented__item--active {
+  color: var(--color-expense);
+  box-shadow:
+    0 2px 12px color-mix(in srgb, var(--color-expense) 20%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--color-expense) 22%, transparent);
+}
+
+.ios-segmented__item[data-segment='income'].ios-segmented__item--active {
+  color: var(--color-income);
+  box-shadow:
+    0 2px 12px color-mix(in srgb, var(--color-income) 20%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--color-income) 22%, transparent);
+}
+
+.ios-segmented__item[data-segment='transfer'].ios-segmented__item--active {
+  color: var(--color-transfer);
+}
+
+/* ── Record filters toolbar ── */
+
+.record-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.record-toolbar {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.record-period-segmented {
+  flex: 1;
+  min-width: 200px;
+}
+
+.record-type-segmented {
+  width: 100%;
+}
+
+.record-search {
+  position: relative;
+  flex: 1;
+  min-width: 160px;
+  display: flex;
+  align-items: center;
+}
+
+.record-search__icon {
+  position: absolute;
+  left: 12px;
+  color: var(--color-on-surface-variant);
+  pointer-events: none;
+}
+
+.record-search__input {
+  width: 100%;
+  padding-left: 38px !important;
+}
+
+/* ── Add transaction CTA ── */
+
+.add-transaction-pill {
+  border-radius: 999px !important;
+  padding: 11px 22px !important;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  background: var(--gradient-income) !important;
+  color: #fff !important;
+  border: 1px solid color-mix(in srgb, var(--color-income) 40%, transparent);
+  box-shadow:
+    var(--shadow-income-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+}
+
+.add-transaction-pill:hover {
+  filter: brightness(1.06);
+}
+
+.fab {
+  background: var(--gradient-income) !important;
+  color: #fff !important;
+  border: 1px solid color-mix(in srgb, var(--color-income) 35%, transparent);
+  box-shadow:
+    var(--shadow-income-glow),
+    0 0 0 1px color-mix(in srgb, var(--color-income) 25%, transparent) !important;
+}
+
+/* ── Transaction row icons (Lucide) ── */
+
+.transaction-row__icon {
+  background: color-mix(in srgb, var(--cat-color, var(--color-accent)) 14%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--cat-color, var(--color-accent)) 18%, transparent);
+  color: var(--cat-color, var(--color-accent));
+}
+
+.transaction-row__icon-fallback {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-on-surface-variant);
+}
+
+/* ── Cash flow chart card ── */
+
+.insights-cashflow-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.insights-cashflow-card__title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-on-background);
+  letter-spacing: -0.01em;
+}
+
+.insights-cashflow-card__subtitle {
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: var(--color-on-surface-variant);
+  line-height: 1.4;
+}
+
+.insights-cashflow-card__axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--color-on-surface-variant);
+  margin-top: 4px;
+}
+
+.insights-cashflow-card__hint {
+  font-size: 0.75rem;
+  color: var(--color-on-surface-variant);
+  margin-top: 8px;
+  line-height: 1.45;
+}
+
+.cashflow-chart {
+  margin: 4px 0 0;
+}
+
+.cashflow-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding-top: 4px;
+}
+
+.cashflow-legend__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.cashflow-legend__dot--income {
+  background: var(--color-income);
+}
+
+.cashflow-legend__dot--expense {
+  background: var(--color-expense);
+}
+
+/* ── App brand icon ── */
+
+.app-brand-icon {
+  display: block;
+  flex-shrink: 0;
+  border-radius: 22%;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.side-nav__brand-icon {
+  border-radius: 10px;
+}
+
+/* ── Navigation polish ── */
+
+.side-nav__item--active {
+  color: var(--color-on-background);
+}
+
+.side-nav__item--active .side-nav__icon-wrap {
+  color: var(--color-income);
+}
+
+.bottom-bar__item--active {
+  color: var(--color-income);
+}
+
+.bottom-bar__indicator {
+  background: var(--color-income);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-income) 80%, transparent);
+}
+
+@media (min-width: 768px) {
+  .side-nav__item--active {
+    background: color-mix(in srgb, var(--color-income) 10%, transparent);
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--color-income) 22%, transparent),
+      0 4px 20px color-mix(in srgb, var(--color-income) 12%, transparent);
+  }
+
+  .side-nav__item--active .side-nav__icon-wrap {
+    color: var(--color-income);
+  }
+}
+
+@media (max-width: 767px) {
+  .record-toolbar {
+    flex-direction: column;
+  }
+
+  .record-period-segmented,
+  .record-search {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
