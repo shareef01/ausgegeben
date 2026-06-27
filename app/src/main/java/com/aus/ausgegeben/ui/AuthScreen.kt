@@ -1,8 +1,5 @@
 package com.aus.ausgegeben.ui
 
-import android.app.Activity
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,14 +42,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -69,13 +62,9 @@ import com.aus.ausgegeben.ui.components.SmoothIconButton
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.financeExpenseColor
-import com.aus.ausgegeben.ui.theme.financeExpenseColor
 import com.aus.ausgegeben.ui.theme.financeIncomeColor
 import com.aus.ausgegeben.ui.theme.inputFocusedBorderColor
 import com.aus.ausgegeben.ui.theme.inputUnfocusedBorderColor
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
-import com.google.android.gms.common.api.ApiException
 
 @Composable
 fun AuthScreen(
@@ -85,43 +74,8 @@ fun AuthScreen(
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
     val expenseColor = financeExpenseColor()
     val incomeColor = financeIncomeColor()
-    val webClientId = remember {
-        val resId = context.resources.getIdentifier(
-            "default_web_client_id",
-            "string",
-            context.packageName,
-        )
-        if (resId != 0) context.getString(resId) else null
-    }
-
-    val googleSignInClient = remember(webClientId) {
-        webClientId?.let { clientId ->
-            val options = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                .requestIdToken(clientId)
-                .requestEmail()
-                .build()
-            GoogleSignIn.getClient(context, options)
-        }
-    }
-
-    val googleLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult(),
-    ) { result ->
-        if (result.resultCode != Activity.RESULT_OK) return@rememberLauncherForActivityResult
-        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-        runCatching { task.getResult(ApiException::class.java) }
-            .onSuccess { account ->
-                account.idToken?.let { token ->
-                    viewModel.signInWithGoogle(token, onAuthenticated)
-                }
-            }
-            .onFailure {
-                // Google sign-in cancelled or failed silently
-            }
-    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -207,31 +161,6 @@ fun AuthScreen(
                         .padding(AppSpacing.md),
                     verticalArrangement = Arrangement.spacedBy(AppSpacing.sm),
                 ) {
-                    if (googleSignInClient != null) {
-                        OutlinedButton(
-                            onClick = { googleLauncher.launch(googleSignInClient.signInIntent) },
-                            enabled = !uiState.isLoading,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp),
-                            shape = RoundedCornerShape(AppRadius.pill),
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_google),
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp),
-                                tint = Color.Unspecified,
-                            )
-                            Spacer(modifier = Modifier.size(AppSpacing.sm))
-                            Text(
-                                text = stringResource(R.string.auth_continue_google),
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Medium,
-                            )
-                        }
-                        AuthOrDivider()
-                    }
-
                     IosSegmentedControl(
                         options = listOf(
                             stringResource(R.string.auth_tab_sign_in),
@@ -440,21 +369,4 @@ private fun AuthTextField(
             cursorColor = inputFocusedBorderColor(),
         ),
     )
-}
-
-@Composable
-private fun AuthOrDivider() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm),
-    ) {
-        HorizontalDivider(modifier = Modifier.weight(1f))
-        Text(
-            text = stringResource(R.string.auth_or),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        HorizontalDivider(modifier = Modifier.weight(1f))
-    }
 }
