@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { IconChevronDown } from '@/components/Icons';
+import { IconCalendar, IconCheck, IconChevronDown, IconHistory } from '@/components/Icons';
 import { useTranslation } from '@/i18n';
+import type { AnalyticsPeriodOption } from '@/models/types';
 
 interface PremiumPeriodSelectorProps<T> {
   options: T[];
@@ -82,4 +83,100 @@ export function recordPeriodOptions() {
     { key: 'this_month' as const, label: t('recordPeriodThisMonth') },
     { key: 'all_time' as const, label: t('recordPeriodAllTime') },
   ];
+}
+
+interface AnalyticsPeriodPickerProps {
+  options: AnalyticsPeriodOption[];
+  selectedKey: string;
+  selectedLabel: string;
+  onSelected: (option: AnalyticsPeriodOption) => void;
+}
+
+export function AnalyticsPeriodPicker({
+  options,
+  selectedKey,
+  selectedLabel,
+  onSelected,
+}: AnalyticsPeriodPickerProps) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const allTime = options.find((o) => o.storageKey === 'all_time');
+  const months = options.filter((o) => o.storageKey !== 'all_time');
+
+  return (
+    <>
+      <button type="button" className="period-picker" onClick={() => setOpen(true)}>
+        <span className="period-picker__icon" aria-hidden>
+          <IconCalendar width={20} height={20} />
+        </span>
+        <span className="period-picker__copy">
+          <span className="period-picker__eyebrow">{t('periodPickerLabel')}</span>
+          <span className="period-picker__value">{selectedLabel}</span>
+        </span>
+        <IconChevronDown width={18} height={18} className="period-picker__chevron" />
+      </button>
+
+      {open ? (
+        <div className="overlay" onClick={() => setOpen(false)} role="presentation">
+          <div
+            className="sheet period-picker-sheet"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('periodPickerTitle')}
+          >
+            <div className="period-picker-sheet__header">
+              <h2>{t('periodPickerTitle')}</h2>
+              <p>{t('periodPickerSubtitle')}</p>
+            </div>
+
+            {allTime ? (
+              <button
+                type="button"
+                className={`period-picker-option period-picker-option--prominent ${selectedKey === allTime.storageKey ? 'period-picker-option--active' : ''}`}
+                onClick={() => {
+                  onSelected(allTime);
+                  setOpen(false);
+                }}
+              >
+                <span className="period-picker-option__icon" aria-hidden>
+                  <IconHistory width={18} height={18} />
+                </span>
+                <span className="period-picker-option__label">{t('periodAllTime')}</span>
+                {selectedKey === allTime.storageKey ? <IconCheck width={18} height={18} /> : null}
+              </button>
+            ) : null}
+
+            {months.length > 0 ? (
+              <>
+                <div className="section-title">{t('periodPickerMonths')}</div>
+                <div className="settings-group period-picker-sheet__months">
+                  {months.map((option) => {
+                    const active = option.storageKey === selectedKey;
+                    return (
+                      <button
+                        key={option.storageKey}
+                        type="button"
+                        className={`period-picker-option ${active ? 'period-picker-option--active' : ''}`}
+                        onClick={() => {
+                          onSelected(option);
+                          setOpen(false);
+                        }}
+                      >
+                        <span className="period-picker-option__icon" aria-hidden>
+                          <IconCalendar width={18} height={18} />
+                        </span>
+                        <span className="period-picker-option__label">{option.label}</span>
+                        {active ? <IconCheck width={18} height={18} /> : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
 }
