@@ -1,0 +1,411 @@
+/**
+ * Premium Cupertino × Fintech design overrides.
+ * Presentation only — does not alter app logic.
+ */
+
+/* ── Surfaces & cards ── */
+
+.card,
+.settings-group,
+.finance-summary-card,
+.transaction-list-card,
+.insights-stat-card,
+.insights-category-card,
+.account-profile-card,
+.period-picker {
+  background: var(--color-surface);
+  border: 1px solid var(--surface-border);
+  box-shadow: none;
+}
+
+.card--elevated {
+  background: color-mix(in srgb, var(--color-surface) 92%, #fff 8%);
+  border: 1px solid var(--surface-border);
+}
+
+/* ── Typography: money hierarchy ── */
+
+.money--hero-display,
+.amount-hero__value,
+.finance-summary-card__balance,
+.insights-stat-card__value {
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+.money--hero-display {
+  font-size: clamp(2.25rem, 5vw, 3rem);
+  line-height: 1.05;
+}
+
+/* ── Interactive surfaces ── */
+
+@media (hover: hover) and (pointer: fine) {
+  .card--pressable:hover,
+  .settings-row--interactive:hover,
+  .period-picker:hover,
+  .category-tile:hover,
+  .side-nav__item:hover,
+  .btn-secondary:hover {
+    transform: scale(0.99);
+    filter: brightness(1.08);
+    transition: transform var(--transition-premium), filter var(--transition-premium), background var(--transition-premium);
+  }
+}
+
+.card--pressable:active,
+.settings-row--interactive:active,
+.period-picker:active,
+.category-tile:active,
+.bottom-bar__item:active,
+.side-nav__item:active,
+.btn:active,
+.numpad__key:active {
+  opacity: 0.72;
+  transition: opacity 0.12s ease;
+}
+
+/* ── Mobile bottom navigation (iOS) ── */
+
+@media (max-width: 767px) {
+  .side-nav {
+    display: none;
+  }
+
+  .bottom-bar {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(8px + var(--safe-bottom));
+    width: auto;
+    height: calc(var(--bottom-bar-height) - 8px);
+    padding: 6px 8px calc(6px + var(--safe-bottom));
+    border-radius: 22px;
+    border: 1px solid var(--surface-border);
+    background: color-mix(in srgb, var(--color-surface) 78%, transparent);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .bottom-bar__item {
+    position: relative;
+    gap: 2px;
+    padding: 6px 4px 4px;
+    border-radius: 14px;
+    transition: color var(--transition-premium), background var(--transition-premium);
+  }
+
+  .bottom-bar__item--active {
+    color: var(--color-accent);
+  }
+
+  .bottom-bar__indicator {
+    width: 4px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--color-accent);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--color-accent) 80%, transparent);
+    margin-top: 2px;
+  }
+
+  .bottom-bar__icon {
+    width: 26px;
+    height: 26px;
+  }
+
+  .app-main {
+    padding-bottom: calc(var(--bottom-bar-height) + var(--safe-bottom) + 16px);
+  }
+
+  .app-main--fab {
+    padding-bottom: calc(var(--bottom-bar-height) + var(--fab-clearance) + var(--safe-bottom) + 8px);
+  }
+
+  .fab {
+    right: 16px;
+    bottom: calc(var(--bottom-bar-height) + var(--safe-bottom) + 20px);
+    box-shadow:
+      var(--shadow-accent-glow),
+      0 0 0 1px color-mix(in srgb, var(--color-accent) 35%, transparent);
+  }
+}
+
+/* ── Desktop sidebar glass ── */
+
+@media (min-width: 768px) {
+  .app-viewport {
+    background: radial-gradient(ellipse 120% 80% at 50% -20%, color-mix(in srgb, var(--color-accent) 8%, transparent), var(--color-background));
+  }
+
+  .side-nav {
+    background: color-mix(in srgb, var(--color-surface) 72%, transparent);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border-right: 1px solid var(--surface-border);
+  }
+
+  .side-nav__item--active {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 28%, transparent),
+      0 0 24px color-mix(in srgb, var(--color-accent) 16%, transparent);
+  }
+
+  .app-main {
+    padding-bottom: 32px;
+  }
+
+  .page-content {
+    max-width: var(--content-max-width);
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .bottom-bar {
+    display: none;
+  }
+
+  .fab--mobile-only {
+    display: none !important;
+  }
+}
+
+/* ── Add transaction: mobile bottom sheet ── */
+
+.overlay--transaction {
+  align-items: flex-end;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(6px);
+}
+
+@media (max-width: 767px) {
+  .sheet--transaction-premium {
+    width: 100%;
+    max-width: none;
+    max-height: min(94vh, 900px);
+    border-radius: 20px 20px 0 0;
+    padding: 12px 16px calc(20px + var(--safe-bottom));
+    animation: sheet-up 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    border: 1px solid var(--surface-border);
+    border-bottom: none;
+  }
+
+  .sheet--transaction-premium::before {
+    content: '';
+    display: block;
+    width: 36px;
+    height: 4px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-on-surface-variant) 55%, transparent);
+    margin: 0 auto 12px;
+  }
+
+  .amount-hero--mobile-only {
+    display: flex;
+  }
+
+  .amount-entry__input--desktop {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .numpad--mobile-only {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    width: calc(100% + 32px);
+    margin-left: -16px;
+    margin-right: -16px;
+    padding: 12px 12px 4px;
+    background: color-mix(in srgb, var(--color-surface-variant) 55%, var(--color-background));
+    border-top: 1px solid var(--surface-border);
+  }
+
+  .numpad--mobile-only .numpad__key {
+    height: 56px;
+    border-radius: 14px;
+    font-size: 1.375rem;
+    font-weight: 500;
+    background: color-mix(in srgb, var(--color-on-surface) 6%, transparent);
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Add transaction: desktop centered dialog ── */
+
+@media (min-width: 768px) {
+  .overlay--transaction {
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+  }
+
+  .sheet--transaction-premium {
+    width: min(560px, 100%);
+    max-height: min(88vh, 820px);
+    overflow: auto;
+    border-radius: 22px;
+    padding: 24px 28px 28px;
+    border: 1px solid var(--surface-border);
+    box-shadow:
+      0 32px 80px rgba(0, 0, 0, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    animation: dialog-in 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .sheet--transaction-premium::before {
+    display: none;
+  }
+
+  .amount-hero--mobile-only,
+  .numpad--mobile-only {
+    display: none !important;
+  }
+
+  .amount-entry__input--desktop {
+    font-size: clamp(2.5rem, 4vw, 3.25rem);
+    font-weight: 600;
+    letter-spacing: -0.04em;
+    text-align: center;
+    padding: 28px 20px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--surface-border);
+    background: color-mix(in srgb, var(--color-surface-variant) 40%, var(--color-surface));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  .amount-entry__input--desktop:focus {
+    outline: 2px solid color-mix(in srgb, var(--color-accent) 55%, transparent);
+    outline-offset: 2px;
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ── Category tiles ── */
+
+.category-tiles {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 4px 2px 8px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.category-tiles::-webkit-scrollbar {
+  display: none;
+}
+
+.category-tile {
+  flex: 0 0 auto;
+  width: 76px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 6px;
+  border-radius: 16px;
+  border: 1px solid transparent;
+  background: transparent;
+  scroll-snap-align: start;
+  transition: transform var(--transition-premium), border-color var(--transition-premium), background var(--transition-premium);
+}
+
+.category-tile__icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--cat-color, var(--color-accent)) 14%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--cat-color, var(--color-accent)) 22%, transparent);
+  color: var(--cat-color, var(--color-accent));
+}
+
+.category-tile__name {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-align: center;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-on-surface-variant);
+}
+
+.category-tile--active {
+  background: color-mix(in srgb, var(--cat-color, var(--color-accent)) 8%, transparent);
+  border-color: color-mix(in srgb, var(--cat-color, var(--color-accent)) 35%, transparent);
+}
+
+.category-tile--active .category-tile__name {
+  color: var(--color-on-background);
+  font-weight: 600;
+}
+
+.category-tile--active .category-tile__icon {
+  box-shadow: 0 0 20px color-mix(in srgb, var(--cat-color, var(--color-accent)) 35%, transparent);
+}
+
+/* ── Settings rows polish ── */
+
+.settings-row__icon-tile {
+  border: 1px solid var(--surface-border);
+}
+
+.settings-row__icon-tile[data-tint='income'] {
+  color: var(--color-income);
+  background: color-mix(in srgb, var(--color-income) 12%, transparent);
+}
+
+.settings-row__icon-tile[data-tint='expense'] {
+  color: var(--color-expense);
+  background: color-mix(in srgb, var(--color-expense) 12%, transparent);
+}
+
+.settings-row__icon-tile[data-tint='accent'] {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+/* ── Segmented control in transaction sheet ── */
+
+.sheet--transaction-premium .segmented {
+  background: color-mix(in srgb, var(--color-on-surface) 5%, transparent);
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  padding: 3px;
+}
+
+.sheet--transaction-premium .segmented button.active {
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
