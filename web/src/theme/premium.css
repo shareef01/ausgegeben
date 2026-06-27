@@ -8,13 +8,12 @@
 .card,
 .settings-group,
 .finance-summary-card,
-.transaction-list-card,
 .insights-stat-card,
 .insights-category-card,
 .account-profile-card,
 .period-picker {
-  background: var(--color-surface);
-  border: 1px solid var(--surface-border);
+  background: var(--color-oled-surface, var(--color-surface));
+  border: 1px solid var(--hairline-border, var(--surface-border));
   box-shadow: none;
 }
 
@@ -524,9 +523,7 @@
   background: var(--gradient-income) !important;
   color: #fff !important;
   border: 1px solid color-mix(in srgb, var(--color-income) 40%, transparent);
-  box-shadow:
-    var(--shadow-income-glow),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+  box-shadow: var(--shadow-cta-physical, var(--shadow-income-glow)), inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
 }
 
 .add-transaction-pill:hover {
@@ -537,9 +534,7 @@
   background: var(--gradient-income) !important;
   color: #fff !important;
   border: 1px solid color-mix(in srgb, var(--color-income) 35%, transparent);
-  box-shadow:
-    var(--shadow-income-glow),
-    0 0 0 1px color-mix(in srgb, var(--color-income) 25%, transparent) !important;
+  box-shadow: var(--shadow-cta-physical, var(--shadow-income-glow)) !important;
 }
 
 /* ── Transaction row icons (Lucide) ── */

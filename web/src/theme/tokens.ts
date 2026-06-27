@@ -43,10 +43,10 @@ const baseDark = (overrides: Partial<ThemePalette> = {}): ThemePalette => ({
   onPrimary: '#000000',
   background: '#000000',
   onBackground: '#FAFAFA',
-  surface: '#121212',
+  surface: '#09090B',
   onSurface: '#F4F4F5',
-  surfaceVariant: '#18181B',
-  onSurfaceVariant: '#A1A1AA',
+  surfaceVariant: '#0A0A0A',
+  onSurfaceVariant: '#71717A',
   outline: 'rgba(255, 255, 255, 0.08)',
   error: '#E85D5D',
   income: '#22C55E',
@@ -136,11 +136,23 @@ export function applyTheme(palette: ThemePalette): void {
   root.style.setProperty('--color-transfer', palette.transfer);
   root.style.setProperty('--color-accent', brandAccent(palette));
   root.style.setProperty('--color-focus', palette.focusRing);
-  root.style.setProperty('--color-date-divider', palette.isDark ? '#94A3B8' : '#64748B');
-  root.style.setProperty('--glass-bg', palette.isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.025)');
+  root.style.setProperty('--color-date-divider', palette.isDark ? '#71717A' : '#64748B');
+  root.style.setProperty('--glass-bg', palette.isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.025)');
   root.style.setProperty('--glass-border', palette.isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.07)');
-  root.style.setProperty('--glass-bg-elevated', palette.isDark ? 'rgba(18, 18, 18, 0.88)' : 'rgba(255, 255, 255, 0.72)');
-  root.style.setProperty('--surface-border', palette.isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.06)');
+  root.style.setProperty('--glass-bg-elevated', palette.isDark ? 'rgba(10, 10, 10, 0.92)' : 'rgba(255, 255, 255, 0.72)');
+  root.style.setProperty('--surface-border', palette.isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)');
+  root.style.setProperty('--color-oled-surface', palette.isDark ? '#09090B' : palette.surface);
+  root.style.setProperty('--color-oled-surface-elevated', palette.isDark ? '#0A0A0A' : palette.surfaceVariant);
+  root.style.setProperty('--hairline-border', palette.isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)');
+  root.style.setProperty('--hairline-divider', palette.isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.05)');
+  root.style.setProperty('--color-label-muted', palette.isDark ? '#71717A' : palette.onSurfaceVariant);
+  root.style.setProperty('--color-balance-positive', '#10B981');
+  root.style.setProperty('--color-balance-negative', '#DC2626');
+  root.style.setProperty('--color-stat-value', palette.isDark ? '#FFFFFF' : palette.onBackground);
+  root.style.setProperty(
+    '--shadow-cta-physical',
+    '0 0 0 1px rgba(16, 185, 129, 0.2), 0 4px 12px rgba(16, 185, 129, 0.2), 0 12px 32px rgba(16, 185, 129, 0.15)',
+  );
   root.style.setProperty('--gradient-income', `linear-gradient(135deg, ${financeIncome(palette)} 0%, #34C759 100%)`);
   root.style.setProperty('--gradient-expense', `linear-gradient(135deg, ${palette.expense} 0%, #FF453A 100%)`);
   root.style.setProperty('--gradient-accent', palette.isDark

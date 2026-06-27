@@ -92,10 +92,10 @@ export function RecordView({ onAdd, onEdit }: RecordViewProps) {
           subtitle={`${t('recordEmptySubtitle')} ${t('recordEmptyHint')}`}
         />
       ) : (
-        <div className="card card--pressable transaction-list-card">
+        <div className="transaction-list-bare">
           {grouped.map(([label, items]) => (
             <section key={label}>
-              <div className="transaction-list-card__day">{label}</div>
+              <div className="transaction-list-bare__day">{label}</div>
               {items.map((expense) => (
                 <SwipeableRow
                   key={expense.id}
