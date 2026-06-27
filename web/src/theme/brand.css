@@ -4,10 +4,11 @@
 
 .brand-lockup {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 6px 8px 18px;
+  gap: 10px;
+  padding: 10px 12px 24px;
   flex-shrink: 0;
 }
 
@@ -15,15 +16,17 @@
   flex-shrink: 0;
 }
 
-.brand-initial {
+.brand-lockup__name {
+  display: block;
+  max-width: 100%;
   font-family: 'Syne', 'Inter', system-ui, sans-serif;
-  font-size: 0.625rem;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(161, 161, 170, 0.72);
-  transform: translateY(1px);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.6;
+  letter-spacing: 0.06em;
+  text-align: center;
+  color: rgba(161, 161, 170, 0.88);
+  padding: 0 4px 2px;
   user-select: none;
 }
 
@@ -190,16 +193,17 @@
   }
 
   .brand-lockup {
-    padding-bottom: 20px;
-    gap: 8px;
+    padding-bottom: 26px;
+    gap: 11px;
   }
 
   .brand-lockup__mark {
-    width: 40px;
-    height: 40px;
+    width: 46px;
+    height: 46px;
   }
 
-  .brand-initial {
-    font-size: 0.6875rem;
+  .brand-lockup__name {
+    font-size: 0.71875rem;
+    letter-spacing: 0.07em;
   }
 }
