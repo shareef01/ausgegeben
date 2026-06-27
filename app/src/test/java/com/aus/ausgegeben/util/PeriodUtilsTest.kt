@@ -2,6 +2,7 @@ package com.aus.ausgegeben.util
 
 import com.aus.ausgegeben.data.entity.Expense
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import java.util.Calendar
 
@@ -34,6 +35,18 @@ class PeriodUtilsTest {
             Expense(2, 7.0, System.currentTimeMillis(), 1L, "", transactionType = "expense")
         )
         assertEquals(expenses, expenses.filterByPeriod(AnalyticsPeriod.ALL_TIME))
+    }
+
+    @Test
+    fun allTime_storageKey_hasNoDateRange() {
+        assertNull(analyticsDateRangeMillis(AnalyticsPeriod.ALL_TIME.storageKey))
+    }
+
+    @Test
+    fun analyticsPeriodOptions_putsAllTimeFirst() {
+        val options = analyticsPeriodOptions(monthsBack = 3)
+        assertEquals(AnalyticsPeriod.ALL_TIME.storageKey, options.first().storageKey)
+        assertNull(options.first().rangeMillis)
     }
 
     @Test
