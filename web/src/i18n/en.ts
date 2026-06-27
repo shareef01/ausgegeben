@@ -64,6 +64,7 @@ export const en = {
   syncLastAt: 'Last synced {time}',
   syncNever: 'Not synced yet',
   syncNow: 'Sync now',
+  syncOk: 'Synced — {expenses} transactions, {categories} categories updated',
   settingsCloudAccount: 'Cloud account',
   settingsSignedInAs: 'Signed in as {email}',
   settingsSignOut: 'Sign out',

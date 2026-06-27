@@ -1,12 +1,22 @@
+import { doc, setDoc } from 'firebase/firestore';
 import { db, bumpRevision } from '@/services/database';
 import { cloudSyncRepository } from '@/repositories/cloudSyncRepository';
-import { getFirebaseFirestore } from '@/services/firebase';
+import { getFirebaseAuth, getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { isCloudSyncActive } from '@/services/cloudSync';
 import { receiptService } from '@/services/receiptService';
 import { mergeById, mergePreferences } from '@/utils/syncMerge';
 import type { Category, Expense, SyncedPreferences } from '@/models/types';
+
+export interface SyncResult {
+  ok: boolean;
+  appliedCategories: number;
+  appliedExpenses: number;
+  remoteCategories: number;
+  remoteExpenses: number;
+  error?: string;
+}
 
 function uid(): string | null {
   return useAuthStore.getState().user?.uid ?? null;
@@ -31,6 +41,36 @@ function toSyncedPreferences(): SyncedPreferences {
   };
 }
 
+function mapSyncError(error: unknown): string {
+  const code = typeof error === 'object' && error && 'code' in error
+    ? String((error as { code?: string }).code)
+    : '';
+  if (code === 'permission-denied') {
+    return 'Firestore denied access. Deploy security rules and sign in with the same account on all devices.';
+  }
+  if (code === 'unavailable' || code === 'network-request-failed') {
+    return 'Network error while syncing. Check your connection and try again.';
+  }
+  if (error instanceof Error && error.message) return error.message;
+  return 'Sync failed. Try again from Settings.';
+}
+
+async function ensureAuthToken(): Promise<void> {
+  const auth = getFirebaseAuth();
+  const user = auth?.currentUser;
+  if (user) await user.getIdToken(true);
+}
+
+async function verifyFirestoreAccess(userId: string): Promise<void> {
+  const firestore = getFirebaseFirestore();
+  if (!firestore) throw new Error('Firestore is not configured');
+  await setDoc(
+    doc(firestore, 'users', userId),
+    { lastPullAt: now() },
+    { merge: true },
+  );
+}
+
 async function syncReceiptsForExpenses(expenses: Expense[]): Promise<void> {
   for (const expense of expenses) {
     if (!expense.receiptImagePath) continue;
@@ -46,15 +86,26 @@ async function uploadReceiptsForExpenses(expenses: Expense[]): Promise<void> {
 }
 
 export const syncService = {
-  async fullSync(): Promise<void> {
+  async fullSync(): Promise<SyncResult> {
     const firestore = getFirebaseFirestore();
     const userId = uid();
-    if (!firestore || !userId) return;
+    if (!firestore || !userId) {
+      const message = !firestore
+        ? 'Cloud sync is not configured on this build.'
+        : 'Sign in to sync your data.';
+      useAuthStore.getState().setSyncError(message);
+      return { ok: false, appliedCategories: 0, appliedExpenses: 0, remoteCategories: 0, remoteExpenses: 0, error: message };
+    }
 
-    const { setSyncing } = useAuthStore.getState();
+    const { setSyncing, setSyncError } = useAuthStore.getState();
     const { setLastCloudSyncAt, applySyncedPreferences, preferencesUpdatedAt } = usePreferencesStore.getState();
     setSyncing(true);
+    setSyncError(null);
+
     try {
+      await ensureAuthToken();
+      await verifyFirestoreAccess(userId);
+
       const localCategories = await db.categories.toArray();
       const localExpenses = await db.expenses.toArray();
       const localPrefs = toSyncedPreferences();
@@ -72,7 +123,7 @@ export const syncService = {
         remoteExpenses,
       );
       const mergedPrefs = mergePreferences(
-        { ...localPrefs, updatedAt: preferencesUpdatedAt },
+        { ...localPrefs, updatedAt: preferencesUpdatedAt || now() },
         remotePrefs,
       );
 
@@ -97,14 +148,37 @@ export const syncService = {
       });
 
       applySyncedPreferences(mergedPrefs);
-
-      await cloudSyncRepository.pushAll(firestore, userId, catMerge.toPushRemote, expMerge.toPushRemote);
-      await cloudSyncRepository.pushPreferences(firestore, userId, mergedPrefs);
-      await uploadReceiptsForExpenses(expMerge.toPushRemote);
-      await syncReceiptsForExpenses(expMerge.toApplyLocal);
-
-      setLastCloudSyncAt(Date.now());
       bumpRevision();
+      setLastCloudSyncAt(now());
+
+      try {
+        await cloudSyncRepository.pushAll(firestore, userId, catMerge.toPushRemote, expMerge.toPushRemote);
+        await cloudSyncRepository.pushPreferences(firestore, userId, mergedPrefs);
+        await uploadReceiptsForExpenses(expMerge.toPushRemote);
+        await syncReceiptsForExpenses(expMerge.toApplyLocal);
+      } catch (pushError) {
+        console.warn('[sync] Pull succeeded but push failed', pushError);
+      }
+
+      return {
+        ok: true,
+        appliedCategories: catMerge.toApplyLocal.length,
+        appliedExpenses: expMerge.toApplyLocal.length,
+        remoteCategories: remoteCategories.filter((c) => !c.deleted).length,
+        remoteExpenses: remoteExpenses.filter((e) => !e.deleted).length,
+      };
+    } catch (error) {
+      const message = mapSyncError(error);
+      setSyncError(message);
+      console.error('[sync] fullSync failed', error);
+      return {
+        ok: false,
+        appliedCategories: 0,
+        appliedExpenses: 0,
+        remoteCategories: 0,
+        remoteExpenses: 0,
+        error: message,
+      };
     } finally {
       setSyncing(false);
     }

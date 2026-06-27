@@ -47,11 +47,10 @@ export const authService = {
       if (user) {
         setStorageMode('cloud');
         completeAuthGateway();
-        void syncService.fullSync().catch((error) => {
-          console.error('[auth] Initial cloud sync failed', error);
-        });
+        void syncService.fullSync();
       } else {
         usePreferencesStore.getState().resetAuthGateway();
+        useAuthStore.getState().setSyncError(null);
       }
     });
   },

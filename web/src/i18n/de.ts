@@ -66,6 +66,7 @@ export const de: Record<TranslationKey, string> = {
   syncLastAt: 'Zuletzt synchronisiert {time}',
   syncNever: 'Noch nicht synchronisiert',
   syncNow: 'Jetzt synchronisieren',
+  syncOk: 'Synchronisiert — {expenses} Transaktionen, {categories} Kategorien aktualisiert',
   settingsCloudAccount: 'Cloud-Konto',
   settingsSignedInAs: 'Angemeldet als {email}',
   settingsSignOut: 'Abmelden',

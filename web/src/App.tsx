@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
+import { syncService } from '@/services/syncService';
 import { resolveTheme, applyTheme } from '@/theme/tokens';
 import { ensureSeeded } from '@/services/database';
 import { OnboardingView } from '@/views/OnboardingView';
@@ -40,6 +41,17 @@ export function App() {
   useEffect(() => {
     document.documentElement.lang = locale;
   }, [locale]);
+
+  useEffect(() => {
+    if (!user) return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void syncService.fullSync();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [user]);
 
   if (!dbReady || !authReady) {
     return (

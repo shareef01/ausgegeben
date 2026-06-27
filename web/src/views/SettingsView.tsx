@@ -9,6 +9,7 @@ import { currencyLabel, SUPPORTED_CURRENCIES } from '@/utils/currency';
 import type { ThemeMode } from '@/models/types';
 import { expenseRepository } from '@/repositories/expenseRepository';
 import { exportCsv } from '@/utils/analytics';
+import { useToastStore } from '@/services/toastStore';
 
 const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
   { key: 'system', label: 'System' },
@@ -36,6 +37,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
   const lastCloudSyncAt = usePreferencesStore((s) => s.lastCloudSyncAt);
   const user = useAuthStore((s) => s.user);
   const syncing = useAuthStore((s) => s.syncing);
+  const syncError = useAuthStore((s) => s.syncError);
   const setCurrency = usePreferencesStore((s) => s.setCurrency);
   const setLocale = usePreferencesStore((s) => s.setLocale);
   const setThemeMode = usePreferencesStore((s) => s.setThemeMode);
@@ -57,9 +59,25 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
     URL.revokeObjectURL(url);
   };
 
-  const syncLabel = lastCloudSyncAt
-    ? t('syncLastAt', { time: new Date(lastCloudSyncAt).toLocaleString() })
-    : t('syncNever');
+  const syncLabel = syncing
+    ? t('syncInProgress')
+    : syncError
+      ? syncError
+      : lastCloudSyncAt
+        ? t('syncLastAt', { time: new Date(lastCloudSyncAt).toLocaleString() })
+        : t('syncNever');
+
+  const runSync = async () => {
+    const result = await syncService.fullSync();
+    if (result.ok) {
+      useToastStore.getState().show(
+        t('syncOk', {
+          expenses: String(result.appliedExpenses),
+          categories: String(result.appliedCategories),
+        }),
+      );
+    }
+  };
 
   return (
     <div className="page-content">
@@ -71,7 +89,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
             title={t('settingsSignedInAs', { email: user.email ?? user.uid })}
             subtitle={syncing ? t('syncInProgress') : syncLabel}
           />
-          <SettingsRow title={t('syncNow')} subtitle={syncLabel} onClick={() => void syncService.fullSync()} />
+          <SettingsRow title={t('syncNow')} subtitle={syncLabel} onClick={() => void runSync()} />
           <SettingsRow title={t('settingsSignOut')} subtitle={user.email ?? ''} onClick={() => void authService.signOut()} />
         </Section>
       ) : null}

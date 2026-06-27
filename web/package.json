@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
-    "deploy": "npm run build && firebase deploy --only hosting",
+    "deploy": "npm run build && firebase deploy --only hosting,firestore:rules",
+    "deploy:all": "npm run build && firebase deploy --only hosting,firestore:rules,storage",
     "deploy:hosting": "firebase deploy --only hosting"
   },
   "dependencies": {
