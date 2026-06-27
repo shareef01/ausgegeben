@@ -5,8 +5,8 @@
 .brand-lockup {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 10px 20px;
+  gap: 10px;
+  padding: 4px 6px 18px;
   flex-shrink: 0;
 }
 
@@ -19,6 +19,60 @@
   min-width: 0;
   height: auto;
   overflow: visible;
+}
+
+.brand-wordmark--stacked {
+  display: block;
+  max-width: 100%;
+}
+
+.brand-wordmark__shine {
+  animation: brand-shine-sweep 5.5s ease-in-out infinite;
+}
+
+@keyframes brand-shine-sweep {
+  0%,
+  100% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.35;
+  }
+  45% {
+    transform: translateX(148px);
+    opacity: 0.35;
+  }
+  55% {
+    opacity: 0;
+  }
+}
+
+.brand-wordmark__arc {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: brand-arc-draw 1.4s cubic-bezier(0.22, 1, 0.36, 1) 0.05s forwards;
+}
+
+@keyframes brand-arc-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.brand-wordmark__sub {
+  animation: brand-sub-fade 0.9s ease 0.35s both;
+}
+
+@keyframes brand-sub-fade {
+  from {
+    opacity: 0;
+    letter-spacing: 0.08em;
+  }
+  to {
+    opacity: 1;
+    letter-spacing: 0.22em;
+  }
 }
 
 .brand-wordmark__rule {
@@ -103,6 +157,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   .brand-wordmark__rule,
+  .brand-wordmark__arc,
+  .brand-wordmark__shine,
+  .brand-wordmark__sub,
   .app-brand-icon--live .app-brand-icon__ring--outer,
   .app-brand-icon--live .app-brand-icon__ring--inner,
   .app-brand-icon--live .app-brand-icon__shape,
@@ -114,6 +171,15 @@
 
   .brand-wordmark__rule {
     stroke-dashoffset: 0;
+  }
+
+  .brand-wordmark__arc {
+    stroke-dashoffset: 0;
+  }
+
+  .brand-wordmark__sub {
+    opacity: 1;
+    letter-spacing: 0.22em;
   }
 }
 
@@ -138,10 +204,10 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 12px;
-    padding: 16px 12px;
+    gap: 14px;
+    padding: 14px 10px;
     text-align: center;
-    min-height: 72px;
+    min-height: 88px;
   }
 
   .side-nav__indicator {
@@ -165,34 +231,35 @@
   }
 
   .side-nav__icon-wrap {
-    width: 56px;
-    height: 56px;
-    border-radius: 16px;
+    width: clamp(68px, 42%, 92px);
+    height: clamp(68px, 42%, 92px);
+    border-radius: 20px;
   }
 
   .side-nav__icon-wrap svg,
   .side-nav__icon {
-    width: 28px;
-    height: 28px;
+    width: clamp(32px, 52%, 44px);
+    height: clamp(32px, 52%, 44px);
   }
 }
 
 @media (min-width: 1200px) {
   .side-nav__item {
-    gap: 14px;
-    padding: 20px 14px;
+    gap: 16px;
+    padding: 18px 12px;
+    min-height: 96px;
   }
 
   .side-nav__icon-wrap {
-    width: 64px;
-    height: 64px;
-    border-radius: 18px;
+    width: clamp(76px, 44%, 100px);
+    height: clamp(76px, 44%, 100px);
+    border-radius: 22px;
   }
 
   .side-nav__icon-wrap svg,
   .side-nav__icon {
-    width: 30px;
-    height: 30px;
+    width: clamp(36px, 54%, 48px);
+    height: clamp(36px, 54%, 48px);
   }
 
   .side-nav__label {
@@ -200,11 +267,17 @@
   }
 
   .brand-lockup {
-    padding-bottom: 24px;
+    padding-bottom: 20px;
+    gap: 8px;
   }
 
   .brand-lockup__mark {
-    width: 44px;
-    height: 44px;
+    width: 42px;
+    height: 42px;
+  }
+
+  .brand-wordmark--stacked {
+    width: 152px;
+    height: auto;
   }
 }

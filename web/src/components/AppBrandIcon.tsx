@@ -1,11 +1,11 @@
+import { BRAND_MARK_PATH } from '@/brand/markPath';
+
 interface AppBrandIconProps {
   size?: number;
   className?: string;
   /** Subtle glow + gradient drift on the mark */
   animated?: boolean;
 }
-
-const MARK_PATH = 'M256 96 392 416 304 416 256 264 208 416 120 416Z';
 
 /** Minimal flow-mark — matches /icons/icon.svg and generated favicons. */
 export function AppBrandIcon({ size = 56, className = '', animated = false }: AppBrandIconProps) {
@@ -66,7 +66,7 @@ export function AppBrandIcon({ size = 56, className = '', animated = false }: Ap
           />
           <path
             className="app-brand-icon__glow"
-            d={MARK_PATH}
+            d={BRAND_MARK_PATH}
             fill={`url(#${gradId})`}
             filter={`url(#${glowId})`}
             opacity="0.45"
@@ -84,7 +84,7 @@ export function AppBrandIcon({ size = 56, className = '', animated = false }: Ap
         </>
       ) : null}
 
-      <path className="app-brand-icon__shape" fill={`url(#${gradId})`} d={MARK_PATH} />
+      <path className="app-brand-icon__shape" fill={`url(#${gradId})`} d={BRAND_MARK_PATH} />
     </svg>
   );
 }
