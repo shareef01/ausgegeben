@@ -95,6 +95,7 @@ export function MainShell() {
               onClick={() => selectTab(id)}
             >
               <span className="bottom-bar__icon"><Icon width={22} height={22} /></span>
+              {tab === id ? <span className="bottom-bar__indicator" aria-hidden /> : null}
               <SignatureNavLabel label={label} />
             </button>
           ))}
