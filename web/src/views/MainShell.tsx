@@ -4,7 +4,7 @@ import { InsightsView } from '@/views/InsightsView';
 import { SettingsView } from '@/views/SettingsView';
 import { AddTransactionView } from '@/views/AddTransactionView';
 import { CategoriesView } from '@/views/CategoriesView';
-import { SignatureNavLabel, SignatureText } from '@/components/ui';
+import { SignatureText } from '@/components/ui';
 import { AppBrandIcon } from '@/components/AppBrandIcon';
 import { ToastHost } from '@/components/ToastHost';
 import { IconAdd, IconInsights, IconRecord, IconSettings, IconSync } from '@/components/Icons';
@@ -40,17 +40,24 @@ export function MainShell() {
           <SignatureText text={t('appName')} className="signature-text--brand" />
         </div>
         <div className="side-nav__menu">
-          {navItems.map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              type="button"
-              className={`side-nav__item ${tab === id ? 'side-nav__item--active' : ''}`}
-              onClick={() => selectTab(id)}
-            >
-              <span className="side-nav__icon-wrap"><Icon width={18} height={18} strokeWidth={2} /></span>
-              <SignatureNavLabel label={label} />
-            </button>
-          ))}
+          {navItems.map(({ id, label, Icon }) => {
+            const active = tab === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                className={`side-nav__item ${active ? 'side-nav__item--active' : ''}`}
+                onClick={() => selectTab(id)}
+                aria-current={active ? 'page' : undefined}
+              >
+                <span className="side-nav__indicator" aria-hidden />
+                <span className="side-nav__icon-wrap">
+                  <Icon width={18} height={18} strokeWidth={active ? 2.25 : 1.75} />
+                </span>
+                <span className="side-nav__label">{label}</span>
+              </button>
+            );
+          })}
         </div>
         {syncing ? (
           <div className="sync-pill sync-pill--sidebar">
@@ -89,18 +96,24 @@ export function MainShell() {
         </main>
 
         <nav className="bottom-bar" aria-label="Main">
-          {navItems.map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              type="button"
-              className={`bottom-bar__item ${tab === id ? 'bottom-bar__item--active' : ''}`}
-              onClick={() => selectTab(id)}
-            >
-              <span className="bottom-bar__icon"><Icon width={22} height={22} /></span>
-              {tab === id ? <span className="bottom-bar__indicator" aria-hidden /> : null}
-              <SignatureNavLabel label={label} />
-            </button>
-          ))}
+          {navItems.map(({ id, label, Icon }) => {
+            const active = tab === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                className={`bottom-bar__item ${active ? 'bottom-bar__item--active' : ''}`}
+                onClick={() => selectTab(id)}
+                aria-current={active ? 'page' : undefined}
+              >
+                <span className="bottom-bar__icon">
+                  <Icon width={22} height={22} strokeWidth={active ? 2.25 : 1.75} />
+                </span>
+                {active ? <span className="bottom-bar__indicator" aria-hidden /> : null}
+                <span className="bottom-bar__label">{label}</span>
+              </button>
+            );
+          })}
         </nav>
 
         {tab === 'record' ? (
