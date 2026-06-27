@@ -85,11 +85,17 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
 
       {user ? (
         <Section title={t('settingsCloudAccount')}>
+          {syncError && !syncing ? (
+            <div className="sync-error-banner" role="alert">
+              {syncError}
+            </div>
+          ) : null}
           <SettingsRow
             title={t('settingsSignedInAs', { email: user.email ?? user.uid })}
             subtitle={syncing ? t('syncInProgress') : syncLabel}
+            subtitleError={!!syncError && !syncing}
           />
-          <SettingsRow title={t('syncNow')} subtitle={syncLabel} onClick={() => void runSync()} />
+          <SettingsRow title={t('syncNow')} subtitle={syncLabel} subtitleError={!!syncError && !syncing} onClick={() => void runSync()} />
           <SettingsRow title={t('settingsSignOut')} subtitle={user.email ?? ''} onClick={() => void authService.signOut()} />
         </Section>
       ) : null}
@@ -163,12 +169,12 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function SettingsRow({ title, subtitle, onClick }: { title: string; subtitle: string; onClick?: () => void }) {
+function SettingsRow({ title, subtitle, subtitleError, onClick }: { title: string; subtitle: string; subtitleError?: boolean; onClick?: () => void }) {
   return (
     <button type="button" className="settings-row" onClick={onClick}>
       <div className="settings-row__label">
         <div className="settings-row__title">{title}</div>
-        <div className="settings-row__sub">{subtitle}</div>
+        <div className={`settings-row__sub ${subtitleError ? 'settings-row__sub--error' : ''}`}>{subtitle}</div>
       </div>
       <span aria-hidden>›</span>
     </button>

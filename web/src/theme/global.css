@@ -124,6 +124,20 @@ a {
   color: var(--color-on-background);
 }
 
+.bottom-bar__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.bottom-bar__item--active .bottom-bar__icon {
+  color: var(--color-accent);
+}
+
 .fab {
   position: fixed;
   right: 20px;
@@ -138,6 +152,16 @@ a {
   box-shadow: 0 8px 24px color-mix(in srgb, var(--color-accent) 40%, transparent);
   z-index: 101;
   border: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fab:hover {
+  transform: scale(1.04);
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--color-accent) 50%, transparent);
+}
+
+.fab:active {
+  transform: scale(0.96);
 }
 
 .fab svg {
@@ -162,6 +186,22 @@ a {
   text-align: center;
   padding: 40px 32px;
   color: var(--color-on-surface-variant);
+}
+
+.empty-state__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  color: var(--color-accent);
+  margin: 0 auto;
+}
+
+.empty-state__action {
+  margin-top: 8px;
 }
 
 .empty-state h3 {
@@ -544,6 +584,258 @@ a {
   margin-bottom: 8px;
 }
 
+/* ── Brand mark ── */
+
+.brand-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--color-accent);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.brand-mark--lg {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  font-size: 1.5rem;
+}
+
+.side-nav__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ── Sync pill ── */
+
+.sync-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-on-surface-variant);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+}
+
+.sync-pill--sidebar {
+  margin: auto 12px 8px;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Loading skeleton ── */
+
+.skeleton-list {
+  overflow: hidden;
+}
+
+.skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.skeleton-row + .skeleton-row {
+  border-top: 1px solid color-mix(in srgb, var(--color-outline) 30%, transparent);
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-on-surface) 6%, transparent) 25%,
+    color-mix(in srgb, var(--color-on-surface) 12%, transparent) 50%,
+    color-mix(in srgb, var(--color-on-surface) 6%, transparent) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+.skeleton--circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.skeleton--lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: none;
+  animation: none;
+}
+
+.skeleton--line {
+  height: 12px;
+  width: 100%;
+}
+
+.skeleton--line-short {
+  width: 55%;
+}
+
+.skeleton--amount {
+  width: 56px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Onboarding carousel ── */
+
+.onboarding-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.onboarding-card__hero {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.onboarding-card__title {
+  margin: 12px 0 4px;
+  font-size: 1.75rem;
+  font-weight: 600;
+}
+
+.onboarding-card__tagline {
+  margin: 0;
+  color: var(--color-on-surface-variant);
+  font-size: 0.9375rem;
+}
+
+.onboarding-slide {
+  text-align: center;
+  padding: 24px 8px;
+  min-height: 180px;
+}
+
+.onboarding-slide__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+  margin-bottom: 16px;
+}
+
+.onboarding-slide__title {
+  margin: 0 0 8px;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.onboarding-slide__body {
+  margin: 0;
+  color: var(--color-on-surface-variant);
+  line-height: 1.55;
+  font-size: 0.9375rem;
+}
+
+.onboarding-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.onboarding-dots__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  padding: 0;
+  background: color-mix(in srgb, var(--color-on-surface) 20%, transparent);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.onboarding-dots__dot--active {
+  background: var(--color-accent);
+  transform: scale(1.25);
+}
+
+.onboarding-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding-top: 8px;
+}
+
+.onboarding-actions .btn {
+  min-width: 0;
+}
+
+/* ── Sync error banner ── */
+
+.sync-error-banner {
+  margin: 8px 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-error) 12%, transparent);
+  color: var(--color-error);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.settings-row__sub--error {
+  color: var(--color-error);
+}
+
+/* ── Auth polish ── */
+
+.auth-page__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.auth-page__brand .brand-mark {
+  margin-bottom: 12px;
+}
+
+.auth-page__brand .auth-page__title {
+  margin: 0 0 8px;
+}
+
+.auth-page__brand .auth-page__subtitle {
+  margin: 0;
+}
+
+.auth-google {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
 /* ── Form fields & buttons ── */
 
 .field {
@@ -672,11 +964,29 @@ a {
     font-size: 0.9375rem;
     font-weight: 500;
     text-align: left;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .side-nav__item:hover {
+    background: color-mix(in srgb, var(--color-on-surface) 5%, transparent);
   }
 
   .side-nav__item--active {
     background: color-mix(in srgb, var(--color-accent) 12%, transparent);
     color: var(--color-on-background);
+  }
+
+  .side-nav__icon-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+  }
+
+  .side-nav__item--active .side-nav__icon-wrap {
+    color: var(--color-accent);
   }
 
   .side-nav__icon {

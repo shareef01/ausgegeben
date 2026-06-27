@@ -28,9 +28,31 @@ export function MoneyText({ amount, currency, className = 'money--body', color }
 export function EmptyState({ title, subtitle, action }: { title: string; subtitle: string; action?: ReactNode }) {
   return (
     <div className="empty-state">
+      <div className="empty-state__icon" aria-hidden>
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="3" y="4" width="18" height="16" rx="2" /><path d="M8 10h8M8 14h5" />
+        </svg>
+      </div>
       <h3>{title}</h3>
       <p>{subtitle}</p>
-      {action}
+      {action ? <div className="empty-state__action">{action}</div> : null}
+    </div>
+  );
+}
+
+export function LoadingListSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <div className="skeleton-list card" style={{ margin: '8px 16px' }}>
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="skeleton-row">
+          <div className="skeleton skeleton--circle" />
+          <div className="skeleton skeleton--lines">
+            <div className="skeleton skeleton--line" />
+            <div className="skeleton skeleton--line skeleton--line-short" />
+          </div>
+          <div className="skeleton skeleton--amount" />
+        </div>
+      ))}
     </div>
   );
 }

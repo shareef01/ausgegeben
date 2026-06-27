@@ -6,6 +6,8 @@ import { AddTransactionView } from '@/views/AddTransactionView';
 import { CategoriesView } from '@/views/CategoriesView';
 import { SignatureNavLabel } from '@/components/ui';
 import { ToastHost } from '@/components/ToastHost';
+import { IconAdd, IconInsights, IconRecord, IconSettings, IconSync } from '@/components/Icons';
+import { useAuthStore } from '@/services/authStore';
 import { useTranslation } from '@/i18n';
 
 type Tab = 'record' | 'insights' | 'settings';
@@ -15,25 +17,38 @@ export function MainShell() {
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>('record');
   const [overlay, setOverlay] = useState<Overlay>(null);
+  const syncing = useAuthStore((s) => s.syncing);
+
+  const navItems: { id: Tab; label: string; Icon: typeof IconRecord }[] = [
+    { id: 'record', label: t('navRecord'), Icon: IconRecord },
+    { id: 'insights', label: t('navInsights'), Icon: IconInsights },
+    { id: 'settings', label: t('navSettings'), Icon: IconSettings },
+  ];
 
   return (
     <div className="app-shell">
       <nav className="side-nav" aria-label="Main">
         <div className="side-nav__brand">
-          <span className="screen-title__accent">A</span>usgegeben
+          <span className="brand-mark" aria-hidden>A</span>
+          <span>usgegeben</span>
         </div>
-        <button type="button" className={`side-nav__item ${tab === 'record' ? 'side-nav__item--active' : ''}`} onClick={() => setTab('record')}>
-          <span className="side-nav__icon">📋</span>
-          <SignatureNavLabel label={t('navRecord')} />
-        </button>
-        <button type="button" className={`side-nav__item ${tab === 'insights' ? 'side-nav__item--active' : ''}`} onClick={() => setTab('insights')}>
-          <span className="side-nav__icon">📊</span>
-          <SignatureNavLabel label={t('navInsights')} />
-        </button>
-        <button type="button" className={`side-nav__item ${tab === 'settings' ? 'side-nav__item--active' : ''}`} onClick={() => setTab('settings')}>
-          <span className="side-nav__icon">⚙️</span>
-          <SignatureNavLabel label={t('navSettings')} />
-        </button>
+        {navItems.map(({ id, label, Icon }) => (
+          <button
+            key={id}
+            type="button"
+            className={`side-nav__item ${tab === id ? 'side-nav__item--active' : ''}`}
+            onClick={() => setTab(id)}
+          >
+            <span className="side-nav__icon-wrap"><Icon width={20} height={20} /></span>
+            <SignatureNavLabel label={label} />
+          </button>
+        ))}
+        {syncing ? (
+          <div className="sync-pill sync-pill--sidebar">
+            <IconSync width={14} height={14} className="spin" />
+            <span>{t('syncInProgress')}</span>
+          </div>
+        ) : null}
       </nav>
 
       <div className="app-shell__body">
@@ -48,22 +63,23 @@ export function MainShell() {
         </main>
 
         <nav className="bottom-bar" aria-label="Main">
-          <button type="button" className={`bottom-bar__item ${tab === 'record' ? 'bottom-bar__item--active' : ''}`} onClick={() => setTab('record')}>
-            <span>📋</span>
-            <SignatureNavLabel label={t('navRecord')} />
-          </button>
-          <button type="button" className={`bottom-bar__item ${tab === 'insights' ? 'bottom-bar__item--active' : ''}`} onClick={() => setTab('insights')}>
-            <span>📊</span>
-            <SignatureNavLabel label={t('navInsights')} />
-          </button>
-          <button type="button" className={`bottom-bar__item ${tab === 'settings' ? 'bottom-bar__item--active' : ''}`} onClick={() => setTab('settings')}>
-            <span>⚙️</span>
-            <SignatureNavLabel label={t('navSettings')} />
-          </button>
+          {navItems.map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              type="button"
+              className={`bottom-bar__item ${tab === id ? 'bottom-bar__item--active' : ''}`}
+              onClick={() => setTab(id)}
+            >
+              <span className="bottom-bar__icon"><Icon width={22} height={22} /></span>
+              <SignatureNavLabel label={label} />
+            </button>
+          ))}
         </nav>
 
         {tab === 'record' ? (
-          <button type="button" className="fab" aria-label={t('navAdd')} onClick={() => setOverlay({ type: 'add' })}>+</button>
+          <button type="button" className="fab" aria-label={t('navAdd')} onClick={() => setOverlay({ type: 'add' })}>
+            <IconAdd width={28} height={28} strokeWidth={2.5} />
+          </button>
         ) : null}
 
         <ToastHost />

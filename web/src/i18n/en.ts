@@ -69,6 +69,7 @@ export const en = {
   settingsSignedInAs: 'Signed in as {email}',
   settingsSignOut: 'Sign out',
   onboardingGetStarted: 'Get started',
+  onboardingNext: 'Next',
   actionSave: 'Save',
   actionCancel: 'Cancel',
   actionClose: 'Close',

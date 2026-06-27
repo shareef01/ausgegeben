@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { ScreenTitle, EmptyState, categoryIcon } from '@/components/ui';
+import { ScreenTitle, EmptyState, LoadingListSkeleton, categoryIcon } from '@/components/ui';
+import { IconAdd } from '@/components/Icons';
 import { FinanceSummaryCard } from '@/components/FinanceSummaryCard';
 import { BudgetProgressBar } from '@/components/BudgetProgressBar';
 import { PremiumPeriodSelector, recordPeriodOptions } from '@/components/PeriodSelector';
@@ -62,12 +63,17 @@ export function RecordView({ onAdd, onEdit }: RecordViewProps) {
       </div>
 
       {uiState.loading ? (
-        <p style={{ textAlign: 'center', color: 'var(--color-on-surface-variant)' }}>{t('loading')}</p>
+        <LoadingListSkeleton rows={6} />
       ) : uiState.expenses.length === 0 ? (
         <EmptyState
           title={t('recordEmptyTitle')}
           subtitle={`${t('recordEmptySubtitle')} ${t('recordEmptyHint')}`}
-          action={<button className="fab" style={{ position: 'static', margin: '16px auto' }} onClick={onAdd}>+</button>}
+          action={
+            <button type="button" className="btn btn-primary" onClick={onAdd}>
+              <IconAdd width={18} height={18} strokeWidth={2.5} style={{ marginRight: 6, verticalAlign: -3 }} />
+              {t('navAdd')}
+            </button>
+          }
         />
       ) : (
         <div className="card" style={{ margin: '8px 16px', overflow: 'hidden' }}>

@@ -71,6 +71,7 @@ export const de: Record<TranslationKey, string> = {
   settingsSignedInAs: 'Angemeldet als {email}',
   settingsSignOut: 'Abmelden',
   onboardingGetStarted: 'Loslegen',
+  onboardingNext: 'Weiter',
   actionSave: 'Speichern',
   actionCancel: 'Abbrechen',
   actionClose: 'Schließen',
