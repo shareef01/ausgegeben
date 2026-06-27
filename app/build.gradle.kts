@@ -1,3 +1,16 @@
+val googleServicesFile = file("google-services.json")
+if (!googleServicesFile.exists()) {
+    val example = file("google-services.json.example")
+    check(example.exists()) {
+        "Missing app/google-services.json. Copy app/google-services.json.example or download from Firebase Console."
+    }
+    example.copyTo(googleServicesFile)
+    logger.lifecycle(
+        "Created app/google-services.json from example. " +
+            "Replace with your Firebase download for real Auth/Google Sign-In."
+    )
+}
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
