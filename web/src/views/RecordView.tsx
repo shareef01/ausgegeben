@@ -1,6 +1,6 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { ScreenTitle, EmptyState, LoadingListSkeleton } from '@/components/ui';
-import { IconAdd, IconSearch } from '@/components/Icons';
+import { IconSearch } from '@/components/Icons';
 import { CategoryLucideIcon } from '@/components/CategoryLucideIcon';
 import { IosSegmentedControl } from '@/components/IosSegmentedControl';
 import { FinanceSummaryCard } from '@/components/FinanceSummaryCard';
@@ -17,21 +17,10 @@ import { colorIntToHex, formatAmount } from '@/utils/currency';
 import { isReceiptPath } from '@/services/receiptService';
 
 interface RecordViewProps {
-  onAdd: () => void;
   onEdit: (id: number) => void;
 }
 
-function AddTransactionPill({ onClick, className = '' }: { onClick: () => void; className?: string }) {
-  const { t } = useTranslation();
-  return (
-    <button type="button" className={`btn btn-primary add-transaction-pill ${className}`.trim()} onClick={onClick}>
-      <IconAdd width={18} height={18} strokeWidth={2.5} aria-hidden />
-      <span>{t('navAdd')}</span>
-    </button>
-  );
-}
-
-export function RecordView({ onAdd, onEdit }: RecordViewProps) {
+export function RecordView({ onEdit }: RecordViewProps) {
   const { t } = useTranslation();
   const currency = usePreferencesStore((s) => s.currency);
   const { uiState, monthSpent, setSearchQuery, setTypeFilter, setListPeriod, requestDelete, duplicateExpense } = useRecordViewModel();
@@ -42,11 +31,9 @@ export function RecordView({ onAdd, onEdit }: RecordViewProps) {
   const grouped = useMemo(() => groupByDay(uiState.expenses), [uiState.expenses]);
   const catMap = useMemo(() => new Map(uiState.categories.map((c) => [c.id!, c])), [uiState.categories]);
 
-  const addAction = <AddTransactionPill onClick={onAdd} />;
-
   return (
     <div className="record-view page-content">
-      <ScreenTitle title={t('screenRecord')} action={addAction} />
+      <ScreenTitle title={t('screenRecord')} />
 
       <FinanceSummaryCard expenses={uiState.expenses} currency={currency} periodLabel={periodLabel} />
 
@@ -94,8 +81,9 @@ export function RecordView({ onAdd, onEdit }: RecordViewProps) {
       ) : (
         <div className="transaction-list-bare">
           {grouped.map(([label, items]) => (
-            <section key={label}>
+            <section key={label} className="transaction-list-bare__section">
               <div className="transaction-list-bare__day">{label}</div>
+              <div className="transaction-list-bare__rows">
               {items.map((expense) => (
                 <SwipeableRow
                   key={expense.id}
@@ -111,6 +99,7 @@ export function RecordView({ onAdd, onEdit }: RecordViewProps) {
                   />
                 </SwipeableRow>
               ))}
+              </div>
             </section>
           ))}
         </div>

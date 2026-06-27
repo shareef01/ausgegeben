@@ -65,7 +65,7 @@ export function MainShell() {
               className={`tab-panel ${tab === 'record' ? 'tab-panel--active tab-panel--animate-in' : 'tab-panel--hidden'}`}
               aria-hidden={tab !== 'record'}
             >
-              <RecordView onAdd={() => setOverlay({ type: 'add' })} onEdit={(id) => setOverlay({ type: 'edit', expenseId: id })} />
+              <RecordView onEdit={(id) => setOverlay({ type: 'edit', expenseId: id })} />
             </div>
           ) : null}
           {visitedTabs.has('insights') ? (
@@ -102,9 +102,9 @@ export function MainShell() {
         </nav>
 
         {tab === 'record' ? (
-          <button type="button" className="fab fab--mobile-only" aria-label={t('navAdd')} onClick={() => setOverlay({ type: 'add' })}>
+          <button type="button" className="fab fab--record" aria-label={t('navAdd')} onClick={() => setOverlay({ type: 'add' })}>
             <span className="fab__icon-wrap">
-              <IconAdd width={28} height={28} strokeWidth={2.5} />
+              <IconAdd width={30} height={30} strokeWidth={2.25} />
             </span>
           </button>
         ) : null}
