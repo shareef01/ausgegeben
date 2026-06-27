@@ -133,8 +133,10 @@ Production build and deploy:
 ```bash
 cd web
 npm run build
-npx firebase deploy --only hosting:aus01
+npm run deploy
 ```
+
+Deploy uses `firebase.json` at the repo root (site **aus01**).
 
 Hosted site: [https://aus01.web.app](https://aus01.web.app)
 
@@ -180,11 +182,14 @@ Without signing in, everything stays on your device. If you enable cloud sync, c
 
 ```
 ausgegeben/
-├── app/                          # Android application
-├── web/                          # Progressive Web App
-├── docs/screenshots/android/     # README screenshots (from your device)
-├── firestore.rules               # Cloud security rules
-└── firebase.json
+├── app/                    # Android app (Kotlin, Compose, Room)
+├── web/                    # PWA (React, Vite, Dexie)
+├── docs/screenshots/       # README images
+├── scripts/                # Dev utilities
+├── firebase.json           # Firebase hosting + rules
+├── firestore.rules
+├── storage.rules
+└── gradle/                 # Android build
 ```
 
 ---
