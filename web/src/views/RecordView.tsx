@@ -9,7 +9,7 @@ import { ReceiptPreview } from '@/components/ReceiptPreview';
 import { useRecordViewModel } from '@/viewmodels/useRecordViewModel';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useTranslation } from '@/i18n';
-import { formatDateLabel, formatTime, dayKey } from '@/utils/periodUtils';
+import { formatDateLabel, formatRelativeTimestamp, dayKey } from '@/utils/periodUtils';
 import type { Expense, Category, TransactionTypeFilter, RecordListPeriod } from '@/models/types';
 import { colorIntToHex, formatAmount } from '@/utils/currency';
 import { isReceiptPath } from '@/services/receiptService';
@@ -84,7 +84,7 @@ export function RecordView({ onAdd, onEdit }: RecordViewProps) {
           subtitle={`${t('recordEmptySubtitle')} ${t('recordEmptyHint')}`}
         />
       ) : (
-        <div className="card transaction-list-card">
+        <div className="card card--pressable transaction-list-card">
           {grouped.map(([label, items]) => (
             <section key={label}>
               <div className="transaction-list-card__day">{label}</div>
@@ -125,14 +125,19 @@ function TransactionRow({ expense, category, currency, onClick, onReceiptClick }
   const amountColor = expense.transactionType === 'income' ? 'var(--color-income)' : expense.transactionType === 'transfer' ? 'var(--color-transfer)' : 'var(--color-on-background)';
   const prefix = expense.transactionType === 'income' ? '+' : expense.transactionType === 'expense' ? '-' : '';
 
+  const note = expense.note?.trim();
+  const primaryTitle = note || category?.name || t('transactionDefault');
+  const relativeTime = formatRelativeTimestamp(expense.dateMillis);
+  const subLabel = note && category?.name ? `${category.name} · ${relativeTime}` : relativeTime;
+
   return (
-    <div className="transaction-row" onClick={onClick} onKeyDown={(e) => e.key === 'Enter' && onClick()} role="button" tabIndex={0}>
+    <div className="transaction-row pressable-row" onClick={onClick} onKeyDown={(e) => e.key === 'Enter' && onClick()} role="button" tabIndex={0}>
       <div className="transaction-row__icon" style={{ background: `color-mix(in srgb, ${color} 14%, transparent)` }}>
         {category ? categoryIcon(category.iconName) : '•'}
       </div>
       <div className="transaction-row__meta">
-        <div className="transaction-row__title">{expense.note || category?.name || 'Transaction'}</div>
-        <div className="transaction-row__sub">{category?.name} · {formatTime(expense.dateMillis)}</div>
+        <div className="transaction-row__title">{primaryTitle}</div>
+        <div className="transaction-row__sub">{subLabel}</div>
       </div>
       {onReceiptClick ? (
         <button type="button" aria-label={t('recordViewReceipt')} className="transaction-row__receipt" onClick={(e) => { e.stopPropagation(); onReceiptClick(); }}>📎</button>

@@ -46,7 +46,7 @@ function OverviewCard({ income, expense, currency }: { income: number; expense: 
   const { t } = useTranslation();
   const net = income - expense;
   return (
-    <div className="card" style={{ margin: '0 16px 12px', padding: 16 }}>
+    <div className="card card--pressable insights-overview-card">
       <div style={{ fontWeight: 500, marginBottom: 12 }}>{t('billsOverviewTitle')}</div>
       <div style={{ display: 'flex', justifyContent: 'space-around', textAlign: 'center' }}>
         <div><div style={{ color: 'var(--color-expense)' }}>{formatAmount(expense, currency)}</div><div style={{ fontSize: '0.75rem', color: 'var(--color-on-surface-variant)' }}>{t('summarySpent')}</div></div>
@@ -58,6 +58,7 @@ function OverviewCard({ income, expense, currency }: { income: number; expense: 
 }
 
 function CategoryCard({ title, map, categories, currency, accent }: { title: string; map: Map<number, number>; categories: Category[]; currency: string; accent: string }) {
+  const { t } = useTranslation();
   const entries = [...map.entries()].sort((a, b) => b[1] - a[1]);
   const total = entries.reduce((s, [, v]) => s + v, 0);
   if (total <= 0) return null;
@@ -67,9 +68,13 @@ function CategoryCard({ title, map, categories, currency, accent }: { title: str
   });
 
   return (
-    <div className="card" style={{ padding: '8px 0 12px' }}>
+    <div className="card card--pressable insights-category-card">
       <div style={{ padding: '8px 12px', color: accent, fontWeight: 600, fontSize: '0.875rem' }}>{title}</div>
-      <DonutChart segments={segments} size={120} compact />
+      <DonutChart
+        segments={segments}
+        size={132}
+        center={{ label: t('chartTotal'), value: formatAmount(total, currency) }}
+      />
       <div style={{ padding: '0 12px' }}>
         {entries.slice(0, 4).map(([catId, amount]) => {
           const cat = categories.find((c) => c.id === catId);
@@ -90,7 +95,7 @@ function CashFlowCard({ trend, currency }: { trend: { label: string; income: num
   const { t } = useTranslation();
   const max = Math.max(...trend.flatMap((p) => [p.income, p.expense]), 1);
   return (
-    <div className="card" style={{ margin: 16, padding: 16 }}>
+    <div className="card card--pressable insights-cashflow-card">
       <div style={{ fontWeight: 500, marginBottom: 12 }}>{t('billsCashFlow')}</div>
       <svg width="100%" height="120" viewBox={`0 0 ${trend.length * 40} 120`} preserveAspectRatio="none">
         {trend.map((p, i) => {

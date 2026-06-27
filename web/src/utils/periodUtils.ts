@@ -72,3 +72,23 @@ export function dayKey(millis: number): string {
   const d = new Date(millis);
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
+
+/** e.g. "Today, 14:32" · "Yesterday, 09:15" · "Mon, 14:32" */
+export function formatRelativeTimestamp(millis: number, locale?: Locale, now = Date.now()): string {
+  const time = formatTime(millis, locale);
+  const day = dayKey(millis);
+  const today = dayKey(now);
+  if (day === today) return `${t('timeToday')}, ${time}`;
+
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (day === dayKey(yesterday.getTime())) return `${t('timeYesterday')}, ${time}`;
+
+  const weekAgo = now - 7 * 86_400_000;
+  if (millis >= weekAgo) {
+    const weekday = new Intl.DateTimeFormat(resolveLocale(locale), { weekday: 'short' }).format(new Date(millis));
+    return `${weekday}, ${time}`;
+  }
+
+  return `${formatDateLabel(millis, locale)}, ${time}`;
+}

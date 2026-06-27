@@ -54,13 +54,15 @@ export function MainShell() {
 
       <div className="app-shell__body">
         <main className={`app-main ${tab === 'record' ? 'app-main--fab' : ''}`}>
-          {tab === 'record' ? (
-            <RecordView onAdd={() => setOverlay({ type: 'add' })} onEdit={(id) => setOverlay({ type: 'edit', expenseId: id })} />
-          ) : null}
-          {tab === 'insights' ? <InsightsView /> : null}
-          {tab === 'settings' ? (
-            <SettingsView onManageCategories={() => setOverlay({ type: 'categories' })} />
-          ) : null}
+          <div key={tab} className="tab-panel tab-panel--animate-in">
+            {tab === 'record' ? (
+              <RecordView onAdd={() => setOverlay({ type: 'add' })} onEdit={(id) => setOverlay({ type: 'edit', expenseId: id })} />
+            ) : null}
+            {tab === 'insights' ? <InsightsView /> : null}
+            {tab === 'settings' ? (
+              <SettingsView onManageCategories={() => setOverlay({ type: 'categories' })} />
+            ) : null}
+          </div>
         </main>
 
         <nav className="bottom-bar" aria-label="Main">
@@ -79,7 +81,9 @@ export function MainShell() {
 
         {tab === 'record' ? (
           <button type="button" className="fab fab--mobile-only" aria-label={t('navAdd')} onClick={() => setOverlay({ type: 'add' })}>
-            <IconAdd width={28} height={28} strokeWidth={2.5} />
+            <span className="fab__icon-wrap">
+              <IconAdd width={28} height={28} strokeWidth={2.5} />
+            </span>
           </button>
         ) : null}
 

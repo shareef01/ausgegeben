@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useStickyGlassHeader } from '@/hooks/useStickyGlassHeader';
 
 /** Two-tone first-letter accent — pixel-aligned baseline with the rest of the word. */
 export function SignatureText({
@@ -27,8 +28,10 @@ interface ScreenTitleProps {
 
 export function ScreenTitle({ title, subtitle, action }: ScreenTitleProps) {
   if (!title) return null;
+  const { ref, scrolled } = useStickyGlassHeader();
+
   return (
-    <header className="screen-title-bar">
+    <header ref={ref} className={`screen-title-bar ${scrolled ? 'screen-title-bar--glass' : ''}`}>
       <div className="screen-title-bar__text">
         <h1 className="screen-title">
           <SignatureText text={title} />
