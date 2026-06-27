@@ -76,6 +76,8 @@ export const en = {
   actionUndo: 'Undo',
   addTransaction: 'Add transaction',
   editTransaction: 'Edit transaction',
+  addAmountLabel: 'Amount',
+  addCategoryLabel: 'Category',
   noteLabel: 'Note / vendor',
   dateLabel: 'Date',
   periodAllTime: 'All time',

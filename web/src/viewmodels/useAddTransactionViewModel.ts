@@ -73,6 +73,11 @@ export function useAddTransactionViewModel(expenseId?: number) {
 
   const backspace = () => setForm((f) => ({ ...f, amountInput: f.amountInput.slice(0, -1) }));
 
+  const setAmountInput = (value: string) => {
+    const sanitized = value.replace(/[^\d,.\-]/g, '');
+    setForm((f) => ({ ...f, amountInput: sanitized }));
+  };
+
   const attachReceipt = async (file: File) => {
     const path = await receiptService.save(file);
     if (form.receiptImagePath && form.receiptImagePath !== previousReceiptPath) {
@@ -126,6 +131,7 @@ export function useAddTransactionViewModel(expenseId?: number) {
     categories: filteredCategories,
     appendDigit,
     backspace,
+    setAmountInput,
     attachReceipt,
     removeReceipt,
     save,

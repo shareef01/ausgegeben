@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
 import { useTranslation } from '@/i18n';
+import { SignatureText } from '@/components/ui';
+import { AppBrandIcon } from '@/components/AppBrandIcon';
 
 export function AuthView() {
   const { t } = useTranslation();
@@ -47,10 +49,9 @@ export function AuthView() {
     <div className="app-shell auth-page">
       <div className="auth-page__card">
         <div className="auth-page__brand">
-          <span className="brand-mark brand-mark--lg" aria-hidden>A</span>
+          <AppBrandIcon size={72} className="auth-page__app-icon" />
           <h1 className="auth-page__title">
-            <span className="screen-title__accent">{t('authWelcome').charAt(0)}</span>
-            {t('authWelcome').slice(1)}
+            <SignatureText text={t('authWelcome')} as="span" />
           </h1>
           <p className="auth-page__subtitle">{t('authSubtitleCloud')}</p>
         </div>

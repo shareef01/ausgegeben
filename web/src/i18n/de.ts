@@ -78,6 +78,8 @@ export const de: Record<TranslationKey, string> = {
   actionUndo: 'Rückgängig',
   addTransaction: 'Transaktion hinzufügen',
   editTransaction: 'Transaktion bearbeiten',
+  addAmountLabel: 'Betrag',
+  addCategoryLabel: 'Kategorie',
   noteLabel: 'Notiz / Händler',
   dateLabel: 'Datum',
   periodAllTime: 'Gesamt',

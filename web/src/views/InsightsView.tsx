@@ -14,9 +14,9 @@ export function InsightsView() {
   const hasData = uiState.totalExpenses > 0 || uiState.totalIncome > 0;
 
   return (
-    <div>
+    <div className="insights-view page-content">
       <ScreenTitle title={t('screenBills')} />
-      <div style={{ padding: '0 16px 12px' }}>
+      <div className="insights-toolbar">
         <PremiumPeriodSelector
           options={periodOptions}
           selected={periodOptions.find((o) => o.storageKey === uiState.periodKey) ?? periodOptions[0]}

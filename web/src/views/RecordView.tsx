@@ -19,6 +19,16 @@ interface RecordViewProps {
   onEdit: (id: number) => void;
 }
 
+function AddTransactionPill({ onClick, className = '' }: { onClick: () => void; className?: string }) {
+  const { t } = useTranslation();
+  return (
+    <button type="button" className={`btn btn-primary add-transaction-pill ${className}`.trim()} onClick={onClick}>
+      <IconAdd width={18} height={18} strokeWidth={2.5} aria-hidden />
+      <span>{t('navAdd')}</span>
+    </button>
+  );
+}
+
 export function RecordView({ onAdd, onEdit }: RecordViewProps) {
   const { t } = useTranslation();
   const currency = usePreferencesStore((s) => s.currency);
@@ -30,15 +40,19 @@ export function RecordView({ onAdd, onEdit }: RecordViewProps) {
   const grouped = useMemo(() => groupByDay(uiState.expenses), [uiState.expenses]);
   const catMap = useMemo(() => new Map(uiState.categories.map((c) => [c.id!, c])), [uiState.categories]);
 
+  const addAction = <AddTransactionPill onClick={onAdd} />;
+
   return (
-    <div>
-      <ScreenTitle title={t('screenRecord')} />
+    <div className="record-view page-content">
+      <ScreenTitle title={t('screenRecord')} action={addAction} />
+
       <FinanceSummaryCard expenses={uiState.expenses} currency={currency} periodLabel={periodLabel} />
+
       {uiState.monthlyBudget ? (
         <BudgetProgressBar spent={monthSpent} budget={uiState.monthlyBudget} currency={currency} />
       ) : null}
 
-      <div style={{ padding: '0 16px 8px', display: 'flex', gap: 8, alignItems: 'center' }}>
+      <div className="record-toolbar">
         <PremiumPeriodSelector
           options={periodOptions}
           selected={periodOptions.find((p) => p.key === uiState.listPeriod)!}
@@ -68,18 +82,12 @@ export function RecordView({ onAdd, onEdit }: RecordViewProps) {
         <EmptyState
           title={t('recordEmptyTitle')}
           subtitle={`${t('recordEmptySubtitle')} ${t('recordEmptyHint')}`}
-          action={
-            <button type="button" className="btn btn-primary" onClick={onAdd}>
-              <IconAdd width={18} height={18} strokeWidth={2.5} style={{ marginRight: 6, verticalAlign: -3 }} />
-              {t('navAdd')}
-            </button>
-          }
         />
       ) : (
-        <div className="card" style={{ margin: '8px 16px', overflow: 'hidden' }}>
+        <div className="card transaction-list-card">
           {grouped.map(([label, items]) => (
             <section key={label}>
-              <div style={{ padding: '10px 16px', fontSize: '0.8125rem', color: 'var(--color-on-surface-variant)', background: 'var(--color-surface-variant)' }}>{label}</div>
+              <div className="transaction-list-card__day">{label}</div>
               {items.map((expense) => (
                 <SwipeableRow
                   key={expense.id}
@@ -127,9 +135,9 @@ function TransactionRow({ expense, category, currency, onClick, onReceiptClick }
         <div className="transaction-row__sub">{category?.name} · {formatTime(expense.dateMillis)}</div>
       </div>
       {onReceiptClick ? (
-        <button type="button" aria-label={t('recordViewReceipt')} onClick={(e) => { e.stopPropagation(); onReceiptClick(); }} style={{ fontSize: '1.125rem', padding: 4 }}>📎</button>
+        <button type="button" aria-label={t('recordViewReceipt')} className="transaction-row__receipt" onClick={(e) => { e.stopPropagation(); onReceiptClick(); }}>📎</button>
       ) : null}
-      <div style={{ fontWeight: 500, color: amountColor, fontVariantNumeric: 'tabular-nums' }}>
+      <div className="transaction-row__amount" style={{ color: amountColor }}>
         {prefix}{formatAmount(expense.amount, currency)}
       </div>
     </div>

@@ -1,7 +1,8 @@
+import type { CSSProperties } from 'react';
 import type { TransactionType } from '@/models/types';
 import { useAddTransactionViewModel } from '@/viewmodels/useAddTransactionViewModel';
 import { useTranslation } from '@/i18n';
-import { categoryIcon } from '@/components/ui';
+import { categoryIcon, SignatureText } from '@/components/ui';
 import { ReceiptThumbnail } from '@/components/ReceiptPreview';
 import { colorIntToHex } from '@/utils/currency';
 import { useRef } from 'react';
@@ -32,13 +33,15 @@ export function AddTransactionView({ expenseId, onClose, onSaved }: AddTransacti
 
   return (
     <div className="overlay" onClick={onClose} role="presentation">
-      <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0 }}>{vm.isEditing ? t('editTransaction') : t('addTransaction')}</h2>
-          <button type="button" onClick={onClose}>{t('actionClose')}</button>
+      <div className="sheet sheet--transaction" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div className="sheet__header">
+          <h2 className="sheet__title">
+            <SignatureText text={vm.isEditing ? t('editTransaction') : t('addTransaction')} as="span" />
+          </h2>
+          <button type="button" className="sheet__close" onClick={onClose}>{t('actionClose')}</button>
         </div>
 
-        <div className="segmented" style={{ margin: '16px 0' }}>
+        <div className="segmented sheet__segmented">
           {(['expense', 'income', 'transfer'] as TransactionType[]).map((type) => (
             <button key={type} type="button" className={vm.form.transactionType === type ? 'active' : ''} onClick={() => vm.setForm((f) => ({ ...f, transactionType: type }))}>
               {typeLabel(type)}
@@ -46,44 +49,64 @@ export function AddTransactionView({ expenseId, onClose, onSaved }: AddTransacti
           ))}
         </div>
 
-        <div style={{ textAlign: 'center', fontSize: '2.5rem', fontWeight: 600, fontVariantNumeric: 'tabular-nums', minHeight: 56, marginBottom: 8 }}>
-          {vm.form.amountInput || '0'}
-        </div>
-
-        <div className="numpad" style={{ marginBottom: 16 }}>
-          {['1', '2', '3', '4', '5', '6', '7', '8', '9', ',', '0', '⌫'].map((key) => (
-            <button key={key} type="button" onClick={() => (key === '⌫' ? vm.backspace() : vm.appendDigit(key))}>{key}</button>
-          ))}
-        </div>
-
-        <label style={{ display: 'block', marginBottom: 8, fontSize: '0.875rem', color: 'var(--color-on-surface-variant)' }}>Category</label>
-        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 16 }}>
-          {vm.categories.map((cat) => (
-            <button
-              key={cat.id}
-              type="button"
-              onClick={() => vm.setForm((f) => ({ ...f, categoryId: cat.id! }))}
-              style={{
-                padding: '8px 12px',
-                borderRadius: 12,
-                border: vm.form.categoryId === cat.id ? `2px solid ${colorIntToHex(cat.colorInt)}` : '1px solid var(--color-outline)',
-                background: 'var(--color-surface-variant)',
-                whiteSpace: 'nowrap',
+        <div className="amount-entry">
+          <label className="field amount-entry__field">
+            <span className="field__label">{t('addAmountLabel')}</span>
+            <input
+              className="field__input amount-entry__input"
+              type="text"
+              inputMode="decimal"
+              autoComplete="off"
+              placeholder="0,00"
+              value={vm.form.amountInput}
+              onChange={(e) => vm.setAmountInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void handleSave();
               }}
-            >
-              {categoryIcon(cat.iconName)} {cat.name}
-            </button>
-          ))}
+            />
+          </label>
+
+          <div className="numpad numpad--compact" aria-label="Amount keypad">
+            {['1', '2', '3', '4', '5', '6', '7', '8', '9', ',', '0', '⌫'].map((key) => (
+              <button
+                key={key}
+                type="button"
+                className="numpad__key"
+                onClick={() => (key === '⌫' ? vm.backspace() : vm.appendDigit(key))}
+              >
+                {key}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <label style={{ display: 'block', marginBottom: 8, fontSize: '0.875rem', color: 'var(--color-on-surface-variant)' }}>{t('noteLabel')}</label>
-        <input
-          value={vm.form.note}
-          onChange={(e) => vm.setForm((f) => ({ ...f, note: e.target.value }))}
-          style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid var(--color-outline)', marginBottom: 12, background: 'var(--color-surface)', color: 'inherit' }}
-        />
+        <label className="field">
+          <span className="field__label">{t('addCategoryLabel')}</span>
+          <div className="category-picker">
+            {vm.categories.map((cat) => (
+              <button
+                key={cat.id}
+                type="button"
+                className={`category-picker__chip ${vm.form.categoryId === cat.id ? 'category-picker__chip--active' : ''}`}
+                style={{ '--cat-color': colorIntToHex(cat.colorInt) } as CSSProperties}
+                onClick={() => vm.setForm((f) => ({ ...f, categoryId: cat.id! }))}
+              >
+                {categoryIcon(cat.iconName)} {cat.name}
+              </button>
+            ))}
+          </div>
+        </label>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <label className="field">
+          <span className="field__label">{t('noteLabel')}</span>
+          <input
+            className="field__input"
+            value={vm.form.note}
+            onChange={(e) => vm.setForm((f) => ({ ...f, note: e.target.value }))}
+          />
+        </label>
+
+        <div className="receipt-row">
           <input
             ref={fileInputRef}
             type="file"
@@ -96,33 +119,30 @@ export function AddTransactionView({ expenseId, onClose, onSaved }: AddTransacti
               e.target.value = '';
             }}
           />
-          <button type="button" onClick={() => fileInputRef.current?.click()} style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid var(--color-outline)', color: vm.form.receiptImagePath ? 'var(--color-accent)' : 'inherit' }}>
+          <button type="button" className="btn btn-secondary" onClick={() => fileInputRef.current?.click()}>
             📷 {t('addScanReceipt')}
           </button>
           {vm.form.receiptImagePath ? (
             <>
               <ReceiptThumbnail path={vm.form.receiptImagePath} onClick={() => fileInputRef.current?.click()} />
-              <button type="button" onClick={() => void vm.removeReceipt()} style={{ color: 'var(--color-expense)', fontSize: '0.875rem' }}>{t('addRemoveReceipt')}</button>
+              <button type="button" className="receipt-row__remove" onClick={() => void vm.removeReceipt()}>{t('addRemoveReceipt')}</button>
             </>
           ) : null}
         </div>
 
-        <label style={{ display: 'block', marginBottom: 8, fontSize: '0.875rem', color: 'var(--color-on-surface-variant)' }}>{t('dateLabel')}</label>
-        <input
-          type="datetime-local"
-          value={toLocalInput(vm.form.dateMillis)}
-          onChange={(e) => vm.setForm((f) => ({ ...f, dateMillis: new Date(e.target.value).getTime() }))}
-          style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid var(--color-outline)', marginBottom: 16, background: 'var(--color-surface)', color: 'inherit' }}
-        />
+        <label className="field">
+          <span className="field__label">{t('dateLabel')}</span>
+          <input
+            className="field__input"
+            type="datetime-local"
+            value={toLocalInput(vm.form.dateMillis)}
+            onChange={(e) => vm.setForm((f) => ({ ...f, dateMillis: new Date(e.target.value).getTime() }))}
+          />
+        </label>
 
-        {vm.error ? <p style={{ color: 'var(--color-error)' }}>{vm.error}</p> : null}
+        {vm.error ? <p className="sheet__error">{vm.error}</p> : null}
 
-        <button
-          type="button"
-          onClick={() => void handleSave()}
-          disabled={vm.saving}
-          style={{ width: '100%', padding: 14, borderRadius: 999, background: 'var(--color-accent)', color: '#fff', fontWeight: 600, opacity: vm.saving ? 0.7 : 1 }}
-        >
+        <button type="button" className="btn btn-primary btn-block sheet__save" onClick={() => void handleSave()} disabled={vm.saving}>
           {t('actionSave')}
         </button>
       </div>

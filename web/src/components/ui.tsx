@@ -1,21 +1,41 @@
 import type { ReactNode } from 'react';
 
+/** Two-tone first-letter accent — pixel-aligned baseline with the rest of the word. */
+export function SignatureText({
+  text,
+  as: Tag = 'span',
+  className = '',
+}: {
+  text: string;
+  as?: 'span' | 'h1' | 'h2' | 'p';
+  className?: string;
+}) {
+  if (!text) return null;
+  return (
+    <Tag className={`signature-text ${className}`.trim()}>
+      <span className="signature-text__accent">{text[0]}</span>
+      {text.slice(1)}
+    </Tag>
+  );
+}
+
 interface ScreenTitleProps {
   title: string;
   subtitle?: string;
+  action?: ReactNode;
 }
 
-export function ScreenTitle({ title, subtitle }: ScreenTitleProps) {
+export function ScreenTitle({ title, subtitle, action }: ScreenTitleProps) {
   if (!title) return null;
-  const first = title[0];
-  const rest = title.slice(1);
   return (
-    <header>
-      <h1 className="screen-title">
-        <span className="screen-title__accent">{first}</span>
-        {rest}
-      </h1>
-      {subtitle ? <p style={{ padding: '0 16px', color: 'var(--color-on-surface-variant)', marginTop: -8 }}>{subtitle}</p> : null}
+    <header className="screen-title-bar">
+      <div className="screen-title-bar__text">
+        <h1 className="screen-title">
+          <SignatureText text={title} />
+        </h1>
+        {subtitle ? <p className="screen-title__subtitle">{subtitle}</p> : null}
+      </div>
+      {action ? <div className="screen-title-bar__action">{action}</div> : null}
     </header>
   );
 }
@@ -58,12 +78,7 @@ export function LoadingListSkeleton({ rows = 5 }: { rows?: number }) {
 }
 
 export function SignatureNavLabel({ label }: { label: string }) {
-  return (
-    <span>
-      <span style={{ color: 'var(--color-accent)', fontWeight: 700 }}>{label[0]}</span>
-      {label.slice(1)}
-    </span>
-  );
+  return <SignatureText text={label} className="signature-text--nav" />;
 }
 
 export function categoryIcon(iconName: string): string {

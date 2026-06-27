@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from '@/i18n';
+import { SignatureText } from '@/components/ui';
+import { AppBrandIcon } from '@/components/AppBrandIcon';
 import { IconWallet, IconInsights, IconCloud, IconRecord } from '@/components/Icons';
 
 interface OnboardingViewProps {
@@ -24,8 +26,10 @@ export function OnboardingView({ onComplete }: OnboardingViewProps) {
     <div className="app-shell auth-page onboarding-page">
       <div className="auth-page__card onboarding-card">
         <div className="onboarding-card__hero">
-          <span className="brand-mark brand-mark--lg" aria-hidden>A</span>
-          <h1 className="onboarding-card__title">Ausgegeben</h1>
+          <AppBrandIcon size={72} className="onboarding-card__app-icon" />
+          <h1 className="onboarding-card__title">
+            <SignatureText text={t('appName')} as="span" />
+          </h1>
           <p className="onboarding-card__tagline">{t('authTagline')}</p>
         </div>
 

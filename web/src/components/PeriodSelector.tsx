@@ -1,3 +1,5 @@
+import { useEffect, useId, useRef, useState } from 'react';
+import { IconChevronDown } from '@/components/Icons';
 import { useTranslation } from '@/i18n';
 
 interface PremiumPeriodSelectorProps<T> {
@@ -8,41 +10,60 @@ interface PremiumPeriodSelectorProps<T> {
   onSelected: (item: T) => void;
 }
 
-export function PremiumPeriodSelector<T>({ options, selected, labelFor, isSelected = (a, b) => a === b, onSelected }: PremiumPeriodSelectorProps<T>) {
+export function PremiumPeriodSelector<T>({
+  options,
+  selected,
+  labelFor,
+  isSelected = (a, b) => a === b,
+  onSelected,
+}: PremiumPeriodSelectorProps<T>) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const listId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
   return (
-    <div style={{ position: 'relative', display: 'inline-block' }}>
-      <details className="period-details">
-        <summary className="pill-selector">{labelFor(selected)} ▾</summary>
-        <div
-          className="card card--elevated"
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + 8px)',
-            left: 0,
-            minWidth: 200,
-            zIndex: 50,
-            padding: '8px 0',
-            borderRadius: 16,
-          }}
-        >
+    <div className="period-select" ref={rootRef}>
+      <button
+        type="button"
+        className="period-select__trigger"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={listId}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="period-select__label">{labelFor(selected)}</span>
+        <IconChevronDown width={16} height={16} className={`period-select__chevron ${open ? 'period-select__chevron--open' : ''}`} />
+      </button>
+      {open ? (
+        <div className="period-select__menu card card--elevated" role="listbox" id={listId}>
           {options.map((option, index) => {
             const active = isSelected(option, selected);
             return (
               <button
                 key={index}
                 type="button"
+                role="option"
+                aria-selected={active}
+                className={`period-select__option ${active ? 'period-select__option--active' : ''}`}
                 onClick={() => {
                   onSelected(option);
-                  (document.activeElement as HTMLElement)?.blur();
-                }}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  textAlign: 'left',
-                  padding: '12px 16px',
-                  background: active ? 'color-mix(in srgb, var(--color-accent) 10%, transparent)' : 'transparent',
-                  color: active ? 'var(--color-accent)' : 'var(--color-on-background)',
-                  fontWeight: active ? 600 : 400,
+                  setOpen(false);
                 }}
               >
                 {labelFor(option)}
@@ -50,12 +71,7 @@ export function PremiumPeriodSelector<T>({ options, selected, labelFor, isSelect
             );
           })}
         </div>
-      </details>
-      <style>{`
-        .period-details > summary { list-style: none; cursor: pointer; }
-        .period-details > summary::-webkit-details-marker { display: none; }
-        .period-details:not([open]) > div { display: none; }
-      `}</style>
+      ) : null}
     </div>
   );
 }

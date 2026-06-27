@@ -7,7 +7,9 @@
   --fab-clearance: 72px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --app-max-width: 960px;
-  --app-sidebar-width: 220px;
-  --content-max-width: 720px;
+  --app-max-width: min(1240px, 96vw);
+  --app-sidebar-width: 240px;
+  --content-max-width: 100%;
+  --workspace-padding: 16px;
+  --workspace-padding-desktop: 24px;
 }

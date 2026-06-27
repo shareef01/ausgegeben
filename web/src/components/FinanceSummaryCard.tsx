@@ -17,10 +17,8 @@ export function FinanceSummaryCard({ expenses, currency, periodLabel }: FinanceS
 
   return (
     <div
-      className="card"
+      className="card finance-summary-card"
       style={{
-        margin: '0 16px 12px',
-        padding: 16,
         background: `linear-gradient(135deg, color-mix(in srgb, var(--color-income) 8%, var(--color-surface)), var(--color-surface), color-mix(in srgb, var(--color-expense) 6%, var(--color-surface)))`,
       }}
     >

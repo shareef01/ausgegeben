@@ -4,7 +4,8 @@ import { InsightsView } from '@/views/InsightsView';
 import { SettingsView } from '@/views/SettingsView';
 import { AddTransactionView } from '@/views/AddTransactionView';
 import { CategoriesView } from '@/views/CategoriesView';
-import { SignatureNavLabel } from '@/components/ui';
+import { SignatureNavLabel, SignatureText } from '@/components/ui';
+import { AppBrandIcon } from '@/components/AppBrandIcon';
 import { ToastHost } from '@/components/ToastHost';
 import { IconAdd, IconInsights, IconRecord, IconSettings, IconSync } from '@/components/Icons';
 import { useAuthStore } from '@/services/authStore';
@@ -29,8 +30,8 @@ export function MainShell() {
     <div className="app-shell">
       <nav className="side-nav" aria-label="Main">
         <div className="side-nav__brand">
-          <span className="brand-mark" aria-hidden>A</span>
-          <span>usgegeben</span>
+          <AppBrandIcon size={32} className="side-nav__brand-icon" />
+          <SignatureText text={t('appName')} className="signature-text--brand" />
         </div>
         {navItems.map(({ id, label, Icon }) => (
           <button
@@ -77,7 +78,7 @@ export function MainShell() {
         </nav>
 
         {tab === 'record' ? (
-          <button type="button" className="fab" aria-label={t('navAdd')} onClick={() => setOverlay({ type: 'add' })}>
+          <button type="button" className="fab fab--mobile-only" aria-label={t('navAdd')} onClick={() => setOverlay({ type: 'add' })}>
             <IconAdd width={28} height={28} strokeWidth={2.5} />
           </button>
         ) : null}
