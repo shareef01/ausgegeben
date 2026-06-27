@@ -7,9 +7,14 @@
   --fab-clearance: 72px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --app-max-width: min(1240px, 96vw);
-  --app-sidebar-width: 240px;
-  --content-max-width: 100%;
+  --app-max-width: min(1320px, 98vw);
+  --app-sidebar-width: 260px;
+  --content-max-width: 1040px;
+  --content-sidebar-gap: 32px;
   --workspace-padding: 16px;
-  --workspace-padding-desktop: 24px;
+  --workspace-padding-desktop: 28px;
+  --radius-lg: 24px;
+  --radius-md: 16px;
+  --radius-sm: 12px;
+  --glass-blur: 24px;
 }

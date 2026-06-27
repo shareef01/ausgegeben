@@ -31,7 +31,7 @@ export function InsightsView() {
         <EmptyState title={t('billsEmptyTitle')} subtitle={t('billsEmptySubtitle')} />
       ) : (
         <>
-          <OverviewCard currency={currency} income={uiState.totalIncome} expense={uiState.totalExpenses} />
+          <InsightsStatGrid income={uiState.totalIncome} expense={uiState.totalExpenses} currency={currency} />
           <div className="insights-grid">
             <CategoryCard title={t('filterExpense')} map={uiState.expensesByCategory} categories={categories} currency={currency} accent="var(--color-expense)" />
             <CategoryCard title={t('filterIncome')} map={uiState.incomeByCategory} categories={categories} currency={currency} accent="var(--color-income)" />
@@ -43,16 +43,30 @@ export function InsightsView() {
   );
 }
 
-function OverviewCard({ income, expense, currency }: { income: number; expense: number; currency: string }) {
+function InsightsStatGrid({ income, expense, currency }: { income: number; expense: number; currency: string }) {
   const { t } = useTranslation();
   const net = income - expense;
+  const netClass = net >= 0 ? 'insights-stat-card--net-positive' : 'insights-stat-card--net-negative';
+
   return (
-    <div className="card card--pressable insights-overview-card">
-      <div style={{ fontWeight: 500, marginBottom: 12 }}>{t('billsOverviewTitle')}</div>
-      <div style={{ display: 'flex', justifyContent: 'space-around', textAlign: 'center' }}>
-        <div><div style={{ color: 'var(--color-expense)' }}>{formatAmount(expense, currency)}</div><div style={{ fontSize: '0.75rem', color: 'var(--color-on-surface-variant)' }}>{t('summarySpent')}</div></div>
-        <div><div style={{ color: net >= 0 ? 'var(--color-income)' : 'var(--color-expense)', fontWeight: 600 }}>{formatAmount(net, currency)}</div><div style={{ fontSize: '0.75rem', color: 'var(--color-on-surface-variant)' }}>{t('billsNet')}</div></div>
-        <div><div style={{ color: 'var(--color-income)' }}>{formatAmount(income, currency)}</div><div style={{ fontSize: '0.75rem', color: 'var(--color-on-surface-variant)' }}>{t('summaryEarned')}</div></div>
+    <div className="insights-stat-grid">
+      <div className="insights-stat-card insights-stat-card--expense">
+        <div className="insights-stat-card__label">{t('summarySpent')}</div>
+        <div className="insights-stat-card__value tabular-nums" style={{ color: 'var(--color-expense)' }}>
+          {formatAmount(expense, currency)}
+        </div>
+      </div>
+      <div className={`insights-stat-card ${netClass}`}>
+        <div className="insights-stat-card__label">{t('billsNet')}</div>
+        <div className="insights-stat-card__value tabular-nums" style={{ color: net >= 0 ? 'var(--color-income)' : 'var(--color-expense)' }}>
+          {formatAmount(net, currency)}
+        </div>
+      </div>
+      <div className="insights-stat-card insights-stat-card--income">
+        <div className="insights-stat-card__label">{t('summaryEarned')}</div>
+        <div className="insights-stat-card__value tabular-nums" style={{ color: 'var(--color-income)' }}>
+          {formatAmount(income, currency)}
+        </div>
       </div>
     </div>
   );
@@ -69,20 +83,18 @@ function CategoryCard({ title, map, categories, currency, accent }: { title: str
 
   return (
     <div className="card card--pressable insights-category-card">
-      <div style={{ padding: '8px 12px', color: accent, fontWeight: 600, fontSize: '0.875rem' }}>{title}</div>
-      <DonutChart
-        segments={segments}
-        size={144}
-        center={{ value: formatAmount(total, currency) }}
-      />
-      <div style={{ padding: '0 12px' }}>
+      <div className="insights-category-card__title" style={{ color: accent }}>{title}</div>
+      <DonutChart segments={segments} size={148} center={{ value: formatAmount(total, currency) }} />
+      <div className="chart-legend">
         {entries.slice(0, 4).map(([catId, amount]) => {
           const cat = categories.find((c) => c.id === catId);
           const pct = Math.round((amount / total) * 100);
+          const dotColor = cat ? segmentColor(cat.colorInt) : 'var(--color-outline)';
           return (
-            <div key={catId} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '0.8125rem' }}>
-              <span>{cat?.name}</span>
-              <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatAmount(amount, currency)} · {pct}%</span>
+            <div key={catId} className="chart-legend__row">
+              <span className="chart-legend__dot" style={{ background: dotColor }} />
+              <span className="chart-legend__name">{cat?.name ?? '?'}</span>
+              <span className="chart-legend__value">{formatAmount(amount, currency)} · {pct}%</span>
             </div>
           );
         })}

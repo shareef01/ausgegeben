@@ -1,6 +1,18 @@
-import { useState, type ReactNode } from 'react';
+import { useState, type ReactNode, type ComponentType } from 'react';
 import { ScreenTitle } from '@/components/ui';
-import { IconChevronRight } from '@/components/Icons';
+import {
+  IconChevronRight,
+  IconMoon,
+  IconGlobe,
+  IconCurrency,
+  IconShield,
+  IconSync,
+  IconLogOut,
+  IconGauge,
+  IconLayers,
+  IconDownload,
+} from '@/components/Icons';
+import type { SVGProps } from 'react';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
@@ -11,6 +23,9 @@ import type { ThemeMode } from '@/models/types';
 import { expenseRepository } from '@/repositories/expenseRepository';
 import { exportCsv } from '@/utils/analytics';
 import { useToastStore } from '@/services/toastStore';
+
+type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
+type IconTint = 'accent' | 'income' | 'expense' | 'neutral';
 
 const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
   { key: 'system', label: 'System' },
@@ -81,7 +96,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
   };
 
   return (
-    <div className="page-content">
+    <div className="page-content settings-view">
       <ScreenTitle title={t('screenSettings')} subtitle={`Ausgegeben · v1.0`} />
 
       {user ? (
@@ -92,23 +107,27 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
             </div>
           ) : null}
           <SettingsRow
+            icon={IconShield}
+            iconTint="accent"
             title={t('settingsSignedInAs', { email: user.email ?? user.uid })}
             subtitle={syncing ? t('syncInProgress') : syncLabel}
             subtitleError={!!syncError && !syncing}
           />
-          <SettingsRow title={t('syncNow')} subtitle={syncLabel} subtitleError={!!syncError && !syncing} onClick={() => void runSync()} />
-          <SettingsRow title={t('settingsSignOut')} subtitle={user.email ?? ''} onClick={() => void authService.signOut()} />
+          <SettingsRow icon={IconSync} iconTint="accent" title={t('syncNow')} subtitle={syncLabel} subtitleError={!!syncError && !syncing} onClick={() => void runSync()} />
+          <SettingsRow icon={IconLogOut} iconTint="expense" title={t('settingsSignOut')} subtitle={user.email ?? ''} onClick={() => void authService.signOut()} />
         </Section>
       ) : null}
 
       <Section title={t('settingsAppearance')}>
-        <SettingsRow title={t('settingsTheme')} subtitle={THEME_OPTIONS.find((opt) => opt.key === themeMode)?.label ?? themeMode} onClick={() => setShowTheme(true)} />
-        <SettingsRow title={t('settingsLanguage')} subtitle={locale === 'de' ? t('langGerman') : t('langEnglish')} onClick={() => setShowLanguage(true)} />
-        <SettingsRow title={t('settingsCurrency')} subtitle={currencyLabel(currency)} onClick={() => setShowCurrency(true)} />
+        <SettingsRow icon={IconMoon} iconTint="accent" title={t('settingsTheme')} subtitle={THEME_OPTIONS.find((opt) => opt.key === themeMode)?.label ?? themeMode} onClick={() => setShowTheme(true)} />
+        <SettingsRow icon={IconGlobe} iconTint="accent" title={t('settingsLanguage')} subtitle={locale === 'de' ? t('langGerman') : t('langEnglish')} onClick={() => setShowLanguage(true)} />
+        <SettingsRow icon={IconCurrency} iconTint="income" title={t('settingsCurrency')} subtitle={currencyLabel(currency)} onClick={() => setShowCurrency(true)} />
       </Section>
 
       <Section title={t('settingsBudget')}>
         <SettingsRow
+          icon={IconGauge}
+          iconTint="neutral"
           title={t('settingsMonthlyLimit')}
           subtitle={monthlyBudget ? `${monthlyBudget}` : t('settingsMonthlyLimitNotSet')}
           onClick={() => {
@@ -121,15 +140,16 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
       </Section>
 
       <Section title={t('settingsManagement')}>
-        <SettingsRow title={t('settingsCategories')} subtitle={t('settingsCategoriesSub')} onClick={onManageCategories} />
-        <SettingsRow title={t('settingsExport')} subtitle={t('settingsExportSub')} onClick={() => void exportData()} />
+        <SettingsRow icon={IconLayers} iconTint="accent" title={t('settingsCategories')} subtitle={t('settingsCategoriesSub')} onClick={onManageCategories} />
+        <SettingsRow icon={IconDownload} iconTint="neutral" title={t('settingsExport')} subtitle={t('settingsExportSub')} onClick={() => void exportData()} />
       </Section>
 
       {showLanguage ? (
         <Modal title={t('settingsLanguage')} onClose={() => setShowLanguage(false)}>
           {(['en', 'de'] as Locale[]).map((code) => (
-            <button key={code} type="button" className="settings-row" onClick={() => { setLocale(code); setShowLanguage(false); }}>
-              <span>{code === 'de' ? t('langGerman') : t('langEnglish')}</span>
+            <button key={code} type="button" className="settings-row settings-row--interactive" onClick={() => { setLocale(code); setShowLanguage(false); }}>
+              <span className="settings-row__icon-tile" data-tint="accent"><IconGlobe width={18} height={18} /></span>
+              <span style={{ flex: 1 }}>{code === 'de' ? t('langGerman') : t('langEnglish')}</span>
               {locale === code ? <span style={{ color: 'var(--color-income)' }}>✓</span> : null}
             </button>
           ))}
@@ -139,8 +159,9 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
       {showTheme ? (
         <Modal title={t('settingsChooseTheme')} onClose={() => setShowTheme(false)}>
           {THEME_OPTIONS.map((opt) => (
-            <button key={opt.key} type="button" className="settings-row" onClick={() => { setThemeMode(opt.key); setShowTheme(false); }}>
-              <span>{opt.label}</span>
+            <button key={opt.key} type="button" className="settings-row settings-row--interactive" onClick={() => { setThemeMode(opt.key); setShowTheme(false); }}>
+              <span className="settings-row__icon-tile" data-tint="accent"><IconMoon width={18} height={18} /></span>
+              <span style={{ flex: 1 }}>{opt.label}</span>
               {themeMode === opt.key ? <span style={{ color: 'var(--color-income)' }}>✓</span> : null}
             </button>
           ))}
@@ -150,8 +171,9 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
       {showCurrency ? (
         <Modal title={t('settingsChooseCurrency')} onClose={() => setShowCurrency(false)}>
           {SUPPORTED_CURRENCIES.map((c) => (
-            <button key={c} type="button" className="settings-row" onClick={() => { setCurrency(c); setShowCurrency(false); }}>
-              <span>{currencyLabel(c)}</span>
+            <button key={c} type="button" className="settings-row settings-row--interactive" onClick={() => { setCurrency(c); setShowCurrency(false); }}>
+              <span className="settings-row__icon-tile" data-tint="income"><IconCurrency width={18} height={18} /></span>
+              <span style={{ flex: 1 }}>{currencyLabel(c)}</span>
               {currency === c ? <span style={{ color: 'var(--color-income)' }}>✓</span> : null}
             </button>
           ))}
@@ -170,9 +192,26 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function SettingsRow({ title, subtitle, subtitleError, onClick }: { title: string; subtitle: string; subtitleError?: boolean; onClick?: () => void }) {
+function SettingsRow({
+  icon: Icon,
+  iconTint = 'accent',
+  title,
+  subtitle,
+  subtitleError,
+  onClick,
+}: {
+  icon: IconComponent;
+  iconTint?: IconTint;
+  title: string;
+  subtitle: string;
+  subtitleError?: boolean;
+  onClick?: () => void;
+}) {
   const content = (
     <>
+      <span className="settings-row__icon-tile" data-tint={iconTint}>
+        <Icon width={18} height={18} strokeWidth={2} />
+      </span>
       <div className="settings-row__label">
         <div className="settings-row__title">{title}</div>
         <div className={`settings-row__sub ${subtitleError ? 'settings-row__sub--error' : ''}`}>{subtitle}</div>

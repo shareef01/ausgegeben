@@ -89,3 +89,67 @@ export function IconChevronRight(props: IconProps) {
     </BaseIcon>
   );
 }
+
+export function IconMoon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+    </BaseIcon>
+  );
+}
+
+export function IconGlobe(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </BaseIcon>
+  );
+}
+
+export function IconCurrency(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <circle cx="12" cy="12" r="10" /><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" /><path d="M12 18V6" />
+    </BaseIcon>
+  );
+}
+
+export function IconShield(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </BaseIcon>
+  );
+}
+
+export function IconLogOut(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" x2="9" y1="12" y2="12" />
+    </BaseIcon>
+  );
+}
+
+export function IconGauge(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="m12 14 4-4" /><path d="M3.34 19a10 10 0 1 1 17.32 0" />
+    </BaseIcon>
+  );
+}
+
+export function IconLayers(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="m12.83 2.18 8.78 4.78a1 1 0 0 1 0 1.74l-8.78 4.78a2 2 0 0 1-1.94 0L2.05 8.7a1 1 0 0 1 0-1.74l8.78-4.78a2 2 0 0 1 1.94 0Z" /><path d="m22 12.65-8.78 4.78a2 2 0 0 1-1.94 0L2.05 12.65" /><path d="m22 17.65-8.78 4.78a2 2 0 0 1-1.94 0L2.05 17.65" />
+    </BaseIcon>
+  );
+}
+
+export function IconDownload(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" />
+    </BaseIcon>
+  );
+}

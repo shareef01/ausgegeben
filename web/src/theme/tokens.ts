@@ -137,6 +137,17 @@ export function applyTheme(palette: ThemePalette): void {
   root.style.setProperty('--color-accent', brandAccent(palette));
   root.style.setProperty('--color-focus', palette.focusRing);
   root.style.setProperty('--color-date-divider', palette.isDark ? '#94A3B8' : '#64748B');
+  root.style.setProperty('--glass-bg', palette.isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.025)');
+  root.style.setProperty('--glass-border', palette.isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.07)');
+  root.style.setProperty('--glass-bg-elevated', palette.isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.72)');
+  root.style.setProperty('--gradient-income', `linear-gradient(135deg, ${financeIncome(palette)} 0%, #059669 100%)`);
+  root.style.setProperty('--gradient-expense', `linear-gradient(135deg, ${palette.expense} 0%, #dc2626 100%)`);
+  root.style.setProperty('--gradient-accent', palette.isDark
+    ? 'linear-gradient(135deg, #34d399 0%, #157A3A 45%, #0d9488 100%)'
+    : 'linear-gradient(135deg, #157A3A 0%, #22c55e 100%)');
+  root.style.setProperty('--shadow-accent-glow', `0 8px 32px color-mix(in srgb, ${brandAccent(palette)} 42%, transparent)`);
+  root.style.setProperty('--shadow-income-glow', `0 8px 28px color-mix(in srgb, ${financeIncome(palette)} 32%, transparent)`);
+  root.style.setProperty('--shadow-expense-glow', `0 8px 28px color-mix(in srgb, ${palette.expense} 28%, transparent)`);
   root.dataset.theme = palette.isDark ? 'dark' : 'light';
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', palette.background);
 }
