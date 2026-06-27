@@ -114,6 +114,7 @@ class MainActivity : ComponentActivity() {
                     authRepository = authRepository,
                     categoryDao = database.categoryDao(),
                     expenseDao = database.expenseDao(),
+                    appContext = context.applicationContext,
                 )
             }
             val repository = remember {

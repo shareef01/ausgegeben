@@ -40,6 +40,15 @@ interface ExpenseDao {
     @Query("SELECT * FROM expenses ORDER BY dateMillis DESC")
     fun getAllExpenses(): Flow<List<Expense>>
 
+    @Query("SELECT * FROM expenses ORDER BY dateMillis DESC")
+    suspend fun getAllExpensesOnce(): List<Expense>
+
+    @Query("DELETE FROM expenses WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM expenses WHERE categoryId = :categoryId")
+    suspend fun deleteByCategoryId(categoryId: Long)
+
     @Query(
         """
         SELECT COUNT(*) AS row_count,
