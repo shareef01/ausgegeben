@@ -1,20 +1,11 @@
+# Android
 *.iml
 .gradle
-.agent/
+.kotlin
 /local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
-/build
-/app/build
-/captures
+/.idea/
 .externalNativeBuild
 .cxx
-local.properties
 *.apk
 *.ap_
 *.dex
@@ -24,8 +15,28 @@ gen/
 out/
 .navigation/
 captures/
-.idea/
 *.hprof
-
-# Firebase — each developer keeps their own copy from Firebase Console
 app/google-services.json
+
+# Android SDK (local dev only — never commit)
+android-sdk/
+
+# Build outputs
+/build
+/app/build
+
+# OS
+.DS_Store
+
+# Firebase local
+.firebase/
+
+# Web
+web/node_modules/
+web/dist/
+web/.env.local
+web/.vite/
+web/*.tsbuildinfo
+
+# Agent / editor
+.agent/
