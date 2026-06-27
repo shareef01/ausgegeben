@@ -18,6 +18,8 @@ export function FinanceSummaryCard({ expenses, currency, periodLabel }: FinanceS
   const expenseRatio = total > 0 ? totalExpenses / total : 0.5;
   const netPositive = net >= 0;
 
+  const balanceTone = netPositive ? 'positive' : net < 0 ? 'negative' : 'neutral';
+
   return (
     <div
       className="card card--pressable finance-summary-card"
@@ -26,12 +28,11 @@ export function FinanceSummaryCard({ expenses, currency, periodLabel }: FinanceS
       <div className="finance-summary-card__glow" aria-hidden data-positive={netPositive ? 'true' : 'false'} />
       <div className="finance-summary-card__inner">
         <div className="finance-summary-card__label">{t('summaryBalance')} · {periodLabel}</div>
-        <div className="finance-summary-card__balance">
+        <div className={`finance-summary-card__balance finance-summary-card__balance--${balanceTone}`}>
           <MoneyText
             amount={net}
             currency={currency}
             className="money--hero-display"
-            color={netPositive ? 'var(--color-income)' : net < 0 ? 'var(--color-expense)' : 'var(--color-on-background)'}
           />
         </div>
         <div className="finance-summary-card__chips">
@@ -48,11 +49,13 @@ export function FinanceSummaryCard({ expenses, currency, periodLabel }: FinanceS
 }
 
 function StatChip({ variant, label, value, currency }: { variant: 'income' | 'expense'; label: string; value: number; currency: string }) {
-  const color = variant === 'income' ? 'var(--color-income)' : 'var(--color-expense)';
   return (
     <div className={`finance-stat-chip finance-stat-chip--${variant}`}>
-      <div className="finance-stat-chip__label">{label}</div>
-      <MoneyText amount={value} currency={currency} className="money--stat" color={color} />
+      <div className="finance-stat-chip__label">
+        <span className="finance-stat-chip__indicator" aria-hidden />
+        {label}
+      </div>
+      <MoneyText amount={value} currency={currency} className="money--stat" />
     </div>
   );
 }
