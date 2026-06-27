@@ -1,9 +1,7 @@
 import {
   createUserWithEmailAndPassword,
-  GoogleAuthProvider,
   onAuthStateChanged,
   signInWithEmailAndPassword,
-  signInWithPopup,
   signOut,
 } from 'firebase/auth';
 import { getFirebaseAuth, isFirebaseConfigured } from '@/services/firebase';
@@ -74,12 +72,6 @@ export const authService = {
     const auth = getFirebaseAuth();
     if (!auth) throw new Error('firebase_not_configured');
     await createUserWithEmailAndPassword(auth, email.trim(), password);
-  },
-
-  async signInWithGoogle(): Promise<void> {
-    const auth = getFirebaseAuth();
-    if (!auth) throw new Error('firebase_not_configured');
-    await signInWithPopup(auth, new GoogleAuthProvider());
   },
 
   async signOut(): Promise<void> {

@@ -90,9 +90,6 @@
     <string name="settings_cloud_sign_out_subtitle">Sync auf diesem Gerät beenden</string>
     <string name="settings_cloud_signed_in">Angemeldet — Daten werden synchronisiert</string>
     <string name="settings_cloud_signed_out">Abgemeldet</string>
-    <string name="settings_cloud_google">Mit Google fortfahren</string>
-    <string name="settings_cloud_google_subtitle">Gleiches Konto wie in der Web-App</string>
-    <string name="settings_cloud_google_failed">Google-Anmeldung fehlgeschlagen</string>
     <string name="settings_cloud_email">E-Mail</string>
     <string name="settings_cloud_password">Passwort</string>
     <string name="settings_cloud_create_account">Konto erstellen</string>

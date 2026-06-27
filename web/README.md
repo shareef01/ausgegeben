@@ -41,7 +41,7 @@ src/
 - [x] **Receipt attach** (camera/file) stored as IndexedDB blobs
 - [x] **Budget progress bar** on Record tab when monthly limit is set
 - [x] **Swipe-delete** with undo toast; long-press to duplicate
-- [x] **Firebase Auth** (email/password + Google) with offline fallback
+- [x] **Firebase Auth** (email/password) with offline fallback
 - [x] **Firestore sync** at `users/{uid}/categories/{id}` and `users/{uid}/expenses/{id}`
 - [x] **Firebase Storage** for receipt images (`users/{uid}/receipts/{id}`)
 - [x] **Conflict resolution** via `updatedAt` timestamps + delete tombstones
@@ -97,7 +97,7 @@ This runs `vite build` then `firebase deploy --only hosting`.
 - https://aus01.web.app ← **use this one (PWA)**
 - https://aus01.firebaseapp.com
 
-These domains are automatically authorized for Firebase Auth. Google sign-in will work without extra domain setup.
+These domains are automatically authorized for Firebase Auth.
 
 **CI deploy:** set a `FIREBASE_TOKEN` from `firebase login:ci` and run `npm run deploy` in CI.
 
@@ -117,7 +117,7 @@ VITE_FIREBASE_STORAGE_BUCKET=
 
 1. Create or open your Firebase project
 2. Add a **Web** app and copy the config values above
-3. Enable **Authentication** → Email/Password and Google providers
+3. Enable **Authentication** → Email/Password provider
 4. Create a **Firestore** database (production or test mode)
 5. Enable **Storage** and note the bucket name (`VITE_FIREBASE_STORAGE_BUCKET`)
 6. Add your PWA host to **Authentication → Settings → Authorized domains** (include `localhost` for dev)

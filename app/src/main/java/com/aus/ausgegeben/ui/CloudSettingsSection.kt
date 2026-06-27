@@ -1,8 +1,5 @@
 package com.aus.ausgegeben.ui
 
-import android.app.Activity
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -36,8 +33,6 @@ import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.sync.CloudAuthManager
 import com.aus.ausgegeben.sync.SyncManager
 import com.aus.ausgegeben.ui.theme.AppSpacing
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.common.api.ApiException
 import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
@@ -60,31 +55,6 @@ fun CloudSettingsSection(
     var password by remember { mutableStateOf("") }
     var isSignUp by remember { mutableStateOf(false) }
     var authBusy by remember { mutableStateOf(false) }
-
-    val googleClient = remember(context) { authManager.googleSignInClient(context) }
-    val googleLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode != Activity.RESULT_OK) return@rememberLauncherForActivityResult
-        scope.launch {
-            authBusy = true
-            try {
-                val account = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-                    .getResult(ApiException::class.java)
-                val token = account.idToken
-                if (token.isNullOrBlank()) {
-                    onShowMessage(context.getString(R.string.settings_cloud_google_failed))
-                } else {
-                    authManager.signInWithGoogleIdToken(token)
-                    onShowMessage(context.getString(R.string.settings_cloud_signed_in))
-                }
-            } catch (_: ApiException) {
-                onShowMessage(context.getString(R.string.settings_cloud_google_failed))
-            } finally {
-                authBusy = false
-            }
-        }
-    }
 
     val syncSubtitle = when {
         isSyncing -> stringResource(R.string.settings_cloud_syncing)
@@ -131,7 +101,7 @@ fun CloudSettingsSection(
                 subtitle = stringResource(R.string.settings_cloud_sign_out_subtitle),
                 onClick = {
                     scope.launch {
-                        authManager.signOut(context)
+                        authManager.signOut()
                         onShowMessage(context.getString(R.string.settings_cloud_signed_out))
                     }
                 }
@@ -143,19 +113,6 @@ fun CloudSettingsSection(
                 subtitle = stringResource(R.string.settings_cloud_signed_out_subtitle),
                 onClick = { showEmailDialog = true }
             )
-            if (googleClient != null) {
-                SettingsDivider()
-                SettingRow(
-                    icon = Icons.Rounded.Cloud,
-                    title = stringResource(R.string.settings_cloud_google),
-                    subtitle = stringResource(R.string.settings_cloud_google_subtitle),
-                    onClick = {
-                        if (!authBusy && !isSyncing) {
-                            googleLauncher.launch(googleClient.signInIntent)
-                        }
-                    }
-                )
-            }
         }
     }
 

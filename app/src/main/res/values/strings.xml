@@ -81,7 +81,6 @@
     <string name="settings_budget_cleared">Monthly limit cleared</string>
 
     <!-- Cloud sync -->
-    <string name="default_web_client_id" translatable="false"></string>
     <string name="settings_section_cloud">Cloud sync</string>
     <string name="settings_cloud_sign_in">Sign in</string>
     <string name="settings_cloud_signed_out_subtitle">Sync transactions with the PWA and other devices</string>
@@ -97,9 +96,6 @@
     <string name="settings_cloud_sign_out_subtitle">Stop syncing on this device</string>
     <string name="settings_cloud_signed_in">Signed in — syncing your data</string>
     <string name="settings_cloud_signed_out">Signed out</string>
-    <string name="settings_cloud_google">Continue with Google</string>
-    <string name="settings_cloud_google_subtitle">Use the same account as the web app</string>
-    <string name="settings_cloud_google_failed">Google sign-in failed</string>
     <string name="settings_cloud_email">Email</string>
     <string name="settings_cloud_password">Password</string>
     <string name="settings_cloud_create_account">Create account</string>

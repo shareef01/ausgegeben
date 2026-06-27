@@ -1,15 +1,12 @@
 package com.aus.ausgegeben.sync
 
-import android.content.Context
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInClient
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
-import com.google.firebase.auth.GoogleAuthProvider
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 class CloudAuthManager(
@@ -23,23 +20,34 @@ class CloudAuthManager(
 
     private var authListener: FirebaseAuth.AuthStateListener? = null
     private var onSignedIn: (suspend (FirebaseUser) -> Unit)? = null
+    private var syncScope: CoroutineScope? = null
 
     val isSignedIn: Boolean get() = _currentUser.value != null
 
-    fun start(onSignedInCallback: suspend (FirebaseUser) -> Unit) {
+    fun start(scope: CoroutineScope, onSignedInCallback: suspend (FirebaseUser) -> Unit) {
         onSignedIn = onSignedInCallback
-        if (authListener != null) return
+        syncScope = scope
+        if (authListener != null) {
+            auth.currentUser?.let { user -> scope.launch { onSignedInCallback(user) } }
+            return
+        }
         authListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
             val user = firebaseAuth.currentUser
+            val previousUid = _currentUser.value?.uid
             _currentUser.value = user
+            if (user != null && user.uid != previousUid) {
+                syncScope?.launch { onSignedIn?.invoke(user) }
+            }
         }.also { auth.addAuthStateListener(it) }
         _currentUser.value = auth.currentUser
+        auth.currentUser?.let { user -> scope.launch { onSignedInCallback(user) } }
     }
 
     fun stop() {
         authListener?.let { auth.removeAuthStateListener(it) }
         authListener = null
         onSignedIn = null
+        syncScope = null
     }
 
     internal fun setSyncing(value: Boolean) {
@@ -48,34 +56,14 @@ class CloudAuthManager(
 
     suspend fun signInWithEmail(email: String, password: String) {
         auth.signInWithEmailAndPassword(email.trim(), password).await()
-        auth.currentUser?.let { onSignedIn?.invoke(it) }
     }
 
     suspend fun signUpWithEmail(email: String, password: String) {
         auth.createUserWithEmailAndPassword(email.trim(), password).await()
-        auth.currentUser?.let { onSignedIn?.invoke(it) }
     }
 
-    fun googleSignInClient(context: Context): GoogleSignInClient? {
-        val clientId = runCatching {
-            context.getString(com.aus.ausgegeben.R.string.default_web_client_id)
-        }.getOrNull()?.takeIf { it.isNotBlank() } ?: return null
-        val options = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(clientId)
-            .requestEmail()
-            .build()
-        return GoogleSignIn.getClient(context, options)
-    }
-
-    suspend fun signInWithGoogleIdToken(idToken: String) {
-        val credential = GoogleAuthProvider.getCredential(idToken, null)
-        auth.signInWithCredential(credential).await()
-        auth.currentUser?.let { onSignedIn?.invoke(it) }
-    }
-
-    suspend fun signOut(context: Context) {
+    suspend fun signOut() {
         auth.signOut()
-        googleSignInClient(context)?.let { runCatching { it.signOut().await() } }
         _currentUser.value = null
     }
 }

@@ -61,6 +61,9 @@ import com.aus.ausgegeben.data.AusgegebenDatabase
 import com.aus.ausgegeben.data.DataSeeder
 import com.aus.ausgegeben.data.PreferenceManager
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.aus.ausgegeben.sync.CloudAuthManager
 import com.aus.ausgegeben.sync.SyncManager
 import com.aus.ausgegeben.notification.NotificationHelper
@@ -117,10 +120,22 @@ class MainActivity : ComponentActivity() {
             }
 
             val themeMode by preferenceManager.themeModeFlow.collectAsState(initial = ThemeMode.SYSTEM)
+            val scope = rememberCoroutineScope()
+            val lifecycleOwner = LocalLifecycleOwner.current
 
-            DisposableEffect(authManager, syncManager) {
-                authManager.start { syncManager.fullSync() }
+            DisposableEffect(authManager, syncManager, scope) {
+                authManager.start(scope) { syncManager.fullSync() }
                 onDispose { authManager.stop() }
+            }
+
+            DisposableEffect(lifecycleOwner, authManager, syncManager, scope) {
+                val observer = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_RESUME && authManager.isSignedIn) {
+                        scope.launch { syncManager.fullSync() }
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
             }
 
             AusgegebenTheme(themeMode = themeMode) {
