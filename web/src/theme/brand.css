@@ -4,33 +4,83 @@
 
 .brand-lockup {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
-  padding: 4px 6px 18px;
+  padding: 2px 6px 20px;
   flex-shrink: 0;
+  overflow: visible;
 }
 
 .brand-lockup__mark {
   flex-shrink: 0;
+  margin-top: 2px;
 }
 
 .brand-lockup__wordmark {
   flex: 1;
   min-width: 0;
-  height: auto;
+  min-height: 0;
+  overflow: visible;
+}
+
+/* ── Wordmark typography (HTML — no SVG text clipping) ── */
+
+.brand-wordmark {
   overflow: visible;
 }
 
 .brand-wordmark--stacked {
-  display: block;
-  max-width: 100%;
-  height: auto;
-  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  padding-bottom: 2px;
 }
 
-.brand-wordmark__sub {
+.brand-wordmark__line {
+  margin: 0;
+  padding: 0;
+  font-family: 'Syne', 'Inter', system-ui, sans-serif;
+  line-height: 1.2;
+}
+
+.brand-wordmark__line--primary {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  color: #fafafa;
+  line-height: 1.05;
+}
+
+.brand-wordmark__accent {
+  background: linear-gradient(135deg, #6ee7b7 0%, #34d399 50%, #059669 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.brand-wordmark__line--sub {
+  padding-left: 0.82em;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  color: #a1a1aa;
+  line-height: 1.45;
+  padding-bottom: 1px;
   opacity: 0;
-  animation: brand-sub-in 0.55s ease 0.25s forwards;
+  animation: brand-sub-in 0.55s ease 0.2s forwards;
+}
+
+.brand-wordmark__rule {
+  display: block;
+  width: 100%;
+  height: 1.5px;
+  margin-top: 7px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #6ee7b7 0%, #34d399 50%, #059669 100%);
+  transform-origin: left center;
+  transform: scaleX(0);
+  animation: brand-rule-draw 0.85s cubic-bezier(0.22, 1, 0.36, 1) 0.35s forwards;
 }
 
 @keyframes brand-sub-in {
@@ -39,15 +89,9 @@
   }
 }
 
-.brand-wordmark__rule {
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  animation: brand-rule-draw 0.85s cubic-bezier(0.22, 1, 0.36, 1) 0.4s forwards;
-}
-
 @keyframes brand-rule-draw {
   to {
-    stroke-dashoffset: 0;
+    transform: scaleX(1);
   }
 }
 
@@ -121,7 +165,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .brand-wordmark__rule,
-  .brand-wordmark__sub,
+  .brand-wordmark__line--sub,
   .app-brand-icon--live .app-brand-icon__ring--outer,
   .app-brand-icon--live .app-brand-icon__ring--inner,
   .app-brand-icon--live .app-brand-icon__shape,
@@ -132,10 +176,10 @@
   }
 
   .brand-wordmark__rule {
-    stroke-dashoffset: 0;
+    transform: scaleX(1);
   }
 
-  .brand-wordmark__sub {
+  .brand-wordmark__line--sub {
     opacity: 1;
   }
 }
@@ -224,17 +268,21 @@
   }
 
   .brand-lockup {
-    padding-bottom: 20px;
+    padding-bottom: 22px;
     gap: 8px;
   }
 
   .brand-lockup__mark {
     width: 42px;
     height: 42px;
+    margin-top: 3px;
   }
 
-  .brand-wordmark--stacked {
-    width: 156px;
-    height: auto;
+  .brand-wordmark__line--primary {
+    font-size: 1.3125rem;
+  }
+
+  .brand-wordmark__line--sub {
+    font-size: 0.84375rem;
   }
 }
