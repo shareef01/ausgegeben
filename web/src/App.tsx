@@ -46,7 +46,7 @@ export function App() {
     if (!user) return;
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
-        void syncService.fullSync();
+        void syncService.fullSync(false);
       }
     };
     document.addEventListener('visibilitychange', onVisible);

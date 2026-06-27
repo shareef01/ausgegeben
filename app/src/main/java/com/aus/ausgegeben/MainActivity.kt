@@ -67,6 +67,7 @@ import com.aus.ausgegeben.data.DataSeeder
 import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.data.StorageMode
 import com.aus.ausgegeben.data.auth.AuthRepository
+import com.aus.ausgegeben.data.cloud.CloudSyncCoordinator
 import com.aus.ausgegeben.data.cloud.CloudSyncGate
 import com.aus.ausgegeben.data.cloud.CloudSyncRepository
 import com.aus.ausgegeben.notification.NotificationHelper
@@ -109,12 +110,14 @@ class MainActivity : ComponentActivity() {
             val preferenceManager = remember { PreferenceManager(context) }
             val authRepository = remember { AuthRepository(context.applicationContext) }
             val cloudSyncGate = remember { CloudSyncGate(preferenceManager, authRepository) }
+            val cloudSyncCoordinator = remember { CloudSyncCoordinator() }
             val cloudSyncRepository = remember {
                 CloudSyncRepository(
                     authRepository = authRepository,
                     categoryDao = database.categoryDao(),
                     expenseDao = database.expenseDao(),
                     appContext = context.applicationContext,
+                    database = database,
                 )
             }
             val repository = remember {
@@ -141,6 +144,7 @@ class MainActivity : ComponentActivity() {
                     preferenceManager = preferenceManager,
                     authRepository = authRepository,
                     cloudSyncRepository = cloudSyncRepository,
+                    cloudSyncCoordinator = cloudSyncCoordinator,
                     openAddFromNotification = intent?.getBooleanExtra(
                         NotificationHelper.EXTRA_OPEN_ADD,
                         false
@@ -163,6 +167,7 @@ fun MainApp(
     preferenceManager: PreferenceManager,
     authRepository: AuthRepository,
     cloudSyncRepository: CloudSyncRepository,
+    cloudSyncCoordinator: CloudSyncCoordinator,
     openAddFromNotification: Boolean = false
 ) {
     val context = LocalContext.current
@@ -222,7 +227,7 @@ fun MainApp(
         DashboardViewModel(repository, preferenceManager)
     }
     val authViewModel: AuthViewModel = viewModel(activity) {
-        AuthViewModel(activity.application, authRepository, preferenceManager, cloudSyncRepository)
+        AuthViewModel(activity.application, authRepository, preferenceManager, cloudSyncRepository, cloudSyncCoordinator)
     }
 
     fun closeOverlay() {
@@ -291,16 +296,6 @@ fun MainApp(
 
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    LaunchedEffect(storageMode, authRepository.currentUserId) {
-        if (storageMode == StorageMode.CLOUD && authRepository.currentUserId != null) {
-            withContext(Dispatchers.IO) {
-                cloudSyncRepository.fullSync().onSuccess {
-                    preferenceManager.setLastCloudSyncAt(System.currentTimeMillis())
-                }
-            }
-        }
-    }
-
     DisposableEffect(lifecycleOwner, storageMode, authRepository.currentUserId) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME &&
@@ -308,7 +303,7 @@ fun MainApp(
                 authRepository.currentUserId != null
             ) {
                 scope.launch(Dispatchers.IO) {
-                    cloudSyncRepository.fullSync().onSuccess {
+                    cloudSyncCoordinator.fullSync(cloudSyncRepository).onSuccess {
                         preferenceManager.setLastCloudSyncAt(System.currentTimeMillis())
                     }
                 }
@@ -438,6 +433,7 @@ fun MainApp(
                             authRepository = authRepository,
                             authViewModel = authViewModel,
                             cloudSyncRepository = cloudSyncRepository,
+                            cloudSyncCoordinator = cloudSyncCoordinator,
                             onNavigateToCategories = {
                                 overlayStack.clear()
                                 overlayStack.add(Route.CategoryList)

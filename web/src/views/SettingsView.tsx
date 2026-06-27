@@ -84,7 +84,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
         : t('syncNever');
 
   const runSync = async () => {
-    const result = await syncService.fullSync();
+    const result = await syncService.fullSync(true);
     if (result.ok) {
       useToastStore.getState().show(
         t('syncOk', {

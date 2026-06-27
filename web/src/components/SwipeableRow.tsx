@@ -13,11 +13,23 @@ const LONG_PRESS_MS = 500;
 export function SwipeableRow({ children, onDelete, onLongPress }: SwipeableRowProps) {
   const { t } = useTranslation();
   const [offset, setOffset] = useState(0);
+  const offsetRef = useRef(0);
+  const contentRef = useRef<HTMLDivElement>(null);
   const startX = useRef(0);
   const startY = useRef(0);
   const tracking = useRef(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFired = useRef(false);
+
+  const applyOffset = (value: number, commitState = false) => {
+    offsetRef.current = value;
+    if (contentRef.current) {
+      contentRef.current.style.transform = value === 0 ? '' : `translateX(${value}px)`;
+    }
+    if (commitState) {
+      setOffset(value);
+    }
+  };
 
   const clearLongPress = () => {
     if (longPressTimer.current) {
@@ -32,7 +44,8 @@ export function SwipeableRow({ children, onDelete, onLongPress }: SwipeableRowPr
     longPressFired.current = false;
     startX.current = e.clientX;
     startY.current = e.clientY;
-  (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    contentRef.current?.classList.add('swipeable-row__content--dragging');
     if (onLongPress) {
       longPressTimer.current = setTimeout(() => {
         longPressFired.current = true;
@@ -50,21 +63,22 @@ export function SwipeableRow({ children, onDelete, onLongPress }: SwipeableRowPr
       return;
     }
     if (Math.abs(dx) > 8) clearLongPress();
-    if (dx < 0) setOffset(Math.max(dx, -120));
-    else setOffset(0);
+    if (dx < 0) applyOffset(Math.max(dx, -120));
+    else applyOffset(0);
   };
 
   const onPointerUp = () => {
     tracking.current = false;
     clearLongPress();
+    contentRef.current?.classList.remove('swipeable-row__content--dragging');
     if (longPressFired.current) {
-      setOffset(0);
+      applyOffset(0, true);
       return;
     }
-    if (offset <= -SWIPE_THRESHOLD) {
+    if (offsetRef.current <= -SWIPE_THRESHOLD) {
       onDelete();
     }
-    setOffset(0);
+    applyOffset(0, true);
   };
 
   return (
@@ -73,8 +87,9 @@ export function SwipeableRow({ children, onDelete, onLongPress }: SwipeableRowPr
         <span>{t('recordSwipeDelete')}</span>
       </div>
       <div
+        ref={contentRef}
         className="swipeable-row__content"
-        style={{ transform: `translateX(${offset}px)` }}
+        style={offset === 0 ? undefined : { transform: `translateX(${offset}px)` }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

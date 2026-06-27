@@ -43,4 +43,15 @@ export default defineConfig({
   ],
   server: { port: 5173, host: true, allowedHosts: true },
   preview: { port: 4173, host: true, allowedHosts: true },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/firebase')) return 'firebase';
+          if (id.includes('node_modules/dexie')) return 'dexie';
+          if (id.includes('node_modules/react-dom') || id.includes('node_modules/react/')) return 'react-vendor';
+        },
+      },
+    },
+  },
 });
