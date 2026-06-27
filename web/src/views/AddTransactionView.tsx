@@ -2,7 +2,8 @@ import type { CSSProperties } from 'react';
 import type { TransactionType } from '@/models/types';
 import { useAddTransactionViewModel } from '@/viewmodels/useAddTransactionViewModel';
 import { useTranslation } from '@/i18n';
-import { categoryIcon, SignatureText } from '@/components/ui';
+import { SignatureText } from '@/components/ui';
+import { CategoryLucideIcon } from '@/components/CategoryLucideIcon';
 import { ReceiptThumbnail } from '@/components/ReceiptPreview';
 import { colorIntToHex } from '@/utils/currency';
 import { usePreferencesStore } from '@/services/preferencesStore';
@@ -34,8 +35,13 @@ export function AddTransactionView({ expenseId, onClose, onSaved }: AddTransacti
   };
 
   return (
-    <div className="overlay" onClick={onClose} role="presentation">
-      <div className="sheet sheet--transaction" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+    <div className="overlay overlay--transaction" onClick={onClose} role="presentation">
+      <div
+        className="sheet sheet--transaction sheet--transaction-premium"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
         <div className="sheet__header">
           <h2 className="sheet__title">
             <SignatureText text={vm.isEditing ? t('editTransaction') : t('addTransaction')} as="span" />
@@ -52,14 +58,14 @@ export function AddTransactionView({ expenseId, onClose, onSaved }: AddTransacti
         </div>
 
         <div className="amount-entry">
-          <div className="amount-hero" aria-live="polite">
+          <div className="amount-hero amount-hero--mobile-only" aria-live="polite">
             <span className="amount-hero__currency">{currencySymbol(currency)}</span>
             <span className="amount-hero__value tabular-nums">{vm.form.amountInput || '0,00'}</span>
           </div>
           <label className="field amount-entry__field">
             <span className="field__label">{t('addAmountLabel')}</span>
             <input
-              className="field__input amount-entry__input"
+              className="field__input amount-entry__input amount-entry__input--desktop"
               type="text"
               inputMode="decimal"
               autoComplete="off"
@@ -72,7 +78,7 @@ export function AddTransactionView({ expenseId, onClose, onSaved }: AddTransacti
             />
           </label>
 
-          <div className="numpad numpad--compact" aria-label="Amount keypad">
+          <div className="numpad numpad--compact numpad--mobile-only" aria-label="Amount keypad">
             {['1', '2', '3', '4', '5', '6', '7', '8', '9', ',', '0', '⌫'].map((key) => (
               <button
                 key={key}
@@ -88,16 +94,21 @@ export function AddTransactionView({ expenseId, onClose, onSaved }: AddTransacti
 
         <label className="field">
           <span className="field__label">{t('addCategoryLabel')}</span>
-          <div className="category-picker">
+          <div className="category-tiles" role="listbox" aria-label={t('addCategoryLabel')}>
             {vm.categories.map((cat) => (
               <button
                 key={cat.id}
                 type="button"
-                className={`category-picker__chip ${vm.form.categoryId === cat.id ? 'category-picker__chip--active' : ''}`}
+                role="option"
+                aria-selected={vm.form.categoryId === cat.id}
+                className={`category-tile ${vm.form.categoryId === cat.id ? 'category-tile--active' : ''}`}
                 style={{ '--cat-color': colorIntToHex(cat.colorInt) } as CSSProperties}
                 onClick={() => vm.setForm((f) => ({ ...f, categoryId: cat.id! }))}
               >
-                {categoryIcon(cat.iconName)} {cat.name}
+                <span className="category-tile__icon" aria-hidden>
+                  <CategoryLucideIcon iconName={cat.iconName} size={22} />
+                </span>
+                <span className="category-tile__name">{cat.name}</span>
               </button>
             ))}
           </div>
