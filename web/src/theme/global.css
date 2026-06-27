@@ -1833,6 +1833,9 @@ a {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+  overflow: visible;
+  min-height: fit-content;
 }
 
 .side-nav__menu {
@@ -2243,9 +2246,11 @@ a {
   .side-nav__brand {
     font-size: 1rem;
     font-weight: 600;
-    padding: 6px 10px 18px;
+    padding: 6px 8px 12px;
     margin-bottom: 0;
     border-bottom: none;
+    flex-shrink: 0;
+    overflow: visible;
   }
 
   .side-nav__item {

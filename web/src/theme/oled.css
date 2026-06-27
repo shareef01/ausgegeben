@@ -240,9 +240,15 @@
   }
 
   [data-theme='dark'] .side-nav__brand {
-    padding: 10px 10px 22px;
+    padding: 6px 8px 12px;
     margin-bottom: 0;
     border-bottom: none;
+    overflow: visible;
+  }
+
+  [data-theme='dark'] .brand-shell__card {
+    border-color: rgba(52, 211, 153, 0.18);
+    background: linear-gradient(180deg, rgba(52, 211, 153, 0.09) 0%, rgba(0, 0, 0, 0) 100%);
   }
 
   [data-theme='dark'] .side-nav__brand .signature-text {
