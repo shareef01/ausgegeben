@@ -70,7 +70,10 @@ export function MainShell() {
               className={`tab-panel ${tab === 'record' ? 'tab-panel--active tab-panel--animate-in' : 'tab-panel--hidden'}`}
               aria-hidden={tab !== 'record'}
             >
-              <RecordView onEdit={(id) => setOverlay({ type: 'edit', expenseId: id })} />
+              <RecordView
+                onEdit={(id) => setOverlay({ type: 'edit', expenseId: id })}
+                onAdd={() => setOverlay({ type: 'add' })}
+              />
             </div>
           ) : null}
           {visitedTabs.has('insights') ? (
@@ -90,6 +93,13 @@ export function MainShell() {
             </div>
           ) : null}
         </main>
+
+        {syncing ? (
+          <div className="sync-pill sync-pill--mobile" role="status">
+            <IconSync width={14} height={14} className="spin" />
+            <span>{t('syncInProgress')}</span>
+          </div>
+        ) : null}
 
         <nav className="bottom-bar" aria-label="Main">
           {navItems.map(({ id, label, Icon }) => {

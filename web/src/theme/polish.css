@@ -1,0 +1,209 @@
+/**
+ * Cross-theme UI polish — spacing, light parity, chrome refinements
+ */
+
+/* ── Balance hero colors (all themes) ── */
+
+.finance-summary-card__balance--positive .money--hero-display {
+  color: var(--color-balance-positive, var(--color-income));
+}
+
+.finance-summary-card__balance--negative .money--hero-display {
+  color: var(--color-balance-negative, var(--color-expense));
+}
+
+.finance-summary-card__balance--neutral .money--hero-display {
+  color: var(--color-on-background);
+}
+
+[data-theme='light'] .finance-summary-card__glow {
+  opacity: 0.35;
+}
+
+.finance-stat-chip--muted {
+  opacity: 0.55;
+}
+
+/* ── Transaction day headers (light + shared structure) ── */
+
+.transaction-list-bare__section {
+  display: flex;
+  flex-direction: column;
+}
+
+.transaction-list-bare__rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.transaction-list-bare__day {
+  position: sticky;
+  top: var(--record-sticky-offset, 0);
+  z-index: 12;
+  display: block;
+  margin: 0;
+  padding: 12px 0 10px;
+  min-height: 36px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-label-muted, var(--color-on-surface-variant));
+  isolation: isolate;
+}
+
+[data-theme='light'] .transaction-list-bare__day {
+  background: color-mix(in srgb, var(--color-background) 92%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--hairline-divider, var(--glass-border));
+}
+
+[data-theme='light'] .screen-title-bar--glass {
+  background: color-mix(in srgb, var(--color-background) 88%, transparent);
+  border-bottom: 1px solid var(--hairline-divider, var(--glass-border));
+}
+
+[data-theme='light'] .sheet--settings {
+  box-shadow:
+    0 24px 48px color-mix(in srgb, var(--color-on-background) 12%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--color-on-background) 4%, transparent);
+}
+
+/* ── Mobile bottom bar — theme-aware ── */
+
+@media (max-width: 767px) {
+  .bottom-bar {
+    box-shadow:
+      0 8px 32px color-mix(in srgb, var(--color-on-background) 22%, transparent),
+      inset 0 1px 0 color-mix(in srgb, var(--color-on-background) 6%, transparent);
+  }
+
+  .bottom-bar__item--active .bottom-bar__icon {
+    color: var(--color-accent);
+  }
+
+  [data-theme='dark'] .bottom-bar__item--active .bottom-bar__icon {
+    color: var(--color-accent);
+  }
+}
+
+/* ── Mobile sync indicator ── */
+
+.sync-pill--mobile {
+  position: fixed;
+  top: calc(8px + var(--safe-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 150;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-on-background);
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  border: 1px solid var(--hairline-border, var(--glass-border));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--color-on-background) 12%, transparent);
+}
+
+@media (min-width: 768px) {
+  .sync-pill--mobile {
+    display: none;
+  }
+}
+
+/* ── Settings modal selection ── */
+
+.sheet--settings__body .settings-row--selected {
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+
+.sheet--settings__body .settings-row__check {
+  display: inline-flex;
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+/* ── Empty state ── */
+
+.empty-state p {
+  margin: 0;
+  line-height: 1.5;
+  max-width: 28rem;
+  margin-inline: auto;
+}
+
+.empty-state__hint {
+  margin-top: 8px;
+  font-size: 0.8125rem;
+  opacity: 0.72;
+}
+
+.empty-state__action .btn {
+  margin-top: 16px;
+  min-width: 160px;
+}
+
+/* ── Tab transitions — subtle fade on mobile ── */
+
+@media (max-width: 767px) {
+  .tab-panel--animate-in {
+    animation: tab-in-mobile 0.2s ease forwards;
+  }
+
+  @keyframes tab-in-mobile {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+
+/* ── Receipt icon button ── */
+
+.transaction-row__receipt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--color-on-surface-variant);
+  flex-shrink: 0;
+}
+
+.transaction-row__receipt:hover {
+  background: color-mix(in srgb, var(--color-on-surface) 6%, transparent);
+  color: var(--color-accent);
+}
+
+/* ── Insights stat grid mobile order ── */
+
+@media (max-width: 639px) {
+  .insights-stat-grid {
+    grid-template-areas:
+      'net'
+      'expense'
+      'income';
+  }
+
+  .insights-stat-card--expense {
+    grid-area: expense;
+  }
+
+  .insights-stat-card--income {
+    grid-area: income;
+  }
+
+  .insights-stat-card--net-positive,
+  .insights-stat-card--net-negative {
+    grid-area: net;
+  }
+}
