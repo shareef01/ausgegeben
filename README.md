@@ -1,54 +1,53 @@
 # Ausgegeben
 
-**Ausgegeben** (*German for “spent”*) is a privacy-first, offline personal finance tracker for Android. Log expenses, income, and transfers; attach receipt photos; review spending charts; and stay on budget — all without an account or cloud sync.
+**Ausgegeben** (*German for “spent”*) is a personal finance tracker I built for Android and the web. Track expenses, income, and transfers; review spending insights; set a monthly budget; and optionally sync across devices with the same email account.
+
+**Live web app:** [aus01.web.app](https://aus01.web.app)
 
 <p align="center">
-  <img src="docs/screenshots/record.png" alt="Record screen — transaction list and balance summary" width="220" />
-  <img src="docs/screenshots/bills.png" alt="Bills screen — category analytics charts" width="220" />
-  <img src="docs/screenshots/add-transaction.png" alt="Add transaction — keypad and category picker" width="220" />
-  <img src="docs/screenshots/settings.png" alt="Settings — theme, reminders, budget, export" width="220" />
+  <img src="docs/screenshots/record.png" alt="Record — balance summary and transactions" width="220" />
+  <img src="docs/screenshots/bills.png" alt="Insights — category charts" width="220" />
+  <img src="docs/screenshots/add-transaction.png" alt="Add transaction" width="220" />
+  <img src="docs/screenshots/settings.png" alt="Settings" width="220" />
 </p>
 
 ---
 
-## Features
+## What it does
 
-| Area | What you get |
-|------|----------------|
-| **Transactions** | Expenses, income, and transfers with notes, dates, and custom categories |
-| **Record tab** | Balance summary, insights strip, monthly budget progress, searchable paged list |
-| **Bills tab** | Donut and bar charts by category for expenses, income, and transfers |
-| **Receipts** | Capture photos with CameraX; thumbnails on transactions; cleanup on delete |
-| **Categories** | Full CRUD with icons, colors, reordering, and per-type grouping |
+| Area | Details |
+|------|---------|
+| **Transactions** | Expenses, income, and transfers with notes, dates, categories, and receipt photos |
+| **Record** | Balance summary, budget progress, searchable list, swipe-to-delete with undo |
+| **Insights** | Category breakdowns, net totals, and cash-flow trend for the selected period |
+| **Categories** | Full CRUD with icons, colors, and per-type grouping |
 | **Budget** | Optional monthly spending cap with on-screen progress |
-| **Reminders** | Daily WorkManager notifications (permission requested only when enabled) |
-| **Export** | CSV export of your data |
-| **Onboarding** | Short 3-step first-run guide |
-| **i18n** | English and German (`values` / `values-de`) |
-| **Themes** | System, Light, or Dark |
-| **Offline** | Room SQLite database on device — no network required |
+| **Reminders** | Daily notifications on Android (opt-in) |
+| **Export** | CSV export from Android or the web app |
+| **Sync** | Optional Firebase cloud sync — same account on Android and [aus01.web.app](https://aus01.web.app) |
+| **Offline** | Works without an account; data stays on your device until you sign in |
+| **Languages** | English and German |
 
-### UX highlights
+### Platforms
 
-- Swipe-to-delete with confirmation dialog and undo snackbar
-- Long-press to duplicate a transaction (receipt preserved)
-- Icon-only bottom navigation with swipe-between-tabs pager
-- Locale-aware currency formatting and decimal keypad (`,` / `.`)
-- Notification deep link opens the add-transaction flow
+- **Android** — native Kotlin + Jetpack Compose app (API 31+)
+- **Web (PWA)** — installable on phone, tablet, and desktop; offline via IndexedDB
+
+Both apps share the same data model and Firestore sync when you use email/password sign-in.
 
 ---
 
 ## Screenshots
 
 ### Record
-Transaction history grouped by day, finance summary card, spending insights, and budget bar.
+Transaction history grouped by day, finance summary, budget bar, and filters.
 
 ![Record screen](docs/screenshots/record.png)
 
-### Bills
-Category breakdown charts for the selected analytics period.
+### Insights
+Category charts and period analytics.
 
-![Bills screen](docs/screenshots/bills.png)
+![Insights screen](docs/screenshots/bills.png)
 
 ### Add transaction
 Amount keypad, type selector, category grid, and optional receipt capture.
@@ -56,7 +55,7 @@ Amount keypad, type selector, category grid, and optional receipt capture.
 ![Add transaction](docs/screenshots/add-transaction.png)
 
 ### Settings
-Theme, reminders, budget, categories, export, and about.
+Themes, currency, budget, categories, export, and cloud account.
 
 ![Settings screen](docs/screenshots/settings.png)
 
@@ -64,39 +63,30 @@ Theme, reminders, budget, categories, export, and about.
 
 ## Tech stack
 
+### Android
+
 | Layer | Technology |
 |-------|------------|
-| Language | **Kotlin** |
-| UI | **Jetpack Compose** + **Material 3** |
-| Architecture | **MVVM** — ViewModels, Repository, Room DAOs |
-| Navigation | **Navigation 3** with custom tab pager |
-| Database | **Room 2.7** (schema v6, exported migrations v1→v6) |
-| Lists | **Paging 3** for large transaction histories |
-| Preferences | **DataStore** (theme, currency, budget, onboarding) |
-| Background work | **WorkManager** for daily reminders |
-| Camera | **CameraX** + **Coil** for receipt images |
-| Permissions | **Accompanist Permissions** (deferred camera / notification prompts) |
-| Build | **AGP 9.2**, **KSP**, **Kotlin 2.2**, **Compose BOM** |
-| Release | R8 minify + shrink resources, ProGuard rules |
-| Tests | JUnit unit tests; Room migration instrumented tests |
+| Language | Kotlin |
+| UI | Jetpack Compose, Material 3 |
+| Architecture | MVVM — ViewModels, Repository, Room DAOs |
+| Database | Room 2.7 (schema v6) |
+| Lists | Paging 3 |
+| Preferences | DataStore |
+| Background | WorkManager (daily reminders) |
+| Camera | CameraX + Coil |
+| Cloud | Firebase Auth + Firestore |
+| Build | AGP 9.2, KSP, Kotlin 2.2 |
 
-### Project structure
+### Web (PWA)
 
-```
-app/src/main/java/com/aus/ausgegeben/
-├── data/           # Room DB, DAOs, repository, paging, migrations
-├── notification/   # Reminders, boot receiver, WorkManager worker
-├── ui/             # Screens, ViewModels, navigation, theme
-└── util/           # Currency, dates, export, category helpers
-```
-
----
-
-## Requirements
-
-- **Android 12+** (API 31+)
-- **Android Studio** Ladybug or newer (or compatible IDE with AGP 9.2)
-- **JDK 17** (Android Studio bundled JBR works)
+| Layer | Technology |
+|-------|------------|
+| UI | React 19, TypeScript, Vite |
+| Offline DB | Dexie (IndexedDB) |
+| State | Zustand |
+| PWA | vite-plugin-pwa, service worker |
+| Cloud | Firebase Auth + Firestore |
 
 ---
 
@@ -109,45 +99,98 @@ git clone https://github.com/shareef01/ausgegeben.git
 cd ausgegeben
 ```
 
-### Build & run
+### Android (Android Studio)
+
+1. Open the **repository root** in Android Studio (not the `app/` folder alone).
+2. Use **JDK 17** and **Android SDK 37**.
+3. Add Firebase config: download `google-services.json` from project **ausgegeben01** and place it at `app/google-services.json`.
+4. Enable **Email/Password** in Firebase Authentication.
+5. Run the **app** configuration.
 
 ```bash
-# Windows (PowerShell) — point JAVA_HOME at Android Studio's JBR if needed
-$env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
+# Windows (PowerShell)
 .\gradlew.bat assembleDebug
 ```
 
-Install the APK from `app/build/outputs/apk/debug/` or run from Android Studio on a device/emulator.
+APK output: `app/build/outputs/apk/debug/app-debug.apk`
 
-### Tests
+More detail: [ANDROID_STUDIO.md](ANDROID_STUDIO.md) and [FIREBASE_SETUP.md](FIREBASE_SETUP.md).
+
+### Web (PWA)
 
 ```bash
-.\gradlew.bat testDebugUnitTest
-.\gradlew.bat assembleDebugAndroidTest
-# On a connected device/emulator:
-.\gradlew.bat connectedDebugAndroidTest
+cd web
+npm install
+npm run dev
 ```
+
+Production build and deploy:
+
+```bash
+cd web
+npm run build
+npx firebase deploy --only hosting:aus01
+```
+
+Hosted site: [https://aus01.web.app](https://aus01.web.app)
+
+More detail: [web/README.md](web/README.md).
+
+### Sync between Android and web
+
+1. Sign in with the **same email and password** on both apps.
+2. On Android: **Settings → Account → Sync now** (also auto-syncs on resume).
+3. On web: sync runs after sign-in and when you return to the tab.
+
+Firestore security rules live in `firestore.rules` at the repo root.
 
 ---
 
-## Database migrations
+## Themes
 
-Room schema is exported to `app/schemas/` for migration validation. Upgrades from v1 through v6 are handled in `DatabaseMigrations.kt` with idempotent SQL. Downgrade uses destructive migration only when the app version regresses.
+Ten appearance modes on both platforms:
+
+System, Light, Dark, AMOLED, Midnight, Ocean, Forest, Sunset, Lavender, Soft Light.
+
+---
+
+## Tests
+
+```bash
+# Android unit tests
+.\gradlew.bat testDebugUnitTest
+
+# Web typecheck + build
+cd web && npm run build
+```
 
 ---
 
 ## Privacy
 
-Ausgegeben stores all data locally on your device. There is no analytics SDK, no sign-in, and no data leaves your phone unless you explicitly export CSV or share a receipt image through the system share sheet.
+Without signing in, everything stays on your device. If you enable cloud sync, categories, transactions, and preferences are stored under your Firebase user account. There is no third-party analytics SDK. CSV export and receipt images are only shared when you choose to.
+
+---
+
+## Project layout
+
+```
+ausgegeben/
+├── app/                 # Android application
+├── web/                 # Progressive Web App
+├── firestore.rules      # Cloud security rules
+├── firebase.json        # Firebase hosting (root)
+└── docs/screenshots/    # README screenshots
+```
 
 ---
 
 ## License
 
-This project is provided as-is for personal use. Add a license file if you plan to distribute or open-source under specific terms.
+Provided as-is for personal use. Add a license file if you plan to distribute under specific terms.
 
 ---
 
 ## Author
 
-[shareef01](https://github.com/shareef01) — [ausgegeben](https://github.com/shareef01/ausgegeben)
+Built and maintained by **[Shareef](https://github.com/shareef01)** — [github.com/shareef01/ausgegeben](https://github.com/shareef01/ausgegeben)
