@@ -48,7 +48,7 @@ export function MoneyText({ amount, currency, className = 'money--body', color }
   return <span className={className} style={color ? { color } : undefined}>{formatted}</span>;
 }
 
-export function EmptyState({ title, subtitle, action }: { title: string; subtitle: string; action?: ReactNode }) {
+export function EmptyState({ title, subtitle, hint, action }: { title: string; subtitle: string; hint?: string; action?: ReactNode }) {
   return (
     <div className="empty-state">
       <div className="empty-state__icon" aria-hidden>
@@ -58,6 +58,7 @@ export function EmptyState({ title, subtitle, action }: { title: string; subtitl
       </div>
       <h3>{title}</h3>
       <p>{subtitle}</p>
+      {hint ? <p className="empty-state__hint">{hint}</p> : null}
       {action ? <div className="empty-state__action">{action}</div> : null}
     </div>
   );

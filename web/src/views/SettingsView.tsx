@@ -11,6 +11,7 @@ import {
   IconLayers,
   IconDownload,
   IconCloud,
+  IconCheck,
 } from '@/components/Icons';
 import type { SVGProps } from 'react';
 import { usePreferencesStore } from '@/services/preferencesStore';
@@ -203,10 +204,17 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
       {showLanguage ? (
         <Modal title={t('settingsLanguage')} onClose={() => setShowLanguage(false)}>
           {(['en', 'de'] as Locale[]).map((code) => (
-            <button key={code} type="button" className="settings-row settings-row--interactive" onClick={() => { setLocale(code); setShowLanguage(false); }}>
+            <button
+              key={code}
+              type="button"
+              className={`settings-row settings-row--interactive${locale === code ? ' settings-row--selected' : ''}`}
+              onClick={() => { setLocale(code); setShowLanguage(false); }}
+            >
               <span className="settings-row__icon-tile" data-tint="accent"><IconGlobe width={18} height={18} /></span>
-              <span style={{ flex: 1 }}>{code === 'de' ? t('langGerman') : t('langEnglish')}</span>
-              {locale === code ? <span style={{ color: 'var(--color-income)' }}>✓</span> : null}
+              <span className="settings-row__label" style={{ flex: 1 }}>
+                <span className="settings-row__title">{code === 'de' ? t('langGerman') : t('langEnglish')}</span>
+              </span>
+              {locale === code ? <span className="settings-row__check" aria-hidden><IconCheck width={18} height={18} /></span> : null}
             </button>
           ))}
         </Modal>
@@ -218,15 +226,17 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
             <button
               key={opt.key}
               type="button"
-              className="settings-row settings-row--interactive"
+              className={`settings-row settings-row--interactive${themeMode === opt.key ? ' settings-row--selected' : ''}`}
               onClick={() => {
                 setShowTheme(false);
                 requestAnimationFrame(() => setThemeMode(opt.key));
               }}
             >
               <span className="settings-row__icon-tile" data-tint="accent"><IconMoon width={18} height={18} /></span>
-              <span style={{ flex: 1 }}>{opt.label}</span>
-              {themeMode === opt.key ? <span style={{ color: 'var(--color-income)' }}>✓</span> : null}
+              <span className="settings-row__label" style={{ flex: 1 }}>
+                <span className="settings-row__title">{opt.label}</span>
+              </span>
+              {themeMode === opt.key ? <span className="settings-row__check" aria-hidden><IconCheck width={18} height={18} /></span> : null}
             </button>
           ))}
         </Modal>
@@ -235,10 +245,17 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
       {showCurrency ? (
         <Modal title={t('settingsChooseCurrency')} onClose={() => setShowCurrency(false)}>
           {SUPPORTED_CURRENCIES.map((c) => (
-            <button key={c} type="button" className="settings-row settings-row--interactive" onClick={() => { setCurrency(c); setShowCurrency(false); }}>
+            <button
+              key={c}
+              type="button"
+              className={`settings-row settings-row--interactive${currency === c ? ' settings-row--selected' : ''}`}
+              onClick={() => { setCurrency(c); setShowCurrency(false); }}
+            >
               <span className="settings-row__icon-tile" data-tint="income"><IconCurrency width={18} height={18} /></span>
-              <span style={{ flex: 1 }}>{currencyLabel(c)}</span>
-              {currency === c ? <span style={{ color: 'var(--color-income)' }}>✓</span> : null}
+              <span className="settings-row__label" style={{ flex: 1 }}>
+                <span className="settings-row__title">{currencyLabel(c)}</span>
+              </span>
+              {currency === c ? <span className="settings-row__check" aria-hidden><IconCheck width={18} height={18} /></span> : null}
             </button>
           ))}
         </Modal>

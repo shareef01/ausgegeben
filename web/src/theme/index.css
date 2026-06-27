@@ -2,6 +2,7 @@
 @import './premium.css';
 @import './oled.css';
 @import './brand.css';
+@import './polish.css';
 
 :root {
   --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;

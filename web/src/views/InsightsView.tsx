@@ -60,7 +60,7 @@ function InsightsStatGrid({ income, expense, currency }: { income: number; expen
           {formatAmount(expense, currency)}
         </div>
       </div>
-      <div className={`insights-stat-card ${netClass}`}>
+      <div className={`insights-stat-card insights-stat-card--net ${netClass}`}>
         <div className="insights-stat-card__label">{t('billsNet')}</div>
         <div className="insights-stat-card__value tabular-nums" style={{ color: net >= 0 ? 'var(--color-income)' : 'var(--color-expense)' }}>
           {formatAmount(net, currency)}
@@ -86,7 +86,7 @@ function CategoryCard({ title, map, categories, currency, accent }: { title: str
   });
 
   return (
-    <div className="card card--pressable insights-category-card">
+    <div className="card insights-category-card">
       <div className="insights-category-card__title" style={{ color: accent }}>{title}</div>
       <DonutChart segments={segments} size={148} center={{ value: formatAmount(total, currency) }} />
       <div className="chart-legend">
@@ -113,7 +113,7 @@ function CashFlowCard({ trend, currency }: { trend: { label: string; income: num
   const totalExpense = trend.reduce((s, p) => s + p.expense, 0);
 
   return (
-    <div className="card card--pressable insights-cashflow-card">
+    <div className="card insights-cashflow-card">
       <div className="insights-cashflow-card__header">
         <div>
           <div className="insights-cashflow-card__title">{t('billsCashFlow')}</div>
