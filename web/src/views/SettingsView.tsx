@@ -215,7 +215,15 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
       {showTheme ? (
         <Modal title={t('settingsChooseTheme')} onClose={() => setShowTheme(false)}>
           {THEME_OPTIONS.map((opt) => (
-            <button key={opt.key} type="button" className="settings-row settings-row--interactive" onClick={() => { setThemeMode(opt.key); setShowTheme(false); }}>
+            <button
+              key={opt.key}
+              type="button"
+              className="settings-row settings-row--interactive"
+              onClick={() => {
+                setShowTheme(false);
+                requestAnimationFrame(() => setThemeMode(opt.key));
+              }}
+            >
               <span className="settings-row__icon-tile" data-tint="accent"><IconMoon width={18} height={18} /></span>
               <span style={{ flex: 1 }}>{opt.label}</span>
               {themeMode === opt.key ? <span style={{ color: 'var(--color-income)' }}>✓</span> : null}
@@ -294,13 +302,13 @@ function SettingsRow({
 function Modal({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
   const { t } = useTranslation();
   return (
-    <div className="overlay" onClick={onClose} role="presentation">
-      <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h2 style={{ margin: 0, fontSize: '1.125rem' }}>{title}</h2>
-          <button type="button" onClick={onClose}>{t('actionClose')}</button>
+    <div className="overlay overlay--settings" onClick={onClose} role="presentation">
+      <div className="sheet sheet--settings" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div className="sheet--settings__header">
+          <h2 className="sheet--settings__title">{title}</h2>
+          <button type="button" className="sheet--settings__close" onClick={onClose}>{t('actionClose')}</button>
         </div>
-        <div className="settings-group" style={{ margin: 0 }}>{children}</div>
+        <div className="sheet--settings__body">{children}</div>
       </div>
     </div>
   );

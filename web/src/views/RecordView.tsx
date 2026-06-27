@@ -88,13 +88,13 @@ export function RecordView({ onEdit }: RecordViewProps) {
                 <SwipeableRow
                   key={expense.id}
                   onDelete={() => void requestDelete(expense.id!)}
+                  onTap={() => onEdit(expense.id!)}
                   onLongPress={() => void duplicateExpense(expense)}
                 >
                   <TransactionRow
                     expense={expense}
                     category={catMap.get(expense.categoryId)}
                     currency={currency}
-                    onClick={() => onEdit(expense.id!)}
                     onReceiptClick={isReceiptPath(expense.receiptImagePath) ? () => setReceiptPath(expense.receiptImagePath!) : undefined}
                   />
                 </SwipeableRow>
@@ -110,11 +110,10 @@ export function RecordView({ onEdit }: RecordViewProps) {
   );
 }
 
-function TransactionRow({ expense, category, currency, onClick, onReceiptClick }: {
+function TransactionRow({ expense, category, currency, onReceiptClick }: {
   expense: Expense;
   category?: Category;
   currency: string;
-  onClick: () => void;
   onReceiptClick?: () => void;
 }) {
   const { t } = useTranslation();
@@ -132,7 +131,7 @@ function TransactionRow({ expense, category, currency, onClick, onReceiptClick }
   const subLabel = note && category?.name ? `${category.name} · ${relativeTime}` : relativeTime;
 
   return (
-    <div className="transaction-row pressable-row" onClick={onClick} onKeyDown={(e) => e.key === 'Enter' && onClick()} role="button" tabIndex={0}>
+    <div className="transaction-row pressable-row">
       <div className="transaction-row__icon" style={{ '--cat-color': color } as CSSProperties}>
         {category ? (
           <CategoryLucideIcon iconName={category.iconName} width={20} height={20} color={color} />
@@ -145,7 +144,15 @@ function TransactionRow({ expense, category, currency, onClick, onReceiptClick }
         <div className="transaction-row__sub">{subLabel}</div>
       </div>
       {onReceiptClick ? (
-        <button type="button" aria-label={t('recordViewReceipt')} className="transaction-row__receipt" onClick={(e) => { e.stopPropagation(); onReceiptClick(); }}>📎</button>
+        <button
+          type="button"
+          aria-label={t('recordViewReceipt')}
+          className="transaction-row__receipt"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); onReceiptClick(); }}
+        >
+          📎
+        </button>
       ) : null}
       <div className="transaction-row__amount" style={{ color: amountColor }}>
         {prefix}{formatAmount(expense.amount, currency)}

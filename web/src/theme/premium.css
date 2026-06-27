@@ -18,7 +18,7 @@
 }
 
 .card--elevated {
-  background: color-mix(in srgb, var(--color-surface) 92%, #fff 8%);
+  background: color-mix(in srgb, var(--color-surface) 96%, var(--color-on-background) 4%);
   border: 1px solid var(--surface-border);
 }
 

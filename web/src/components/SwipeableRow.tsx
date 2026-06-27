@@ -4,13 +4,16 @@ import { useTranslation } from '@/i18n';
 interface SwipeableRowProps {
   children: ReactNode;
   onDelete: () => void;
+  onTap?: () => void;
   onLongPress?: () => void;
 }
 
 const SWIPE_THRESHOLD = 72;
+const SWIPE_OPEN = 88;
+const TAP_SLOP = 10;
 const LONG_PRESS_MS = 500;
 
-export function SwipeableRow({ children, onDelete, onLongPress }: SwipeableRowProps) {
+export function SwipeableRow({ children, onDelete, onTap, onLongPress }: SwipeableRowProps) {
   const { t } = useTranslation();
   const [offset, setOffset] = useState(0);
   const offsetRef = useRef(0);
@@ -18,6 +21,7 @@ export function SwipeableRow({ children, onDelete, onLongPress }: SwipeableRowPr
   const startX = useRef(0);
   const startY = useRef(0);
   const tracking = useRef(false);
+  const swipeAxis = useRef<'none' | 'x' | 'y'>('none');
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFired = useRef(false);
 
@@ -41,6 +45,7 @@ export function SwipeableRow({ children, onDelete, onLongPress }: SwipeableRowPr
   const onPointerDown = (e: PointerEvent) => {
     if (e.button !== 0) return;
     tracking.current = true;
+    swipeAxis.current = 'none';
     longPressFired.current = false;
     startX.current = e.clientX;
     startY.current = e.clientY;
@@ -58,27 +63,50 @@ export function SwipeableRow({ children, onDelete, onLongPress }: SwipeableRowPr
     if (!tracking.current || longPressFired.current) return;
     const dx = e.clientX - startX.current;
     const dy = e.clientY - startY.current;
-    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) {
+
+    if (swipeAxis.current === 'none' && (Math.abs(dx) > TAP_SLOP || Math.abs(dy) > TAP_SLOP)) {
+      swipeAxis.current = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y';
+    }
+
+    if (swipeAxis.current === 'y') {
       clearLongPress();
       return;
     }
-    if (Math.abs(dx) > 8) clearLongPress();
-    if (dx < 0) applyOffset(Math.max(dx, -120));
-    else applyOffset(0);
+
+    if (swipeAxis.current === 'x') {
+      clearLongPress();
+      if (dx < 0) applyOffset(Math.max(dx, -SWIPE_OPEN));
+      else applyOffset(0);
+    }
   };
 
   const onPointerUp = () => {
     tracking.current = false;
     clearLongPress();
     contentRef.current?.classList.remove('swipeable-row__content--dragging');
+
     if (longPressFired.current) {
       applyOffset(0, true);
+      swipeAxis.current = 'none';
       return;
     }
-    if (offsetRef.current <= -SWIPE_THRESHOLD) {
+
+    const movedX = swipeAxis.current === 'x';
+    const current = offsetRef.current;
+
+    if (movedX && current <= -SWIPE_THRESHOLD) {
       onDelete();
+      applyOffset(0, true);
+    } else if (movedX && current < -TAP_SLOP) {
+      applyOffset(-SWIPE_OPEN, true);
+    } else if (!movedX && onTap) {
+      onTap();
+      applyOffset(0, true);
+    } else {
+      applyOffset(0, true);
     }
-    applyOffset(0, true);
+
+    swipeAxis.current = 'none';
   };
 
   return (
