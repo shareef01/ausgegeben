@@ -1303,13 +1303,17 @@ a {
 .overlay {
   position: fixed;
   inset: 0;
-  background: color-mix(in srgb, var(--color-background) 55%, rgba(0, 0, 0, 0.65));
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: color-mix(in srgb, var(--color-on-background) 34%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   z-index: 200;
   display: flex;
   align-items: flex-end;
   justify-content: center;
+}
+
+.overlay--settings {
+  background: color-mix(in srgb, var(--color-background) 20%, color-mix(in srgb, var(--color-on-background) 40%, transparent));
 }
 
 .sheet {
@@ -1326,6 +1330,57 @@ a {
   box-shadow:
     0 -12px 40px rgba(0, 0, 0, 0.2),
     0 0 0 1px color-mix(in srgb, var(--color-on-background) 4%, transparent) inset;
+}
+
+.sheet--settings {
+  background: var(--color-surface);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--hairline-border, var(--glass-border));
+  box-shadow: 0 24px 48px color-mix(in srgb, var(--color-on-background) 16%, transparent);
+  padding: 20px;
+}
+
+.sheet--settings__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.sheet--settings__title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-on-background);
+}
+
+.sheet--settings__close {
+  color: var(--color-accent);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+
+.sheet--settings__close:hover {
+  background: color-mix(in srgb, var(--color-on-surface) 6%, transparent);
+}
+
+.sheet--settings__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sheet--settings__body .settings-row {
+  margin: 0;
+  border-radius: 12px;
+}
+
+.sheet--settings__body .settings-row + .settings-row {
+  border-top: none;
 }
 
 @media (min-width: 640px) {
@@ -1620,7 +1675,6 @@ a {
 .swipeable-row {
   position: relative;
   overflow: hidden;
-  touch-action: pan-y;
 }
 
 .swipeable-row__bg {
@@ -1645,6 +1699,8 @@ a {
   z-index: 1;
   background: var(--color-surface);
   transition: transform 0.15s ease-out;
+  touch-action: manipulation;
+  cursor: pointer;
 }
 
 .swipeable-row__content--dragging {
