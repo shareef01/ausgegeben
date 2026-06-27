@@ -69,6 +69,23 @@ a {
   }
 }
 
+@media (min-width: 900px) {
+  .tab-panel--animate-in {
+    animation: tab-in-desktop 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+}
+
+@keyframes tab-in-desktop {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tab-panel--animate-in {
     animation: none;
@@ -2114,5 +2131,182 @@ a {
 
   .money--hero-display {
     font-size: 2.5rem;
+  }
+}
+
+/* ── Large / ultra-wide desktop ── */
+
+@media (min-width: 1200px) {
+  .app-viewport {
+    padding: 32px;
+  }
+
+  .app-shell:not(.auth-page):not(.onboarding-page) {
+    min-height: calc(100vh - 64px);
+    border-radius: 24px;
+  }
+
+  .side-nav {
+    padding: 28px 18px;
+  }
+
+  .side-nav__brand {
+    padding-bottom: 28px;
+  }
+
+  .page-content {
+    max-width: var(--content-max-width);
+  }
+
+  .record-view.page-content {
+    display: grid;
+    grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+    column-gap: 28px;
+    align-items: start;
+  }
+
+  .record-view > .screen-title-bar,
+  .record-view > .empty-state,
+  .record-view > .skeleton-list {
+    grid-column: 1 / -1;
+  }
+
+  .record-view > .finance-summary-card,
+  .record-view > .budget-bar,
+  .record-view > .record-filters {
+    grid-column: 1;
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .record-view > .budget-bar {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .record-view > .transaction-list-card {
+    grid-column: 2;
+    grid-row: 2 / span 12;
+    margin-left: 0;
+    margin-right: 0;
+    position: sticky;
+    top: 88px;
+    max-height: calc(100vh - 140px);
+    overflow: auto;
+  }
+
+  .insights-view.page-content {
+    max-width: var(--content-max-width);
+  }
+
+  .insights-stat-grid {
+    gap: 16px;
+  }
+
+  .insights-stat-card {
+    padding: 20px 18px;
+  }
+
+  .insights-stat-card__value {
+    font-size: 1.25rem;
+  }
+
+  .insights-grid {
+    gap: 16px;
+  }
+
+  .settings-view.page-content {
+    max-width: var(--content-max-width);
+  }
+
+  .settings-view > .screen-title-bar {
+    margin-bottom: 4px;
+  }
+
+  .settings-view .section-title + .settings-group {
+    margin-bottom: 8px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .app-viewport {
+    padding: 40px;
+  }
+
+  .app-shell:not(.auth-page):not(.onboarding-page) {
+    min-height: calc(100vh - 80px);
+    box-shadow:
+      0 24px 64px rgba(0, 0, 0, 0.1),
+      0 0 0 1px color-mix(in srgb, var(--color-outline) 35%, transparent);
+  }
+
+  .side-nav__item {
+    padding: 14px 16px;
+    font-size: 1rem;
+  }
+
+  .record-view.page-content {
+    grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
+    column-gap: 36px;
+  }
+
+  .finance-summary-card__inner {
+    padding: 32px 28px 28px;
+  }
+
+  .insights-view.page-content {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 24px;
+    align-items: start;
+  }
+
+  .insights-view > .screen-title-bar,
+  .insights-view > .insights-toolbar,
+  .insights-view > .empty-state,
+  .insights-view > .insights-stat-grid,
+  .insights-view > .insights-cashflow-card {
+    grid-column: 1 / -1;
+  }
+
+  .insights-view > .insights-grid {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .insights-cashflow-card {
+    margin-left: 0;
+    margin-right: 0;
+    padding: 24px;
+  }
+
+  .settings-view.page-content {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 32px;
+    align-items: start;
+    max-width: var(--content-max-width);
+  }
+
+  .settings-view > .screen-title-bar,
+  .settings-view > .sync-error-banner,
+  .settings-view > .offline-banner {
+    grid-column: 1 / -1;
+  }
+
+  .settings-section {
+    margin-bottom: 8px;
+  }
+
+  .sheet--transaction {
+    max-width: 640px;
+  }
+
+  .screen-title {
+    font-size: 2.125rem;
   }
 }

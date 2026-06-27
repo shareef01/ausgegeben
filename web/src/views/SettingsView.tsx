@@ -185,10 +185,10 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-  <>
-    <div className="section-title">{title}</div>
-    <div className="settings-group">{children}</div>
-  </>
+    <section className="settings-section">
+      <div className="section-title">{title}</div>
+      <div className="settings-group">{children}</div>
+    </section>
   );
 }
 
