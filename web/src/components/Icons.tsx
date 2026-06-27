@@ -81,3 +81,11 @@ export function IconChevronDown(props: IconProps) {
     </BaseIcon>
   );
 }
+
+export function IconChevronRight(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="m9 18 6-6-6-6" />
+    </BaseIcon>
+  );
+}

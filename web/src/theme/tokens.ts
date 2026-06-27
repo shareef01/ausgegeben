@@ -136,6 +136,7 @@ export function applyTheme(palette: ThemePalette): void {
   root.style.setProperty('--color-transfer', palette.transfer);
   root.style.setProperty('--color-accent', brandAccent(palette));
   root.style.setProperty('--color-focus', palette.focusRing);
+  root.style.setProperty('--color-date-divider', palette.isDark ? '#94A3B8' : '#64748B');
   root.dataset.theme = palette.isDark ? 'dark' : 'light';
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', palette.background);
 }

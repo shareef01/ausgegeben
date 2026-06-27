@@ -1,7 +1,9 @@
 import { colorIntToHex } from '@/utils/currency';
 
 export interface DonutCenterSummary {
-  label: string;
+  /** Optional muted label above the value (e.g. "Total") */
+  label?: string;
+  /** Bold centered sum — primary visual summary */
   value: string;
 }
 
@@ -51,7 +53,7 @@ export function DonutChart({ segments, size = 140, center }: DonutChartProps) {
       </svg>
       {center ? (
         <div className="donut-center" aria-hidden>
-          <span className="donut-center__label">{center.label}</span>
+          {center.label ? <span className="donut-center__label">{center.label}</span> : null}
           <span className="donut-center__value">{center.value}</span>
         </div>
       ) : null}

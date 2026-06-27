@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { ScreenTitle } from '@/components/ui';
+import { IconChevronRight } from '@/components/Icons';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
@@ -170,13 +171,27 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 function SettingsRow({ title, subtitle, subtitleError, onClick }: { title: string; subtitle: string; subtitleError?: boolean; onClick?: () => void }) {
-  return (
-    <button type="button" className="settings-row" onClick={onClick}>
+  const content = (
+    <>
       <div className="settings-row__label">
         <div className="settings-row__title">{title}</div>
         <div className={`settings-row__sub ${subtitleError ? 'settings-row__sub--error' : ''}`}>{subtitle}</div>
       </div>
-      <span aria-hidden>›</span>
+      {onClick ? (
+        <span className="settings-row__chevron" aria-hidden>
+          <IconChevronRight width={20} height={20} strokeWidth={2.5} />
+        </span>
+      ) : null}
+    </>
+  );
+
+  if (!onClick) {
+    return <div className="settings-row settings-row--static">{content}</div>;
+  }
+
+  return (
+    <button type="button" className="settings-row settings-row--interactive" onClick={onClick}>
+      {content}
     </button>
   );
 }

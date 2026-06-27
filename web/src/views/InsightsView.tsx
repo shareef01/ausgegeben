@@ -1,5 +1,6 @@
 import { ScreenTitle, EmptyState } from '@/components/ui';
 import { DonutChart, segmentColor } from '@/components/DonutChart';
+import { CashFlowChart } from '@/components/CashFlowChart';
 import { PremiumPeriodSelector } from '@/components/PeriodSelector';
 import { useDashboardViewModel } from '@/viewmodels/useDashboardViewModel';
 import { usePreferencesStore } from '@/services/preferencesStore';
@@ -58,7 +59,6 @@ function OverviewCard({ income, expense, currency }: { income: number; expense: 
 }
 
 function CategoryCard({ title, map, categories, currency, accent }: { title: string; map: Map<number, number>; categories: Category[]; currency: string; accent: string }) {
-  const { t } = useTranslation();
   const entries = [...map.entries()].sort((a, b) => b[1] - a[1]);
   const total = entries.reduce((s, [, v]) => s + v, 0);
   if (total <= 0) return null;
@@ -72,8 +72,8 @@ function CategoryCard({ title, map, categories, currency, accent }: { title: str
       <div style={{ padding: '8px 12px', color: accent, fontWeight: 600, fontSize: '0.875rem' }}>{title}</div>
       <DonutChart
         segments={segments}
-        size={132}
-        center={{ label: t('chartTotal'), value: formatAmount(total, currency) }}
+        size={144}
+        center={{ value: formatAmount(total, currency) }}
       />
       <div style={{ padding: '0 12px' }}>
         {entries.slice(0, 4).map(([catId, amount]) => {
@@ -93,29 +93,10 @@ function CategoryCard({ title, map, categories, currency, accent }: { title: str
 
 function CashFlowCard({ trend, currency }: { trend: { label: string; income: number; expense: number }[]; currency: string }) {
   const { t } = useTranslation();
-  const max = Math.max(...trend.flatMap((p) => [p.income, p.expense]), 1);
   return (
     <div className="card card--pressable insights-cashflow-card">
       <div style={{ fontWeight: 500, marginBottom: 12 }}>{t('billsCashFlow')}</div>
-      <svg width="100%" height="120" viewBox={`0 0 ${trend.length * 40} 120`} preserveAspectRatio="none">
-        {trend.map((p, i) => {
-          const x = i * 40 + 20;
-          const yIncome = 100 - (p.income / max) * 80;
-          const yExpense = 100 - (p.expense / max) * 80;
-          return (
-            <g key={i}>
-              {i > 0 ? (
-                <>
-                  <line x1={(i - 1) * 40 + 20} y1={100 - (trend[i - 1].income / max) * 80} x2={x} y2={yIncome} stroke="var(--color-income)" strokeWidth="2" strokeDasharray="4 3" opacity="0.7" />
-                  <line x1={(i - 1) * 40 + 20} y1={100 - (trend[i - 1].expense / max) * 80} x2={x} y2={yExpense} stroke="var(--color-expense)" strokeWidth="2" strokeDasharray="4 3" opacity="0.7" />
-                </>
-              ) : null}
-              <circle cx={x} cy={yIncome} r="4" fill="var(--color-income)" />
-              <circle cx={x} cy={yExpense} r="4" fill="var(--color-expense)" />
-            </g>
-          );
-        })}
-      </svg>
+      <CashFlowChart trend={trend} />
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--color-on-surface-variant)' }}>
         <span>{trend[0]?.label}</span>
         <span>{trend[trend.length - 1]?.label}</span>

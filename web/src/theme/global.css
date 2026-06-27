@@ -274,10 +274,14 @@ a {
 }
 
 .transaction-list-card__day {
-  padding: 10px 16px;
-  font-size: 0.8125rem;
-  color: var(--color-on-surface-variant);
-  background: var(--color-surface-variant);
+  padding: 9px 16px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-date-divider, #94A3B8);
+  background: color-mix(in srgb, var(--color-on-surface) 5%, var(--color-surface));
+  border-bottom: 1px solid color-mix(in srgb, var(--color-outline) 22%, transparent);
 }
 
 .transaction-row__amount {
@@ -836,14 +840,27 @@ a {
 }
 
 .donut-center__value {
-  font-size: 0.9375rem;
+  font-size: 1.0625rem;
   font-weight: 700;
   color: var(--color-on-background);
   font-variant-numeric: tabular-nums;
-  max-width: 100%;
+  max-width: 88%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.cashflow-chart {
+  margin: 0 -4px 8px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.cashflow-chart__svg {
+  display: block;
+  vertical-align: middle;
 }
 
 .insights-overview-card {
@@ -876,6 +893,32 @@ a {
   width: 100%;
   text-align: left;
   color: inherit;
+}
+
+.settings-row--interactive {
+  transition: background 0.15s ease;
+}
+
+.settings-row--interactive:hover {
+  background: color-mix(in srgb, var(--color-on-surface) 6%, transparent);
+}
+
+.settings-row--interactive:active {
+  background: color-mix(in srgb, var(--color-on-surface) 9%, transparent);
+}
+
+.settings-row__chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  color: var(--color-on-surface-variant);
+}
+
+.settings-row--interactive:hover .settings-row__chevron {
+  color: var(--color-on-background);
 }
 
 .settings-row + .settings-row {
