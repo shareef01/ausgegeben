@@ -67,6 +67,22 @@ class WealthTrendTest {
     }
 
     @Test
+    fun computeCashFlowTrend_excludesTransfers() {
+        val now = fixedTime(2026, Calendar.JUNE, 5, 12)
+        val expenses = listOf(
+            expense(amount = 20.0, type = "expense", day = 1, now = now),
+            expense(amount = 100.0, type = "transfer", day = 1, now = now),
+            expense(amount = 50.0, type = "income", day = 2, now = now),
+        )
+        val trend = expenses.computeCashFlowTrend("month:2026-06", nowMillis = now)
+        assertTrue(trend.isNotEmpty())
+        val totalIncome = trend.sumOf { it.income }
+        val totalExpense = trend.sumOf { it.expense }
+        assertEquals(50.0, totalIncome, 0.001)
+        assertEquals(20.0, totalExpense, 0.001)
+    }
+
+    @Test
     fun zeroActivityDays_stillAppearInRange() {
         val now = fixedTime(2026, Calendar.JUNE, 3, 12)
         val expenses = listOf(

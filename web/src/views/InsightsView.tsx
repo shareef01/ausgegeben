@@ -1,7 +1,7 @@
 import { ScreenTitle, EmptyState } from '@/components/ui';
 import { DonutChart, segmentColor } from '@/components/DonutChart';
 import { CashFlowChart } from '@/components/CashFlowChart';
-import { PremiumPeriodSelector } from '@/components/PeriodSelector';
+import { AnalyticsPeriodPicker } from '@/components/PeriodSelector';
 import { useDashboardViewModel } from '@/viewmodels/useDashboardViewModel';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useTranslation } from '@/i18n';
@@ -14,15 +14,19 @@ export function InsightsView() {
   const { uiState, categories, periodOptions, setAnalyticsPeriod } = useDashboardViewModel();
   const hasData = uiState.totalExpenses > 0 || uiState.totalIncome > 0;
 
+  const selectedOption = periodOptions.find((o) => o.storageKey === uiState.periodKey) ?? periodOptions[0];
+  const selectedLabel = uiState.periodKey === 'all_time'
+    ? t('periodAllTime')
+    : selectedOption?.label ?? t('periodAllTime');
+
   return (
     <div className="insights-view page-content">
       <ScreenTitle title={t('screenBills')} />
       <div className="insights-toolbar">
-        <PremiumPeriodSelector
+        <AnalyticsPeriodPicker
           options={periodOptions}
-          selected={periodOptions.find((o) => o.storageKey === uiState.periodKey) ?? periodOptions[0]}
-          labelFor={(o) => o.label}
-          isSelected={(a, b) => a.storageKey === b.storageKey}
+          selectedKey={uiState.periodKey}
+          selectedLabel={selectedLabel}
           onSelected={(o) => setAnalyticsPeriod(o.storageKey)}
         />
       </div>
