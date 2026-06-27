@@ -1,5 +1,7 @@
 package com.aus.ausgegeben.ui.components
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -20,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,6 +33,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.Route
+import com.aus.ausgegeben.ui.theme.AppColorSpring
+import com.aus.ausgegeben.ui.theme.AppDpSpring
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.navigationInactiveColor
@@ -92,16 +97,29 @@ private fun MainBottomBarItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val containerColor = if (selected) {
-        MaterialTheme.colorScheme.onBackground.copy(alpha = 0.09f)
-    } else {
-        Color.Transparent
-    }
-    val contentColor = if (selected) {
-        MaterialTheme.colorScheme.onBackground
-    } else {
-        navigationInactiveColor()
-    }
+    val containerColor by animateColorAsState(
+        targetValue = if (selected) {
+            MaterialTheme.colorScheme.onBackground.copy(alpha = 0.09f)
+        } else {
+            Color.Transparent
+        },
+        animationSpec = AppColorSpring,
+        label = "navItemBg",
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (selected) {
+            MaterialTheme.colorScheme.onBackground
+        } else {
+            navigationInactiveColor()
+        },
+        animationSpec = AppColorSpring,
+        label = "navItemTint",
+    )
+    val iconSize by animateDpAsState(
+        targetValue = if (selected) 31.dp else 28.dp,
+        animationSpec = AppDpSpring,
+        label = "navIconSize",
+    )
     val interactionSource = remember { MutableInteractionSource() }
 
     Box(
@@ -127,7 +145,7 @@ private fun MainBottomBarItem(
                 imageVector = destination.icon,
                 contentDescription = destination.label,
                 tint = contentColor,
-                modifier = Modifier.size(if (selected) 31.dp else 28.dp),
+                modifier = Modifier.size(iconSize),
             )
         }
     }
