@@ -1830,9 +1830,9 @@ a {
 
 .side-nav__brand {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: center;
   gap: 10px;
-  overflow: visible;
 }
 
 .side-nav__menu {
