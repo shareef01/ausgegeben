@@ -12,8 +12,8 @@
     "test:watch": "vitest",
     "icons": "node scripts/generate-icons.mjs",
     "prebuild": "npm run icons",
-    "deploy": "npm run build && cd .. && firebase deploy --only hosting:aus01,firestore:rules,storage",
-    "deploy:hosting": "npm run build && cd .. && firebase deploy --only hosting:aus01"
+    "deploy": "npm run build && npx firebase deploy --only hosting:aus01,firestore:rules,storage --config ../firebase.json",
+    "deploy:hosting": "npm run build && npx firebase deploy --only hosting:aus01 --config ../firebase.json"
   },
   "dependencies": {
     "dexie": "^4.0.11",
