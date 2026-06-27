@@ -16,16 +16,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Analytics
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
@@ -53,7 +58,6 @@ import com.aus.ausgegeben.ui.components.MoneySize
 import com.aus.ausgegeben.ui.components.MoneyText
 import com.aus.ausgegeben.ui.components.ScreenTitle
 import com.aus.ausgegeben.ui.components.appCard
-import com.aus.ausgegeben.ui.components.appPopupElevation
 import com.aus.ausgegeben.ui.components.tabScreenListBottomPadding
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
@@ -68,7 +72,7 @@ import com.aus.ausgegeben.util.colorIntToCompose
 import com.aus.ausgegeben.util.harmonizedChartColors
 import com.aus.ausgegeben.util.iconForCategory
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun BillsScreen(
     viewModel: DashboardViewModel,
@@ -92,7 +96,7 @@ fun BillsScreen(
     val selectedPeriodLabel = if (uiState.periodKey == "all_time") {
         stringResource(R.string.period_all_time)
     } else {
-        uiState.periodLabel.ifBlank { periodOptions.first().label }
+        uiState.periodLabel.ifBlank { periodOptions.getOrNull(1)?.label ?: periodOptions.first().label }
     }
 
     LazyColumn(
@@ -196,6 +200,7 @@ fun BillsScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PeriodDropdown(
     options: List<AnalyticsPeriodOption>,
@@ -204,15 +209,17 @@ private fun PeriodDropdown(
     onSelected: (AnalyticsPeriodOption) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    val menuShape = RoundedCornerShape(AppRadius.lg)
+    var sheetOpen by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val rowShape = RoundedCornerShape(AppRadius.xl)
+
     Box(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(AppRadius.xl))
+                .clip(rowShape)
                 .background(MaterialTheme.colorScheme.surface)
-                .clickable { expanded = true }
+                .clickable { sheetOpen = true }
                 .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -223,16 +230,14 @@ private fun PeriodDropdown(
                     color = MaterialTheme.colorScheme.onBackground,
                     fontWeight = FontWeight.Medium,
                 )
-                Text(
-                    text = if (selectedKey == "all_time") {
-                        stringResource(R.string.period_all_time)
-                    } else {
-                        stringResource(R.string.period_month_container)
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Normal,
-                )
+                if (selectedKey != "all_time") {
+                    Text(
+                        text = stringResource(R.string.period_month_container),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Normal,
+                    )
+                }
             }
             Icon(
                 Icons.Rounded.ArrowDropDown,
@@ -240,37 +245,59 @@ private fun PeriodDropdown(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            modifier = Modifier.appPopupElevation(menuShape),
-            shape = menuShape,
+    }
+
+    if (sheetOpen) {
+        ModalBottomSheet(
+            onDismissRequest = { sheetOpen = false },
+            sheetState = sheetState,
             containerColor = MaterialTheme.colorScheme.surface,
-            tonalElevation = 0.dp,
-            shadowElevation = 0.dp,
+            dragHandle = { BottomSheetDefaults.DragHandle() },
         ) {
-            options.forEach { option ->
-                val label = if (option.storageKey == "all_time") {
-                    stringResource(R.string.period_all_time)
-                } else {
-                    option.label
-                }
-                DropdownMenuItem(
-                    text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(top = AppSpacing.xs, bottom = AppSpacing.lg),
+            ) {
+                options.forEach { option ->
+                    val label = if (option.storageKey == "all_time") {
+                        stringResource(R.string.period_all_time)
+                    } else {
+                        option.label
+                    }
+                    val selected = option.storageKey == selectedKey
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onSelected(option)
+                                sheetOpen = false
+                            }
+                            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         Text(
                             text = label,
-                            color = if (option.storageKey == selectedKey) {
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = if (selected) {
                                 MaterialTheme.colorScheme.primary
                             } else {
                                 MaterialTheme.colorScheme.onBackground
-                            }
+                            },
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                            modifier = Modifier.weight(1f),
                         )
-                    },
-                    onClick = {
-                        expanded = false
-                        onSelected(option)
+                        if (selected) {
+                            Icon(
+                                imageVector = Icons.Rounded.Check,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
                     }
-                )
+                }
             }
         }
     }
