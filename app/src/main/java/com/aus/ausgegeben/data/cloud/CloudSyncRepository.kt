@@ -7,6 +7,7 @@ import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.util.ReceiptFileUtils
 import android.content.Context
+import androidx.room.withTransaction
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.flow.first
@@ -18,6 +19,7 @@ class CloudSyncRepository(
     private val categoryDao: CategoryDao,
     private val expenseDao: ExpenseDao,
     private val appContext: Context,
+    private val database: com.aus.ausgegeben.data.AusgegebenDatabase,
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
 ) {
     companion object {
@@ -45,23 +47,28 @@ class CloudSyncRepository(
             val catMerge = mergeCategories(localCategories, remoteCategories)
             val expMerge = mergeExpenses(localExpenses, remoteExpenses)
 
-            for (id in catMerge.toDeleteLocal) {
-                expenseDao.deleteByCategoryId(id)
-                categoryDao.deleteById(id)
-            }
-            for (record in catMerge.toApplyLocal) {
-                categoryDao.insert(record.toEntity())
-            }
+            val receiptPathsToDelete = mutableListOf<String>()
+            database.withTransaction {
+                for (id in catMerge.toDeleteLocal) {
+                    expenseDao.deleteByCategoryId(id)
+                    categoryDao.deleteById(id)
+                }
+                val categoriesToApply = catMerge.toApplyLocal.map { it.toEntity() }
+                if (categoriesToApply.isNotEmpty()) {
+                    categoryDao.insertAll(categoriesToApply)
+                }
 
-            for (id in expMerge.toDeleteLocal) {
-                val expense = expenseDao.getById(id)
-                expenseDao.deleteById(id)
-                expense?.receiptImagePath?.let { path ->
-                    ReceiptFileUtils.deleteIfStored(appContext, path)
+                for (id in expMerge.toDeleteLocal) {
+                    expenseDao.getById(id)?.receiptImagePath?.let(receiptPathsToDelete::add)
+                    expenseDao.deleteById(id)
+                }
+                val expensesToApply = expMerge.toApplyLocal.map { it.toEntity() }
+                if (expensesToApply.isNotEmpty()) {
+                    expenseDao.insertAll(expensesToApply)
                 }
             }
-            for (record in expMerge.toApplyLocal) {
-                expenseDao.insert(record.toEntity())
+            receiptPathsToDelete.forEach { path ->
+                ReceiptFileUtils.deleteIfStored(appContext, path)
             }
 
             pushAll(uid, catMerge.toPushRemote, expMerge.toPushRemote)

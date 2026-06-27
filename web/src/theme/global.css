@@ -1392,11 +1392,19 @@ a {
   font-size: 0.875rem;
 }
 
+.tab-panel--hidden {
+  display: none;
+}
+
 .swipeable-row__content {
   position: relative;
   background: var(--color-surface);
   transition: transform 0.15s ease-out;
+}
+
+.swipeable-row__content--dragging {
   will-change: transform;
+  transition: none;
 }
 
 .toast-host {
