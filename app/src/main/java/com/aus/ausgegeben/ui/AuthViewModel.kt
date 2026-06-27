@@ -129,25 +129,6 @@ class AuthViewModel(
         }
     }
 
-    fun signInWithGoogle(idToken: String, onSuccess: () -> Unit) {
-        viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    isLoading = true,
-                    loadingMessage = appString(com.aus.ausgegeben.R.string.auth_loading_sign_in),
-                    errorMessage = null,
-                    infoMessage = null,
-                )
-            }
-            val result = runCatching {
-                withTimeout(AUTH_TIMEOUT_MS) {
-                    authRepository.signInWithGoogle(idToken).getOrThrow()
-                }
-            }
-            handleAuthResult(result, onSuccess)
-        }
-    }
-
     fun sendPasswordReset() {
         val email = _uiState.value.email.trim()
         if (email.isBlank()) {
