@@ -6,9 +6,11 @@ interface SideNavBrandProps {
 
 export function SideNavBrand({ appName }: SideNavBrandProps) {
   return (
-    <div className="side-nav__brand brand-lockup">
-      <AppBrandIcon size={44} animated className="brand-lockup__mark" />
-      <span className="brand-lockup__name">{appName.toLowerCase()}</span>
+    <div className="side-nav__brand brand-shell">
+      <div className="brand-shell__card">
+        <AppBrandIcon size={40} animated className="brand-shell__mark" />
+        <p className="brand-shell__name">{appName}</p>
+      </div>
     </div>
   );
 }
