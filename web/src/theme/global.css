@@ -1866,7 +1866,7 @@ a {
 }
 
 .side-nav__label {
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   font-weight: 500;
   letter-spacing: -0.01em;
   line-height: 1.2;
@@ -2249,14 +2249,14 @@ a {
     position: relative;
     display: flex;
     align-items: center;
-    gap: 11px;
+    gap: 14px;
     width: 100%;
-    min-height: 36px;
-    padding: 7px 10px 7px 14px;
-    border-radius: 8px;
+    min-height: 52px;
+    padding: 8px 12px 8px 12px;
+    border-radius: 12px;
     border: none;
     color: var(--color-on-surface-variant);
-    font-size: 0.875rem;
+    font-size: 0.9375rem;
     font-weight: 500;
     text-align: left;
     transition:
@@ -2280,20 +2280,39 @@ a {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 20px;
-    height: 20px;
+    width: 44px;
+    height: 44px;
     flex-shrink: 0;
-    border: none;
-    background: none;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    background: color-mix(in srgb, var(--color-on-surface) 4%, transparent);
     color: inherit;
-    opacity: 0.72;
-    transition: color 0.2s ease, opacity 0.2s ease;
+    opacity: 0.78;
+    transition:
+      color 0.2s ease,
+      opacity 0.2s ease,
+      background 0.2s ease,
+      border-color 0.2s ease,
+      transform 0.2s ease;
+  }
+
+  .side-nav__icon-wrap svg,
+  .side-nav__icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .side-nav__item:hover:not(.side-nav__item--active) .side-nav__icon-wrap {
+    opacity: 0.92;
+    background: color-mix(in srgb, var(--color-on-surface) 7%, transparent);
   }
 
   .side-nav__item--active .side-nav__icon-wrap {
     color: var(--color-income);
     opacity: 1;
-    background: none;
+    background: color-mix(in srgb, var(--color-income) 14%, transparent);
+    border-color: color-mix(in srgb, var(--color-income) 22%, transparent);
+    box-shadow: 0 0 24px color-mix(in srgb, var(--color-income) 18%, transparent);
   }
 
   .bottom-bar {
@@ -2478,6 +2497,28 @@ a {
   .side-nav__brand {
     padding-bottom: 14px;
     margin-bottom: 6px;
+  }
+
+  .side-nav__icon-wrap {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+  }
+
+  .side-nav__icon-wrap svg,
+  .side-nav__icon {
+    width: 26px;
+    height: 26px;
+  }
+
+  .side-nav__item {
+    min-height: 56px;
+    gap: 16px;
+    padding: 10px 12px;
+  }
+
+  .side-nav__label {
+    font-size: 1rem;
   }
 
   .page-content {
