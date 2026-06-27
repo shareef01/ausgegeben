@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Category, Expense, TransactionType } from '@/models/types';
 import { expenseRepository } from '@/repositories/expenseRepository';
 import { receiptService } from '@/services/receiptService';
@@ -35,8 +35,7 @@ export function useAddTransactionViewModel(expenseId?: number) {
     const cats = await expenseRepository.getAllCategories();
     setCategories(cats);
     if (expenseId) {
-      const all = await expenseRepository.getAllExpenses();
-      const existing = all.find((e) => e.id === expenseId);
+      const existing = await expenseRepository.getExpenseById(expenseId);
       if (existing) {
         setPreviousReceiptPath(existing.receiptImagePath ?? null);
         setForm({
@@ -59,7 +58,10 @@ export function useAddTransactionViewModel(expenseId?: number) {
     void load();
   }, [load]);
 
-  const filteredCategories = categories.filter((c) => c.transactionType === form.transactionType);
+  const filteredCategories = useMemo(
+    () => categories.filter((c) => c.transactionType === form.transactionType),
+    [categories, form.transactionType],
+  );
 
   useEffect(() => {
     if (!filteredCategories.some((c) => c.id === form.categoryId)) {
