@@ -72,6 +72,7 @@ import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.AppRepository
 import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.data.auth.AuthRepository
+import com.aus.ausgegeben.data.cloud.CloudSyncCoordinator
 import com.aus.ausgegeben.data.cloud.CloudSyncRepository
 import com.aus.ausgegeben.data.cloud.FirebaseConfigHelper
 import com.aus.ausgegeben.data.cloud.mapCloudSyncError
@@ -92,7 +93,9 @@ import com.aus.ausgegeben.ui.theme.financeExpenseColor
 import com.aus.ausgegeben.ui.theme.financeIncomeColor
 import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.ExportUtils
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.DateFormat
 import java.util.Date
 
@@ -103,6 +106,7 @@ fun SettingsScreen(
     authRepository: AuthRepository,
     authViewModel: AuthViewModel,
     cloudSyncRepository: CloudSyncRepository,
+    cloudSyncCoordinator: CloudSyncCoordinator,
     onNavigateToCategories: () -> Unit,
     onShowMessage: (String) -> Unit = {},
     onRequestNotificationPermission: () -> Unit = {},
@@ -177,17 +181,22 @@ fun SettingsScreen(
                                 isCloudSyncing = true
                                 cloudSyncIsError = false
                                 cloudSyncStatus = context.getString(R.string.settings_sync_in_progress)
-                                cloudSyncRepository.fullSync().fold(
-                                    onSuccess = {
-                                        preferenceManager.setLastCloudSyncAt(System.currentTimeMillis())
-                                        cloudSyncIsError = false
-                                        cloudSyncStatus = context.getString(R.string.settings_sync_success)
-                                    },
-                                    onFailure = { error ->
-                                        cloudSyncIsError = true
-                                        cloudSyncStatus = mapCloudSyncError(context, error)
-                                    },
-                                )
+                                withContext(Dispatchers.IO) {
+                                    cloudSyncCoordinator.fullSync(
+                                        cloudSyncRepository,
+                                        force = true,
+                                    ).fold(
+                                        onSuccess = {
+                                            preferenceManager.setLastCloudSyncAt(System.currentTimeMillis())
+                                            cloudSyncIsError = false
+                                            cloudSyncStatus = context.getString(R.string.settings_sync_success)
+                                        },
+                                        onFailure = { error ->
+                                            cloudSyncIsError = true
+                                            cloudSyncStatus = mapCloudSyncError(context, error)
+                                        },
+                                    )
+                                }
                                 isCloudSyncing = false
                             }
                         },
