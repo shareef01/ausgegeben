@@ -257,8 +257,8 @@
   }
 
   [data-theme='dark'] .side-nav__brand-icon {
-    border-radius: 7px;
-    box-shadow: none;
+    border-radius: 9px;
+    box-shadow: 0 0 20px color-mix(in srgb, var(--color-income) 12%, transparent);
   }
 
   [data-theme='dark'] .side-nav__menu {

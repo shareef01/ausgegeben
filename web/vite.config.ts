@@ -11,13 +11,13 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icons/*.png'],
+      includeAssets: ['icons/*.png', 'icons/*.svg', 'favicon.ico', 'favicon-32.png'],
       manifest: {
         name: 'Ausgegeben',
         short_name: 'Ausgegeben',
         description: 'Track spending — expenses, income, and insights',
-        theme_color: '#0C0C0E',
-        background_color: '#0C0C0E',
+        theme_color: '#000000',
+        background_color: '#000000',
         display: 'standalone',
         orientation: 'portrait',
         scope: '/',

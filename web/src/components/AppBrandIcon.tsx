@@ -3,8 +3,12 @@ interface AppBrandIconProps {
   className?: string;
 }
 
-/** Vector app mark — crisp at any DPI, matches launcher artwork. */
+const MARK_PATH = 'M256 96 392 416 304 416 256 264 208 416 120 416Z';
+
+/** Minimal flow-mark — matches /icons/icon.svg and generated favicons. */
 export function AppBrandIcon({ size = 56, className = '' }: AppBrandIconProps) {
+  const gradId = `brand-mark-${size}`;
+
   return (
     <svg
       className={`app-brand-icon ${className}`.trim()}
@@ -14,19 +18,14 @@ export function AppBrandIcon({ size = 56, className = '' }: AppBrandIconProps) {
       aria-hidden
       role="img"
     >
-      <rect width="512" height="512" rx="112" fill="#0C0C0E" />
-      <rect x="56" y="56" width="400" height="400" rx="88" fill="#157A3A" />
-      <text
-        x="256"
-        y="318"
-        textAnchor="middle"
-        fontSize="220"
-        fill="#FFFFFF"
-        fontFamily="Inter, system-ui, -apple-system, sans-serif"
-        fontWeight="700"
-      >
-        A
-      </text>
+      <defs>
+        <linearGradient id={gradId} x1="128" y1="88" x2="392" y2="420" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#34D399" />
+          <stop offset="100%" stopColor="#059669" />
+        </linearGradient>
+      </defs>
+      <rect width="512" height="512" rx="108" fill="#000000" />
+      <path fill={`url(#${gradId})`} d={MARK_PATH} />
     </svg>
   );
 }
