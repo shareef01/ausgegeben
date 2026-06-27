@@ -240,9 +240,10 @@
   }
 
   [data-theme='dark'] .side-nav__brand {
-    padding: 6px 10px 22px;
+    padding: 6px 10px 24px;
     margin-bottom: 0;
     border-bottom: none;
+    overflow: visible;
   }
 
   [data-theme='dark'] .side-nav__brand .signature-text {
