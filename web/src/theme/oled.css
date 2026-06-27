@@ -232,24 +232,24 @@
   box-shadow: var(--shadow-cta-physical) !important;
 }
 
-/* ── Sidebar hierarchy (OLED) ── */
+/* ── Sidebar — Linear / Apple rail (OLED) ── */
 
 @media (min-width: 768px) {
   [data-theme='dark'] .side-nav {
-    padding: 20px 12px;
+    padding: 16px 10px 20px;
   }
 
   [data-theme='dark'] .side-nav__brand {
-    padding: 4px 8px 14px;
-    margin-bottom: 6px;
-    border-bottom: 1px solid var(--hairline-divider);
+    padding: 6px 10px 22px;
+    margin-bottom: 0;
+    border-bottom: none;
   }
 
   [data-theme='dark'] .side-nav__brand .signature-text {
-    color: #ffffff;
-    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 0.9375rem;
     font-weight: 600;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.025em;
   }
 
   [data-theme='dark'] .side-nav__brand .signature-text__accent {
@@ -257,72 +257,103 @@
   }
 
   [data-theme='dark'] .side-nav__brand-icon {
-    border-radius: 8px;
+    border-radius: 7px;
     box-shadow: none;
   }
 
   [data-theme='dark'] .side-nav__menu {
-    padding: 4px 0;
+    padding: 2px 0;
+    gap: 4px;
   }
 
   [data-theme='dark'] .side-nav__item {
-    color: rgba(255, 255, 255, 0.38);
+    color: rgba(255, 255, 255, 0.4);
     background: transparent;
+    border: none;
     box-shadow: none;
   }
 
-  [data-theme='dark'] .side-nav__item .signature-text {
-    color: rgba(255, 255, 255, 0.38);
-    font-weight: 500;
-  }
-
-  [data-theme='dark'] .side-nav__item .signature-text__accent {
-    color: rgba(34, 197, 94, 0.5);
-    font-weight: 600;
+  [data-theme='dark'] .side-nav__label {
+    color: inherit;
   }
 
   [data-theme='dark'] .side-nav__item .side-nav__icon-wrap {
-    color: rgba(255, 255, 255, 0.3);
-    background: transparent;
-    border: 1px solid transparent;
+    color: inherit;
+    background: none;
+    border: none;
+    opacity: 0.55;
   }
 
-  [data-theme='dark'] .side-nav__item:hover {
-    background: rgba(255, 255, 255, 0.03);
-    border-color: transparent;
+  [data-theme='dark'] .side-nav__item:hover:not(.side-nav__item--active) {
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.68);
+  }
+
+  [data-theme='dark'] .side-nav__item:hover:not(.side-nav__item--active) .side-nav__icon-wrap {
+    opacity: 0.78;
   }
 
   [data-theme='dark'] .side-nav__item--active {
-    background: var(--color-oled-surface);
-    border-color: var(--hairline-border);
+    background: rgba(255, 255, 255, 0.06);
+    color: #ffffff;
+    border: none;
     box-shadow: none;
   }
 
-  [data-theme='dark'] .side-nav__item--active .signature-text {
+  [data-theme='dark'] .side-nav__item--active .side-nav__label {
     color: #ffffff;
-    font-weight: 600;
-  }
-
-  [data-theme='dark'] .side-nav__item--active .signature-text__accent {
-    color: var(--color-income);
   }
 
   [data-theme='dark'] .side-nav__item--active .side-nav__icon-wrap {
     color: var(--color-income);
-    background: color-mix(in srgb, var(--color-income) 11%, transparent);
-    border-color: color-mix(in srgb, var(--color-income) 16%, transparent);
+    opacity: 1;
+    background: none;
+    border: none;
+  }
+
+  [data-theme='dark'] .side-nav__indicator {
+    background: var(--color-income);
   }
 
   [data-theme='dark'] .sync-pill--sidebar {
     margin-top: auto;
-    margin-left: 4px;
-    margin-right: 4px;
-    margin-bottom: 4px;
-    padding: 8px 10px;
-    background: var(--color-oled-surface);
+    margin-left: 6px;
+    margin-right: 6px;
+    margin-bottom: 2px;
+    padding: 7px 10px;
+    font-size: 0.6875rem;
+    background: rgba(255, 255, 255, 0.03);
     border: 1px solid var(--hairline-border);
     box-shadow: none;
+    color: rgba(255, 255, 255, 0.55);
   }
+}
+
+/* ── Mobile bottom bar (OLED) ── */
+
+[data-theme='dark'] .bottom-bar__item {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+[data-theme='dark'] .bottom-bar__label {
+  color: inherit;
+}
+
+[data-theme='dark'] .bottom-bar__item--active {
+  color: #ffffff;
+}
+
+[data-theme='dark'] .bottom-bar__item--active .bottom-bar__icon {
+  color: var(--color-income);
+}
+
+[data-theme='dark'] .bottom-bar__item--active .bottom-bar__label {
+  color: #ffffff;
+}
+
+[data-theme='dark'] .bottom-bar__indicator {
+  background: var(--color-income);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-income) 75%, transparent);
 }
 
 /* ── iOS segmented on OLED ── */
