@@ -36,20 +36,22 @@ export function MainShell() {
     <div className="app-shell">
       <nav className="side-nav" aria-label="Main">
         <div className="side-nav__brand">
-          <AppBrandIcon size={32} className="side-nav__brand-icon" />
+          <AppBrandIcon size={28} className="side-nav__brand-icon" />
           <SignatureText text={t('appName')} className="signature-text--brand" />
         </div>
-        {navItems.map(({ id, label, Icon }) => (
-          <button
-            key={id}
-            type="button"
-            className={`side-nav__item ${tab === id ? 'side-nav__item--active' : ''}`}
-            onClick={() => selectTab(id)}
-          >
-            <span className="side-nav__icon-wrap"><Icon width={20} height={20} /></span>
-            <SignatureNavLabel label={label} />
-          </button>
-        ))}
+        <div className="side-nav__menu">
+          {navItems.map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              type="button"
+              className={`side-nav__item ${tab === id ? 'side-nav__item--active' : ''}`}
+              onClick={() => selectTab(id)}
+            >
+              <span className="side-nav__icon-wrap"><Icon width={18} height={18} strokeWidth={2} /></span>
+              <SignatureNavLabel label={label} />
+            </button>
+          ))}
+        </div>
         {syncing ? (
           <div className="sync-pill sync-pill--sidebar">
             <IconSync width={14} height={14} className="spin" />
