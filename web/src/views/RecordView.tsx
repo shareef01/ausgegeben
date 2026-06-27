@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react';
-import { ScreenTitle, EmptyState, LoadingListSkeleton, categoryIcon } from '@/components/ui';
-import { IconAdd } from '@/components/Icons';
+import { useMemo, useState, type CSSProperties } from 'react';
+import { ScreenTitle, EmptyState, LoadingListSkeleton } from '@/components/ui';
+import { IconAdd, IconSearch } from '@/components/Icons';
+import { CategoryLucideIcon } from '@/components/CategoryLucideIcon';
+import { IosSegmentedControl } from '@/components/IosSegmentedControl';
 import { FinanceSummaryCard } from '@/components/FinanceSummaryCard';
 import { BudgetProgressBar } from '@/components/BudgetProgressBar';
-import { PremiumPeriodSelector, recordPeriodOptions } from '@/components/PeriodSelector';
+import { recordPeriodOptions } from '@/components/PeriodSelector';
 import { SwipeableRow } from '@/components/SwipeableRow';
 import { ReceiptPreview } from '@/components/ReceiptPreview';
 import { useRecordViewModel } from '@/viewmodels/useRecordViewModel';
@@ -54,28 +56,32 @@ export function RecordView({ onAdd, onEdit }: RecordViewProps) {
 
       <div className="card record-filters">
         <div className="record-toolbar">
-          <PremiumPeriodSelector
-            options={periodOptions}
-            selected={periodOptions.find((p) => p.key === uiState.listPeriod)!}
-            labelFor={(p) => p.label}
-            isSelected={(a, b) => a.key === b.key}
-            onSelected={(p) => setListPeriod(p.key as RecordListPeriod)}
+          <IosSegmentedControl
+            className="record-period-segmented"
+            options={periodOptions.map((p) => ({ value: p.key, label: p.label }))}
+            value={uiState.listPeriod}
+            onChange={(key) => setListPeriod(key as RecordListPeriod)}
           />
-          <input
-            className="search-input"
-            placeholder={t('recordSearchPlaceholder')}
-            value={uiState.searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+          <div className="record-search">
+            <IconSearch className="record-search__icon" width={18} height={18} aria-hidden />
+            <input
+              className="search-input record-search__input"
+              placeholder={t('recordSearchPlaceholder')}
+              value={uiState.searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
         </div>
 
-        <div className="chip-row chip-row--nested">
-          {(['all', 'expense', 'income', 'transfer'] as TransactionTypeFilter[]).map((f) => (
-            <button key={f} type="button" className={`chip ${uiState.typeFilter === f ? 'active' : ''}`} onClick={() => setTypeFilter(f)}>
-              {filterLabel(f, t)}
-            </button>
-          ))}
-        </div>
+        <IosSegmentedControl
+          className="record-type-segmented"
+          options={(['all', 'expense', 'income', 'transfer'] as TransactionTypeFilter[]).map((f) => ({
+            value: f,
+            label: filterLabel(f, t),
+          }))}
+          value={uiState.typeFilter}
+          onChange={setTypeFilter}
+        />
       </div>
 
       {uiState.loading ? (
@@ -124,7 +130,11 @@ function TransactionRow({ expense, category, currency, onClick, onReceiptClick }
 }) {
   const { t } = useTranslation();
   const color = category ? colorIntToHex(category.colorInt) : '#888';
-  const amountColor = expense.transactionType === 'income' ? 'var(--color-income)' : expense.transactionType === 'transfer' ? 'var(--color-transfer)' : 'var(--color-on-background)';
+  const amountColor = expense.transactionType === 'income'
+    ? 'var(--color-income)'
+    : expense.transactionType === 'transfer'
+      ? 'var(--color-transfer)'
+      : 'var(--color-expense)';
   const prefix = expense.transactionType === 'income' ? '+' : expense.transactionType === 'expense' ? '-' : '';
 
   const note = expense.note?.trim();
@@ -134,8 +144,12 @@ function TransactionRow({ expense, category, currency, onClick, onReceiptClick }
 
   return (
     <div className="transaction-row pressable-row" onClick={onClick} onKeyDown={(e) => e.key === 'Enter' && onClick()} role="button" tabIndex={0}>
-      <div className="transaction-row__icon" style={{ background: `color-mix(in srgb, ${color} 14%, transparent)` }}>
-        {category ? categoryIcon(category.iconName) : '•'}
+      <div className="transaction-row__icon" style={{ '--cat-color': color } as CSSProperties}>
+        {category ? (
+          <CategoryLucideIcon iconName={category.iconName} width={20} height={20} color={color} />
+        ) : (
+          <span className="transaction-row__icon-fallback" />
+        )}
       </div>
       <div className="transaction-row__meta">
         <div className="transaction-row__title">{primaryTitle}</div>

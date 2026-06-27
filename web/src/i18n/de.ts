@@ -105,6 +105,7 @@ export const de: Record<TranslationKey, string> = {
   billsOverviewTitle: 'Einnahmen vs. Ausgaben',
   billsNet: 'Saldo',
   billsCashFlow: 'Cashflow',
+  billsCashFlowSubtitle: 'Einnahmen {income} · Ausgaben {expense}',
   billsCashFlowHint: 'Summen in {currency} — genaue Beträge in der Liste.',
   addCategory: 'Kategorie hinzufügen',
   categoryNamePrompt: 'Kategoriename',
