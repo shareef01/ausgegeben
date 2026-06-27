@@ -1,6 +1,6 @@
 import { ScreenTitle, EmptyState } from '@/components/ui';
 import { DonutChart, segmentColor } from '@/components/DonutChart';
-import { CashFlowChart } from '@/components/CashFlowChart';
+import { CashFlowChart, CashFlowLegend } from '@/components/CashFlowChart';
 import { AnalyticsPeriodPicker } from '@/components/PeriodSelector';
 import { useDashboardViewModel } from '@/viewmodels/useDashboardViewModel';
 import { usePreferencesStore } from '@/services/preferencesStore';
@@ -109,15 +109,29 @@ function CategoryCard({ title, map, categories, currency, accent }: { title: str
 
 function CashFlowCard({ trend, currency }: { trend: { label: string; income: number; expense: number }[]; currency: string }) {
   const { t } = useTranslation();
+  const totalIncome = trend.reduce((s, p) => s + p.income, 0);
+  const totalExpense = trend.reduce((s, p) => s + p.expense, 0);
+
   return (
     <div className="card card--pressable insights-cashflow-card">
-      <div style={{ fontWeight: 500, marginBottom: 12 }}>{t('billsCashFlow')}</div>
+      <div className="insights-cashflow-card__header">
+        <div>
+          <div className="insights-cashflow-card__title">{t('billsCashFlow')}</div>
+          <div className="insights-cashflow-card__subtitle">
+            {t('billsCashFlowSubtitle', {
+              income: formatAmount(totalIncome, currency),
+              expense: formatAmount(totalExpense, currency),
+            })}
+          </div>
+        </div>
+        <CashFlowLegend />
+      </div>
       <CashFlowChart trend={trend} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--color-on-surface-variant)' }}>
+      <div className="insights-cashflow-card__axis">
         <span>{trend[0]?.label}</span>
         <span>{trend[trend.length - 1]?.label}</span>
       </div>
-      <div style={{ fontSize: '0.75rem', color: 'var(--color-on-surface-variant)', marginTop: 8 }}>
+      <div className="insights-cashflow-card__hint">
         {t('billsCashFlowHint', { currency })}
       </div>
     </div>
