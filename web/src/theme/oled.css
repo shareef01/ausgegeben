@@ -352,7 +352,7 @@
 }
 
 [data-theme='dark'] .bottom-bar__item--active .bottom-bar__icon {
-  color: var(--color-income);
+  color: var(--color-accent);
 }
 
 [data-theme='dark'] .bottom-bar__item--active .bottom-bar__label {
