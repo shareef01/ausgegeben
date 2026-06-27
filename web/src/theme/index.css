@@ -5,8 +5,8 @@
 :root {
   --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
   --bottom-bar-height: 72px;
-  --fab-size: 58px;
-  --fab-clearance: 76px;
+  --fab-size: 64px;
+  --fab-clearance: 88px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --layout-breakpoint: 768px;

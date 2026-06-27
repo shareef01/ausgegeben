@@ -171,6 +171,16 @@
   .fab--mobile-only {
     display: none !important;
   }
+
+  .fab--record {
+    display: grid !important;
+    right: max(32px, var(--workspace-padding-desktop));
+    bottom: 32px;
+  }
+
+  .app-main--fab {
+    padding-bottom: calc(var(--fab-size) + 56px);
+  }
 }
 
 /* ── Add transaction: mobile bottom sheet ── */

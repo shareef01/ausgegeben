@@ -574,7 +574,11 @@ a {
 }
 
 .fab--mobile-only {
-  /* visible on mobile; hidden on desktop via media query */
+  /* legacy alias — use .fab--record */
+}
+
+.fab--record {
+  display: grid;
 }
 
 .add-transaction-pill {
@@ -597,6 +601,20 @@ a {
 .transaction-list-bare {
   margin: 8px 0 16px;
   padding: 0 var(--workspace-padding);
+}
+
+.transaction-list-bare__section {
+  display: flex;
+  flex-direction: column;
+}
+
+.transaction-list-bare__rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.transaction-list-bare .swipeable-row__content {
+  background: transparent;
 }
 
 .transaction-list-card {
@@ -2202,12 +2220,18 @@ a {
     display: none;
   }
 
-  .fab--mobile-only {
-    display: none !important;
+  .fab--mobile-only,
+  .fab--record {
+    display: grid;
+  }
+
+  .fab--record {
+    right: max(32px, var(--workspace-padding-desktop));
+    bottom: 32px;
   }
 
   .add-transaction-pill {
-    display: inline-flex;
+    display: none !important;
   }
 
   .transaction-list-card__header {
@@ -2215,7 +2239,7 @@ a {
   }
 
   .screen-title-bar__action .add-transaction-pill {
-    display: inline-flex;
+    display: none !important;
   }
 
   .app-shell__body {
