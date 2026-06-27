@@ -58,7 +58,9 @@ object ExportUtils {
         }
     }
 
-    private fun csvEscape(value: String): String {
+    private fun csvEscape(value: String): String = csvEscapeField(value)
+
+    internal fun csvEscapeField(value: String): String {
         if (value.none { it == ',' || it == '"' || it == '\n' }) return value
         return "\"${value.replace("\"", "\"\"")}\""
     }
