@@ -169,6 +169,7 @@
 [data-theme='dark'] .transaction-list-bare .transaction-list-card__day,
 [data-theme='dark'] .transaction-list-bare__day {
   position: sticky;
+  top: var(--record-sticky-offset);
   z-index: 12;
   display: block;
   margin: 0;
@@ -178,7 +179,9 @@
   font-weight: 600;
   letter-spacing: 0.1em;
   color: var(--color-label-muted);
-  background: #000000;
+  background: rgba(0, 0, 0, 0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border-bottom: 1px solid var(--hairline-divider);
   isolation: isolate;
 }
@@ -194,26 +197,17 @@
 }
 
 [data-theme='dark'] .transaction-list-bare .swipeable-row__content {
-  background: transparent;
+  background: #000000;
 }
 
-/* Page scroll: stick below screen title */
-@media (max-width: 1199px) {
-  [data-theme='dark'] .transaction-list-bare__day {
-    top: var(--record-sticky-offset);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    background: rgba(0, 0, 0, 0.92);
+/* Desktop: no swipe-delete chrome — rows sit on bare OLED canvas */
+@media (hover: hover) and (pointer: fine) {
+  [data-theme='dark'] .transaction-list-bare .swipeable-row__bg {
+    display: none;
   }
-}
 
-/* Nested list scroll: stick to panel top */
-@media (min-width: 1200px) {
-  [data-theme='dark'] .record-view > .transaction-list-bare .transaction-list-bare__day {
-    top: 0;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    background: rgba(0, 0, 0, 0.94);
+  [data-theme='dark'] .transaction-list-bare .swipeable-row__content {
+    background: transparent;
   }
 }
 
@@ -310,22 +304,4 @@
   -webkit-backdrop-filter: blur(24px);
   border-bottom: 1px solid var(--hairline-divider);
   box-shadow: none;
-}
-
-/* ── Desktop record grid: bare list column ── */
-
-@media (min-width: 1200px) {
-  [data-theme='dark'] .record-view > .transaction-list-bare {
-    grid-column: 2;
-    grid-row: 2 / span 12;
-    margin-left: 0;
-    margin-right: 0;
-    padding-right: 0;
-    position: sticky;
-    top: 88px;
-    max-height: calc(100vh - 140px);
-    overflow: auto;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
-  }
 }
