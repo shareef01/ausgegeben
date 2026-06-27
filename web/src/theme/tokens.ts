@@ -40,20 +40,20 @@ export interface ThemePalette {
 
 const baseDark = (overrides: Partial<ThemePalette> = {}): ThemePalette => ({
   primary: '#FAFAFA',
-  onPrimary: '#09090B',
-  background: '#0C0C0E',
+  onPrimary: '#000000',
+  background: '#000000',
   onBackground: '#FAFAFA',
-  surface: '#141416',
+  surface: '#121212',
   onSurface: '#F4F4F5',
-  surfaceVariant: '#27272A',
-  onSurfaceVariant: '#8E8E93',
-  outline: '#3F3F46',
-  error: '#E85D5D',
-  income: '#22C55E',
-  incomeLight: '#157A3A',
-  expense: '#E85D5D',
+  surfaceVariant: '#18181B',
+  onSurfaceVariant: '#A1A1AA',
+  outline: 'rgba(255, 255, 255, 0.08)',
+  error: '#FF453A',
+  income: '#30D158',
+  incomeLight: '#248A3D',
+  expense: '#FF6B35',
   transfer: '#94A3B8',
-  focusRing: '#3B82F6',
+  focusRing: '#0A84FF',
   isDark: true,
   ...overrides,
 });
@@ -137,11 +137,12 @@ export function applyTheme(palette: ThemePalette): void {
   root.style.setProperty('--color-accent', brandAccent(palette));
   root.style.setProperty('--color-focus', palette.focusRing);
   root.style.setProperty('--color-date-divider', palette.isDark ? '#94A3B8' : '#64748B');
-  root.style.setProperty('--glass-bg', palette.isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.025)');
-  root.style.setProperty('--glass-border', palette.isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.07)');
-  root.style.setProperty('--glass-bg-elevated', palette.isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.72)');
-  root.style.setProperty('--gradient-income', `linear-gradient(135deg, ${financeIncome(palette)} 0%, #059669 100%)`);
-  root.style.setProperty('--gradient-expense', `linear-gradient(135deg, ${palette.expense} 0%, #dc2626 100%)`);
+  root.style.setProperty('--glass-bg', palette.isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.025)');
+  root.style.setProperty('--glass-border', palette.isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.07)');
+  root.style.setProperty('--glass-bg-elevated', palette.isDark ? 'rgba(18, 18, 18, 0.88)' : 'rgba(255, 255, 255, 0.72)');
+  root.style.setProperty('--surface-border', palette.isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.06)');
+  root.style.setProperty('--gradient-income', `linear-gradient(135deg, ${financeIncome(palette)} 0%, #34C759 100%)`);
+  root.style.setProperty('--gradient-expense', `linear-gradient(135deg, ${palette.expense} 0%, #FF453A 100%)`);
   root.style.setProperty('--gradient-accent', palette.isDark
     ? 'linear-gradient(135deg, #34d399 0%, #157A3A 45%, #0d9488 100%)'
     : 'linear-gradient(135deg, #157A3A 0%, #22c55e 100%)');
