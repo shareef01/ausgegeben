@@ -20,7 +20,11 @@ export function App() {
   const { t } = useTranslation();
 
   useEffect(() => {
-    void ensureSeeded().then(() => setDbReady(true));
+    void ensureSeeded()
+      .catch((error) => {
+        console.error('[db] Seed failed', error);
+      })
+      .finally(() => setDbReady(true));
     authService.startListener();
     return () => authService.stopListener();
   }, []);

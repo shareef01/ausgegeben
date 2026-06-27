@@ -12,34 +12,57 @@ import { usePreferencesStore } from '@/services/preferencesStore';
 import { syncService } from '@/services/syncService';
 
 let unsubscribe: (() => void) | null = null;
+let readyFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+
+function markAuthReady(): void {
+  if (readyFallbackTimer) {
+    clearTimeout(readyFallbackTimer);
+    readyFallbackTimer = null;
+  }
+  useAuthStore.getState().setReady(true);
+}
 
 export const authService = {
   startListener(): void {
     if (unsubscribe) return;
     const auth = getFirebaseAuth();
     if (!auth) {
-      useAuthStore.getState().setReady(true);
+      markAuthReady();
       return;
     }
 
-    unsubscribe = onAuthStateChanged(auth, async (user) => {
-      const { setUser, setReady } = useAuthStore.getState();
+    readyFallbackTimer = setTimeout(() => {
+      if (!useAuthStore.getState().ready) {
+        console.warn('[auth] Auth state listener timed out; continuing without blocking load');
+        markAuthReady();
+      }
+    }, 12_000);
+
+    unsubscribe = onAuthStateChanged(auth, (user) => {
+      const { setUser } = useAuthStore.getState();
       const { setStorageMode, completeAuthGateway } = usePreferencesStore.getState();
       setUser(user);
+      markAuthReady();
+
       if (user) {
         setStorageMode('cloud');
         completeAuthGateway();
-        await syncService.fullSync();
+        void syncService.fullSync().catch((error) => {
+          console.error('[auth] Initial cloud sync failed', error);
+        });
       } else {
         usePreferencesStore.getState().resetAuthGateway();
       }
-      setReady(true);
     });
   },
 
   stopListener(): void {
     unsubscribe?.();
     unsubscribe = null;
+    if (readyFallbackTimer) {
+      clearTimeout(readyFallbackTimer);
+      readyFallbackTimer = null;
+    }
   },
 
   async signInWithEmail(email: string, password: string): Promise<void> {
