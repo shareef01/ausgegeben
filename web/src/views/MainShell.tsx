@@ -36,7 +36,7 @@ export function MainShell() {
     <div className="app-shell">
       <nav className="side-nav" aria-label="Main">
         <div className="side-nav__brand">
-          <AppBrandIcon size={28} className="side-nav__brand-icon" />
+          <AppBrandIcon size={32} className="side-nav__brand-icon" />
           <SignatureText text={t('appName')} className="signature-text--brand" />
         </div>
         <div className="side-nav__menu">
@@ -52,7 +52,7 @@ export function MainShell() {
               >
                 <span className="side-nav__indicator" aria-hidden />
                 <span className="side-nav__icon-wrap">
-                  <Icon width={18} height={18} strokeWidth={active ? 2.25 : 1.75} />
+                  <Icon className="side-nav__icon" strokeWidth={active ? 2.25 : 2} aria-hidden />
                 </span>
                 <span className="side-nav__label">{label}</span>
               </button>
