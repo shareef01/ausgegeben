@@ -288,10 +288,6 @@ a {
   padding: 0;
   position: relative;
   overflow: hidden;
-  background: color-mix(in srgb, var(--color-on-surface) 2%, var(--glass-bg));
-  box-shadow:
-    0 8px 32px color-mix(in srgb, var(--color-background) 50%, transparent),
-    0 1px 0 color-mix(in srgb, var(--color-on-background) 5%, transparent) inset;
 }
 
 .finance-summary-card__glow {
@@ -331,7 +327,6 @@ a {
 .record-filters {
   margin: 0 var(--workspace-padding) 16px;
   padding: 16px 16px 12px;
-  background: color-mix(in srgb, var(--color-on-surface) 3%, var(--glass-bg));
 }
 
 .record-filters .record-toolbar {
@@ -597,6 +592,11 @@ a {
 .add-transaction-pill--compact {
   padding: 8px 14px;
   font-size: 0.8125rem;
+}
+
+.transaction-list-bare {
+  margin: 8px 0 16px;
+  padding: 0 var(--workspace-padding);
 }
 
 .transaction-list-card {
@@ -2254,6 +2254,7 @@ a {
 
   .finance-summary-card,
   .transaction-list-card,
+  .transaction-list-bare,
   .record-filters,
   .skeleton-list,
   .insights-stat-grid {
@@ -2404,7 +2405,8 @@ a {
     padding-right: 0;
   }
 
-  .record-view > .transaction-list-card {
+  .record-view > .transaction-list-card,
+  .record-view > .transaction-list-bare {
     grid-column: 2;
     grid-row: 2 / span 12;
     margin-left: 0;
