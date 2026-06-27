@@ -1,11 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-  <!-- Flow-mark A — matches PWA icon.svg (scaled to adaptive safe zone) -->
-  <path
-      android:fillColor="#22C55E"
-      android:pathData="M54,20 L81,88 L64,88 L54,56 L44,88 L27,88 Z" />
+
+    <!-- Mark glow -->
+    <path
+        android:fillColor="#34D399"
+        android:fillAlpha="0.28"
+        android:pathData="M54,18 L84,90 L65,90 L54,54 L43,90 L24,90 Z" />
+
+    <!-- Main flow-mark -->
+    <path android:pathData="M54,20 L81,88 L64,88 L54,56 L44,88 L27,88 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="27"
+                android:startY="18"
+                android:endX="81"
+                android:endY="90"
+                android:startColor="#6EE7B7"
+                android:centerColor="#34D399"
+                android:endColor="#047857" />
+        </aapt:attr>
+    </path>
+
+    <!-- Inner facet highlight -->
+    <path
+        android:fillColor="#A7F3D0"
+        android:fillAlpha="0.35"
+        android:pathData="M54,56 L64,88 L44,88 Z" />
+
+    <!-- Apex spark -->
+    <path
+        android:fillColor="#ECFDF5"
+        android:pathData="M54,22 m-2.5,0 a2.5,2.5 0 1,1 5,0 a2.5,2.5 0 1,1 -5,0" />
 </vector>
