@@ -16,21 +16,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Analytics
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material3.BottomSheetDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
@@ -48,6 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.entity.Category
+import com.aus.ausgegeben.ui.components.AnalyticsPeriodPicker
 import com.aus.ausgegeben.ui.components.AnimatedCategoryBar
 import com.aus.ausgegeben.ui.components.DonutChart
 import com.aus.ausgegeben.ui.components.EmptyStateMessage
@@ -66,13 +59,12 @@ import com.aus.ausgegeben.ui.theme.forChartDisplay
 import com.aus.ausgegeben.ui.theme.financeExpenseColor
 import com.aus.ausgegeben.ui.theme.financeIncomeColor
 import com.aus.ausgegeben.util.analyticsPeriodOptions
-import com.aus.ausgegeben.util.AnalyticsPeriodOption
 import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.colorIntToCompose
 import com.aus.ausgegeben.util.harmonizedChartColors
 import com.aus.ausgegeben.util.iconForCategory
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun BillsScreen(
     viewModel: DashboardViewModel,
@@ -114,7 +106,7 @@ fun BillsScreen(
                     .background(MaterialTheme.colorScheme.background)
                     .padding(bottom = AppSpacing.xxs)
             ) {
-                PeriodDropdown(
+                AnalyticsPeriodPicker(
                     options = periodOptions,
                     selectedKey = uiState.periodKey,
                     selectedLabel = selectedPeriodLabel,
@@ -195,109 +187,6 @@ fun BillsScreen(
 
             item(key = "footer-spacer") {
                 Spacer(modifier = Modifier.height(AppSpacing.xs))
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun PeriodDropdown(
-    options: List<AnalyticsPeriodOption>,
-    selectedKey: String,
-    selectedLabel: String,
-    onSelected: (AnalyticsPeriodOption) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    var sheetOpen by remember { mutableStateOf(false) }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val rowShape = RoundedCornerShape(AppRadius.xl)
-
-    Box(modifier = modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(rowShape)
-                .background(MaterialTheme.colorScheme.surface)
-                .clickable { sheetOpen = true }
-                .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = selectedLabel,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontWeight = FontWeight.Medium,
-                )
-                if (selectedKey != "all_time") {
-                    Text(
-                        text = stringResource(R.string.period_month_container),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = FontWeight.Normal,
-                    )
-                }
-            }
-            Icon(
-                Icons.Rounded.ArrowDropDown,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-
-    if (sheetOpen) {
-        ModalBottomSheet(
-            onDismissRequest = { sheetOpen = false },
-            sheetState = sheetState,
-            containerColor = MaterialTheme.colorScheme.surface,
-            dragHandle = { BottomSheetDefaults.DragHandle() },
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(top = AppSpacing.xs, bottom = AppSpacing.lg),
-            ) {
-                options.forEach { option ->
-                    val label = if (option.storageKey == "all_time") {
-                        stringResource(R.string.period_all_time)
-                    } else {
-                        option.label
-                    }
-                    val selected = option.storageKey == selectedKey
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                onSelected(option)
-                                sheetOpen = false
-                            }
-                            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = if (selected) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onBackground
-                            },
-                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                            modifier = Modifier.weight(1f),
-                        )
-                        if (selected) {
-                            Icon(
-                                imageVector = Icons.Rounded.Check,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp),
-                            )
-                        }
-                    }
-                }
             }
         }
     }
