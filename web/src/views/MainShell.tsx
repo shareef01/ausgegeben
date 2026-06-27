@@ -48,7 +48,7 @@ export function MainShell() {
               >
                 <span className="side-nav__indicator" aria-hidden />
                 <span className="side-nav__icon-wrap">
-                  <Icon className="side-nav__icon" strokeWidth={active ? 2.25 : 2} aria-hidden />
+                  <Icon className="side-nav__icon" strokeWidth={active ? 2.35 : 1.85} aria-hidden />
                 </span>
                 <span className="side-nav__label">{label}</span>
               </button>
