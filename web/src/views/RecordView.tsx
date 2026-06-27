@@ -1,6 +1,6 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { ScreenTitle, EmptyState, LoadingListSkeleton } from '@/components/ui';
-import { IconSearch } from '@/components/Icons';
+import { IconPaperclip, IconSearch } from '@/components/Icons';
 import { CategoryLucideIcon } from '@/components/CategoryLucideIcon';
 import { IosSegmentedControl } from '@/components/IosSegmentedControl';
 import { FinanceSummaryCard } from '@/components/FinanceSummaryCard';
@@ -18,9 +18,10 @@ import { isReceiptPath } from '@/services/receiptService';
 
 interface RecordViewProps {
   onEdit: (id: number) => void;
+  onAdd?: () => void;
 }
 
-export function RecordView({ onEdit }: RecordViewProps) {
+export function RecordView({ onEdit, onAdd }: RecordViewProps) {
   const { t } = useTranslation();
   const currency = usePreferencesStore((s) => s.currency);
   const { uiState, monthSpent, setSearchQuery, setTypeFilter, setListPeriod, requestDelete, duplicateExpense } = useRecordViewModel();
@@ -76,7 +77,15 @@ export function RecordView({ onEdit }: RecordViewProps) {
       ) : uiState.expenses.length === 0 ? (
         <EmptyState
           title={t('recordEmptyTitle')}
-          subtitle={`${t('recordEmptySubtitle')} ${t('recordEmptyHint')}`}
+          subtitle={t('recordEmptySubtitle')}
+          hint={t('recordEmptyHint')}
+          action={
+            onAdd ? (
+              <button type="button" className="btn btn-primary" onClick={onAdd}>
+                {t('navAdd')}
+              </button>
+            ) : undefined
+          }
         />
       ) : (
         <div className="transaction-list-bare">
@@ -151,7 +160,7 @@ function TransactionRow({ expense, category, currency, onReceiptClick }: {
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); onReceiptClick(); }}
         >
-          📎
+          <IconPaperclip width={16} height={16} aria-hidden />
         </button>
       ) : null}
       <div className="transaction-row__amount" style={{ color: amountColor }}>

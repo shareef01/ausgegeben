@@ -17,6 +17,7 @@ import {
   List,
   LogOut,
   Moon,
+  Paperclip,
   Plus,
   RefreshCw,
   Search,
@@ -120,4 +121,8 @@ export function IconCloudOff(props: IconProps) {
 
 export function IconArrowLeftRight(props: IconProps) {
   return <ArrowLeftRight strokeWidth={STROKE} {...props} />;
+}
+
+export function IconPaperclip(props: IconProps) {
+  return <Paperclip strokeWidth={STROKE} {...props} />;
 }

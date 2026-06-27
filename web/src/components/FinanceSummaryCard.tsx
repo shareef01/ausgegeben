@@ -21,10 +21,7 @@ export function FinanceSummaryCard({ expenses, currency, periodLabel }: FinanceS
   const balanceTone = netPositive ? 'positive' : net < 0 ? 'negative' : 'neutral';
 
   return (
-    <div
-      className="card card--pressable finance-summary-card"
-      style={{ '--expense-ratio': expenseRatio, '--income-ratio': incomeRatio } as CSSProperties}
-    >
+    <div className="card finance-summary-card" style={{ '--expense-ratio': expenseRatio, '--income-ratio': incomeRatio } as CSSProperties}>
       <div className="finance-summary-card__glow" aria-hidden data-positive={netPositive ? 'true' : 'false'} />
       <div className="finance-summary-card__inner">
         <div className="finance-summary-card__label">{t('summaryBalance')} · {periodLabel}</div>
@@ -36,8 +33,8 @@ export function FinanceSummaryCard({ expenses, currency, periodLabel }: FinanceS
           />
         </div>
         <div className="finance-summary-card__chips">
-          <StatChip variant="income" label={t('summaryEarned')} value={totalIncome} currency={currency} />
-          <StatChip variant="expense" label={t('summarySpent')} value={totalExpenses} currency={currency} />
+          <StatChip variant="income" label={t('summaryEarned')} value={totalIncome} currency={currency} muted={totalIncome === 0} />
+          <StatChip variant="expense" label={t('summarySpent')} value={totalExpenses} currency={currency} muted={totalExpenses === 0} />
         </div>
         <div className="finance-summary-card__ratio" aria-hidden>
           <div className="finance-summary-card__ratio-expense" />
@@ -48,9 +45,9 @@ export function FinanceSummaryCard({ expenses, currency, periodLabel }: FinanceS
   );
 }
 
-function StatChip({ variant, label, value, currency }: { variant: 'income' | 'expense'; label: string; value: number; currency: string }) {
+function StatChip({ variant, label, value, currency, muted }: { variant: 'income' | 'expense'; label: string; value: number; currency: string; muted?: boolean }) {
   return (
-    <div className={`finance-stat-chip finance-stat-chip--${variant}`}>
+    <div className={`finance-stat-chip finance-stat-chip--${variant}${muted ? ' finance-stat-chip--muted' : ''}`}>
       <div className="finance-stat-chip__label">
         <span className="finance-stat-chip__indicator" aria-hidden />
         {label}
