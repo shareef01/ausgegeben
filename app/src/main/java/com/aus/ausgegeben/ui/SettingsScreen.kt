@@ -73,12 +73,16 @@ import com.aus.ausgegeben.ui.theme.ThemeMode
 import com.aus.ausgegeben.ui.theme.appDividerColor
 import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.ExportUtils
+import com.aus.ausgegeben.sync.CloudAuthManager
+import com.aus.ausgegeben.sync.SyncManager
 import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
     repository: AppRepository,
     preferenceManager: PreferenceManager,
+    authManager: CloudAuthManager,
+    syncManager: SyncManager,
     onNavigateToCategories: () -> Unit,
     onShowMessage: (String) -> Unit = {},
     onRequestNotificationPermission: () -> Unit = {},
@@ -86,6 +90,10 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
+    suspend fun pushPrefsToCloud() {
+        syncManager.onPreferencesChanged()
+    }
 
     val currency by preferenceManager.currencyFlow.collectAsState(initial = "EUR")
     val themeMode by preferenceManager.themeModeFlow.collectAsState(initial = ThemeMode.SYSTEM)
@@ -117,6 +125,15 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxSize(),
             contentPadding = tabScreenListBottomPadding()
         ) {
+            item {
+                CloudSettingsSection(
+                    authManager = authManager,
+                    syncManager = syncManager,
+                    preferenceManager = preferenceManager,
+                    onShowMessage = onShowMessage,
+                )
+            }
+
             item { SettingSectionTitle(stringResource(R.string.settings_section_appearance)) }
             item {
                 SettingsGroup {
@@ -147,6 +164,7 @@ fun SettingsScreen(
                         onCheckedChange = { enabled ->
                             scope.launch {
                                 preferenceManager.updateDailyReminder(enabled)
+                                pushPrefsToCloud()
                                 if (enabled) {
                                     onRequestNotificationPermission()
                                     ReminderScheduler.scheduleNext(context)
@@ -255,6 +273,7 @@ fun SettingsScreen(
                         ThemeOption(mode.label(), selected = themeMode == mode) {
                             scope.launch {
                                 preferenceManager.updateThemeMode(mode)
+                                pushPrefsToCloud()
                                 showThemeDialog = false
                             }
                         }
@@ -282,6 +301,7 @@ fun SettingsScreen(
                         ) {
                             scope.launch {
                                 preferenceManager.updateCurrency(code)
+                                pushPrefsToCloud()
                                 showCurrencyDialog = false
                             }
                         }
@@ -311,6 +331,7 @@ fun SettingsScreen(
                             ) {
                                 scope.launch {
                                     preferenceManager.updateReminderTime(hour, minute)
+                                    pushPrefsToCloud()
                                     ReminderScheduler.scheduleNext(context)
                                     showReminderTimeDialog = false
                                     onShowMessage(context.getString(R.string.settings_reminder_set, label))
@@ -357,6 +378,7 @@ fun SettingsScreen(
                         scope.launch {
                             val amount = CurrencyUtils.parseAmount(budgetInput, currency)
                             preferenceManager.updateMonthlyBudget(amount)
+                            pushPrefsToCloud()
                             showBudgetDialog = false
                             onShowMessage(
                                 if (amount != null && amount > 0) {
@@ -410,7 +432,7 @@ fun SettingSectionTitle(title: String) {
 }
 
 @Composable
-private fun SettingsDivider() {
+internal fun SettingsDivider() {
     HorizontalDivider(
         modifier = Modifier.padding(start = AppLayoutTokens.listSeparatorInset),
         thickness = 1.dp,

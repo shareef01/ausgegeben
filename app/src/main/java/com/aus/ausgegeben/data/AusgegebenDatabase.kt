@@ -9,7 +9,7 @@ import com.aus.ausgegeben.data.dao.ExpenseDao
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 
-@Database(entities = [Category::class, Expense::class], version = 6, exportSchema = true)
+@Database(entities = [Category::class, Expense::class], version = 7, exportSchema = true)
 abstract class AusgegebenDatabase : RoomDatabase() {
 
     abstract fun categoryDao(): CategoryDao

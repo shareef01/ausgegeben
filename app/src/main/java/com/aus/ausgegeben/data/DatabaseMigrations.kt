@@ -96,11 +96,20 @@ object DatabaseMigrations {
         }
     }
 
+    val MIGRATION_6_7 = object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.addColumnIfMissing("categories", "updatedAt", "INTEGER NOT NULL DEFAULT 0")
+            db.addColumnIfMissing("expenses", "updatedAt", "INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("UPDATE expenses SET updatedAt = dateMillis WHERE updatedAt = 0")
+        }
+    }
+
     val ALL = arrayOf(
         MIGRATION_1_2,
         MIGRATION_2_3,
         MIGRATION_3_4,
         MIGRATION_4_5,
-        MIGRATION_5_6
+        MIGRATION_5_6,
+        MIGRATION_6_7
     )
 }

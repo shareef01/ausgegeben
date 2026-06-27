@@ -75,6 +75,31 @@
     <string name="settings_budget_set">Monatslimit gesetzt</string>
     <string name="settings_budget_cleared">Monatslimit entfernt</string>
 
+    <string name="settings_section_cloud">Cloud-Sync</string>
+    <string name="settings_cloud_sign_in">Anmelden</string>
+    <string name="settings_cloud_signed_out_subtitle">Transaktionen mit PWA und anderen Geräten synchronisieren</string>
+    <string name="settings_cloud_account">Cloud-Konto</string>
+    <string name="settings_cloud_syncing">Synchronisiere…</string>
+    <string name="settings_cloud_last_sync">Letzte Sync: %1$s</string>
+    <string name="settings_cloud_never_synced">Noch nicht synchronisiert</string>
+    <string name="settings_cloud_sync_now">Jetzt synchronisieren</string>
+    <string name="settings_cloud_sync_now_subtitle">Neueste Daten laden und hochladen</string>
+    <string name="settings_cloud_sync_ok">Synchronisation abgeschlossen</string>
+    <string name="settings_cloud_sync_failed">Sync fehlgeschlagen — Verbindung prüfen</string>
+    <string name="settings_cloud_sign_out">Abmelden</string>
+    <string name="settings_cloud_sign_out_subtitle">Sync auf diesem Gerät beenden</string>
+    <string name="settings_cloud_signed_in">Angemeldet — Daten werden synchronisiert</string>
+    <string name="settings_cloud_signed_out">Abgemeldet</string>
+    <string name="settings_cloud_google">Mit Google fortfahren</string>
+    <string name="settings_cloud_google_subtitle">Gleiches Konto wie in der Web-App</string>
+    <string name="settings_cloud_google_failed">Google-Anmeldung fehlgeschlagen</string>
+    <string name="settings_cloud_email">E-Mail</string>
+    <string name="settings_cloud_password">Passwort</string>
+    <string name="settings_cloud_create_account">Konto erstellen</string>
+    <string name="settings_cloud_have_account">Bereits ein Konto? Anmelden</string>
+    <string name="settings_cloud_need_account">Konto nötig? Registrieren</string>
+    <string name="settings_cloud_auth_failed">Anmeldung fehlgeschlagen — E-Mail und Passwort prüfen</string>
+
     <string name="add_save_changes">Änderungen speichern</string>
     <string name="add_income">Einnahme hinzufügen</string>
     <string name="add_transfer">Umbuchung hinzufügen</string>

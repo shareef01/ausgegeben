@@ -59,8 +59,17 @@ interface ExpenseDao {
     )
     suspend fun countByReceiptPath(path: String, excludeId: Long): Int
 
+    @Query("SELECT * FROM expenses ORDER BY dateMillis DESC")
+    suspend fun getAllExpensesOnce(): List<Expense>
+
+    @Query("DELETE FROM expenses WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM expenses WHERE categoryId = :categoryId")
+    suspend fun deleteByCategoryId(categoryId: Long)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(expense: Expense)
+    suspend fun insert(expense: Expense): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(expenses: List<Expense>)

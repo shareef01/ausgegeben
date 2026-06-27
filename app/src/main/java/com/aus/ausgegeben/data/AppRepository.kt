@@ -8,6 +8,8 @@ import androidx.paging.PagingData
 import com.aus.ausgegeben.data.dao.ExpenseDao
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
+import com.aus.ausgegeben.sync.CloudSyncDelegate
+import com.aus.ausgegeben.sync.NoOpCloudSyncDelegate
 import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.util.dateRangeMillis
 import com.aus.ausgegeben.util.ReceiptFileUtils
@@ -20,7 +22,8 @@ import kotlinx.coroutines.flow.map
 class AppRepository(
     private val categoryDao: CategoryDao,
     private val expenseDao: ExpenseDao,
-    private val appContext: Context
+    private val appContext: Context,
+    private val cloudSync: CloudSyncDelegate = NoOpCloudSyncDelegate,
 ) {
     // Categories
     val allCategories: Flow<List<Category>> = categoryDao.getAllCategories()
@@ -32,9 +35,19 @@ class AppRepository(
         }
         .distinctUntilChanged()
 
-    suspend fun insertCategory(category: Category): Long = categoryDao.insert(category)
+    suspend fun insertCategory(category: Category): Long {
+        val stamped = stampCategory(category)
+        val id = categoryDao.insert(stamped.copy(id = 0))
+        val saved = stamped.copy(id = id)
+        cloudSync.onCategoryInserted(saved)
+        return id
+    }
 
-    suspend fun updateCategory(category: Category) = categoryDao.update(category)
+    suspend fun updateCategory(category: Category) {
+        val stamped = stampCategory(category)
+        categoryDao.update(stamped)
+        cloudSync.onCategoryUpdated(stamped)
+    }
 
     suspend fun insertAllCategories(categories: List<Category>) = categoryDao.insertAll(categories)
 
@@ -42,8 +55,10 @@ class AppRepository(
         val linkedExpenses = expenseDao.getExpensesForCategory(category.id)
         categoryDao.delete(category)
         linkedExpenses.forEach { expense ->
+            cloudSync.onExpenseDeleted(expense.id)
             purgeReceiptIfUnreferenced(expense.receiptImagePath)
         }
+        cloudSync.onCategoryDeleted(category.id)
     }
 
     // Expenses
@@ -67,12 +82,24 @@ class AppRepository(
     fun getExpensesByCategory(categoryId: Long): Flow<List<Expense>> =
         expenseDao.getExpensesByCategory(categoryId)
 
-    suspend fun insertExpense(expense: Expense) = expenseDao.insert(expense)
+    suspend fun insertExpense(expense: Expense): Long {
+        val stamped = stampExpense(expense)
+        val id = if (stamped.id == 0L) {
+            expenseDao.insert(stamped)
+        } else {
+            expenseDao.insert(stamped)
+            stamped.id
+        }
+        val saved = stamped.copy(id = id)
+        cloudSync.onExpenseInserted(saved)
+        return id
+    }
 
     suspend fun insertAllExpenses(expenses: List<Expense>) = expenseDao.insertAll(expenses)
 
     suspend fun deleteExpense(expense: Expense) {
         expenseDao.delete(expense)
+        cloudSync.onExpenseDeleted(expense.id)
     }
 
     suspend fun duplicateExpense(expense: Expense) {
@@ -88,7 +115,9 @@ class AppRepository(
 
     suspend fun updateExpense(expense: Expense) {
         val previous = expenseDao.getById(expense.id)
-        expenseDao.update(expense)
+        val stamped = stampExpense(expense)
+        expenseDao.update(stamped)
+        cloudSync.onExpenseUpdated(stamped)
         if (previous?.receiptImagePath != expense.receiptImagePath) {
             purgeReceiptIfUnreferenced(previous?.receiptImagePath, excludeExpenseId = expense.id)
         }
@@ -118,8 +147,14 @@ class AppRepository(
         categoryDao.getAllCategories().first().forEach { category ->
             val repaired = repairStoredCategoryColor(category.colorInt, category.name)
             if (repaired != category.colorInt) {
-                categoryDao.update(category.copy(colorInt = repaired))
+                updateCategory(category.copy(colorInt = repaired))
             }
         }
     }
+
+    private fun stampCategory(category: Category): Category =
+        category.copy(updatedAt = System.currentTimeMillis())
+
+    private fun stampExpense(expense: Expense): Expense =
+        expense.copy(updatedAt = System.currentTimeMillis())
 }

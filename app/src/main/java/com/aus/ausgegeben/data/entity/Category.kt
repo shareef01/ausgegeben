@@ -12,5 +12,6 @@ data class Category(
     val colorInt: Int,
     /** expense | income | transfer */
     val transactionType: String = "expense",
-    val sortOrder: Int = 0
+    val sortOrder: Int = 0,
+    val updatedAt: Long = 0
 )

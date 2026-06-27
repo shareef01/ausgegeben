@@ -60,6 +60,9 @@ import com.aus.ausgegeben.data.AppRepository
 import com.aus.ausgegeben.data.AusgegebenDatabase
 import com.aus.ausgegeben.data.DataSeeder
 import com.aus.ausgegeben.data.PreferenceManager
+import androidx.compose.runtime.DisposableEffect
+import com.aus.ausgegeben.sync.CloudAuthManager
+import com.aus.ausgegeben.sync.SyncManager
 import com.aus.ausgegeben.notification.NotificationHelper
 import com.aus.ausgegeben.notification.ReminderScheduler
 import com.aus.ausgegeben.ui.AddExpenseViewModel
@@ -93,16 +96,32 @@ class MainActivity : ComponentActivity() {
         setContent {
             val context = LocalContext.current
             val database = remember { AusgegebenDatabase.getDatabase(context) }
+            val preferenceManager = remember { PreferenceManager(context) }
+            val authManager = remember { CloudAuthManager() }
+            val syncManager = remember {
+                SyncManager(
+                    categoryDao = database.categoryDao(),
+                    expenseDao = database.expenseDao(),
+                    preferenceManager = preferenceManager,
+                    authManager = authManager,
+                    appContext = context.applicationContext,
+                )
+            }
             val repository = remember {
                 AppRepository(
                     database.categoryDao(),
                     database.expenseDao(),
-                    context.applicationContext
+                    context.applicationContext,
+                    syncManager,
                 )
             }
-            val preferenceManager = remember { PreferenceManager(context) }
 
             val themeMode by preferenceManager.themeModeFlow.collectAsState(initial = ThemeMode.SYSTEM)
+
+            DisposableEffect(authManager, syncManager) {
+                authManager.start { syncManager.fullSync() }
+                onDispose { authManager.stop() }
+            }
 
             AusgegebenTheme(themeMode = themeMode) {
                 LaunchedEffect(Unit) {
@@ -112,6 +131,8 @@ class MainActivity : ComponentActivity() {
                 MainApp(
                     repository = repository,
                     preferenceManager = preferenceManager,
+                    authManager = authManager,
+                    syncManager = syncManager,
                     openAddFromNotification = intent?.getBooleanExtra(
                         NotificationHelper.EXTRA_OPEN_ADD,
                         false
@@ -132,6 +153,8 @@ class MainActivity : ComponentActivity() {
 fun MainApp(
     repository: AppRepository,
     preferenceManager: PreferenceManager,
+    authManager: CloudAuthManager,
+    syncManager: SyncManager,
     openAddFromNotification: Boolean = false
 ) {
     val context = LocalContext.current
@@ -185,7 +208,7 @@ fun MainApp(
         ExpenseViewModel(repository, preferenceManager)
     }
     val dashboardViewModel: DashboardViewModel = viewModel(activity) {
-        DashboardViewModel(repository, preferenceManager)
+        DashboardViewModel(repository, preferenceManager, syncManager)
     }
 
     fun closeOverlay() {
@@ -352,6 +375,8 @@ fun MainApp(
                         SettingsScreen(
                             repository = repository,
                             preferenceManager = preferenceManager,
+                            authManager = authManager,
+                            syncManager = syncManager,
                             onNavigateToCategories = {
                                 overlayStack.clear()
                                 overlayStack.add(Route.CategoryList)

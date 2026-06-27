@@ -6,6 +6,7 @@ import com.aus.ausgegeben.data.AppRepository
 import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
+import com.aus.ausgegeben.sync.SyncManager
 import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.util.WealthTrendPoint
 import com.aus.ausgegeben.util.computeWealthTrend
@@ -40,7 +41,8 @@ data class DashboardUiState(
 
 class DashboardViewModel(
     private val repository: AppRepository,
-    private val preferenceManager: PreferenceManager
+    private val preferenceManager: PreferenceManager,
+    private val syncManager: SyncManager? = null,
 ) : ViewModel() {
 
     private val _period = MutableStateFlow(AnalyticsPeriod.THIS_MONTH)
@@ -83,6 +85,7 @@ class DashboardViewModel(
         _period.value = period
         viewModelScope.launch {
             preferenceManager.updateAnalyticsPeriod(period)
+            syncManager?.onPreferencesChanged()
         }
     }
 

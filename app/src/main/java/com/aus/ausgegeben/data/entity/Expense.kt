@@ -30,5 +30,6 @@ data class Expense(
     val note: String,
     val receiptImagePath: String? = null,
     /** expense | income | transfer */
-    val transactionType: String = "expense"
+    val transactionType: String = "expense",
+    val updatedAt: Long = 0
 )
