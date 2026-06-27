@@ -11,7 +11,7 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --layout-breakpoint: 768px;
   --app-max-width: min(1440px, 98vw);
-  --app-sidebar-width: 220px;
+  --app-sidebar-width: 248px;
   --content-max-width: 1200px;
   --content-sidebar-gap: 28px;
   --workspace-padding: 16px;
@@ -27,7 +27,7 @@
 @media (min-width: 1200px) {
   :root {
     --content-max-width: 1040px;
-    --app-sidebar-width: 280px;
+    --app-sidebar-width: 268px;
     --workspace-padding-desktop: 32px;
     --content-sidebar-gap: 40px;
   }
@@ -37,7 +37,7 @@
   :root {
     --content-max-width: 1200px;
     --app-max-width: min(1680px, 94vw);
-    --app-sidebar-width: 300px;
+    --app-sidebar-width: 284px;
     --workspace-padding-desktop: 40px;
   }
 }
