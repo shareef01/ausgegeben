@@ -97,24 +97,32 @@
     padding: 6px 4px 4px;
     border-radius: 14px;
     transition: color var(--transition-premium), background var(--transition-premium);
+    color: var(--color-on-surface-variant);
   }
 
   .bottom-bar__item--active {
-    color: var(--color-accent);
+    color: var(--color-on-background);
   }
 
-  .bottom-bar__indicator {
-    width: 4px;
-    height: 4px;
-    border-radius: 999px;
-    background: var(--color-accent);
-    box-shadow: 0 0 10px color-mix(in srgb, var(--color-accent) 80%, transparent);
-    margin-top: 2px;
+  .bottom-bar__label {
+    font-size: 0.6875rem;
+    font-weight: 500;
+  }
+
+  .bottom-bar__item--active .bottom-bar__label {
+    font-weight: 600;
   }
 
   .bottom-bar__icon {
     width: 26px;
     height: 26px;
+    opacity: 0.72;
+    transition: color var(--transition-premium), opacity var(--transition-premium);
+  }
+
+  .bottom-bar__item--active .bottom-bar__icon {
+    color: var(--color-income);
+    opacity: 1;
   }
 
   .app-main {
@@ -633,16 +641,7 @@
 }
 
 .side-nav__brand-icon {
-  border-radius: 8px;
-}
-
-.bottom-bar__item--active {
-  color: var(--color-income);
-}
-
-.bottom-bar__indicator {
-  background: var(--color-income);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--color-income) 80%, transparent);
+  border-radius: 7px;
 }
 
 @media (max-width: 767px) {
