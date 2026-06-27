@@ -5,6 +5,7 @@ import { useTranslation } from '@/i18n';
 import { categoryIcon, SignatureText } from '@/components/ui';
 import { ReceiptThumbnail } from '@/components/ReceiptPreview';
 import { colorIntToHex } from '@/utils/currency';
+import { usePreferencesStore } from '@/services/preferencesStore';
 import { useRef } from 'react';
 
 interface AddTransactionViewProps {
@@ -15,6 +16,7 @@ interface AddTransactionViewProps {
 
 export function AddTransactionView({ expenseId, onClose, onSaved }: AddTransactionViewProps) {
   const { t } = useTranslation();
+  const currency = usePreferencesStore((s) => s.currency);
   const vm = useAddTransactionViewModel(expenseId);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -50,6 +52,10 @@ export function AddTransactionView({ expenseId, onClose, onSaved }: AddTransacti
         </div>
 
         <div className="amount-entry">
+          <div className="amount-hero" aria-live="polite">
+            <span className="amount-hero__currency">{currencySymbol(currency)}</span>
+            <span className="amount-hero__value tabular-nums">{vm.form.amountInput || '0,00'}</span>
+          </div>
           <label className="field amount-entry__field">
             <span className="field__label">{t('addAmountLabel')}</span>
             <input
@@ -154,4 +160,8 @@ function toLocalInput(ms: number): string {
   const d = new Date(ms);
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function currencySymbol(currency: string): string {
+  return currency === 'EUR' ? '€' : currency === 'USD' ? '$' : currency === 'GBP' ? '£' : currency;
 }

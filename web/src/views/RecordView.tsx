@@ -52,28 +52,30 @@ export function RecordView({ onAdd, onEdit }: RecordViewProps) {
         <BudgetProgressBar spent={monthSpent} budget={uiState.monthlyBudget} currency={currency} />
       ) : null}
 
-      <div className="record-toolbar">
-        <PremiumPeriodSelector
-          options={periodOptions}
-          selected={periodOptions.find((p) => p.key === uiState.listPeriod)!}
-          labelFor={(p) => p.label}
-          isSelected={(a, b) => a.key === b.key}
-          onSelected={(p) => setListPeriod(p.key as RecordListPeriod)}
-        />
-        <input
-          className="search-input"
-          placeholder={t('recordSearchPlaceholder')}
-          value={uiState.searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-      </div>
+      <div className="card record-filters">
+        <div className="record-toolbar">
+          <PremiumPeriodSelector
+            options={periodOptions}
+            selected={periodOptions.find((p) => p.key === uiState.listPeriod)!}
+            labelFor={(p) => p.label}
+            isSelected={(a, b) => a.key === b.key}
+            onSelected={(p) => setListPeriod(p.key as RecordListPeriod)}
+          />
+          <input
+            className="search-input"
+            placeholder={t('recordSearchPlaceholder')}
+            value={uiState.searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
 
-      <div className="chip-row">
-        {(['all', 'expense', 'income', 'transfer'] as TransactionTypeFilter[]).map((f) => (
-          <button key={f} type="button" className={`chip ${uiState.typeFilter === f ? 'active' : ''}`} onClick={() => setTypeFilter(f)}>
-            {filterLabel(f, t)}
-          </button>
-        ))}
+        <div className="chip-row chip-row--nested">
+          {(['all', 'expense', 'income', 'transfer'] as TransactionTypeFilter[]).map((f) => (
+            <button key={f} type="button" className={`chip ${uiState.typeFilter === f ? 'active' : ''}`} onClick={() => setTypeFilter(f)}>
+              {filterLabel(f, t)}
+            </button>
+          ))}
+        </div>
       </div>
 
       {uiState.loading ? (

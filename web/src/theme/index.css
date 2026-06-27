@@ -9,7 +9,7 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --app-max-width: min(1320px, 98vw);
   --app-sidebar-width: 260px;
-  --content-max-width: 1040px;
+  --content-max-width: 880px;
   --content-sidebar-gap: 32px;
   --workspace-padding: 16px;
   --workspace-padding-desktop: 28px;

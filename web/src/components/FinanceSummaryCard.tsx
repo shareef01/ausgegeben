@@ -16,34 +16,43 @@ export function FinanceSummaryCard({ expenses, currency, periodLabel }: FinanceS
   const total = totalExpenses + totalIncome;
   const incomeRatio = total > 0 ? totalIncome / total : 0.5;
   const expenseRatio = total > 0 ? totalExpenses / total : 0.5;
-  const netColor = net > 0 ? 'var(--color-income)' : net < 0 ? 'var(--color-expense)' : 'var(--color-on-background)';
+  const netPositive = net >= 0;
 
   return (
     <div
       className="card card--pressable finance-summary-card"
       style={{ '--expense-ratio': expenseRatio, '--income-ratio': incomeRatio } as CSSProperties}
     >
-      <div className="finance-summary-card__label">{t('summaryBalance')} · {periodLabel}</div>
-      <div className="finance-summary-card__balance">
-        <MoneyText amount={net} currency={currency} className="money--hero-display" color={netColor} />
-      </div>
-      <div className="finance-summary-card__chips">
-        <StatChip label={t('summaryEarned')} value={totalIncome} chipColor="var(--color-income)" currency={currency} />
-        <StatChip label={t('summarySpent')} value={totalExpenses} chipColor="var(--color-expense)" currency={currency} />
-      </div>
-      <div className="finance-summary-card__ratio" aria-hidden>
-        <div className="finance-summary-card__ratio-expense" />
-        <div className="finance-summary-card__ratio-income" />
+      <div className="finance-summary-card__glow" aria-hidden data-positive={netPositive ? 'true' : 'false'} />
+      <div className="finance-summary-card__inner">
+        <div className="finance-summary-card__label">{t('summaryBalance')} · {periodLabel}</div>
+        <div className="finance-summary-card__balance">
+          <MoneyText
+            amount={net}
+            currency={currency}
+            className="money--hero-display"
+            color={netPositive ? 'var(--color-income)' : net < 0 ? 'var(--color-expense)' : 'var(--color-on-background)'}
+          />
+        </div>
+        <div className="finance-summary-card__chips">
+          <StatChip variant="income" label={t('summaryEarned')} value={totalIncome} currency={currency} />
+          <StatChip variant="expense" label={t('summarySpent')} value={totalExpenses} currency={currency} />
+        </div>
+        <div className="finance-summary-card__ratio" aria-hidden>
+          <div className="finance-summary-card__ratio-expense" />
+          <div className="finance-summary-card__ratio-income" />
+        </div>
       </div>
     </div>
   );
 }
 
-function StatChip({ label, value, chipColor, currency }: { label: string; value: number; chipColor: string; currency: string }) {
+function StatChip({ variant, label, value, currency }: { variant: 'income' | 'expense'; label: string; value: number; currency: string }) {
+  const color = variant === 'income' ? 'var(--color-income)' : 'var(--color-expense)';
   return (
-    <div className="finance-stat-chip" style={{ '--chip-color': chipColor } as CSSProperties}>
+    <div className={`finance-stat-chip finance-stat-chip--${variant}`}>
       <div className="finance-stat-chip__label">{label}</div>
-      <MoneyText amount={value} currency={currency} className="money--stat" color={chipColor} />
+      <MoneyText amount={value} currency={currency} className="money--stat" color={color} />
     </div>
   );
 }
