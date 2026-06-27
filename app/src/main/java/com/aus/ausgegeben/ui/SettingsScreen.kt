@@ -74,7 +74,6 @@ import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.data.auth.AuthRepository
 import com.aus.ausgegeben.data.cloud.CloudSyncCoordinator
 import com.aus.ausgegeben.data.cloud.CloudSyncRepository
-import com.aus.ausgegeben.data.cloud.FirebaseConfigHelper
 import com.aus.ausgegeben.data.cloud.mapCloudSyncError
 import com.aus.ausgegeben.notification.ReminderScheduler
 import com.aus.ausgegeben.ui.components.AppAlertDialog
@@ -136,7 +135,6 @@ fun SettingsScreen(
     val signedInEmail = authRepository.currentUserEmail
     val signedInName = authRepository.currentUserDisplayName
     val signedInUserId = authRepository.currentUserId
-    val firebaseProjectId = remember { FirebaseConfigHelper.projectId(context) }
     val profileLabel = signedInName?.takeIf { it.isNotBlank() }
         ?: signedInEmail?.substringBefore("@")
         ?: stringResource(R.string.settings_account_cloud)
@@ -170,8 +168,6 @@ fun SettingsScreen(
                     AccountProfileCard(
                         displayName = profileLabel,
                         email = signedInEmail,
-                        userId = signedInUserId,
-                        firebaseProjectId = firebaseProjectId,
                         lastSyncedLabel = lastSyncLabel,
                         isSyncing = isCloudSyncing,
                         syncStatusMessage = cloudSyncStatus,
@@ -658,8 +654,6 @@ private fun AccountSignInCard(onSignIn: () -> Unit) {
 private fun AccountProfileCard(
     displayName: String,
     email: String?,
-    userId: String,
-    firebaseProjectId: String?,
     lastSyncedLabel: String?,
     isSyncing: Boolean,
     syncStatusMessage: String?,
@@ -730,17 +724,11 @@ private fun AccountProfileCard(
                         )
                     }
                     Text(
-                        text = stringResource(R.string.settings_user_id, userId.take(8)),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = stringResource(R.string.settings_account_sync_enabled),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = incomeColor,
+                        fontWeight = FontWeight.Medium,
                     )
-                    if (!firebaseProjectId.isNullOrBlank()) {
-                        Text(
-                            text = stringResource(R.string.settings_firebase_project, firebaseProjectId),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
                 }
             }
 

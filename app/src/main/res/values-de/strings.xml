@@ -105,18 +105,17 @@
     <string name="settings_budget_set">Monatslimit gesetzt</string>
     <string name="settings_budget_cleared">Monatslimit entfernt</string>
     <string name="settings_account_cloud">Cloud-Konto</string>
+    <string name="settings_account_sync_enabled">Cloud-Backup aktiv</string>
     <string name="settings_account_offline">Offline-Modus</string>
     <string name="settings_account_signed_in_as">Angemeldet als %1$s</string>
-    <string name="settings_account_cloud_subtitle">Mit Firebase angemeldet</string>
+    <string name="settings_account_cloud_subtitle">Deine Daten werden geräteübergreifend synchronisiert</string>
     <string name="settings_account_offline_subtitle">Daten bleiben nur auf diesem Gerät</string>
     <string name="settings_sign_in">Anmelden / Konto erstellen</string>
-    <string name="settings_sign_in_subtitle">Mit Firebase sichern und synchronisieren</string>
+    <string name="settings_sign_in_subtitle">Sichern und auf allen Geräten nutzen</string>
     <string name="settings_sign_out">Abmelden</string>
     <string name="settings_sign_out_subtitle">Zurück zum Offline-Modus</string>
     <string name="settings_sign_out_confirm">Abmelden und Offline-Modus nutzen? Lokale Daten bleiben auf diesem Gerät.</string>
     <string name="settings_signed_out">Abgemeldet. Du bist jetzt im Offline-Modus.</string>
-    <string name="settings_user_id">ID %1$s…</string>
-    <string name="settings_firebase_project">Firebase-Projekt %1$s</string>
     <string name="settings_sync_now">Jetzt syncen</string>
     <string name="settings_last_synced">Zuletzt sync %1$s</string>
     <string name="settings_never_synced">Noch nicht sync — nach Anmeldung „Jetzt syncen“ tippen</string>
@@ -124,11 +123,11 @@
     <string name="settings_sync_failed">Cloud-Sync fehlgeschlagen</string>
     <string name="settings_sync_in_progress">Synchronisiere mit der Cloud…</string>
     <string name="settings_sync_failed_detail">Sync fehlgeschlagen: %1$s</string>
-    <string name="settings_sync_error_permission">Cloud-Zugriff für Projekt %1$s verweigert. Falls firestore.rules schon veröffentlicht sind: Firestore in genau diesem Projekt anlegen (Firebase Console → Firestore Database) und Regeln veröffentlichen, nicht nur als Entwurf speichern. Detail: %2$s</string>
-    <string name="settings_sync_error_config_placeholder">Firebase ist in diesem Build nicht konfiguriert. google-services.json aus der Firebase Console nach app/google-services.json kopieren und die App neu bauen.</string>
-    <string name="settings_sync_error_network">Keine Verbindung zu Firebase. Internet prüfen.</string>
+    <string name="settings_sync_error_permission">Cloud-Sync konnte nicht auf dein Konto zugreifen. Verbindung prüfen oder ab- und wieder anmelden.</string>
+    <string name="settings_sync_error_config_placeholder">Cloud-Backup ist in diesem Build nicht verfügbar.</string>
+    <string name="settings_sync_error_network">Keine Internetverbindung. Netzwerk prüfen und erneut versuchen.</string>
     <string name="settings_sync_error_timeout">Zeitüberschreitung. Bei stabiler Verbindung erneut versuchen.</string>
-    <string name="settings_sync_error_firestore_missing">Firestore-Datenbank fehlt. In Firebase Console → Firestore Database erstellen.</string>
+    <string name="settings_sync_error_firestore_missing">Cloud-Backup ist vorübergehend nicht verfügbar. Bitte später erneut versuchen.</string>
 
     <string name="add_save_changes">Änderungen speichern</string>
     <string name="add_income">Einnahme hinzufügen</string>
@@ -177,7 +176,10 @@
     <string name="period_this_month">Dieser Monat</string>
     <string name="period_last_month">Letzter Monat</string>
     <string name="period_all_time">Gesamt</string>
-    <string name="period_month_container">Monatscontainer</string>
+    <string name="period_picker_label">Zeitraum</string>
+    <string name="period_picker_title">Zeitraum wählen</string>
+    <string name="period_picker_subtitle">Rechnungen und Diagramme für einen Monat oder die gesamte Historie anzeigen.</string>
+    <string name="period_picker_months">Nach Monat</string>
 
     <string name="theme_system">System</string>
     <string name="theme_dark">Dunkel</string>
