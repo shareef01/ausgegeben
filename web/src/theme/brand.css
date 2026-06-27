@@ -1,32 +1,56 @@
 /**
- * Brand lockup + animated mark
+ * Sidebar brand shell — icon + name in one card
  */
 
-.brand-lockup {
+.side-nav__brand {
+  flex-shrink: 0;
+  overflow: visible;
+  min-height: fit-content;
+}
+
+.brand-shell {
+  display: flex;
+  justify-content: center;
+  padding: 4px 6px 14px;
+}
+
+.brand-shell__card {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 10px 12px 24px;
+  width: 100%;
+  padding: 14px 12px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(52, 211, 153, 0.14);
+  background: linear-gradient(180deg, rgba(52, 211, 153, 0.07) 0%, rgba(0, 0, 0, 0) 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+    0 8px 24px rgba(0, 0, 0, 0.35);
+  overflow: visible;
   flex-shrink: 0;
 }
 
-.brand-lockup__mark {
+.brand-shell__mark {
   flex-shrink: 0;
 }
 
-.brand-lockup__name {
-  display: block;
+.brand-shell__name {
+  display: inline-block;
+  margin: 0;
+  padding: 0 4px 10px;
   max-width: 100%;
-  font-family: 'Syne', 'Inter', system-ui, sans-serif;
-  font-size: 0.6875rem;
-  font-weight: 500;
-  line-height: 1.6;
-  letter-spacing: 0.06em;
+  font-family: 'Caveat', 'Segoe Script', cursive;
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 2;
+  letter-spacing: 0.02em;
   text-align: center;
-  color: rgba(161, 161, 170, 0.88);
-  padding: 0 4px 2px;
+  white-space: nowrap;
+  overflow: visible;
+  color: #6ee7b7;
+  text-shadow: 0 0 18px rgba(52, 211, 153, 0.35);
   user-select: none;
 }
 
@@ -192,18 +216,23 @@
     font-size: 1rem;
   }
 
-  .brand-lockup {
-    padding-bottom: 26px;
-    gap: 11px;
+  .brand-shell {
+    padding-bottom: 16px;
   }
 
-  .brand-lockup__mark {
-    width: 46px;
-    height: 46px;
+  .brand-shell__card {
+    padding: 16px 14px 20px;
+    gap: 12px;
   }
 
-  .brand-lockup__name {
-    font-size: 0.71875rem;
-    letter-spacing: 0.07em;
+  .brand-shell__mark {
+    width: 42px;
+    height: 42px;
+  }
+
+  .brand-shell__name {
+    font-size: 1.5rem;
+    line-height: 2;
+    padding-bottom: 12px;
   }
 }
