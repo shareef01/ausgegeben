@@ -57,6 +57,13 @@ fun analyticsPeriodOptions(
         set(Calendar.MILLISECOND, 0)
     }
     return buildList {
+        add(
+            AnalyticsPeriodOption(
+                label = "All time",
+                storageKey = AnalyticsPeriod.ALL_TIME.storageKey,
+                rangeMillis = null
+            )
+        )
         repeat(monthsBack.coerceAtLeast(1)) {
             val year = cal.get(Calendar.YEAR)
             val month = cal.get(Calendar.MONTH)
@@ -70,13 +77,6 @@ fun analyticsPeriodOptions(
             )
             cal.add(Calendar.MONTH, -1)
         }
-        add(
-            AnalyticsPeriodOption(
-                label = "All time",
-                storageKey = AnalyticsPeriod.ALL_TIME.storageKey,
-                rangeMillis = null
-            )
-        )
     }
 }
 
@@ -110,7 +110,10 @@ fun analyticsPeriodOptionFromStorage(
 fun analyticsDateRangeMillis(
     storageKey: String,
     nowMillis: Long = System.currentTimeMillis()
-): Pair<Long, Long>? = analyticsPeriodOptionFromStorage(storageKey, nowMillis).rangeMillis
+): Pair<Long, Long>? {
+    if (storageKey == AnalyticsPeriod.ALL_TIME.storageKey) return null
+    return analyticsPeriodOptionFromStorage(storageKey, nowMillis).rangeMillis
+}
 
 fun AnalyticsPeriod.displayTitle(nowMillis: Long = System.currentTimeMillis()): String = when (this) {
     AnalyticsPeriod.THIS_MONTH -> monthTitle(nowMillis)
