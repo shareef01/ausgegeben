@@ -9,7 +9,7 @@ export function SideNavBrand({ appName }: SideNavBrandProps) {
     <div className="side-nav__brand brand-shell">
       <div className="brand-shell__card">
         <AppBrandIcon size={40} animated className="brand-shell__mark" />
-        <p className="brand-shell__name">{appName}</p>
+        <p className="brand-shell__name">{appName.toLowerCase()}</p>
       </div>
     </div>
   );
