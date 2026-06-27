@@ -24,12 +24,8 @@ export function AppBrandIcon({ size = 56, className = '', animated = false }: Ap
     >
       <defs>
         <linearGradient id={gradId} x1="128" y1="88" x2="392" y2="420" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#34D399">
-            {animated ? <animate attributeName="stop-color" values="#34D399;#6EE7B7;#34D399" dur="4s" repeatCount="indefinite" /> : null}
-          </stop>
-          <stop offset="100%" stopColor="#059669">
-            {animated ? <animate attributeName="stop-color" values="#059669;#10B981;#059669" dur="4s" repeatCount="indefinite" /> : null}
-          </stop>
+          <stop offset="0%" stopColor="var(--color-accent)" />
+          <stop offset="100%" stopColor="var(--color-income)" />
         </linearGradient>
         <filter id={glowId} x="-40%" y="-40%" width="180%" height="180%">
           <feGaussianBlur stdDeviation="12" result="blur" />
@@ -40,7 +36,7 @@ export function AppBrandIcon({ size = 56, className = '', animated = false }: Ap
         </filter>
       </defs>
 
-      <rect width="512" height="512" rx="108" fill="#000000" />
+      <rect width="512" height="512" rx="108" fill="var(--color-background)" />
 
       {animated ? (
         <>
@@ -60,7 +56,7 @@ export function AppBrandIcon({ size = 56, className = '', animated = false }: Ap
             cy="256"
             r="188"
             fill="none"
-            stroke="#22C55E"
+            stroke="var(--color-accent)"
             strokeWidth="1.5"
             opacity="0.14"
           />
@@ -71,12 +67,12 @@ export function AppBrandIcon({ size = 56, className = '', animated = false }: Ap
             filter={`url(#${glowId})`}
             opacity="0.45"
           />
-          <circle className="app-brand-icon__spark" cx="256" cy="118" r="10" fill="#6EE7B7" opacity="0.9" />
+          <circle className="app-brand-icon__spark" cx="256" cy="118" r="10" fill="var(--color-accent)" opacity="0.9" />
           <path
             className="app-brand-icon__flow"
             d="M256 140 Q280 200 256 260 Q232 320 256 380"
             fill="none"
-            stroke="#34D399"
+            stroke="var(--color-accent)"
             strokeWidth="4"
             strokeLinecap="round"
             opacity="0.35"
