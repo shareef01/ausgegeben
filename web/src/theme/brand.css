@@ -1,0 +1,210 @@
+/**
+ * Brand lockup, animated mark, SVG wordmark
+ */
+
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px 20px;
+  flex-shrink: 0;
+}
+
+.brand-lockup__mark {
+  flex-shrink: 0;
+}
+
+.brand-lockup__wordmark {
+  flex: 1;
+  min-width: 0;
+  height: auto;
+  overflow: visible;
+}
+
+.brand-wordmark__rule {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: brand-rule-draw 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.15s forwards;
+}
+
+@keyframes brand-rule-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.app-brand-icon--live .app-brand-icon__ring--outer {
+  animation: brand-ring-breathe 3.2s ease-in-out infinite;
+}
+
+.app-brand-icon--live .app-brand-icon__ring--inner {
+  animation: brand-ring-breathe 3.2s ease-in-out infinite reverse;
+}
+
+.app-brand-icon--live .app-brand-icon__shape {
+  animation: brand-mark-float 4s ease-in-out infinite;
+  transform-origin: 256px 256px;
+}
+
+.app-brand-icon--live .app-brand-icon__spark {
+  animation: brand-spark-pulse 2.6s ease-in-out infinite;
+}
+
+.app-brand-icon--live .app-brand-icon__flow {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: brand-flow-draw 2.8s ease-in-out infinite;
+}
+
+@keyframes brand-ring-breathe {
+  0%,
+  100% {
+    opacity: 0.14;
+  }
+  50% {
+    opacity: 0.28;
+  }
+}
+
+@keyframes brand-mark-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes brand-spark-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes brand-flow-draw {
+  0% {
+    stroke-dashoffset: 1;
+    opacity: 0.15;
+  }
+  45% {
+    stroke-dashoffset: 0;
+    opacity: 0.4;
+  }
+  100% {
+    stroke-dashoffset: -0.2;
+    opacity: 0.15;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-wordmark__rule,
+  .app-brand-icon--live .app-brand-icon__ring--outer,
+  .app-brand-icon--live .app-brand-icon__ring--inner,
+  .app-brand-icon--live .app-brand-icon__shape,
+  .app-brand-icon--live .app-brand-icon__spark,
+  .app-brand-icon--live .app-brand-icon__flow,
+  .app-brand-icon--live animate {
+    animation: none !important;
+  }
+
+  .brand-wordmark__rule {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ── Desktop sidebar: fill-height nav cells ── */
+
+@media (min-width: 768px) {
+  .side-nav {
+    align-self: stretch;
+    min-height: 100%;
+  }
+
+  .side-nav__menu {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+  }
+
+  .side-nav__item {
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px 12px;
+    text-align: center;
+    min-height: 72px;
+  }
+
+  .side-nav__indicator {
+    left: 50%;
+    top: 10px;
+    bottom: auto;
+    transform: translateX(-50%);
+    width: 32px;
+    height: 3px;
+    border-radius: 999px;
+  }
+
+  .side-nav__item--active .side-nav__indicator {
+    height: 3px;
+    width: 32px;
+  }
+
+  .side-nav__label {
+    width: 100%;
+    font-size: 0.9375rem;
+  }
+
+  .side-nav__icon-wrap {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+  }
+
+  .side-nav__icon-wrap svg,
+  .side-nav__icon {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .side-nav__item {
+    gap: 14px;
+    padding: 20px 14px;
+  }
+
+  .side-nav__icon-wrap {
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+  }
+
+  .side-nav__icon-wrap svg,
+  .side-nav__icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .side-nav__label {
+    font-size: 1rem;
+  }
+
+  .brand-lockup {
+    padding-bottom: 24px;
+  }
+
+  .brand-lockup__mark {
+    width: 44px;
+    height: 44px;
+  }
+}
