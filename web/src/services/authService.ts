@@ -45,7 +45,7 @@ export const authService = {
       if (user) {
         setStorageMode('cloud');
         completeAuthGateway();
-        void syncService.fullSync();
+        void syncService.fullSync(true);
       } else {
         usePreferencesStore.getState().resetAuthGateway();
         useAuthStore.getState().setSyncError(null);
