@@ -614,7 +614,8 @@ a {
 }
 
 .transaction-list-bare .swipeable-row__content {
-  background: transparent;
+  z-index: 1;
+  background: var(--color-background);
 }
 
 .transaction-list-card {
@@ -1628,6 +1629,7 @@ a {
 
 .swipeable-row__content {
   position: relative;
+  z-index: 1;
   background: var(--color-surface);
   transition: transform 0.15s ease-out;
 }
@@ -2403,44 +2405,6 @@ a {
     max-width: var(--content-max-width);
   }
 
-  .record-view.page-content {
-    display: grid;
-    grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
-    column-gap: 28px;
-    align-items: start;
-  }
-
-  .record-view > .screen-title-bar,
-  .record-view > .empty-state,
-  .record-view > .skeleton-list {
-    grid-column: 1 / -1;
-  }
-
-  .record-view > .finance-summary-card,
-  .record-view > .budget-bar,
-  .record-view > .record-filters {
-    grid-column: 1;
-    margin-left: 0;
-    margin-right: 0;
-  }
-
-  .record-view > .budget-bar {
-    padding-left: 0;
-    padding-right: 0;
-  }
-
-  .record-view > .transaction-list-card,
-  .record-view > .transaction-list-bare {
-    grid-column: 2;
-    grid-row: 2 / span 12;
-    margin-left: 0;
-    margin-right: 0;
-    position: sticky;
-    top: 88px;
-    max-height: calc(100vh - 140px);
-    overflow: auto;
-  }
-
   .insights-view.page-content {
     max-width: var(--content-max-width);
   }
@@ -2489,11 +2453,6 @@ a {
   .side-nav__item {
     padding: 14px 16px;
     font-size: 1rem;
-  }
-
-  .record-view.page-content {
-    grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
-    column-gap: 36px;
   }
 
   .finance-summary-card__inner {
