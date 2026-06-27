@@ -57,4 +57,4 @@ APK: `app\build\outputs\apk\debug\app-debug.apk`
 | Web data not on phone | Same email/password as the PWA; **Settings → Sync now** |
 | Old muted UI | `git pull origin main` and rebuild |
 
-See also `FIREBASE_SETUP.md` and `app/FIREBASE_SETUP.md`.
+See also [FIREBASE_SETUP.md](FIREBASE_SETUP.md).

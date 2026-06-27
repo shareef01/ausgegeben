@@ -12,6 +12,7 @@ object FirebaseConfigHelper {
         val apiKey = options.apiKey.orEmpty()
         val projectId = options.projectId.orEmpty()
         return apiKey.contains("Dummy", ignoreCase = true) ||
-            projectId == "ausgegeben-app" && apiKey.startsWith("AIzaSyDummy")
+            projectId == "YOUR_PROJECT_ID" ||
+            apiKey == "YOUR_API_KEY"
     }
 }
