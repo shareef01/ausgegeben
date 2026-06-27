@@ -63,7 +63,9 @@ class DashboardViewModel(
         buildDashboardState(currency, categories, scopedExpenses, periodKey)
     }
         .flowOn(Dispatchers.Default)
-        .distinctUntilChanged()
+        .distinctUntilChanged { previous, current ->
+            dashboardStatesEquivalent(previous, current)
+        }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -137,5 +139,33 @@ class DashboardViewModel(
             transfersByCategory = mapTotals(transferTotals),
             cashFlowTrend = scoped.computeCashFlowTrend(periodKey),
         )
+    }
+
+    private fun dashboardStatesEquivalent(previous: DashboardUiState, current: DashboardUiState): Boolean {
+        if (previous.periodKey != current.periodKey ||
+            previous.periodLabel != current.periodLabel ||
+            previous.currency != current.currency ||
+            previous.totalExpenses != current.totalExpenses ||
+            previous.totalIncome != current.totalIncome ||
+            previous.totalTransfers != current.totalTransfers ||
+            previous.cashFlowTrend != current.cashFlowTrend
+        ) {
+            return false
+        }
+        return categoryMapsEquivalent(previous.expensesByCategory, current.expensesByCategory) &&
+            categoryMapsEquivalent(previous.incomeByCategory, current.incomeByCategory) &&
+            categoryMapsEquivalent(previous.transfersByCategory, current.transfersByCategory)
+    }
+
+    private fun categoryMapsEquivalent(
+        previous: Map<Category, Double>,
+        current: Map<Category, Double>,
+    ): Boolean {
+        if (previous.size != current.size) return false
+        return previous.all { (category, amount) ->
+            current.entries.any { (other, otherAmount) ->
+                other.id == category.id && otherAmount == amount
+            }
+        }
     }
 }

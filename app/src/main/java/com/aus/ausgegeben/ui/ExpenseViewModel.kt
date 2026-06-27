@@ -88,7 +88,7 @@ class ExpenseViewModel(
         _listPeriod,
         _debouncedSearch,
         _typeFilter,
-        repository.expensesRevision,
+        repository.expensesRevision.debounce(200),
     ) { period, query, filter, _ ->
         val (start, end) = when (period) {
             RecordListPeriod.ALL_TIME -> 0L to Long.MAX_VALUE
@@ -106,7 +106,7 @@ class ExpenseViewModel(
         repository.pagedExpenses(params)
     }.cachedIn(viewModelScope)
 
-    val uiState: StateFlow<RecordUiState> = combine(
+    private val headerStateFlow = combine(
         combine(
             repository.allCategories,
             preferenceManager.monthlyBudgetFlow,
@@ -117,18 +117,12 @@ class ExpenseViewModel(
             RecordListData(categories, budget, currency, periodExpenses, monthExpenses)
         },
         weekExpensesFlow,
-        _searchQuery,
-        _typeFilter,
-        _listPeriod,
-    ) { listData, weekExpenses, query, typeFilter, listPeriod ->
+    ) { listData, weekExpenses ->
         val categoryNames = listData.categories.associate { it.id to it.name }
         val locale = CurrencyUtils.localeFor(listData.currency)
-        RecordUiState(
+        RecordHeaderState(
             headerExpenses = listData.periodExpenses,
             categories = listData.categories,
-            searchQuery = query,
-            typeFilter = typeFilter,
-            listPeriod = listPeriod,
             insights = computeSpendingInsights(
                 listData.monthExpenses,
                 weekExpenses,
@@ -138,8 +132,26 @@ class ExpenseViewModel(
             monthExpenses = listData.monthExpenses,
             dayTotalsByLabel = computeDayTotals(listData.periodExpenses, locale),
         )
+    }.flowOn(Dispatchers.Default)
+
+    val uiState: StateFlow<RecordUiState> = combine(
+        headerStateFlow,
+        _searchQuery,
+        _typeFilter,
+        _listPeriod,
+    ) { header, query, typeFilter, listPeriod ->
+        RecordUiState(
+            headerExpenses = header.headerExpenses,
+            categories = header.categories,
+            searchQuery = query,
+            typeFilter = typeFilter,
+            listPeriod = listPeriod,
+            insights = header.insights,
+            monthlyBudget = header.monthlyBudget,
+            monthExpenses = header.monthExpenses,
+            dayTotalsByLabel = header.dayTotalsByLabel,
+        )
     }
-        .flowOn(Dispatchers.Default)
         .distinctUntilChanged()
         .stateIn(
             scope = viewModelScope,
@@ -198,4 +210,13 @@ private data class RecordListData(
     val currency: String,
     val periodExpenses: List<Expense>,
     val monthExpenses: List<Expense>,
+)
+
+private data class RecordHeaderState(
+    val headerExpenses: List<Expense>,
+    val categories: List<Category>,
+    val insights: SpendingInsights,
+    val monthlyBudget: Double?,
+    val monthExpenses: List<Expense>,
+    val dayTotalsByLabel: Map<String, Pair<Double, Double>>,
 )
