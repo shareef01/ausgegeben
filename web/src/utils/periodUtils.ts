@@ -30,7 +30,9 @@ export function analyticsPeriodOptions(monthsBack = 14, now = Date.now()): Analy
   const cal = new Date(now);
   cal.setDate(1);
   cal.setHours(0, 0, 0, 0);
-  const options: AnalyticsPeriodOption[] = [];
+  const options: AnalyticsPeriodOption[] = [
+    { label: t('periodAllTime'), storageKey: 'all_time', rangeMillis: null },
+  ];
 
   for (let i = 0; i < monthsBack; i++) {
     const year = cal.getFullYear();
@@ -44,7 +46,6 @@ export function analyticsPeriodOptions(monthsBack = 14, now = Date.now()): Analy
     cal.setMonth(cal.getMonth() - 1);
   }
 
-  options.push({ label: t('periodAllTime'), storageKey: 'all_time', rangeMillis: null });
   return options;
 }
 

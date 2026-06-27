@@ -64,6 +64,17 @@ class PeriodUtilsTest {
     }
 
     @Test
+    fun analyticsDateRangeMillis_parsesMonthKey() {
+        val now = Calendar.getInstance().apply {
+            set(2026, Calendar.JUNE, 15, 12, 0, 0)
+        }.timeInMillis
+        val range = analyticsDateRangeMillis("month:2026-06", now)
+        requireNotNull(range)
+        val start = Calendar.getInstance().apply { timeInMillis = range.first }
+        assertEquals(Calendar.JUNE, start.get(Calendar.MONTH))
+    }
+
+    @Test
     fun computeInsights_countsMonthExpensesOnly() {
         val now = System.currentTimeMillis()
         val expense = Expense(

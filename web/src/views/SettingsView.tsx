@@ -5,12 +5,12 @@ import {
   IconMoon,
   IconGlobe,
   IconCurrency,
-  IconShield,
   IconSync,
   IconLogOut,
   IconGauge,
   IconLayers,
   IconDownload,
+  IconCloud,
 } from '@/components/Icons';
 import type { SVGProps } from 'react';
 import { usePreferencesStore } from '@/services/preferencesStore';
@@ -18,11 +18,12 @@ import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
 import { syncService } from '@/services/syncService';
 import { useTranslation, type Locale } from '@/i18n';
-import { currencyLabel, SUPPORTED_CURRENCIES } from '@/utils/currency';
+import { currencyLabel, formatAmount, SUPPORTED_CURRENCIES } from '@/utils/currency';
 import type { ThemeMode } from '@/models/types';
 import { expenseRepository } from '@/repositories/expenseRepository';
 import { exportCsv } from '@/utils/analytics';
 import { useToastStore } from '@/services/toastStore';
+import packageJson from '../../package.json';
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 type IconTint = 'accent' | 'income' | 'expense' | 'neutral';
@@ -61,6 +62,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
   const [showTheme, setShowTheme] = useState(false);
   const [showCurrency, setShowCurrency] = useState(false);
   const [showLanguage, setShowLanguage] = useState(false);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
   const exportData = async () => {
     const expenses = await expenseRepository.getAllExpenses();
@@ -95,28 +97,63 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
     }
   };
 
+  const displayName = user?.displayName?.trim()
+    || user?.email?.split('@')[0]
+    || t('settingsCloudAccount');
+  const initial = displayName.charAt(0).toUpperCase();
+
   return (
     <div className="page-content settings-view">
-      <ScreenTitle title={t('screenSettings')} subtitle={`Ausgegeben · v1.0`} />
+      <ScreenTitle
+        title={t('screenSettings')}
+        subtitle={t('settingsVersionSubtitle', { version: packageJson.version })}
+      />
 
       {user ? (
-        <Section title={t('settingsCloudAccount')}>
-          {syncError && !syncing ? (
-            <div className="sync-error-banner" role="alert">
-              {syncError}
+        <section className="settings-section">
+          <div className="section-title">{t('settingsCloudAccount')}</div>
+          <div className="account-profile-card card card--elevated">
+            {syncError && !syncing ? (
+              <div className="sync-error-banner" role="alert">
+                {syncError}
+              </div>
+            ) : null}
+            <div className="account-profile-card__header">
+              <div className="account-profile-card__avatar" aria-hidden>{initial}</div>
+              <div className="account-profile-card__copy">
+                <div className="account-profile-card__name">{displayName}</div>
+                {user.email ? <div className="account-profile-card__email">{user.email}</div> : null}
+                <div className="account-profile-card__badge">{t('settingsAccountSyncEnabled')}</div>
+              </div>
             </div>
-          ) : null}
-          <SettingsRow
-            icon={IconShield}
-            iconTint="accent"
-            title={t('settingsSignedInAs', { email: user.email ?? user.uid })}
-            subtitle={syncing ? t('syncInProgress') : syncLabel}
-            subtitleError={!!syncError && !syncing}
-          />
-          <SettingsRow icon={IconSync} iconTint="accent" title={t('syncNow')} subtitle={syncLabel} subtitleError={!!syncError && !syncing} onClick={() => void runSync()} />
-          <SettingsRow icon={IconLogOut} iconTint="expense" title={t('settingsSignOut')} subtitle={user.email ?? ''} onClick={() => void authService.signOut()} />
-        </Section>
-      ) : null}
+            <div className="account-profile-card__meta">{syncLabel}</div>
+            <div className="account-profile-card__actions">
+              <button type="button" className="btn btn-secondary account-profile-card__btn" onClick={() => void runSync()} disabled={syncing}>
+                <IconSync width={18} height={18} />
+                {t('syncNow')}
+              </button>
+              <button type="button" className="btn btn-secondary account-profile-card__btn account-profile-card__btn--ghost" onClick={() => setShowSignOutConfirm(true)} disabled={syncing}>
+                <IconLogOut width={18} height={18} />
+                {t('settingsSignOut')}
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : (
+        <section className="settings-section">
+          <div className="account-profile-card account-profile-card--offline card card--elevated">
+            <div className="account-profile-card__header">
+              <div className="account-profile-card__avatar account-profile-card__avatar--muted" aria-hidden>
+                <IconCloud width={22} height={22} />
+              </div>
+              <div className="account-profile-card__copy">
+                <div className="account-profile-card__name">{t('settingsOffline')}</div>
+                <div className="account-profile-card__email">{t('settingsOfflineSub')}</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       <Section title={t('settingsAppearance')}>
         <SettingsRow icon={IconMoon} iconTint="accent" title={t('settingsTheme')} subtitle={THEME_OPTIONS.find((opt) => opt.key === themeMode)?.label ?? themeMode} onClick={() => setShowTheme(true)} />
@@ -129,7 +166,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
           icon={IconGauge}
           iconTint="neutral"
           title={t('settingsMonthlyLimit')}
-          subtitle={monthlyBudget ? `${monthlyBudget}` : t('settingsMonthlyLimitNotSet')}
+          subtitle={monthlyBudget ? formatAmount(monthlyBudget, currency) : t('settingsMonthlyLimitNotSet')}
           onClick={() => {
             const raw = prompt(t('settingsMonthlyLimit'), monthlyBudget?.toString() ?? '');
             if (raw === null) return;
@@ -143,6 +180,25 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
         <SettingsRow icon={IconLayers} iconTint="accent" title={t('settingsCategories')} subtitle={t('settingsCategoriesSub')} onClick={onManageCategories} />
         <SettingsRow icon={IconDownload} iconTint="neutral" title={t('settingsExport')} subtitle={t('settingsExportSub')} onClick={() => void exportData()} />
       </Section>
+
+      {showSignOutConfirm ? (
+        <Modal title={t('settingsSignOut')} onClose={() => setShowSignOutConfirm(false)}>
+          <p className="settings-confirm-copy">{t('settingsSignOutConfirm')}</p>
+          <div className="settings-confirm-actions">
+            <button type="button" className="btn btn-secondary" onClick={() => setShowSignOutConfirm(false)}>{t('actionCancel')}</button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                setShowSignOutConfirm(false);
+                void authService.signOut();
+              }}
+            >
+              {t('settingsSignOut')}
+            </button>
+          </div>
+        </Modal>
+      ) : null}
 
       {showLanguage ? (
         <Modal title={t('settingsLanguage')} onClose={() => setShowLanguage(false)}>
