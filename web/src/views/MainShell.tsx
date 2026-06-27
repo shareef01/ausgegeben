@@ -4,8 +4,7 @@ import { InsightsView } from '@/views/InsightsView';
 import { SettingsView } from '@/views/SettingsView';
 import { AddTransactionView } from '@/views/AddTransactionView';
 import { CategoriesView } from '@/views/CategoriesView';
-import { SignatureText } from '@/components/ui';
-import { AppBrandIcon } from '@/components/AppBrandIcon';
+import { SideNavBrand } from '@/components/SideNavBrand';
 import { ToastHost } from '@/components/ToastHost';
 import { IconAdd, IconInsights, IconRecord, IconSettings, IconSync } from '@/components/Icons';
 import { useAuthStore } from '@/services/authStore';
@@ -35,10 +34,7 @@ export function MainShell() {
   return (
     <div className="app-shell">
       <nav className="side-nav" aria-label="Main">
-        <div className="side-nav__brand">
-          <AppBrandIcon size={32} className="side-nav__brand-icon" />
-          <SignatureText text={t('appName')} className="signature-text--brand" />
-        </div>
+        <SideNavBrand appName={t('appName')} />
         <div className="side-nav__menu">
           {navItems.map(({ id, label, Icon }) => {
             const active = tab === id;
