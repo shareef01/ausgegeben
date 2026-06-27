@@ -4,12 +4,42 @@
 
 **Live web app:** [aus01.web.app](https://aus01.web.app)
 
+---
+
+## Android app screenshots
+
 <p align="center">
-  <img src="docs/screenshots/record.png" alt="Record — balance summary and transactions" width="220" />
-  <img src="docs/screenshots/bills.png" alt="Insights — category charts" width="220" />
-  <img src="docs/screenshots/add-transaction.png" alt="Add transaction" width="220" />
-  <img src="docs/screenshots/settings.png" alt="Settings" width="220" />
+  <img src="docs/screenshots/android/record.png" alt="Record — balance summary and transactions" width="200" />
+  <img src="docs/screenshots/android/bills-overview.png" alt="Bills — cash flow and net balance" width="200" />
+  <img src="docs/screenshots/android/add-transaction-expense.png" alt="Add expense" width="200" />
+  <img src="docs/screenshots/android/settings-account.png" alt="Settings — account and sync" width="200" />
 </p>
+
+### Record
+Balance summary, period filters, and transactions grouped by day.
+
+![Record screen](docs/screenshots/android/record.png)
+
+### Bills (Insights)
+Cash-flow trend, income vs expenses, and category breakdowns.
+
+![Bills overview](docs/screenshots/android/bills-overview.png)
+
+![Bills by category](docs/screenshots/android/bills-categories.png)
+
+### Add transaction
+Expense and income flows with category picker and numpad.
+
+![Add expense](docs/screenshots/android/add-transaction-expense.png)
+
+![Add income](docs/screenshots/android/add-transaction-income.png)
+
+### Settings
+Cloud account, themes, currency, budget, and export.
+
+![Settings account](docs/screenshots/android/settings-account.png)
+
+![Settings](docs/screenshots/android/settings-more.png)
 
 ---
 
@@ -34,30 +64,6 @@
 - **Web (PWA)** — installable on phone, tablet, and desktop; offline via IndexedDB
 
 Both apps share the same data model and Firestore sync when you use email/password sign-in.
-
----
-
-## Screenshots
-
-### Record
-Transaction history grouped by day, finance summary, budget bar, and filters.
-
-![Record screen](docs/screenshots/record.png)
-
-### Insights
-Category charts and period analytics.
-
-![Insights screen](docs/screenshots/bills.png)
-
-### Add transaction
-Amount keypad, type selector, category grid, and optional receipt capture.
-
-![Add transaction](docs/screenshots/add-transaction.png)
-
-### Settings
-Themes, currency, budget, categories, export, and cloud account.
-
-![Settings screen](docs/screenshots/settings.png)
 
 ---
 
@@ -176,11 +182,11 @@ Without signing in, everything stays on your device. If you enable cloud sync, c
 
 ```
 ausgegeben/
-├── app/                 # Android application
-├── web/                 # Progressive Web App
-├── firestore.rules      # Cloud security rules
-├── firebase.json        # Firebase hosting (root)
-└── docs/screenshots/    # README screenshots
+├── app/                          # Android application
+├── web/                          # Progressive Web App
+├── docs/screenshots/android/     # README screenshots (from your device)
+├── firestore.rules               # Cloud security rules
+└── firebase.json
 ```
 
 ---
