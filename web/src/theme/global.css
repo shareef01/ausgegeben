@@ -2230,6 +2230,8 @@ a {
     flex-direction: column;
     width: var(--app-sidebar-width);
     flex-shrink: 0;
+    align-self: stretch;
+    min-height: 100%;
     padding: 16px 10px 20px;
     background: var(--glass-bg);
     backdrop-filter: blur(var(--glass-blur));
@@ -2494,33 +2496,6 @@ a {
     padding: 24px 14px;
   }
 
-  .side-nav__brand {
-    padding-bottom: 14px;
-    margin-bottom: 6px;
-  }
-
-  .side-nav__icon-wrap {
-    width: 48px;
-    height: 48px;
-    border-radius: 14px;
-  }
-
-  .side-nav__icon-wrap svg,
-  .side-nav__icon {
-    width: 26px;
-    height: 26px;
-  }
-
-  .side-nav__item {
-    min-height: 56px;
-    gap: 16px;
-    padding: 10px 12px;
-  }
-
-  .side-nav__label {
-    font-size: 1rem;
-  }
-
   .page-content {
     max-width: var(--content-max-width);
   }
@@ -2571,7 +2546,6 @@ a {
   }
 
   .side-nav__item {
-    padding: 14px 16px;
     font-size: 1rem;
   }
 
