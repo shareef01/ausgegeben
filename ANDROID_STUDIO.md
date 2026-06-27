@@ -1,56 +1,36 @@
-# Android Studio — branch `cursor/android-micro-polish-unified-0bfe`
+# Android Studio setup
 
-Use this branch for the **polished Android UI** (micro-polish), **10 theme options**, **Firebase email auth**, and **Firestore sync** with the PWA.
+Open the **Ausgegeben** Android app from this repository in Android Studio.
 
-Do **not** use `cursor/android-sync-fix-no-google-0bfe` for Android — that branch has an older Android UI.
-
-## Get the correct branch (Windows PowerShell)
+## Quick start (Windows)
 
 ```powershell
 cd C:\Users\shareef01\AndroidStudioProjects\ausgegeben
 
-# Back up your Firebase config
+# Keep your Firebase config if you already have one
 Copy-Item app\google-services.json google-services.json.backup -ErrorAction SilentlyContinue
 
-git fetch origin
-git checkout cursor/android-micro-polish-unified-0bfe
-git reset --hard origin/cursor/android-micro-polish-unified-0bfe
+git pull origin main
 
-# Restore YOUR Firebase file
 Copy-Item google-services.json.backup app\google-services.json -ErrorAction SilentlyContinue
 ```
 
-If the unified branch is not pushed yet, use the UI-only branch:
+## Open the project
 
-```powershell
-git checkout cursor/micro-polish-ui-0bfe
-git reset --hard origin/cursor/micro-polish-ui-0bfe
-```
+1. **File → Open** → select the **`ausgegeben`** folder (repo root).
+2. Wait for **Gradle Sync**.
+3. **Gradle JDK:** 17 (Settings → Build → Gradle).
+4. Install **Android SDK 37** if prompted (SDK Manager).
+5. Run the **app** module.
 
-## Open in Android Studio
-
-1. **File → Open** → select the **`ausgegeben`** folder (repo root, not `app/`)
-2. Wait for **Gradle Sync**
-3. **Gradle JDK:** 17 (Settings → Build → Gradle)
-4. Install **Android SDK 37** if sync fails (SDK Manager)
-5. Run **app** (green play button)
-
-## Firebase setup
+## Firebase
 
 1. [Firebase Console](https://console.firebase.google.com/) → project **ausgegeben01**
-2. Register Android app `com.aus.ausgegeben`
-3. Download **`google-services.json`** → save as **`app/google-services.json`** (gitignored)
+2. Android app package: `com.aus.ausgegeben`
+3. Download **`google-services.json`** → save as **`app/google-services.json`**
 4. Enable **Authentication → Email/Password**
 
-On first build without the file, Gradle copies from `app/google-services.json.example` (placeholder only).
-
-## What this branch includes
-
-- **UI:** Vibrant green/red FinTech palette, shadows, spacing, chart polish, cash flow, refined add-transaction layout
-- **Themes:** System, Light, Dark, AMOLED, Midnight, Ocean, **Forest**, **Sunset**, **Lavender**, Soft Light
-- **Auth:** Email/password sign-in (same account as https://aus01.web.app)
-- **Sync:** Firestore cloud sync — auto-pull on app open and resume; **Settings → Account → Sync now**
-- **Offline:** “Continue offline” on first launch skips cloud
+Without a real `google-services.json`, the build may succeed using the example placeholder, but auth and sync will not work.
 
 ## Build from terminal
 
@@ -60,13 +40,21 @@ On first build without the file, Gradle copies from `app/google-services.json.ex
 
 APK: `app\build\outputs\apk\debug\app-debug.apk`
 
+## What you get on `main`
+
+- Polished FinTech UI (vibrant income/expense colors, glass-style cards)
+- 10 theme modes
+- Email/password auth and Firestore sync with the PWA at [aus01.web.app](https://aus01.web.app)
+- Smooth tab navigation, performance-tuned lists and sync
+- Offline-first: skip sign-in on first launch if you prefer local-only storage
+
 ## Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
-| Wrong/old UI (muted sage colors) | You’re on the wrong branch — use commands above |
 | Gradle sync failed | JDK 17, SDK 37, **File → Invalidate Caches → Restart** |
-| `setStorageMode` errors | `git merge --abort`, then `git reset --hard origin/cursor/android-micro-polish-unified-0bfe` |
-| Sync not pulling PWA data | Sign in with the **same email/password** as the web app; tap **Sync now** in Settings |
+| Auth / sync errors | Real `app/google-services.json`, Email/Password enabled in Firebase |
+| Web data not on phone | Same email/password as the PWA; **Settings → Sync now** |
+| Old muted UI | `git pull origin main` and rebuild |
 
-See also `app/FIREBASE_SETUP.md` and `FIREBASE_SETUP.md`.
+See also `FIREBASE_SETUP.md` and `app/FIREBASE_SETUP.md`.
