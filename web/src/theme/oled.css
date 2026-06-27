@@ -197,18 +197,11 @@
 }
 
 [data-theme='dark'] .transaction-list-bare .swipeable-row__content {
-  background: #000000;
+  background: var(--color-background);
 }
 
-/* Desktop: no swipe-delete chrome — rows sit on bare OLED canvas */
-@media (hover: hover) and (pointer: fine) {
-  [data-theme='dark'] .transaction-list-bare .swipeable-row__bg {
-    display: none;
-  }
-
-  [data-theme='dark'] .transaction-list-bare .swipeable-row__content {
-    background: transparent;
-  }
+[data-theme='light'] .transaction-list-bare .swipeable-row__content {
+  background: var(--color-background);
 }
 
 [data-theme='dark'] .transaction-list-bare .pressable-row:active {
@@ -247,8 +240,12 @@
   }
 
   [data-theme='dark'] .brand-shell__card {
-    border-color: rgba(52, 211, 153, 0.18);
-    background: linear-gradient(180deg, rgba(52, 211, 153, 0.09) 0%, rgba(0, 0, 0, 0) 100%);
+    border-color: color-mix(in srgb, var(--color-accent) 24%, transparent);
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-accent) 11%, transparent) 0%,
+      transparent 100%
+    );
   }
 
   [data-theme='dark'] .side-nav__brand .signature-text {
