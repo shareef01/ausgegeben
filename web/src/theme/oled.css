@@ -169,18 +169,52 @@
 [data-theme='dark'] .transaction-list-bare .transaction-list-card__day,
 [data-theme='dark'] .transaction-list-bare__day {
   position: sticky;
-  top: var(--record-sticky-offset);
   z-index: 12;
-  margin: 0 calc(-1 * var(--workspace-padding));
-  padding: 10px var(--workspace-padding) 8px;
+  display: block;
+  margin: 0;
+  padding: 12px 0 10px;
+  min-height: 36px;
   font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.1em;
   color: var(--color-label-muted);
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: #000000;
   border-bottom: 1px solid var(--hairline-divider);
+  isolation: isolate;
+}
+
+[data-theme='dark'] .transaction-list-bare__section {
+  display: flex;
+  flex-direction: column;
+}
+
+[data-theme='dark'] .transaction-list-bare__rows {
+  display: flex;
+  flex-direction: column;
+}
+
+[data-theme='dark'] .transaction-list-bare .swipeable-row__content {
+  background: transparent;
+}
+
+/* Page scroll: stick below screen title */
+@media (max-width: 1199px) {
+  [data-theme='dark'] .transaction-list-bare__day {
+    top: var(--record-sticky-offset);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    background: rgba(0, 0, 0, 0.92);
+  }
+}
+
+/* Nested list scroll: stick to panel top */
+@media (min-width: 1200px) {
+  [data-theme='dark'] .record-view > .transaction-list-bare .transaction-list-bare__day {
+    top: 0;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    background: rgba(0, 0, 0, 0.94);
+  }
 }
 
 [data-theme='dark'] .transaction-list-bare .pressable-row:active {
@@ -195,7 +229,10 @@
   box-shadow: var(--shadow-cta-physical), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
 }
 
-[data-theme='dark'] .fab {
+[data-theme='dark'] .fab,
+[data-theme='dark'] .fab--record {
+  width: var(--fab-size);
+  height: var(--fab-size);
   background: linear-gradient(180deg, #10b981 0%, #059669 100%) !important;
   border: 1px solid rgba(16, 185, 129, 0.22) !important;
   box-shadow: var(--shadow-cta-physical) !important;
