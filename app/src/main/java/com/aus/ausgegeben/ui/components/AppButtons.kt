@@ -35,26 +35,29 @@ fun AppButton(
     contentColor: Color = MaterialTheme.colorScheme.background,
     content: @Composable RowScope.() -> Unit
 ) {
+    val backgroundColor = if (enabled) containerColor else MaterialTheme.colorScheme.surfaceVariant
+    val textColor = if (enabled) contentColor else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+
     Box(
         modifier = modifier
-            .defaultMinSize(minHeight = 52.dp) // Increased from 48.dp
+            .defaultMinSize(minHeight = 52.dp)
             .then(
                 if (enabled) {
                     Modifier.shadow(
-                        elevation = 8.dp,
+                        elevation = 12.dp,
                         shape = RoundedCornerShape(AppRadius.md),
-                        ambientColor = containerColor.copy(alpha = 0.5f),
+                        ambientColor = containerColor.copy(alpha = 0.4f),
                         spotColor = containerColor
                     )
                 } else Modifier
             )
             .clip(RoundedCornerShape(AppRadius.md))
-            .background(if (enabled) containerColor else containerColor.copy(alpha = 0.12f))
+            .background(backgroundColor)
             .smoothClickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = AppSpacing.lg, vertical = AppSpacing.sm),
         contentAlignment = Alignment.Center
     ) {
-        CompositionLocalProvider(LocalContentColor provides contentColor) {
+        CompositionLocalProvider(LocalContentColor provides textColor) {
             Row(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,

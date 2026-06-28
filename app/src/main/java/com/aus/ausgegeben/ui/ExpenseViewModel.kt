@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -187,20 +188,3 @@ private fun TransactionTypeFilter.toFilterKey(): TransactionTypeFilterKey = when
     TransactionTypeFilter.INCOME -> TransactionTypeFilterKey.INCOME
     TransactionTypeFilter.TRANSFER -> TransactionTypeFilterKey.TRANSFER
 }
-
-private data class RecordListData(
-    val categories: List<Category>,
-    val budget: Double?,
-    val currency: String,
-    val periodExpenses: List<Expense>,
-    val monthExpenses: List<Expense>,
-)
-
-private data class RecordHeaderState(
-    val headerExpenses: List<Expense>,
-    val categories: List<Category>,
-    val insights: SpendingInsights,
-    val monthlyBudget: Double?,
-    val monthExpenses: List<Expense>,
-    val dayTotalsByLabel: Map<String, Pair<Double, Double>>,
-)
