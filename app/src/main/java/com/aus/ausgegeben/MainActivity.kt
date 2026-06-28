@@ -253,7 +253,7 @@ fun MainApp(
     }
 
     fun openEditFlow(expense: com.aus.ausgegeben.data.entity.Expense) {
-        addViewModel.loadForEdit(expense, expenseViewModel.uiState.value.categories)
+        addViewModel.loadForEdit(expense, expenseViewModel.uiState.value.data.categories)
         overlayStack.clear()
         overlayStack.add(Route.Dashboard)
     }
