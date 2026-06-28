@@ -16,33 +16,30 @@ val InterFontFamily = FontFamily(
 )
 
 val Typography = Typography(
+    /** Massive Hero Balance */
     displayLarge = TextStyle(
         fontFamily = InterFontFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = 48.sp,
-        lineHeight = 52.sp,
-        letterSpacing = (-1.5).sp
+        fontSize = 52.sp,
+        lineHeight = 56.sp,
+        letterSpacing = (-1.5).sp,
+        fontFeatureSettings = "tnum, lnum"
     ),
     headlineLarge = TextStyle(
         fontFamily = InterFontFamily,
         fontWeight = FontWeight.Bold,
         fontSize = 32.sp,
         lineHeight = 38.sp,
-        letterSpacing = (-0.8).sp
+        letterSpacing = (-1.0).sp,
+        fontFeatureSettings = "tnum, lnum"
     ),
     headlineMedium = TextStyle(
         fontFamily = InterFontFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 24.sp,
         lineHeight = 30.sp,
-        letterSpacing = (-0.4).sp
-    ),
-    headlineSmall = TextStyle(
-        fontFamily = InterFontFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 20.sp,
-        lineHeight = 26.sp,
-        letterSpacing = (-0.3).sp
+        letterSpacing = (-0.5).sp,
+        fontFeatureSettings = "tnum, lnum"
     ),
     titleLarge = TextStyle(
         fontFamily = InterFontFamily,
@@ -51,61 +48,25 @@ val Typography = Typography(
         lineHeight = 26.sp,
         letterSpacing = (-0.3).sp
     ),
-    titleMedium = TextStyle(
-        fontFamily = InterFontFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 16.sp,
-        lineHeight = 22.sp,
-        letterSpacing = (-0.15).sp
-    ),
-    titleSmall = TextStyle(
-        fontFamily = InterFontFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = (-0.1).sp
-    ),
     bodyLarge = TextStyle(
         fontFamily = InterFontFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 16.sp,
         lineHeight = 24.sp,
-        letterSpacing = (-0.1).sp
     ),
     bodyMedium = TextStyle(
         fontFamily = InterFontFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 14.sp,
         lineHeight = 20.sp,
-        letterSpacing = 0.sp
     ),
-    bodySmall = TextStyle(
-        fontFamily = InterFontFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.1.sp
-    ),
-    labelLarge = TextStyle(
-        fontFamily = InterFontFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
-        lineHeight = 18.sp,
-        letterSpacing = 0.1.sp
-    ),
-    labelMedium = TextStyle(
-        fontFamily = InterFontFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.4.sp
-    ),
+    /** Muted Metadata Sub-labels */
     labelSmall = TextStyle(
         fontFamily = InterFontFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.6.sp
+        fontWeight = FontWeight.Bold,
+        fontSize = 11.sp,
+        lineHeight = 14.sp,
+        letterSpacing = 1.5.sp, // Wide tracking
     )
 )
 
@@ -113,14 +74,4 @@ val AmountTextStyle = TextStyle(
     fontFamily = InterFontFamily,
     fontWeight = FontWeight.SemiBold,
     fontFeatureSettings = "tnum, lnum",
-    letterSpacing = (-0.3).sp
-)
-
-/** Section labels — sentence case, quiet */
-val SectionLabelStyle = TextStyle(
-    fontFamily = InterFontFamily,
-    fontWeight = FontWeight.Medium,
-    fontSize = 13.sp,
-    lineHeight = 18.sp,
-    letterSpacing = 0.1.sp
 )

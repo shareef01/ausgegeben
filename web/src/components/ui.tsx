@@ -12,10 +12,11 @@ export function SignatureText({
   className?: string;
 }) {
   if (!text) return null;
+  const lowercaseText = text.toLowerCase();
   return (
     <Tag className={`signature-text ${className}`.trim()}>
-      <span className="signature-text__accent">{text[0]}</span>
-      {text.slice(1)}
+      <span className="signature-text__accent">{lowercaseText[0]}</span>
+      {lowercaseText.slice(1)}
     </Tag>
   );
 }
@@ -43,9 +44,9 @@ export function ScreenTitle({ title, subtitle, action }: ScreenTitleProps) {
   );
 }
 
-export function MoneyText({ amount, currency, className = 'money--body', color }: { amount: number; currency: string; className?: string; color?: string }) {
+export function MoneyText({ amount, currency, className = 'money--body', color, style }: { amount: number; currency: string; className?: string; color?: string; style?: import('react').CSSProperties }) {
   const formatted = new Intl.NumberFormat(currency === 'EUR' ? 'de-DE' : 'en-US', { style: 'currency', currency }).format(amount);
-  return <span className={className} style={color ? { color } : undefined}>{formatted}</span>;
+  return <span className={className} style={{ ...style, ...(color ? { color } : {}) }}>{formatted}</span>;
 }
 
 export function EmptyState({ title, subtitle, hint, action }: { title: string; subtitle: string; hint?: string; action?: ReactNode }) {

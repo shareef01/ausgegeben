@@ -1,6 +1,6 @@
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useMemo, useState, memo, type CSSProperties } from 'react';
 import { ScreenTitle, EmptyState, LoadingListSkeleton } from '@/components/ui';
-import { IconPaperclip, IconSearch } from '@/components/Icons';
+import { IconPaperclip, IconSearch, IconArrowUp, IconArrowDown } from '@/components/Icons';
 import { CategoryLucideIcon } from '@/components/CategoryLucideIcon';
 import { IosSegmentedControl } from '@/components/IosSegmentedControl';
 import { FinanceSummaryCard } from '@/components/FinanceSummaryCard';
@@ -11,7 +11,7 @@ import { ReceiptPreview } from '@/components/ReceiptPreview';
 import { useRecordViewModel } from '@/viewmodels/useRecordViewModel';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useTranslation } from '@/i18n';
-import { formatDateLabel, formatRelativeTimestamp, dayKey } from '@/utils/periodUtils';
+import { formatDateLabel, dayKey } from '@/utils/periodUtils';
 import type { Expense, Category, TransactionTypeFilter, RecordListPeriod } from '@/models/types';
 import { colorIntToHex, formatAmount } from '@/utils/currency';
 import { isReceiptPath } from '@/services/receiptService';
@@ -29,7 +29,18 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
   const periodLabel = uiState.listPeriod === 'this_month' ? t('recordPeriodThisMonth') : t('recordPeriodAllTime');
   const [receiptPath, setReceiptPath] = useState<string | null>(null);
 
-  const grouped = useMemo(() => groupByDay(uiState.expenses), [uiState.expenses]);
+  const grouped = useMemo(() => {
+    const map = new Map<string, Expense[]>();
+    for (const e of uiState.expenses) {
+      const key = dayKey(e.dateMillis);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(e);
+    }
+    return [...map.entries()].map(([, items]) => ({
+      label: formatDateLabel(items[0].dateMillis),
+      items
+    }));
+  }, [uiState.expenses]);
   const catMap = useMemo(() => new Map(uiState.categories.map((c) => [c.id!, c])), [uiState.categories]);
 
   return (
@@ -89,7 +100,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
         />
       ) : (
         <div className="transaction-list-bare">
-          {grouped.map(([label, items]) => (
+          {grouped.map(({ label, items }) => (
             <section key={label} className="transaction-list-bare__section">
               <div className="transaction-list-bare__day">{label}</div>
               <div className="transaction-list-bare__rows">
@@ -119,38 +130,46 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
   );
 }
 
-function TransactionRow({ expense, category, currency, onReceiptClick }: {
+const TransactionRow = memo(({ expense, category, currency, onReceiptClick }: {
   expense: Expense;
   category?: Category;
   currency: string;
   onReceiptClick?: () => void;
-}) {
+}) => {
   const { t } = useTranslation();
+  const isIncome = expense.transactionType === 'income';
+  const isTransfer = expense.transactionType === 'transfer';
+
   const color = category ? colorIntToHex(category.colorInt) : '#888';
-  const amountColor = expense.transactionType === 'income'
+  const amountColor = isIncome
     ? 'var(--color-income)'
-    : expense.transactionType === 'transfer'
+    : isTransfer
       ? 'var(--color-transfer)'
-      : 'var(--color-expense)';
-  const prefix = expense.transactionType === 'income' ? '+' : expense.transactionType === 'expense' ? '-' : '';
+      : 'var(--color-on-background)';
+  const prefix = isIncome ? '+' : expense.transactionType === 'expense' ? '-' : '';
 
   const note = expense.note?.trim();
-  const primaryTitle = note || category?.name || t('transactionDefault');
-  const relativeTime = formatRelativeTimestamp(expense.dateMillis);
-  const subLabel = note && category?.name ? `${category.name} · ${relativeTime}` : relativeTime;
+  const categoryName = category?.name || t('recordUnknownCategory');
 
   return (
     <div className="transaction-row pressable-row">
-      <div className="transaction-row__icon" style={{ '--cat-color': color } as CSSProperties}>
-        {category ? (
-          <CategoryLucideIcon iconName={category.iconName} width={20} height={20} color={color} />
-        ) : (
-          <span className="transaction-row__icon-fallback" />
+      <div className="transaction-row__icon-wrap">
+        <div className="transaction-row__icon" style={{ '--cat-color': color, background: `color-mix(in srgb, ${color} 10%, transparent)` } as CSSProperties}>
+          {category ? (
+            <CategoryLucideIcon iconName={category.iconName} width={18} height={18} color={color} />
+          ) : (
+            <span className="transaction-row__icon-fallback" />
+          )}
+        </div>
+        {!isTransfer && (
+          <div className="transaction-row__indicator" style={{ background: isIncome ? 'var(--color-income)' : 'var(--color-expense)' }}>
+            {isIncome ? <IconArrowUp width={8} height={8} color="white" /> : <IconArrowDown width={8} height={8} color="white" />}
+          </div>
         )}
       </div>
       <div className="transaction-row__meta">
-        <div className="transaction-row__title">{primaryTitle}</div>
-        <div className="transaction-row__sub">{subLabel}</div>
+        <div className="transaction-row__title">{categoryName}</div>
+        {note && <div className="transaction-row__sub">{note}</div>}
       </div>
       {onReceiptClick ? (
         <button
@@ -160,7 +179,7 @@ function TransactionRow({ expense, category, currency, onReceiptClick }: {
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); onReceiptClick(); }}
         >
-          <IconPaperclip width={16} height={16} aria-hidden />
+          <IconPaperclip width={14} height={14} aria-hidden />
         </button>
       ) : null}
       <div className="transaction-row__amount" style={{ color: amountColor }}>
@@ -168,17 +187,7 @@ function TransactionRow({ expense, category, currency, onReceiptClick }: {
       </div>
     </div>
   );
-}
-
-function groupByDay(expenses: Expense[]): [string, Expense[]][] {
-  const map = new Map<string, Expense[]>();
-  for (const e of expenses) {
-    const key = dayKey(e.dateMillis);
-    if (!map.has(key)) map.set(key, []);
-    map.get(key)!.push(e);
-  }
-  return [...map.entries()].map(([, items]) => [formatDateLabel(items[0].dateMillis), items]);
-}
+});
 
 function filterLabel(f: TransactionTypeFilter, t: (key: import('@/i18n').TranslationKey, params?: Record<string, string>) => string): string {
   switch (f) {
