@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
 import { useTranslation } from '@/i18n';
-import { SignatureText } from '@/components/ui';
 import { AppBrandIcon } from '@/components/AppBrandIcon';
 
 export function AuthView() {
@@ -36,11 +35,11 @@ export function AuthView() {
     <div className="app-shell auth-page">
       <div className="auth-page__card">
         <div className="auth-page__brand">
-          <AppBrandIcon size={72} className="auth-page__app-icon" />
-          <h1 className="auth-page__title">
-            <SignatureText text={t('authWelcome')} as="span" />
+          <AppBrandIcon size={80} className="auth-page__app-icon" />
+          <h1 className="auth-page__logo-text">
+            ausgegeben
           </h1>
-          <p className="auth-page__subtitle">{t('authSubtitleCloud')}</p>
+          <p className="auth-page__tagline">track spending</p>
         </div>
 
         {!firebaseReady ? (
