@@ -78,8 +78,8 @@ export function SwipeableRow({ children, onDelete, onTap, onLongPress }: Swipeab
 
     if (swipeAxis.current === 'x') {
       clearLongPress();
-      if (dx < 0) applyOffset(Math.max(dx, -SWIPE_OPEN));
-      else applyOffset(0);
+      // Law: Dual-axis swipe support (Edit on right-swipe, Delete on left-swipe)
+      applyOffset(Math.max(-SWIPE_OPEN, Math.min(dx, SWIPE_OPEN)));
     }
   };
 
@@ -97,14 +97,16 @@ export function SwipeableRow({ children, onDelete, onTap, onLongPress }: Swipeab
     const movedX = swipeAxis.current === 'x';
     const current = offsetRef.current;
 
-    if (movedX && current <= -SWIPE_THRESHOLD) {
-      onDelete();
-      applyOffset(0, true);
-    } else if (movedX && current < -TAP_SLOP) {
-      applyOffset(-SWIPE_OPEN, true);
-    } else if (!movedX && onTap) {
-      onTap();
-      applyOffset(0, true);
+    if (movedX) {
+      if (current <= -SWIPE_THRESHOLD) {
+        onDelete();
+        applyOffset(0, true);
+      } else if (current >= SWIPE_THRESHOLD) {
+        if (onTap) onTap(); // Law: Tap is now a Swipe-Right gesture
+        applyOffset(0, true);
+      } else {
+        applyOffset(0, true);
+      }
     } else {
       applyOffset(0, true);
     }
@@ -114,8 +116,11 @@ export function SwipeableRow({ children, onDelete, onTap, onLongPress }: Swipeab
 
   return (
     <div className="swipeable-row">
-      <div className="swipeable-row__bg" aria-hidden>
+      <div className={`swipeable-row__bg swipeable-row__bg--delete ${offset < 0 ? 'visible' : ''}`} aria-hidden>
         <span>{t('recordSwipeDelete')}</span>
+      </div>
+      <div className={`swipeable-row__bg swipeable-row__bg--edit ${offset > 0 ? 'visible' : ''}`} aria-hidden>
+        <span>{t('actionEdit')}</span>
       </div>
       <div
         ref={contentRef}
