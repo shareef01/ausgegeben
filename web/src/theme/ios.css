@@ -1,5 +1,5 @@
 /**
- * iOS / iPhone Specific Flagship Optimizations - REVISED
+ * iOS / iPhone Specific Flagship Optimizations - SCROLL FIX
  */
 
 :root {
@@ -9,87 +9,69 @@
   --safe-right: env(safe-area-inset-right, 0px);
 }
 
-/* ── Restore Native Scrolling ── */
+/* ── Force Body Scroll ── */
 
-html, body {
-  /* Allow standard overflow but keep it clean */
-  height: auto;
-  min-height: 100%;
-  overflow-x: hidden;
-  /* Disable tap highlighting */
-  -webkit-tap-highlight-color: transparent;
-  /* Smooth text rendering */
-  -webkit-font-smoothing: antialiased;
+html {
+  height: -webkit-fill-available;
 }
 
 body {
-  /* Remove fixed position that breaks scrolling */
-  position: static;
-  width: 100%;
-  /* Enable momentum scrolling */
+  /* Restore absolute standard scrolling */
+  position: relative !important;
+  height: auto !important;
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
   -webkit-overflow-scrolling: touch;
+
+  /* Visual tweaks */
+  -webkit-tap-highlight-color: transparent;
+  background-color: var(--color-background);
 }
 
-/* ── Layout Fit & Safe Areas ── */
+/* ── UI Anchor Stability ── */
 
 .app-shell {
-  padding-top: var(--safe-top);
-  min-height: 100dvh;
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
 }
 
 .bottom-bar {
-  /* Fixed height + home indicator padding */
+  /* Ensure it stays fixed but doesn't block scroll events */
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
   padding-bottom: var(--safe-bottom);
   height: calc(var(--bottom-bar-height) + var(--safe-bottom));
+  pointer-events: auto;
+  z-index: 100;
 }
 
-.fab {
-  /* Position FAB safely above home indicator */
-  bottom: calc(var(--bottom-bar-height) + var(--safe-bottom) + 20px);
-}
-
-/* ── Add/Edit Transaction Sheet Fit (Optimized for Large iPhones) ── */
+/* ── Transaction Sheet Fit ── */
 
 .sheet--transaction {
-  /* Use max-height but allow scaling for iPhone 15 Pro Max */
-  max-height: calc(100dvh - var(--safe-top) - 20px);
-  padding-bottom: calc(32px + var(--safe-bottom));
-  /* Ensure form content fits vertically */
-  display: flex;
-  flex-direction: column;
+  max-height: 94vh;
+  max-height: 94dvh;
+  padding-bottom: calc(40px + var(--safe-bottom));
 }
 
-.sheet--transaction .amount-entry {
-  /* Slim down for vertical space */
-  margin-bottom: 12px;
-}
-
-.sheet--transaction .numpad {
-  /* Ensure numpad keys are usable but compact */
-  gap: 6px;
-}
-
-.sheet--transaction .numpad button {
-  height: 48px;
-}
-
-/* ── Prevent Accidental Taps while Scrolling ── */
+/* ── Touch Interaction ── */
 
 .swipeable-row,
 .pressable-row,
 .btn,
 .numpad__key {
-  /* Improve touch response but prevent ghost clicks */
+  /* Prevent browser gestures interfering with custom ones */
   touch-action: pan-y pinch-zoom;
+  /* Prevent selection */
+  -webkit-user-select: none;
 }
 
-/* ── Custom Component Insets ── */
+/* ── Safe Area Insets ── */
 
-.screen-title-bar {
-  padding-left: calc(var(--workspace-padding) + var(--safe-left));
-  padding-right: calc(var(--workspace-padding) + var(--safe-right));
-}
-
+.screen-title-bar,
 .transaction-list-bare,
 .finance-summary-card,
 .record-filters,
