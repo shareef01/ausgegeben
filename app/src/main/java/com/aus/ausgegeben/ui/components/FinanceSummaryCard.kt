@@ -1,49 +1,83 @@
 package com.aus.ausgegeben.ui.components
 
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.aus.ausgegeben.R
-import com.aus.ausgegeben.ui.theme.AppGradientAlpha
-import com.aus.ausgegeben.ui.theme.AppIconSize
-import com.aus.ausgegeben.ui.theme.AppLayoutTokens
-import com.aus.ausgegeben.ui.theme.AppProgressBar
-import com.aus.ausgegeben.ui.theme.AppRadius
-import com.aus.ausgegeben.ui.theme.AppSpringSnappy
-import com.aus.ausgegeben.ui.theme.AppSpacing
-import com.aus.ausgegeben.ui.theme.financeExpenseColor
-import com.aus.ausgegeben.ui.theme.financeIncomeColor
+import com.aus.ausgegeben.ui.theme.isAppDarkTheme
 import com.aus.ausgegeben.util.CurrencyUtils
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+
+private object AuroraTokens {
+    @Composable
+    fun emerald() = Color(0xFF10B981)
+
+    @Composable
+    fun crimson() = Color(0xFFFB7185)
+
+    @Composable
+    fun slate() = MaterialTheme.colorScheme.onSurfaceVariant
+    
+    // Pillar 2: Adaptive Glassmorphism
+    @Composable
+    fun glassBase() = if (isAppDarkTheme()) {
+        Color(0xFFFFFFFF).copy(alpha = 0.03f)
+    } else {
+        Color(0xFF000000).copy(alpha = 0.03f)
+    }
+    
+    @Composable
+    fun specularBorder() = if (isAppDarkTheme()) {
+        Brush.linearGradient(
+            colors = listOf(Color.White.copy(alpha = 0.2f), Color.Transparent),
+            start = Offset(0f, 0f),
+            end = Offset(200f, 200f)
+        )
+    } else {
+        Brush.linearGradient(
+            colors = listOf(Color.Black.copy(alpha = 0.1f), Color.Transparent),
+            start = Offset(0f, 0f),
+            end = Offset(200f, 200f)
+        )
+    }
+
+    // Pillar 3: Dynamic Multi-tone Brush for Balance
+    @Composable
+    fun balanceBrush(isPositive: Boolean) = if (isPositive) {
+        Brush.verticalGradient(colors = listOf(Color(0xFF6EE7B7), Color(0xFF10B981)))
+    } else {
+        Brush.verticalGradient(colors = listOf(Color(0xFFFDA4AF), Color(0xFFFB7185)))
+    }
+
+    @Composable
+    fun labelStyle() = TextStyle(
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 1.5.sp,
+        color = slate()
+    )
+}
 
 @Composable
 fun FinanceSummaryCard(
@@ -51,237 +85,145 @@ fun FinanceSummaryCard(
     incomeTotal: Double,
     net: Double,
     currencyCode: String,
-    transferCount: Int = 0,
-    transferTotal: Double = 0.0,
     periodLabel: String = "all time",
-    insightLine: String? = null,
-    compact: Boolean = false,
     animateChanges: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    val incomeColor = financeIncomeColor()
-    val expenseColor = financeExpenseColor()
-    val netColor = when {
-        net > 0 -> incomeColor
-        net < 0 -> expenseColor
-        else -> MaterialTheme.colorScheme.onBackground
-    }
-    val totalFlow = expenseTotal + incomeTotal
-    val incomeRatio = if (totalFlow > 0.0) {
-        (incomeTotal / totalFlow).toFloat().coerceIn(0.08f, 0.92f)
-    } else {
-        0.5f
-    }
-    val animatedIncomeRatio by animateFloatAsState(
-        targetValue = incomeRatio,
-        animationSpec = AppSpringSnappy,
-        label = "summaryIncomeRatio",
-    )
-    val displayIncomeRatio = if (animateChanges) animatedIncomeRatio else incomeRatio
-
+    // Pillar 2: True Glassmorphism Container
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = AppSpacing.md)
-            .padding(bottom = if (compact) AppSpacing.xs else AppSpacing.sm)
-            .clip(RoundedCornerShape(AppRadius.xl))
-            .background(MaterialTheme.colorScheme.surface),
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(AuroraTokens.glassBase())
+            .border(
+                width = 1.dp,
+                brush = AuroraTokens.specularBorder(),
+                shape = RoundedCornerShape(24.dp)
+            )
+            .padding(vertical = 32.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .background(
-                    Brush.linearGradient(
-                        listOf(
-                            incomeColor.copy(alpha = AppGradientAlpha.incomeSoft),
-                            MaterialTheme.colorScheme.surface,
-                            expenseColor.copy(alpha = AppGradientAlpha.expenseSoft),
-                        )
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = stringResource(R.string.summary_balance_period, periodLabel).uppercase(),
+                style = AuroraTokens.labelStyle(),
+            )
+            
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Pillar 3: Dynamic Radiant Typography
+            Text(
+                text = CurrencyUtils.formatAmount(net, currencyCode),
+                style = TextStyle(
+                    brush = AuroraTokens.balanceBrush(net >= 0),
+                    fontSize = 52.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFeatureSettings = "tnum",
+                    shadow = Shadow(
+                        color = (if (net >= 0) AuroraTokens.emerald() else AuroraTokens.crimson()).copy(alpha = 0.25f),
+                        blurRadius = 24f,
+                        offset = Offset(0f, 4f)
                     )
                 )
-        )
-        Column(modifier = Modifier.padding(AppSpacing.md)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.summary_balance_period, periodLabel),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Normal,
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                SummaryPane(
+                    label = stringResource(R.string.summary_earned),
+                    value = CurrencyUtils.formatAmount(incomeTotal, currencyCode),
+                    color = AuroraTokens.emerald(),
+                    isIncome = true,
+                    modifier = Modifier.weight(1f)
                 )
-                MoneyText(
-                    text = CurrencyUtils.formatAmount(net, currencyCode),
-                    size = MoneySize.Hero,
-                    color = netColor,
-                    fontWeight = FontWeight.SemiBold,
-                    animateChanges = animateChanges,
-                    modifier = Modifier.padding(top = AppSpacing.xxs),
+
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .fillMaxHeight()
+                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                )
+
+                SummaryPane(
+                    label = stringResource(R.string.summary_spent),
+                    value = CurrencyUtils.formatAmount(expenseTotal, currencyCode),
+                    color = AuroraTokens.crimson(),
+                    isIncome = false,
+                    modifier = Modifier.weight(1f)
                 )
             }
-            NetStatusPill(
-                text = when {
-                    net > 0 -> "+"
-                    net < 0 -> "-"
-                    else -> "="
-                },
-                color = netColor,
-            )
-        }
-
-        Text(
-            text = when {
-                net > 0 -> stringResource(R.string.summary_earned)
-                net < 0 -> stringResource(R.string.summary_spent)
-                else -> stringResource(R.string.chart_net_label)
-            },
-            style = MaterialTheme.typography.labelSmall,
-            color = netColor.copy(alpha = 0.82f),
-            modifier = Modifier.padding(top = AppSpacing.xxs),
-        )
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = AppSpacing.md),
-            horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm),
-        ) {
-            SummaryStat(
-                label = stringResource(R.string.summary_earned),
-                value = CurrencyUtils.formatAmount(incomeTotal, currencyCode),
-                color = incomeColor,
-                modifier = Modifier.weight(1f),
-            )
-            SummaryStat(
-                label = stringResource(R.string.summary_spent),
-                value = CurrencyUtils.formatAmount(expenseTotal, currencyCode),
-                color = expenseColor,
-                modifier = Modifier.weight(1f),
-            )
-        }
-
-        FlowBalanceBar(
-            incomeRatio = displayIncomeRatio,
-            expenseColor = expenseColor,
-            incomeColor = incomeColor,
-            modifier = Modifier.padding(top = AppSpacing.md),
-        )
-
-        insightLine?.let { line ->
-            Text(
-                text = line,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = AppSpacing.sm),
-            )
-        }
-
-        if (transferCount > 0) {
-            Text(
-                text = pluralStringResource(
-                    R.plurals.summary_transfers,
-                    transferCount,
-                    transferCount,
-                    CurrencyUtils.formatAmount(transferTotal, currencyCode)
-                ),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = AppSpacing.xs),
-            )
-        }
         }
     }
 }
 
 @Composable
-private fun SummaryStat(
+private fun SummaryPane(
     label: String,
     value: String,
     color: Color,
+    isIncome: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier
-            .clip(RoundedCornerShape(AppRadius.lg))
-            .background(color.copy(alpha = 0.1f))
-            .padding(horizontal = AppSpacing.sm, vertical = AppSpacing.xs),
-        verticalAlignment = Alignment.CenterVertically,
+    Column(
+        modifier = modifier.padding(vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
+        // Prominent Arrow Badge
         Box(
             modifier = Modifier
-                .size(8.dp)
+                .size(28.dp)
                 .clip(CircleShape)
-                .background(color),
-        )
-        Column(modifier = Modifier.padding(start = AppSpacing.xs)) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Normal,
-            )
-            MoneyText(
-                text = value,
-                size = MoneySize.Body,
-                color = color,
-                fontWeight = FontWeight.Medium,
-                animateChanges = true,
-                modifier = Modifier.padding(top = 1.dp),
+                .background(color.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = if (isIncome) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward,
+                contentDescription = null,
+                tint = color,
+                modifier = Modifier.size(16.dp)
             )
         }
-    }
-}
-
-@Composable
-private fun FlowBalanceBar(
-    incomeRatio: Float,
-    expenseColor: Color,
-    incomeColor: Color,
-    modifier: Modifier = Modifier,
-) {
-    val barHeight = AppProgressBar.flowBalanceHeight
-    val barShape = RoundedCornerShape(AppRadius.pill)
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(barHeight)
-            .clip(barShape)
-            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)),
-    ) {
-        Box(
-            modifier = Modifier
-                .weight((1f - incomeRatio).coerceAtLeast(0.05f))
-                .height(barHeight)
-                .clip(barShape)
-                .background(expenseColor.copy(alpha = 0.85f)),
-        )
-        Box(
-            modifier = Modifier
-                .weight(incomeRatio.coerceAtLeast(0.05f))
-                .height(barHeight)
-                .clip(barShape)
-                .background(incomeColor.copy(alpha = 0.9f)),
-        )
-    }
-}
-
-@Composable
-private fun NetStatusPill(text: String, color: Color) {
-    Box(
-        modifier = Modifier
-            .size(34.dp)
-            .clip(CircleShape)
-            .background(color.copy(alpha = 0.14f)),
-        contentAlignment = Alignment.Center,
-    ) {
+        
+        Spacer(Modifier.height(8.dp))
+        
         Text(
-            text = text,
-            style = MaterialTheme.typography.titleMedium,
-            color = color,
-            fontWeight = FontWeight.Medium,
+            text = label.uppercase(),
+            style = AuroraTokens.labelStyle(),
+        )
+        
+        Spacer(modifier = Modifier.height(4.dp))
+        
+        // Pillar 3: Amount text pop with colored drop shadow
+        Text(
+            text = value,
+            style = TextStyle(
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                fontFeatureSettings = "tnum"
+            )
+        )
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        // Refined Physical Mark - Law 4: Symmetrical anchors
+        Box(
+            modifier = Modifier
+                .width(32.dp)
+                .height(4.dp)
+                .clip(CircleShape)
+                .background(color.copy(alpha = 0.6f))
         )
     }
 }
@@ -296,58 +238,69 @@ fun EmptyStateMessage(
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
 ) {
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .defaultMinSize(minHeight = AppLayoutTokens.emptyStateMinHeight)
-            .padding(horizontal = AppSpacing.xl, vertical = AppSpacing.xxl),
+            .padding(48.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            tint = muted.copy(alpha = 0.45f),
-            modifier = Modifier.size(AppIconSize.lg),
-        )
-        Spacer(modifier = Modifier.height(AppSpacing.md))
+        Box(
+            modifier = Modifier.size(64.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = AuroraTokens.slate().copy(alpha = 0.5f),
+                modifier = Modifier.size(28.dp),
+            )
+        }
+        Spacer(modifier = Modifier.height(24.dp))
         Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-            fontWeight = FontWeight.Normal,
+            text = title.uppercase(),
+            style = AuroraTokens.labelStyle().copy(color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp),
             textAlign = TextAlign.Center,
         )
-        Spacer(modifier = Modifier.height(AppSpacing.xxs))
+        Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = subtitle,
             style = MaterialTheme.typography.bodyMedium,
-            color = muted,
+            color = AuroraTokens.slate(),
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = AppSpacing.md),
+            modifier = Modifier.padding(horizontal = 24.dp),
         )
-        if (hint != null) {
-            Spacer(modifier = Modifier.height(AppSpacing.xs))
-            Text(
-                text = hint,
-                style = MaterialTheme.typography.bodySmall,
-                color = muted,
-                textAlign = TextAlign.Center,
+        if (actionLabel != null && onAction != null) {
+            Spacer(modifier = Modifier.height(32.dp))
+            AppButton(
+                onClick = onAction,
+                text = actionLabel.uppercase(),
             )
         }
-        if (actionLabel != null && onAction != null) {
-            Spacer(modifier = Modifier.height(AppSpacing.lg))
-            Button(
-                onClick = onAction,
-                shape = RoundedCornerShape(AppRadius.md),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.onBackground,
-                    contentColor = MaterialTheme.colorScheme.background,
-                ),
-            ) {
-                Text(actionLabel, fontWeight = FontWeight.Medium)
-            }
-        }
+    }
+}
+
+@Composable
+private fun AppButton(
+    onClick: () -> Unit,
+    text: String,
+) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.onBackground)
+            .premiumClickable(onClick = onClick)
+            .padding(horizontal = 24.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            style = TextStyle(
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp,
+                color = MaterialTheme.colorScheme.background
+            )
+        )
     }
 }

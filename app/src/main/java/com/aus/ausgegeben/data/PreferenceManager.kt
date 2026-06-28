@@ -35,7 +35,14 @@ class PreferenceManager(private val context: Context) {
         val STORAGE_MODE = stringPreferencesKey("storage_mode")
         val AUTH_GATEWAY_COMPLETE = booleanPreferencesKey("auth_gateway_complete")
         val LAST_CLOUD_SYNC_AT = stringPreferencesKey("last_cloud_sync_at")
+        val LANGUAGE = stringPreferencesKey("language")
     }
+
+    val languageFlow: Flow<String> = context.dataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
+        }
+        .map { it[PreferencesKeys.LANGUAGE] ?: "en" }
 
     val currencyFlow: Flow<String> = context.dataStore.data
         .catch { exception ->
@@ -237,6 +244,12 @@ class PreferenceManager(private val context: Context) {
     suspend fun setLastCloudSyncAt(millis: Long) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.LAST_CLOUD_SYNC_AT] = millis.toString()
+        }
+    }
+
+    suspend fun updateLanguage(languageCode: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LANGUAGE] = languageCode
         }
     }
 }

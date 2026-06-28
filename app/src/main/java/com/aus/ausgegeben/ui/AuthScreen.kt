@@ -1,74 +1,96 @@
 package com.aus.ausgegeben.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.CloudOff
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.MailOutline
-import androidx.compose.material.icons.rounded.Visibility
-import androidx.compose.material.icons.rounded.VisibilityOff
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aus.ausgegeben.R
-import com.aus.ausgegeben.ui.components.GroupedSection
-import com.aus.ausgegeben.ui.components.IosSegmentedControl
-import com.aus.ausgegeben.ui.components.AppButton
+import com.aus.ausgegeben.ui.components.AppBrandIcon
 import com.aus.ausgegeben.ui.components.AppIconButton
-import com.aus.ausgegeben.ui.components.AppTextButton
-import com.aus.ausgegeben.ui.components.smoothClickable
-import com.aus.ausgegeben.ui.theme.AppRadius
-import com.aus.ausgegeben.ui.theme.AppSpacing
-import com.aus.ausgegeben.ui.theme.financeExpenseColor
-import com.aus.ausgegeben.ui.theme.financeIncomeColor
-import com.aus.ausgegeben.ui.theme.inputFocusedBorderColor
-import com.aus.ausgegeben.ui.theme.inputUnfocusedBorderColor
+import com.aus.ausgegeben.ui.components.premiumClickable
+import com.aus.ausgegeben.ui.theme.isAppDarkTheme
+import androidx.compose.ui.geometry.Offset
+
+private object AuthAuroraTokens {
+    @Composable
+    fun background() = MaterialTheme.colorScheme.background
+
+    @Composable
+    fun surface() = MaterialTheme.colorScheme.surface
+
+    @Composable
+    fun slate() = MaterialTheme.colorScheme.onSurfaceVariant
+
+    @Composable
+    fun emerald() = Color(0xFF10B981)
+
+    // Pillar 1: Ambient Aurora Background
+    @Composable
+    fun auroraBrush() = Brush.radialGradient(
+        colors = listOf(emerald().copy(alpha = if (isAppDarkTheme()) 0.15f else 0.08f), Color.Transparent),
+        radius = 1200f,
+        center = Offset(x = 0f, y = 0f)
+    )
+
+    // Pillar 2: Adaptive Glassmorphism
+    @Composable
+    fun glassBase() = if (isAppDarkTheme()) {
+        Color(0xFFFFFFFF).copy(alpha = 0.03f)
+    } else {
+        Color(0xFF000000).copy(alpha = 0.03f)
+    }
+
+    @Composable
+    fun specularBorder() = if (isAppDarkTheme()) {
+        Brush.linearGradient(
+            colors = listOf(Color.White.copy(alpha = 0.2f), Color.Transparent),
+            start = Offset(0f, 0f),
+            end = Offset(100f, 100f)
+        )
+    } else {
+        Brush.linearGradient(
+            colors = listOf(Color.Black.copy(alpha = 0.1f), Color.Transparent),
+            start = Offset(0f, 0f),
+            end = Offset(100f, 100f)
+        )
+    }
+
+    @Composable
+    fun labelStyle() = TextStyle(
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 1.5.sp,
+        color = slate()
+    )
+}
 
 @Composable
 fun AuthScreen(
@@ -78,261 +100,268 @@ fun AuthScreen(
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val expenseColor = financeExpenseColor()
-    val incomeColor = financeIncomeColor()
+    val emerald = AuthAuroraTokens.emerald()
 
-    Scaffold(
-        modifier = modifier.fillMaxSize(),
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            Row(
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(AuthAuroraTokens.background())
+    ) {
+        // Pillar 1: Ambient Background
+        Box(modifier = Modifier.fillMaxSize().background(AuthAuroraTokens.auroraBrush()))
+
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                AuthTopBar(onDismiss = onDismiss)
+            }
+        ) { innerPadding ->
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = AppSpacing.xs, vertical = AppSpacing.xs),
-                verticalAlignment = Alignment.CenterVertically,
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .imePadding()
+                    .navigationBarsPadding()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                if (onDismiss != null) {
-                    AppIconButton(
-                        onClick = onDismiss,
-                        icon = Icons.AutoMirrored.Rounded.ArrowBack,
-                        contentDescription = stringResource(R.string.action_back),
-                    )
-                } else {
-                    Spacer(modifier = Modifier.size(48.dp))
-                }
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = AppSpacing.sm),
-                ) {
-                    Text(
-                        text = stringResource(R.string.app_name),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = stringResource(R.string.auth_tagline),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                // Branding Anchor - Refined with dedicated component
+                AppBrandIcon(size = 72)
+
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                // Minimalist lowercase title
+                Text(
+                    text = stringResource(R.string.app_name).lowercase(),
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Light,
+                        letterSpacing = (-0.5).sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Pillar 2: Hero Glassmorphic Auth Card
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(
-                            Brush.linearGradient(
-                                listOf(
-                                    expenseColor.copy(alpha = 0.2f),
-                                    incomeColor.copy(alpha = 0.25f),
-                                ),
-                            ),
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("A", fontWeight = FontWeight.Bold, color = expenseColor)
-                }
-            }
-        },
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .imePadding()
-                .navigationBarsPadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = AppSpacing.md),
-        ) {
-            Text(
-                text = stringResource(R.string.auth_headline),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(top = AppSpacing.sm),
-            )
-            Text(
-                text = stringResource(R.string.auth_subheadline),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = AppSpacing.xxs, bottom = AppSpacing.md),
-            )
-
-            GroupedSection {
-                Column(
-                    modifier = Modifier
                         .fillMaxWidth()
-                        .padding(AppSpacing.md),
-                    verticalArrangement = Arrangement.spacedBy(AppSpacing.sm),
-                ) {
-                    IosSegmentedControl(
-                        options = listOf(
-                            stringResource(R.string.auth_tab_sign_in),
-                            stringResource(R.string.auth_tab_sign_up),
-                        ),
-                        selectedIndex = if (uiState.selectedTab == AuthTab.SIGN_IN) 0 else 1,
-                        onSelected = { index ->
-                            viewModel.onTabSelected(if (index == 0) AuthTab.SIGN_IN else AuthTab.SIGN_UP)
-                        },
-                    )
-
-                    AuthTextField(
-                        value = uiState.email,
-                        onValueChange = viewModel::onEmailChange,
-                        label = stringResource(R.string.auth_email_label),
-                        leading = { Icon(Icons.Rounded.MailOutline, contentDescription = null) },
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Email,
-                            imeAction = ImeAction.Next,
-                        ),
-                    )
-
-                    AuthTextField(
-                        value = uiState.password,
-                        onValueChange = viewModel::onPasswordChange,
-                        label = stringResource(R.string.auth_password_label),
-                        leading = { Icon(Icons.Rounded.Lock, contentDescription = null) },
-                        trailing = {
-                            AppIconButton(
-                                onClick = viewModel::onTogglePasswordVisibility,
-                                icon = if (uiState.passwordVisible) {
-                                    Icons.Rounded.VisibilityOff
-                                } else {
-                                    Icons.Rounded.Visibility
-                                },
-                                contentDescription = stringResource(R.string.auth_toggle_password),
-                                modifier = Modifier.size(36.dp)
-                            )
-                        },
-                        visualTransformation = if (uiState.passwordVisible) {
-                            VisualTransformation.None
-                        } else {
-                            PasswordVisualTransformation()
-                        },
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Password,
-                            imeAction = if (uiState.selectedTab == AuthTab.SIGN_UP) {
-                                ImeAction.Next
-                            } else {
-                                ImeAction.Done
-                            },
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onDone = {
-                                if (uiState.selectedTab == AuthTab.SIGN_IN) {
-                                    viewModel.submit(onAuthenticated)
-                                }
-                            },
-                        ),
-                    )
-
-                    if (uiState.selectedTab == AuthTab.SIGN_UP) {
-                        AuthTextField(
-                            value = uiState.confirmPassword,
-                            onValueChange = viewModel::onConfirmPasswordChange,
-                            label = stringResource(R.string.auth_confirm_password_label),
-                            leading = { Icon(Icons.Rounded.Lock, contentDescription = null) },
-                            visualTransformation = if (uiState.passwordVisible) {
-                                VisualTransformation.None
-                            } else {
-                                PasswordVisualTransformation()
-                            },
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Password,
-                                imeAction = ImeAction.Done,
-                            ),
-                            keyboardActions = KeyboardActions(
-                                onDone = { viewModel.submit(onAuthenticated) },
-                            ),
+                        .clip(RoundedCornerShape(28.dp))
+                        .background(AuthAuroraTokens.glassBase())
+                        .border(
+                            width = 1.dp,
+                            brush = AuthAuroraTokens.specularBorder(),
+                            shape = RoundedCornerShape(28.dp)
                         )
-                    }
+                        .padding(24.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        // Dynamic Tab Selector
+                        AuthTabSelector(
+                            selectedTab = uiState.selectedTab,
+                            onTabSelected = viewModel::onTabSelected
+                        )
 
-                    if (uiState.selectedTab == AuthTab.SIGN_IN) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                            AppTextButton(
-                                onClick = viewModel::sendPasswordReset,
-                                text = stringResource(R.string.auth_forgot_password),
-                                enabled = !uiState.isLoading,
-                                contentColor = MaterialTheme.colorScheme.primary
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        AuthTextField(
+                            value = uiState.email,
+                            onValueChange = viewModel::onEmailChange,
+                            label = stringResource(R.string.auth_email_label),
+                            icon = Icons.Rounded.Mail,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+                        )
+
+                        AuthTextField(
+                            value = uiState.password,
+                            onValueChange = viewModel::onPasswordChange,
+                            label = stringResource(R.string.auth_password_label),
+                            icon = Icons.Rounded.Lock,
+                            isPassword = true,
+                            passwordVisible = uiState.passwordVisible,
+                            onToggleVisibility = viewModel::onTogglePasswordVisibility,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                        )
+
+                        if (uiState.selectedTab == AuthTab.SIGN_UP) {
+                            AuthTextField(
+                                value = uiState.confirmPassword,
+                                onValueChange = viewModel::onConfirmPasswordChange,
+                                label = stringResource(R.string.auth_confirm_password_label),
+                                icon = Icons.Rounded.VerifiedUser,
+                                isPassword = true,
+                                passwordVisible = uiState.passwordVisible,
+                                onToggleVisibility = viewModel::onTogglePasswordVisibility,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
                             )
                         }
-                    }
 
-                    if (uiState.errorMessage != null) {
-                        Text(
-                            text = uiState.errorMessage.orEmpty(),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    }
-                    if (uiState.infoMessage != null) {
-                        Text(
-                            text = uiState.infoMessage.orEmpty(),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = incomeColor,
-                        )
-                    }
+                        if (uiState.errorMessage != null) {
+                            Text(
+                                text = uiState.errorMessage!!,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
 
-                    AppButton(
-                        onClick = { viewModel.submit(onAuthenticated) },
-                        enabled = !uiState.isLoading,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        if (uiState.isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.background,
-                            )
-                            Spacer(modifier = Modifier.size(AppSpacing.sm))
-                            Text(
-                                text = uiState.loadingMessage.orEmpty(),
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.background,
-                            )
-                        } else {
-                            Text(
-                                text = if (uiState.selectedTab == AuthTab.SIGN_IN) {
-                                    stringResource(R.string.auth_sign_in)
-                                } else {
-                                    stringResource(R.string.auth_create_account)
-                                },
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.background,
-                            )
+                        // Premium CTA Button
+                        Button(
+                            onClick = { viewModel.submit(onAuthenticated) },
+                            enabled = !uiState.isLoading,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                                .shadow(
+                                    elevation = if (uiState.isLoading) 0.dp else 12.dp,
+                                    shape = RoundedCornerShape(16.dp),
+                                    spotColor = emerald
+                                ),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = emerald,
+                                contentColor = Color.White,
+                                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(0.dp)
+                        ) {
+                            if (uiState.isLoading) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                            } else {
+                                Text(
+                                    text = if (uiState.selectedTab == AuthTab.SIGN_IN) 
+                                        stringResource(R.string.auth_sign_in).uppercase() 
+                                        else stringResource(R.string.auth_create_account).uppercase(),
+                                    style = TextStyle(fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                                )
+                            }
+                        }
+
+                        if (uiState.selectedTab == AuthTab.SIGN_IN) {
+                            TextButton(
+                                onClick = viewModel::sendPasswordReset,
+                                modifier = Modifier.align(Alignment.CenterHorizontally)
+                            ) {
+                                Text(
+                                    stringResource(R.string.auth_forgot_password),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = AuthAuroraTokens.slate()
+                                )
+                            }
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Secondary Action: Offline Mode
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .premiumClickable { viewModel.continueOffline(onAuthenticated) }
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Rounded.CloudOff, null, tint = AuthAuroraTokens.slate(), modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.auth_continue_offline).uppercase(),
+                            style = AuthAuroraTokens.labelStyle().copy(color = MaterialTheme.colorScheme.onSurface)
+                        )
+                    }
+                    Text(
+                        text = stringResource(R.string.auth_continue_offline_subtitle),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AuthAuroraTokens.slate()
+                    )
+                }
             }
+        }
+    }
+}
 
-            Spacer(modifier = Modifier.height(AppSpacing.md))
-
-            AppButton(
-                onClick = { viewModel.continueOffline(onAuthenticated) },
-                enabled = !uiState.isLoading,
-                modifier = Modifier.fillMaxWidth(),
-                containerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
-                contentColor = MaterialTheme.colorScheme.onBackground
-            ) {
-                Icon(Icons.Rounded.CloudOff, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.size(AppSpacing.sm))
-                Text(
-                    text = stringResource(R.string.auth_continue_offline),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Medium,
-                )
-            }
-
-            Text(
-                text = stringResource(R.string.auth_continue_offline_subtitle),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = AppSpacing.xs, bottom = AppSpacing.lg),
+@Composable
+private fun AuthTopBar(onDismiss: (() -> Unit)?) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (onDismiss != null) {
+            AppIconButton(
+                onClick = onDismiss,
+                icon = Icons.AutoMirrored.Rounded.ArrowBack,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface
             )
         }
+    }
+}
+
+@Composable
+private fun AuthTabSelector(
+    selectedTab: AuthTab,
+    onTabSelected: (AuthTab) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(44.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+            .padding(4.dp)
+    ) {
+        AuthTabItem(
+            label = stringResource(R.string.auth_tab_sign_in),
+            isSelected = selectedTab == AuthTab.SIGN_IN,
+            modifier = Modifier.weight(1f),
+            onClick = { onTabSelected(AuthTab.SIGN_IN) }
+        )
+        AuthTabItem(
+            label = stringResource(R.string.auth_tab_sign_up),
+            isSelected = selectedTab == AuthTab.SIGN_UP,
+            modifier = Modifier.weight(1f),
+            onClick = { onTabSelected(AuthTab.SIGN_UP) }
+        )
+    }
+}
+
+@Composable
+private fun AuthTabItem(
+    label: String,
+    isSelected: Boolean,
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
+    val background by animateColorAsState(
+        targetValue = if (isSelected) MaterialTheme.colorScheme.surface else Color.Transparent,
+        animationSpec = tween(250),
+        label = "tabBg"
+    )
+
+    Box(
+        modifier = modifier
+            .fillMaxHeight()
+            .clip(RoundedCornerShape(10.dp))
+            .background(background)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label.uppercase(),
+            style = TextStyle(
+                fontSize = 11.sp,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                letterSpacing = 1.sp,
+                color = if (isSelected) MaterialTheme.colorScheme.onSurface else AuthAuroraTokens.slate()
+            )
+        )
     }
 }
 
@@ -341,31 +370,39 @@ private fun AuthTextField(
     value: String,
     onValueChange: (String) -> Unit,
     label: String,
-    leading: @Composable (() -> Unit)? = null,
-    trailing: @Composable (() -> Unit)? = null,
-    visualTransformation: VisualTransformation = VisualTransformation.None,
-    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
-    keyboardActions: KeyboardActions = KeyboardActions.Default,
+    icon: ImageVector,
+    isPassword: Boolean = false,
+    passwordVisible: Boolean = false,
+    onToggleVisibility: (() -> Unit)? = null,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         modifier = Modifier.fillMaxWidth(),
-        label = { Text(label) },
-        leadingIcon = leading,
-        trailingIcon = trailing,
+        label = { Text(label, style = MaterialTheme.typography.bodyMedium) },
+        leadingIcon = { Icon(icon, null, modifier = Modifier.size(20.dp)) },
+        trailingIcon = if (isPassword) {
+            {
+                IconButton(onClick = onToggleVisibility!!) {
+                    Icon(
+                        if (passwordVisible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                        null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        } else null,
+        visualTransformation = if (isPassword && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
         singleLine = true,
-        visualTransformation = visualTransformation,
         keyboardOptions = keyboardOptions,
-        keyboardActions = keyboardActions,
-        shape = RoundedCornerShape(AppRadius.md),
+        shape = RoundedCornerShape(16.dp),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = inputFocusedBorderColor(),
-            unfocusedBorderColor = inputUnfocusedBorderColor(),
-            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f),
-            focusedLabelColor = inputFocusedBorderColor(),
-            cursorColor = inputFocusedBorderColor(),
-        ),
+            focusedBorderColor = AuthAuroraTokens.emerald().copy(alpha = 0.5f),
+            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+            focusedContainerColor = MaterialTheme.colorScheme.surface,
+            unfocusedContainerColor = Color.Transparent,
+            cursorColor = AuthAuroraTokens.emerald()
+        )
     )
 }
