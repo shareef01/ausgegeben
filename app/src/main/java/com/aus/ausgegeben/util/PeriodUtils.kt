@@ -214,11 +214,21 @@ fun computeDayTotals(
     expenses: List<Expense>,
     locale: Locale,
 ): Map<String, Pair<Double, Double>> {
-    val dateFormat = SimpleDateFormat("dd.MM EEE", locale)
-    return expenses.groupBy { dateFormat.format(Date(localDayStartMillis(it.dateMillis))) }
-        .mapValues { (_, dayItems) ->
-            val billable = dayItems.filter { !it.isTransfer() }
-            billable.filter { it.isIncome() }.sumOf { it.amount } to
-                billable.filter { it.isExpense() }.sumOf { it.amount }
+    val dayTotals = mutableMapOf<Long, Pair<Double, Double>>()
+    
+    for (expense in expenses) {
+        if (expense.isTransfer()) continue
+        val dayStart = localDayStartMillis(expense.dateMillis)
+        val current = dayTotals.getOrDefault(dayStart, 0.0 to 0.0)
+        
+        val next = if (expense.isIncome()) {
+            (current.first + expense.amount) to current.second
+        } else {
+            current.first to (current.second + expense.amount)
         }
+        dayTotals[dayStart] = next
+    }
+    
+    val dateFormat = SimpleDateFormat("dd.MM EEE", locale)
+    return dayTotals.mapKeys { dateFormat.format(Date(it.key)) }
 }

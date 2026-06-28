@@ -3,6 +3,7 @@ package com.aus.ausgegeben.data.cloud
 import com.aus.ausgegeben.data.dao.CategoryDao
 import com.aus.ausgegeben.data.dao.ExpenseDao
 import com.aus.ausgegeben.data.auth.AuthRepository
+import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.util.ReceiptFileUtils
@@ -16,6 +17,7 @@ import kotlinx.coroutines.withTimeout
 
 class CloudSyncRepository(
     private val authRepository: AuthRepository,
+    private val preferenceManager: PreferenceManager,
     private val categoryDao: CategoryDao,
     private val expenseDao: ExpenseDao,
     private val appContext: Context,
@@ -35,17 +37,20 @@ class CloudSyncRepository(
     suspend fun fullSync(): Result<Unit> = runCatching {
         val uid = authRepository.currentUserId ?: return@runCatching
         authRepository.ensureFreshAuthToken().getOrThrow()
+        val since = preferenceManager.lastCloudSyncAtFlow.first() ?: 0L
+        
         withTimeout(SYNC_TIMEOUT_MS) {
             verifyFirestoreAccess(uid)
 
             val localCategories = categoryDao.getAllCategoriesOnce()
             val localExpenses = expenseDao.getAllExpensesOnce()
 
-            val remoteCategories = pullCategories(uid)
-            val remoteExpenses = pullExpenses(uid)
+            // If since > 0, we only pull changes. The merge logic must handle partial remote sets.
+            val remoteCategories = pullCategories(uid, since)
+            val remoteExpenses = pullExpenses(uid, since)
 
-            val catMerge = mergeCategories(localCategories, remoteCategories)
-            val expMerge = mergeExpenses(localExpenses, remoteExpenses)
+            val catMerge = mergeCategories(localCategories, remoteCategories, isIncremental = since > 0)
+            val expMerge = mergeExpenses(localExpenses, remoteExpenses, isIncremental = since > 0)
 
             val receiptPathsToDelete = mutableListOf<String>()
             database.withTransaction {
@@ -118,16 +123,20 @@ class CloudSyncRepository(
         }
     }
 
-    private suspend fun pullCategories(uid: String): List<CloudCategoryRecord> {
-        val snap = firestore.collection("users").document(uid).collection("categories").get().await()
+    private suspend fun pullCategories(uid: String, since: Long): List<CloudCategoryRecord> {
+        val col = firestore.collection("users").document(uid).collection("categories")
+        val query = if (since > 0) col.whereGreaterThan("updatedAt", since) else col
+        val snap = query.get().await()
         return snap.documents.mapNotNull { doc ->
             val id = doc.id.toLongOrNull() ?: return@mapNotNull null
             doc.toCategoryRecord(id)
         }
     }
 
-    private suspend fun pullExpenses(uid: String): List<CloudExpenseRecord> {
-        val snap = firestore.collection("users").document(uid).collection("expenses").get().await()
+    private suspend fun pullExpenses(uid: String, since: Long): List<CloudExpenseRecord> {
+        val col = firestore.collection("users").document(uid).collection("expenses")
+        val query = if (since > 0) col.whereGreaterThan("updatedAt", since) else col
+        val snap = query.get().await()
         return snap.documents.mapNotNull { doc ->
             val id = doc.id.toLongOrNull() ?: return@mapNotNull null
             doc.toExpenseRecord(id)
@@ -174,6 +183,7 @@ class CloudSyncRepository(
     private fun mergeCategories(
         local: List<Category>,
         remote: List<CloudCategoryRecord>,
+        isIncremental: Boolean
     ): MergeResult<CloudCategoryRecord> {
         val localRows = local.map { it.toCloudRecord(localUpdatedAt = 0L) }
         val merged = mergeById(
@@ -182,6 +192,7 @@ class CloudSyncRepository(
             idSelector = { it.id },
             updatedAtSelector = { it.updatedAt },
             deletedSelector = { it.deleted },
+            isIncremental = isIncremental
         )
         return MergeResult(
             toApplyLocal = merged.toApplyLocal,
@@ -193,6 +204,7 @@ class CloudSyncRepository(
     private fun mergeExpenses(
         local: List<Expense>,
         remote: List<CloudExpenseRecord>,
+        isIncremental: Boolean
     ): MergeResult<CloudExpenseRecord> {
         val localRows = local.map { it.toCloudRecord(localUpdatedAt = 0L) }
         val merged = mergeById(
@@ -201,6 +213,7 @@ class CloudSyncRepository(
             idSelector = { it.id },
             updatedAtSelector = { recordTimestamp(it.updatedAt, it.dateMillis) },
             deletedSelector = { it.deleted },
+            isIncremental = isIncremental
         )
         return MergeResult(
             toApplyLocal = merged.toApplyLocal,
