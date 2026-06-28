@@ -56,6 +56,7 @@ import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.SystemViolet
 import com.aus.ausgegeben.ui.theme.forChartDisplay
+import com.aus.ausgegeben.ui.theme.readableSecondaryColor
 import com.aus.ausgegeben.ui.theme.financeExpenseColor
 import com.aus.ausgegeben.ui.theme.financeIncomeColor
 import com.aus.ausgegeben.util.analyticsPeriodOptions
@@ -318,21 +319,22 @@ private fun CompactCategoryRow(
                 )
             }
             Spacer(modifier = Modifier.width(AppSpacing.sm))
-            Text(
-                text = category.name,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-                fontWeight = FontWeight.Normal,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
-            Spacer(modifier = Modifier.width(AppSpacing.sm))
-            MoneyText(
-                text = CurrencyUtils.formatAmount(amount, currencyCode, showSymbol = true),
-                size = MoneySize.Body,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
+                Text(
+                    text = category.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontWeight = FontWeight.Normal,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f) // flexShrink: 1 equivalent
+                )
+                Spacer(modifier = Modifier.width(AppSpacing.sm)) // Reduced from md
+                MoneyText(
+                    text = CurrencyUtils.formatAmount(amount, currencyCode, showSymbol = true),
+                    size = MoneySize.Body,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.alignByBaseline() // Strict layout priority (unweighted)
+                )
         }
         if (expanded) {
             Spacer(modifier = Modifier.height(AppSpacing.xs))
@@ -346,7 +348,7 @@ private fun CompactCategoryRow(
                 Text(
                     text = "$pct%",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = readableSecondaryColor(),
                 )
             }
         }
@@ -459,8 +461,11 @@ fun CategoryProgressRow(
             Spacer(modifier = Modifier.height(AppSpacing.xs))
             AnimatedCategoryBar(ratio = ratio, color = displayColor)
         }
-        Spacer(modifier = Modifier.width(AppSpacing.md))
-        Column(horizontalAlignment = Alignment.End) {
+        Spacer(modifier = Modifier.width(AppSpacing.md)) // Reduced from lg
+        Column(
+            horizontalAlignment = Alignment.End,
+            modifier = Modifier.alignByBaseline()
+        ) {
             MoneyText(
                 text = CurrencyUtils.formatAmount(amount, currencyCode, showSymbol = true),
                 size = MoneySize.Body,
@@ -469,7 +474,7 @@ fun CategoryProgressRow(
             Text(
                 text = "$pct%",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = readableSecondaryColor(),
                 modifier = Modifier.padding(top = 2.dp)
             )
         }

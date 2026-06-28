@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aus.ausgegeben.R
@@ -50,7 +51,9 @@ import com.aus.ausgegeben.ui.components.GroupedSection
 import com.aus.ausgegeben.ui.components.IosSegmentedControl
 import com.aus.ausgegeben.ui.components.ReceiptImageDialog
 import com.aus.ausgegeben.ui.components.ReceiptThumbnail
-import com.aus.ausgegeben.ui.components.SmoothIconButton
+import com.aus.ausgegeben.ui.components.AppButton
+import com.aus.ausgegeben.ui.components.AppIconButton
+import com.aus.ausgegeben.ui.components.AppTextButton
 import com.aus.ausgegeben.ui.components.smoothClickable
 import com.aus.ausgegeben.ui.components.MoneyText
 import com.aus.ausgegeben.ui.components.MoneySize
@@ -112,7 +115,7 @@ fun AddTransactionScreen(
         else -> TransactionType.EXPENSE
     }
     val filteredCategories = remember(transactionType, categories) {
-        categories.filter { CategoryGroups.matches(transactionType, it) }
+        categories.filter { it.id != 0L && it.name.isNotBlank() && it.name != "0" && CategoryGroups.matches(transactionType, it) }
     }
     LaunchedEffect(selectedTab) {
         val type = TransactionType.entries.getOrElse(selectedTab) { TransactionType.EXPENSE }
@@ -162,7 +165,7 @@ fun AddTransactionScreen(
                 .padding(horizontal = AppSpacing.xs, vertical = AppSpacing.xs),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            SmoothIconButton(
+            AppIconButton(
                 onClick = onBack,
                 icon = Icons.AutoMirrored.Rounded.ArrowBack,
                 contentDescription = stringResource(R.string.action_back)
@@ -176,7 +179,7 @@ fun AddTransactionScreen(
                     .weight(1f)
                     .padding(horizontal = 8.dp)
             )
-            SmoothIconButton(
+            AppIconButton(
                 onClick = onOpenCamera,
                 icon = Icons.Rounded.CameraAlt,
                 contentDescription = stringResource(R.string.add_scan_receipt),
@@ -236,14 +239,11 @@ fun AddTransactionScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Normal
                 )
-                TextButton(onClick = { showManageSheet = true }) {
-                    Text(
-                        stringResource(R.string.add_manage),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Normal,
-                    )
-                }
+                AppTextButton(
+                    onClick = { showManageSheet = true },
+                    text = stringResource(R.string.add_manage),
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             if (filteredCategories.isEmpty()) {
                 GroupedSection(modifier = Modifier.padding(horizontal = 16.dp)) {
@@ -272,12 +272,14 @@ fun AddTransactionScreen(
                             textAlign = TextAlign.Center
                         )
                         Spacer(modifier = Modifier.height(12.dp))
-                        TextButton(onClick = {
-                            editingCategory = null
-                            showEditorDialog = true
-                        }) {
-                            Text(stringResource(R.string.add_create_category), color = typeAccent)
-                        }
+                        AppTextButton(
+                            onClick = {
+                                editingCategory = null
+                                showEditorDialog = true
+                            },
+                            text = stringResource(R.string.add_create_category),
+                            contentColor = typeAccent
+                        )
                     }
                 }
             } else {
@@ -327,7 +329,8 @@ fun AddTransactionScreen(
                     .padding(horizontal = AppSpacing.md)
                     .padding(top = AppSpacing.xs, bottom = AppSpacing.xs),
             ) {
-                Button(
+                val glowColor = if (canSave) typeAccent else Color.Transparent
+                AppButton(
                     onClick = {
                         val wasEditing = isEditing
                         viewModel.onAmountChange(amountText)
@@ -340,21 +343,14 @@ fun AddTransactionScreen(
                         )
                     },
                     enabled = canSave,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                    shape = RoundedCornerShape(AppRadius.pill),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = saveAccent,
-                        contentColor = saveContentColor,
-                        disabledContainerColor = surfaceColor,
-                        disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    modifier = Modifier.fillMaxWidth(),
+                    containerColor = if (canSave) typeAccent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                    contentColor = if (canSave) Color.White else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
                 ) {
                     Text(
                         text = saveLabel,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
@@ -384,13 +380,19 @@ fun AddTransactionScreen(
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { viewModel.onDateChange(it) }
-                    showDatePicker = false
-                }) { Text(stringResource(R.string.action_ok)) }
+                AppTextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { viewModel.onDateChange(it) }
+                        showDatePicker = false
+                    },
+                    text = stringResource(R.string.action_ok)
+                )
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text(stringResource(R.string.action_cancel)) }
+                AppTextButton(
+                    onClick = { showDatePicker = false },
+                    text = stringResource(R.string.action_cancel)
+                )
             }
         ) {
             DatePicker(state = datePickerState)
@@ -464,22 +466,24 @@ fun AddTransactionScreen(
                 Text(stringResource(R.string.add_delete_category_body, category.name, suffix))
             },
             confirmButton = {
-                TextButton(
+                AppTextButton(
                     onClick = {
                         if (selectedCategory?.id == category.id) {
                             viewModel.clearCategorySelection()
                         }
                         categoryViewModel.deleteCategory(category)
                         categoryToDelete = null
-                    }
-                ) {
-                    Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error)
-                }
+                    },
+                    text = stringResource(R.string.action_delete),
+                    contentColor = MaterialTheme.colorScheme.error
+                )
             },
             dismissButton = {
-                TextButton(onClick = { categoryToDelete = null }) {
-                    Text(stringResource(R.string.action_cancel))
-                }
+                AppTextButton(
+                    onClick = { categoryToDelete = null },
+                    text = stringResource(R.string.action_cancel),
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         )
     }
@@ -624,13 +628,11 @@ private fun NoteField(
                     modifier = Modifier.padding(top = AppSpacing.sm),
                 ) {
                     ReceiptThumbnail(uri = receiptPath, onClick = onReceiptClick)
-                    TextButton(onClick = onClearReceipt) {
-                        Text(
-                            stringResource(R.string.add_remove_receipt),
-                            color = accentColor,
-                            style = MaterialTheme.typography.labelMedium,
-                        )
-                    }
+                    AppTextButton(
+                        onClick = onClearReceipt,
+                        text = stringResource(R.string.add_remove_receipt),
+                        contentColor = accentColor
+                    )
                 }
             }
         }
@@ -653,7 +655,10 @@ private fun CategorySlider(
         contentPadding = PaddingValues(horizontal = AppSpacing.md),
         horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs),
     ) {
-        items(categories, key = { it.id }) { category ->
+        items(
+            categories.filter { it.id != 0L && it.name.isNotBlank() },
+            key = { it.id }
+        ) { category ->
             CategorySliderTile(
                 category = category,
                 isSelected = selectedCategory?.id == category.id,
@@ -677,7 +682,7 @@ private fun CategorySliderTile(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .width(68.dp)
+            .width(84.dp) // Increased from 68.dp
             .clip(tileShape)
             .background(
                 if (isSelected) categoryColor.copy(alpha = 0.12f)
@@ -688,7 +693,7 @@ private fun CategorySliderTile(
     ) {
         Box(
             modifier = Modifier
-                .size(40.dp)
+                .size(44.dp) // Increased from 40.dp
                 .clip(CircleShape)
                 .background(
                     if (isSelected) categoryColor.copy(alpha = 0.24f)
@@ -700,7 +705,7 @@ private fun CategorySliderTile(
                 imageVector = iconForCategory(category),
                 contentDescription = category.name,
                 tint = categoryColor,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(22.dp),
             )
         }
         Spacer(modifier = Modifier.height(AppSpacing.xs))
@@ -711,6 +716,7 @@ private fun CategorySliderTile(
             else MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis, // Added overflow
             textAlign = TextAlign.Center,
         )
     }
@@ -721,7 +727,7 @@ private fun CategoryAddSliderTile(onClick: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .width(68.dp)
+            .width(84.dp) // Increased from 68.dp
             .clip(RoundedCornerShape(AppRadius.lg))
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
             .smoothClickable(onClick = onClick)
@@ -729,7 +735,7 @@ private fun CategoryAddSliderTile(onClick: () -> Unit) {
     ) {
         Box(
             modifier = Modifier
-                .size(40.dp)
+                .size(44.dp)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)),
             contentAlignment = Alignment.Center,
@@ -738,7 +744,7 @@ private fun CategoryAddSliderTile(onClick: () -> Unit) {
                 Icons.Rounded.Add,
                 contentDescription = stringResource(R.string.add_add_category),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(22.dp),
             )
         }
         Spacer(modifier = Modifier.height(AppSpacing.xs))
@@ -939,8 +945,8 @@ private fun CalculatorKeypad(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp),
-                horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs)
+                    .height(64.dp), // Increased from 48.dp
+                horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm)
             ) {
                 row.forEach { key ->
                     CalcKey(
@@ -968,18 +974,11 @@ private fun CalcKey(
     onClick: () -> Unit
 ) {
     val isBackspace = key == "back"
-    val interactionSource = remember { MutableInteractionSource() }
-    val pressed by interactionSource.collectIsPressedAsState()
-    val pressedBg = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
-    val bg = if (pressed) pressedBg else Color.Transparent
     Box(
         modifier = modifier
             .fillMaxHeight()
             .clip(RoundedCornerShape(AppRadius.sm))
-            .background(bg)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
+            .smoothClickable(
                 enabled = enabled,
                 onClick = onClick
             ),
@@ -995,10 +994,10 @@ private fun CalcKey(
         } else {
             Text(
                 text = key,
-                style = MaterialTheme.typography.headlineMedium
+                style = MaterialTheme.typography.headlineLarge // Increased from headlineMedium
                     .merge(AmountTextStyle)
                     .copy(
-                        fontWeight = FontWeight.Medium,
+                        fontWeight = FontWeight.Normal,
                         fontFeatureSettings = "tnum, lnum",
                     ),
                 color = MaterialTheme.colorScheme.onBackground,

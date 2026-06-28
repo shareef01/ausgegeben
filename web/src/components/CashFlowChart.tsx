@@ -30,7 +30,17 @@ function xFor(index: number, count: number): number {
 
 function polylinePath(points: { x: number; y: number }[]): string {
   if (points.length === 0) return '';
-  return points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+  if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+
+  let d = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const from = points[i];
+    const to = points[i + 1];
+    const cp1x = (from.x + to.x) / 2;
+    const cp2x = (from.x + to.x) / 2;
+    d += ` C ${cp1x} ${from.y}, ${cp2x} ${to.y}, ${to.x} ${to.y}`;
+  }
+  return d;
 }
 
 function areaPath(points: { x: number; y: number }[], bottomY: number): string {
@@ -77,8 +87,8 @@ function CashFlowSeries({
       />
       {points.map((pt, i) => (
         <g key={i}>
-          <circle cx={pt.x} cy={pt.y} r={6} fill={color} fillOpacity={0.18} />
-          <circle cx={pt.x} cy={pt.y} r={3} fill={color} />
+          <circle cx={pt.x} cy={pt.y} r={3.5} fill={color} />
+          <circle cx={pt.x} cy={pt.y} r={1.5} fill="var(--color-surface)" />
         </g>
       ))}
     </g>

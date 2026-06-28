@@ -59,7 +59,7 @@ export function useAddTransactionViewModel(expenseId?: number) {
   }, [load]);
 
   const filteredCategories = useMemo(
-    () => categories.filter((c) => c.transactionType === form.transactionType),
+    () => categories.filter((c) => c.transactionType === form.transactionType && c.id !== 0 && c.name?.trim()),
     [categories, form.transactionType],
   );
 

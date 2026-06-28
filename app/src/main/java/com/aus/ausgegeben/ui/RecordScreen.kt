@@ -243,23 +243,20 @@ fun RecordScreen(
                     contentType = { "transaction" },
                 ) { index ->
                     val expense = lazyExpenses[index] ?: return@items
-                    val dateLabel = dateFormat.format(Date(localDayStartMillis(expense.dateMillis)))
-                    val previous = if (index > 0) lazyExpenses.peek(index - 1) else null
-                    val previousDateLabel = previous?.let {
-                        dateFormat.format(Date(localDayStartMillis(it.dateMillis)))
-                    }
-                    val next = if (index + 1 < lazyExpenses.itemCount) {
-                        lazyExpenses.peek(index + 1)
-                    } else {
-                        null
-                    }
-                    val nextDateLabel = next?.let {
-                        dateFormat.format(Date(localDayStartMillis(it.dateMillis)))
-                    }
-                    val isFirstInDay = dateLabel != previousDateLabel
-                    val isLastInDay = dateLabel != nextDateLabel
+                    
+                    val dayStart = remember(expense.dateMillis) { localDayStartMillis(expense.dateMillis) }
+                    val isFirstInDay = if (index > 0) {
+                        val previous = lazyExpenses.peek(index - 1)
+                        previous == null || localDayStartMillis(previous.dateMillis) != dayStart
+                    } else true
+                    
+                    val isLastInDay = if (index + 1 < lazyExpenses.itemCount) {
+                        val next = lazyExpenses.peek(index + 1)
+                        next == null || localDayStartMillis(next.dateMillis) != dayStart
+                    } else true
 
                     if (isFirstInDay) {
+                        val dateLabel = dateFormat.format(Date(dayStart))
                         val (dayIncome, dayExpense) = dayTotalsByLabel[dateLabel] ?: (0.0 to 0.0)
                         DateSectionHeader(dateLabel, dayIncome, dayExpense, currencyCode)
                     }
