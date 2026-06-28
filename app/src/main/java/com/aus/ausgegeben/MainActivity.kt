@@ -13,97 +13,43 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Snackbar
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.draw.shadow
-import com.aus.ausgegeben.ui.theme.financeIncomeColor
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aus.ausgegeben.R
-import com.aus.ausgegeben.data.AppRepository
-import com.aus.ausgegeben.data.AusgegebenDatabase
-import com.aus.ausgegeben.data.DataSeeder
-import com.aus.ausgegeben.data.PreferenceManager
-import com.aus.ausgegeben.data.StorageMode
+import com.aus.ausgegeben.data.*
 import com.aus.ausgegeben.data.auth.AuthRepository
-import com.aus.ausgegeben.data.cloud.CloudSyncCoordinator
-import com.aus.ausgegeben.data.cloud.CloudSyncGate
-import com.aus.ausgegeben.data.cloud.CloudSyncRepository
-import com.aus.ausgegeben.notification.NotificationHelper
-import com.aus.ausgegeben.notification.ReminderScheduler
-import com.aus.ausgegeben.ui.AddExpenseViewModel
-import com.aus.ausgegeben.ui.AddTransactionScreen
-import com.aus.ausgegeben.ui.AuthScreen
-import com.aus.ausgegeben.ui.AuthViewModel
-import com.aus.ausgegeben.ui.BillsScreen
-import com.aus.ausgegeben.ui.CameraScreen
-import com.aus.ausgegeben.ui.CategoryScreen
-import com.aus.ausgegeben.ui.CategoryViewModel
-import com.aus.ausgegeben.ui.DashboardViewModel
-import com.aus.ausgegeben.ui.ExpenseViewModel
-import com.aus.ausgegeben.ui.OnboardingScreen
-import com.aus.ausgegeben.ui.RecordScreen
-import com.aus.ausgegeben.ui.Route
-import com.aus.ausgegeben.ui.SettingsScreen
-import com.aus.ausgegeben.ui.components.AppScreen
-import com.aus.ausgegeben.ui.components.CameraPermissionDenied
-import com.aus.ausgegeben.ui.components.MainBottomBar
-import com.aus.ausgegeben.ui.components.MainTabPager
-import com.aus.ausgegeben.ui.theme.AppRadius
-import com.aus.ausgegeben.ui.theme.AusgegebenTheme
-import com.aus.ausgegeben.ui.theme.ThemeMode
-import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.isGranted
-import com.google.accompanist.permissions.rememberPermissionState
+import com.aus.ausgegeben.data.cloud.*
+import com.aus.ausgegeben.notification.*
+import com.aus.ausgegeben.ui.*
+import com.aus.ausgegeben.ui.components.*
+import com.aus.ausgegeben.ui.theme.*
+import com.google.accompanist.permissions.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import androidx.appcompat.app.AppCompatActivity
 import kotlinx.coroutines.withContext
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -175,7 +121,7 @@ fun MainApp(
     openAddFromNotification: Boolean = false
 ) {
     val context = LocalContext.current
-    val activity = LocalActivity.current as? ComponentActivity ?: return
+    val activity = LocalActivity.current as? AppCompatActivity ?: return
     var selectedTab by remember { mutableStateOf<Route>(Route.ExpenseList) }
     val overlayStack = remember { mutableStateListOf<Route>() }
     val currentOverlay = overlayStack.lastOrNull()
@@ -337,31 +283,30 @@ fun MainApp(
                     enter = scaleIn(initialScale = 0.86f) + fadeIn(),
                     exit = scaleOut(targetScale = 0.86f) + fadeOut(),
                 ) {
-                    FloatingActionButton(
-                        onClick = ::openAddFlow,
-                        containerColor = Color(0x1AFFFFFF), // Frosted glass: 10% White
-                        contentColor = Color.White,
-                        elevation = FloatingActionButtonDefaults.elevation(
-                            defaultElevation = 0.dp,
-                            pressedElevation = 0.dp,
-                            hoveredElevation = 0.dp,
-                            focusedElevation = 0.dp
-                        ),
-                        shape = CircleShape,
+                    // Pillar 4: Neon FAB with massive colored glow
+                    Box(
                         modifier = Modifier
-                            .size(58.dp) // Slightly larger for premium feel
-                            .border(1.dp, Color(0x1AFFFFFF), CircleShape) // Subtle border for glass effect
+                            .size(64.dp)
                             .shadow(
-                                elevation = 16.dp,
-                                shape = CircleShape,
-                                ambientColor = Color.Black.copy(alpha = 0.5f),
-                                spotColor = Color.Black,
-                            ),
+                                elevation = 20.dp, 
+                                spotColor = Color(0xFF10B981), 
+                                ambientColor = Color(0xFF10B981).copy(alpha = 0.4f),
+                                shape = CircleShape
+                            )
+                            .clip(CircleShape)
+                            .background(
+                                Brush.linearGradient(
+                                    colors = listOf(Color(0xFF10B981), Color(0xFF047857))
+                                )
+                            )
+                            .clickable { openAddFlow() },
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Add,
                             contentDescription = stringResource(R.string.nav_add_transaction),
-                            modifier = Modifier.size(28.dp),
+                            tint = Color.White,
+                            modifier = Modifier.size(32.dp),
                         )
                     }
                 }

@@ -87,8 +87,8 @@ function CategoryCard({ title, map, categories, currency, accent }: { title: str
 
   return (
     <div className="card insights-category-card">
-      <div className="insights-category-card__title" style={{ color: accent }}>{title}</div>
-      <DonutChart segments={segments} size={148} center={{ value: formatAmount(total, currency) }} />
+      <div className="insights-category-card__title" style={{ color: accent }}>{title.toLowerCase()}</div>
+      <DonutChart segments={segments} size={160} center={{ value: formatAmount(total, currency) }} />
       <div className="chart-legend">
         {entries.slice(0, 4).map(([catId, amount]) => {
           const cat = categories.find((c) => c.id === catId);
