@@ -21,6 +21,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -29,7 +30,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -54,16 +58,22 @@ import com.aus.ausgegeben.ui.theme.navigationInactiveColor
 fun Modifier.appCard(
     shape: Shape = GroupedShape,
     horizontalPadding: Dp = 0.dp,
-    bordered: Boolean = false,
+    bordered: Boolean = true, // Default to true for Deep Forest depth
 ): Modifier {
     val surface = MaterialTheme.colorScheme.surface
+    val borderColor = if (MaterialTheme.colorScheme.background.luminance() < 0.1f) {
+        Color(0x0DFFFFFF) // 5% White for OLED dark
+    } else {
+        appBorderColor()
+    }
+    
     return this
         .then(if (horizontalPadding > 0.dp) Modifier.padding(horizontal = horizontalPadding) else Modifier)
         .clip(shape)
         .background(surface)
         .then(
             if (bordered) {
-                Modifier.border(AppElevation.cardBorder, appBorderColor(), shape)
+                Modifier.border(1.dp, borderColor, shape)
             } else {
                 Modifier
             },
@@ -204,6 +214,14 @@ fun Modifier.smoothClickable(
 ): Modifier {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
+    val haptic = LocalHapticFeedback.current
+
+    LaunchedEffect(pressed) {
+        if (pressed && enabled) {
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        }
+    }
+
     val scale by animateFloatAsState(
         targetValue = if (pressed) 0.96f else 1f,
         animationSpec = AppSpringSnappy,
@@ -219,25 +237,3 @@ fun Modifier.smoothClickable(
         )
 }
 
-@Composable
-fun SmoothIconButton(
-    onClick: () -> Unit,
-    icon: ImageVector,
-    contentDescription: String?,
-    tint: Color = MaterialTheme.colorScheme.onBackground,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier = modifier
-            .size(44.dp)
-            .clip(CapsuleShape)
-            .smoothClickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        AppIcon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = tint,
-        )
-    }
-}

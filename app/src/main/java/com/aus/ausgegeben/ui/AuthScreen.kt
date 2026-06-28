@@ -46,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -58,7 +59,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.components.GroupedSection
 import com.aus.ausgegeben.ui.components.IosSegmentedControl
-import com.aus.ausgegeben.ui.components.SmoothIconButton
+import com.aus.ausgegeben.ui.components.AppButton
+import com.aus.ausgegeben.ui.components.AppIconButton
+import com.aus.ausgegeben.ui.components.AppTextButton
+import com.aus.ausgegeben.ui.components.smoothClickable
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.financeExpenseColor
@@ -89,7 +93,7 @@ fun AuthScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (onDismiss != null) {
-                    SmoothIconButton(
+                    AppIconButton(
                         onClick = onDismiss,
                         icon = Icons.AutoMirrored.Rounded.ArrowBack,
                         contentDescription = stringResource(R.string.action_back),
@@ -189,16 +193,16 @@ fun AuthScreen(
                         label = stringResource(R.string.auth_password_label),
                         leading = { Icon(Icons.Rounded.Lock, contentDescription = null) },
                         trailing = {
-                            IconButton(onClick = viewModel::onTogglePasswordVisibility) {
-                                Icon(
-                                    imageVector = if (uiState.passwordVisible) {
-                                        Icons.Rounded.VisibilityOff
-                                    } else {
-                                        Icons.Rounded.Visibility
-                                    },
-                                    contentDescription = stringResource(R.string.auth_toggle_password),
-                                )
-                            }
+                            AppIconButton(
+                                onClick = viewModel::onTogglePasswordVisibility,
+                                icon = if (uiState.passwordVisible) {
+                                    Icons.Rounded.VisibilityOff
+                                } else {
+                                    Icons.Rounded.Visibility
+                                },
+                                contentDescription = stringResource(R.string.auth_toggle_password),
+                                modifier = Modifier.size(36.dp)
+                            )
                         },
                         visualTransformation = if (uiState.passwordVisible) {
                             VisualTransformation.None
@@ -245,12 +249,12 @@ fun AuthScreen(
 
                     if (uiState.selectedTab == AuthTab.SIGN_IN) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                            TextButton(
+                            AppTextButton(
                                 onClick = viewModel::sendPasswordReset,
+                                text = stringResource(R.string.auth_forgot_password),
                                 enabled = !uiState.isLoading,
-                            ) {
-                                Text(stringResource(R.string.auth_forgot_password))
-                            }
+                                contentColor = MaterialTheme.colorScheme.primary
+                            )
                         }
                     }
 
@@ -269,24 +273,22 @@ fun AuthScreen(
                         )
                     }
 
-                    Button(
+                    AppButton(
                         onClick = { viewModel.submit(onAuthenticated) },
                         enabled = !uiState.isLoading,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                        shape = RoundedCornerShape(AppRadius.pill),
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
                         if (uiState.isLoading) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(20.dp),
                                 strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary,
+                                color = MaterialTheme.colorScheme.background,
                             )
                             Spacer(modifier = Modifier.size(AppSpacing.sm))
                             Text(
                                 text = uiState.loadingMessage.orEmpty(),
                                 fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.background,
                             )
                         } else {
                             Text(
@@ -296,6 +298,7 @@ fun AuthScreen(
                                     stringResource(R.string.auth_create_account)
                                 },
                                 fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.background,
                             )
                         }
                     }
@@ -304,16 +307,12 @@ fun AuthScreen(
 
             Spacer(modifier = Modifier.height(AppSpacing.md))
 
-            OutlinedButton(
+            AppButton(
                 onClick = { viewModel.continueOffline(onAuthenticated) },
                 enabled = !uiState.isLoading,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                shape = RoundedCornerShape(AppRadius.pill),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = MaterialTheme.colorScheme.onBackground,
-                ),
+                modifier = Modifier.fillMaxWidth(),
+                containerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
+                contentColor = MaterialTheme.colorScheme.onBackground
             ) {
                 Icon(Icons.Rounded.CloudOff, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.size(AppSpacing.sm))

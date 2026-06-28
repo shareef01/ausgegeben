@@ -25,7 +25,9 @@ import com.aus.ausgegeben.ui.components.CategoryEditorDialog
 import com.aus.ausgegeben.ui.components.EmptyStateMessage
 import com.aus.ausgegeben.ui.components.GroupedSectionLabel
 import com.aus.ausgegeben.ui.components.tabScreenListBottomPadding
-import com.aus.ausgegeben.ui.components.SmoothIconButton
+import com.aus.ausgegeben.ui.components.AppButton
+import com.aus.ausgegeben.ui.components.AppIconButton
+import com.aus.ausgegeben.ui.components.AppTextButton
 import com.aus.ausgegeben.ui.theme.AccentCoral
 import com.aus.ausgegeben.util.colorIntToCompose
 import com.aus.ausgegeben.util.iconForCategory
@@ -60,7 +62,7 @@ fun CategoryScreen(
                 .padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            SmoothIconButton(
+            AppIconButton(
                 onClick = onBack,
                 icon = Icons.AutoMirrored.Rounded.ArrowBack,
                 contentDescription = stringResource(R.string.action_back)
@@ -78,16 +80,13 @@ fun CategoryScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            FilledTonalButton(
+            AppButton(
                 onClick = {
                     editingCategory = null
                     showEditorDialog = true
                 },
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = AccentCoral.copy(alpha = 0.15f),
-                    contentColor = AccentCoral
-                )
+                containerColor = AccentCoral.copy(alpha = 0.15f),
+                contentColor = AccentCoral
             ) {
                 Icon(
                     Icons.Rounded.Add,
@@ -185,19 +184,20 @@ fun CategoryScreen(
                 Text(stringResource(R.string.add_delete_category_body, category.name, suffix))
             },
             confirmButton = {
-                TextButton(
+                AppTextButton(
                     onClick = {
                         viewModel.deleteCategory(category)
                         categoryToDelete = null
-                    }
-                ) {
-                    Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error)
-                }
+                    },
+                    text = stringResource(R.string.action_delete),
+                    contentColor = MaterialTheme.colorScheme.error
+                )
             },
             dismissButton = {
-                TextButton(onClick = { categoryToDelete = null }) {
-                    Text(stringResource(R.string.action_cancel))
-                }
+                AppTextButton(
+                    onClick = { categoryToDelete = null },
+                    text = stringResource(R.string.action_cancel)
+                )
             }
         )
     }
@@ -250,21 +250,35 @@ private fun CategoryListItem(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        IconButton(onClick = onMoveUp, enabled = canMoveUp) {
-            Icon(Icons.Rounded.KeyboardArrowUp, contentDescription = stringResource(R.string.category_move_up))
-        }
-        IconButton(onClick = onMoveDown, enabled = canMoveDown) {
-            Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = stringResource(R.string.category_move_down))
-        }
-        IconButton(onClick = onEdit) {
-            Icon(Icons.Rounded.Edit, contentDescription = stringResource(R.string.category_edit))
-        }
-        IconButton(onClick = onDelete) {
-            Icon(
-                Icons.Rounded.Delete,
-                contentDescription = stringResource(R.string.action_delete),
-                tint = MaterialTheme.colorScheme.error
-            )
-        }
+        AppIconButton(
+            onClick = onMoveUp,
+            enabled = canMoveUp,
+            icon = Icons.Rounded.KeyboardArrowUp,
+            contentDescription = stringResource(R.string.category_move_up),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(36.dp)
+        )
+        AppIconButton(
+            onClick = onMoveDown,
+            enabled = canMoveDown,
+            icon = Icons.Rounded.KeyboardArrowDown,
+            contentDescription = stringResource(R.string.category_move_down),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(36.dp)
+        )
+        AppIconButton(
+            onClick = onEdit,
+            icon = Icons.Rounded.Edit,
+            contentDescription = stringResource(R.string.category_edit),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(36.dp)
+        )
+        AppIconButton(
+            onClick = onDelete,
+            icon = Icons.Rounded.Delete,
+            contentDescription = stringResource(R.string.action_delete),
+            tint = MaterialTheme.colorScheme.error,
+            modifier = Modifier.size(36.dp)
+        )
     }
 }
