@@ -1874,26 +1874,32 @@ a {
   max-width: 420px;
 }
 
-.auth-page__title {
-  font-size: 1.75rem;
-  font-weight: 600;
-  margin: 0 0 8px;
-  line-height: 1.2;
+.auth-page__logo-text {
+  font-size: 2rem;
+  font-weight: 300;
+  letter-spacing: -0.04em;
+  margin: 16px 0 4px;
+  text-transform: lowercase;
+  background: var(--hero-balance-gradient, linear-gradient(180deg, var(--color-on-background) 0%, color-mix(in srgb, var(--color-on-background) 70%, transparent) 100%));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
-.auth-page__subtitle {
+.auth-page__tagline {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: lowercase;
+  letter-spacing: 0.15em;
   color: var(--color-on-surface-variant);
-  margin: 0 0 20px;
-  line-height: 1.5;
-}
-
-.auth-page__tabs {
-  margin-bottom: 16px;
+  opacity: 0.6;
+  margin: 0;
 }
 
 .auth-page__form {
-  padding: 20px;
+  padding: 28px;
   margin-bottom: 16px;
+  border-radius: 32px;
 }
 
 .auth-page__alert {
