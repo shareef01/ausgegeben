@@ -13,6 +13,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -59,6 +60,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.shadow
+import com.aus.ausgegeben.ui.theme.financeIncomeColor
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.AppRepository
@@ -114,6 +117,7 @@ class MainActivity : ComponentActivity() {
             val cloudSyncRepository = remember {
                 CloudSyncRepository(
                     authRepository = authRepository,
+                    preferenceManager = preferenceManager,
                     categoryDao = database.categoryDao(),
                     expenseDao = database.expenseDao(),
                     appContext = context.applicationContext,
@@ -335,19 +339,29 @@ fun MainApp(
                 ) {
                     FloatingActionButton(
                         onClick = ::openAddFlow,
-                        containerColor = MaterialTheme.colorScheme.onBackground,
-                        contentColor = MaterialTheme.colorScheme.background,
+                        containerColor = Color(0x1AFFFFFF), // Frosted glass: 10% White
+                        contentColor = Color.White,
                         elevation = FloatingActionButtonDefaults.elevation(
                             defaultElevation = 0.dp,
-                            pressedElevation = 2.dp,
+                            pressedElevation = 0.dp,
+                            hoveredElevation = 0.dp,
+                            focusedElevation = 0.dp
                         ),
                         shape = CircleShape,
-                        modifier = Modifier.size(52.dp),
+                        modifier = Modifier
+                            .size(58.dp) // Slightly larger for premium feel
+                            .border(1.dp, Color(0x1AFFFFFF), CircleShape) // Subtle border for glass effect
+                            .shadow(
+                                elevation = 16.dp,
+                                shape = CircleShape,
+                                ambientColor = Color.Black.copy(alpha = 0.5f),
+                                spotColor = Color.Black,
+                            ),
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Add,
                             contentDescription = stringResource(R.string.nav_add_transaction),
-                            modifier = Modifier.size(22.dp),
+                            modifier = Modifier.size(28.dp),
                         )
                     }
                 }

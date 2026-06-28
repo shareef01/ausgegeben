@@ -24,11 +24,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -99,6 +101,7 @@ fun WealthTrendChart(
             )
         }
 
+        val chartSurface = MaterialTheme.colorScheme.surface
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
@@ -145,12 +148,14 @@ fun WealthTrendChart(
                 fraction = revealT,
                 color = incomeColor,
                 bottomY = padY + chartH,
+                surfaceColor = chartSurface,
             )
             drawCashFlowLine(
                 coords = expenseCoords,
                 fraction = revealT,
                 color = expenseColor,
                 bottomY = padY + chartH,
+                surfaceColor = chartSurface,
             )
         }
 
@@ -198,62 +203,75 @@ private fun DrawScope.drawCashFlowLine(
     fraction: Float,
     color: androidx.compose.ui.graphics.Color,
     bottomY: Float,
+    surfaceColor: androidx.compose.ui.graphics.Color,
 ) {
     val partial = buildPartialPolyline(coords, fraction.coerceIn(0f, 1f))
     if (partial.isEmpty()) return
 
     val areaPath = Path().apply {
-        moveTo(partial.first().x, partial.first().y)
-        partial.drop(1).forEach { lineTo(it.x, it.y) }
-        lineTo(partial.last().x, bottomY)
-        lineTo(partial.first().x, bottomY)
-        close()
+        if (partial.size >= 2) {
+            moveTo(partial.first().x, partial.first().y)
+            for (i in 0 until partial.size - 1) {
+                val from = partial[i]
+                val to = partial[i + 1]
+                cubicTo(
+                    (from.x + to.x) / 2f, from.y,
+                    (from.x + to.x) / 2f, to.y,
+                    to.x, to.y
+                )
+            }
+            lineTo(partial.last().x, bottomY)
+            lineTo(partial.first().x, bottomY)
+            close()
+        }
     }
     drawPath(
         path = areaPath,
         brush = Brush.verticalGradient(
-            colors = listOf(color.copy(alpha = 0.24f * fraction), color.copy(alpha = 0.025f)),
-            startY = 0f,
+            colors = listOf(color.copy(alpha = 0.25f * fraction), Color.Transparent),
+            startY = partial.minOf { it.y }, // Start gradient from the peak of the line
             endY = bottomY,
         ),
     )
 
     val linePath = Path().apply {
-        moveTo(partial.first().x, partial.first().y)
-        partial.drop(1).forEach { lineTo(it.x, it.y) }
+        if (partial.size >= 2) {
+            moveTo(partial.first().x, partial.first().y)
+            for (i in 0 until partial.size - 1) {
+                val from = partial[i]
+                val to = partial[i + 1]
+                cubicTo(
+                    (from.x + to.x) / 2f, from.y,
+                    (from.x + to.x) / 2f, to.y,
+                    to.x, to.y
+                )
+            }
+        }
     }
 
-    // Faint dashed connector so trajectory reads instantly between points
+    // Outer glow for premium depth
     drawPath(
         path = linePath,
-        color = color.copy(alpha = 0.22f * fraction),
-        style = Stroke(
-            width = 1.5.dp.toPx(),
-            cap = StrokeCap.Round,
-            pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 5.dp.toPx())),
-        ),
+        color = color.copy(alpha = 0.15f * fraction),
+        style = Stroke(width = 10.dp.toPx(), cap = StrokeCap.Round),
     )
-
+    
+    // Main sharp line
     drawPath(
         path = linePath,
-        color = color.copy(alpha = 0.22f * fraction),
-        style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round),
-    )
-    drawPath(
-        path = linePath,
-        color = color.copy(alpha = fraction),
+        color = color.copy(alpha = fraction * 0.95f),
         style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round),
     )
 
     partial.forEach { point ->
         drawCircle(
-            color = color.copy(alpha = 0.18f * fraction),
-            radius = 6.dp.toPx() * fraction,
+            color = color.copy(alpha = 1f * fraction),
+            radius = 4.dp.toPx() * fraction,
             center = point,
         )
         drawCircle(
-            color = color.copy(alpha = fraction),
-            radius = 3.dp.toPx() * fraction,
+            color = surfaceColor,
+            radius = 2.dp.toPx() * fraction,
             center = point,
         )
     }
