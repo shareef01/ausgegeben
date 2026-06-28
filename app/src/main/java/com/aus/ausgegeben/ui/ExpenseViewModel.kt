@@ -35,15 +35,24 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class RecordUiState(
+    val data: RecordData = RecordData(),
+    val toolbar: RecordToolbarState = RecordToolbarState(),
+    val insights: SpendingInsights = SpendingInsights(),
+    val dayTotalsByLabel: Map<String, Pair<Double, Double>> = emptyMap(),
+)
+
+data class RecordData(
     val headerExpenses: List<Expense> = emptyList(),
     val categories: List<Category> = emptyList(),
+    val monthExpenses: List<Expense> = emptyList(),
+    val monthlyBudget: Double? = null,
+    val currencyCode: String = "EUR"
+)
+
+data class RecordToolbarState(
     val searchQuery: String = "",
     val typeFilter: TransactionTypeFilter = TransactionTypeFilter.ALL,
     val listPeriod: RecordListPeriod = RecordListPeriod.THIS_MONTH,
-    val insights: SpendingInsights = SpendingInsights(),
-    val monthlyBudget: Double? = null,
-    val monthExpenses: List<Expense> = emptyList(),
-    val dayTotalsByLabel: Map<String, Pair<Double, Double>> = emptyMap(),
 )
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
@@ -57,31 +66,66 @@ class ExpenseViewModel(
     private val _typeFilter = MutableStateFlow(TransactionTypeFilter.ALL)
     private val _listPeriod = MutableStateFlow(RecordListPeriod.THIS_MONTH)
 
+    // 1. Base data flows
+    private val currencyFlow = preferenceManager.currencyFlow.distinctUntilChanged()
+    private val budgetFlow = preferenceManager.monthlyBudgetFlow.distinctUntilChanged()
+    private val categoriesFlow = repository.allCategories.distinctUntilChanged()
+
+    // 2. Filtered expense flows
     private val monthExpensesFlow = flowOf(AnalyticsPeriod.THIS_MONTH.dateRangeMillis())
         .flatMapLatest { range ->
-            if (range == null) {
-                repository.allExpenses
-            } else {
-                repository.getExpensesInRange(range.first, range.second)
-            }
-        }
+            if (range == null) repository.allExpenses else repository.getExpensesInRange(range.first, range.second)
+        }.distinctUntilChanged()
 
     private val weekExpensesFlow = flowOf(recentWeekRangeMillis())
         .flatMapLatest { (start, end) ->
             repository.getExpensesInRange(start, end)
-        }
+        }.distinctUntilChanged()
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     private val listExpensesFlow = _listPeriod.flatMapLatest { period ->
         when (period) {
             RecordListPeriod.ALL_TIME -> repository.allExpenses
             RecordListPeriod.THIS_MONTH -> {
-                val range = AnalyticsPeriod.THIS_MONTH.dateRangeMillis()
-                    ?: return@flatMapLatest repository.allExpenses
+                val range = AnalyticsPeriod.THIS_MONTH.dateRangeMillis() ?: return@flatMapLatest repository.allExpenses
                 repository.getExpensesInRange(range.first, range.second)
             }
         }
-    }
+    }.distinctUntilChanged()
+
+    // 3. Derived Insights and UI State components
+    private val insightsFlow = combine(
+        monthExpensesFlow,
+        weekExpensesFlow,
+        categoriesFlow
+    ) { month, week, cats ->
+        val categoryNames = cats.associate { it.id to it.name }
+        computeSpendingInsights(month, week, categoryNames)
+    }.flowOn(Dispatchers.Default)
+
+    private val dayTotalsFlow = combine(
+        listExpensesFlow,
+        currencyFlow
+    ) { expenses, currency ->
+        computeDayTotals(expenses, CurrencyUtils.localeFor(currency))
+    }.flowOn(Dispatchers.Default)
+
+    // 4. Final UI State assembly
+    val uiState: StateFlow<RecordUiState> = combine(
+        combine(listExpensesFlow, categoriesFlow, monthExpensesFlow, budgetFlow, currencyFlow) { list, cats, month, budget, curr ->
+            RecordData(list, cats, month, budget, curr)
+        },
+        combine(_searchQuery, _typeFilter, _listPeriod) { query, filter, period ->
+            RecordToolbarState(query, filter, period)
+        },
+        insightsFlow,
+        dayTotalsFlow
+    ) { data, toolbar, insights, totals ->
+        RecordUiState(data, toolbar, insights, totals)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = RecordUiState()
+    )
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val pagedExpenses: Flow<PagingData<Expense>> = combine(
@@ -92,72 +136,12 @@ class ExpenseViewModel(
     ) { period, query, filter, _ ->
         val (start, end) = when (period) {
             RecordListPeriod.ALL_TIME -> 0L to Long.MAX_VALUE
-            RecordListPeriod.THIS_MONTH -> {
-                AnalyticsPeriod.THIS_MONTH.dateRangeMillis() ?: (0L to Long.MAX_VALUE)
-            }
+            RecordListPeriod.THIS_MONTH -> AnalyticsPeriod.THIS_MONTH.dateRangeMillis() ?: (0L to Long.MAX_VALUE)
         }
-        ExpenseQueryParams.forPeriod(
-            startMillis = start,
-            endMillis = end,
-            typeFilter = filter.toFilterKey(),
-            searchQuery = query
-        )
+        ExpenseQueryParams.forPeriod(start, end, filter.toFilterKey(), query)
     }.flatMapLatest { params ->
         repository.pagedExpenses(params)
     }.cachedIn(viewModelScope)
-
-    private val headerStateFlow = combine(
-        combine(
-            repository.allCategories,
-            preferenceManager.monthlyBudgetFlow,
-            preferenceManager.currencyFlow,
-            listExpensesFlow,
-            monthExpensesFlow,
-        ) { categories, budget, currency, periodExpenses, monthExpenses ->
-            RecordListData(categories, budget, currency, periodExpenses, monthExpenses)
-        },
-        weekExpensesFlow,
-    ) { listData, weekExpenses ->
-        val categoryNames = listData.categories.associate { it.id to it.name }
-        val locale = CurrencyUtils.localeFor(listData.currency)
-        RecordHeaderState(
-            headerExpenses = listData.periodExpenses,
-            categories = listData.categories,
-            insights = computeSpendingInsights(
-                listData.monthExpenses,
-                weekExpenses,
-                categoryNames,
-            ),
-            monthlyBudget = listData.budget,
-            monthExpenses = listData.monthExpenses,
-            dayTotalsByLabel = computeDayTotals(listData.periodExpenses, locale),
-        )
-    }.flowOn(Dispatchers.Default)
-
-    val uiState: StateFlow<RecordUiState> = combine(
-        headerStateFlow,
-        _searchQuery,
-        _typeFilter,
-        _listPeriod,
-    ) { header, query, typeFilter, listPeriod ->
-        RecordUiState(
-            headerExpenses = header.headerExpenses,
-            categories = header.categories,
-            searchQuery = query,
-            typeFilter = typeFilter,
-            listPeriod = listPeriod,
-            insights = header.insights,
-            monthlyBudget = header.monthlyBudget,
-            monthExpenses = header.monthExpenses,
-            dayTotalsByLabel = header.dayTotalsByLabel,
-        )
-    }
-        .distinctUntilChanged()
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = RecordUiState()
-        )
 
     fun setSearchQuery(query: String) {
         _searchQuery.value = query

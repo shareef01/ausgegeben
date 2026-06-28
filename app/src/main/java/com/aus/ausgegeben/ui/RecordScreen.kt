@@ -114,15 +114,15 @@ fun RecordScreen(
     val uiState by viewModel.uiState.collectAsState()
     val lazyExpenses = viewModel.pagedExpenses.collectAsLazyPagingItems()
     val dayTotalsByLabel = uiState.dayTotalsByLabel
-    val allMonthExpenses = uiState.monthExpenses
-    val categories = uiState.categories
+    val allMonthExpenses = uiState.data.monthExpenses
+    val categories = uiState.data.categories
     val categoryById = remember(categories) { categories.associateBy { it.id } }
     var receiptToView by remember { mutableStateOf<String?>(null) }
     var expensePendingDelete by remember { mutableStateOf<Expense?>(null) }
     var searchExpanded by rememberSaveable { mutableStateOf(false) }
     val (timeFormat, dateFormat) = remember(currencyCode) { dateFormatsFor(currencyCode) }
     val monthLabel = remember { AnalyticsPeriod.THIS_MONTH.displayTitle() }
-    val listPeriodLabel = when (uiState.listPeriod) {
+    val listPeriodLabel = when (uiState.toolbar.listPeriod) {
         RecordListPeriod.THIS_MONTH -> monthLabel
         RecordListPeriod.ALL_TIME -> stringResource(R.string.record_period_all_time)
     }
@@ -139,14 +139,14 @@ fun RecordScreen(
             )
         }
 
-    val hasActiveFilter = uiState.searchQuery.isNotBlank()
+    val hasActiveFilter = uiState.toolbar.searchQuery.isNotBlank()
     val isListLoading = lazyExpenses.loadState.refresh is LoadState.Loading
     val isListError = lazyExpenses.loadState.refresh is LoadState.Error
     val isListEmpty = lazyExpenses.itemCount == 0 &&
         lazyExpenses.loadState.refresh is LoadState.NotLoading
 
-    LaunchedEffect(uiState.searchQuery) {
-        if (uiState.searchQuery.isNotBlank()) {
+    LaunchedEffect(uiState.toolbar.searchQuery) {
+        if (uiState.toolbar.searchQuery.isNotBlank()) {
             searchExpanded = true
         }
     }
@@ -161,7 +161,7 @@ fun RecordScreen(
 
         item(key = "summary") {
             RecordHeader(
-                expenses = uiState.headerExpenses,
+                expenses = uiState.data.headerExpenses,
                 currencyCode = currencyCode,
                 periodLabel = listPeriodLabel,
                 insightLine = insightLine,
@@ -169,7 +169,7 @@ fun RecordScreen(
             )
         }
 
-        uiState.monthlyBudget?.let { budget ->
+        uiState.data.monthlyBudget?.let { budget ->
             item(key = "budget") {
                 BudgetProgressBar(
                     spent = monthSpent,
@@ -182,9 +182,9 @@ fun RecordScreen(
 
         stickyHeader(key = "toolbar") {
             RecordListToolbar(
-                listPeriod = uiState.listPeriod,
+                listPeriod = uiState.toolbar.listPeriod,
                 onListPeriod = viewModel::setListPeriod,
-                searchQuery = uiState.searchQuery,
+                searchQuery = uiState.toolbar.searchQuery,
                 onSearchChange = viewModel::setSearchQuery,
                 searchExpanded = searchExpanded,
                 onSearchExpandedChange = { searchExpanded = it },
