@@ -1,86 +1,67 @@
-import { BRAND_MARK_PATH } from '@/brand/markPath';
-
 interface AppBrandIconProps {
   size?: number;
   className?: string;
-  /** Subtle glow + gradient drift on the mark */
-  animated?: boolean;
 }
 
-/** Minimal flow-mark — matches /icons/icon.svg and generated favicons. */
-export function AppBrandIcon({ size = 56, className = '', animated = false }: AppBrandIconProps) {
-  const uid = `brand-${size}`;
-  const gradId = `${uid}-grad`;
-  const glowId = `${uid}-glow`;
+/**
+ * Flagship "Geometric Apex" Branding Icon.
+ * Matches Android AppBrandIcon.kt and ic_launcher_foreground.xml
+ */
+export function AppBrandIcon({ size = 64, className = '' }: AppBrandIconProps) {
+  const gradId = `apex-grad-${size}`;
+  const glowId = `halo-glow-${size}`;
 
   return (
-    <svg
-      className={`app-brand-icon ${animated ? 'app-brand-icon--live' : ''} ${className}`.trim()}
-      width={size}
-      height={size}
-      viewBox="0 0 512 512"
-      aria-hidden
-      role="img"
-    >
-      <defs>
-        <linearGradient id={gradId} x1="128" y1="88" x2="392" y2="420" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="var(--color-accent)" />
-          <stop offset="100%" stopColor="var(--color-income)" />
-        </linearGradient>
-        <filter id={glowId} x="-40%" y="-40%" width="180%" height="180%">
-          <feGaussianBlur stdDeviation="12" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      </defs>
+    <div className={`app-brand-icon-container ${className}`.trim()} style={{ width: size, height: size }}>
+      <svg
+        className="app-brand-icon-svg"
+        width="100%"
+        height="100%"
+        viewBox="0 0 100 100"
+        aria-hidden
+        role="img"
+      >
+        <defs>
+          <linearGradient id={gradId} x1="20" y1="20" x2="80" y2="90" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#6EE7B7" />
+            <stop offset="50%" stopColor="#10B981" />
+            <stop offset="100%" stopColor="#065F46" />
+          </linearGradient>
+          <filter id={glowId} x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="6" result="blur" />
+            <feColorMatrix type="matrix" values="0 0 0 0 0.0627451   0 0 0 0 0.72549   0 0 0 0 0.505882  0 0 0 0.4 0" />
+            <feMerge>
+              <feMergeNode />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
 
-      <rect width="512" height="512" rx="108" fill="var(--color-background)" />
+        {/* Outer Halo */}
+        <circle cx="50" cy="50" r="45" fill="#10B981" fillOpacity="0.18" filter={`url(#${glowId})`} />
 
-      {animated ? (
-        <>
-          <circle
-            className="app-brand-icon__ring app-brand-icon__ring--outer"
-            cx="256"
-            cy="256"
-            r="218"
-            fill="none"
-            stroke={`url(#${gradId})`}
-            strokeWidth="3"
-            opacity="0.22"
-          />
-          <circle
-            className="app-brand-icon__ring app-brand-icon__ring--inner"
-            cx="256"
-            cy="256"
-            r="188"
-            fill="none"
-            stroke="var(--color-accent)"
-            strokeWidth="1.5"
-            opacity="0.14"
-          />
-          <path
-            className="app-brand-icon__glow"
-            d={BRAND_MARK_PATH}
-            fill={`url(#${gradId})`}
-            filter={`url(#${glowId})`}
-            opacity="0.45"
-          />
-          <circle className="app-brand-icon__spark" cx="256" cy="118" r="10" fill="var(--color-accent)" opacity="0.9" />
-          <path
-            className="app-brand-icon__flow"
-            d="M256 140 Q280 200 256 260 Q232 320 256 380"
-            fill="none"
-            stroke="var(--color-accent)"
-            strokeWidth="4"
-            strokeLinecap="round"
-            opacity="0.35"
-          />
-        </>
-      ) : null}
+        {/* Obsidian Base */}
+        <rect x="10" y="10" width="80" height="80" rx="25.6" fill="#0D0D10" />
 
-      <path className="app-brand-icon__shape" fill={`url(#${gradId})`} d={BRAND_MARK_PATH} />
-    </svg>
+        {/* Specular Border */}
+        <rect
+          x="10" y="10" width="80" height="80" rx="25.6"
+          fill="none"
+          stroke="white"
+          strokeOpacity="0.15"
+          strokeWidth="0.8"
+        />
+
+        {/* Geometric Apex Mark */}
+        {/* Normalized from ic_launcher_foreground.xml: M54,20 L82,88 L64,88 L54,56 L44,88 L26,88 Z */}
+        <path
+          d="M50 22 L72 82 L60 82 L50 56 L40 82 L28 82 Z"
+          fill={`url(#${gradId})`}
+        />
+
+        {/* Apex Spark */}
+        <circle cx="50" cy="24" r="2.5" fill="white" />
+      </svg>
+    </div>
   );
 }
