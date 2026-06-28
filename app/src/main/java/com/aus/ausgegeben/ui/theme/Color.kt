@@ -5,101 +5,62 @@ import androidx.compose.ui.unit.dp
 
 // ── DESIGN TOKENS ───────────────────────────────────────────────────────────
 object AppColors {
-    /** Primary app background — Near-black OLED green */
-    val Background = Color(0xFF040F0A)
+    /** Absolute Base Layer: Pure emissive OLED black */
+    val Background = Color(0xFF000000)
 
-    /** Elevated surface — Rich lush forest surface */
-    val CardSurface = Color(0xFF0B2416)
+    /** Primary Material Island — Deep obsidian */
+    val CardSurface = Color(0xFF09090B)
+    
+    /** Secondary Material — Inner blocks */
+    val InnerSurface = Color(0xFF121214)
 
-    /** Ultra-thin subtle border — 5% White */
-    val CardBorder = Color(0x0DFFFFFF)
+    /** Micro-Border: Ultra-thin hairline stroke (7% White) */
+    val CardBorder = Color(0x12FFFFFF)
 
-    /** Expenses — Vibrant coral red */
-    val Expense = Color(0xFFF97373)
-
-    /** Income — Vibrant electric mint */
-    val Income = Color(0xFF22C55E)
-
-    /** Primary CTA on dark surfaces — neutral, not semantic red */
-    val Accent = Color(0xFFFAFAFA)
-
-    val OnAccent = Color(0xFF09090B)
-
-    /** Numpad key press / hover */
-    val NumpadPress = Color(0x1AFFFFFF)
-
-    val OnBackground = Color(0xFFFAFAFA)
-    val OnSurfaceVariant = Color(0xFF8E8E93)
-    /** Dark-theme transfer amounts — matches secondary label contrast */
+    /** High-voltage active accents */
+    val Expense = Color(0xFFFB7185) // Clean Coral
+    val Income = Color(0xFF10B981)  // Pure Emerald
     val Transfer = Color(0xFF94A3B8)
-    /** Light-theme transfer amounts — ≥4.5:1 on white */
-    val TransferLight = Color(0xFF52525B)
+
+    val Accent = Color(0xFFFFFFFF)
+    val OnAccent = Color(0xFF000000)
+
+    /** Interactive Layer States */
+    val NumpadPress = Color(0x1AFFFFFF)
+    val DisabledSurface = Color(0xFF18181B)
+    val DisabledContent = Color(0xFF3F3F46)
+
+    val OnBackground = Color(0xFFFFFFFF)
+    /** Metadata / Secondary Labels: Muted Slate */
+    val OnSurfaceVariant = Color(0xFF71717A)
 }
 
 // ── Palette aliases ───────────────────────────────────────────────────────────
 val BackgroundDark = AppColors.Background
-val BackgroundElevated = Color(0xFF111113)
-val BackgroundGlowWarm = Color(0xFF141218)
-val BackgroundGlowCool = Color(0xFF101218)
-val BackgroundGlowMint = Color(0xFF101412)
-
 val SurfaceDark = AppColors.CardSurface
-val SurfaceElevatedDark = Color(0xFF1F1F23)
-val SurfaceVariantDark = Color(0xFF27272A)
-val TertiarySurfaceDark = Color(0xFF2E2E33)
-val OutlineDark = Color(0xFF3F3F46)
-val OutlineVariantDark = Color(0xFF52525B)
-val SeparatorDark = Color(0xFF52525B)
-val GlassOverlayDark = Color(0xE618181B)
+val InnerSurfaceDark = AppColors.InnerSurface
+val SurfaceBorderDark = AppColors.CardBorder
 
 val AccentCoral = AppColors.Expense
-val AccentCoralSoft = Color(0xFFE8C8C8)
-val AccentRed = AppColors.Expense
-
 val IncomeGreen = AppColors.Income
-/** Light-mode income text — darkened for WCAG AA on pale income chips & gradients */
-val IncomeGreenLight = Color(0xFF157A3A)
-val IncomeGreenSoft = Color(0xFFB5D4C8)
-val ExpenseMuted = AppColors.Expense
-val ExpenseSoft = Color(0xFFE0BCBC)
 val TransferGray = AppColors.Transfer
-val TransferGrayLight = AppColors.TransferLight
-
-val SystemBlue = Color(0xFF7EB0E8)
-val SystemViolet = Color(0xFFA99AE0)
-val SystemTeal = Color(0xFF7ABFB4)
 
 val OnBackgroundDark = AppColors.OnBackground
-val OnSurfaceDark = Color(0xFFF4F4F5)
+val OnSurfaceDark = Color(0xFFFFFFFF)
 val OnSurfaceVariantDark = AppColors.OnSurfaceVariant
-val OnPrimaryDark = AppColors.OnAccent
-
-val SecondaryDark = Color(0xFF27272A)
-val OnSecondaryDark = Color(0xFFE4E4E7)
-
-val ErrorRed = AppColors.Expense
-val OnErrorDark = AppColors.Background
-val ErrorContainerDark = Color(0xFF2A2224)
-val OnErrorContainerDark = Color(0xFFE8D0D0)
 
 val BackgroundLight = Color(0xFFFAFAFA)
-val GroupedBackgroundLight = Color(0xFFFFFFFF)
 val SurfaceLight = Color(0xFFFFFFFF)
 val SurfaceVariantLight = Color(0xFFF4F4F5)
 val OutlineLight = Color(0xFFE4E4E7)
-val GlassOverlayLight = Color(0xF5FFFFFF)
+val SurfaceBorderLight = Color(0xFFE5E5E7)
 val OnBackgroundLight = Color(0xFF09090B)
 val OnSurfaceLight = Color(0xFF09090B)
 val OnSurfaceVariantLight = Color(0xFF52525B)
 
-val SurfaceBorderDark = AppColors.CardBorder
-val SurfaceBorderLight = Color(0x14000000)
+val IncomeGreenLight = Color(0xFF157A3A)
+val TransferGrayLight = Color(0xFF52525B)
+val SystemViolet = Color(0xFF8B5CF6)
 
-val BackgroundGlowCoral = BackgroundGlowWarm
-val BackgroundGlowBlue = BackgroundGlowCool
-
-/** Focus ring for inputs — ≥3:1 on dark and light surfaces */
 val FocusRing = Color(0xFF3B82F6)
-
-/** Chart ring stroke */
 val ChartStrokeWidth = 6.dp

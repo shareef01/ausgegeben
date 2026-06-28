@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { colorIntToHex } from '@/utils/currency';
 
 export interface DonutCenterSummary {
@@ -14,40 +15,46 @@ interface DonutChartProps {
 }
 
 export function DonutChart({ segments, size = 140, center }: DonutChartProps) {
-  const total = segments.reduce((s, x) => s + x.value, 0);
-  const stroke = 10;
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-  let offset = 0;
+  const { total, paths, r, c } = useMemo(() => {
+    const total = segments.reduce((s, x) => s + x.value, 0);
+    const stroke = 12; // Law: Refined slim stroke
+    const r = (size - stroke) / 2;
+    const c = 2 * Math.PI * r;
+
+    let currentOffset = 0;
+    const paths = segments.map((seg) => {
+      const frac = seg.value / total;
+      const dash = c * frac;
+      const offset = currentOffset;
+      currentOffset += dash;
+      return { color: seg.color, dash, offset };
+    });
+
+    return { total, paths, r, c };
+  }, [segments, size]);
 
   return (
     <div className="donut-wrap" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="donut" role="img" aria-label="Category breakdown chart">
         {total <= 0 ? (
-          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-outline)" strokeWidth={stroke} opacity={0.25} />
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-outline)" strokeWidth={12} opacity={0.25} />
         ) : (
           <>
-            <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-outline)" strokeWidth={stroke} opacity={0.18} />
-            {segments.map((seg, i) => {
-              const frac = seg.value / total;
-              const dash = c * frac;
-              const el = (
-                <circle
-                  key={i}
-                  cx={size / 2}
-                  cy={size / 2}
-                  r={r}
-                  fill="none"
-                  stroke={seg.color}
-                  strokeWidth={stroke}
-                  strokeDasharray={`${Math.max(dash - 2, 1)} ${c}`}
-                  strokeDashoffset={-offset}
-                  strokeLinecap="round"
-                />
-              );
-              offset += dash;
-              return el;
-            })}
+            <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-outline)" strokeWidth={12} opacity={0.18} />
+            {paths.map((p, i) => (
+              <circle
+                key={i}
+                cx={size / 2}
+                cy={size / 2}
+                r={r}
+                fill="none"
+                stroke={p.color}
+                strokeWidth={12}
+                strokeDasharray={`${Math.max(p.dash - 2, 1)} ${c}`}
+                strokeDashoffset={-p.offset}
+                strokeLinecap="round"
+              />
+            ))}
           </>
         )}
       </svg>

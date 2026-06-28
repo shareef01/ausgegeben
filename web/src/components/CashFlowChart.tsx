@@ -72,23 +72,14 @@ function CashFlowSeries({
         d={line}
         fill="none"
         stroke={color}
-        strokeOpacity={0.22}
-        strokeWidth={8}
+        strokeWidth={3} // Law: Flagship Bezier weight
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <path
-        d={line}
-        fill="none"
-        stroke={color}
-        strokeWidth={2.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {points.map((pt, i) => (
+      {points.length === 1 && points.map((pt, i) => (
         <g key={i}>
-          <circle cx={pt.x} cy={pt.y} r={3.5} fill={color} />
-          <circle cx={pt.x} cy={pt.y} r={1.5} fill="var(--color-surface)" />
+          <circle cx={pt.x} cy={pt.y} r={4} fill={color} />
+          <circle cx={pt.x} cy={pt.y} r={2} fill="var(--color-surface)" />
         </g>
       ))}
     </g>
@@ -132,26 +123,26 @@ export function CashFlowChart({ trend }: CashFlowChartProps) {
       >
         <defs>
           <linearGradient id={incomeGradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-income)" stopOpacity="0.24" />
-            <stop offset="100%" stopColor="var(--color-income)" stopOpacity="0.025" />
+            <stop offset="0%" stopColor="var(--color-income)" stopOpacity="0.32" />
+            <stop offset="100%" stopColor="var(--color-income)" stopOpacity="0.0" />
           </linearGradient>
           <linearGradient id={expenseGradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-expense)" stopOpacity="0.24" />
-            <stop offset="100%" stopColor="var(--color-expense)" stopOpacity="0.025" />
+            <stop offset="0%" stopColor="var(--color-expense)" stopOpacity="0.32" />
+            <stop offset="100%" stopColor="var(--color-expense)" stopOpacity="0.0" />
           </linearGradient>
         </defs>
 
-        {[1, 2, 3].map((index) => {
-          const y = PAD_Y + CHART_H * (index / 4);
+        {[0, 1, 2, 3].map((index) => {
+          const y = PAD_Y + CHART_H * (index / 3);
           return (
             <line
               key={index}
-              x1={PAD_X}
+              x1="0"
               y1={y}
-              x2={PAD_X + CHART_W}
+              x2={CHART_WIDTH}
               y2={y}
-              stroke="var(--color-outline)"
-              strokeOpacity={0.22}
+              stroke="var(--color-on-surface)"
+              strokeOpacity="0.03"
               strokeWidth={1}
             />
           );
