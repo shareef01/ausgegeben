@@ -127,35 +127,55 @@ fun AuthScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // Branding Anchor - Refined with dedicated component
-                AppBrandIcon(size = 72)
+                // Branding Section - Hyper-Premium Styling
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    AppBrandIcon(size = 80)
+                    
+                    Spacer(modifier = Modifier.height(20.dp))
+                    
+                    Text(
+                        text = stringResource(R.string.app_name).lowercase(),
+                        style = TextStyle(
+                            brush = Brush.linearGradient(
+                                colors = if (isAppDarkTheme()) {
+                                    listOf(Color.White, Color(0xFFA1A1AA))
+                                } else {
+                                    listOf(Color(0xFF09090B), Color(0xFF52525B))
+                                }
+                            ),
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Light,
+                            letterSpacing = (-1).sp
+                        )
+                    )
+                    
+                    Text(
+                        text = stringResource(R.string.app_tagline).lowercase(),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            letterSpacing = 2.sp,
+                            color = AuthAuroraTokens.slate().copy(alpha = 0.6f)
+                        ),
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
 
-                Spacer(modifier = Modifier.height(24.dp))
-                
-                // Minimalist lowercase title
-                Text(
-                    text = stringResource(R.string.app_name).lowercase(),
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.Light,
-                        letterSpacing = (-0.5).sp
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(40.dp))
 
                 // Pillar 2: Hero Glassmorphic Auth Card
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(28.dp))
+                        .clip(RoundedCornerShape(32.dp))
                         .background(AuthAuroraTokens.glassBase())
                         .border(
                             width = 1.dp,
                             brush = AuthAuroraTokens.specularBorder(),
-                            shape = RoundedCornerShape(28.dp)
+                            shape = RoundedCornerShape(32.dp)
                         )
-                        .padding(24.dp)
+                        .padding(28.dp)
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         // Dynamic Tab Selector
