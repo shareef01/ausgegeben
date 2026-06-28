@@ -7,7 +7,7 @@
 html,
 body,
 #root {
-  height: 100%;
+  min-height: 100%;
 }
 
 body {
@@ -17,7 +17,6 @@ body {
   color: var(--color-on-background);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overscroll-behavior: none;
 }
 
 button,
@@ -38,7 +37,7 @@ a {
 }
 
 .app-shell {
-  min-height: 100%;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   padding-top: var(--safe-top);
@@ -48,8 +47,7 @@ a {
 
 .app-main {
   flex: 1;
-  overflow: auto;
-  padding-bottom: calc(var(--bottom-bar-height) + var(--safe-bottom));
+  padding-bottom: calc(var(--bottom-bar-height) + var(--safe-bottom) + 24px);
   position: relative;
 }
 
