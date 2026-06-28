@@ -117,16 +117,16 @@ private val OceanColorScheme = baseDarkScheme(
 )
 
 private val ForestColorScheme = baseDarkScheme(
-    primary = Color(0xFF86EFAC),
+    primary = Color(0xFF22C55E), // Electric Mint
     tertiary = Color(0xFFFACC15),
-    background = Color(0xFF06130B),
-    surface = Color(0xFF0C2013),
-    surfaceVariant = Color(0xFF16351F),
-    secondary = Color(0xFF102A19),
-    outline = Color(0xFF2A5735),
-    outlineVariant = Color(0xFF3D7449),
-    onSurfaceVariant = Color(0xFFA7CFB0),
-    error = Color(0xFFF97373),
+    background = Color(0xFF040F0A),
+    surface = Color(0xFF0B2416),
+    surfaceVariant = Color(0xFF11321F),
+    secondary = Color(0xFF0D2D1B),
+    outline = Color(0xFF1A4D2E),
+    outlineVariant = Color(0xFF24633C),
+    onSurfaceVariant = Color(0xFF81A68D), // Muted green for secondary labels
+    error = Color(0xFFF97373), // Coral Red
 )
 
 private val SunsetColorScheme = baseDarkScheme(

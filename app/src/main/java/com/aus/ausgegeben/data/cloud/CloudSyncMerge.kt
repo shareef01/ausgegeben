@@ -38,10 +38,11 @@ fun <T> mergeById(
     idSelector: (T) -> Long,
     updatedAtSelector: (T) -> Long,
     deletedSelector: (T) -> Boolean,
+    isIncremental: Boolean = false
 ): MergeResult<T> where T : Any {
     val localMap = localItems.associateBy(idSelector)
     val remoteMap = remoteItems.associateBy(idSelector)
-    val allIds = localMap.keys + remoteMap.keys
+    val allIds = if (isIncremental) remoteMap.keys else (localMap.keys + remoteMap.keys)
 
     val toApplyLocal = mutableListOf<T>()
     val toPushRemote = mutableListOf<T>()
@@ -56,7 +57,9 @@ fun <T> mergeById(
                 if (!deletedSelector(remote)) toApplyLocal += remote
             }
             local != null && remote == null -> {
-                toPushRemote += local
+                // If not incremental, this item only exists locally -> push it.
+                // If incremental, this item only exists locally but didn't change on remote -> skip.
+                if (!isIncremental) toPushRemote += local
             }
             local != null && remote != null -> {
                 val localAt = updatedAtSelector(local)

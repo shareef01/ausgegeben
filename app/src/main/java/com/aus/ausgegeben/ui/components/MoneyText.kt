@@ -51,8 +51,8 @@ fun MoneyText(
         MoneySize.Body -> FontWeight.Medium
     }
     val letterSpacing = when (size) {
-        MoneySize.Hero -> (-1.35).sp
-        MoneySize.Display -> (-1.1).sp
+        MoneySize.Hero -> (-1.5).sp
+        MoneySize.Display -> (-1.2).sp
         MoneySize.Headline -> (-0.7).sp
         MoneySize.Title -> (-0.3).sp
         MoneySize.Body -> (-0.15).sp
