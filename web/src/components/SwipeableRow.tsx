@@ -120,7 +120,7 @@ export function SwipeableRow({ children, onDelete, onTap, onLongPress }: Swipeab
         <span>{t('recordSwipeDelete')}</span>
       </div>
       <div className={`swipeable-row__bg swipeable-row__bg--edit ${offset > 0 ? 'visible' : ''}`} aria-hidden>
-        <span>{t('actionEdit')}</span>
+        <span>{t('actionSave')}</span>
       </div>
       <div
         ref={contentRef}
