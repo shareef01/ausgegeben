@@ -427,37 +427,63 @@ private fun SwipeableTransactionRow(
     onReceiptClick: (() -> Unit)?
 ) {
     val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { if (it == SwipeToDismissBoxValue.EndToStart) { onDeleteRequest(); false } else true }
+        confirmValueChange = { 
+            when (it) {
+                SwipeToDismissBoxValue.EndToStart -> {
+                    onDeleteRequest()
+                    false // Return to center
+                }
+                SwipeToDismissBoxValue.StartToEnd -> {
+                    onClick() // Trigger Edit
+                    false // Return to center
+                }
+                else -> true
+            }
+        }
     )
 
     SwipeToDismissBox(
         state = dismissState,
-        enableDismissFromStartToEnd = false,
+        enableDismissFromStartToEnd = true, // Law: Enable Swipe-to-Edit
         backgroundContent = {
-            // Pillar 1: The Background Layer (The Red Zone)
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFFEF4444))
-                    .padding(horizontal = 24.dp),
-                contentAlignment = Alignment.CenterEnd) {
-                Icon(
-                    imageVector = Icons.Rounded.Delete,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
+            val direction = dismissState.dismissDirection
+            
+            when (direction) {
+                SwipeToDismissBoxValue.EndToStart -> {
+                    // Delete Zone (Red)
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFFEF4444))
+                            .padding(horizontal = 24.dp),
+                        contentAlignment = Alignment.CenterEnd
+                    ) {
+                        Icon(Icons.Rounded.Delete, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                    }
+                }
+                SwipeToDismissBoxValue.StartToEnd -> {
+                    // Edit Zone (Emerald)
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFF10B981))
+                            .padding(horizontal = 24.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Icon(Icons.Rounded.Edit, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                    }
+                }
+                else -> {}
             }
         }
     ) {
         // Pillar 2: The Foreground Layer (The Data)
-        // Theme-aware background
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(RecordAuroraTokens.background())
                 .combinedClickable(
-                    onClick = onClick,
+                    onClick = {}, // Law: Accidental tap disabled. Must swipe to edit.
                     onLongClick = onLongClick
                 )
         ) {
