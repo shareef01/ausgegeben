@@ -1,0 +1,103 @@
+/**
+ * iOS / iPhone Specific Flagship Optimizations
+ */
+
+:root {
+  /* Dynamic Safe Area Tokens */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+/* ── iOS Chrome Refinement ── */
+
+html {
+  /* Prevent scrolling "bounce" on body for a more app-like feel */
+  overscroll-behavior-y: none;
+  /* Disable tap highlighting */
+  -webkit-tap-highlight-color: transparent;
+  /* Smooth text rendering */
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  /* Full viewport height handling for Safari mobile */
+  height: 100dvh;
+  position: fixed;
+  overflow: hidden;
+  width: 100%;
+}
+
+#root {
+  height: 100dvh;
+}
+
+/* ── Safe Area Insets ── */
+
+.app-shell {
+  /* Top Notch clearance */
+  padding-top: var(--safe-top);
+  background: var(--color-background);
+}
+
+.bottom-bar {
+  /* Home Indicator clearance */
+  height: calc(var(--bottom-bar-height) + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  background: color-mix(in srgb, var(--color-background) 85%, transparent);
+}
+
+.fab {
+  /* Adjust FAB position for Home Indicator */
+  bottom: calc(var(--bottom-bar-height) + var(--safe-bottom) + 16px);
+}
+
+/* ── Screen Header Insets ── */
+
+.screen-title-bar {
+  padding-top: 16px;
+  /* Left/Right safe area support for landscape or side-notches */
+  padding-left: calc(var(--workspace-padding) + var(--safe-left));
+  padding-right: calc(var(--workspace-padding) + var(--safe-right));
+}
+
+/* ── List Content Insets ── */
+
+.transaction-list-bare,
+.finance-summary-card,
+.record-filters,
+.budget-bar {
+  padding-left: calc(var(--workspace-padding) + var(--safe-left));
+  padding-right: calc(var(--workspace-padding) + var(--safe-right));
+}
+
+/* ── iOS Modal / Sheet Polish ── */
+
+.sheet {
+  /* Bottom Sheet Home Indicator padding */
+  padding-bottom: calc(24px + var(--safe-bottom));
+}
+
+/* ── Typography & Touch ── */
+
+.btn,
+.pressable-row,
+.numpad__key {
+  /* Instant touch response on iOS */
+  touch-action: manipulation;
+  /* Prevent text selection during rapid tapping */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* ── Custom iOS Bounce Simulation ── */
+
+.app-main {
+  /* Re-enable scrolling within the main container */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  height: 100%;
+}
