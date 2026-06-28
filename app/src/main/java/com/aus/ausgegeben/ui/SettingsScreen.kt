@@ -81,6 +81,10 @@ import com.aus.ausgegeben.ui.components.GroupedSection
 import com.aus.ausgegeben.ui.components.GroupedSectionLabel
 import com.aus.ausgegeben.ui.components.ScreenTitle
 import com.aus.ausgegeben.ui.components.tabScreenListBottomPadding
+import com.aus.ausgegeben.ui.components.AppButton
+import com.aus.ausgegeben.ui.components.AppIconButton
+import com.aus.ausgegeben.ui.components.AppTextButton
+import com.aus.ausgegeben.ui.components.smoothClickable
 import com.aus.ausgegeben.ui.theme.AppGradientAlpha
 import com.aus.ausgegeben.ui.theme.AppLayoutTokens
 import com.aus.ausgegeben.ui.theme.AppListItem
@@ -337,7 +341,7 @@ fun SettingsScreen(
             title = { Text(stringResource(R.string.settings_sign_out)) },
             text = { Text(stringResource(R.string.settings_sign_out_confirm)) },
             confirmButton = {
-                TextButton(
+                AppTextButton(
                     onClick = {
                         showSignOutDialog = false
                         authViewModel.signOut {
@@ -346,15 +350,16 @@ fun SettingsScreen(
                                 onShowMessage(context.getString(R.string.settings_signed_out))
                             }
                         }
-                    }
-                ) {
-                    Text(stringResource(R.string.settings_sign_out))
-                }
+                    },
+                    text = stringResource(R.string.settings_sign_out),
+                    contentColor = MaterialTheme.colorScheme.error
+                )
             },
             dismissButton = {
-                TextButton(onClick = { showSignOutDialog = false }) {
-                    Text(stringResource(R.string.action_cancel))
-                }
+                AppTextButton(
+                    onClick = { showSignOutDialog = false },
+                    text = stringResource(R.string.action_cancel)
+                )
             },
         )
     }
@@ -380,9 +385,10 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showThemeDialog = false }) {
-                    Text(stringResource(R.string.action_close))
-                }
+                AppTextButton(
+                    onClick = { showThemeDialog = false },
+                    text = stringResource(R.string.action_close)
+                )
             }
         )
     }
@@ -407,9 +413,10 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showCurrencyDialog = false }) {
-                    Text(stringResource(R.string.action_close))
-                }
+                AppTextButton(
+                    onClick = { showCurrencyDialog = false },
+                    text = stringResource(R.string.action_close)
+                )
             }
         )
     }
@@ -439,9 +446,10 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showReminderTimeDialog = false }) {
-                    Text(stringResource(R.string.action_close))
-                }
+                AppTextButton(
+                    onClick = { showReminderTimeDialog = false },
+                    text = stringResource(R.string.action_close)
+                )
             }
         )
     }
@@ -470,7 +478,7 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
-                TextButton(
+                AppTextButton(
                     onClick = {
                         scope.launch {
                             val amount = CurrencyUtils.parseAmount(budgetInput, currency)
@@ -484,13 +492,15 @@ fun SettingsScreen(
                                 }
                             )
                         }
-                    }
-                ) { Text(stringResource(R.string.action_save)) }
+                    },
+                    text = stringResource(R.string.action_save)
+                )
             },
             dismissButton = {
-                TextButton(onClick = { showBudgetDialog = false }) {
-                    Text(stringResource(R.string.action_cancel))
-                }
+                AppTextButton(
+                    onClick = { showBudgetDialog = false },
+                    text = stringResource(R.string.action_cancel)
+                )
             }
         )
     }
@@ -518,7 +528,7 @@ private fun ThemeOption(
                 else MaterialTheme.colorScheme.outline.copy(alpha = 0.12f),
                 shape = RoundedCornerShape(AppRadius.xl)
             )
-            .clickable(onClick = onClick)
+            .smoothClickable(onClick = onClick)
             .padding(vertical = AppListItem.selectionInnerVertical, horizontal = AppSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm)
@@ -628,12 +638,11 @@ private fun AccountSignInCard(onSignIn: () -> Unit) {
                     )
                 }
             }
-            Button(
+            AppButton(
                 onClick = onSignIn,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                shape = RoundedCornerShape(AppRadius.pill),
+                modifier = Modifier.fillMaxWidth(),
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
                 Icon(
                     Icons.AutoMirrored.Rounded.Login,
@@ -736,11 +745,18 @@ private fun AccountProfileCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm),
             ) {
-                OutlinedButton(
+                AppButton(
                     onClick = onSyncNow,
                     enabled = !isSyncing,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(AppRadius.pill),
+                    modifier = Modifier
+                        .weight(1f)
+                        .border(
+                            1.dp,
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                            RoundedCornerShape(AppRadius.md)
+                        ),
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.primary
                 ) {
                     if (isSyncing) {
                         CircularProgressIndicator(
@@ -753,11 +769,18 @@ private fun AccountProfileCard(
                     Spacer(modifier = Modifier.width(AppSpacing.xs))
                     Text(stringResource(R.string.settings_sync_now))
                 }
-                OutlinedButton(
+                AppButton(
                     onClick = onSignOut,
                     enabled = !isSyncing,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(AppRadius.pill),
+                    modifier = Modifier
+                        .weight(1f)
+                        .border(
+                            1.dp,
+                            MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                            RoundedCornerShape(AppRadius.md)
+                        ),
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.onBackground
                 ) {
                     Icon(Icons.AutoMirrored.Rounded.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(AppSpacing.xs))
@@ -925,7 +948,7 @@ fun SettingRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = onClick != null) { onClick?.invoke() }
+            .smoothClickable(enabled = onClick != null) { onClick?.invoke() }
             .padding(horizontal = AppSpacing.md, vertical = AppListItem.rowVertical),
         verticalAlignment = Alignment.CenterVertically
     ) {

@@ -5,19 +5,19 @@ import androidx.compose.ui.unit.dp
 
 // ── DESIGN TOKENS ───────────────────────────────────────────────────────────
 object AppColors {
-    /** Primary app background */
-    val Background = Color(0xFF0C0C0E)
+    /** Primary app background — Near-black OLED green */
+    val Background = Color(0xFF040F0A)
 
-    /** Elevated surface — barely lifted from background */
-    val CardSurface = Color(0xFF141416)
+    /** Elevated surface — Rich lush forest surface */
+    val CardSurface = Color(0xFF0B2416)
 
-    /** Hairline separators */
-    val CardBorder = Color(0x0FFFFFFF)
+    /** Ultra-thin subtle border — 5% White */
+    val CardBorder = Color(0x0DFFFFFF)
 
-    /** Expenses — vibrant coral red */
-    val Expense = Color(0xFFE85D5D)
+    /** Expenses — Vibrant coral red */
+    val Expense = Color(0xFFF97373)
 
-    /** Income — vibrant finance green */
+    /** Income — Vibrant electric mint */
     val Income = Color(0xFF22C55E)
 
     /** Primary CTA on dark surfaces — neutral, not semantic red */
