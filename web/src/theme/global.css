@@ -1743,14 +1743,31 @@ a {
 .swipeable-row__bg {
   position: absolute;
   inset: 0;
-  background: var(--color-expense);
-  color: #fff;
   display: flex;
   align-items: center;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: lowercase;
+  letter-spacing: 0.05em;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  color: #fff;
+}
+
+.swipeable-row__bg.visible {
+  opacity: 1;
+}
+
+.swipeable-row__bg--delete {
+  background: var(--color-expense);
   justify-content: flex-end;
-  padding-right: 20px;
-  font-weight: 600;
-  font-size: 0.875rem;
+  padding-right: 24px;
+}
+
+.swipeable-row__bg--edit {
+  background: var(--color-accent);
+  justify-content: flex-start;
+  padding-left: 24px;
 }
 
 .tab-panel--hidden {
