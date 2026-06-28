@@ -21,12 +21,12 @@ fun appDividerColor(): Color =
 /** Secondary labels, timestamps — 50% opacity for Deep Forest aesthetic */
 @Composable
 fun readableSecondaryColor(): Color =
-    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
 
 /** Bottom nav / tabs — inactive but still readable */
 @Composable
 fun navigationInactiveColor(): Color =
-    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
 
 @Composable
 fun financeIncomeColor(): Color {

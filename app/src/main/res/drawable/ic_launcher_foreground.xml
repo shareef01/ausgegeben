@@ -6,35 +6,36 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Mark glow -->
+    <!-- High-Intensity Icon Glow (Neon Pulse) -->
     <path
-        android:fillColor="#34D399"
-        android:fillAlpha="0.28"
-        android:pathData="M54,18 L84,90 L65,90 L54,54 L43,90 L24,90 Z" />
+        android:fillColor="#10B981"
+        android:fillAlpha="0.32"
+        android:pathData="M54,16 L86,92 L65,92 L54,52 L43,92 L22,92 Z" />
 
-    <!-- Main flow-mark -->
-    <path android:pathData="M54,20 L81,88 L64,88 L54,56 L44,88 L27,88 Z">
+    <!-- Flagship "A" Flow-Mark (Geometric Apex) -->
+    <path android:pathData="M54,20 L82,88 L64,88 L54,56 L44,88 L26,88 Z">
         <aapt:attr name="android:fillColor">
             <gradient
                 android:type="linear"
-                android:startX="27"
-                android:startY="18"
-                android:endX="81"
-                android:endY="90"
+                android:startX="26"
+                android:startY="20"
+                android:endX="82"
+                android:endY="88"
                 android:startColor="#6EE7B7"
-                android:centerColor="#34D399"
-                android:endColor="#047857" />
+                android:centerColor="#10B981"
+                android:endColor="#065F46" />
         </aapt:attr>
     </path>
 
-    <!-- Inner facet highlight -->
+    <!-- Specular Facet Highlight (Glass Edge) -->
     <path
-        android:fillColor="#A7F3D0"
-        android:fillAlpha="0.35"
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.25"
         android:pathData="M54,56 L64,88 L44,88 Z" />
 
-    <!-- Apex spark -->
+    <!-- Radiant Apex Spark -->
     <path
-        android:fillColor="#ECFDF5"
-        android:pathData="M54,22 m-2.5,0 a2.5,2.5 0 1,1 5,0 a2.5,2.5 0 1,1 -5,0" />
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,24 m-3,0 a3,3 0 1,1 6,0 a3,3 0 1,1 -6,0" />
+
 </vector>

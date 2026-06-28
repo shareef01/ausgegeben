@@ -1,6 +1,8 @@
 import type { LucideProps } from 'lucide-react';
 import {
   ArrowLeftRight,
+  ArrowUp,
+  ArrowDown,
   BarChart3,
   Calendar,
   Check,
@@ -125,4 +127,12 @@ export function IconArrowLeftRight(props: IconProps) {
 
 export function IconPaperclip(props: IconProps) {
   return <Paperclip strokeWidth={STROKE} {...props} />;
+}
+
+export function IconArrowUp(props: IconProps) {
+  return <ArrowUp strokeWidth={STROKE} {...props} />;
+}
+
+export function IconArrowDown(props: IconProps) {
+  return <ArrowDown strokeWidth={STROKE} {...props} />;
 }
