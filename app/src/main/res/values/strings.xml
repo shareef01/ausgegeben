@@ -1,6 +1,6 @@
 <resources>
-    <string name="app_name">Ausgegeben</string>
-    <string name="app_tagline">Track spending</string>
+    <string name="app_name">ausgegeben</string>
+    <string name="app_tagline">track spending</string>
 
     <!-- Auth -->
     <string name="auth_tagline">Your money, your way</string>
@@ -105,6 +105,10 @@
     <string name="settings_no_email_app">No email app found</string>
     <string name="settings_choose_theme">Choose theme</string>
     <string name="settings_choose_currency">Choose currency</string>
+    <string name="settings_choose_language">Choose language</string>
+    <string name="settings_language">Language</string>
+    <string name="lang_english">English</string>
+    <string name="lang_german">German</string>
     <string name="settings_budget_dialog_title">Monthly spending limit</string>
     <string name="settings_budget_dialog_body">Set a monthly expense cap. You\'ll see progress on the Record tab.</string>
     <string name="settings_budget_amount_label">Amount (%1$s)</string>

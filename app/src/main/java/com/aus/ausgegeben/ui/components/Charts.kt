@@ -333,7 +333,7 @@ fun DonutChart(
                     startAngle = 0f,
                     sweepAngle = 360f,
                     useCenter = false,
-                    style = Stroke(width = strokePx, cap = StrokeCap.Round),
+                    style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round),
                     size = arcBoxSize,
                     topLeft = arcTopLeft
                 )
@@ -356,7 +356,7 @@ fun DonutChart(
                             startAngle = startAngle + gapDegrees / 2f,
                             sweepAngle = sweep,
                             useCenter = false,
-                            style = Stroke(width = strokePx * 1.75f, cap = StrokeCap.Round),
+                            style = Stroke(width = 12.dp.toPx() * 1.5f, cap = StrokeCap.Round),
                             size = arcBoxSize,
                             topLeft = arcTopLeft
                         )
@@ -365,7 +365,7 @@ fun DonutChart(
                             startAngle = startAngle + gapDegrees / 2f,
                             sweepAngle = sweep,
                             useCenter = false,
-                            style = Stroke(width = strokePx, cap = StrokeCap.Round),
+                            style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round),
                             size = arcBoxSize,
                             topLeft = arcTopLeft
                         )
@@ -373,7 +373,7 @@ fun DonutChart(
                     }
                 }
 
-                val holeRadius = (size.minDimension / 2f) - strokePx * 1.5f
+                val holeRadius = (size.minDimension / 2f) - 12.dp.toPx() * 1.5f
                 drawCircle(color = holeColor, radius = holeRadius, center = center)
             }
 

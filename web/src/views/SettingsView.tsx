@@ -6,7 +6,6 @@ import {
   IconGlobe,
   IconCurrency,
   IconSync,
-  IconLogOut,
   IconGauge,
   IconLayers,
   IconDownload,
@@ -131,11 +130,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
             <div className="account-profile-card__actions">
               <button type="button" className="btn btn-secondary account-profile-card__btn" onClick={() => void runSync()} disabled={syncing}>
                 <IconSync width={18} height={18} />
-                {t('syncNow')}
-              </button>
-              <button type="button" className="btn btn-secondary account-profile-card__btn account-profile-card__btn--ghost" onClick={() => setShowSignOutConfirm(true)} disabled={syncing}>
-                <IconLogOut width={18} height={18} />
-                {t('settingsSignOut')}
+                {t('syncNow').toLowerCase()}
               </button>
             </div>
           </div>
@@ -181,6 +176,19 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
         <SettingsRow icon={IconLayers} iconTint="accent" title={t('settingsCategories')} subtitle={t('settingsCategoriesSub')} onClick={onManageCategories} />
         <SettingsRow icon={IconDownload} iconTint="neutral" title={t('settingsExport')} subtitle={t('settingsExportSub')} onClick={() => void exportData()} />
       </Section>
+
+      {user && (
+        <div className="settings-logout-wrap">
+          <button
+            type="button"
+            className="btn btn-secondary settings-logout-btn"
+            onClick={() => setShowSignOutConfirm(true)}
+            disabled={syncing}
+          >
+            {t('settingsSignOut').toLowerCase()}
+          </button>
+        </div>
+      )}
 
       {showSignOutConfirm ? (
         <Modal title={t('settingsSignOut')} onClose={() => setShowSignOutConfirm(false)}>
@@ -267,7 +275,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="settings-section">
-      <div className="section-title">{title}</div>
+      <div className="section-title">{title.toLowerCase()}</div>
       <div className="settings-group">{children}</div>
     </section>
   );
@@ -294,8 +302,8 @@ function SettingsRow({
         <Icon width={18} height={18} strokeWidth={2} />
       </span>
       <div className="settings-row__label">
-        <div className="settings-row__title">{title}</div>
-        <div className={`settings-row__sub ${subtitleError ? 'settings-row__sub--error' : ''}`}>{subtitle}</div>
+        <div className="settings-row__title">{title.toLowerCase()}</div>
+        <div className={`settings-row__sub ${subtitleError ? 'settings-row__sub--error' : ''}`}>{subtitle?.toLowerCase()}</div>
       </div>
       {onClick ? (
         <span className="settings-row__chevron" aria-hidden>
