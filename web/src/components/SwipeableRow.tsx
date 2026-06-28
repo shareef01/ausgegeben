@@ -70,6 +70,9 @@ export function SwipeableRow({ children, onDelete, onTap, onLongPress }: Swipeab
 
     if (swipeAxis.current === 'y') {
       clearLongPress();
+      // If we are scrolling vertically, release the pointer so the browser can scroll
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      tracking.current = false;
       return;
     }
 
