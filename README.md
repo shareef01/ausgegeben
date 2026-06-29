@@ -59,7 +59,10 @@
       <img src="docs/screenshots/android/settings-more.png" alt="Settings" width="165" />
       <br /><sub><b>Settings</b></sub>
     </td>
-    <td></td>
+    <td align="center">
+      <img src="docs/screenshots/android/auth-glow.png" alt="Authentication" width="165" />
+      <br /><sub><b>Auth Gateway</b></sub>
+    </td>
   </tr>
 </table>
 
