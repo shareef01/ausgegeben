@@ -1968,46 +1968,57 @@ a {
 }
 
 .side-nav__brand {
+  padding: 32px 12px 40px;
+}
+
+.brand-hub {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 40px 16px 48px;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
   position: relative;
+  overflow: hidden;
 }
 
-.brand-shell__mark {
-  margin-bottom: 20px;
-  filter: drop-shadow(0 8px 16px rgba(16, 185, 129, 0.25));
+.brand-hub::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.12), transparent 50%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
 }
 
-.brand-shell__name {
-  font-size: 1.5rem;
-  font-weight: 300;
-  letter-spacing: -0.04em;
+.brand-hub__mark {
+  filter: drop-shadow(0 4px 12px rgba(16, 185, 129, 0.2));
+  flex-shrink: 0;
+}
+
+.brand-hub__title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
   margin: 0;
   text-transform: lowercase;
-  background: var(--hero-balance-gradient, linear-gradient(180deg, var(--color-on-background) 0%, color-mix(in srgb, var(--color-on-background) 70%, transparent) 100%));
+  background: linear-gradient(180deg, var(--color-on-background) 0%, color-mix(in srgb, var(--color-on-background) 70%, transparent) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
-.brand-shell__tagline {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  text-transform: lowercase;
-  letter-spacing: 0.15em;
-  color: var(--color-on-surface-variant);
-  opacity: 0.5;
-  margin-top: 6px;
-}
-
 .side-nav__menu {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   flex: 1;
   padding: 0 12px;
 }
@@ -2015,10 +2026,10 @@ a {
 .side-nav__item {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   width: 100%;
-  padding: 12px 16px;
-  border-radius: 16px;
+  padding: 10px 14px;
+  border-radius: 14px;
   color: var(--color-on-surface-variant);
   transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
   font-weight: 500;
