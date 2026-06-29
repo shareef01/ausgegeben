@@ -25,49 +25,6 @@
 
 ---
 
-## Android screenshots
-
-<table>
-  <tr>
-    <td align="center" width="25%">
-      <img src="docs/screenshots/android/record.png" alt="Record" width="165" />
-      <br /><sub><b>Record</b></sub>
-    </td>
-    <td align="center" width="25%">
-      <img src="docs/screenshots/android/bills-overview.png" alt="Bills overview" width="165" />
-      <br /><sub><b>Bills</b></sub>
-    </td>
-    <td align="center" width="25%">
-      <img src="docs/screenshots/android/bills-categories.png" alt="Bills categories" width="165" />
-      <br /><sub><b>Categories</b></sub>
-    </td>
-    <td align="center" width="25%">
-      <img src="docs/screenshots/android/settings-account.png" alt="Settings account" width="165" />
-      <br /><sub><b>Account</b></sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="docs/screenshots/android/add-transaction-expense.png" alt="Add expense" width="165" />
-      <br /><sub><b>Add expense</b></sub>
-    </td>
-    <td align="center">
-      <img src="docs/screenshots/android/add-transaction-income.png" alt="Add income" width="165" />
-      <br /><sub><b>Add income</b></sub>
-    </td>
-    <td align="center">
-      <img src="docs/screenshots/android/settings-more.png" alt="Settings" width="165" />
-      <br /><sub><b>Settings</b></sub>
-    </td>
-    <td align="center">
-      <img src="docs/screenshots/android/auth-glow.png" alt="Authentication" width="165" />
-      <br /><sub><b>Auth Gateway</b></sub>
-    </td>
-  </tr>
-</table>
-
----
-
 ## Tech stack
 
 ### Android
