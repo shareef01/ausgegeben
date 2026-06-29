@@ -71,16 +71,16 @@ fun AppBrandIcon(
         ) {
             // "Geometric Apex" Mark Rendering
             Canvas(modifier = Modifier.size((size * 0.6f).dp)) {
-                val w = size.width
-                val h = size.height
+                val cw = this.size.width
+                val ch = this.size.height
                 
                 val apexPath = Path().apply {
-                    moveTo(w * 0.5f, h * 0.05f)
-                    lineTo(w * 0.88f, h * 0.95f)
-                    lineTo(w * 0.65f, h * 0.95f)
-                    lineTo(w * 0.5f, h * 0.55f)
-                    lineTo(w * 0.35f, h * 0.95f)
-                    lineTo(w * 0.12f, h * 0.95f)
+                    moveTo(cw * 0.5f, ch * 0.05f)
+                    lineTo(cw * 0.88f, ch * 0.95f)
+                    lineTo(cw * 0.65f, ch * 0.95f)
+                    lineTo(cw * 0.5f, ch * 0.55f)
+                    lineTo(cw * 0.35f, ch * 0.95f)
+                    lineTo(cw * 0.12f, ch * 0.95f)
                     close()
                 }
 
@@ -96,8 +96,8 @@ fun AppBrandIcon(
                 // Apex Spark
                 drawCircle(
                     color = Color.White,
-                    radius = w * 0.04f,
-                    center = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.12f)
+                    radius = cw * 0.04f,
+                    center = androidx.compose.ui.geometry.Offset(cw * 0.5f, ch * 0.12f)
                 )
             }
         }
