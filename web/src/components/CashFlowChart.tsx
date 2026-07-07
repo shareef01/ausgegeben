@@ -1,5 +1,6 @@
 import { useId, useMemo } from 'react';
-
+import { useChartReveal } from '@/hooks/useChartReveal';
+import { useTranslation } from '@/i18n';
 interface CashFlowPoint {
   label: string;
   income: number;
@@ -8,6 +9,8 @@ interface CashFlowPoint {
 
 interface CashFlowChartProps {
   trend: CashFlowPoint[];
+  periodKey?: string;
+  ariaLabelledBy?: string;
 }
 
 const CHART_WIDTH = 400;
@@ -56,25 +59,30 @@ function CashFlowSeries({
   color,
   gradId,
   bottomY,
+  progress,
 }: {
   points: { x: number; y: number }[];
   color: string;
   gradId: string;
   bottomY: number;
+  progress: number;
 }) {
   const line = polylinePath(points);
   if (!line) return null;
 
   return (
-    <g>
-      <path d={areaPath(points, bottomY)} fill={`url(#${gradId})`} />
+    <g opacity={0.2 + progress * 0.8}>
+      <path d={areaPath(points, bottomY)} fill={`url(#${gradId})`} opacity={progress} />
       <path
         d={line}
         fill="none"
         stroke={color}
-        strokeWidth={3} // Law: Flagship Bezier weight
+        strokeWidth={3}
         strokeLinecap="round"
         strokeLinejoin="round"
+        pathLength={1}
+        strokeDasharray={1}
+        strokeDashoffset={1 - progress}
       />
       {points.length === 1 && points.map((pt, i) => (
         <g key={i}>
@@ -86,11 +94,17 @@ function CashFlowSeries({
   );
 }
 
-export function CashFlowChart({ trend }: CashFlowChartProps) {
+export function CashFlowChart({ trend, periodKey, ariaLabelledBy }: CashFlowChartProps) {
   const uid = useId().replace(/:/g, '');
   const incomeGradId = `cf-income-${uid}`;
   const expenseGradId = `cf-expense-${uid}`;
   const bottomY = PAD_Y + CHART_H;
+
+  const revealKey = useMemo(
+    () => `${periodKey ?? ''}|${trend.map((p) => `${p.label}:${p.income}:${p.expense}`).join('|')}`,
+    [periodKey, trend],
+  );
+  const progress = useChartReveal(revealKey);
 
   const { incomePts, expensePts } = useMemo(() => {
     const values = trend.flatMap((p) => [p.income, p.expense]);
@@ -119,7 +133,7 @@ export function CashFlowChart({ trend }: CashFlowChartProps) {
         viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
         preserveAspectRatio="xMidYMid meet"
         role="img"
-        aria-hidden
+        aria-labelledby={ariaLabelledBy}
       >
         <defs>
           <linearGradient id={incomeGradId} x1="0" y1="0" x2="0" y2="1">
@@ -148,16 +162,17 @@ export function CashFlowChart({ trend }: CashFlowChartProps) {
           );
         })}
 
-        <CashFlowSeries points={incomePts} color="var(--color-income)" gradId={incomeGradId} bottomY={bottomY} />
-        <CashFlowSeries points={expensePts} color="var(--color-expense)" gradId={expenseGradId} bottomY={bottomY} />
+        <CashFlowSeries points={incomePts} color="var(--color-income)" gradId={incomeGradId} bottomY={bottomY} progress={progress} />
+        <CashFlowSeries points={expensePts} color="var(--color-expense)" gradId={expenseGradId} bottomY={bottomY} progress={progress} />
       </svg>
     </div>
   );
 }
 
 export function CashFlowLegend() {
+  const { t } = useTranslation();
   return (
-    <div className="cashflow-legend" aria-hidden>
+    <div className="cashflow-legend" aria-label={t('billsCashFlow')}>
       <span className="cashflow-legend__dot cashflow-legend__dot--income" />
       <span className="cashflow-legend__dot cashflow-legend__dot--expense" />
     </div>
