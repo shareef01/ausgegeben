@@ -17,7 +17,8 @@ export const useToastStore = create<ToastState>((set) => ({
   show: (message, actionLabel, onAction) => {
     if (hideTimer) clearTimeout(hideTimer);
     set({ message, actionLabel, onAction });
-    hideTimer = setTimeout(() => set({ message: '', actionLabel: undefined, onAction: undefined }), 5000);
+    const duration = actionLabel ? 5500 : 4000;
+    hideTimer = setTimeout(() => set({ message: '', actionLabel: undefined, onAction: undefined }), duration);
   },
   dismiss: () => {
     if (hideTimer) clearTimeout(hideTimer);

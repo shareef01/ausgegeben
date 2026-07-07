@@ -12,7 +12,7 @@ export function AppBrandIcon({ size = 64, className = '' }: AppBrandIconProps) {
   const glowId = `halo-glow-${size}`;
 
   return (
-    <div className={`app-brand-icon-container ${className}`.trim()} style={{ width: size, height: size }}>
+    <div className={`app-brand-icon-container app-brand-breathing ${className}`.trim()} style={{ width: size, height: size }}>
       <svg
         className="app-brand-icon-svg"
         width="100%"

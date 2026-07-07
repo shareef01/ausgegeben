@@ -3,7 +3,7 @@
  * Linear × Stripe × Apple design mandates — presentation only.
  */
 
-[data-theme='dark'] {
+[data-theme-mode='amoled'] {
   --color-oled-surface: #09090b;
   --color-oled-surface-elevated: #0a0a0a;
   --hairline-border: rgba(255, 255, 255, 0.06);
@@ -21,46 +21,50 @@
 
 /* ── True OLED canvas ── */
 
-[data-theme='dark'] body,
-[data-theme='dark'] .app-shell,
-[data-theme='dark'] .app-shell__body,
-[data-theme='dark'] .app-main {
+[data-theme-mode='amoled'] body,
+[data-theme-mode='amoled'] .app-shell,
+[data-theme-mode='amoled'] .app-shell__body,
+[data-theme-mode='amoled'] .app-main {
   background: #000000;
 }
 
-[data-theme='dark'] .app-viewport {
+[data-theme-mode='amoled'] .app-viewport {
   background: #000000;
 }
 
 @media (min-width: 768px) {
-  [data-theme='dark'] .app-shell:not(.auth-page):not(.onboarding-page) {
+  [data-theme-mode='amoled'] .app-shell:not(.auth-page):not(.onboarding-page) {
     background: #000000;
     border: 1px solid var(--hairline-border);
     box-shadow: none;
   }
 
-  [data-theme='dark'] .app-shell__body {
+  [data-theme-mode='amoled'] .app-shell__body {
     background: #000000;
   }
 
-  [data-theme='dark'] .side-nav {
+  [data-theme-mode='amoled'] .app-shell__header {
     background: #000000;
-    border-right: 1px solid var(--hairline-border);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
+    border-bottom-color: var(--hairline-border);
+  }
+}
+
+@media (min-width: 1200px) {
+  [data-theme-mode='amoled'] .app-shell:not(.auth-page):not(.onboarding-page) {
+    border: none;
   }
 }
 
 /* ── Hairline-bordered OLED cards ── */
 
-[data-theme='dark'] .card,
-[data-theme='dark'] .finance-summary-card,
-[data-theme='dark'] .record-filters,
-[data-theme='dark'] .insights-stat-card,
-[data-theme='dark'] .insights-category-card,
-[data-theme='dark'] .insights-cashflow-card,
-[data-theme='dark'] .settings-group,
-[data-theme='dark'] .period-picker {
+[data-theme-mode='amoled'] .card,
+[data-theme-mode='amoled'] .finance-summary-card,
+[data-theme-mode='amoled'] .record-filters,
+[data-theme-mode='amoled'] .insights-stat-card,
+[data-theme-mode='amoled'] .insights-category-card,
+[data-theme-mode='amoled'] .insights-cashflow-card,
+[data-theme-mode='amoled'] .settings-group,
+[data-theme-mode='amoled'] .period-picker {
   background: var(--color-oled-surface);
   border: 1px solid var(--hairline-border);
   box-shadow: none;
@@ -68,48 +72,48 @@
   -webkit-backdrop-filter: none;
 }
 
-[data-theme='dark'] .finance-summary-card {
+[data-theme-mode='amoled'] .finance-summary-card {
   background: linear-gradient(180deg, var(--color-oled-surface) 0%, var(--color-oled-surface-elevated) 100%);
 }
 
-[data-theme='dark'] .finance-summary-card__glow {
+[data-theme-mode='amoled'] .finance-summary-card__glow {
   display: none;
 }
 
-[data-theme='dark'] .record-filters {
+[data-theme-mode='amoled'] .record-filters {
   background: var(--color-oled-surface-elevated);
 }
 
 /* ── Balance hero typography ── */
 
-[data-theme='dark'] .finance-summary-card__label {
+[data-theme-mode='amoled'] .finance-summary-card__label {
   font-size: 0.625rem;
   font-weight: 600;
   letter-spacing: 0.1em;
   color: var(--color-label-muted);
 }
 
-[data-theme='dark'] .finance-summary-card__balance--positive .money--hero-display {
+[data-theme-mode='amoled'] .finance-summary-card__balance--positive .money--hero-display {
   color: var(--color-balance-positive);
 }
 
-[data-theme='dark'] .finance-summary-card__balance--negative .money--hero-display {
+[data-theme-mode='amoled'] .finance-summary-card__balance--negative .money--hero-display {
   color: var(--color-balance-negative);
 }
 
-[data-theme='dark'] .finance-summary-card__balance--neutral .money--hero-display {
+[data-theme-mode='amoled'] .finance-summary-card__balance--neutral .money--hero-display {
   color: #fafafa;
 }
 
 /* ── Earned / Spent sub-cards ── */
 
-[data-theme='dark'] .finance-stat-chip {
+[data-theme-mode='amoled'] .finance-stat-chip {
   background: var(--color-oled-surface-elevated);
   border: 1px solid var(--hairline-border);
   box-shadow: none;
 }
 
-[data-theme='dark'] .finance-stat-chip__label {
+[data-theme-mode='amoled'] .finance-stat-chip__label {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -118,29 +122,29 @@
   color: var(--color-label-muted);
 }
 
-[data-theme='dark'] .finance-stat-chip__indicator {
+[data-theme-mode='amoled'] .finance-stat-chip__indicator {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
-[data-theme='dark'] .finance-stat-chip--income .finance-stat-chip__indicator {
+[data-theme-mode='amoled'] .finance-stat-chip--income .finance-stat-chip__indicator {
   background: var(--color-income);
   box-shadow: 0 0 8px color-mix(in srgb, var(--color-income) 55%, transparent);
 }
 
-[data-theme='dark'] .finance-stat-chip--expense .finance-stat-chip__indicator {
+[data-theme-mode='amoled'] .finance-stat-chip--expense .finance-stat-chip__indicator {
   background: var(--color-expense);
   box-shadow: 0 0 8px color-mix(in srgb, var(--color-expense) 45%, transparent);
 }
 
-[data-theme='dark'] .finance-stat-chip .money--stat {
+[data-theme-mode='amoled'] .finance-stat-chip .money--stat {
   color: var(--color-stat-value);
 }
 
-[data-theme='dark'] .finance-stat-chip--income,
-[data-theme='dark'] .finance-stat-chip--expense {
+[data-theme-mode='amoled'] .finance-stat-chip--income,
+[data-theme-mode='amoled'] .finance-stat-chip--expense {
   background: var(--color-oled-surface-elevated);
   border: 1px solid var(--hairline-border);
   box-shadow: none;
@@ -148,7 +152,7 @@
 
 /* ── Unboxed transaction list ── */
 
-[data-theme='dark'] .transaction-list-bare {
+[data-theme-mode='amoled'] .transaction-list-bare {
   margin: 4px 0 24px;
   padding: 0 var(--workspace-padding);
   background: transparent;
@@ -157,17 +161,17 @@
   border-radius: 0;
 }
 
-[data-theme='dark'] .transaction-list-bare .transaction-row {
+[data-theme-mode='amoled'] .transaction-list-bare .transaction-row {
   border-bottom: 1px solid var(--hairline-divider);
   background: transparent;
 }
 
-[data-theme='dark'] .transaction-list-bare .transaction-row:last-child {
+[data-theme-mode='amoled'] .transaction-list-bare .transaction-row:last-child {
   border-bottom: none;
 }
 
-[data-theme='dark'] .transaction-list-bare .transaction-list-card__day,
-[data-theme='dark'] .transaction-list-bare__day {
+[data-theme-mode='amoled'] .transaction-list-bare .transaction-list-card__day,
+[data-theme-mode='amoled'] .transaction-list-bare__day {
   position: sticky;
   top: var(--record-sticky-offset);
   z-index: 12;
@@ -186,204 +190,111 @@
   isolation: isolate;
 }
 
-[data-theme='dark'] .transaction-list-bare__section {
+[data-theme-mode='amoled'] .transaction-list-bare__section {
   display: flex;
   flex-direction: column;
 }
 
-[data-theme='dark'] .transaction-list-bare__rows {
+[data-theme-mode='amoled'] .transaction-list-bare__rows {
   display: flex;
   flex-direction: column;
 }
 
-[data-theme='dark'] .transaction-list-bare .swipeable-row__content {
-  background: var(--color-background);
-}
-
+[data-theme-mode='amoled'] .transaction-list-bare .swipeable-row__content,
 [data-theme='light'] .transaction-list-bare .swipeable-row__content {
-  background: var(--color-background);
+  background: transparent;
 }
 
-[data-theme='dark'] .transaction-list-bare .pressable-row:active {
+[data-theme-mode='amoled'] .transaction-list-bare .pressable-row:active {
   background: rgba(255, 255, 255, 0.03);
 }
 
 /* ── Physical-light CTA ── */
 
-[data-theme='dark'] .add-transaction-pill {
-  background: linear-gradient(180deg, #10b981 0%, #059669 100%) !important;
-  border: 1px solid rgba(16, 185, 129, 0.25) !important;
-  box-shadow: var(--shadow-cta-physical), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
-}
-
-[data-theme='dark'] .fab,
-[data-theme='dark'] .fab--record {
+[data-theme-mode='amoled'] .fab,
+[data-theme-mode='amoled'] .fab--record {
   width: var(--fab-size);
   height: var(--fab-size);
-  background: linear-gradient(180deg, #10b981 0%, #059669 100%) !important;
-  border: 1px solid rgba(16, 185, 129, 0.22) !important;
-  box-shadow: var(--shadow-cta-physical) !important;
+  background: var(--color-primary) !important;
+  border: 1px solid var(--hairline-border) !important;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-primary) 40%, transparent) !important;
 }
 
-/* ── Sidebar — Linear / Apple rail (OLED) ── */
+/* ── Desktop bottom bar + header (OLED) ── */
 
 @media (min-width: 768px) {
-  [data-theme='dark'] .side-nav {
-    padding: 16px 10px 20px;
-  }
-
-  [data-theme='dark'] .side-nav__brand {
-    padding: 6px 8px 12px;
-    margin-bottom: 0;
-    border-bottom: none;
-    overflow: visible;
-  }
-
-  [data-theme='dark'] .brand-shell__card {
-    border-color: color-mix(in srgb, var(--color-accent) 24%, transparent);
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--color-accent) 11%, transparent) 0%,
-      transparent 100%
-    );
-  }
-
-  [data-theme='dark'] .side-nav__brand .signature-text {
-    color: rgba(255, 255, 255, 0.92);
-    font-size: 0.9375rem;
-    font-weight: 600;
-    letter-spacing: -0.025em;
-  }
-
-  [data-theme='dark'] .side-nav__brand .signature-text__accent {
-    color: var(--color-income);
-  }
-
-  [data-theme='dark'] .side-nav__brand-icon {
-    border-radius: 9px;
-    box-shadow: 0 0 20px color-mix(in srgb, var(--color-income) 12%, transparent);
-  }
-
-  [data-theme='dark'] .side-nav__menu {
-    padding: 2px 0;
-    gap: 4px;
-  }
-
-  [data-theme='dark'] .side-nav__item {
-    color: rgba(255, 255, 255, 0.4);
-    background: transparent;
-    border: none;
-    box-shadow: none;
-  }
-
-  [data-theme='dark'] .side-nav__label {
-    color: inherit;
-  }
-
-  [data-theme='dark'] .side-nav__item .side-nav__icon-wrap {
-    color: inherit;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    opacity: 0.72;
-  }
-
-  [data-theme='dark'] .side-nav__item:hover:not(.side-nav__item--active) .side-nav__icon-wrap {
-    opacity: 0.88;
-    background: rgba(255, 255, 255, 0.07);
-    border-color: rgba(255, 255, 255, 0.07);
-  }
-
-  [data-theme='dark'] .side-nav__item:hover:not(.side-nav__item--active) {
-    background: rgba(255, 255, 255, 0.04);
-    color: rgba(255, 255, 255, 0.68);
-  }
-
-  [data-theme='dark'] .side-nav__item--active {
-    background: rgba(255, 255, 255, 0.06);
-    color: #ffffff;
-    border: none;
-    box-shadow: none;
-  }
-
-  [data-theme='dark'] .side-nav__item--active .side-nav__label {
-    color: #ffffff;
-  }
-
-  [data-theme='dark'] .side-nav__item--active .side-nav__icon-wrap {
-    color: var(--color-income);
-    opacity: 1;
-    background: color-mix(in srgb, var(--color-income) 16%, transparent);
-    border-color: color-mix(in srgb, var(--color-income) 24%, transparent);
-    box-shadow:
-      0 0 28px color-mix(in srgb, var(--color-income) 22%, transparent),
-      inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  }
-
-  [data-theme='dark'] .side-nav__indicator {
-    background: var(--color-income);
-  }
-
-  [data-theme='dark'] .sync-pill--sidebar {
-    margin-top: auto;
-    margin-left: 6px;
-    margin-right: 6px;
-    margin-bottom: 2px;
-    padding: 7px 10px;
-    font-size: 0.6875rem;
+  [data-theme-mode='amoled'] .app-brand-header .brand-hub {
     background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--hairline-border);
+    border-color: var(--hairline-border);
     box-shadow: none;
-    color: rgba(255, 255, 255, 0.55);
+  }
+
+  [data-theme-mode='amoled'] .bottom-bar {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: var(--hairline-border);
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  [data-theme-mode='amoled'] .bottom-bar__item {
+    color: rgba(255, 255, 255, 0.42);
+  }
+
+  [data-theme-mode='amoled'] .bottom-bar__item:hover:not(.bottom-bar__item--active) {
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.72);
+  }
+
+  [data-theme-mode='amoled'] .bottom-bar__item--active {
+    color: #ffffff;
+  }
+
+  [data-theme-mode='amoled'] .sync-pill--header {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: var(--hairline-border);
+    box-shadow: none;
+    color: rgba(255, 255, 255, 0.72);
   }
 }
 
 /* ── Mobile bottom bar (OLED) ── */
 
-[data-theme='dark'] .bottom-bar__item {
+[data-theme-mode='amoled'] .bottom-bar__item {
   color: rgba(255, 255, 255, 0.42);
 }
 
-[data-theme='dark'] .bottom-bar__label {
+[data-theme-mode='amoled'] .bottom-bar__label {
   color: inherit;
 }
 
-[data-theme='dark'] .bottom-bar__item--active {
+[data-theme-mode='amoled'] .bottom-bar__item--active {
   color: #ffffff;
 }
 
-[data-theme='dark'] .bottom-bar__item--active .bottom-bar__icon {
-  color: var(--color-accent);
+[data-theme-mode='amoled'] .bottom-bar__item--active .bottom-bar__pill {
+  background: color-mix(in srgb, var(--color-primary) 14%, transparent);
 }
 
-[data-theme='dark'] .bottom-bar__item--active .bottom-bar__label {
-  color: #ffffff;
-}
-
-[data-theme='dark'] .bottom-bar__indicator {
-  background: var(--color-income);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--color-income) 75%, transparent);
+[data-theme-mode='amoled'] .bottom-bar__item--active .bottom-bar__icon {
+  color: var(--color-on-background);
 }
 
 /* ── iOS segmented on OLED ── */
 
-[data-theme='dark'] .ios-segmented {
+[data-theme-mode='amoled'] .ios-segmented {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--hairline-border);
 }
 
-[data-theme='dark'] .ios-segmented__item--active {
+[data-theme-mode='amoled'] .ios-segmented__item--active {
   background: var(--color-oled-surface-elevated);
   box-shadow: inset 0 0 0 1px var(--hairline-border);
 }
 
-[data-theme='dark'] .search-input {
-  background: var(--color-oled-surface-elevated);
-  border: 1px solid var(--hairline-border);
-}
-
 /* ── Screen title glass on scroll ── */
 
-[data-theme='dark'] .screen-title-bar--glass {
+[data-theme-mode='amoled'] .screen-title-bar--glass {
   background: rgba(0, 0, 0, 0.72);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);

@@ -1,13 +1,16 @@
 import type { LucideProps } from 'lucide-react';
 import {
+  ArrowLeft,
   ArrowLeftRight,
   ArrowUp,
   ArrowDown,
   BarChart3,
+  Bell,
   Calendar,
   Check,
   ChevronDown,
   ChevronRight,
+  Clock,
   Cloud,
   CloudOff,
   CreditCard,
@@ -20,12 +23,15 @@ import {
   LogOut,
   Moon,
   Paperclip,
+  Pointer,
   Plus,
   RefreshCw,
   Search,
   Settings,
+  Share2,
   Shield,
   Wallet,
+  X,
 } from 'lucide-react';
 
 /** Consistent stroke for all UI chrome icons */
@@ -105,8 +111,24 @@ export function IconDownload(props: IconProps) {
   return <Download strokeWidth={STROKE} {...props} />;
 }
 
+export function IconShare(props: IconProps) {
+  return <Share2 strokeWidth={STROKE} {...props} />;
+}
+
 export function IconCalendar(props: IconProps) {
   return <Calendar strokeWidth={STROKE} {...props} />;
+}
+
+export function IconBell(props: IconProps) {
+  return <Bell strokeWidth={STROKE} {...props} />;
+}
+
+export function IconTouch(props: IconProps) {
+  return <Pointer strokeWidth={STROKE} {...props} />;
+}
+
+export function IconClock(props: IconProps) {
+  return <Clock strokeWidth={STROKE} {...props} />;
 }
 
 export function IconHistory(props: IconProps) {
@@ -119,6 +141,10 @@ export function IconCheck(props: IconProps) {
 
 export function IconCloudOff(props: IconProps) {
   return <CloudOff strokeWidth={STROKE} {...props} />;
+}
+
+export function IconArrowLeft(props: IconProps) {
+  return <ArrowLeft strokeWidth={STROKE} {...props} />;
 }
 
 export function IconArrowLeftRight(props: IconProps) {
@@ -135,4 +161,8 @@ export function IconArrowUp(props: IconProps) {
 
 export function IconArrowDown(props: IconProps) {
   return <ArrowDown strokeWidth={STROKE} {...props} />;
+}
+
+export function IconClose(props: IconProps) {
+  return <X strokeWidth={STROKE} {...props} />;
 }

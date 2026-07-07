@@ -1,81 +1,10 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { IconCalendar, IconCheck, IconChevronDown, IconHistory } from '@/components/Icons';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useSheetScrollLock } from '@/hooks/useSheetScrollLock';
 import { useTranslation } from '@/i18n';
 import type { AnalyticsPeriodOption } from '@/models/types';
-
-interface PremiumPeriodSelectorProps<T> {
-  options: T[];
-  selected: T;
-  labelFor: (item: T) => string;
-  isSelected?: (a: T, b: T) => boolean;
-  onSelected: (item: T) => void;
-}
-
-export function PremiumPeriodSelector<T>({
-  options,
-  selected,
-  labelFor,
-  isSelected = (a, b) => a === b,
-  onSelected,
-}: PremiumPeriodSelectorProps<T>) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const listId = useId();
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [open]);
-
-  return (
-    <div className="period-select" ref={rootRef}>
-      <button
-        type="button"
-        className="period-select__trigger"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-controls={listId}
-        onClick={() => setOpen((v) => !v)}
-      >
-        <span className="period-select__label">{labelFor(selected)}</span>
-        <IconChevronDown width={16} height={16} className={`period-select__chevron ${open ? 'period-select__chevron--open' : ''}`} />
-      </button>
-      {open ? (
-        <div className="period-select__menu card card--elevated" role="listbox" id={listId}>
-          {options.map((option, index) => {
-            const active = isSelected(option, selected);
-            return (
-              <button
-                key={index}
-                type="button"
-                role="option"
-                aria-selected={active}
-                className={`period-select__option ${active ? 'period-select__option--active' : ''}`}
-                onClick={() => {
-                  onSelected(option);
-                  setOpen(false);
-                }}
-              >
-                {labelFor(option)}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-    </div>
-  );
-}
 
 export function recordPeriodOptions() {
   const { t } = useTranslation();
@@ -100,12 +29,125 @@ export function AnalyticsPeriodPicker({
 }: AnalyticsPeriodPickerProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const sheetTitleId = useId();
   const allTime = options.find((o) => o.storageKey === 'all_time');
-  const months = options.filter((o) => o.storageKey !== 'all_time');
+  const quickOptions = options.filter((o) =>
+    o.storageKey === 'all_time' || o.storageKey === 'this_month',
+  );
+  const months = options.filter((o) =>
+    o.storageKey !== 'all_time' && o.storageKey !== 'this_month',
+  );
+
+  const closeSheet = () => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  useFocusTrap(open, sheetRef, closeSheet);
+
+  useSheetScrollLock(open);
+
+  const sheet = open ? (
+    <div className="overlay overlay--settings" onClick={closeSheet} role="presentation">
+      <div
+        ref={sheetRef}
+        className="sheet period-picker-sheet"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={sheetTitleId}
+      >
+        <div className="period-picker-sheet__header">
+          <h2 id={sheetTitleId}>{t('periodPickerTitle')}</h2>
+          <p>{t('periodPickerSubtitle')}</p>
+        </div>
+
+        {allTime ? (
+          <div className="period-picker-sheet__all-time-sticky">
+            <button
+              type="button"
+              role="option"
+              aria-selected={selectedKey === allTime.storageKey}
+              className={`period-picker-option${selectedKey === allTime.storageKey ? ' period-picker-option--active' : ''}`}
+              onClick={() => {
+                onSelected(allTime);
+                closeSheet();
+              }}
+            >
+              <span className="period-picker-option__icon" aria-hidden>
+                <IconHistory width={18} height={18} />
+              </span>
+              <span className="period-picker-option__label">{t('periodAllTime')}</span>
+              {selectedKey === allTime.storageKey ? <IconCheck width={18} height={18} aria-hidden /> : null}
+            </button>
+          </div>
+        ) : null}
+
+        {months.length > 0 ? (
+          <>
+            <div className="section-title">{t('periodPickerMonths')}</div>
+            <div className="settings-group period-picker-sheet__months" role="listbox" aria-labelledby={sheetTitleId}>
+              {months.map((option) => {
+                const active = option.storageKey === selectedKey;
+                return (
+                  <button
+                    key={option.storageKey}
+                    type="button"
+                    role="option"
+                    aria-selected={active}
+                    className={`period-picker-option ${active ? 'period-picker-option--active' : ''}`}
+                    onClick={() => {
+                      onSelected(option);
+                      closeSheet();
+                    }}
+                  >
+                    <span className="period-picker-option__icon" aria-hidden>
+                      <IconCalendar width={18} height={18} />
+                    </span>
+                    <span className="period-picker-option__label">{option.label}</span>
+                    {active ? <IconCheck width={18} height={18} aria-hidden /> : null}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        ) : null}
+      </div>
+    </div>
+  ) : null;
 
   return (
     <>
-      <button type="button" className="period-picker" onClick={() => setOpen(true)}>
+      {quickOptions.length > 0 ? (
+        <div className="period-picker-quick" role="group" aria-label={t('periodPickerLabel')}>
+          {quickOptions.map((option) => {
+            const active = option.storageKey === selectedKey;
+            return (
+              <button
+                key={option.storageKey}
+                type="button"
+                className={`period-picker-quick__chip${active ? ' period-picker-quick__chip--active' : ''}`}
+                aria-pressed={active}
+                onClick={() => onSelected(option)}
+              >
+                {option.storageKey === 'all_time' ? t('periodAllTime') : option.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      <button
+        ref={triggerRef}
+        type="button"
+        className="period-picker insights-glass-island"
+        aria-label={`${t('periodPickerOpen')}: ${selectedLabel}`}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => setOpen(true)}
+      >
         <span className="period-picker__icon" aria-hidden>
           <IconCalendar width={20} height={20} />
         </span>
@@ -116,67 +158,7 @@ export function AnalyticsPeriodPicker({
         <IconChevronDown width={18} height={18} className="period-picker__chevron" />
       </button>
 
-      {open ? (
-        <div className="overlay" onClick={() => setOpen(false)} role="presentation">
-          <div
-            className="sheet period-picker-sheet"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label={t('periodPickerTitle')}
-          >
-            <div className="period-picker-sheet__header">
-              <h2>{t('periodPickerTitle')}</h2>
-              <p>{t('periodPickerSubtitle')}</p>
-            </div>
-
-            {allTime ? (
-              <button
-                type="button"
-                className={`period-picker-option period-picker-option--prominent ${selectedKey === allTime.storageKey ? 'period-picker-option--active' : ''}`}
-                onClick={() => {
-                  onSelected(allTime);
-                  setOpen(false);
-                }}
-              >
-                <span className="period-picker-option__icon" aria-hidden>
-                  <IconHistory width={18} height={18} />
-                </span>
-                <span className="period-picker-option__label">{t('periodAllTime')}</span>
-                {selectedKey === allTime.storageKey ? <IconCheck width={18} height={18} /> : null}
-              </button>
-            ) : null}
-
-            {months.length > 0 ? (
-              <>
-                <div className="section-title">{t('periodPickerMonths')}</div>
-                <div className="settings-group period-picker-sheet__months">
-                  {months.map((option) => {
-                    const active = option.storageKey === selectedKey;
-                    return (
-                      <button
-                        key={option.storageKey}
-                        type="button"
-                        className={`period-picker-option ${active ? 'period-picker-option--active' : ''}`}
-                        onClick={() => {
-                          onSelected(option);
-                          setOpen(false);
-                        }}
-                      >
-                        <span className="period-picker-option__icon" aria-hidden>
-                          <IconCalendar width={18} height={18} />
-                        </span>
-                        <span className="period-picker-option__label">{option.label}</span>
-                        {active ? <IconCheck width={18} height={18} /> : null}
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+      {typeof document !== 'undefined' && sheet ? createPortal(sheet, document.body) : sheet}
     </>
   );
 }

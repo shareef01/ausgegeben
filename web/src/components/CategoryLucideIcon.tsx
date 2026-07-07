@@ -1,33 +1,75 @@
 import type { LucideIcon, LucideProps } from 'lucide-react';
 import {
   ArrowLeftRight,
+  Baby,
+  BedDouble,
   Briefcase,
   Car,
+  Coffee,
   CreditCard,
+  Dumbbell,
+  Film,
+  Fuel,
+  Gift,
+  GraduationCap,
+  Home,
+  Laptop,
+  LayoutGrid,
+  PawPrint,
+  Phone,
+  PiggyBank,
+  Plane,
   RotateCcw,
   ShoppingBag,
   ShoppingCart,
   Smartphone,
+  TrendingUp,
+  Trophy,
   UtensilsCrossed,
+  Wallet,
+  Wifi,
   Zap,
+  Cigarette,
+  HeartPulse,
 } from 'lucide-react';
 
 const STROKE = 2;
 
 const ICON_MAP: Record<string, LucideIcon> = {
+  category: LayoutGrid,
   shopping_cart: ShoppingCart,
   shopping_bag: ShoppingBag,
   restaurant: UtensilsCrossed,
+  cafe: Coffee,
   car: Car,
+  gas: Fuel,
+  home: Home,
   bolt: Zap,
+  wifi: Wifi,
   subscriptions: Smartphone,
-  credit_card: CreditCard,
+  smoking: Cigarette,
+  health: HeartPulse,
+  fitness: Dumbbell,
+  education: GraduationCap,
   work: Briefcase,
+  flight: Plane,
+  hotel: BedDouble,
+  wallet: Wallet,
+  savings: PiggyBank,
+  credit_card: CreditCard,
+  trending_up: TrendingUp,
   undo: RotateCcw,
   swap_horiz: ArrowLeftRight,
+  gift: Gift,
+  entertainment: Film,
+  pets: PawPrint,
+  child: Baby,
+  phone: Phone,
+  laptop: Laptop,
+  emoji_events: Trophy,
 };
 
 export function CategoryLucideIcon({ iconName, ...props }: LucideProps & { iconName: string }) {
-  const Icon = ICON_MAP[iconName] ?? ShoppingBag;
+  const Icon = ICON_MAP[iconName] ?? LayoutGrid;
   return <Icon strokeWidth={STROKE} {...props} />;
 }

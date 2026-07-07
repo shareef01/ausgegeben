@@ -1,5 +1,7 @@
 import { useRef, useState, type ReactNode, type PointerEvent } from 'react';
-import { useTranslation } from '@/i18n';
+import { Pencil, Trash2 } from 'lucide-react';
+import { contrastColorOn, readCssColor } from '@/theme/tokens';
+import { hapticLight, hapticMedium } from '@/utils/haptics';
 
 interface SwipeableRowProps {
   children: ReactNode;
@@ -14,7 +16,6 @@ const TAP_SLOP = 10;
 const LONG_PRESS_MS = 500;
 
 export function SwipeableRow({ children, onDelete, onTap, onLongPress }: SwipeableRowProps) {
-  const { t } = useTranslation();
   const [offset, setOffset] = useState(0);
   const offsetRef = useRef(0);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -54,6 +55,7 @@ export function SwipeableRow({ children, onDelete, onTap, onLongPress }: Swipeab
     if (onLongPress) {
       longPressTimer.current = setTimeout(() => {
         longPressFired.current = true;
+        hapticLight();
         onLongPress();
       }, LONG_PRESS_MS);
     }
@@ -70,7 +72,6 @@ export function SwipeableRow({ children, onDelete, onTap, onLongPress }: Swipeab
 
     if (swipeAxis.current === 'y') {
       clearLongPress();
-      // If we are scrolling vertically, release the pointer so the browser can scroll
       (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
       tracking.current = false;
       return;
@@ -78,8 +79,8 @@ export function SwipeableRow({ children, onDelete, onTap, onLongPress }: Swipeab
 
     if (swipeAxis.current === 'x') {
       clearLongPress();
-      // Law: Dual-axis swipe support (Edit on right-swipe, Delete on left-swipe)
-      applyOffset(Math.max(-SWIPE_OPEN, Math.min(dx, SWIPE_OPEN)));
+      const next = Math.max(-SWIPE_OPEN, Math.min(dx, SWIPE_OPEN));
+      applyOffset(next, true);
     }
   };
 
@@ -99,10 +100,12 @@ export function SwipeableRow({ children, onDelete, onTap, onLongPress }: Swipeab
 
     if (movedX) {
       if (current <= -SWIPE_THRESHOLD) {
+        hapticMedium();
         onDelete();
         applyOffset(0, true);
       } else if (current >= SWIPE_THRESHOLD) {
-        if (onTap) onTap(); // Law: Tap is now a Swipe-Right gesture
+        hapticLight();
+        onTap?.();
         applyOffset(0, true);
       } else {
         applyOffset(0, true);
@@ -114,13 +117,32 @@ export function SwipeableRow({ children, onDelete, onTap, onLongPress }: Swipeab
     swipeAxis.current = 'none';
   };
 
+  const deleteProgress = offset < 0 ? Math.min(1, Math.abs(offset) / SWIPE_THRESHOLD) : 0;
+  const editProgress = offset > 0 ? Math.min(1, offset / SWIPE_THRESHOLD) : 0;
+  const expenseFill = readCssColor('--color-expense');
+  const primaryFill = readCssColor('--color-primary');
+
   return (
     <div className="swipeable-row">
-      <div className={`swipeable-row__bg swipeable-row__bg--delete ${offset < 0 ? 'visible' : ''}`} aria-hidden>
-        <span>{t('recordSwipeDelete')}</span>
+      <div className="swipeable-row__bg swipeable-row__bg--delete" style={{ opacity: deleteProgress }} aria-hidden>
+        <span className="swipeable-row__bg-icon">
+          <Trash2
+            size={20}
+            strokeWidth={2.25}
+            color={contrastColorOn(expenseFill)}
+            style={{ opacity: Math.max(0.35, deleteProgress) }}
+          />
+        </span>
       </div>
-      <div className={`swipeable-row__bg swipeable-row__bg--edit ${offset > 0 ? 'visible' : ''}`} aria-hidden>
-        <span>{t('actionSave')}</span>
+      <div className="swipeable-row__bg swipeable-row__bg--edit" style={{ opacity: editProgress }} aria-hidden>
+        <span className="swipeable-row__bg-icon">
+          <Pencil
+            size={20}
+            strokeWidth={2.25}
+            color={contrastColorOn(primaryFill)}
+            style={{ opacity: Math.max(0.35, editProgress) }}
+          />
+        </span>
       </div>
       <div
         ref={contentRef}
