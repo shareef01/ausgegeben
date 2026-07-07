@@ -39,20 +39,30 @@ export const receiptService = {
     return receiptPathFromId(id);
   },
 
-  async ensureLocal(path: string | null | undefined): Promise<void> {
-    if (!isReceiptPath(path)) return;
+  async ensureLocal(path: string | null | undefined): Promise<boolean> {
+    if (!isReceiptPath(path)) return false;
     const id = receiptIdFromPath(path);
     const existing = await db.receipts.get(id);
-    if (existing) return;
-    if (!isCloudSyncActive()) return;
+    if (existing) return true;
+    if (!isCloudSyncActive()) return false;
     const blob = await receiptStorageService.downloadToBlob(path);
-    if (!blob) return;
+    if (!blob) return false;
     await db.receipts.put({
       id,
       mimeType: blob.type || 'image/jpeg',
       data: blob,
       createdAt: Date.now(),
     });
+    return true;
+  },
+
+  /** Clears local + session blocks, then retries a cloud download. */
+  async forceCloudRetry(path: string | null | undefined): Promise<boolean> {
+    if (!isReceiptPath(path) || !isCloudSyncActive()) return false;
+    receiptStorageService.resetCloudAvailability();
+    const id = receiptIdFromPath(path);
+    await db.receipts.delete(id);
+    return this.ensureLocal(path);
   },
 
   async getBlob(path: string | null | undefined): Promise<Blob | null> {
@@ -82,12 +92,48 @@ export const receiptService = {
     return receiptPathFromId(id);
   },
 
-  async uploadToCloud(path: string | null | undefined): Promise<void> {
-    if (!isReceiptPath(path) || !isCloudSyncActive()) return;
+  async uploadToCloud(path: string | null | undefined): Promise<boolean> {
+    if (!isReceiptPath(path) || !isCloudSyncActive()) return true;
     const id = receiptIdFromPath(path);
     const row = await db.receipts.get(id);
-    if (!row) return;
-    await receiptStorageService.upload(path, row.data, row.mimeType);
+    if (!row) return true;
+    return receiptStorageService.upload(path, row.data, row.mimeType);
+  },
+
+  /** Background-download cloud receipts for visible list rows. */
+  async prefetch(paths: (string | null | undefined)[]): Promise<void> {
+    const unique = [...new Set(paths.filter(isReceiptPath))];
+    await Promise.all(unique.map((path) => this.ensureLocal(path).catch(() => undefined)));
+  },
+
+  async share(path: string | null | undefined): Promise<boolean> {
+    if (!isReceiptPath(path)) return false;
+    const blob = await this.getBlob(path);
+    if (!blob) return false;
+    const file = new File([blob], `receipt-${receiptIdFromPath(path).slice(0, 8)}.jpg`, { type: blob.type || 'image/jpeg' });
+    if (typeof navigator.share === 'function') {
+      try {
+        if (!navigator.canShare || navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: 'receipt' });
+          return true;
+        }
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  },
+
+  async download(path: string | null | undefined): Promise<boolean> {
+    const blob = await this.getBlob(path);
+    if (!blob || !isReceiptPath(path)) return false;
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `receipt-${receiptIdFromPath(path).slice(0, 8)}.jpg`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    return true;
   },
 
   async deletePath(path: string | null | undefined, excludeExpenseId?: number): Promise<void> {

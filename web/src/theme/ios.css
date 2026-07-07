@@ -1,5 +1,6 @@
 /**
- * iOS / iPhone Specific Flagship Optimizations - SCROLL FIX
+ * iOS / mobile-specific scroll and safe-area behavior.
+ * Desktop scroll is handled in global.css (in-card .app-main only).
  */
 
 :root {
@@ -9,44 +10,27 @@
   --safe-right: env(safe-area-inset-right, 0px);
 }
 
-/* ── Force Body Scroll ── */
+@media (max-width: 767px) {
+  html {
+    height: -webkit-fill-available;
+  }
 
-html {
-  height: -webkit-fill-available;
-}
+  body {
+    position: relative !important;
+    height: auto !important;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    -webkit-tap-highlight-color: transparent;
+    background-color: var(--color-background);
+  }
 
-body {
-  /* Restore absolute standard scrolling */
-  position: relative !important;
-  height: auto !important;
-  min-height: 100vh;
-  min-height: -webkit-fill-available;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  -webkit-overflow-scrolling: touch;
-
-  /* Visual tweaks */
-  -webkit-tap-highlight-color: transparent;
-  background-color: var(--color-background);
-}
-
-/* ── UI Anchor Stability ── */
-
-.app-shell {
-  min-height: 100vh;
-  min-height: -webkit-fill-available;
-}
-
-.bottom-bar {
-  /* Ensure it stays fixed but doesn't block scroll events */
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding-bottom: var(--safe-bottom);
-  height: calc(var(--bottom-bar-height) + var(--safe-bottom));
-  pointer-events: auto;
-  z-index: 100;
+  .app-shell {
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+  }
 }
 
 /* ── Transaction Sheet Fit ── */
@@ -63,21 +47,22 @@ body {
 .pressable-row,
 .btn,
 .numpad__key {
-  /* Prevent browser gestures interfering with custom ones */
   touch-action: pan-y pinch-zoom;
-  /* Prevent selection */
   -webkit-user-select: none;
 }
 
-/* ── Safe Area Insets ── */
+/* ── Safe Area Insets (mobile only) ── */
 
-.screen-title-bar,
-.transaction-list-bare,
-.finance-summary-card,
-.record-filters,
-.budget-bar,
-.insights-stat-grid,
-.insights-grid {
-  padding-left: calc(var(--workspace-padding) + var(--safe-left));
-  padding-right: calc(var(--workspace-padding) + var(--safe-right));
+@media (max-width: 767px) {
+  .screen-title-bar,
+  .transaction-list-bare,
+  .finance-summary-card,
+  .record-filters,
+  .budget-bar,
+  .insights-stat-grid,
+  .insights-layout,
+  .insights-period-panel {
+    padding-left: calc(var(--workspace-padding) + var(--safe-left));
+    padding-right: calc(var(--workspace-padding) + var(--safe-right));
+  }
 }

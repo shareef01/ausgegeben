@@ -3,7 +3,7 @@ import { t } from '@/i18n';
 
 describe('i18n', () => {
   it('returns English strings by default', () => {
-    expect(t('periodAllTime')).toBe('All time');
+    expect(t('periodAllTime')).toBe('all time');
   });
 
   it('interpolates params', () => {

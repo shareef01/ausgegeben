@@ -1,0 +1,620 @@
+/** Desktop + responsive shell layout */
+
+.record-view__workspace,
+.insights-view__workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.record-view__sidebar,
+.record-view__main,
+.insights-view__sidebar,
+.insights-view__main {
+  min-width: 0;
+}
+
+.record-filters__insight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--color-outline) 28%, transparent);
+}
+
+.record-filters__insight-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: var(--color-expense);
+  background: color-mix(in srgb, var(--color-expense) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-expense) 22%, transparent);
+}
+
+.record-filters__insight-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  color: var(--color-text-secondary);
+  line-height: 1.35;
+}
+
+.record-sidebar-add-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  white-space: nowrap;
+}
+
+/* ── Desktop layout ── */
+
+@media (min-width: 768px) {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body:has(.auth-page),
+  body:has(.onboarding-page),
+  body:has(.app-boot),
+  body.body--shell-scroll {
+    height: auto;
+    overflow-y: auto;
+  }
+
+  .app-viewport {
+    display: flex;
+    justify-content: stretch;
+    align-items: stretch;
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  .app-shell:not(.auth-page):not(.onboarding-page) {
+    flex-direction: column;
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    border-radius: 0;
+    overflow: hidden;
+    border: none;
+    box-shadow: none;
+  }
+
+  .app-shell__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-shrink: 0;
+    padding: 14px var(--workspace-padding-desktop) 12px;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-outline) 38%, transparent);
+    background: color-mix(in srgb, var(--color-on-background) 2%, var(--color-background));
+  }
+
+  .app-shell__header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+
+  .app-brand-header {
+    min-width: 0;
+  }
+
+  .shell-header-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+  }
+
+  .app-brand-header .brand-hub--compact {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 14px;
+    border-radius: 16px;
+  }
+
+  .app-brand-header .brand-hub--compact .brand-hub__title {
+    font-size: 1.2rem;
+    background: linear-gradient(
+      180deg,
+      var(--color-on-background) 0%,
+      color-mix(in srgb, var(--color-on-background) 72%, transparent) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .sync-pill--header {
+    display: inline-flex;
+    flex-shrink: 0;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 0.8125rem;
+    color: var(--color-on-background);
+    background: var(--aurora-glow), var(--glass-bg-elevated);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-on-background) 6%, transparent);
+  }
+
+  .app-shell__body {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--color-on-background) 2%, var(--color-background));
+  }
+
+  .app-shell__footer {
+    position: relative;
+    padding: 0 var(--workspace-padding-desktop) 16px;
+  }
+
+  .app-shell__footer .toast-host,
+  .app-shell__footer .sync-error-toast {
+    left: auto;
+    right: 0;
+    max-width: min(420px, 100%);
+  }
+
+  .settings-version {
+    margin: 0 0 12px;
+  }
+
+  .screen-title-bar {
+    padding-left: 0;
+    padding-right: 0;
+    padding-top: 8px;
+    position: static;
+  }
+
+  .screen-title-bar__text {
+    display: none;
+  }
+
+  .screen-title-bar:not(:has(.screen-title-bar__action)) {
+    display: none;
+  }
+
+  .screen-title-bar:has(.screen-title-bar__action) {
+    justify-content: flex-end;
+    min-height: 0;
+    padding-bottom: 8px;
+  }
+
+  .app-main {
+    flex: 1;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: 12px;
+    width: 100%;
+    padding-left: var(--workspace-padding-desktop);
+    padding-right: var(--workspace-padding-desktop);
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .record-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .record-sidebar-add-btn {
+    display: inline-flex;
+  }
+
+  .record-view > .screen-title-bar,
+  .insights-view > .screen-title-bar {
+    display: none;
+  }
+
+  .page-content {
+    padding: 0;
+    max-width: none;
+    width: 100%;
+    margin: 0;
+  }
+
+  .fab--mobile-only,
+  .fab--record.fab--mobile-only {
+    display: none !important;
+  }
+
+  .app-viewport:has(.auth-page),
+  .app-viewport:has(.onboarding-page),
+  .app-viewport.app-viewport--scroll {
+    height: auto;
+    min-height: 100vh;
+    max-height: none;
+    overflow-y: auto;
+  }
+
+  .auth-page,
+  .onboarding-page {
+    min-height: 100vh;
+  }
+
+  .record-toolbar {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .finance-summary-card,
+  .transaction-list-card,
+  .transaction-list-bare,
+  .record-filters,
+  .budget-bar,
+  .skeleton-list,
+  .insights-stat-grid,
+  .insights-overview-stack {
+    margin-left: 0;
+    margin-right: 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .chip-row,
+  .section-title,
+  .settings-group,
+  .sync-error-banner,
+  .offline-banner {
+    padding-left: 0;
+    padding-right: 0;
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .bottom-bar {
+    position: relative;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    flex-shrink: 0;
+    width: 100%;
+    margin: 0;
+    height: auto;
+    min-height: var(--bottom-bar-height);
+    padding: 4px var(--workspace-padding-desktop);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    border-radius: 0;
+    border: none;
+    border-top: 1px solid color-mix(in srgb, var(--color-outline) 22%, transparent);
+    background: color-mix(in srgb, var(--color-surface) 42%, transparent);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    box-shadow: none;
+    z-index: 20;
+  }
+
+  .bottom-bar__item {
+    flex: 0 1 auto;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0;
+    padding: 6px 18px;
+    border-radius: 16px;
+    max-width: none;
+    transition:
+      color 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+      background 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .bottom-bar__item--active {
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+    color: var(--color-accent);
+  }
+
+  .bottom-bar__item:hover:not(.bottom-bar__item--active) {
+    background: color-mix(in srgb, var(--color-on-surface) 5%, transparent);
+    color: color-mix(in srgb, var(--color-on-background) 78%, var(--color-nav-inactive));
+  }
+
+  .bottom-bar__label {
+    display: none;
+  }
+
+  .bottom-bar__pill {
+    width: 40px;
+    height: 40px;
+    background: transparent !important;
+  }
+
+  .bottom-bar__item--active .bottom-bar__pill {
+    background: color-mix(in srgb, var(--color-accent) 14%, transparent) !important;
+  }
+
+  .bottom-bar__item--active .bottom-bar__icon {
+    transform: scale(1.05);
+    color: var(--color-accent);
+  }
+
+  .overlay {
+    align-items: center;
+    padding: 32px;
+  }
+
+  .sheet--transaction {
+    max-width: 560px;
+    border-radius: 20px;
+    max-height: 90vh;
+  }
+
+  .screen-title {
+    font-size: 2rem;
+  }
+
+  .auth-page__title {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .insights-stat-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .money--hero-display {
+    font-size: 2.5rem;
+  }
+}
+
+/* ── Wide desktop (two-column record) ── */
+
+@media (min-width: 1024px) {
+  .shell-header-add-btn--record {
+    display: none;
+  }
+
+  .record-view__workspace {
+    display: grid;
+    grid-template-columns: minmax(280px, 300px) minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+
+  .record-view {
+    --record-sticky-offset: 0;
+  }
+
+  .record-view__sidebar .finance-summary-card,
+  .record-view__sidebar .budget-bar,
+  .record-view__sidebar .record-filters {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .record-view__sidebar .record-filters {
+    position: static;
+    top: auto;
+    z-index: auto;
+    margin-bottom: 0;
+  }
+
+  .record-view__sidebar .finance-summary-card__inner {
+    padding: 18px 16px 14px;
+  }
+
+  .record-view__sidebar .money--hero-display {
+    font-size: 2rem;
+  }
+
+  .record-view__main .transaction-list-bare {
+    margin: 0;
+    padding: 0;
+  }
+
+  .record-view__main .record-day-header {
+    margin-left: 0;
+    margin-right: 0;
+    top: 0;
+    padding: 8px 12px;
+  }
+
+  .record-view__main .transaction-row {
+    padding: 8px 12px;
+    min-height: 52px;
+    gap: 10px;
+  }
+
+  .record-view__main .transaction-row__main {
+    gap: 10px;
+  }
+
+  .record-view__main .transaction-row__icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .record-view__main .transaction-row__indicator {
+    display: none;
+  }
+
+  .record-view__main .transaction-row__title {
+    font-size: 0.9375rem;
+  }
+
+  .record-view__main .transaction-row__sub {
+    font-size: 0.6875rem;
+    margin-top: 1px;
+  }
+
+  .record-view__sidebar {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    max-height: calc(100vh - var(--bottom-bar-height) - 56px);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-bottom: 8px;
+    scrollbar-width: thin;
+  }
+
+  .record-view__main {
+    min-width: 0;
+  }
+
+  .insights-view__workspace {
+    display: grid;
+    grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+
+  .insights-view__sidebar {
+    position: sticky;
+    top: 0;
+    max-height: calc(100vh - var(--bottom-bar-height) - 56px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .insights-view__main {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+}
+
+/* ── Large / ultra-wide desktop ── */
+
+@media (min-width: 1200px) {
+  .app-viewport:not(:has(.auth-page)):not(:has(.onboarding-page)):not(.app-viewport--scroll) {
+    padding: 0;
+  }
+
+  .app-shell:not(.auth-page):not(.onboarding-page) {
+    max-width: none;
+    width: 100%;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+  }
+
+  .app-viewport {
+    padding: 0;
+  }
+
+  .app-shell__header {
+    padding-top: 22px;
+    padding-bottom: 16px;
+  }
+
+  .insights-stat-grid {
+    gap: 16px;
+  }
+
+  .insights-stat-card {
+    padding: 20px 18px;
+  }
+
+  .insights-stat-card__value {
+    font-size: 1.25rem;
+  }
+
+  .settings-view > .screen-title-bar {
+    margin-bottom: 4px;
+  }
+
+  .settings-view .section-title + .settings-group {
+    margin-bottom: 8px;
+  }
+
+  .app-shell__footer {
+    padding: 0;
+  }
+
+  .app-shell__footer-rail {
+    display: block;
+  }
+}
+
+@media (min-width: 1440px) {
+  .record-view__workspace {
+    grid-template-columns: minmax(300px, 320px) minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .app-shell__footer {
+    padding-bottom: 0;
+  }
+
+  .bottom-bar__label {
+    display: none;
+  }
+
+  .record-view__sidebar .finance-summary-card__inner {
+    padding: 22px 20px 18px;
+  }
+
+  .settings-view__stack {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 20px;
+    align-items: start;
+  }
+
+  .settings-view__stack > .settings-section {
+    margin: 0;
+  }
+
+  .settings-view__stack > .settings-footer {
+    grid-column: 1 / -1;
+  }
+
+  .insights-primary-row {
+    gap: 16px;
+  }
+
+  .insights-secondary-grid {
+    gap: 16px;
+  }
+
+  .insights-cashflow-card {
+    margin-left: 0;
+    margin-right: 0;
+    padding: 24px;
+  }
+
+  .sheet--transaction {
+    max-width: 640px;
+  }
+
+  .screen-title {
+    font-size: 2.125rem;
+  }
+}
+

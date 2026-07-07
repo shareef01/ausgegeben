@@ -1,37 +1,61 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Category, DashboardUiState, Expense } from '@/models/types';
 import { expenseRepository } from '@/repositories/expenseRepository';
+import {
+  getCachedCategories,
+  isCategoryCacheReady,
+  preloadCategories,
+} from '@/services/categoryCache';
+import { receiptService } from '@/services/receiptService';
 import { usePreferencesStore } from '@/services/preferencesStore';
+import { t } from '@/i18n';
+import { hapticSuccess } from '@/utils/haptics';
+import { cloudRefreshThenReload } from '@/utils/cloudRefresh';
 import { computeCashFlowTrend, groupByCategory } from '@/utils/analytics';
-import { analyticsDateRangeMillis, analyticsPeriodOptions } from '@/utils/periodUtils';
+import {
+  analyticsDateRangeMillis,
+  analyticsPeriodOptionFromStorage,
+  analyticsPeriodOptions,
+} from '@/utils/periodUtils';
 
 export function useDashboardViewModel() {
   const periodKey = usePreferencesStore((s) => s.analyticsPeriod);
   const setAnalyticsPeriod = usePreferencesStore((s) => s.setAnalyticsPeriod);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<Category[]>(() => getCachedCategories());
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !isCategoryCacheReady());
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const initialLoadDone = useRef(false);
 
-  const periodOptions = useMemo(() => analyticsPeriodOptions(14), []);
+  const periodOptions = useMemo(() => analyticsPeriodOptions(24), []);
   const selectedOption = useMemo(
-    () => periodOptions.find((o) => o.storageKey === periodKey) ?? periodOptions[0],
-    [periodOptions, periodKey],
+    () => analyticsPeriodOptionFromStorage(periodKey),
+    [periodKey],
   );
 
   const reload = useCallback(async (showSkeleton = false) => {
     if (showSkeleton || !initialLoadDone.current) {
       setLoading(true);
     }
-    const cats = await expenseRepository.getAllCategories();
-    const range = analyticsDateRangeMillis(periodKey);
-    const items = range
-      ? await expenseRepository.getExpensesInRange(range[0], range[1])
-      : await expenseRepository.getAllExpenses();
-    setCategories(cats);
-    setExpenses(items);
-    setLoading(false);
-    initialLoadDone.current = true;
+    setLoadError(null);
+    try {
+      const cats = isCategoryCacheReady()
+        ? getCachedCategories()
+        : await preloadCategories();
+      const range = analyticsDateRangeMillis(periodKey);
+      const items = range
+        ? await expenseRepository.getExpensesInRange(range[0], range[1])
+        : await expenseRepository.getAllExpenses();
+      setCategories(cats);
+      setExpenses(items);
+      void receiptService.prefetch(items.map((e) => e.receiptImagePath));
+      initialLoadDone.current = true;
+    } catch {
+      setLoadError(t('errorLoadFailed'));
+    } finally {
+      setLoading(false);
+    }
   }, [periodKey]);
 
   useEffect(() => {
@@ -43,6 +67,24 @@ export function useDashboardViewModel() {
     window.addEventListener('ausgegeben:data-changed', handler);
     return () => window.removeEventListener('ausgegeben:data-changed', handler);
   }, [reload]);
+
+  const refreshFromCloud = useCallback(async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    setLoadError(null);
+    try {
+      const result = await cloudRefreshThenReload(() => reload(false));
+      if (!result.ok) {
+        setLoadError(result.error ?? t('errorLoadFailed'));
+        return;
+      }
+      hapticSuccess();
+    } catch {
+      setLoadError(t('errorLoadFailed'));
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshing, reload]);
 
   const uiState: DashboardUiState = useMemo(() => {
     const expensesByCategory = groupByCategory(expenses, 'expense');
@@ -69,8 +111,9 @@ export function useDashboardViewModel() {
       transfersByCategory,
       cashFlowTrend: computeCashFlowTrend(expenses),
       loading,
+      loadError,
     };
-  }, [expenses, periodKey, selectedOption.label, loading]);
+  }, [expenses, periodKey, selectedOption.label, loading, loadError]);
 
-  return { uiState, categories, periodOptions, setAnalyticsPeriod, reload };
+  return { uiState, categories, periodOptions, setAnalyticsPeriod, reload, refreshFromCloud, refreshing };
 }

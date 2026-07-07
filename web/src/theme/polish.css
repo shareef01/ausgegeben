@@ -31,6 +31,10 @@
   flex-direction: column;
 }
 
+.record-day-section {
+  animation: finance-card-in 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 .transaction-list-bare__rows {
   display: flex;
   flex-direction: column;
@@ -47,7 +51,7 @@
   font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: var(--color-label-muted, var(--color-on-surface-variant));
   isolation: isolate;
 }
@@ -80,22 +84,17 @@
   }
 
   .bottom-bar__item--active .bottom-bar__icon {
-    color: var(--color-accent);
+    color: var(--color-on-background);
   }
 
   [data-theme='dark'] .bottom-bar__item--active .bottom-bar__icon {
-    color: var(--color-accent);
+    color: var(--color-on-background);
   }
 }
 
 /* ── Mobile sync indicator ── */
 
 .sync-pill--mobile {
-  position: fixed;
-  top: calc(8px + var(--safe-top));
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 150;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -109,6 +108,12 @@
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 4px 16px color-mix(in srgb, var(--color-on-background) 12%, transparent);
+}
+
+@media (max-width: 767px) {
+  .app-shell__footer > .sync-pill--mobile {
+    z-index: 155;
+  }
 }
 
 @media (min-width: 768px) {
@@ -131,11 +136,16 @@
 
 /* ── Empty state ── */
 
-.empty-state p {
+.empty-state p,
+.empty-state__subtitle {
   margin: 0;
   line-height: 1.5;
   max-width: 28rem;
   margin-inline: auto;
+}
+
+.empty-state__subtitle {
+  color: var(--color-on-surface-variant);
 }
 
 .empty-state__hint {
@@ -149,23 +159,6 @@
   min-width: 160px;
 }
 
-/* ── Tab transitions — subtle fade on mobile ── */
-
-@media (max-width: 767px) {
-  .tab-panel--animate-in {
-    animation: tab-in-mobile 0.2s ease forwards;
-  }
-
-  @keyframes tab-in-mobile {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-}
-
 /* ── Receipt icon button ── */
 
 .transaction-row__receipt {
@@ -174,9 +167,13 @@
   justify-content: center;
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: 50%;
   color: var(--color-on-surface-variant);
   flex-shrink: 0;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
 }
 
 .transaction-row__receipt:hover {
@@ -186,7 +183,7 @@
 
 /* ── Insights stat grid mobile order ── */
 
-@media (max-width: 639px) {
+@media (max-width: 767px) {
   .insights-stat-grid {
     grid-template-areas:
       'net'
