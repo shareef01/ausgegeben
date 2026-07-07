@@ -1,4 +1,6 @@
 @import './global.css';
+@import './layout.css';
+@import './receipts.css';
 @import './premium.css';
 @import './oled.css';
 @import './brand.css';
@@ -7,18 +9,16 @@
 
 :root {
   --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
-  --bottom-bar-height: 72px;
+  --bottom-bar-height: 58px;
   --fab-size: 64px;
   --fab-clearance: 88px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --layout-breakpoint: 768px;
-  --app-max-width: min(1440px, 98vw);
-  --app-sidebar-width: 248px;
-  --content-max-width: 1200px;
-  --content-sidebar-gap: 28px;
+  --app-max-width: 100%;
+  --content-max-width: 100%;
   --workspace-padding: 16px;
-  --workspace-padding-desktop: 32px;
+  --workspace-padding-desktop: 20px;
   --radius-lg: 20px;
   --radius-md: 14px;
   --radius-sm: 10px;
@@ -27,20 +27,28 @@
   --transition-premium: 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.record-add-btn {
+  white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+  .shell-header-add-btn,
+  .record-add-btn,
+  .record-sidebar-add-btn {
+    display: none;
+  }
+}
+
 @media (min-width: 1200px) {
   :root {
-    --content-max-width: 1040px;
-    --app-sidebar-width: 268px;
-    --workspace-padding-desktop: 32px;
-    --content-sidebar-gap: 40px;
+    --workspace-padding-desktop: 24px;
+    --bottom-bar-height: 76px;
   }
 }
 
 @media (min-width: 1440px) {
   :root {
-    --content-max-width: 1200px;
-    --app-max-width: min(1680px, 94vw);
-    --app-sidebar-width: 284px;
-    --workspace-padding-desktop: 40px;
+    --workspace-padding-desktop: 28px;
+    --bottom-bar-height: 80px;
   }
 }
