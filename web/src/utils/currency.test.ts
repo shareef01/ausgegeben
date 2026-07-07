@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   colorIntToHex,
   currencyLabel,
+  decimalSeparator,
   formatAmount,
   formatAmountForInput,
+  handleNumpadKey,
+  numpadBackspace,
   parseAmount,
   SUPPORTED_CURRENCIES,
 } from '@/utils/currency';
@@ -43,5 +46,24 @@ describe('currency', () => {
   it('SUPPORTED_CURRENCIES includes core codes', () => {
     expect(SUPPORTED_CURRENCIES).toContain('EUR');
     expect(SUPPORTED_CURRENCIES).toContain('USD');
+  });
+
+  it('handleNumpadKey replaces leading zero and limits fraction digits', () => {
+    expect(handleNumpadKey('0', '5', ',')).toBe('5');
+    expect(handleNumpadKey('12', ',', ',')).toBe('12,');
+    expect(handleNumpadKey('12,34', '5', ',')).toBe('12,34');
+    expect(handleNumpadKey('12,3', '4', ',')).toBe('12,34');
+    expect(handleNumpadKey('12,34', '5', ',')).toBe('12,34');
+  });
+
+  it('numpadBackspace keeps a single zero minimum', () => {
+    expect(numpadBackspace('123')).toBe('12');
+    expect(numpadBackspace('0')).toBe('0');
+    expect(numpadBackspace('5')).toBe('0');
+  });
+
+  it('decimalSeparator follows currency locale', () => {
+    expect(decimalSeparator('EUR')).toBe(',');
+    expect(decimalSeparator('USD')).toBe('.');
   });
 });

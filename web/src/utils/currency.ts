@@ -17,6 +17,29 @@ export function parseAmount(input: string): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
+export function decimalSeparator(currency = 'EUR'): string {
+  const locale = currency === 'EUR' || currency === 'CHF' ? 'de-DE' : 'en-US';
+  const parts = new Intl.NumberFormat(locale).formatToParts(1.1);
+  return parts.find((part) => part.type === 'decimal')?.value ?? ',';
+}
+
+/** Matches Android handleKeyInput for the add-transaction numpad. */
+export function handleNumpadKey(current: string, input: string, sep: string): string {
+  const value = current || '0';
+  if (value === '0' && input !== sep) return input;
+  if (input === sep && value.includes(sep)) return value;
+  const next = value + input;
+  const sepIndex = next.indexOf(sep);
+  if (sepIndex >= 0 && next.length - sepIndex - 1 > 2) return value;
+  if (next.replace(sep, '').replace(/\D/g, '').length > 12) return value;
+  return next;
+}
+
+export function numpadBackspace(current: string): string {
+  const value = current || '0';
+  return value.length > 1 ? value.slice(0, -1) : '0';
+}
+
 export function formatAmountForInput(amount: number): string {
   return amount.toFixed(2).replace('.', ',');
 }

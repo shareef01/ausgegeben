@@ -14,6 +14,7 @@ import {
 function expense(partial: Partial<Expense> & Pick<Expense, 'amount' | 'transactionType'>): Expense {
   return {
     id: 1,
+    cloudId: 'expense-1',
     dateMillis: Date.now(),
     categoryId: 1,
     note: '',
@@ -71,7 +72,7 @@ describe('analytics', () => {
   });
 
   it('exportCsv quotes notes with commas', () => {
-    const categories: Category[] = [{ id: 1, name: 'Food', iconName: 'food', colorInt: 0, transactionType: 'expense', sortOrder: 0, updatedAt: 0 }];
+    const categories: Category[] = [{ id: 1, cloudId: 'cat-1', name: 'Food', iconName: 'food', colorInt: 0, transactionType: 'expense', sortOrder: 0, updatedAt: 0 }];
     const csv = exportCsv(
       [
         expense({
