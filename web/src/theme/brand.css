@@ -1,8 +1,8 @@
 /**
- * Sidebar brand shell — icon + name in one card
+ * App brand header — icon + name
  */
 
-.side-nav__brand {
+.app-brand-header {
   flex-shrink: 0;
   overflow: visible;
   min-height: fit-content;
@@ -137,106 +137,21 @@
   }
 }
 
-/* ── Desktop sidebar: fill-height nav cells ── */
+/* ── Desktop brand header ── */
 
 @media (min-width: 768px) {
-  .side-nav {
-    align-self: stretch;
-    min-height: 100%;
-  }
-
-  .side-nav__menu {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    min-height: 0;
-  }
-
-  .side-nav__item {
-    flex: 1;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 14px;
-    padding: 14px 10px;
-    text-align: center;
-    min-height: 88px;
-  }
-
-  .side-nav__indicator {
-    left: 50%;
-    top: 10px;
-    bottom: auto;
-    transform: translateX(-50%);
-    width: 32px;
-    height: 3px;
-    border-radius: 999px;
-  }
-
-  .side-nav__item--active .side-nav__indicator {
-    height: 3px;
-    width: 32px;
-  }
-
-  .side-nav__label {
-    width: 100%;
-    font-size: 0.9375rem;
-  }
-
-  .side-nav__icon-wrap {
-    width: clamp(68px, 42%, 92px);
-    height: clamp(68px, 42%, 92px);
-    border-radius: 20px;
-  }
-
-  .side-nav__icon-wrap svg,
-  .side-nav__icon {
-    width: clamp(32px, 52%, 44px);
-    height: clamp(32px, 52%, 44px);
+  .app-brand-header .brand-hub--compact .brand-hub__mark {
+    filter: drop-shadow(0 4px 12px rgba(16, 185, 129, 0.2));
   }
 }
 
 @media (min-width: 1200px) {
-  .side-nav__item {
-    gap: 16px;
-    padding: 18px 12px;
-    min-height: 96px;
+  .app-brand-header .brand-hub--compact {
+    padding: 10px 16px;
+    gap: 14px;
   }
 
-  .side-nav__icon-wrap {
-    width: clamp(76px, 44%, 100px);
-    height: clamp(76px, 44%, 100px);
-    border-radius: 22px;
-  }
-
-  .side-nav__icon-wrap svg,
-  .side-nav__icon {
-    width: clamp(36px, 54%, 48px);
-    height: clamp(36px, 54%, 48px);
-  }
-
-  .side-nav__label {
-    font-size: 1rem;
-  }
-
-  .brand-shell {
-    padding-bottom: 16px;
-  }
-
-  .brand-shell__card {
-    padding: 16px 14px 20px;
-    gap: 12px;
-  }
-
-  .brand-shell__mark {
-    width: 42px;
-    height: 42px;
-  }
-
-  .brand-shell__name {
-    font-size: 1.5rem;
-    line-height: 2;
-    padding-bottom: 12px;
+  .app-brand-header .brand-hub--compact .brand-hub__title {
+    font-size: 1.35rem;
   }
 }

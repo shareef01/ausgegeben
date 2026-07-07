@@ -4,16 +4,19 @@ export type TransactionType = 'expense' | 'income' | 'transfer';
 
 export interface Category {
   id?: number;
+  cloudId: string;
   name: string;
   iconName: string;
   colorInt: number;
   transactionType: TransactionType;
   sortOrder: number;
   updatedAt?: number;
+  pendingSync?: boolean;
 }
 
 export interface Expense {
   id?: number;
+  cloudId: string;
   amount: number;
   dateMillis: number;
   categoryId: number;
@@ -21,6 +24,7 @@ export interface Expense {
   receiptImagePath?: string | null;
   transactionType: TransactionType;
   updatedAt?: number;
+  pendingSync?: boolean;
 }
 
 export type ThemeMode =
@@ -50,11 +54,16 @@ export interface AppPreferences {
   reminderHour: number;
   reminderMinute: number;
   analyticsPeriod: string;
+  recordListPeriod: RecordListPeriod;
   monthlyBudget: number | null;
   storageMode: StorageMode;
   authGatewayComplete: boolean;
   lastCloudSyncAt: number | null;
   preferencesUpdatedAt: number;
+  pendingExpenseDeleteCloudIds: string[];
+  pendingCategoryDeleteCloudIds: string[];
+  /** Last Firebase uid that owned local IndexedDB data (account-switch guard). */
+  lastCloudUserId: string | null;
 }
 
 /** Preferences synced to Firestore (device-local flags excluded). */
@@ -66,6 +75,7 @@ export interface SyncedPreferences {
   reminderHour: number;
   reminderMinute: number;
   analyticsPeriod: string;
+  recordListPeriod: RecordListPeriod;
   monthlyBudget: number | null;
   updatedAt: number;
 }
@@ -84,7 +94,10 @@ export interface SpendingInsights {
 }
 
 export interface RecordUiState {
-  expenses: Expense[];
+  displayExpenses: Expense[];
+  hasMore: boolean;
+  listCount: number;
+  summaryTotals: { totalExpenses: number; totalIncome: number };
   categories: Category[];
   searchQuery: string;
   typeFilter: TransactionTypeFilter;
@@ -94,6 +107,8 @@ export interface RecordUiState {
   monthExpenses: Expense[];
   dayTotalsByLabel: Record<string, { income: number; expense: number }>;
   loading: boolean;
+  loadingMore: boolean;
+  loadError: string | null;
 }
 
 export interface DashboardUiState {
@@ -107,6 +122,7 @@ export interface DashboardUiState {
   transfersByCategory: Map<number, number>;
   cashFlowTrend: CashFlowPoint[];
   loading: boolean;
+  loadError: string | null;
 }
 
 export interface CashFlowPoint {
