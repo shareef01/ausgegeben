@@ -42,13 +42,6 @@
   [data-theme='dark'] .app-shell__body {
     background: #000000;
   }
-
-  [data-theme='dark'] .side-nav {
-    background: #000000;
-    border-right: 1px solid var(--hairline-border);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
 }
 
 /* ── Hairline-bordered OLED cards ── */
@@ -223,118 +216,6 @@
   background: linear-gradient(180deg, #10b981 0%, #059669 100%) !important;
   border: 1px solid rgba(16, 185, 129, 0.22) !important;
   box-shadow: var(--shadow-cta-physical) !important;
-}
-
-/* ── Sidebar — Linear / Apple rail (OLED) ── */
-
-@media (min-width: 768px) {
-  [data-theme='dark'] .side-nav {
-    padding: 16px 10px 20px;
-  }
-
-  [data-theme='dark'] .side-nav__brand {
-    padding: 6px 8px 12px;
-    margin-bottom: 0;
-    border-bottom: none;
-    overflow: visible;
-  }
-
-  [data-theme='dark'] .brand-shell__card {
-    border-color: color-mix(in srgb, var(--color-accent) 24%, transparent);
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--color-accent) 11%, transparent) 0%,
-      transparent 100%
-    );
-  }
-
-  [data-theme='dark'] .side-nav__brand .signature-text {
-    color: rgba(255, 255, 255, 0.92);
-    font-size: 0.9375rem;
-    font-weight: 600;
-    letter-spacing: -0.025em;
-  }
-
-  [data-theme='dark'] .side-nav__brand .signature-text__accent {
-    color: var(--color-income);
-  }
-
-  [data-theme='dark'] .side-nav__brand-icon {
-    border-radius: 9px;
-    box-shadow: 0 0 20px color-mix(in srgb, var(--color-income) 12%, transparent);
-  }
-
-  [data-theme='dark'] .side-nav__menu {
-    padding: 2px 0;
-    gap: 4px;
-  }
-
-  [data-theme='dark'] .side-nav__item {
-    color: rgba(255, 255, 255, 0.4);
-    background: transparent;
-    border: none;
-    box-shadow: none;
-  }
-
-  [data-theme='dark'] .side-nav__label {
-    color: inherit;
-  }
-
-  [data-theme='dark'] .side-nav__item .side-nav__icon-wrap {
-    color: inherit;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    opacity: 0.72;
-  }
-
-  [data-theme='dark'] .side-nav__item:hover:not(.side-nav__item--active) .side-nav__icon-wrap {
-    opacity: 0.88;
-    background: rgba(255, 255, 255, 0.07);
-    border-color: rgba(255, 255, 255, 0.07);
-  }
-
-  [data-theme='dark'] .side-nav__item:hover:not(.side-nav__item--active) {
-    background: rgba(255, 255, 255, 0.04);
-    color: rgba(255, 255, 255, 0.68);
-  }
-
-  [data-theme='dark'] .side-nav__item--active {
-    background: rgba(255, 255, 255, 0.06);
-    color: #ffffff;
-    border: none;
-    box-shadow: none;
-  }
-
-  [data-theme='dark'] .side-nav__item--active .side-nav__label {
-    color: #ffffff;
-  }
-
-  [data-theme='dark'] .side-nav__item--active .side-nav__icon-wrap {
-    color: var(--color-income);
-    opacity: 1;
-    background: color-mix(in srgb, var(--color-income) 16%, transparent);
-    border-color: color-mix(in srgb, var(--color-income) 24%, transparent);
-    box-shadow:
-      0 0 28px color-mix(in srgb, var(--color-income) 22%, transparent),
-      inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  }
-
-  [data-theme='dark'] .side-nav__indicator {
-    background: var(--color-income);
-  }
-
-  [data-theme='dark'] .sync-pill--sidebar {
-    margin-top: auto;
-    margin-left: 6px;
-    margin-right: 6px;
-    margin-bottom: 2px;
-    padding: 7px 10px;
-    font-size: 0.6875rem;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--hairline-border);
-    box-shadow: none;
-    color: rgba(255, 255, 255, 0.55);
-  }
 }
 
 /* ── Mobile bottom bar (OLED) ── */

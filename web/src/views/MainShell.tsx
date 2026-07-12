@@ -1,13 +1,11 @@
-import { useState } from 'react';
+import { useState, type JSX, useEffect } from 'react';
 import { RecordView } from '@/views/RecordView';
 import { InsightsView } from '@/views/InsightsView';
 import { SettingsView } from '@/views/SettingsView';
 import { AddTransactionView } from '@/views/AddTransactionView';
 import { CategoriesView } from '@/views/CategoriesView';
-import { SideNavBrand } from '@/components/SideNavBrand';
 import { ToastHost } from '@/components/ToastHost';
-import { IconAdd, IconInsights, IconRecord, IconSettings, IconSync } from '@/components/Icons';
-import { useAuthStore } from '@/services/authStore';
+import { IconAdd, IconInsights, IconRecord, IconSettings } from '@/components/Icons';
 import { useTranslation } from '@/i18n';
 
 type Tab = 'record' | 'insights' | 'settings';
@@ -18,12 +16,21 @@ export function MainShell() {
   const [tab, setTab] = useState<Tab>('record');
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [visitedTabs, setVisitedTabs] = useState<Set<Tab>>(() => new Set(['record']));
-  const syncing = useAuthStore((s) => s.syncing);
 
   const selectTab = (next: Tab) => {
     setVisitedTabs((prev) => new Set(prev).add(next));
     setTab(next);
   };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && overlay) {
+        setOverlay(null);
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [overlay]);
 
   const navItems: { id: Tab; label: string; Icon: typeof IconRecord }[] = [
     { id: 'record', label: t('navRecord'), Icon: IconRecord },
@@ -31,107 +38,86 @@ export function MainShell() {
     { id: 'settings', label: t('navSettings'), Icon: IconSettings },
   ];
 
+  const tabContent: Record<Tab, JSX.Element | null> = {
+    record: <RecordView onEdit={(id) => setOverlay({ type: 'edit', expenseId: id })} onAdd={() => setOverlay({ type: 'add' })} />,
+    insights: <InsightsView />,
+    settings: <SettingsView onManageCategories={() => setOverlay({ type: 'categories' })} />,
+  };
+
   return (
     <div className="app-shell">
-      <nav className="side-nav" aria-label="Main">
-        <SideNavBrand appName={t('appName')} />
-        <div className="side-nav__menu">
-          {navItems.map(({ id, label, Icon }) => {
-            const active = tab === id;
-            return (
-              <button
-                key={id}
-                type="button"
-                className={`side-nav__item ${active ? 'side-nav__item--active' : ''}`}
-                onClick={() => selectTab(id)}
-                aria-current={active ? 'page' : undefined}
-              >
-                <span className="side-nav__indicator" aria-hidden />
-                <span className="side-nav__icon-wrap">
-                  <Icon className="side-nav__icon" strokeWidth={active ? 2.35 : 1.85} aria-hidden />
-                </span>
-                <span className="side-nav__label">{label}</span>
-              </button>
-            );
-          })}
-        </div>
-        {syncing ? (
-          <div className="sync-pill sync-pill--sidebar">
-            <IconSync width={14} height={14} className="spin" />
-            <span>{t('syncInProgress')}</span>
+      <header className="app-header">
+        <div className="app-header__inner">
+          <div className="app-header__brand" onClick={() => selectTab('record')}>
+            <div className="app-header__logo-mark" aria-hidden>
+              <span className="app-header__logo-letter">A</span>
+            </div>
+            <span className="app-header__wordmark">
+              <span className="app-header__wordmark-accent">{t('appName').charAt(0)}</span>{t('appName').slice(1)}
+            </span>
           </div>
-        ) : null}
-      </nav>
+          <nav className="app-header__nav-pill" aria-label={t('appName')}>
+            {navItems.map(({ id, label, Icon }) => {
+              const active = tab === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  className={`app-header__nav-item ${active ? 'app-header__nav-item--active' : ''}`}
+                  onClick={() => selectTab(id)}
+                >
+                  <Icon width={16} height={16} strokeWidth={active ? 2.25 : 1.75} aria-hidden />
+                  <span>{label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+      </header>
 
       <div className="app-shell__body">
         <main className={`app-main ${tab === 'record' ? 'app-main--fab' : ''}`}>
-          {visitedTabs.has('record') ? (
-            <div
-              className={`tab-panel ${tab === 'record' ? 'tab-panel--active tab-panel--animate-in' : 'tab-panel--hidden'}`}
-              aria-hidden={tab !== 'record'}
-            >
-              <RecordView
-                onEdit={(id) => setOverlay({ type: 'edit', expenseId: id })}
-                onAdd={() => setOverlay({ type: 'add' })}
-              />
-            </div>
-          ) : null}
-          {visitedTabs.has('insights') ? (
-            <div
-              className={`tab-panel ${tab === 'insights' ? 'tab-panel--active tab-panel--animate-in' : 'tab-panel--hidden'}`}
-              aria-hidden={tab !== 'insights'}
-            >
-              <InsightsView />
-            </div>
-          ) : null}
-          {visitedTabs.has('settings') ? (
-            <div
-              className={`tab-panel ${tab === 'settings' ? 'tab-panel--active tab-panel--animate-in' : 'tab-panel--hidden'}`}
-              aria-hidden={tab !== 'settings'}
-            >
-              <SettingsView onManageCategories={() => setOverlay({ type: 'categories' })} />
-            </div>
-          ) : null}
-        </main>
-
-        {syncing ? (
-          <div className="sync-pill sync-pill--mobile" role="status">
-            <IconSync width={14} height={14} className="spin" />
-            <span>{t('syncInProgress')}</span>
-          </div>
-        ) : null}
-
-        <nav className="bottom-bar" aria-label="Main">
-          {navItems.map(({ id, label, Icon }) => {
-            const active = tab === id;
+          {(['record', 'insights', 'settings'] as Tab[]).map((t) => {
+            const active = tab === t;
+            if (!visitedTabs.has(t) && !active) return null;
             return (
-              <button
-                key={id}
-                type="button"
-                className={`bottom-bar__item ${active ? 'bottom-bar__item--active' : ''}`}
-                onClick={() => selectTab(id)}
-                aria-current={active ? 'page' : undefined}
+              <div
+                key={t}
+                className={`tab-panel ${active ? 'tab-panel--active tab-panel--animate-in' : 'tab-panel--hidden'}`}
+                aria-hidden={!active}
               >
-                <span className="bottom-bar__icon">
-                  <Icon width={22} height={22} strokeWidth={active ? 2.25 : 1.75} />
-                </span>
-                {active ? <span className="bottom-bar__indicator" aria-hidden /> : null}
-                <span className="bottom-bar__label">{label}</span>
-              </button>
+                {tabContent[t]}
+              </div>
             );
           })}
-        </nav>
+        </main>
 
         {tab === 'record' ? (
           <button type="button" className="fab fab--record" aria-label={t('navAdd')} onClick={() => setOverlay({ type: 'add' })}>
-            <span className="fab__icon-wrap">
-              <IconAdd width={30} height={30} strokeWidth={2.25} />
-            </span>
+            <IconAdd width={28} height={28} strokeWidth={2.25} />
           </button>
         ) : null}
 
         <ToastHost />
       </div>
+
+      <nav className="bottom-bar" aria-label={t('appName')}>
+        {navItems.map(({ id, label, Icon }) => {
+          const active = tab === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              className={`bottom-bar__item ${active ? 'bottom-bar__item--active' : ''}`}
+              onClick={() => selectTab(id)}
+              aria-current={active ? 'page' : undefined}
+              aria-label={label}
+            >
+              <Icon width={26} height={26} strokeWidth={active ? 2.35 : 1.75} />
+            </button>
+          );
+        })}
+      </nav>
 
       {overlay?.type === 'add' || overlay?.type === 'edit' ? (
         <AddTransactionView
