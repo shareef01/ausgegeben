@@ -94,7 +94,17 @@ export function AddTransactionView({ expenseId, onClose, onSaved }: AddTransacti
 
         <label className="field">
           <span className="field__label">{t('addCategoryLabel')}</span>
-          <div className="category-tiles" role="listbox" aria-label={t('addCategoryLabel')}>
+          {!vm.ready ? (
+            <div className="category-tiles" aria-busy="true">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="category-tile category-tile--skeleton">
+                  <span className="category-tile__icon skeleton skeleton--circle" />
+                  <span className="category-tile__name skeleton skeleton--text" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="category-tiles" role="listbox" aria-label={t('addCategoryLabel')}>
             {vm.categories.map((cat) => (
               <button
                 key={cat.id}
@@ -111,7 +121,8 @@ export function AddTransactionView({ expenseId, onClose, onSaved }: AddTransacti
                 <span className="category-tile__name">{cat.name}</span>
               </button>
             ))}
-          </div>
+            </div>
+          )}
         </label>
 
         <label className="field">
@@ -160,7 +171,15 @@ export function AddTransactionView({ expenseId, onClose, onSaved }: AddTransacti
         {vm.error ? <p className="sheet__error">{vm.error}</p> : null}
 
         <button type="button" className="btn btn-primary btn-block sheet__save" onClick={() => void handleSave()} disabled={vm.saving}>
-          {t('actionSave')}
+          {vm.saving ? (
+            <span className="btn__spinner" aria-label={t('syncInProgress')}>
+              <span className="spin-dot" />
+              <span className="spin-dot" />
+              <span className="spin-dot" />
+            </span>
+          ) : (
+            t('actionSave')
+          )}
         </button>
       </div>
     </div>
