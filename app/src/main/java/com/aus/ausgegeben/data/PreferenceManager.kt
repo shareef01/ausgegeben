@@ -247,6 +247,12 @@ class PreferenceManager(private val context: Context) {
         }
     }
 
+    suspend fun clearSyncTimestamp() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(PreferencesKeys.LAST_CLOUD_SYNC_AT)
+        }
+    }
+
     suspend fun updateLanguage(languageCode: String) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.LANGUAGE] = languageCode
