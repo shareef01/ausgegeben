@@ -7,7 +7,6 @@ import {
 import { getFirebaseAuth, isFirebaseConfigured } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
 import { usePreferencesStore } from '@/services/preferencesStore';
-import { syncService } from '@/services/syncService';
 
 let unsubscribe: (() => void) | null = null;
 let readyFallbackTimer: ReturnType<typeof setTimeout> | null = null;
@@ -45,7 +44,6 @@ export const authService = {
       if (user) {
         setStorageMode('cloud');
         completeAuthGateway();
-        void syncService.fullSync(true);
       } else {
         usePreferencesStore.getState().resetAuthGateway();
         useAuthStore.getState().setSyncError(null);

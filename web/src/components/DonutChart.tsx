@@ -36,6 +36,11 @@ export function DonutChart({ segments, size = 140, center }: DonutChartProps) {
   return (
     <div className="donut-wrap" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="donut" role="img" aria-label="Category breakdown chart">
+        <defs>
+          <filter id="donut-glow" x="-30%" y="-30%" width="160%" height="160%">
+            <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="var(--color-on-background)" floodOpacity="0.08" />
+          </filter>
+        </defs>
         {total <= 0 ? (
           <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-outline)" strokeWidth={12} opacity={0.25} />
         ) : (
@@ -53,6 +58,7 @@ export function DonutChart({ segments, size = 140, center }: DonutChartProps) {
                 strokeDasharray={`${Math.max(p.dash - 2, 1)} ${c}`}
                 strokeDashoffset={-p.offset}
                 strokeLinecap="round"
+                filter="url(#donut-glow)"
               />
             ))}
           </>

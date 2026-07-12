@@ -1,0 +1,12 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "expenses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "idempotencyKey", "order": "ASCENDING" },
+        { "fieldPath": "dateMillis", "order": "DESCENDING" }
+      ]
+    }
+  ]
+}

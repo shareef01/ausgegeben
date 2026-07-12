@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
-import { syncService } from '@/services/syncService';
 import { resolveTheme, applyTheme } from '@/theme/tokens';
-import { ensureSeeded } from '@/services/database';
+import { enableOfflinePersistence } from '@/services/firebase';
 import { OnboardingView } from '@/views/OnboardingView';
 import { AuthView } from '@/views/AuthView';
 import { MainShell } from '@/views/MainShell';
@@ -21,11 +20,7 @@ export function App() {
   const { t } = useTranslation();
 
   useEffect(() => {
-    void ensureSeeded()
-      .catch((error) => {
-        console.error('[db] Seed failed', error);
-      })
-      .finally(() => setDbReady(true));
+    void enableOfflinePersistence().finally(() => setDbReady(true));
     authService.startListener();
     return () => authService.stopListener();
   }, []);
@@ -41,17 +36,6 @@ export function App() {
   useEffect(() => {
     document.documentElement.lang = locale;
   }, [locale]);
-
-  useEffect(() => {
-    if (!user) return;
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') {
-        void syncService.fullSync(false);
-      }
-    };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [user]);
 
   if (!dbReady || !authReady) {
     return (

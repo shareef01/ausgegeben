@@ -5,9 +5,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.data.StorageMode
+import com.aus.ausgegeben.data.AppRepository
 import com.aus.ausgegeben.data.auth.AuthRepository
-import com.aus.ausgegeben.data.cloud.CloudSyncCoordinator
-import com.aus.ausgegeben.data.cloud.CloudSyncRepository
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
@@ -43,8 +42,7 @@ class AuthViewModel(
     application: Application,
     private val authRepository: AuthRepository,
     private val preferenceManager: PreferenceManager,
-    private val cloudSyncRepository: CloudSyncRepository,
-    private val cloudSyncCoordinator: CloudSyncCoordinator,
+    private val repository: AppRepository,
 ) : AndroidViewModel(application) {
 
     companion object {
@@ -173,21 +171,20 @@ class AuthViewModel(
         }
     }
 
+    private fun appString(resId: Int): String {
+        return getApplication<Application>().getString(resId)
+    }
+
     private suspend fun handleAuthResult(result: Result<Unit>, onSuccess: () -> Unit) {
         result.fold(
             onSuccess = {
+                _uiState.update { it.copy(isLoading = false, loadingMessage = null) }
                 preferenceManager.setStorageMode(StorageMode.CLOUD)
                 preferenceManager.setAuthGatewayComplete()
-                _uiState.update { it.copy(isLoading = false, loadingMessage = null) }
-                onSuccess()
-                viewModelScope.launch {
-                    authRepository.ensureFreshAuthToken()
-                    withContext(Dispatchers.IO) {
-                        cloudSyncCoordinator.fullSync(cloudSyncRepository, force = true).onSuccess {
-                            preferenceManager.setLastCloudSyncAt(System.currentTimeMillis())
-                        }
-                    }
+                viewModelScope.launch(Dispatchers.IO) {
+                    repository.ensureSeeded()
                 }
+                onSuccess()
             },
             onFailure = { error ->
                 _uiState.update {
@@ -202,22 +199,13 @@ class AuthViewModel(
     }
 
     private fun mapAuthError(error: Throwable): String {
-        if (error is TimeoutCancellationException) {
-            return appString(com.aus.ausgegeben.R.string.auth_error_timeout)
-        }
-        return when (error) {
-            is FirebaseAuthInvalidUserException ->
-                appString(com.aus.ausgegeben.R.string.auth_error_user_not_found)
-            is FirebaseAuthInvalidCredentialsException ->
-                appString(com.aus.ausgegeben.R.string.auth_error_invalid_credentials)
-            is FirebaseAuthUserCollisionException ->
-                appString(com.aus.ausgegeben.R.string.auth_error_email_in_use)
-            is FirebaseAuthWeakPasswordException ->
-                appString(com.aus.ausgegeben.R.string.auth_error_password_short)
-            else -> error.localizedMessage
-                ?: appString(com.aus.ausgegeben.R.string.auth_error_generic)
+        return when {
+            error is TimeoutCancellationException -> "Request timed out"
+            error is FirebaseAuthInvalidCredentialsException -> "Invalid email or password"
+            error is FirebaseAuthInvalidUserException -> "No account found with this email"
+            error is FirebaseAuthUserCollisionException -> "An account already exists with this email"
+            error is FirebaseAuthWeakPasswordException -> "Password is too weak"
+            else -> error.localizedMessage ?: "Authentication failed"
         }
     }
-
-    private fun appString(resId: Int): String = getApplication<Application>().getString(resId)
 }
