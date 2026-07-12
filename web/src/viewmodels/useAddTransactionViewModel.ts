@@ -1,20 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
-
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Category, Expense, TransactionType } from '@/models/types';
 import { expenseRepository } from '@/repositories/expenseRepository';
 import { receiptService } from '@/services/receiptService';
-import { isCloudSyncActive } from '@/services/cloudSync';
-import { receiptStorageService } from '@/services/receiptStorageService';
-import { usePreferencesStore } from '@/services/preferencesStore';
-import { useToastStore } from '@/services/toastStore';
-import {
-  getCachedCategories,
-  isCategoryCacheReady,
-  preloadCategories,
-  refreshCategoryCache,
-} from '@/services/categoryCache';
-import { formatAmount, parseAmount, decimalSeparator, handleNumpadKey, numpadBackspace } from '@/utils/currency';
-import { t } from '@/i18n';
+import { parseAmount } from '@/utils/currency';
+import { useTranslation } from '@/i18n';
 
 export interface AddTransactionForm {
   amountInput: string;
@@ -25,13 +14,8 @@ export interface AddTransactionForm {
   receiptImagePath: string | null;
 }
 
-export interface SaveResult {
-  ok: boolean;
-  budgetAlert?: string;
-}
-
 const defaultForm = (): AddTransactionForm => ({
-  amountInput: '0',
+  amountInput: '',
   transactionType: 'expense',
   categoryId: null,
   note: '',
@@ -39,87 +23,53 @@ const defaultForm = (): AddTransactionForm => ({
   receiptImagePath: null,
 });
 
-function applyDefaultCategory(cats: Category[]): AddTransactionForm {
-  const first = cats.find((c) => c.transactionType === 'expense');
-  return { ...defaultForm(), categoryId: first?.id ?? null };
-}
-
-function applyExpenseForm(existing: NonNullable<Awaited<ReturnType<typeof expenseRepository.getExpenseById>>>): AddTransactionForm {
-  return {
-    amountInput: existing.amount.toFixed(2).replace('.', ','),
-    transactionType: existing.transactionType,
-    categoryId: existing.categoryId,
-    note: existing.note,
-    dateMillis: existing.dateMillis,
-    receiptImagePath: existing.receiptImagePath ?? null,
-  };
-}
-
-function initialForm(expenseId?: number): AddTransactionForm {
-  const cats = getCachedCategories();
-  if (!expenseId && cats.length > 0) return applyDefaultCategory(cats);
-  return defaultForm();
-}
-
-const READ_TIMEOUT_MS = 8_000;
-
-async function readExpenseWithTimeout(id: number): Promise<'timeout' | Expense | 'missing'> {
-  const result = await Promise.race([
-    expenseRepository.getExpenseById(id).then((expense) => expense ?? ('missing' as const)),
-    new Promise<'timeout'>((resolve) => window.setTimeout(() => resolve('timeout'), READ_TIMEOUT_MS)),
-  ]);
-  return result;
-}
-
 export function useAddTransactionViewModel(expenseId?: number) {
-  const showToast = useToastStore((s) => s.show);
-  const monthlyBudget = usePreferencesStore((s) => s.monthlyBudget);
-  const currency = usePreferencesStore((s) => s.currency);
-  const [categories, setCategories] = useState<Category[]>(() => getCachedCategories());
-  const [form, setForm] = useState<AddTransactionForm>(() => initialForm(expenseId));
+  const { t } = useTranslation();
+  const [form, setForm] = useState<AddTransactionForm>(defaultForm);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previousReceiptPath, setPreviousReceiptPath] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const CATEGORY_TIMEOUT_MS = 8000;
+      const catsPromise = expenseRepository.getAllCategories();
+      const timeoutPromise = new Promise<Category[]>((_, reject) =>
+        setTimeout(() => reject(new Error('Category load timed out')), CATEGORY_TIMEOUT_MS)
+      );
+      const cats = await Promise.race([catsPromise, timeoutPromise]);
+      setCategories(cats);
+      if (expenseId) {
+        const existing = await expenseRepository.getExpenseById(expenseId);
+        if (existing) {
+          setPreviousReceiptPath(existing.receiptImagePath ?? null);
+          setForm({
+            amountInput: existing.amount.toFixed(2).replace('.', ','),
+            transactionType: existing.transactionType,
+            categoryId: existing.categoryId,
+            note: existing.note,
+            dateMillis: existing.dateMillis,
+            receiptImagePath: existing.receiptImagePath ?? null,
+          });
+        }
+      } else {
+        const first = cats.find((c) => c.transactionType === 'expense');
+        setForm({ ...defaultForm(), categoryId: first?.id ?? null });
+        setPreviousReceiptPath(null);
+      }
+      setReady(true);
+    } catch (err) {
+      console.error('[useAddTransactionViewModel] load failed', err);
+      setReady(true); // Show form even on error — let user retry
+      setError(t('errorLoadFailed'));
+    }
+  }, [expenseId]);
 
   useEffect(() => {
-    let cancelled = false;
-    setError(null);
-
-    void (async () => {
-      try {
-        const cats = isCategoryCacheReady()
-          ? getCachedCategories()
-          : await preloadCategories();
-        if (cancelled) return;
-        setCategories(cats);
-
-        if (expenseId) {
-          const existing = await readExpenseWithTimeout(expenseId);
-          if (cancelled) return;
-          if (existing === 'timeout') {
-            setError(t('errorLoadFailed'));
-          } else if (existing === 'missing') {
-            setError(t('errorExpenseNotFound'));
-          } else {
-            setPreviousReceiptPath(existing.receiptImagePath ?? null);
-            setForm(applyExpenseForm(existing));
-            if (existing.receiptImagePath) {
-              void receiptService.ensureLocal(existing.receiptImagePath);
-            }
-          }
-        } else {
-          setForm((prev) => (prev.categoryId != null ? prev : applyDefaultCategory(cats)));
-          setPreviousReceiptPath(null);
-        }
-      } catch {
-        if (!cancelled) setError(t('errorLoadFailed'));
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [expenseId]);
+    void load();
+  }, [load]);
 
   const filteredCategories = useMemo(
     () => categories.filter((c) => c.transactionType === form.transactionType && c.id !== 0 && c.name?.trim()),
@@ -128,32 +78,19 @@ export function useAddTransactionViewModel(expenseId?: number) {
 
   useEffect(() => {
     if (!filteredCategories.some((c) => c.id === form.categoryId)) {
-      const nextId = filteredCategories[0]?.id ?? null;
-      if (form.categoryId !== nextId) {
-        setForm((f) => ({ ...f, categoryId: nextId }));
-      }
+      setForm((f) => ({ ...f, categoryId: filteredCategories[0]?.id ?? null }));
     }
   }, [form.transactionType, filteredCategories, form.categoryId]);
 
   const appendDigit = (digit: string) => {
-    const sep = decimalSeparator(currency);
-    setForm((f) => ({ ...f, amountInput: handleNumpadKey(f.amountInput, digit, sep) }));
+    setForm((f) => ({ ...f, amountInput: f.amountInput + digit }));
   };
 
-  const backspace = () => setForm((f) => ({ ...f, amountInput: numpadBackspace(f.amountInput) }));
+  const backspace = () => setForm((f) => ({ ...f, amountInput: f.amountInput.slice(0, -1) }));
 
   const setAmountInput = (value: string) => {
     const sanitized = value.replace(/[^\d,.\-]/g, '');
     setForm((f) => ({ ...f, amountInput: sanitized }));
-  };
-
-  const reload = async () => {
-    try {
-      const cats = await refreshCategoryCache();
-      setCategories(cats);
-    } catch {
-      setError(t('errorLoadFailed'));
-    }
   };
 
   const attachReceipt = async (file: File) => {
@@ -162,12 +99,6 @@ export function useAddTransactionViewModel(expenseId?: number) {
       await receiptService.deletePath(form.receiptImagePath);
     }
     setForm((f) => ({ ...f, receiptImagePath: path }));
-    if (isCloudSyncActive()) {
-      await receiptService.uploadToCloud(path);
-      if (receiptStorageService.isCloudReceiptsUnavailable()) {
-        showToast(t('receiptAttachedLocalHint'));
-      }
-    }
   };
 
   const removeReceipt = async () => {
@@ -177,68 +108,42 @@ export function useAddTransactionViewModel(expenseId?: number) {
     setForm((f) => ({ ...f, receiptImagePath: null }));
   };
 
-  const checkBudgetAlert = async (
-    type: TransactionType,
-    amount: number,
-    editingId?: number,
-  ): Promise<string | undefined> => {
-    if (type !== 'expense' || !monthlyBudget || monthlyBudget <= 0) return undefined;
-    const spent = await expenseRepository.sumMonthExpenses(editingId ?? 0);
-    const projected = spent + amount;
-    if (projected <= monthlyBudget) return undefined;
-    return t('errorBudgetExceeded', {
-      projected: formatAmount(projected, currency),
-      budget: formatAmount(monthlyBudget, currency),
-    });
-  };
-
-  const save = async (): Promise<SaveResult> => {
+  const save = async (): Promise<boolean> => {
     const amount = parseAmount(form.amountInput);
     if (!amount || amount <= 0) {
       setError(t('errorValidAmount'));
-      return { ok: false };
+      return false;
     }
     if (!form.categoryId) {
       setError(t('errorChooseCategory'));
-      return { ok: false };
+      return false;
     }
     setSaving(true);
     setError(null);
+    const payload: Omit<Expense, 'id'> = {
+      amount,
+      categoryId: form.categoryId,
+      note: form.note.trim(),
+      dateMillis: form.dateMillis,
+      transactionType: form.transactionType,
+      receiptImagePath: form.receiptImagePath,
+    };
+    // Idempotency: client-generated key prevents double-submits on retry
+    const idempotencyKey = `${payload.dateMillis}-${payload.categoryId}-${payload.amount.toFixed(2)}`;
     try {
-      const payload = {
-        amount,
-        categoryId: form.categoryId,
-        note: form.note.trim(),
-        dateMillis: form.dateMillis,
-        transactionType: form.transactionType,
-        receiptImagePath: form.receiptImagePath,
-      };
       if (expenseId) {
-        const existing = await expenseRepository.getExpenseById(expenseId);
-        if (!existing) {
-          setError(t('errorExpenseNotFound'));
-          return { ok: false };
-        }
-        await expenseRepository.updateExpense({ ...payload, id: expenseId, cloudId: existing.cloudId });
+        await expenseRepository.updateExpense({ ...payload, id: expenseId });
         if (previousReceiptPath && previousReceiptPath !== form.receiptImagePath) {
           await receiptService.deletePath(previousReceiptPath, expenseId);
         }
       } else {
-        await expenseRepository.insertExpense(payload);
+        await expenseRepository.insertExpense(payload, idempotencyKey);
       }
-      const budgetAlert = await checkBudgetAlert(form.transactionType, amount, expenseId);
-      window.dispatchEvent(new Event('ausgegeben:data-changed'));
-      if (
-        form.receiptImagePath
-        && isCloudSyncActive()
-        && receiptStorageService.isCloudReceiptsUnavailable()
-      ) {
-        showToast(t('receiptAttachedLocalHint'));
-      }
-      return { ok: true, budgetAlert };
-    } catch {
-      setError(t('errorSaveFailed'));
-      return { ok: false };
+      return true;
+    } catch (err) {
+      setError(t('errorValidAmount'));
+      console.error('[useAddTransactionViewModel] save failed', err);
+      return false;
     } finally {
       setSaving(false);
     }
@@ -248,13 +153,13 @@ export function useAddTransactionViewModel(expenseId?: number) {
     form,
     setForm,
     categories: filteredCategories,
+    ready,
     appendDigit,
     backspace,
     setAmountInput,
     attachReceipt,
     removeReceipt,
     save,
-    reload,
     saving,
     error,
     isEditing: Boolean(expenseId),

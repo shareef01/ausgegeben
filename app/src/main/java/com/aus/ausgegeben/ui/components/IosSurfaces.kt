@@ -55,14 +55,22 @@ fun Modifier.appCard(
 ): Modifier {
     val surface = MaterialTheme.colorScheme.surface
     val borderColor = MaterialTheme.colorScheme.outlineVariant
-    
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+
+    // Pillar 2: Raw glassmorphic surface with subtle depth — not stock M3 Surface
+    val glassBase = if (isDark) {
+        Color(0xFFFFFFFF).copy(alpha = 0.04f)
+    } else {
+        Color(0xFF000000).copy(alpha = 0.02f)
+    }
+
     return this
         .then(if (horizontalPadding > 0.dp) Modifier.padding(horizontal = horizontalPadding) else Modifier)
         .clip(shape)
-        .background(surface)
+        .background(glassBase)
         .then(
             if (bordered) {
-                Modifier.border(1.dp, borderColor, shape)
+                Modifier.border(1.dp, borderColor.copy(alpha = 0.55f), shape)
             } else {
                 Modifier
             },
