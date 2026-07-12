@@ -2,18 +2,16 @@ package com.aus.ausgegeben.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.paging.PagingData
-import androidx.paging.cachedIn
 import com.aus.ausgegeben.data.AppRepository
 import com.aus.ausgegeben.data.ExpenseQueryParams
-import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.data.TransactionTypeFilterKey
+import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.util.AnalyticsPeriod
-import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.RecordListPeriod
 import com.aus.ausgegeben.util.SpendingInsights
+import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.computeDayTotals
 import com.aus.ausgegeben.util.computeSpendingInsights
 import com.aus.ausgegeben.util.dateRangeMillis
@@ -31,7 +29,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -129,20 +126,20 @@ class ExpenseViewModel(
     )
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val pagedExpenses: Flow<PagingData<Expense>> = combine(
+    val pagedExpenses: Flow<List<Expense>> = combine(
         _listPeriod,
         _debouncedSearch,
         _typeFilter,
-        repository.expensesRevision.debounce(200),
+        repository.expensesRevision,
     ) { period, query, filter, _ ->
         val (start, end) = when (period) {
             RecordListPeriod.ALL_TIME -> 0L to Long.MAX_VALUE
             RecordListPeriod.THIS_MONTH -> AnalyticsPeriod.THIS_MONTH.dateRangeMillis() ?: (0L to Long.MAX_VALUE)
         }
-        ExpenseQueryParams.forPeriod(start, end, filter.toFilterKey(), query)
-    }.flatMapLatest { params ->
-        repository.pagedExpenses(params)
-    }.cachedIn(viewModelScope)
+        Triple(start, end, filter)
+    }.flatMapLatest { (start, end, filter) ->
+        repository.queryExpenses(ExpenseQueryParams.forPeriod(start, end, filter.toFilterKey(), _searchQuery.value))
+    }.distinctUntilChanged()
 
     fun setSearchQuery(query: String) {
         _searchQuery.value = query

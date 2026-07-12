@@ -1,8 +1,10 @@
-package com.aus.ausgegeben.ui
+﻿package com.aus.ausgegeben.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -31,9 +33,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.paging.LoadState
-import androidx.paging.compose.collectAsLazyPagingItems
-import androidx.paging.compose.itemKey
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.ui.components.*
@@ -92,7 +91,7 @@ fun RecordScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val lazyExpenses = viewModel.pagedExpenses.collectAsLazyPagingItems()
+    val allExpenses by viewModel.pagedExpenses.collectAsState(initial = emptyList())
     
     // Performance: Memoize derived calculations to prevent UI jank during scroll
     val dayTotalsByLabel = remember(uiState.dayTotalsByLabel) { uiState.dayTotalsByLabel }
@@ -155,7 +154,7 @@ fun RecordScreen(
 
             item { Spacer(Modifier.height(24.dp)) }
 
-            if (lazyExpenses.loadState.refresh is LoadState.NotLoading && lazyExpenses.itemCount > 0) {
+            if (allExpenses.isNotEmpty()) {
                 uiState.insights.topExpenseCategoryName?.let { name ->
                     item(key = "insight") {
                         Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -168,47 +167,25 @@ fun RecordScreen(
                 }
             }
 
-            when (val state = lazyExpenses.loadState.refresh) {
-                is LoadState.Error -> {
-                    item(key = "error") {
-                        EmptyStateMessage(
-                            icon = Icons.AutoMirrored.Rounded.ReceiptLong,
-                            title = stringResource(R.string.record_error_title),
-                            subtitle = state.error.localizedMessage ?: "",
-                            actionLabel = stringResource(R.string.record_error_retry),
-                            onAction = { lazyExpenses.retry() },
-                        )
-                    }
+            if (allExpenses.isEmpty()) {
+                item(key = "empty") {
+                    EmptyStateMessage(
+                        icon = Icons.AutoMirrored.Rounded.ReceiptLong,
+                        title = stringResource(R.string.record_empty_title),
+                        subtitle = stringResource(R.string.record_empty_subtitle),
+                        actionLabel = stringResource(R.string.record_empty_action),
+                        onAction = onAddTransaction
+                    )
                 }
-                is LoadState.Loading -> {
-                    if (lazyExpenses.itemCount == 0) {
-                        item(key = "loading") {
-                            Box(Modifier.fillMaxWidth().padding(64.dp), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, strokeWidth = 2.dp)
-                            }
-                        }
-                    }
-                }
-                else -> {
-                    if (lazyExpenses.itemCount == 0) {
-                        item(key = "empty") {
-                            EmptyStateMessage(
-                                icon = Icons.AutoMirrored.Rounded.ReceiptLong,
-                                title = stringResource(R.string.record_empty_title),
-                                subtitle = stringResource(R.string.record_empty_subtitle),
-                                actionLabel = stringResource(R.string.record_empty_action),
-                                onAction = onAddTransaction
-                            )
-                        }
-                    } else {
-                        items(
-                            count = lazyExpenses.itemCount,
-                            key = lazyExpenses.itemKey { it.id }
-                        ) { index ->
-                            val expense = lazyExpenses[index] ?: return@items
+            } else {
+                items(
+                    count = allExpenses.size,
+                    key = { allExpenses[it].id }
+                ) { index ->
+                            val expense = allExpenses.getOrNull(index) ?: return@items
                             val dayStart = localDayStartMillis(expense.dateMillis)
                             val isFirstInDay = if (index > 0) {
-                                val prev = lazyExpenses.peek(index - 1)
+                                val prev = allExpenses.getOrNull(index - 1)
                                 prev == null || localDayStartMillis(prev.dateMillis) != dayStart
                             } else true
 
@@ -239,11 +216,9 @@ fun RecordScreen(
                                 color = RecordAuroraTokens.hairline()
                             )
                         }
-                    }
                 }
             }
         }
-    }
 
     if (receiptToView != null) {
         ReceiptImageDialog(uri = receiptToView!!, onDismiss = { receiptToView = null })
@@ -342,7 +317,21 @@ private fun RecordListToolbar(
             }
         }
 
-        AnimatedVisibility(visible = searchExpanded, enter = expandVertically(), exit = shrinkVertically()) {
+        AnimatedVisibility(
+            visible = searchExpanded,
+            enter = expandVertically(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            ) + androidx.compose.animation.fadeIn(),
+            exit = shrinkVertically(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessHigh
+                )
+            ) + androidx.compose.animation.fadeOut()
+        ) {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = onSearchChange,
