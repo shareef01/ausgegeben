@@ -16,14 +16,20 @@ interface CashFlowChartProps {
 const CHART_WIDTH = 400;
 const CHART_HEIGHT = 136;
 const PAD_X = 8;
-const PAD_Y = 16;
+const PAD_Y_TOP = 16;
+const PAD_Y_BOTTOM = 16;
+// Mandate: 20% vertical padding at top so spikes never hit the ceiling
+const TOP_PADDING_RATIO = 0.20;
 const CHART_W = CHART_WIDTH - PAD_X * 2;
-const CHART_H = CHART_HEIGHT - PAD_Y * 2;
+const CHART_H = CHART_HEIGHT - PAD_Y_TOP - PAD_Y_BOTTOM;
 
 function yFor(value: number, minV: number, maxV: number): number {
   const range = Math.max(maxV - minV, 1);
-  const t = (value - minV) / range;
-  return PAD_Y + CHART_H * (1 - t);
+  // Expand the max by TOP_PADDING_RATIO of the range to leave headroom
+  const paddedMax = maxV + range * TOP_PADDING_RATIO;
+  const paddedRange = paddedMax - minV;
+  const t = (value - minV) / paddedRange;
+  return PAD_Y_TOP + CHART_H * (1 - t);
 }
 
 function xFor(index: number, count: number): number {
@@ -98,7 +104,7 @@ export function CashFlowChart({ trend, periodKey, ariaLabelledBy }: CashFlowChar
   const uid = useId().replace(/:/g, '');
   const incomeGradId = `cf-income-${uid}`;
   const expenseGradId = `cf-expense-${uid}`;
-  const bottomY = PAD_Y + CHART_H;
+  const bottomY = PAD_Y_TOP + CHART_H;
 
   const revealKey = useMemo(
     () => `${periodKey ?? ''}|${trend.map((p) => `${p.label}:${p.income}:${p.expense}`).join('|')}`,
@@ -147,7 +153,7 @@ export function CashFlowChart({ trend, periodKey, ariaLabelledBy }: CashFlowChar
         </defs>
 
         {[0, 1, 2, 3].map((index) => {
-          const y = PAD_Y + CHART_H * (index / 3);
+          const y = PAD_Y_TOP + CHART_H * (index / 3);
           return (
             <line
               key={index}
