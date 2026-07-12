@@ -51,6 +51,8 @@ export function AuthView() {
           <button type="button" className={tab === 'signup' ? 'active' : ''} onClick={() => setTab('signup')}>{t('authSignUp')}</button>
         </div>
 
+        <form onSubmit={(e) => { e.preventDefault(); void handleSubmit(); }}>
+
         <div className="card auth-page__form">
           <label className="field">
             <span className="field__label">{t('authEmail')}</span>
@@ -80,14 +82,14 @@ export function AuthView() {
           {syncing ? <p className="auth-page__sync">{t('syncInProgress')}</p> : null}
 
           <button
-            type="button"
+            type="submit"
             className="btn btn-primary btn-block"
             disabled={!firebaseReady || busy || !email || !password}
-            onClick={() => void handleSubmit()}
           >
             {busy ? t('loading') : tab === 'signin' ? t('authSignIn') : t('authSignUp')}
           </button>
         </div>
+        </form>
 
         <p className="auth-page__hint">{t('authCloudHint')}</p>
       </div>

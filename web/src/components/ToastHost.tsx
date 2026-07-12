@@ -9,13 +9,16 @@ export function ToastHost() {
   if (!message) return null;
 
   return (
-    <div className="toast-host" role="status">
+    <div className="toast-host" role="status" aria-live="polite">
       <span>{message}</span>
       {actionLabel && onAction ? (
         <button type="button" className="toast-host__action" onClick={() => { onAction(); dismiss(); }}>
           {actionLabel}
         </button>
       ) : null}
+      <button type="button" className="toast-host__dismiss" aria-label="Dismiss" onClick={dismiss}>
+        &times;
+      </button>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, type ReactNode, type ComponentType } from 'react';
+import { useState, type ReactNode, type ComponentType, useRef } from 'react';
 import { ScreenTitle } from '@/components/ui';
 import {
   IconChevronRight,
@@ -57,6 +57,9 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
   const [showCurrency, setShowCurrency] = useState(false);
   const [showLanguage, setShowLanguage] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const [editBudget, setEditBudget] = useState(false);
+  const [budgetInput, setBudgetInput] = useState('');
+  const budgetInputRef = useRef<HTMLInputElement>(null);
 
   const exportData = async () => {
     const expenses = await expenseRepository.getAllExpenses();
@@ -120,18 +123,46 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
       </Section>
 
       <Section title={t('settingsBudget')}>
-        <SettingsRow
-          icon={IconGauge}
-          iconTint="neutral"
-          title={t('settingsMonthlyLimit')}
-          subtitle={monthlyBudget ? formatAmount(monthlyBudget, currency) : t('settingsMonthlyLimitNotSet')}
-          onClick={() => {
-            const raw = prompt(t('settingsMonthlyLimit'), monthlyBudget?.toString() ?? '');
-            if (raw === null) return;
-            const n = Number.parseFloat(raw.replace(',', '.'));
-            setMonthlyBudget(Number.isFinite(n) && n > 0 ? n : null);
-          }}
-        />
+        {editBudget ? (
+          <div className="settings-row" style={{ gap: 10, flexWrap: 'wrap' }}>
+            <input
+              ref={budgetInputRef}
+              className="search-input"
+              type="number"
+              inputMode="decimal"
+              placeholder="0.00"
+              value={budgetInput}
+              onChange={(e) => setBudgetInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const n = Number.parseFloat(budgetInput.replace(',', '.'));
+                  setMonthlyBudget(Number.isFinite(n) && n > 0 ? n : null);
+                  setEditBudget(false);
+                } else if (e.key === 'Escape') {
+                  setEditBudget(false);
+                }
+              }}
+              autoFocus
+            />
+            <button type="button" className="btn btn-primary" style={{ padding: '6px 14px', fontSize: '0.8125rem' }} onClick={() => {
+              const n = Number.parseFloat(budgetInput.replace(',', '.'));
+              setMonthlyBudget(Number.isFinite(n) && n > 0 ? n : null);
+              setEditBudget(false);
+            }}>{t('actionSave')}</button>
+            <button type="button" className="btn btn-secondary" style={{ padding: '6px 14px', fontSize: '0.8125rem' }} onClick={() => setEditBudget(false)}>{t('actionCancel')}</button>
+          </div>
+        ) : (
+          <SettingsRow
+            icon={IconGauge}
+            iconTint="neutral"
+            title={t('settingsMonthlyLimit')}
+            subtitle={monthlyBudget ? formatAmount(monthlyBudget, currency) : t('settingsMonthlyLimitNotSet')}
+            onClick={() => {
+              setBudgetInput(monthlyBudget?.toString().replace('.', ',') ?? '');
+              setEditBudget(true);
+            }}
+          />
+        )}
       </Section>
 
       <Section title={t('settingsManagement')}>
