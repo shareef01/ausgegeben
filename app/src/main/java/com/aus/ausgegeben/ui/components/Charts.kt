@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -33,6 +34,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -462,3 +464,114 @@ fun AnimatedCategoryBar(
         )
     }
 }
+
+// ── Pillar 1: Cash Flow Line Chart with mandatory 20% vertical headroom ──
+
+private const val CASHFLOW_TOP_HEADROOM = 0.20f
+
+@Composable
+fun CashFlowLineChart(
+    trend: List<CashFlowPoint>,
+    modifier: Modifier = Modifier
+) {
+    if (trend.isEmpty()) return
+
+    val incomeColor = financeIncomeColor()
+    val expenseColor = financeExpenseColor()
+    val trackColor = appDividerColor().copy(alpha = 0.28f)
+    val animationKey = remember(trend) { trend.hashCode() }
+    val progress = remember { Animatable(0f) }
+
+    LaunchedEffect(animationKey) {
+        progress.snapTo(0f)
+        progress.animateTo(1f, AppChartRevealSpring)
+    }
+
+    val chartHeight = 136.dp
+    val strokePx = 3.dp
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = AppSpacing.xs)
+            .height(chartHeight)
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+            val padTop = 16.dp.toPx()
+            val padBottom = 16.dp.toPx()
+            val chartW = w - 16.dp.toPx()
+            val chartH = h - padTop - padBottom
+            val reveal = progress.value
+
+            val allValues = trend.flatMap { listOf(it.income, it.expense) }
+            val minV = allValues.min()
+            val maxV = allValues.max()
+            val range = (maxV - minV).coerceAtLeast(1.0)
+            val paddedMax = maxV + range * CASHFLOW_TOP_HEADROOM
+            val paddedRange = paddedMax - minV
+
+            fun xFor(idx: Int): Float {
+                if (trend.size <= 1) return 8.dp.toPx() + chartW / 2f
+                return 8.dp.toPx() + (idx.toFloat() / (trend.size - 1)) * chartW
+            }
+
+            fun yFor(value: Double): Float {
+                val t = ((value - minV) / paddedRange).toFloat()
+                return padTop + chartH * (1f - t)
+            }
+
+            // Grid lines
+            for (i in 0..3) {
+                val gy = padTop + chartH * (i / 3f)
+                drawLine(
+                    color = trackColor,
+                    start = Offset(0f, gy),
+                    end = Offset(w, gy),
+                    strokeWidth = 1.dp.toPx()
+                )
+            }
+
+            // Income line
+            val incomePts = trend.mapIndexed { i, p -> Offset(xFor(i), yFor(p.income)) }
+            if (incomePts.size >= 2) {
+                val incomePath = Path().apply {
+                    moveTo(incomePts[0].x, incomePts[0].y)
+                    for (j in 0 until incomePts.size - 1) {
+                        val from = incomePts[j]; val to = incomePts[j + 1]
+                        val cpX = (from.x + to.x) / 2f
+                        cubicTo(cpX, from.y, cpX, to.y, to.x, to.y)
+                    }
+                }
+                drawPath(incomePath, incomeColor.copy(alpha = 0.22f * reveal),
+                    style = Stroke(width = strokePx.toPx() * 2.2f, cap = StrokeCap.Round))
+                drawPath(incomePath, incomeColor.copy(alpha = reveal),
+                    style = Stroke(width = strokePx.toPx(), cap = StrokeCap.Round))
+            }
+
+            // Expense line
+            val expensePts = trend.mapIndexed { i, p -> Offset(xFor(i), yFor(p.expense)) }
+            if (expensePts.size >= 2) {
+                val expensePath = Path().apply {
+                    moveTo(expensePts[0].x, expensePts[0].y)
+                    for (j in 0 until expensePts.size - 1) {
+                        val from = expensePts[j]; val to = expensePts[j + 1]
+                        val cpX = (from.x + to.x) / 2f
+                        cubicTo(cpX, from.y, cpX, to.y, to.x, to.y)
+                    }
+                }
+                drawPath(expensePath, expenseColor.copy(alpha = 0.22f * reveal),
+                    style = Stroke(width = strokePx.toPx() * 2.2f, cap = StrokeCap.Round))
+                drawPath(expensePath, expenseColor.copy(alpha = reveal),
+                    style = Stroke(width = strokePx.toPx(), cap = StrokeCap.Round))
+            }
+        }
+    }
+}
+
+data class CashFlowPoint(
+    val label: String,
+    val income: Double,
+    val expense: Double
+)

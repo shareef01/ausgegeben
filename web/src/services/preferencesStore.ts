@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+﻿import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { AppPreferences, ThemeMode, StorageMode, RecordListPeriod, SyncedPreferences } from '@/models/types';
 import type { Locale } from '@/i18n';
@@ -23,10 +23,6 @@ function touchPrefs(): number {
   return Date.now();
 }
 
-function pushPrefsIfCloud(): void {
-  void import('@/services/syncService').then(({ syncService }) => syncService.pushPreferences());
-}
-
 interface PreferencesStore extends AppPreferences {
   setCurrency: (currency: string) => void;
   setLocale: (locale: Locale) => void;
@@ -49,32 +45,25 @@ export const usePreferencesStore = create<PreferencesStore>()(
       ...DEFAULT_PREFERENCES,
       setCurrency: (currency) => {
         set({ currency, preferencesUpdatedAt: touchPrefs() });
-        pushPrefsIfCloud();
       },
       setLocale: (locale) => {
         set({ locale, preferencesUpdatedAt: touchPrefs() });
-        pushPrefsIfCloud();
       },
       setThemeMode: (themeMode) => {
         set({ themeMode, preferencesUpdatedAt: touchPrefs() });
-        pushPrefsIfCloud();
       },
       completeOnboarding: () => set({ onboardingComplete: true }),
       setDailyReminder: (dailyReminder) => {
         set({ dailyReminder, preferencesUpdatedAt: touchPrefs() });
-        pushPrefsIfCloud();
       },
       setReminderTime: (reminderHour, reminderMinute) => {
         set({ reminderHour, reminderMinute, preferencesUpdatedAt: touchPrefs() });
-        pushPrefsIfCloud();
       },
       setAnalyticsPeriod: (analyticsPeriod) => {
         set({ analyticsPeriod, preferencesUpdatedAt: touchPrefs() });
-        pushPrefsIfCloud();
       },
       setMonthlyBudget: (monthlyBudget) => {
         set({ monthlyBudget, preferencesUpdatedAt: touchPrefs() });
-        pushPrefsIfCloud();
       },
       setStorageMode: (storageMode) => set({ storageMode }),
       completeAuthGateway: () => set({ authGatewayComplete: true }),
