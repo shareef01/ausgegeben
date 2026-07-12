@@ -7,16 +7,44 @@
 
 :root {
   --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
-  --bottom-bar-height: 72px;
-  --fab-size: 64px;
-  --fab-clearance: 88px;
+
+  /* ── Color defaults (overridden by applyTheme) ── */
+  --color-primary: #FAFAFA;
+  --color-on-primary: #000000;
+  --color-background: #000000;
+  --color-on-background: #FAFAFA;
+  --color-surface: #121214;
+  --color-on-surface: #F4F4F5;
+  --color-surface-variant: #18181B;
+  --color-on-surface-variant: #71717A;
+  --color-outline: rgba(255, 255, 255, 0.08);
+  --color-error: #FB7185;
+  --color-income: #10B981;
+  --color-expense: #FB7185;
+  --color-transfer: #94A3B8;
+  --color-accent: #10B981;
+  --color-focus: #10B981;
+
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-bg-elevated: rgba(18, 18, 20, 0.92);
+  --surface-border: rgba(255, 255, 255, 0.06);
+  --hairline-border: rgba(255, 255, 255, 0.08);
+  --hairline-divider: rgba(255, 255, 255, 0.04);
+  --color-label-muted: #71717A;
+  --color-balance-positive: #10B981;
+  --color-balance-negative: #FB7185;
+  --color-stat-value: #FAFAFA;
+
+  /* ── Layout ── */
+  --bottom-bar-height: 56px;
+  --fab-size: 60px;
+  --fab-clearance: 72px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --layout-breakpoint: 768px;
   --app-max-width: 100%;
-  --app-sidebar-width: 240px;
-  --content-max-width: min(calc(100vw - var(--app-sidebar-width) - 80px), 1200px);
-  --content-sidebar-gap: 28px;
+  --content-max-width: 100%;
   --workspace-padding: 16px;
   --workspace-padding-desktop: 32px;
   --radius-lg: 20px;
@@ -31,31 +59,13 @@
 @media (min-width: 400px) {
   :root {
     --workspace-padding: 20px;
-    --bottom-bar-height: 76px;
+    --bottom-bar-height: 60px;
   }
 }
 
 @media (min-width: 430px) {
   :root {
     --workspace-padding: 24px;
-    --fab-clearance: 96px;
-  }
-}
-
-@media (min-width: 1200px) {
-  :root {
-    --content-max-width: min(calc(100vw - var(--app-sidebar-width) - 120px), 1200px);
-    --app-sidebar-width: 260px;
-    --workspace-padding-desktop: 32px;
-    --content-sidebar-gap: 40px;
-  }
-}
-
-@media (min-width: 1440px) {
-  :root {
-    --content-max-width: min(calc(100vw - var(--app-sidebar-width) - 160px), 1400px);
-    --app-sidebar-width: 280px;
-    --workspace-padding-desktop: 40px;
-    --app-max-width: min(1680px, 94vw);
+    --fab-clearance: 80px;
   }
 }

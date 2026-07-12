@@ -3,7 +3,6 @@ package com.aus.ausgegeben
 import android.Manifest
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -105,7 +104,6 @@ fun MainApp(
     val dailyReminder by preferenceManager.dailyReminderFlow.collectAsState(initial = true)
     val onboardingComplete by preferenceManager.onboardingCompleteFlow.collectAsState(initial = false)
     val authGatewayComplete by preferenceManager.authGatewayCompleteFlow.collectAsState(initial = false)
-    val storageMode by preferenceManager.storageModeFlow.collectAsState(initial = StorageMode.LOCAL)
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var pendingOpenAdd by remember { mutableStateOf(openAddFromNotification) }
