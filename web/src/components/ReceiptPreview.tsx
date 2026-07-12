@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { receiptService } from '@/services/receiptService';
 import { useTranslation } from '@/i18n';
 
@@ -10,6 +10,16 @@ interface ReceiptPreviewProps {
 export function ReceiptPreview({ path, onClose }: ReceiptPreviewProps) {
   const { t } = useTranslation();
   const [url, setUrl] = useState<string | null>(null);
+
+  const handleClose = useCallback(onClose, [onClose]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [handleClose]);
 
   useEffect(() => {
     let objectUrl: string | null = null;
@@ -27,7 +37,7 @@ export function ReceiptPreview({ path, onClose }: ReceiptPreviewProps) {
       <div className="sheet receipt-preview" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
           <h2 style={{ margin: 0 }}>{t('receiptTitle')}</h2>
-          <button type="button" onClick={onClose}>{t('actionClose')}</button>
+          <button type="button" onClick={handleClose} aria-label={t('actionClose')}>{t('actionClose')}</button>
         </div>
         {url ? (
           <img src={url} alt={t('receiptTitle')} style={{ width: '100%', borderRadius: 12, maxHeight: '70vh', objectFit: 'contain' }} />

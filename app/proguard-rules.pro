@@ -1,6 +1,5 @@
-# Keep Room entities and DAOs
+# Keep data entities (serialized via Firestore)
 -keep class com.aus.ausgegeben.data.entity.** { *; }
--keep class com.aus.ausgegeben.data.dao.** { *; }
 
 # WorkManager workers
 -keep class com.aus.ausgegeben.notification.** { *; }

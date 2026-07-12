@@ -1,8 +1,4 @@
-﻿import { getFirebaseStorage } from '@/services/firebase';
-import { ref, uploadBytes, deleteObject } from 'firebase/storage';
-import { useAuthStore } from '@/services/authStore';
-
-const receiptCache = new Map<string, StoredReceipt>();
+﻿const receiptCache = new Map<string, StoredReceipt>();
 
 export interface StoredReceipt { id: string; mimeType: string; data: Blob; createdAt: number; }
 

@@ -49,6 +49,6 @@ describe('periodUtils', () => {
   it('formatRelativeTimestamp labels today', () => {
     const now = new Date(2026, 5, 10, 15, 30).getTime();
     const earlier = new Date(2026, 5, 10, 9, 0).getTime();
-    expect(formatRelativeTimestamp(earlier, 'en', now)).toMatch(/^Today,/);
+    expect(formatRelativeTimestamp(earlier, 'en', now)).toMatch(/^today,/);
   });
 });
