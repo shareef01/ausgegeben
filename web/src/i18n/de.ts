@@ -96,6 +96,7 @@ export const de: Record<TranslationKey, string> = {
   langGerman: 'deutsch',
   errorValidAmount: 'gültigen betrag eingeben',
   errorChooseCategory: 'kategorie wählen',
+  errorLoadFailed: 'laden fehlgeschlagen. bitte erneut versuchen.',
   typeExpense: 'ausgabe',
   typeIncome: 'einnahme',
   typeTransfer: 'transfer',

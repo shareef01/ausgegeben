@@ -70,22 +70,14 @@
     0 0 0 1px color-mix(in srgb, var(--color-on-background) 4%, transparent);
 }
 
-/* ── Mobile bottom bar — theme-aware ── */
+/* ── Bottom bar theme-aware ── */
 
-@media (max-width: 767px) {
-  .bottom-bar {
-    box-shadow:
-      0 8px 32px color-mix(in srgb, var(--color-on-background) 22%, transparent),
-      inset 0 1px 0 color-mix(in srgb, var(--color-on-background) 6%, transparent);
-  }
+.bottom-bar__item--active {
+  color: var(--color-accent);
+}
 
-  .bottom-bar__item--active .bottom-bar__icon {
-    color: var(--color-accent);
-  }
-
-  [data-theme='dark'] .bottom-bar__item--active .bottom-bar__icon {
-    color: var(--color-accent);
-  }
+[data-theme='dark'] .bottom-bar__item--active {
+  color: var(--color-accent);
 }
 
 /* ── Mobile sync indicator ── */
@@ -206,4 +198,32 @@
   .insights-stat-card--net-negative {
     grid-area: net;
   }
+}
+
+/* ═══════════════════════════════════════════════════
+ *  Light theme overrides
+ *  ═══════════════════════════════════════════════════ */
+
+[data-theme='light'] .app-header__nav-pill {
+  background: #F1F1F4;
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme='light'] .app-header__nav-item {
+  color: #71717A;
+}
+
+[data-theme='light'] .app-header__nav-item:hover {
+  color: #09090B;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme='light'] .card {
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+[data-theme='light'] .bottom-bar {
+  background: color-mix(in srgb, #FFFFFF 88%, transparent);
+  border-color: rgba(0, 0, 0, 0.08);
 }

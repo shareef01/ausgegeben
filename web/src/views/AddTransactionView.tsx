@@ -7,7 +7,7 @@ import { CategoryLucideIcon } from '@/components/CategoryLucideIcon';
 import { ReceiptThumbnail } from '@/components/ReceiptPreview';
 import { colorIntToHex } from '@/utils/currency';
 import { usePreferencesStore } from '@/services/preferencesStore';
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 
 interface AddTransactionViewProps {
   expenseId?: number;
@@ -20,6 +20,16 @@ export function AddTransactionView({ expenseId, onClose, onSaved }: AddTransacti
   const currency = usePreferencesStore((s) => s.currency);
   const vm = useAddTransactionViewModel(expenseId);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const amountInputRef = useRef<HTMLInputElement>(null);
+  const previousFocus = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    previousFocus.current = document.activeElement as HTMLElement | null;
+    amountInputRef.current?.focus();
+    return () => {
+      previousFocus.current?.focus();
+    };
+  }, []);
 
   const handleSave = async () => {
     const ok = await vm.save();
@@ -65,6 +75,7 @@ export function AddTransactionView({ expenseId, onClose, onSaved }: AddTransacti
           <label className="field amount-entry__field">
             <span className="field__label">{t('addAmountLabel')}</span>
             <input
+              ref={amountInputRef}
               className="field__input amount-entry__input amount-entry__input--desktop"
               type="text"
               inputMode="decimal"

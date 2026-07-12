@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode, type PointerEvent } from 'react';
+import { useRef, useState, type ReactNode, type PointerEvent as ReactPointerEvent } from 'react';
 import { useTranslation } from '@/i18n';
 
 interface SwipeableRowProps {
@@ -24,6 +24,7 @@ export function SwipeableRow({ children, onDelete, onTap, onLongPress }: Swipeab
   const swipeAxis = useRef<'none' | 'x' | 'y'>('none');
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFired = useRef(false);
+  const pointerId = useRef(-1);
 
   const applyOffset = (value: number, commitState = false) => {
     offsetRef.current = value;
@@ -42,15 +43,23 @@ export function SwipeableRow({ children, onDelete, onTap, onLongPress }: Swipeab
     }
   };
 
-  const onPointerDown = (e: PointerEvent) => {
+  const resetTracking = () => {
+    tracking.current = false;
+    swipeAxis.current = 'none';
+  };
+
+  const onPointerDown = (e: ReactPointerEvent) => {
     if (e.button !== 0) return;
+    const el = contentRef.current;
+    if (!el) return;
     tracking.current = true;
     swipeAxis.current = 'none';
     longPressFired.current = false;
     startX.current = e.clientX;
     startY.current = e.clientY;
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    contentRef.current?.classList.add('swipeable-row__content--dragging');
+    pointerId.current = e.pointerId;
+    try { el.setPointerCapture(e.pointerId); } catch { /* pointer may not be active yet */ }
+    el.classList.add('swipeable-row__content--dragging');
     if (onLongPress) {
       longPressTimer.current = setTimeout(() => {
         longPressFired.current = true;
@@ -59,7 +68,7 @@ export function SwipeableRow({ children, onDelete, onTap, onLongPress }: Swipeab
     }
   };
 
-  const onPointerMove = (e: PointerEvent) => {
+  const onPointerMove = (e: ReactPointerEvent) => {
     if (!tracking.current || longPressFired.current) return;
     const dx = e.clientX - startX.current;
     const dy = e.clientY - startY.current;
@@ -70,27 +79,24 @@ export function SwipeableRow({ children, onDelete, onTap, onLongPress }: Swipeab
 
     if (swipeAxis.current === 'y') {
       clearLongPress();
-      // If we are scrolling vertically, release the pointer so the browser can scroll
-      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-      tracking.current = false;
+      try { contentRef.current?.releasePointerCapture(pointerId.current); } catch { /* ok */ }
+      resetTracking();
       return;
     }
 
     if (swipeAxis.current === 'x') {
       clearLongPress();
-      // Law: Dual-axis swipe support (Edit on right-swipe, Delete on left-swipe)
       applyOffset(Math.max(-SWIPE_OPEN, Math.min(dx, SWIPE_OPEN)));
     }
   };
 
   const onPointerUp = () => {
-    tracking.current = false;
     clearLongPress();
     contentRef.current?.classList.remove('swipeable-row__content--dragging');
 
     if (longPressFired.current) {
       applyOffset(0, true);
-      swipeAxis.current = 'none';
+      resetTracking();
       return;
     }
 
@@ -100,18 +106,13 @@ export function SwipeableRow({ children, onDelete, onTap, onLongPress }: Swipeab
     if (movedX) {
       if (current <= -SWIPE_THRESHOLD) {
         onDelete();
-        applyOffset(0, true);
       } else if (current >= SWIPE_THRESHOLD) {
-        if (onTap) onTap(); // Law: Tap is now a Swipe-Right gesture
-        applyOffset(0, true);
-      } else {
-        applyOffset(0, true);
+        onTap?.();
       }
-    } else {
-      applyOffset(0, true);
     }
 
-    swipeAxis.current = 'none';
+    applyOffset(0, true);
+    resetTracking();
   };
 
   return (

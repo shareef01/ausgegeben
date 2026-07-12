@@ -35,18 +35,7 @@ body {
 .app-shell {
   min-height: 100vh;
   min-height: -webkit-fill-available;
-}
-
-.bottom-bar {
-  /* Ensure it stays fixed but doesn't block scroll events */
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding-bottom: var(--safe-bottom);
-  height: calc(var(--bottom-bar-height) + var(--safe-bottom));
-  pointer-events: auto;
-  z-index: 100;
+  min-height: 100dvh;
 }
 
 /* ── Transaction Sheet Fit ── */
@@ -59,7 +48,6 @@ body {
 
 /* ── Touch Interaction ── */
 
-.swipeable-row,
 .pressable-row,
 .btn,
 .numpad__key {
