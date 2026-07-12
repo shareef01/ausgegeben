@@ -13,9 +13,9 @@
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --layout-breakpoint: 768px;
-  --app-max-width: min(1440px, 98vw);
-  --app-sidebar-width: 248px;
-  --content-max-width: 1200px;
+  --app-max-width: 100%;
+  --app-sidebar-width: 240px;
+  --content-max-width: min(calc(100vw - var(--app-sidebar-width) - 80px), 1200px);
   --content-sidebar-gap: 28px;
   --workspace-padding: 16px;
   --workspace-padding-desktop: 32px;
@@ -27,10 +27,25 @@
   --transition-premium: 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* Wider phones (iPhone 15 Pro Max, Plus models) — more spacious padding */
+@media (min-width: 400px) {
+  :root {
+    --workspace-padding: 20px;
+    --bottom-bar-height: 76px;
+  }
+}
+
+@media (min-width: 430px) {
+  :root {
+    --workspace-padding: 24px;
+    --fab-clearance: 96px;
+  }
+}
+
 @media (min-width: 1200px) {
   :root {
-    --content-max-width: 1040px;
-    --app-sidebar-width: 268px;
+    --content-max-width: min(calc(100vw - var(--app-sidebar-width) - 120px), 1200px);
+    --app-sidebar-width: 260px;
     --workspace-padding-desktop: 32px;
     --content-sidebar-gap: 40px;
   }
@@ -38,9 +53,9 @@
 
 @media (min-width: 1440px) {
   :root {
-    --content-max-width: 1200px;
-    --app-max-width: min(1680px, 94vw);
-    --app-sidebar-width: 284px;
+    --content-max-width: min(calc(100vw - var(--app-sidebar-width) - 160px), 1400px);
+    --app-sidebar-width: 280px;
     --workspace-padding-desktop: 40px;
+    --app-max-width: min(1680px, 94vw);
   }
 }

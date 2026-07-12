@@ -51,7 +51,7 @@ object AppElevation {
 
 object AppLayoutTokens {
     val listSeparatorInset = 0.dp
-    val fabClearance = 80.dp
+    val fabClearance = 120.dp
 }
 
 object AppShadowColor {

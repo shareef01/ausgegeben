@@ -53,12 +53,14 @@ val Typography = Typography(
         fontWeight = FontWeight.Normal,
         fontSize = 16.sp,
         lineHeight = 24.sp,
+        fontFeatureSettings = "tnum"
     ),
     bodyMedium = TextStyle(
         fontFamily = InterFontFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 14.sp,
         lineHeight = 20.sp,
+        fontFeatureSettings = "tnum"
     ),
     /** Muted Metadata Sub-labels */
     labelSmall = TextStyle(
