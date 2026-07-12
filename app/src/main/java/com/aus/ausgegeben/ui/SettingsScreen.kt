@@ -23,7 +23,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,8 +35,6 @@ import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.data.AppRepository
 import com.aus.ausgegeben.data.auth.AuthRepository
-import com.aus.ausgegeben.data.cloud.CloudSyncCoordinator
-import com.aus.ausgegeben.data.cloud.CloudSyncRepository
 import com.aus.ausgegeben.ui.components.*
 import com.aus.ausgegeben.ui.theme.*
 import com.aus.ausgegeben.util.CurrencyUtils
@@ -46,8 +47,6 @@ fun SettingsScreen(
     preferenceManager: PreferenceManager,
     authRepository: AuthRepository,
     authViewModel: AuthViewModel,
-    cloudSyncRepository: CloudSyncRepository,
-    cloudSyncCoordinator: CloudSyncCoordinator,
     onNavigateToCategories: () -> Unit,
     onShowMessage: (String) -> Unit,
     onRequestNotificationPermission: () -> Unit,
@@ -128,13 +127,24 @@ fun SettingsScreen(
         item { GroupedSectionLabel(text = stringResource(R.string.settings_section_management)) }
         item {
             GroupedSection {
-                SettingsActionRow(
-                    icon = Icons.Rounded.CloudUpload,
-                    tint = MaterialTheme.colorScheme.primary,
-                    title = stringResource(R.string.settings_account_cloud).lowercase(),
-                    onClick = onRequestSignIn
-                )
-                IosSeparator(insetStart = 56.dp)
+                if (currentUser != null) {
+                    SettingsActionRow(
+                        icon = Icons.Rounded.CloudDone,
+                        tint = Color(0xFF10B981),
+                        title = stringResource(R.string.settings_account_cloud).lowercase(),
+                        subtitle = (currentUser?.email ?: "").lowercase(),
+                        onClick = { /* data is always live with Firestore */ }
+                    )
+                    IosSeparator(insetStart = 56.dp)
+                } else {
+                    SettingsActionRow(
+                        icon = Icons.Rounded.CloudUpload,
+                        tint = MaterialTheme.colorScheme.primary,
+                        title = stringResource(R.string.settings_account_cloud).lowercase(),
+                        onClick = onRequestSignIn
+                    )
+                    IosSeparator(insetStart = 56.dp)
+                }
                 SettingsActionRow(
                     icon = Icons.Rounded.FileDownload,
                     tint = Color(0xFF94A3B8), // Slate
@@ -428,6 +438,23 @@ private fun SettingsActionRow(
     subtitle: String? = null,
     onClick: () -> Unit
 ) {
+    val accentColor = MaterialTheme.colorScheme.primary
+    val onSurfaceColor = MaterialTheme.colorScheme.onSurface
+    val annotatedTitle = remember(title, accentColor, onSurfaceColor) {
+        buildAnnotatedString {
+            val lower = title.lowercase()
+            if (lower.isNotEmpty()) {
+                withStyle(SpanStyle(color = accentColor, fontWeight = FontWeight.Bold)) {
+                    append(lower[0].toString())
+                }
+                if (lower.length > 1) {
+                    withStyle(SpanStyle(color = onSurfaceColor, fontWeight = FontWeight.Medium)) {
+                        append(lower.substring(1))
+                    }
+                }
+            }
+        }
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -449,9 +476,8 @@ private fun SettingsActionRow(
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = title.lowercase(),
-                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                color = MaterialTheme.colorScheme.onSurface
+                text = annotatedTitle,
+                style = MaterialTheme.typography.bodyLarge
             )
         }
 
@@ -481,6 +507,23 @@ private fun SettingsSwitchRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
+    val accentColor = MaterialTheme.colorScheme.primary
+    val onSurfaceColor = MaterialTheme.colorScheme.onSurface
+    val annotatedTitle = remember(title, accentColor, onSurfaceColor) {
+        buildAnnotatedString {
+            val lower = title.lowercase()
+            if (lower.isNotEmpty()) {
+                withStyle(SpanStyle(color = accentColor, fontWeight = FontWeight.Bold)) {
+                    append(lower[0].toString())
+                }
+                if (lower.length > 1) {
+                    withStyle(SpanStyle(color = onSurfaceColor, fontWeight = FontWeight.Medium)) {
+                        append(lower.substring(1))
+                    }
+                }
+            }
+        }
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -500,9 +543,8 @@ private fun SettingsSwitchRow(
         Spacer(Modifier.width(16.dp))
 
         Text(
-            text = title.lowercase(),
-            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-            color = MaterialTheme.colorScheme.onSurface,
+            text = annotatedTitle,
+            style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.weight(1f)
         )
 

@@ -5,7 +5,6 @@ import {
   IconMoon,
   IconGlobe,
   IconCurrency,
-  IconSync,
   IconGauge,
   IconLayers,
   IconDownload,
@@ -16,13 +15,11 @@ import type { SVGProps } from 'react';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
-import { syncService } from '@/services/syncService';
 import { useTranslation, type Locale } from '@/i18n';
 import { currencyLabel, formatAmount, SUPPORTED_CURRENCIES } from '@/utils/currency';
 import type { ThemeMode } from '@/models/types';
 import { expenseRepository } from '@/repositories/expenseRepository';
 import { exportCsv } from '@/utils/analytics';
-import { useToastStore } from '@/services/toastStore';
 import packageJson from '../../package.json';
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
@@ -51,10 +48,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
   const locale = usePreferencesStore((s) => s.locale);
   const themeMode = usePreferencesStore((s) => s.themeMode);
   const monthlyBudget = usePreferencesStore((s) => s.monthlyBudget);
-  const lastCloudSyncAt = usePreferencesStore((s) => s.lastCloudSyncAt);
   const user = useAuthStore((s) => s.user);
-  const syncing = useAuthStore((s) => s.syncing);
-  const syncError = useAuthStore((s) => s.syncError);
   const setCurrency = usePreferencesStore((s) => s.setCurrency);
   const setLocale = usePreferencesStore((s) => s.setLocale);
   const setThemeMode = usePreferencesStore((s) => s.setThemeMode);
@@ -77,26 +71,6 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
     URL.revokeObjectURL(url);
   };
 
-  const syncLabel = syncing
-    ? t('syncInProgress')
-    : syncError
-      ? syncError
-      : lastCloudSyncAt
-        ? t('syncLastAt', { time: new Date(lastCloudSyncAt).toLocaleString() })
-        : t('syncNever');
-
-  const runSync = async () => {
-    const result = await syncService.fullSync(true);
-    if (result.ok) {
-      useToastStore.getState().show(
-        t('syncOk', {
-          expenses: String(result.appliedExpenses),
-          categories: String(result.appliedCategories),
-        }),
-      );
-    }
-  };
-
   const displayName = user?.displayName?.trim()
     || user?.email?.split('@')[0]
     || t('settingsCloudAccount');
@@ -113,11 +87,6 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
         <section className="settings-section">
           <div className="section-title">{t('settingsCloudAccount')}</div>
           <div className="account-profile-card card card--elevated">
-            {syncError && !syncing ? (
-              <div className="sync-error-banner" role="alert">
-                {syncError}
-              </div>
-            ) : null}
             <div className="account-profile-card__header">
               <div className="account-profile-card__avatar" aria-hidden>{initial}</div>
               <div className="account-profile-card__copy">
@@ -125,13 +94,6 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
                 {user.email ? <div className="account-profile-card__email">{user.email}</div> : null}
                 <div className="account-profile-card__badge">{t('settingsAccountSyncEnabled')}</div>
               </div>
-            </div>
-            <div className="account-profile-card__meta">{syncLabel}</div>
-            <div className="account-profile-card__actions">
-              <button type="button" className="btn btn-secondary account-profile-card__btn" onClick={() => void runSync()} disabled={syncing}>
-                <IconSync width={18} height={18} />
-                {t('syncNow').toLowerCase()}
-              </button>
             </div>
           </div>
         </section>
@@ -183,7 +145,6 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
             type="button"
             className="btn btn-secondary settings-logout-btn"
             onClick={() => setShowSignOutConfirm(true)}
-            disabled={syncing}
           >
             {t('settingsSignOut').toLowerCase()}
           </button>

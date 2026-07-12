@@ -137,7 +137,7 @@
   }
 }
 
-/* ── Desktop sidebar: fill-height nav cells ── */
+/* ── Desktop sidebar: natural row layout ── */
 
 @media (min-width: 768px) {
   .side-nav {
@@ -149,94 +149,71 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
+    padding: 0 12px 16px;
     min-height: 0;
+    overflow-y: auto;
   }
 
   .side-nav__item {
-    flex: 1;
-    flex-direction: column;
+    display: flex;
+    flex-direction: row;
     align-items: center;
-    justify-content: center;
     gap: 14px;
-    padding: 14px 10px;
-    text-align: center;
-    min-height: 88px;
+    padding: 10px 14px;
+    text-align: left;
+    min-height: 52px;
+    border-radius: 14px;
   }
 
   .side-nav__indicator {
-    left: 50%;
-    top: 10px;
-    bottom: auto;
-    transform: translateX(-50%);
-    width: 32px;
-    height: 3px;
-    border-radius: 999px;
-  }
-
-  .side-nav__item--active .side-nav__indicator {
-    height: 3px;
-    width: 32px;
+    display: none;
   }
 
   .side-nav__label {
-    width: 100%;
+    width: auto;
     font-size: 0.9375rem;
+    font-weight: 500;
   }
 
   .side-nav__icon-wrap {
-    width: clamp(68px, 42%, 92px);
-    height: clamp(68px, 42%, 92px);
-    border-radius: 20px;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    flex-shrink: 0;
   }
 
   .side-nav__icon-wrap svg,
   .side-nav__icon {
-    width: clamp(32px, 52%, 44px);
-    height: clamp(32px, 52%, 44px);
+    width: 22px;
+    height: 22px;
+  }
+
+  .side-nav__item--active .side-nav__label {
+    font-weight: 700;
   }
 }
 
 @media (min-width: 1200px) {
   .side-nav__item {
-    gap: 16px;
-    padding: 18px 12px;
-    min-height: 96px;
-  }
-
-  .side-nav__icon-wrap {
-    width: clamp(76px, 44%, 100px);
-    height: clamp(76px, 44%, 100px);
-    border-radius: 22px;
-  }
-
-  .side-nav__icon-wrap svg,
-  .side-nav__icon {
-    width: clamp(36px, 54%, 48px);
-    height: clamp(36px, 54%, 48px);
+    gap: 14px;
+    padding: 12px 16px;
+    min-height: 52px;
   }
 
   .side-nav__label {
     font-size: 1rem;
   }
 
-  .brand-shell {
-    padding-bottom: 16px;
+  .side-nav__icon-wrap {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
   }
 
-  .brand-shell__card {
-    padding: 16px 14px 20px;
-    gap: 12px;
-  }
-
-  .brand-shell__mark {
-    width: 42px;
-    height: 42px;
-  }
-
-  .brand-shell__name {
-    font-size: 1.5rem;
-    line-height: 2;
-    padding-bottom: 12px;
+  .side-nav__icon-wrap svg,
+  .side-nav__icon {
+    width: 24px;
+    height: 24px;
   }
 }

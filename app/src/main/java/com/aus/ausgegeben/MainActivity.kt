@@ -12,6 +12,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -38,7 +40,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.*
 import com.aus.ausgegeben.data.auth.AuthRepository
-import com.aus.ausgegeben.data.cloud.*
 import com.aus.ausgegeben.notification.*
 import com.aus.ausgegeben.ui.*
 import com.aus.ausgegeben.ui.components.*
@@ -55,46 +56,22 @@ class MainActivity : AppCompatActivity() {
         enableEdgeToEdge()
         setContent {
             val context = LocalContext.current
-            val database = remember { AusgegebenDatabase.getDatabase(context) }
             val preferenceManager = remember { PreferenceManager(context) }
             val authRepository = remember { AuthRepository(context.applicationContext) }
-            val cloudSyncGate = remember { CloudSyncGate(preferenceManager, authRepository) }
-            val cloudSyncCoordinator = remember { CloudSyncCoordinator() }
-            val cloudSyncRepository = remember {
-                CloudSyncRepository(
-                    authRepository = authRepository,
-                    preferenceManager = preferenceManager,
-                    categoryDao = database.categoryDao(),
-                    expenseDao = database.expenseDao(),
-                    appContext = context.applicationContext,
-                    database = database,
-                )
-            }
             val repository = remember {
                 AppRepository(
-                    categoryDao = database.categoryDao(),
-                    expenseDao = database.expenseDao(),
                     appContext = context.applicationContext,
-                    cloudSync = cloudSyncRepository,
-                    shouldSyncToCloud = { cloudSyncGate.isEnabled() },
+                    authRepository = authRepository,
                 )
             }
 
             val themeMode by preferenceManager.themeModeFlow.collectAsState(initial = ThemeMode.SYSTEM)
 
             AusgegebenTheme(themeMode = themeMode) {
-                LaunchedEffect(repository) {
-                    withContext(Dispatchers.IO) {
-                        DataSeeder.seedIfEmpty(repository)
-                        repository.repairBrokenCategoryColors()
-                    }
-                }
                 MainApp(
                     repository = repository,
                     preferenceManager = preferenceManager,
                     authRepository = authRepository,
-                    cloudSyncRepository = cloudSyncRepository,
-                    cloudSyncCoordinator = cloudSyncCoordinator,
                     openAddFromNotification = intent?.getBooleanExtra(
                         NotificationHelper.EXTRA_OPEN_ADD,
                         false
@@ -116,8 +93,6 @@ fun MainApp(
     repository: AppRepository,
     preferenceManager: PreferenceManager,
     authRepository: AuthRepository,
-    cloudSyncRepository: CloudSyncRepository,
-    cloudSyncCoordinator: CloudSyncCoordinator,
     openAddFromNotification: Boolean = false
 ) {
     val context = LocalContext.current
@@ -177,7 +152,7 @@ fun MainApp(
         DashboardViewModel(repository, preferenceManager)
     }
     val authViewModel: AuthViewModel = viewModel(activity) {
-        AuthViewModel(activity.application, authRepository, preferenceManager, cloudSyncRepository, cloudSyncCoordinator)
+        AuthViewModel(activity.application, authRepository, preferenceManager, repository)
     }
 
     fun closeOverlay() {
@@ -244,24 +219,13 @@ fun MainApp(
         return
     }
 
-    val lifecycleOwner = LocalLifecycleOwner.current
-
-    DisposableEffect(lifecycleOwner, storageMode, authRepository.currentUserId) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME &&
-                storageMode == StorageMode.CLOUD &&
-                authRepository.currentUserId != null
-            ) {
-                scope.launch(Dispatchers.IO) {
-                    cloudSyncCoordinator.fullSync(cloudSyncRepository).onSuccess {
-                        preferenceManager.setLastCloudSyncAt(System.currentTimeMillis())
-                    }
-                }
-            }
+    LaunchedEffect(repository) {
+        withContext(Dispatchers.IO) {
+            repository.ensureSeeded()
         }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     AppScreen {
         Scaffold(
@@ -280,10 +244,19 @@ fun MainApp(
             floatingActionButton = {
                 AnimatedVisibility(
                     visible = showBottomNav && selectedTab == Route.ExpenseList,
-                    enter = scaleIn(initialScale = 0.86f) + fadeIn(),
-                    exit = scaleOut(targetScale = 0.86f) + fadeOut(),
+                    enter = scaleIn(
+                        initialScale = 0.86f,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioLowBouncy,
+                            stiffness = Spring.StiffnessMedium
+                        )
+                    ) + fadeIn(animationSpec = spring(stiffness = Spring.StiffnessMedium)),
+                    exit = scaleOut(
+                        targetScale = 0.86f,
+                        animationSpec = spring(stiffness = Spring.StiffnessHigh)
+                    ) + fadeOut(animationSpec = spring(stiffness = Spring.StiffnessHigh)),
                 ) {
-                    // Pillar 4: Neon FAB with massive colored glow
+                    // Pillar 4: Neon FAB with massive colored glow and spring physics
                     Box(
                         modifier = Modifier
                             .size(64.dp)
@@ -299,7 +272,7 @@ fun MainApp(
                                     colors = listOf(Color(0xFF10B981), Color(0xFF047857))
                                 )
                             )
-                            .clickable { openAddFlow() },
+                            .smoothClickable { openAddFlow() },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -391,8 +364,6 @@ fun MainApp(
                             preferenceManager = preferenceManager,
                             authRepository = authRepository,
                             authViewModel = authViewModel,
-                            cloudSyncRepository = cloudSyncRepository,
-                            cloudSyncCoordinator = cloudSyncCoordinator,
                             onNavigateToCategories = {
                                 overlayStack.clear()
                                 overlayStack.add(Route.CategoryList)
