@@ -30,27 +30,40 @@ export function useAddTransactionViewModel(expenseId?: number) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previousReceiptPath, setPreviousReceiptPath] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
 
   const load = useCallback(async () => {
-    const cats = await expenseRepository.getAllCategories();
-    setCategories(cats);
-    if (expenseId) {
-      const existing = await expenseRepository.getExpenseById(expenseId);
-      if (existing) {
-        setPreviousReceiptPath(existing.receiptImagePath ?? null);
-        setForm({
-          amountInput: existing.amount.toFixed(2).replace('.', ','),
-          transactionType: existing.transactionType,
-          categoryId: existing.categoryId,
-          note: existing.note,
-          dateMillis: existing.dateMillis,
-          receiptImagePath: existing.receiptImagePath ?? null,
-        });
+    try {
+      const CATEGORY_TIMEOUT_MS = 8000;
+      const catsPromise = expenseRepository.getAllCategories();
+      const timeoutPromise = new Promise<Category[]>((_, reject) =>
+        setTimeout(() => reject(new Error('Category load timed out')), CATEGORY_TIMEOUT_MS)
+      );
+      const cats = await Promise.race([catsPromise, timeoutPromise]);
+      setCategories(cats);
+      if (expenseId) {
+        const existing = await expenseRepository.getExpenseById(expenseId);
+        if (existing) {
+          setPreviousReceiptPath(existing.receiptImagePath ?? null);
+          setForm({
+            amountInput: existing.amount.toFixed(2).replace('.', ','),
+            transactionType: existing.transactionType,
+            categoryId: existing.categoryId,
+            note: existing.note,
+            dateMillis: existing.dateMillis,
+            receiptImagePath: existing.receiptImagePath ?? null,
+          });
+        }
+      } else {
+        const first = cats.find((c) => c.transactionType === 'expense');
+        setForm({ ...defaultForm(), categoryId: first?.id ?? null });
+        setPreviousReceiptPath(null);
       }
-    } else {
-      const first = cats.find((c) => c.transactionType === 'expense');
-      setForm({ ...defaultForm(), categoryId: first?.id ?? null });
-      setPreviousReceiptPath(null);
+      setReady(true);
+    } catch (err) {
+      console.error('[useAddTransactionViewModel] load failed', err);
+      setReady(true); // Show form even on error — let user retry
+      setError(t('errorLoadFailed'));
     }
   }, [expenseId]);
 
@@ -115,22 +128,32 @@ export function useAddTransactionViewModel(expenseId?: number) {
       transactionType: form.transactionType,
       receiptImagePath: form.receiptImagePath,
     };
-    if (expenseId) {
-      await expenseRepository.updateExpense({ ...payload, id: expenseId });
-      if (previousReceiptPath && previousReceiptPath !== form.receiptImagePath) {
-        await receiptService.deletePath(previousReceiptPath, expenseId);
+    // Idempotency: client-generated key prevents double-submits on retry
+    const idempotencyKey = `${payload.dateMillis}-${payload.categoryId}-${payload.amount.toFixed(2)}`;
+    try {
+      if (expenseId) {
+        await expenseRepository.updateExpense({ ...payload, id: expenseId });
+        if (previousReceiptPath && previousReceiptPath !== form.receiptImagePath) {
+          await receiptService.deletePath(previousReceiptPath, expenseId);
+        }
+      } else {
+        await expenseRepository.insertExpense(payload, idempotencyKey);
       }
-    } else {
-      await expenseRepository.insertExpense(payload);
+      return true;
+    } catch (err) {
+      setError(t('errorValidAmount'));
+      console.error('[useAddTransactionViewModel] save failed', err);
+      return false;
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-    return true;
   };
 
   return {
     form,
     setForm,
     categories: filteredCategories,
+    ready,
     appendDigit,
     backspace,
     setAmountInput,
