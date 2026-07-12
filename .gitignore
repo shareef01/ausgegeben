@@ -35,6 +35,7 @@ android-sdk/
 web/node_modules/
 web/dist/
 web/.env.local
+web/.env.production
 web/.vite/
 web/*.tsbuildinfo
 

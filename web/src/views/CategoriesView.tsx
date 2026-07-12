@@ -48,8 +48,18 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="overlay" onClick={onClose} role="presentation">
-      <div className="sheet" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '90vh' }}>
-        <ScreenTitle title={t('settingsCategories')} />
+      <div
+        className="sheet"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('settingsCategories')}
+        style={{ maxHeight: '90vh' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <ScreenTitle title={t('settingsCategories')} />
+          <button type="button" className="sheet__close" onClick={onClose} style={{ marginTop: 4 }}>{t('actionClose')}</button>
+        </div>
         <div className="segmented" style={{ margin: '0 0 16px' }}>
           {(['expense', 'income', 'transfer'] as TransactionType[]).map((type) => (
             <button key={type} type="button" className={filter === type ? 'active' : ''} onClick={() => setFilter(type)}>{typeLabel(type)}</button>

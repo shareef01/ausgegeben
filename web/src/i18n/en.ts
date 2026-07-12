@@ -94,6 +94,7 @@ export const en = {
   langGerman: 'deutsch',
   errorValidAmount: 'enter a valid amount',
   errorChooseCategory: 'choose a category',
+  errorLoadFailed: 'failed to load. please try again.',
   typeExpense: 'expense',
   typeIncome: 'income',
   typeTransfer: 'transfer',

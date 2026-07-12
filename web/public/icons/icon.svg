@@ -1,30 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
-  <defs>
-    <linearGradient id="mark" x1="128" y1="88" x2="392" y2="420" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#6EE7B7"/>
-      <stop offset="45%" stop-color="#34D399"/>
-      <stop offset="100%" stop-color="#047857"/>
-    </linearGradient>
-    <radialGradient id="ambience" cx="50%" cy="28%" r="58%">
-      <stop offset="0%" stop-color="#34D399" stop-opacity="0.14"/>
-      <stop offset="100%" stop-color="#34D399" stop-opacity="0"/>
-    </radialGradient>
-  </defs>
-  <rect width="512" height="512" rx="108" fill="#000000"/>
-  <circle cx="256" cy="180" r="220" fill="url(#ambience)"/>
+  <rect width="512" height="512" rx="108" fill="#0C0C0E"/>
   <path
-    fill="#34D399"
-    fill-opacity="0.22"
-    d="M256 88 404 432 312 432 256 248 200 432 108 432Z"
-  />
-  <path
-    fill="url(#mark)"
-    d="M256 96 392 416 304 416 256 264 208 416 120 416Z"
-  />
-  <path
-    fill="#A7F3D0"
-    fill-opacity="0.32"
-    d="M256 264 304 416 208 416Z"
-  />
-  <circle cx="256" cy="112" r="14" fill="#ECFDF5" fill-opacity="0.9"/>
+    fill="#10B981"
+    d="M256 76 L384 416 L328 416 L256 282 L184 416 L128 416 Z
+       M198 310 L314 310 L314 354 L198 354 Z"/>
 </svg>
+

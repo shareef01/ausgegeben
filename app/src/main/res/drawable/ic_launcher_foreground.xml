@@ -1,41 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- High-Intensity Icon Glow (Neon Pulse) -->
+    <!-- Minimal geometric "A" brand mark -->
     <path
         android:fillColor="#10B981"
-        android:fillAlpha="0.32"
-        android:pathData="M54,16 L86,92 L65,92 L54,52 L43,92 L22,92 Z" />
-
-    <!-- Flagship "A" Flow-Mark (Geometric Apex) -->
-    <path android:pathData="M54,20 L82,88 L64,88 L54,56 L44,88 L26,88 Z">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:type="linear"
-                android:startX="26"
-                android:startY="20"
-                android:endX="82"
-                android:endY="88"
-                android:startColor="#6EE7B7"
-                android:centerColor="#10B981"
-                android:endColor="#065F46" />
-        </aapt:attr>
-    </path>
-
-    <!-- Specular Facet Highlight (Glass Edge) -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:fillAlpha="0.25"
-        android:pathData="M54,56 L64,88 L44,88 Z" />
-
-    <!-- Radiant Apex Spark -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,24 m-3,0 a3,3 0 1,1 6,0 a3,3 0 1,1 -6,0" />
+        android:pathData="M54,16 L86,92 L64,92 L54,52 L44,92 L22,92 Z
+                           M34,66 L74,66 L74,76 L34,76 Z" />
 
 </vector>
+

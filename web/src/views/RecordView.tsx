@@ -47,83 +47,89 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
     <div className="record-view page-content">
       <ScreenTitle title={t('screenRecord')} />
 
-      <FinanceSummaryCard expenses={uiState.expenses} currency={currency} periodLabel={periodLabel} />
+      <div className="record-layout">
+        <aside className="record-layout__sidebar">
+          <FinanceSummaryCard expenses={uiState.expenses} currency={currency} periodLabel={periodLabel} />
 
-      {uiState.monthlyBudget ? (
-        <BudgetProgressBar spent={monthSpent} budget={uiState.monthlyBudget} currency={currency} />
-      ) : null}
+          {uiState.monthlyBudget ? (
+            <BudgetProgressBar spent={monthSpent} budget={uiState.monthlyBudget} currency={currency} />
+          ) : null}
 
-      <div className="card record-filters">
-        <div className="record-toolbar">
-          <IosSegmentedControl
-            className="record-period-segmented"
-            options={periodOptions.map((p) => ({ value: p.key, label: p.label }))}
-            value={uiState.listPeriod}
-            onChange={(key) => setListPeriod(key as RecordListPeriod)}
-          />
-          <div className="record-search">
-            <IconSearch className="record-search__icon" width={18} height={18} aria-hidden />
-            <input
-              className="search-input record-search__input"
-              placeholder={t('recordSearchPlaceholder')}
-              value={uiState.searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+          <div className="card record-filters">
+            <div className="record-toolbar">
+              <IosSegmentedControl
+                className="record-period-segmented"
+                options={periodOptions.map((p) => ({ value: p.key, label: p.label }))}
+                value={uiState.listPeriod}
+                onChange={(key) => setListPeriod(key as RecordListPeriod)}
+              />
+              <div className="record-search">
+                <IconSearch className="record-search__icon" width={18} height={18} aria-hidden />
+                <input
+                  className="search-input record-search__input"
+                  placeholder={t('recordSearchPlaceholder')}
+                  value={uiState.searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <IosSegmentedControl
+              className="record-type-segmented"
+              options={(['all', 'expense', 'income', 'transfer'] as TransactionTypeFilter[]).map((f) => ({
+                value: f,
+                label: filterLabel(f, t),
+              }))}
+              value={uiState.typeFilter}
+              onChange={setTypeFilter}
             />
           </div>
-        </div>
+        </aside>
 
-        <IosSegmentedControl
-          className="record-type-segmented"
-          options={(['all', 'expense', 'income', 'transfer'] as TransactionTypeFilter[]).map((f) => ({
-            value: f,
-            label: filterLabel(f, t),
-          }))}
-          value={uiState.typeFilter}
-          onChange={setTypeFilter}
-        />
-      </div>
-
-      {uiState.loading ? (
-        <LoadingListSkeleton rows={6} />
-      ) : uiState.expenses.length === 0 ? (
-        <EmptyState
-          title={t('recordEmptyTitle')}
-          subtitle={t('recordEmptySubtitle')}
-          hint={t('recordEmptyHint')}
-          action={
-            onAdd ? (
-              <button type="button" className="btn btn-primary" onClick={onAdd}>
-                {t('navAdd')}
-              </button>
-            ) : undefined
-          }
-        />
-      ) : (
-        <div className="transaction-list-bare">
-          {grouped.map(({ label, items }) => (
-            <section key={label} className="transaction-list-bare__section">
-              <div className="transaction-list-bare__day">{label}</div>
-              <div className="transaction-list-bare__rows">
-              {items.map((expense) => (
-                <SwipeableRow
-                  key={expense.id}
-                  onDelete={() => void requestDelete(expense.id!)}
-                  onTap={() => onEdit(expense.id!)}
-                  onLongPress={() => void duplicateExpense(expense)}
-                >
-                  <TransactionRow
-                    expense={expense}
-                    category={catMap.get(expense.categoryId)}
-                    currency={currency}
-                    onReceiptClick={isReceiptPath(expense.receiptImagePath) ? () => setReceiptPath(expense.receiptImagePath!) : undefined}
-                  />
-                </SwipeableRow>
+        <div className="record-layout__main">
+          {uiState.loading ? (
+            <LoadingListSkeleton rows={6} />
+          ) : uiState.expenses.length === 0 ? (
+            <EmptyState
+              title={t('recordEmptyTitle')}
+              subtitle={t('recordEmptySubtitle')}
+              hint={t('recordEmptyHint')}
+              action={
+                onAdd ? (
+                  <button type="button" className="btn btn-primary" onClick={onAdd}>
+                    {t('navAdd')}
+                  </button>
+                ) : undefined
+              }
+            />
+          ) : (
+            <div className="transaction-list-bare">
+              {grouped.map(({ label, items }) => (
+                <section key={label} className="transaction-list-bare__section">
+                  <div className="transaction-list-bare__day">{label}</div>
+                  <div className="transaction-list-bare__rows">
+                  {items.map((expense) => (
+                    <SwipeableRow
+                      key={expense.id}
+                      onDelete={() => void requestDelete(expense.id!)}
+                      onTap={() => onEdit(expense.id!)}
+                      onLongPress={() => void duplicateExpense(expense)}
+                    >
+                      <TransactionRow
+                        expense={expense}
+                        category={catMap.get(expense.categoryId)}
+                        currency={currency}
+                        onReceiptClick={isReceiptPath(expense.receiptImagePath) ? () => setReceiptPath(expense.receiptImagePath!) : undefined}
+                      />
+                    </SwipeableRow>
+                  ))}
+                  </div>
+                </section>
               ))}
-              </div>
-            </section>
-          ))}
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {receiptPath ? <ReceiptPreview path={receiptPath} onClose={() => setReceiptPath(null)} /> : null}
     </div>
