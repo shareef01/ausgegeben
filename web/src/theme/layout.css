@@ -217,7 +217,6 @@
 
 /* ── Divide utilities ── */
 .divide-y > * + * { border-top-width: 1px; border-top-style: solid; }
-.divide-white\\/\\[0\\.04\\] > * + * { border-top-color: rgba(255, 255, 255, 0.04); }
 
 /* ── Tabular numerals utility ── */
 .tnum { font-variant-numeric: tabular-nums; }
@@ -341,7 +340,7 @@ html {
 .border { border-width: 1px; border-style: solid; }
 .border-solid { border-style: solid; }
 .divide-y > * + * { border-top-width: 1px; border-top-style: solid; }
-.divide-white\/\[0\.04\] > * + * { border-top-color: rgba(255, 255, 255, 0.04); }
+.divide-white\/\[0\.04\] > * + * { border-top-color: color-mix(in srgb, var(--color-on-surface) 4%, transparent); }
 .border-b { border-bottom-width: 1px; border-bottom-style: solid; }
 .border-t { border-top-width: 1px; border-top-style: solid; }
 .last\:border-b-0:last-child { border-bottom: none; }
