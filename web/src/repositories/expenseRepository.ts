@@ -17,6 +17,28 @@ function expDoc(u: string, id: string) { return doc(fs()!, 'users', u, 'expenses
 const UNCATEGORIZED_ID = '0';
 const DATA_CHANGED_EVENT = 'ausgegeben:data-changed';
 
+/** Match Android Int colorInts (signed 32-bit) for shared Firestore docs. */
+function argb(hex: number): number {
+  return hex | 0;
+}
+
+/** Same defaults as AppRepository.ensureSeeded() on Android. */
+const DEFAULT_CATEGORIES: Omit<Category, 'id'>[] = [
+  { name: 'Groceries', iconName: 'shopping_cart', colorInt: argb(0xffe86b5a), transactionType: 'expense', sortOrder: 0 },
+  { name: 'Shopping', iconName: 'shopping_bag', colorInt: argb(0xffe8a060), transactionType: 'expense', sortOrder: 1 },
+  { name: 'Dining', iconName: 'restaurant', colorInt: argb(0xffd4849a), transactionType: 'expense', sortOrder: 2 },
+  { name: 'Transport', iconName: 'car', colorInt: argb(0xff6a9fd4), transactionType: 'expense', sortOrder: 3 },
+  { name: 'Bills', iconName: 'bolt', colorInt: argb(0xff9a8fd4), transactionType: 'expense', sortOrder: 4 },
+  { name: 'Subscriptions', iconName: 'subscriptions', colorInt: argb(0xff5ab8aa), transactionType: 'expense', sortOrder: 5 },
+  { name: 'Salary', iconName: 'credit_card', colorInt: argb(0xff5cb88a), transactionType: 'income', sortOrder: 0 },
+  { name: 'Freelance', iconName: 'work', colorInt: argb(0xff6a9fd4), transactionType: 'income', sortOrder: 1 },
+  { name: 'Refunds', iconName: 'undo', colorInt: argb(0xffb8a060), transactionType: 'income', sortOrder: 2 },
+  { name: 'Transfer', iconName: 'swap_horiz', colorInt: argb(0xff8e8e96), transactionType: 'transfer', sortOrder: 0 },
+];
+
+let ensureSeededInFlight: Promise<void> | null = null;
+let ensureSeededForUid: string | null = null;
+
 /** Notify UI listeners after writes (Insights / all-time one-shot refetch). */
 function emitDataChanged() {
   if (typeof window !== 'undefined') {
@@ -65,6 +87,41 @@ export const expenseRepository = {
     const userId = uid(); if (!userId) return [];
     const snap = await getDocs(query(catCol(userId), orderBy('sortOrder')));
     return snap.docs.map(d => ({ id: d.id, ...d.data() } as Category));
+  },
+
+  /**
+   * Seed default categories when the user's collection is empty (mirrors Android).
+   * If categories already exist, runs dedupe only — never re-seeds.
+   */
+  async ensureSeeded(): Promise<void> {
+    const userId = uid();
+    if (!userId || !fs()) return;
+    if (ensureSeededInFlight && ensureSeededForUid === userId) {
+      await ensureSeededInFlight;
+      return;
+    }
+    ensureSeededForUid = userId;
+    ensureSeededInFlight = (async () => {
+      try {
+        const snap = await getDocs(catCol(userId));
+        if (snap.empty) {
+          const ts = now();
+          await Promise.all(
+            DEFAULT_CATEGORIES.map(async (cat) => {
+              const id = crypto.randomUUID();
+              await setDoc(catDoc(userId, id), { ...cat, id, updatedAt: ts });
+            }),
+          );
+        } else {
+          await expenseRepository.deduplicateCategories();
+        }
+      } catch (err) {
+        console.warn('[ensureSeeded]', err);
+      } finally {
+        ensureSeededInFlight = null;
+      }
+    })();
+    await ensureSeededInFlight;
   },
 
   onCategoriesChanged(cb: (cats: Category[]) => void): Unsubscribe {
