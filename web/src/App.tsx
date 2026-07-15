@@ -8,6 +8,7 @@ import { authService } from '@/services/authService';
 import { applyTheme, resolveTheme } from '@/theme/tokens';
 import { enableOfflinePersistence } from '@/services/firebase';
 import { preferencesSync } from '@/services/preferencesSync';
+import { expenseRepository } from '@/repositories/expenseRepository';
 
 export function App(): JSX.Element {
   const onboardingComplete = usePreferencesStore((s) => s.onboardingComplete);
@@ -48,6 +49,12 @@ export function App(): JSX.Element {
     }
     preferencesSync.start(user.uid);
     return () => preferencesSync.stop();
+  }, [user]);
+
+  // Seed default categories for empty accounts (same set as Android)
+  useEffect(() => {
+    if (!user) return;
+    void expenseRepository.ensureSeeded();
   }, [user]);
 
   // Wait for Firebase Auth to initialize before deciding what to show
