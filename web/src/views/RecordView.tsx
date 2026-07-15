@@ -47,10 +47,20 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(e);
     }
-    return [...map.entries()].map(([, items]) => ({
-      label: formatDateLabel(items[0].dateMillis),
-      items
-    }));
+    return [...map.entries()].map(([, items]) => {
+      const dayIncome = items
+        .filter((e) => e.transactionType === 'income')
+        .reduce((s, e) => s + e.amount, 0);
+      const dayExpense = items
+        .filter((e) => e.transactionType === 'expense')
+        .reduce((s, e) => s + e.amount, 0);
+      return {
+        label: formatDateLabel(items[0].dateMillis),
+        items,
+        dayIncome: Math.round(dayIncome * 100) / 100,
+        dayExpense: Math.round(dayExpense * 100) / 100,
+      };
+    });
   }, [uiState.expenses]);
 
   const catMap = useMemo(() => new Map(uiState.categories.map((c) => [c.id, c])), [uiState.categories]);
@@ -166,10 +176,20 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
             />
           ) : (
             <div className="transaction-list-bare txn-sections">
-              {grouped.map(({ label, items }) => (
+              {grouped.map(({ label, items, dayIncome, dayExpense }) => (
                 <section key={label} className="transaction-list-bare__section">
                   <div className="txn-day-header">
                     <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-zinc-500">{label}</span>
+                    {(dayIncome > 0 || dayExpense > 0) ? (
+                      <span className="txn-day-header__totals" aria-label={`${t('filterIncome')} ${formatAmount(dayIncome, currency)}, ${t('filterExpense')} ${formatAmount(dayExpense, currency)}`}>
+                        {dayIncome > 0 ? (
+                          <span className="txn-day-header__total--income">+{formatAmount(dayIncome, currency)}</span>
+                        ) : null}
+                        {dayExpense > 0 ? (
+                          <span className="txn-day-header__total--expense">−{formatAmount(dayExpense, currency)}</span>
+                        ) : null}
+                      </span>
+                    ) : null}
                   </div>
                    <div className="flex flex-col">
                   {items.map((expense, idx) => (

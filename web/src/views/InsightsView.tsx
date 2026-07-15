@@ -181,7 +181,7 @@ function CashFlowCard({ trend, currency }: { trend: { label: string; income: num
         </div>
         <CashFlowLegend />
       </div>
-      <CashFlowChart trend={trend} />
+      <CashFlowChart trend={trend} currency={currency} />
       <div className="flex items-center justify-between mt-6 text-[10px] font-black uppercase tracking-widest opacity-30">
         <span>{trend[0]?.label}</span>
         <span>{trend[trend.length - 1]?.label}</span>
