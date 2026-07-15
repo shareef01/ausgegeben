@@ -7,6 +7,7 @@ import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
 import { applyTheme, resolveTheme } from '@/theme/tokens';
 import { enableOfflinePersistence } from '@/services/firebase';
+import { preferencesSync } from '@/services/preferencesSync';
 
 export function App(): JSX.Element {
   const onboardingComplete = usePreferencesStore((s) => s.onboardingComplete);
@@ -37,6 +38,16 @@ export function App(): JSX.Element {
   useEffect(() => {
     if (!user) return;
     void enableOfflinePersistence();
+  }, [user]);
+
+  // Sync theme/locale/budget (etc.) via users/{uid}/settings/preferences — LWW by updatedAt
+  useEffect(() => {
+    if (!user) {
+      preferencesSync.stop();
+      return;
+    }
+    preferencesSync.start(user.uid);
+    return () => preferencesSync.stop();
   }, [user]);
 
   // Wait for Firebase Auth to initialize before deciding what to show
