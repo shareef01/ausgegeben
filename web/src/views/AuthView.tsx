@@ -96,7 +96,7 @@ export function AuthView() {
           </button>
         </form>
 
-        <p className="auth-page__hint text-center text-xs mt-6">{t('authCloudHint')}</p>
+        <p className="auth-page__hint text-center text-xs mt-6">{t('authOfflineHint')}</p>
       </div>
     </div>
   );

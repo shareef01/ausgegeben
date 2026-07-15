@@ -63,6 +63,7 @@ export function ReceiptPreview({ path, onClose }: ReceiptPreviewProps) {
             <p className="receipt-preview__error">{t('errorLoadFailed')}</p>
           )}
         </div>
+        <p className="receipt-preview__device-hint">{t('receiptUnavailableElsewhere')}</p>
       </div>
     </div>
   );
