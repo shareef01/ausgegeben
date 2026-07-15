@@ -6,6 +6,7 @@ import { usePreferencesStore } from '@/services/preferencesStore';
 import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
 import { applyTheme, resolveTheme } from '@/theme/tokens';
+import { enableOfflinePersistence } from '@/services/firebase';
 
 export function App(): JSX.Element {
   const onboardingComplete = usePreferencesStore((s) => s.onboardingComplete);
@@ -31,6 +32,12 @@ export function App(): JSX.Element {
     mq.addEventListener('change', update);
     return () => mq.removeEventListener('change', update);
   }, [themeMode]);
+
+  // Spark-compatible: cache Firestore locally for brief offline / faster reloads
+  useEffect(() => {
+    if (!user) return;
+    void enableOfflinePersistence();
+  }, [user]);
 
   // Wait for Firebase Auth to initialize before deciding what to show
   if (!authReady) {
