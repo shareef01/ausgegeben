@@ -1,6 +1,6 @@
 # Ausgegeben Web (PWA)
 
-Installable web version of **Ausgegeben**. Works offline with IndexedDB; optional Firebase sync when signed in with the same account as Android.
+Installable web version of **Ausgegeben**. Requires Firebase Auth; expense data lives in Cloud Firestore (with IndexedDB persistence when available). Receipt images stay on-device (browser IndexedDB) — Cloud Storage is not used so the app stays on the **Firebase Spark** free plan.
 
 **Live:** [https://aus01.web.app](https://aus01.web.app)
 
@@ -14,24 +14,24 @@ npm run build    # output in dist/
 npm run preview  # test production build
 ```
 
-## Deploy
+## Deploy (Spark-safe)
 
-1. Copy `web/.env.example` → `web/.env.local` with Firebase Web config
+1. Copy `web/.env.example` → `web/.env.local` with Firebase Web config (Auth + Firestore only)
 2. From `web/`:
 
 ```bash
 npm run deploy
 ```
 
-Uses `firebase.json` at the repo root (hosting site **aus01**, Firestore + Storage rules).
+Deploys **Hosting** (`aus01`) + **Firestore rules** only. Storage rules are not deployed (`npm run deploy:storage` is opt-in and needs Blaze).
 
 ## Structure
 
 ```
 src/
   models/         # Types
-  repositories/   # IndexedDB CRUD
-  services/       # Dexie, auth, sync, preferences
+  repositories/   # Firestore CRUD
+  services/       # Auth, Firebase, preferences, local receipts
   viewmodels/     # React hooks (MVVM)
   views/          # Screens
   components/     # Shared UI
