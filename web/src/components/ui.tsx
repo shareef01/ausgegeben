@@ -23,7 +23,7 @@ export function SignatureText({
 
 export function MoneyText({ amount, currency, className = 'money--body', color, style }: { amount: number; currency: string; className?: string; color?: string; style?: import('react').CSSProperties }) {
   const formatted = new Intl.NumberFormat(currency === 'EUR' ? 'de-DE' : 'en-US', { style: 'currency', currency }).format(amount);
-  return <span className={`tabular-nums ${className}`} style={{ ...style, ...(color ? { color } : {}) }}>{formatted}</span>;
+  return <span className={`money tabular-nums ${className}`} style={{ ...style, ...(color ? { color } : {}) }}>{formatted}</span>;
 }
 
 export function EmptyState({ title, subtitle, hint, action }: { title: string; subtitle: string; hint?: string; action?: ReactNode }) {
