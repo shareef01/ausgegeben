@@ -7,7 +7,8 @@ import { useToastStore } from '@/services/toastStore';
 import { useTranslation } from '@/i18n';
 import { thisMonthRange, analyticsDateRangeMillis } from '@/utils/periodUtils';
 
-const SEARCH_DEBOUNCE_MS = 300; // SECURE: Strict debounce boundary
+const SEARCH_DEBOUNCE_MS = 300;
+const DATA_CHANGED_EVENT = 'ausgegeben:data-changed';
 
 export function useRecordViewModel() {
   const monthlyBudget = usePreferencesStore((s) => s.monthlyBudget);
@@ -19,7 +20,10 @@ export function useRecordViewModel() {
   const [listPeriod, setListPeriod] = useState<RecordListPeriod>('this_month');
 
   const [categories, setCategories] = useState<Category[]>([]);
-  const [allExpenses, setAllExpenses] = useState<Expense[]>([]);
+  /** Expenses for the active list period (scoped query — not unbounded). */
+  const [periodExpenses, setPeriodExpenses] = useState<Expense[]>([]);
+  /** Always current calendar month — for budget bar when list period differs. */
+  const [monthBudgetExpenses, setMonthBudgetExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,12 +31,24 @@ export function useRecordViewModel() {
     return () => window.clearTimeout(timer);
   }, [searchQuery]);
 
-  // SECURE: Mirror Android's real-time data flows
+  const viewingCurrentMonth = useMemo(() => {
+    return listPeriod === 'this_month'
+      || listPeriod === `month:${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+  }, [listPeriod]);
+
+  const listRange = useMemo(() => {
+    if (listPeriod === 'all_time') return null;
+    return analyticsDateRangeMillis(listPeriod) ?? thisMonthRange();
+  }, [listPeriod]);
+
+  // Categories (small collection) + period-scoped expenses
   useEffect(() => {
+    setLoading(true);
     let catsReady = false;
-    let expsReady = false;
+    let listReady = false;
+    let budgetReady = viewingCurrentMonth;
     const tryReady = () => {
-      if (catsReady && expsReady) setLoading(false);
+      if (catsReady && listReady && budgetReady) setLoading(false);
     };
 
     const unsubCats = expenseRepository.onCategoriesChanged((cats) => {
@@ -40,22 +56,54 @@ export function useRecordViewModel() {
       catsReady = true;
       tryReady();
     });
-    const unsubExps = expenseRepository.onExpensesChanged((exps) => {
-      setAllExpenses(exps);
-      expsReady = true;
-      tryReady();
-    });
-    return () => { unsubCats(); unsubExps(); };
-  }, []);
 
-  const monthExpenses = useMemo(() => {
+    let unsubList = () => {};
+    let unsubBudget = () => {};
+
+    if (listRange) {
+      unsubList = expenseRepository.onExpensesInRange(listRange[0], listRange[1], (exps) => {
+        setPeriodExpenses(exps);
+        if (viewingCurrentMonth) setMonthBudgetExpenses(exps);
+        listReady = true;
+        tryReady();
+      });
+    } else {
+      // all_time: one-shot fetch (no perpetual full-collection listener)
+      void expenseRepository.getAllExpenses().then((exps) => {
+        setPeriodExpenses(exps);
+        listReady = true;
+        tryReady();
+      }).catch((err) => {
+        console.error('[useRecordViewModel] getAllExpenses failed', err);
+        setPeriodExpenses([]);
+        listReady = true;
+        tryReady();
+      });
+
+      const onDataChanged = () => {
+        void expenseRepository.getAllExpenses().then(setPeriodExpenses);
+      };
+      window.addEventListener(DATA_CHANGED_EVENT, onDataChanged);
+      unsubList = () => window.removeEventListener(DATA_CHANGED_EVENT, onDataChanged);
+    }
+
+    if (!viewingCurrentMonth) {
       const [start, end] = thisMonthRange();
-      return allExpenses.filter(e => e.dateMillis >= start && e.dateMillis < end);
-  }, [allExpenses]);
+      unsubBudget = expenseRepository.onExpensesInRange(start, end, (exps) => {
+        setMonthBudgetExpenses(exps);
+        budgetReady = true;
+        tryReady();
+      });
+    }
 
-  const viewingCurrentMonth = useMemo(() => {
-    return listPeriod === 'this_month' || listPeriod === `month:${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-  }, [listPeriod]);
+    return () => {
+      unsubCats();
+      unsubList();
+      unsubBudget();
+    };
+  }, [listPeriod, listRange, viewingCurrentMonth]);
+
+  const monthExpenses = monthBudgetExpenses;
 
   const monthSpent = useMemo(
     () => {
@@ -66,35 +114,25 @@ export function useRecordViewModel() {
   );
 
   const filteredExpenses = useMemo(() => {
-    let list = allExpenses;
-
-    if (listPeriod === 'this_month') {
-      const [start, end] = thisMonthRange();
-      list = list.filter(e => e.dateMillis >= start && e.dateMillis < end);
-    } else if (listPeriod !== 'all_time') {
-      const range = analyticsDateRangeMillis(listPeriod);
-      if (range) {
-        list = list.filter(e => e.dateMillis >= range[0] && e.dateMillis < range[1]);
-      }
-    }
+    let list = periodExpenses;
 
     if (typeFilter !== 'all') {
-        list = list.filter(e => e.transactionType === typeFilter);
+      list = list.filter(e => e.transactionType === typeFilter);
     }
 
     const sq = debouncedSearch.trim().toLocaleLowerCase('en');
     if (sq) {
-        const catMap = new Map(categories.map(c => [c.id, c]));
-        list = list.filter(e => {
-            const cat = catMap.get(e.categoryId);
-            return e.note.toLocaleLowerCase('en').includes(sq) ||
-                   String(e.amount).includes(sq) ||
-                   (cat?.name.toLocaleLowerCase('en').includes(sq) ?? false);
-        });
+      const catMap = new Map(categories.map(c => [c.id, c]));
+      list = list.filter(e => {
+        const cat = catMap.get(e.categoryId);
+        return e.note.toLocaleLowerCase('en').includes(sq) ||
+          String(e.amount).includes(sq) ||
+          (cat?.name.toLocaleLowerCase('en').includes(sq) ?? false);
+      });
     }
 
     return list;
-  }, [allExpenses, listPeriod, typeFilter, debouncedSearch, categories]);
+  }, [periodExpenses, typeFilter, debouncedSearch, categories]);
 
   const uiState: RecordUiState = useMemo(() => ({
     expenses: filteredExpenses,
@@ -116,7 +154,6 @@ export function useRecordViewModel() {
       showToast(t('recordDeleted'), t('actionUndo'), async () => {
         await expenseRepository.restoreExpense(deleted);
       });
-      // SECURE: Use longer cleanup window for offline-resilience
       setTimeout(() => {
         void receiptService.deletePath(deleted.receiptImagePath);
       }, 15000);

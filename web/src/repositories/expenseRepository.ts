@@ -1,5 +1,5 @@
 ﻿import {
-  collection, doc, setDoc, deleteDoc, getDocs, query, where, orderBy,
+  collection, doc, setDoc, deleteDoc, getDoc, getDocs, query, where, orderBy,
   onSnapshot, type Unsubscribe, writeBatch,
 } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/services/firebase';
@@ -15,14 +15,26 @@ function catDoc(u: string, id: string) { return doc(fs()!, 'users', u, 'categori
 function expDoc(u: string, id: string) { return doc(fs()!, 'users', u, 'expenses', id); }
 
 const UNCATEGORIZED_ID = '0';
+const DATA_CHANGED_EVENT = 'ausgegeben:data-changed';
+
+/** Notify UI listeners after writes (Insights / all-time one-shot refetch). */
+function emitDataChanged() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(DATA_CHANGED_EVENT));
+  }
+}
 
 /** 2-decimal precision for financial data */
 function roundAmount(amt: number) { return Math.round(amt * 100) / 100; }
 
 export const expenseRepository = {
 
-  // SECURE: Mirror Android real-time reactivity
+  /**
+   * @deprecated Prefer onExpensesInRange — full-collection listeners burn Spark read quota.
+   * Kept for rare one-shot / export paths via getAllExpenses.
+   */
   onExpensesChanged(cb: (exps: Expense[]) => void): Unsubscribe {
+    console.warn('[expenseRepository] onExpensesChanged is unbounded; prefer onExpensesInRange');
     const u = uid();
     if (!u) {
       cb([]);
@@ -40,7 +52,12 @@ export const expenseRepository = {
     );
   },
 
-  async getAllExpenses(): Promise<Expense[]> { const u = uid(); if (!u) return []; const s = await getDocs(query(expCol(u), orderBy('dateMillis', 'desc'))); return s.docs.map(d => ({ id: d.id, ...d.data() } as Expense)); },
+  async getAllExpenses(): Promise<Expense[]> {
+    const u = uid();
+    if (!u) return [];
+    const s = await getDocs(query(expCol(u), orderBy('dateMillis', 'desc')));
+    return s.docs.map(d => ({ id: d.id, ...d.data() } as Expense));
+  },
 
   async getCategoriesByType(type: string): Promise<Category[]> { const u = uid(); if (!u) return []; const s = await getDocs(query(catCol(u), where('transactionType', '==', type), orderBy('sortOrder'))); return s.docs.map(d => ({ id: d.id, ...d.data() } as Category)); },
 
@@ -97,10 +114,9 @@ export const expenseRepository = {
 
   async getExpenseById(id: string): Promise<Expense | undefined> {
     const userId = uid(); if (!userId) return undefined;
-    const snap = await getDocs(query(expCol(userId), where('__name__', '==', id)));
-    if (snap.empty) return undefined;
-    const d = snap.docs[0];
-    return { id: d.id, ...d.data() } as Expense;
+    const snap = await getDoc(expDoc(userId, id));
+    if (!snap.exists()) return undefined;
+    return { id: snap.id, ...snap.data() } as Expense;
   },
 
   async getExpensesInRange(start: number, end: number): Promise<Expense[]> {
@@ -129,9 +145,27 @@ export const expenseRepository = {
   },
 
   onExpensesInRange(start: number, end: number, cb: (exps: Expense[]) => void): Unsubscribe {
-    const userId = uid(); if (!userId) { cb([]); return () => {}; }
-    const q = query(expCol(userId), where('dateMillis', '>=', start), where('dateMillis', '<', end), orderBy('dateMillis', 'desc'));
-    return onSnapshot(q, snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Expense))));
+    const userId = uid();
+    if (!userId) {
+      cb([]);
+      return () => {};
+    }
+    const q = query(
+      expCol(userId),
+      where('dateMillis', '>=', start),
+      where('dateMillis', '<', end),
+      orderBy('dateMillis', 'desc'),
+    );
+    return onSnapshot(
+      q,
+      (snap) => {
+        cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Expense)));
+      },
+      (err) => {
+        console.error('[onExpensesInRange]', err);
+        cb([]);
+      },
+    );
   },
 
   async countExpensesForCategory(id: string): Promise<number> {
@@ -156,12 +190,14 @@ export const expenseRepository = {
     } as any;
     if (idempotencyKey) payload.idempotencyKey = idempotencyKey;
     await setDoc(expDoc(userId, id), payload);
+    emitDataChanged();
     return id;
   },
 
   async updateExpense(expense: Expense): Promise<void> {
     const userId = uid(); if (!userId || !expense.id) return;
     await setDoc(expDoc(userId, expense.id), { ...expense, amount: roundAmount(expense.amount), updatedAt: now() }, { merge: true });
+    emitDataChanged();
   },
 
   async deleteExpense(id: string): Promise<Expense | null> {
@@ -169,6 +205,7 @@ export const expenseRepository = {
     const exp = await this.getExpenseById(id);
     if (!exp) return null;
     await deleteDoc(expDoc(userId, id));
+    emitDataChanged();
     return exp;
   },
 
