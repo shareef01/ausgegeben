@@ -5,10 +5,13 @@ import { receiptService } from '@/services/receiptService';
 import { parseAmount } from '@/utils/currency';
 import { useTranslation } from '@/i18n';
 
+export const MAX_RECEIPT_SIZE = 10 * 1024 * 1024;
+const ALLOWED_RECEIPT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+
 export interface AddTransactionForm {
   amountInput: string;
   transactionType: TransactionType;
-  categoryId: number | null;
+  categoryId: string | null;
   note: string;
   dateMillis: number;
   receiptImagePath: string | null;
@@ -23,7 +26,7 @@ const defaultForm = (): AddTransactionForm => ({
   receiptImagePath: null,
 });
 
-export function useAddTransactionViewModel(expenseId?: number) {
+export function useAddTransactionViewModel(expenseId?: string) {
   const { t } = useTranslation();
   const [form, setForm] = useState<AddTransactionForm>(defaultForm);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -46,7 +49,7 @@ export function useAddTransactionViewModel(expenseId?: number) {
         if (existing) {
           setPreviousReceiptPath(existing.receiptImagePath ?? null);
           setForm({
-            amountInput: existing.amount.toFixed(2).replace('.', ','),
+            amountInput: existing.amount.toFixed(2),
             transactionType: existing.transactionType,
             categoryId: existing.categoryId,
             note: existing.note,
@@ -72,7 +75,7 @@ export function useAddTransactionViewModel(expenseId?: number) {
   }, [load]);
 
   const filteredCategories = useMemo(
-    () => categories.filter((c) => c.transactionType === form.transactionType && c.id !== 0 && c.name?.trim()),
+    () => categories.filter((c) => c.transactionType === form.transactionType && c.name?.trim()),
     [categories, form.transactionType],
   );
 
@@ -94,6 +97,15 @@ export function useAddTransactionViewModel(expenseId?: number) {
   };
 
   const attachReceipt = async (file: File) => {
+    if (!ALLOWED_RECEIPT_TYPES.includes(file.type) && file.type !== '') {
+      setError(t('errorReceiptType'));
+      return;
+    }
+    if (file.size > MAX_RECEIPT_SIZE) {
+      setError(t('errorReceiptTooLarge'));
+      return;
+    }
+    setError(null);
     const path = await receiptService.save(file);
     if (form.receiptImagePath && form.receiptImagePath !== previousReceiptPath) {
       await receiptService.deletePath(form.receiptImagePath);
