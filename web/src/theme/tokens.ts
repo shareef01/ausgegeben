@@ -46,7 +46,7 @@ const baseDark = (overrides: Partial<ThemePalette> = {}): ThemePalette => ({
   surface: '#121214', // Flagship Graphite
   onSurface: '#F4F4F5',
   surfaceVariant: '#18181B',
-  onSurfaceVariant: '#71717A',
+  onSurfaceVariant: '#8F8F97',
   outline: 'rgba(255, 255, 255, 0.08)',
   error: '#FB7185', // Flagship Coral
   income: '#10B981', // Flagship Emerald
@@ -120,41 +120,23 @@ export function applyTheme(palette: ThemePalette): void {
   root.style.setProperty('--color-transfer', palette.transfer);
   root.style.setProperty('--color-accent', palette.income);
   root.style.setProperty('--color-focus', palette.focusRing);
-  root.style.setProperty('--color-date-divider', palette.isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.04)');
 
-  // Adaptive Glassmorphism
-  root.style.setProperty('--glass-bg', palette.isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)');
-  root.style.setProperty('--glass-border', palette.isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)');
-  root.style.setProperty('--glass-bg-elevated', palette.isDark ? 'rgba(18, 18, 20, 0.92)' : 'rgba(255, 255, 255, 0.85)');
-
-  root.style.setProperty('--surface-border', palette.isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)');
-  root.style.setProperty('--color-oled-surface', palette.isDark ? '#09090B' : palette.surface);
-  root.style.setProperty('--color-oled-surface-elevated', palette.isDark ? '#121214' : palette.surfaceVariant);
-  root.style.setProperty('--hairline-border', palette.isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)');
-  root.style.setProperty('--hairline-divider', palette.isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.05)');
+  root.style.setProperty('--glass-bg', palette.isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.04)');
+  root.style.setProperty('--glass-border', palette.isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.1)');
+  root.style.setProperty('--glass-bg-elevated', palette.isDark ? 'rgba(18, 18, 20, 0.92)' : 'rgba(255, 255, 255, 0.94)');
+  root.style.setProperty('--surface-border', palette.isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.08)');
+  root.style.setProperty('--hairline-border', palette.isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.1)');
+  root.style.setProperty('--hairline-divider', palette.isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.07)');
 
   root.style.setProperty('--color-label-muted', palette.onSurfaceVariant);
-  root.style.setProperty('--color-balance-positive', '#10B981');
-  root.style.setProperty('--color-balance-negative', '#FB7185');
+  root.style.setProperty('--color-balance-positive', palette.income);
+  root.style.setProperty('--color-balance-negative', palette.expense);
   root.style.setProperty('--color-stat-value', palette.onBackground);
 
-  root.style.setProperty(
-    '--shadow-cta-physical',
-    `0 8px 32px color-mix(in srgb, ${palette.income} 40%, transparent)`,
-  );
+  root.style.setProperty('--gradient-income', `linear-gradient(180deg, color-mix(in srgb, ${palette.income} 40%, white) 0%, ${palette.income} 100%)`);
+  root.style.setProperty('--gradient-expense', `linear-gradient(180deg, color-mix(in srgb, ${palette.expense} 40%, white) 0%, ${palette.expense} 100%)`);
 
-  root.style.setProperty('--gradient-income', `linear-gradient(135deg, ${palette.income} 0%, #059669 100%)`);
-  root.style.setProperty('--gradient-expense', `linear-gradient(135deg, ${palette.expense} 0%, #E11D48 100%)`);
-  root.style.setProperty('--gradient-accent', `linear-gradient(135deg, ${palette.income} 0%, #047857 100%)`);
-
-  root.style.setProperty('--shadow-accent-glow', `0 12px 40px color-mix(in srgb, ${palette.income} 35%, transparent)`);
-  root.style.setProperty('--shadow-income-glow', `0 8px 28px color-mix(in srgb, ${palette.income} 32%, transparent)`);
-  root.style.setProperty('--shadow-expense-glow', `0 8px 28px color-mix(in srgb, ${palette.expense} 28%, transparent)`);
-
-  // Aurora Ambient Glow
-  root.style.setProperty('--aurora-glow', palette.isDark
-    ? `radial-gradient(1000px at top right, color-mix(in srgb, ${palette.income} 15%, transparent), transparent)`
-    : `radial-gradient(1200px at top right, color-mix(in srgb, ${palette.income} 8%, transparent), transparent)`);
+  root.style.setProperty('--shadow-accent-glow', `0 12px 40px color-mix(in srgb, ${palette.primary} 25%, transparent)`);
 
   root.dataset.theme = palette.isDark ? 'dark' : 'light';
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', palette.background);

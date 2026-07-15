@@ -1,5 +1,5 @@
-import { useState, type ReactNode, type ComponentType, useRef } from 'react';
-import { ScreenTitle } from '@/components/ui';
+import { useState, type ReactNode, type ComponentType, useRef, useCallback } from 'react';
+import { SignatureText } from '@/components/ui';
 import {
   IconChevronRight,
   IconMoon,
@@ -15,27 +15,28 @@ import type { SVGProps } from 'react';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
-import { useTranslation, type Locale } from '@/i18n';
+import { useTranslation, type Locale, type TranslationKey } from '@/i18n';
 import { currencyLabel, formatAmount, SUPPORTED_CURRENCIES } from '@/utils/currency';
 import type { ThemeMode } from '@/models/types';
 import { expenseRepository } from '@/repositories/expenseRepository';
 import { exportCsv } from '@/utils/analytics';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import packageJson from '../../package.json';
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 type IconTint = 'accent' | 'income' | 'expense' | 'neutral';
 
-const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
-  { key: 'system', label: 'System' },
-  { key: 'light', label: 'Light' },
-  { key: 'dark', label: 'Dark' },
-  { key: 'amoled', label: 'AMOLED' },
-  { key: 'midnight', label: 'Midnight' },
-  { key: 'ocean', label: 'Ocean' },
-  { key: 'forest', label: 'Forest' },
-  { key: 'sunset', label: 'Sunset' },
-  { key: 'lavender', label: 'Lavender' },
-  { key: 'soft_light', label: 'Soft Light' },
+const THEME_OPTIONS: { key: ThemeMode; labelKey: TranslationKey }[] = [
+  { key: 'system', labelKey: 'themeSystem' },
+  { key: 'light', labelKey: 'themeLight' },
+  { key: 'dark', labelKey: 'themeDark' },
+  { key: 'amoled', labelKey: 'themeAmoled' },
+  { key: 'midnight', labelKey: 'themeMidnight' },
+  { key: 'ocean', labelKey: 'themeOcean' },
+  { key: 'forest', labelKey: 'themeForest' },
+  { key: 'sunset', labelKey: 'themeSunset' },
+  { key: 'lavender', labelKey: 'themeLavender' },
+  { key: 'soft_light', labelKey: 'themeSoftLight' },
 ];
 
 interface SettingsViewProps {
@@ -80,116 +81,120 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
   const initial = displayName.charAt(0).toUpperCase();
 
   return (
-    <div className="page-content settings-view">
-      <ScreenTitle
-        title={t('screenSettings')}
-        subtitle={t('settingsVersionSubtitle', { version: packageJson.version })}
-      />
+    <>
+      <div className="page-title">
+        <h1 className="page-title__text font-bold text-on-background tracking-wide">
+          <SignatureText text={t('screenSettings')} />
+        </h1>
+        <p className="text-sm text-on-surface-variant mt-1">
+          {t('settingsVersionSubtitle', { version: packageJson.version })}
+        </p>
+      </div>
 
-      {user ? (
-        <section className="settings-section">
-          <div className="section-title">{t('settingsCloudAccount')}</div>
-          <div className="account-profile-card card card--elevated">
-            <div className="account-profile-card__header">
-              <div className="account-profile-card__avatar" aria-hidden>{initial}</div>
-              <div className="account-profile-card__copy">
-                <div className="account-profile-card__name">{displayName}</div>
-                {user.email ? <div className="account-profile-card__email">{user.email}</div> : null}
-                <div className="account-profile-card__badge">{t('settingsAccountSyncEnabled')}</div>
+      <div className="settings-layout">
+        {/* Full-width account card */}
+        <div className="settings-account-card">
+          {user ? (
+            <div className="account-profile-card card card--elevated">
+              <div className="flex items-center gap-5 p-5">
+                <div className="account-profile-card__avatar" aria-hidden>{initial}</div>
+                <div className="min-w-0">
+                  <div className="font-semibold text-lg truncate">{displayName}</div>
+                  {user.email ? <div className="text-sm text-on-surface-variant truncate">{user.email}</div> : null}
+                  <div className="mt-1 text-xs font-bold text-income tracking-wide uppercase">{t('settingsAccountSyncEnabled')}</div>
+                </div>
+                <button
+                  type="button"
+                  className="settings-signout-btn"
+                  onClick={() => setShowSignOutConfirm(true)}
+                >
+                  {t('settingsSignOut').toLowerCase()}
+                </button>
               </div>
             </div>
-          </div>
-        </section>
-      ) : (
-        <section className="settings-section">
-          <div className="account-profile-card account-profile-card--offline card card--elevated">
-            <div className="account-profile-card__header">
-              <div className="account-profile-card__avatar account-profile-card__avatar--muted" aria-hidden>
-                <IconCloud width={22} height={22} />
-              </div>
-              <div className="account-profile-card__copy">
-                <div className="account-profile-card__name">{t('settingsOffline')}</div>
-                <div className="account-profile-card__email">{t('settingsOfflineSub')}</div>
+          ) : (
+            <div className="account-profile-card card card--elevated">
+              <div className="flex items-center gap-5 p-5">
+                <div className="w-14 h-14 rounded-full bg-on-surface/5 flex items-center justify-center text-on-surface-variant shrink-0">
+                  <IconCloud width={26} height={26} />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-semibold text-lg">{t('settingsOffline')}</div>
+                  <div className="text-sm text-on-surface-variant">{t('settingsOfflineSub')}</div>
+                </div>
               </div>
             </div>
-          </div>
-        </section>
-      )}
-
-      <Section title={t('settingsAppearance')}>
-        <SettingsRow icon={IconMoon} iconTint="accent" title={t('settingsTheme')} subtitle={THEME_OPTIONS.find((opt) => opt.key === themeMode)?.label ?? themeMode} onClick={() => setShowTheme(true)} />
-        <SettingsRow icon={IconGlobe} iconTint="accent" title={t('settingsLanguage')} subtitle={locale === 'de' ? t('langGerman') : t('langEnglish')} onClick={() => setShowLanguage(true)} />
-        <SettingsRow icon={IconCurrency} iconTint="income" title={t('settingsCurrency')} subtitle={currencyLabel(currency)} onClick={() => setShowCurrency(true)} />
-      </Section>
-
-      <Section title={t('settingsBudget')}>
-        {editBudget ? (
-          <div className="settings-row" style={{ gap: 10, flexWrap: 'wrap' }}>
-            <input
-              ref={budgetInputRef}
-              className="search-input"
-              type="number"
-              inputMode="decimal"
-              placeholder="0.00"
-              value={budgetInput}
-              onChange={(e) => setBudgetInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  const n = Number.parseFloat(budgetInput.replace(',', '.'));
-                  setMonthlyBudget(Number.isFinite(n) && n > 0 ? n : null);
-                  setEditBudget(false);
-                } else if (e.key === 'Escape') {
-                  setEditBudget(false);
-                }
-              }}
-              autoFocus
-            />
-            <button type="button" className="btn btn-primary" style={{ padding: '6px 14px', fontSize: '0.8125rem' }} onClick={() => {
-              const n = Number.parseFloat(budgetInput.replace(',', '.'));
-              setMonthlyBudget(Number.isFinite(n) && n > 0 ? n : null);
-              setEditBudget(false);
-            }}>{t('actionSave')}</button>
-            <button type="button" className="btn btn-secondary" style={{ padding: '6px 14px', fontSize: '0.8125rem' }} onClick={() => setEditBudget(false)}>{t('actionCancel')}</button>
-          </div>
-        ) : (
-          <SettingsRow
-            icon={IconGauge}
-            iconTint="neutral"
-            title={t('settingsMonthlyLimit')}
-            subtitle={monthlyBudget ? formatAmount(monthlyBudget, currency) : t('settingsMonthlyLimitNotSet')}
-            onClick={() => {
-              setBudgetInput(monthlyBudget?.toString().replace('.', ',') ?? '');
-              setEditBudget(true);
-            }}
-          />
-        )}
-      </Section>
-
-      <Section title={t('settingsManagement')}>
-        <SettingsRow icon={IconLayers} iconTint="accent" title={t('settingsCategories')} subtitle={t('settingsCategoriesSub')} onClick={onManageCategories} />
-        <SettingsRow icon={IconDownload} iconTint="neutral" title={t('settingsExport')} subtitle={t('settingsExportSub')} onClick={() => void exportData()} />
-      </Section>
-
-      {user && (
-        <div className="settings-logout-wrap">
-          <button
-            type="button"
-            className="btn btn-secondary settings-logout-btn"
-            onClick={() => setShowSignOutConfirm(true)}
-          >
-            {t('settingsSignOut').toLowerCase()}
-          </button>
+          )}
         </div>
-      )}
+
+        {/* 2-column settings grid */}
+        <div className="settings-grid">
+          <Section title={t('settingsAppearance')}>
+            <SettingsRow icon={IconMoon} iconTint="accent" title={t('settingsTheme')} subtitle={t(THEME_OPTIONS.find((opt) => opt.key === themeMode)?.labelKey ?? 'themeSystem')} onClick={() => setShowTheme(true)} />
+            <SettingsRow icon={IconGlobe} iconTint="accent" title={t('settingsLanguage')} subtitle={locale === 'de' ? t('langGerman') : t('langEnglish')} onClick={() => setShowLanguage(true)} />
+            <SettingsRow icon={IconCurrency} iconTint="income" title={t('settingsCurrency')} subtitle={currencyLabel(currency)} onClick={() => setShowCurrency(true)} />
+          </Section>
+
+          <Section title={t('settingsBudget')}>
+            {editBudget ? (
+              <div className="flex flex-col gap-3 p-4">
+                <input
+                  ref={budgetInputRef}
+                  className="field__input"
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={budgetInput}
+                  onChange={(e) => setBudgetInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const n = Number.parseFloat(budgetInput.replace(',', '.'));
+                      setMonthlyBudget(Number.isFinite(n) && n > 0 ? n : null);
+                      setEditBudget(false);
+                    } else if (e.key === 'Escape') {
+                      setEditBudget(false);
+                    }
+                  }}
+                  autoFocus
+                />
+                <div className="flex gap-3">
+                  <button type="button" className="btn btn-primary flex-1 px-4 py-2.5 rounded-xl font-bold" onClick={() => {
+                    const n = Number.parseFloat(budgetInput.replace(',', '.'));
+                    setMonthlyBudget(Number.isFinite(n) && n > 0 ? n : null);
+                    setEditBudget(false);
+                  }}>{t('actionSave')}</button>
+                  <button type="button" className="btn btn-secondary flex-1 px-4 py-2.5 rounded-xl border border-surface-border" onClick={() => setEditBudget(false)}>{t('actionCancel')}</button>
+                </div>
+              </div>
+            ) : (
+              <SettingsRow
+                icon={IconGauge}
+                iconTint="neutral"
+                title={t('settingsMonthlyLimit')}
+                subtitle={monthlyBudget ? formatAmount(monthlyBudget, currency) : t('settingsMonthlyLimitNotSet')}
+                onClick={() => {
+                  setBudgetInput(monthlyBudget?.toString().replace('.', ',') ?? '');
+                  setEditBudget(true);
+                }}
+              />
+            )}
+          </Section>
+
+          <Section title={t('settingsManagement')}>
+            <SettingsRow icon={IconLayers} iconTint="accent" title={t('settingsCategories')} subtitle={t('settingsCategoriesSub')} onClick={onManageCategories} />
+            <SettingsRow icon={IconDownload} iconTint="neutral" title={t('settingsExport')} subtitle={t('settingsExportSub')} onClick={() => void exportData()} />
+          </Section>
+        </div>
+      </div>
 
       {showSignOutConfirm ? (
         <Modal title={t('settingsSignOut')} onClose={() => setShowSignOutConfirm(false)}>
-          <p className="settings-confirm-copy">{t('settingsSignOutConfirm')}</p>
-          <div className="settings-confirm-actions">
-            <button type="button" className="btn btn-secondary" onClick={() => setShowSignOutConfirm(false)}>{t('actionCancel')}</button>
+          <p className="settings-confirm-copy mb-8 leading-relaxed">{t('settingsSignOutConfirm')}</p>
+          <div className="flex justify-end gap-3">
+            <button type="button" className="btn btn-secondary px-6 py-3 rounded-xl" onClick={() => setShowSignOutConfirm(false)}>{t('actionCancel')}</button>
             <button
               type="button"
-              className="btn btn-primary"
+              className="btn btn-primary px-8 py-3 rounded-xl bg-expense hover:bg-expense/90"
               onClick={() => {
                 setShowSignOutConfirm(false);
                 void authService.signOut();
@@ -207,14 +212,12 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
             <button
               key={code}
               type="button"
-              className={`settings-row settings-row--interactive${locale === code ? ' settings-row--selected' : ''}`}
+              className={`settings-row w-full flex items-center gap-4 p-4 rounded-xl transition-colors hover:bg-on-surface/5 ${locale === code ? 'bg-accent/10' : ''}`}
               onClick={() => { setLocale(code); setShowLanguage(false); }}
             >
-              <span className="settings-row__icon-tile" data-tint="accent"><IconGlobe width={18} height={18} /></span>
-              <span className="settings-row__label" style={{ flex: 1 }}>
-                <span className="settings-row__title">{code === 'de' ? t('langGerman') : t('langEnglish')}</span>
-              </span>
-              {locale === code ? <span className="settings-row__check" aria-hidden><IconCheck width={18} height={18} /></span> : null}
+              <span className="settings-row__icon-tile w-10 h-10 flex items-center justify-center rounded-lg bg-accent/10 text-accent"><IconGlobe width={20} height={20} /></span>
+              <span className="flex-1 text-left font-medium">{code === 'de' ? t('langGerman') : t('langEnglish')}</span>
+              {locale === code ? <span className="text-accent" aria-hidden><IconCheck width={20} height={20} /></span> : null}
             </button>
           ))}
         </Modal>
@@ -222,45 +225,45 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
 
       {showTheme ? (
         <Modal title={t('settingsChooseTheme')} onClose={() => setShowTheme(false)}>
-          {THEME_OPTIONS.map((opt) => (
-            <button
-              key={opt.key}
-              type="button"
-              className={`settings-row settings-row--interactive${themeMode === opt.key ? ' settings-row--selected' : ''}`}
-              onClick={() => {
-                setShowTheme(false);
-                requestAnimationFrame(() => setThemeMode(opt.key));
-              }}
-            >
-              <span className="settings-row__icon-tile" data-tint="accent"><IconMoon width={18} height={18} /></span>
-              <span className="settings-row__label" style={{ flex: 1 }}>
-                <span className="settings-row__title">{opt.label}</span>
-              </span>
-              {themeMode === opt.key ? <span className="settings-row__check" aria-hidden><IconCheck width={18} height={18} /></span> : null}
-            </button>
-          ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {THEME_OPTIONS.map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                className={`settings-row flex items-center gap-4 p-4 rounded-xl transition-colors hover:bg-on-surface/5 ${themeMode === opt.key ? 'bg-accent/10' : ''}`}
+                onClick={() => {
+                  setShowTheme(false);
+                  requestAnimationFrame(() => setThemeMode(opt.key));
+                }}
+              >
+                <span className="settings-row__icon-tile w-10 h-10 flex items-center justify-center rounded-lg bg-accent/10 text-accent"><IconMoon width={20} height={20} /></span>
+                <span className="flex-1 text-left font-medium">{t(opt.labelKey)}</span>
+                {themeMode === opt.key ? <span className="text-accent" aria-hidden><IconCheck width={20} height={20} /></span> : null}
+              </button>
+            ))}
+          </div>
         </Modal>
       ) : null}
 
       {showCurrency ? (
         <Modal title={t('settingsChooseCurrency')} onClose={() => setShowCurrency(false)}>
-          {SUPPORTED_CURRENCIES.map((c) => (
-            <button
-              key={c}
-              type="button"
-              className={`settings-row settings-row--interactive${currency === c ? ' settings-row--selected' : ''}`}
-              onClick={() => { setCurrency(c); setShowCurrency(false); }}
-            >
-              <span className="settings-row__icon-tile" data-tint="income"><IconCurrency width={18} height={18} /></span>
-              <span className="settings-row__label" style={{ flex: 1 }}>
-                <span className="settings-row__title">{currencyLabel(c)}</span>
-              </span>
-              {currency === c ? <span className="settings-row__check" aria-hidden><IconCheck width={18} height={18} /></span> : null}
-            </button>
-          ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {SUPPORTED_CURRENCIES.map((c) => (
+              <button
+                key={c}
+                type="button"
+                className={`settings-row flex items-center gap-4 p-4 rounded-xl transition-colors hover:bg-on-surface/5 ${currency === c ? 'bg-income/10' : ''}`}
+                onClick={() => { setCurrency(c); setShowCurrency(false); }}
+              >
+                <span className="settings-row__icon-tile w-10 h-10 flex items-center justify-center rounded-lg bg-income/10 text-income"><IconCurrency width={20} height={20} /></span>
+                <span className="flex-1 text-left font-medium">{currencyLabel(c)}</span>
+                {currency === c ? <span className="text-income" aria-hidden><IconCheck width={20} height={20} /></span> : null}
+              </button>
+            ))}
+          </div>
         </Modal>
       ) : null}
-    </div>
+    </>
   );
 }
 
@@ -318,11 +321,14 @@ function SettingsRow({
 
 function Modal({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
   const { t } = useTranslation();
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const handleEscape = useCallback(() => onClose(), [onClose]);
+  useFocusTrap(true, sheetRef, handleEscape);
   return (
     <div className="overlay overlay--settings" onClick={onClose} role="presentation">
-      <div className="sheet sheet--settings" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+      <div ref={sheetRef} className="sheet sheet--settings" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="settings-modal-title" tabIndex={-1}>
         <div className="sheet--settings__header">
-          <h2 className="sheet--settings__title">{title}</h2>
+          <h2 id="settings-modal-title" className="sheet--settings__title">{title.toLowerCase()}</h2>
           <button type="button" className="sheet--settings__close" onClick={onClose}>{t('actionClose')}</button>
         </div>
         <div className="sheet--settings__body">{children}</div>

@@ -1,4 +1,5 @@
 import { useId, useMemo } from 'react';
+import { useTranslation } from '@/i18n';
 
 interface CashFlowPoint {
   label: string;
@@ -19,6 +20,8 @@ const PAD_Y_BOTTOM = 16;
 const TOP_PADDING_RATIO = 0.20;
 const CHART_W = CHART_WIDTH - PAD_X * 2;
 const CHART_H = CHART_HEIGHT - PAD_Y_TOP - PAD_Y_BOTTOM;
+// Pillar 3: Minimum pixel gap between X-axis labels to prevent collision
+const MIN_LABEL_GAP_PX = 44;
 
 function yFor(value: number, minV: number, maxV: number): number {
   const range = Math.max(maxV - minV, 1);
@@ -93,12 +96,13 @@ function CashFlowSeries({
 }
 
 export function CashFlowChart({ trend }: CashFlowChartProps) {
+  const { t } = useTranslation();
   const uid = useId().replace(/:/g, '');
   const incomeGradId = `cf-income-${uid}`;
   const expenseGradId = `cf-expense-${uid}`;
   const bottomY = PAD_Y_TOP + CHART_H;
 
-  const { incomePts, expensePts } = useMemo(() => {
+  const { incomePts, expensePts, ariaSummary } = useMemo(() => {
     const values = trend.flatMap((p) => [p.income, p.expense]);
     const minV = Math.min(...values);
     const maxV = Math.max(...values);
@@ -111,7 +115,44 @@ export function CashFlowChart({ trend }: CashFlowChartProps) {
       x: xFor(i, trend.length),
       y: yFor(p.expense, minV, maxV),
     }));
-    return { incomePts, expensePts };
+
+    const totalIncome = trend.reduce((s, p) => s + p.income, 0);
+    const totalExpense = trend.reduce((s, p) => s + p.expense, 0);
+    const ariaSummary = `${t('chartCashFlow')}. ${t('filterIncome')}: ${totalIncome.toFixed(2)}. ${t('filterExpense')}: ${totalExpense.toFixed(2)}.`;
+
+    return { incomePts, expensePts, ariaSummary };
+  }, [trend, t]);
+
+  // Pillar 3: Deduplicate X-axis labels — skip collisions and repeated text
+  const xLabels = useMemo(() => {
+    const labels: { x: number; label: string }[] = [];
+    let lastX = -Infinity;
+    let lastLabel = '';
+    for (let i = 0; i < trend.length; i++) {
+      const px = xFor(i, trend.length);
+      const lbl = trend[i].label;
+      // Only render if far enough from previous AND label differs or is first
+      if (px - lastX >= MIN_LABEL_GAP_PX && lbl !== lastLabel) {
+        labels.push({ x: px, label: lbl });
+        lastX = px;
+        lastLabel = lbl;
+      } else if (i === 0) {
+        // Always show first label
+        labels.push({ x: px, label: lbl });
+        lastX = px;
+        lastLabel = lbl;
+      }
+    }
+    // Always show last label if it would be unique and far enough
+    if (trend.length > 1) {
+      const lastPx = xFor(trend.length - 1, trend.length);
+      const lastLbl = trend[trend.length - 1].label;
+      const prevLabel = labels[labels.length - 1];
+      if (!prevLabel || (lastPx - prevLabel.x >= MIN_LABEL_GAP_PX && lastLbl !== prevLabel.label)) {
+        labels.push({ x: lastPx, label: lastLbl });
+      }
+    }
+    return labels;
   }, [trend]);
 
   if (trend.length === 0) return null;
@@ -125,7 +166,7 @@ export function CashFlowChart({ trend }: CashFlowChartProps) {
         viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
         preserveAspectRatio="xMidYMid meet"
         role="img"
-        aria-hidden
+        aria-label={ariaSummary}
       >
         <defs>
           <linearGradient id={incomeGradId} x1="0" y1="0" x2="0" y2="1">
@@ -156,16 +197,40 @@ export function CashFlowChart({ trend }: CashFlowChartProps) {
 
         <CashFlowSeries points={incomePts} color="var(--color-income)" gradId={incomeGradId} bottomY={bottomY} />
         <CashFlowSeries points={expensePts} color="var(--color-expense)" gradId={expenseGradId} bottomY={bottomY} />
+
+        {/* Pillar 3: Deduplicated X-axis labels with collision avoidance */}
+        {xLabels.map((lbl, i) => (
+          <text
+            key={i}
+            x={lbl.x}
+            y={CHART_HEIGHT - 2}
+            textAnchor="middle"
+            fill="var(--color-on-surface-variant)"
+            fillOpacity="0.55"
+            fontSize="8.5"
+            fontFamily="var(--font-family, Inter, sans-serif)"
+            fontWeight="500"
+          >
+            {lbl.label}
+          </text>
+        ))}
       </svg>
     </div>
   );
 }
 
 export function CashFlowLegend() {
+  const { t } = useTranslation();
   return (
-    <div className="cashflow-legend" aria-hidden>
-      <span className="cashflow-legend__dot cashflow-legend__dot--income" />
-      <span className="cashflow-legend__dot cashflow-legend__dot--expense" />
+    <div className="cashflow-legend" role="list" aria-label={t('chartCashFlow')}>
+      <span className="cashflow-legend__item" role="listitem">
+        <span className="cashflow-legend__dot cashflow-legend__dot--income" aria-hidden />
+        <span className="cashflow-legend__label">{t('filterIncome')}</span>
+      </span>
+      <span className="cashflow-legend__item" role="listitem">
+        <span className="cashflow-legend__dot cashflow-legend__dot--expense" aria-hidden />
+        <span className="cashflow-legend__label">{t('filterExpense')}</span>
+      </span>
     </div>
   );
 }

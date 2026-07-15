@@ -1,1 +1,30 @@
-/** Brand — minimal geometric "A" mark. No animations needed. */
+/** Brand — signature "A" geometric mark with emerald gradient */
+
+.app-brand-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.app-brand-icon svg {
+  display: block;
+}
+
+/* Subtle glow pulse on the brand icon */
+.app-brand-icon svg rect:first-of-type {
+  transition: stroke-opacity 0.8s ease;
+}
+
+.auth-page__app-icon:hover svg rect:first-of-type,
+.onboarding-card__app-icon:hover svg rect:first-of-type {
+  stroke-opacity: 0.3;
+}
+
+/* Signature text — first-letter accent styling */
+.signature-text {
+  display: inline;
+}
+
+.signature-text__accent {
+  color: var(--color-accent);
+  font-weight: inherit;
+}

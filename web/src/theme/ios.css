@@ -59,13 +59,32 @@ body {
 
 /* ── Safe Area Insets ── */
 
-.screen-title-bar,
+/* Safe-area only — shell already provides horizontal padding */
 .transaction-list-bare,
 .finance-summary-card,
 .record-filters,
 .budget-bar,
 .insights-stat-grid,
 .insights-grid {
-  padding-left: calc(var(--workspace-padding) + var(--safe-left));
-  padding-right: calc(var(--workspace-padding) + var(--safe-right));
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
+}
+
+/* FAB safe area */
+.fab--anchored {
+  bottom: calc(32px + var(--safe-bottom)) !important;
+}
+
+/* Header safe area top padding — only on iOS notch devices */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .app-header {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* ── iOS status bar style ── */
+@supports (-webkit-touch-callout: none) {
+  .app-shell {
+    padding-top: env(safe-area-inset-top);
+  }
 }

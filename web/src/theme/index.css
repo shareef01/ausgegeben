@@ -1,9 +1,10 @@
 @import './global.css';
-@import './premium.css';
+@import './layout.css';
+@import './pages.css';
 @import './oled.css';
-@import './brand.css';
 @import './polish.css';
 @import './ios.css';
+@import './premium.css'; /* Master override imported last */
 
 :root {
   --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
@@ -13,9 +14,9 @@
   --color-on-primary: #000000;
   --color-background: #000000;
   --color-on-background: #FAFAFA;
-  --color-surface: #121214;
-  --color-on-surface: #F4F4F5;
-  --color-surface-variant: #18181B;
+  --color-surface: #FFFFFF;
+  --color-on-surface: #09090B;
+  --color-surface-variant: #F4F4F5;
   --color-on-surface-variant: #71717A;
   --color-outline: rgba(255, 255, 255, 0.08);
   --color-error: #FB7185;
@@ -37,25 +38,14 @@
   --color-stat-value: #FAFAFA;
 
   /* ── Layout ── */
-  --bottom-bar-height: 56px;
-  --fab-size: 60px;
-  --fab-clearance: 72px;
+  --bottom-bar-height: 40px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --layout-breakpoint: 768px;
-  --app-max-width: 100%;
   --content-max-width: 100%;
   --workspace-padding: 16px;
-  --workspace-padding-desktop: 32px;
-  --radius-lg: 20px;
-  --radius-md: 14px;
-  --radius-sm: 10px;
-  --glass-blur: 20px;
-  --surface-border: rgba(255, 255, 255, 0.06);
-  --transition-premium: 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Wider phones (iPhone 15 Pro Max, Plus models) — more spacious padding */
 @media (min-width: 400px) {
   :root {
     --workspace-padding: 20px;
@@ -66,6 +56,17 @@
 @media (min-width: 430px) {
   :root {
     --workspace-padding: 24px;
-    --fab-clearance: 80px;
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    --content-max-width: 768px;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --content-max-width: 1200px;
   }
 }

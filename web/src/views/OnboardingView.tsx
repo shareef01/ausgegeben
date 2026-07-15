@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useTranslation } from '@/i18n';
-import { SignatureText } from '@/components/ui';
 import { AppBrandIcon } from '@/components/AppBrandIcon';
 import { IconWallet, IconInsights, IconCloud, IconRecord } from '@/components/Icons';
 
@@ -23,14 +22,14 @@ export function OnboardingView({ onComplete }: OnboardingViewProps) {
   const SlideIcon = SLIDE_ICONS[step] ?? IconRecord;
 
   return (
-    <div className="app-shell auth-page onboarding-page">
-      <div className="auth-page__card onboarding-card">
-        <div className="onboarding-card__hero">
-          <AppBrandIcon size={72} className="onboarding-card__app-icon" />
-          <h1 className="onboarding-card__title">
-            <SignatureText text={t('appName')} as="span" />
+    <div className="app-shell auth-page onboarding-page p-4">
+      <div className="auth-page__card onboarding-card monolith-container py-12">
+        <div className="onboarding-card__hero mb-10">
+          <AppBrandIcon size={72} className="onboarding-card__app-icon mb-6" />
+          <h1 className="text-2xl font-extrabold tracking-tight text-zinc-100 mb-1">
+            {t('appName').toLowerCase()}
           </h1>
-          <p className="onboarding-card__tagline">{t('authTagline')}</p>
+          <p className="text-sm font-medium text-zinc-500">{t('authTagline')}</p>
         </div>
 
         <div className="onboarding-slide">
@@ -41,14 +40,13 @@ export function OnboardingView({ onComplete }: OnboardingViewProps) {
           <p className="onboarding-slide__body">{pages[step].body}</p>
         </div>
 
-        <div className="onboarding-dots" role="tablist" aria-label="Onboarding steps">
+        <div className="onboarding-dots" role="group" aria-label={t('onboardingStepsLabel')}>
           {pages.map((_, i) => (
             <button
               key={i}
               type="button"
-              role="tab"
-              aria-selected={i === step}
-              aria-label={`Step ${i + 1}`}
+              aria-current={i === step ? 'step' : undefined}
+              aria-label={t('onboardingStepN', { n: String(i + 1) })}
               className={`onboarding-dots__dot ${i === step ? 'onboarding-dots__dot--active' : ''}`}
               onClick={() => setStep(i)}
             />
@@ -57,7 +55,7 @@ export function OnboardingView({ onComplete }: OnboardingViewProps) {
 
         <div className="onboarding-actions">
           {step > 0 ? (
-            <button type="button" className="btn btn-secondary" onClick={() => setStep((s) => s - 1)}>
+            <button type="button" className="px-6 py-3 rounded-xl bg-[#121214] border border-white/10 text-zinc-400 hover:text-white hover:border-white/20 font-semibold text-sm transition-all duration-200" onClick={() => setStep((s) => s - 1)}>
               {t('actionBack')}
             </button>
           ) : (
@@ -65,7 +63,7 @@ export function OnboardingView({ onComplete }: OnboardingViewProps) {
           )}
           <button
             type="button"
-            className="btn btn-primary"
+            className="px-8 py-3 rounded-xl bg-[#10B981] text-black font-bold text-sm hover:brightness-110 active:scale-[0.98] transition-all duration-150"
             onClick={() => (isLast ? onComplete() : setStep((s) => s + 1))}
           >
             {isLast ? t('onboardingGetStarted') : t('onboardingNext')}

@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { receiptService } from '@/services/receiptService';
 import { useTranslation } from '@/i18n';
+import { IconClose } from '@/components/Icons';
 
 interface ReceiptPreviewProps {
   path: string;
@@ -10,23 +11,35 @@ interface ReceiptPreviewProps {
 export function ReceiptPreview({ path, onClose }: ReceiptPreviewProps) {
   const { t } = useTranslation();
   const [url, setUrl] = useState<string | null>(null);
-
-  const handleClose = useCallback(onClose, [onClose]);
+  const [loading, setLoading] = useState(true);
+  const loadSeq = useRef(0);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') handleClose();
+      if (e.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [handleClose]);
+  }, [onClose]);
 
   useEffect(() => {
+    loadSeq.current += 1;
+    const seq = loadSeq.current;
     let objectUrl: string | null = null;
+
+    setLoading(true);
+    setUrl(null);
+
     void receiptService.getObjectUrl(path).then((u) => {
+      if (seq !== loadSeq.current) {
+        if (u) URL.revokeObjectURL(u);
+        return;
+      }
       objectUrl = u;
       setUrl(u);
+      setLoading(false);
     });
+
     return () => {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
@@ -35,15 +48,21 @@ export function ReceiptPreview({ path, onClose }: ReceiptPreviewProps) {
   return (
     <div className="overlay" onClick={onClose} role="presentation">
       <div className="sheet receipt-preview" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-          <h2 style={{ margin: 0 }}>{t('receiptTitle')}</h2>
-          <button type="button" onClick={handleClose} aria-label={t('actionClose')}>{t('actionClose')}</button>
+        <div className="receipt-preview__header">
+          <h2 className="receipt-preview__title">{t('receiptTitle')}</h2>
+          <button type="button" className="receipt-preview__close" onClick={onClose} aria-label={t('actionClose')}>
+            <IconClose width={20} height={20} />
+          </button>
         </div>
-        {url ? (
-          <img src={url} alt={t('receiptTitle')} style={{ width: '100%', borderRadius: 12, maxHeight: '70vh', objectFit: 'contain' }} />
-        ) : (
-          <p>{t('loading')}</p>
-        )}
+        <div className="receipt-preview__body">
+          {loading ? (
+            <div className="receipt-preview__skeleton" aria-busy="true" />
+          ) : url ? (
+            <img src={url} alt={t('receiptTitle')} className="receipt-preview__image" />
+          ) : (
+            <p className="receipt-preview__error">{t('errorLoadFailed')}</p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -55,24 +74,41 @@ interface ReceiptThumbnailProps {
 }
 
 export function ReceiptThumbnail({ path, onClick }: ReceiptThumbnailProps) {
+  const { t } = useTranslation();
   const [url, setUrl] = useState<string | null>(null);
+  const loadSeq = useRef(0);
 
   useEffect(() => {
+    loadSeq.current += 1;
+    const seq = loadSeq.current;
     let objectUrl: string | null = null;
+
     void receiptService.getObjectUrl(path).then((u) => {
+      if (seq !== loadSeq.current) {
+        if (u) URL.revokeObjectURL(u);
+        return;
+      }
       objectUrl = u;
       setUrl(u);
     });
+
     return () => {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [path]);
 
-  if (!url) return null;
-
   return (
-    <button type="button" onClick={onClick} style={{ padding: 0, border: 'none', borderRadius: 8, overflow: 'hidden' }}>
-      <img src={url} alt="" style={{ width: 56, height: 56, objectFit: 'cover', display: 'block' }} />
+    <button
+      type="button"
+      onClick={onClick}
+      className="receipt-thumbnail"
+      aria-label={t('recordViewReceipt')}
+    >
+      {url ? (
+        <img src={url} alt="" className="receipt-thumbnail__image" />
+      ) : (
+        <div className="receipt-thumbnail__skeleton" aria-busy="true" />
+      )}
     </button>
   );
 }

@@ -16,11 +16,11 @@ export function BudgetProgressBar({ spent, budget, currency }: BudgetProgressBar
   const overBudget = spent > budget;
 
   return (
-    <div className="budget-bar">
-      <div className="budget-bar__labels">
-        <span>{t('budgetMonthlyLabel')}</span>
-        <span style={{ color: overBudget ? 'var(--color-expense)' : undefined }}>
-          {t('budgetProgress', { spent: formatAmount(spent, currency), budget: formatAmount(budget, currency) })}
+    <div className="budget-bar px-1">
+      <div className="budget-bar__labels flex justify-between items-end mb-3">
+        <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">{t('budgetMonthlyLabel')}</span>
+        <span className="text-xs font-bold tabular-nums" style={{ color: overBudget ? 'var(--color-expense)' : 'var(--color-on-surface-variant)' }}>
+          {formatAmount(spent, currency)} <span className="opacity-40 font-medium">/ {formatAmount(budget, currency)}</span>
         </span>
       </div>
       <div className="budget-bar__track">
@@ -34,7 +34,7 @@ export function BudgetProgressBar({ spent, budget, currency }: BudgetProgressBar
         />
       </div>
       {overBudget ? (
-        <p className="budget-bar__over">
+        <p className="budget-bar__over tabular-nums">
           {t('budgetOverBy', { amount: formatAmount(spent - budget, currency) })}
         </p>
       ) : null}
