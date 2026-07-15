@@ -1,5 +1,6 @@
 import { useId, useMemo } from 'react';
 import { useTranslation } from '@/i18n';
+import { formatAmount } from '@/utils/currency';
 
 interface CashFlowPoint {
   label: string;
@@ -9,6 +10,7 @@ interface CashFlowPoint {
 
 interface CashFlowChartProps {
   trend: CashFlowPoint[];
+  currency?: string;
 }
 
 const CHART_WIDTH = 400;
@@ -95,7 +97,7 @@ function CashFlowSeries({
   );
 }
 
-export function CashFlowChart({ trend }: CashFlowChartProps) {
+export function CashFlowChart({ trend, currency = 'EUR' }: CashFlowChartProps) {
   const { t } = useTranslation();
   const uid = useId().replace(/:/g, '');
   const incomeGradId = `cf-income-${uid}`;
@@ -118,10 +120,10 @@ export function CashFlowChart({ trend }: CashFlowChartProps) {
 
     const totalIncome = trend.reduce((s, p) => s + p.income, 0);
     const totalExpense = trend.reduce((s, p) => s + p.expense, 0);
-    const ariaSummary = `${t('chartCashFlow')}. ${t('filterIncome')}: ${totalIncome.toFixed(2)}. ${t('filterExpense')}: ${totalExpense.toFixed(2)}.`;
+    const ariaSummary = `${t('chartCashFlow')}. ${t('filterIncome')}: ${formatAmount(totalIncome, currency)}. ${t('filterExpense')}: ${formatAmount(totalExpense, currency)}.`;
 
     return { incomePts, expensePts, ariaSummary };
-  }, [trend, t]);
+  }, [trend, t, currency]);
 
   // Pillar 3: Deduplicate X-axis labels — skip collisions and repeated text
   const xLabels = useMemo(() => {

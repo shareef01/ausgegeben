@@ -136,10 +136,20 @@ a {
 
 /* Tabular numerals for all financial data */
 .tabular-nums,
+.money,
+.money--body,
 .money--hero-display,
 .money--stat,
-.transaction-row__amount {
+.transaction-row__amount,
+.donut-center__value,
+.budget-bar__labels,
+.budget-bar__over,
+.txn-day-header__totals,
+.settings-row__sub,
+.field__input[inputmode='decimal'],
+input[type='number'] {
   font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
 }
 
 .money--hero-display {
