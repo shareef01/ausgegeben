@@ -1,10 +1,13 @@
+import { useId } from 'react';
+
 interface AppBrandIconProps {
   size?: number;
   className?: string;
 }
 
-/** Minimal geometric "A" brand mark. */
 export function AppBrandIcon({ size = 64, className = '' }: AppBrandIconProps) {
+  const id = useId().replace(/:/g, '');
+
   return (
     <svg
       className={className}
@@ -15,12 +18,14 @@ export function AppBrandIcon({ size = 64, className = '' }: AppBrandIconProps) {
       aria-hidden
       role="img"
     >
-      <rect width="100" height="100" rx="22" fill="#0C0C0E" />
-      <path
-        fill="#10B981"
-        d="M50 16 L74 82 L64 82 L50 56 L36 82 L26 82 Z
-           M38 62 L62 62 L62 70 L38 70 Z"
-      />
+      <defs>
+        <linearGradient id={`logo-${id}`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#10B981" />
+          <stop offset="100%" stopColor="#059669" />
+        </linearGradient>
+      </defs>
+      <rect width="100" height="100" rx="20" fill="color-mix(in srgb, var(--color-accent) 10%, transparent)" stroke="var(--color-accent)" strokeOpacity="0.15" strokeWidth="1.5" />
+      <path fill={`url(#logo-${id})`} d="M50 22 L74 76 L62 76 L50 56 L38 76 L26 76 Z M39 62 L61 62 L61 69 L39 69 Z" />
     </svg>
   );
 }

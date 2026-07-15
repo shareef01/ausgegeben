@@ -1,6 +1,5 @@
 import type { LucideProps } from 'lucide-react';
 import {
-  ArrowLeftRight,
   ArrowUp,
   ArrowDown,
   BarChart3,
@@ -9,7 +8,6 @@ import {
   ChevronDown,
   ChevronRight,
   Cloud,
-  CloudOff,
   CreditCard,
   Download,
   Gauge,
@@ -17,15 +15,17 @@ import {
   History,
   Layers,
   List,
-  LogOut,
   Moon,
   Paperclip,
+  Pencil,
   Plus,
-  RefreshCw,
   Search,
   Settings,
-  Shield,
   Wallet,
+  Trash2,
+  Camera,
+  Eraser,
+  X,
 } from 'lucide-react';
 
 /** Consistent stroke for all UI chrome icons */
@@ -51,10 +51,6 @@ export function IconAdd(props: IconProps) {
 
 export function IconCloud(props: IconProps) {
   return <Cloud strokeWidth={STROKE} {...props} />;
-}
-
-export function IconSync(props: IconProps) {
-  return <RefreshCw strokeWidth={STROKE} {...props} />;
 }
 
 export function IconWallet(props: IconProps) {
@@ -85,14 +81,6 @@ export function IconCurrency(props: IconProps) {
   return <CreditCard strokeWidth={STROKE} {...props} />;
 }
 
-export function IconShield(props: IconProps) {
-  return <Shield strokeWidth={STROKE} {...props} />;
-}
-
-export function IconLogOut(props: IconProps) {
-  return <LogOut strokeWidth={STROKE} {...props} />;
-}
-
 export function IconGauge(props: IconProps) {
   return <Gauge strokeWidth={STROKE} {...props} />;
 }
@@ -117,14 +105,6 @@ export function IconCheck(props: IconProps) {
   return <Check strokeWidth={STROKE} {...props} />;
 }
 
-export function IconCloudOff(props: IconProps) {
-  return <CloudOff strokeWidth={STROKE} {...props} />;
-}
-
-export function IconArrowLeftRight(props: IconProps) {
-  return <ArrowLeftRight strokeWidth={STROKE} {...props} />;
-}
-
 export function IconPaperclip(props: IconProps) {
   return <Paperclip strokeWidth={STROKE} {...props} />;
 }
@@ -135,4 +115,24 @@ export function IconArrowUp(props: IconProps) {
 
 export function IconArrowDown(props: IconProps) {
   return <ArrowDown strokeWidth={STROKE} {...props} />;
+}
+
+export function IconDelete(props: IconProps) {
+  return <Trash2 strokeWidth={STROKE} {...props} />;
+}
+
+export function IconEdit(props: IconProps) {
+  return <Pencil strokeWidth={STROKE} {...props} />;
+}
+
+export function IconCamera(props: IconProps) {
+  return <Camera strokeWidth={STROKE} {...props} />;
+}
+
+export function IconBroom(props: IconProps) {
+  return <Eraser strokeWidth={STROKE} {...props} />;
+}
+
+export function IconClose(props: IconProps) {
+  return <X strokeWidth={STROKE} {...props} />;
 }

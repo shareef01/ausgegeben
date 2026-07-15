@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { IconCalendar, IconCheck, IconChevronDown, IconHistory } from '@/components/Icons';
+import type { TranslationKey } from '@/i18n';
 import { useTranslation } from '@/i18n';
 import type { AnalyticsPeriodOption } from '@/models/types';
 
@@ -77,10 +78,26 @@ export function PremiumPeriodSelector<T>({
   );
 }
 
-export function recordPeriodOptions() {
-  const { t } = useTranslation();
+export function recordPeriodOptions(locale: string, t: (key: TranslationKey, params?: Record<string, string>) => string) {
+  const now = Date.now();
+  const d = new Date(now);
+  d.setDate(1);
+  d.setHours(0, 0, 0, 0);
+
+  const months: { key: string; label: string }[] = [];
+  for (let i = 0; i < 12; i++) {
+    const year = d.getFullYear();
+    const month = d.getMonth();
+    const rangeStart = new Date(year, month, 1).getTime();
+    const label = new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(new Date(rangeStart));
+    const key = `month:${year}-${String(month + 1).padStart(2, '0')}`;
+    months.push({ key, label });
+    d.setMonth(d.getMonth() - 1);
+  }
+
   return [
     { key: 'this_month' as const, label: t('recordPeriodThisMonth') },
+    ...months.filter((m) => m.key !== `month:${new Date(now).getFullYear()}-${String(new Date(now).getMonth() + 1).padStart(2, '0')}`),
     { key: 'all_time' as const, label: t('recordPeriodAllTime') },
   ];
 }
