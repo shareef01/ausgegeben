@@ -144,29 +144,36 @@ export function AddTransactionView({ expenseId, onClose, onSaved }: AddTransacti
               />
             </div>
 
-            <div className="flex items-center gap-4 p-4 rounded-2xl bg-[#0C0C0E]/40 border border-white/5 backdrop-blur-md hover:border-white/10 transition-colors">
-              <button
-                type="button"
-                className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 active:scale-90 ${vm.form.receiptImagePath ? 'bg-[#10B981] text-[#0C0C0E] shadow-lg shadow-[#10B981]/20' : 'bg-surface border border-white/10 text-zinc-400 hover:border-white/20 hover:text-white'}`}
-                onClick={() => fileInputRef.current?.click()}
-                aria-label={t('addScanReceipt')}
-              >
-                <IconCamera width={22} height={22} aria-hidden />
-              </button>
-              <div className="flex-1 min-w-0" onClick={() => fileInputRef.current?.click()} role="presentation">
-                <div className="text-sm font-bold truncate leading-tight">{vm.form.receiptImagePath ? t('receiptAttached') : t('addScanReceipt')}</div>
-                <div className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mt-0.5">{t('tapToChange')}</div>
-              </div>
-              {vm.form.receiptImagePath && (
-                <div className="flex items-center gap-2">
-                  <ReceiptThumbnail path={vm.form.receiptImagePath} onClick={() => fileInputRef.current?.click()} />
-                  <button type="button" className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors active:scale-90" onClick={() => setShowRemoveReceiptConfirm(true)} aria-label={t('addRemoveReceiptTitle')}>
-                    <IconDelete width={18} height={18} aria-hidden />
-                  </button>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-4 p-4 rounded-2xl bg-[#0C0C0E]/40 border border-white/5 backdrop-blur-md hover:border-white/10 transition-colors">
+                <button
+                  type="button"
+                  className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 active:scale-90 ${vm.form.receiptImagePath ? 'bg-[#10B981] text-[#0C0C0E] shadow-lg shadow-[#10B981]/20' : 'bg-surface border border-white/10 text-zinc-400 hover:border-white/20 hover:text-white'}`}
+                  onClick={() => fileInputRef.current?.click()}
+                  aria-label={t('addScanReceipt')}
+                >
+                  <IconCamera width={22} height={22} aria-hidden />
+                </button>
+                <div className="flex-1 min-w-0" onClick={() => fileInputRef.current?.click()} role="presentation">
+                  <div className="text-sm font-bold truncate leading-tight">{vm.form.receiptImagePath ? t('receiptAttached') : t('addScanReceipt')}</div>
+                  <div className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mt-0.5">{t('tapToChange')}</div>
                 </div>
-              )}
-              <input ref={fileInputRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => e.target.files?.[0] && void vm.attachReceipt(e.target.files[0])} />
+                {vm.form.receiptImagePath && (
+                  <div className="flex items-center gap-2">
+                    <ReceiptThumbnail path={vm.form.receiptImagePath} onClick={() => fileInputRef.current?.click()} />
+                    <button type="button" className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors active:scale-90" onClick={() => setShowRemoveReceiptConfirm(true)} aria-label={t('addRemoveReceiptTitle')}>
+                      <IconDelete width={18} height={18} aria-hidden />
+                    </button>
+                  </div>
+                )}
+                <input ref={fileInputRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => e.target.files?.[0] && void vm.attachReceipt(e.target.files[0])} />
+              </div>
+              <p className="text-[10px] font-medium text-on-surface-variant px-1 leading-relaxed">{t('receiptDeviceLocal')}</p>
             </div>
+
+            {vm.error ? (
+              <p className="text-xs font-semibold text-expense px-1" role="alert">{vm.error}</p>
+            ) : null}
           </div>
 
           <button
