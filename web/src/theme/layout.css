@@ -627,6 +627,10 @@ html {
   position: sticky;
   top: 0;
   z-index: 10;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 14px;
   padding: 10px 14px;
   background: color-mix(in srgb, var(--color-background) 85%, transparent);
@@ -639,6 +643,25 @@ html {
   font-size: 0.6875rem;
   font-weight: 700;
   text-transform: uppercase;
+}
+
+.txn-day-header__totals {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.txn-day-header__total--income {
+  color: var(--color-income);
+}
+
+.txn-day-header__total--expense {
+  color: var(--color-expense);
 }
 
 @media (min-width: 1024px) {

@@ -2,6 +2,8 @@
 
 Installable web version of **Ausgegeben**. Requires Firebase Auth; expense data lives in Cloud Firestore (with IndexedDB persistence when available). Receipt images stay on-device (browser IndexedDB) — Cloud Storage is not used so the app stays on the **Firebase Spark** free plan.
 
+Settings (theme, locale, currency, budget, reminders) sync at `users/{uid}/settings/preferences`. Empty accounts get the same starter categories as Android.
+
 **Live:** [https://aus01.web.app](https://aus01.web.app)
 
 ## Development
