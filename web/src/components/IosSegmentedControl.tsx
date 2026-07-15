@@ -19,7 +19,7 @@ export function IosSegmentedControl<T extends string>({
   className = '',
 }: IosSegmentedControlProps<T>) {
   return (
-    <div className={`ios-segmented ${className}`.trim()} role="tablist">
+    <div className={`segmented ${className}`.trim()} role="tablist">
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -28,8 +28,7 @@ export function IosSegmentedControl<T extends string>({
             type="button"
             role="tab"
             aria-selected={active}
-            data-segment={option.value}
-            className={`ios-segmented__item ${active ? 'ios-segmented__item--active' : ''}`}
+            className={`segmented__item ${active ? 'segmented__item--active' : ''}`}
             onClick={() => onChange(option.value)}
           >
             {option.label}
