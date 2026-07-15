@@ -5,6 +5,8 @@ import { usePreferencesStore } from '@/services/preferencesStore';
 import { computeCashFlowTrend, groupByCategory } from '@/utils/analytics';
 import { analyticsDateRangeMillis, analyticsPeriodOptions } from '@/utils/periodUtils';
 
+const DATA_CHANGED_EVENT = 'ausgegeben:data-changed';
+
 export function useDashboardViewModel() {
   const periodKey = usePreferencesStore((s) => s.analyticsPeriod);
   const setAnalyticsPeriod = usePreferencesStore((s) => s.setAnalyticsPeriod);
@@ -19,12 +21,63 @@ export function useDashboardViewModel() {
     [periodOptions, periodKey],
   );
 
-  const reload = useCallback(async (showSkeleton = false) => {
-    if (showSkeleton || !initialLoadDone.current) {
-      setLoading(true);
+  const range = useMemo(() => analyticsDateRangeMillis(periodKey), [periodKey]);
+
+  // Live categories + period-scoped expenses (Spark-safe: no full-collection listener)
+  useEffect(() => {
+    if (!initialLoadDone.current) setLoading(true);
+
+    let catsReady = false;
+    let expsReady = false;
+    const tryReady = () => {
+      if (catsReady && expsReady) {
+        setLoading(false);
+        initialLoadDone.current = true;
+      }
+    };
+
+    const unsubCats = expenseRepository.onCategoriesChanged((cats) => {
+      setCategories(cats);
+      catsReady = true;
+      tryReady();
+    });
+
+    let unsubExps = () => {};
+
+    if (range) {
+      unsubExps = expenseRepository.onExpensesInRange(range[0], range[1], (items) => {
+        setExpenses(items);
+        expsReady = true;
+        tryReady();
+      });
+    } else {
+      const loadAll = () => {
+        void expenseRepository.getAllExpenses().then((items) => {
+          setExpenses(items);
+          expsReady = true;
+          tryReady();
+        }).catch((err) => {
+          console.error('[useDashboardViewModel] getAllExpenses failed', err);
+          setExpenses([]);
+          expsReady = true;
+          tryReady();
+        });
+      };
+      loadAll();
+      const onDataChanged = () => loadAll();
+      window.addEventListener(DATA_CHANGED_EVENT, onDataChanged);
+      unsubExps = () => window.removeEventListener(DATA_CHANGED_EVENT, onDataChanged);
     }
+
+    return () => {
+      unsubCats();
+      unsubExps();
+    };
+  }, [range, periodKey]);
+
+  const reload = useCallback(async (showSkeleton = false) => {
+    if (showSkeleton || !initialLoadDone.current) setLoading(true);
     const cats = await expenseRepository.getAllCategories();
-    const range = analyticsDateRangeMillis(periodKey);
     const items = range
       ? await expenseRepository.getExpensesInRange(range[0], range[1])
       : await expenseRepository.getAllExpenses();
@@ -32,17 +85,7 @@ export function useDashboardViewModel() {
     setExpenses(items);
     setLoading(false);
     initialLoadDone.current = true;
-  }, [periodKey]);
-
-  useEffect(() => {
-    void reload(!initialLoadDone.current);
-  }, [reload]);
-
-  useEffect(() => {
-    const handler = () => void reload(false);
-    window.addEventListener('ausgegeben:data-changed', handler);
-    return () => window.removeEventListener('ausgegeben:data-changed', handler);
-  }, [reload]);
+  }, [range]);
 
   const uiState: DashboardUiState = useMemo(() => {
     const expensesByCategory = groupByCategory(expenses, 'expense');
@@ -61,9 +104,9 @@ export function useDashboardViewModel() {
     return {
       periodKey,
       periodLabel: selectedOption.label,
-      totalExpenses,
-      totalIncome,
-      totalTransfers,
+      totalExpenses: Math.round(totalExpenses * 100) / 100,
+      totalIncome: Math.round(totalIncome * 100) / 100,
+      totalTransfers: Math.round(totalTransfers * 100) / 100,
       expensesByCategory,
       incomeByCategory,
       transfersByCategory,
