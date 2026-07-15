@@ -2,33 +2,33 @@
  * Cross-theme UI polish — spacing, light parity, chrome refinements
  */
 
-/* ── Balance hero colors (all themes) ── */
-
-.finance-summary-card__balance--positive .money--hero-display {
-  color: var(--color-balance-positive, var(--color-income));
-}
-
-.finance-summary-card__balance--negative .money--hero-display {
-  color: var(--color-balance-negative, var(--color-expense));
-}
-
-.finance-summary-card__balance--neutral .money--hero-display {
-  color: var(--color-on-background);
-}
-
-[data-theme='light'] .finance-summary-card__glow {
-  opacity: 0.35;
-}
-
-.finance-stat-chip--muted {
-  opacity: 0.55;
-}
-
 /* ── Transaction day headers (light + shared structure) ── */
 
 .transaction-list-bare__section {
   display: flex;
   flex-direction: column;
+}
+
+/* Staggered section entrances (mirrors native staggered list) */
+.transaction-list-bare__section {
+  animation: section-fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes section-fade-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 16px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .transaction-list-bare__section {
+    animation: none !important;
+  }
 }
 
 .transaction-list-bare__rows {
@@ -59,69 +59,17 @@
   border-bottom: 1px solid var(--hairline-divider, var(--glass-border));
 }
 
-[data-theme='light'] .screen-title-bar--glass {
-  background: color-mix(in srgb, var(--color-background) 88%, transparent);
-  border-bottom: 1px solid var(--hairline-divider, var(--glass-border));
-}
-
 [data-theme='light'] .sheet--settings {
   box-shadow:
     0 24px 48px color-mix(in srgb, var(--color-on-background) 12%, transparent),
     0 0 0 1px color-mix(in srgb, var(--color-on-background) 4%, transparent);
 }
 
-/* ── Bottom bar theme-aware ── */
-
-.bottom-bar__item--active {
-  color: var(--color-accent);
-}
-
-[data-theme='dark'] .bottom-bar__item--active {
-  color: var(--color-accent);
-}
-
-/* ── Mobile sync indicator ── */
-
-.sync-pill--mobile {
-  position: fixed;
-  top: calc(8px + var(--safe-top));
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 150;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--color-on-background);
-  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
-  border: 1px solid var(--hairline-border, var(--glass-border));
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--color-on-background) 12%, transparent);
-}
-
-@media (min-width: 768px) {
-  .sync-pill--mobile {
-    display: none;
-  }
-}
-
-/* ── Settings modal selection ── */
-
-.sheet--settings__body .settings-row--selected {
-  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
-}
-
-.sheet--settings__body .settings-row__check {
-  display: inline-flex;
-  color: var(--color-accent);
-  flex-shrink: 0;
-}
-
 /* ── Empty state ── */
+
+.empty-state {
+  padding: 48px 16px;
+}
 
 .empty-state p {
   margin: 0;
@@ -130,10 +78,14 @@
   margin-inline: auto;
 }
 
+.empty-state__icon {
+  opacity: 0.18;
+  margin-bottom: 24px;
+}
+
 .empty-state__hint {
   margin-top: 8px;
   font-size: 0.8125rem;
-  opacity: 0.72;
 }
 
 .empty-state__action .btn {
@@ -178,25 +130,83 @@
 
 /* ── Insights stat grid mobile order ── */
 
-@media (max-width: 639px) {
+.insights-stat-card {
+  background: var(--glass-bg-elevated);
+  border: 1px solid var(--surface-border);
+  border-radius: 20px;
+  padding: 24px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.insights-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+@media (max-width: 399px) {
   .insights-stat-grid {
-    grid-template-areas:
-      'net'
-      'expense'
-      'income';
+    grid-template-columns: 1fr;
   }
 
   .insights-stat-card--expense {
-    grid-area: expense;
+    order: 2;
   }
 
   .insights-stat-card--income {
-    grid-area: income;
+    order: 3;
   }
 
   .insights-stat-card--net-positive,
   .insights-stat-card--net-negative {
-    grid-area: net;
+    order: 1;
+  }
+}
+
+@media (min-width: 400px) and (max-width: 639px) {
+  .insights-stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .insights-stat-card--net-positive,
+  .insights-stat-card--net-negative {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+ *  MODAL & SHEET TRANSITIONS — Flagship easing
+ *  ═══════════════════════════════════════════════════ */
+
+/* Overlay backdrop */
+.fixed.inset-0.z-\[200\] {
+  animation: overlay-fade-in 0.25s ease both;
+}
+
+@keyframes overlay-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Dialog card entrance */
+.fixed.inset-0.z-\[200\] .card--pro {
+  animation: dialog-scale-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes dialog-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translate3d(0, 24px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fixed.inset-0.z-\[200\],
+  .fixed.inset-0.z-\[200\] .card--pro {
+    animation: none !important;
   }
 }
 
@@ -204,26 +214,54 @@
  *  Light theme overrides
  *  ═══════════════════════════════════════════════════ */
 
-[data-theme='light'] .app-header__nav-pill {
-  background: #F1F1F4;
-  border-color: rgba(0, 0, 0, 0.08);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-}
-
-[data-theme='light'] .app-header__nav-item {
-  color: #71717A;
-}
-
-[data-theme='light'] .app-header__nav-item:hover {
-  color: #09090B;
-  background: rgba(0, 0, 0, 0.04);
-}
-
 [data-theme='light'] .card {
   border: 1px solid rgba(0, 0, 0, 0.06);
 }
 
+/* Light theme — softer shadows, elevated glass */
+[data-theme='light'] .card--pro {
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    0 8px 24px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(0, 0, 0, 0.04) !important;
+}
+
+[data-theme='light'] .ledger-container {
+  box-shadow:
+    0 1px 4px rgba(0, 0, 0, 0.04),
+    0 4px 16px rgba(0, 0, 0, 0.05),
+    0 0 0 1px rgba(0, 0, 0, 0.05) !important;
+}
+
 [data-theme='light'] .bottom-bar {
-  background: color-mix(in srgb, #FFFFFF 88%, transparent);
-  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 2px 16px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(0, 0, 0, 0.06) !important;
+}
+
+[data-theme='light'] .fab-synthesis {
+  box-shadow:
+    0 4px 16px color-mix(in srgb, var(--color-accent) 25%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--color-accent) 10%, transparent) !important;
+}
+
+/* Light theme — text contrast improvements */
+[data-theme='light'] .text-on-surface-variant {
+  color: #52525B;
+}
+
+[data-theme='light'] .opacity-50 {
+  opacity: 0.58;
+}
+
+[data-theme='light'] .opacity-55 {
+  opacity: 0.62;
+}
+
+[data-theme='light'] .opacity-60 {
+  opacity: 0.68;
+}
+
+[data-theme='light'] .opacity-70 {
+  opacity: 0.78;
 }
