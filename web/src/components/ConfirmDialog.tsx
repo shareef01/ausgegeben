@@ -38,10 +38,10 @@ export function ConfirmDialog({
   const messageId = 'confirm-dialog-message';
 
   return (
-    <div className="overlay" onClick={onCancel} role="presentation">
+    <div className="overlay overlay--confirm" onClick={onCancel} role="presentation">
       <div
         ref={sheetRef}
-        className="sheet sheet--settings"
+        className={`confirm-dialog${destructive ? ' confirm-dialog--destructive' : ''}`}
         onClick={(e) => e.stopPropagation()}
         role="alertdialog"
         aria-modal="true"
@@ -49,28 +49,23 @@ export function ConfirmDialog({
         aria-describedby={messageId}
         tabIndex={-1}
       >
-        <div className="sheet--settings__header">
-          <h2 id={titleId} className="sheet--settings__title">{title}</h2>
-        </div>
-        <div className="sheet--settings__body">
-          {typeof message === 'string' ? (
-            <p id={messageId} className="confirm-dialog__message">{message}</p>
-          ) : (
-            <div id={messageId} className="confirm-dialog__message">{message}</div>
-          )}
-
-          <div className="flex justify-end gap-3">
-            <button type="button" className="btn btn-secondary px-6 py-3 rounded-xl font-semibold text-sm" onClick={onCancel}>
-              {cancelText}
-            </button>
-            <button
-              type="button"
-              className={`btn px-8 py-3 rounded-xl font-semibold text-sm active:scale-[0.98] ${destructive ? 'btn-destructive' : 'btn-primary'}`}
-              onClick={onConfirm}
-            >
-              {confirmText}
-            </button>
-          </div>
+        <h2 id={titleId} className="confirm-dialog__title">{title}</h2>
+        {typeof message === 'string' ? (
+          <p id={messageId} className="confirm-dialog__message">{message}</p>
+        ) : (
+          <div id={messageId} className="confirm-dialog__message">{message}</div>
+        )}
+        <div className="confirm-dialog__actions">
+          <button type="button" className="btn btn-secondary confirm-dialog__btn" onClick={onCancel}>
+            {cancelText}
+          </button>
+          <button
+            type="button"
+            className={`btn confirm-dialog__btn ${destructive ? 'btn-destructive' : 'btn-primary'}`}
+            onClick={onConfirm}
+          >
+            {confirmText}
+          </button>
         </div>
       </div>
     </div>
