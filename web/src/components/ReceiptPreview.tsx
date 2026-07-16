@@ -1,7 +1,8 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback, useId } from 'react';
 import { receiptService } from '@/services/receiptService';
 import { useTranslation } from '@/i18n';
 import { IconClose } from '@/components/Icons';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 interface ReceiptPreviewProps {
   path: string;
@@ -13,14 +14,10 @@ export function ReceiptPreview({ path, onClose }: ReceiptPreviewProps) {
   const [url, setUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const loadSeq = useRef(0);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const close = useCallback(() => onClose(), [onClose]);
+  useFocusTrap(true, sheetRef, close);
 
   useEffect(() => {
     loadSeq.current += 1;
@@ -46,11 +43,19 @@ export function ReceiptPreview({ path, onClose }: ReceiptPreviewProps) {
   }, [path]);
 
   return (
-    <div className="overlay" onClick={onClose} role="presentation">
-      <div className="sheet receipt-preview" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+    <div className="overlay" onClick={close} role="presentation">
+      <div
+        ref={sheetRef}
+        className="sheet receipt-preview"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+      >
         <div className="receipt-preview__header">
-          <h2 className="receipt-preview__title">{t('receiptTitle')}</h2>
-          <button type="button" className="receipt-preview__close" onClick={onClose} aria-label={t('actionClose')}>
+          <h2 id={titleId} className="receipt-preview__title">{t('receiptTitle')}</h2>
+          <button type="button" className="receipt-preview__close" onClick={close} aria-label={t('actionClose')}>
             <IconClose width={20} height={20} />
           </button>
         </div>

@@ -108,7 +108,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
                   className="settings-signout-btn"
                   onClick={() => setShowSignOutConfirm(true)}
                 >
-                  {t('settingsSignOut').toLowerCase()}
+                  {t('settingsSignOut')}
                 </button>
               </div>
             </div>
@@ -270,7 +270,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="settings-section">
-      <div className="section-title">{title.toLowerCase()}</div>
+      <div className="section-title">{title}</div>
       <div className="settings-group">{children}</div>
     </section>
   );
@@ -297,8 +297,8 @@ function SettingsRow({
         <Icon width={18} height={18} strokeWidth={2} />
       </span>
       <div className="settings-row__label">
-        <div className="settings-row__title">{title.toLowerCase()}</div>
-        <div className={`settings-row__sub ${subtitleError ? 'settings-row__sub--error' : ''}`}>{subtitle?.toLowerCase()}</div>
+        <div className="settings-row__title">{title}</div>
+        <div className={`settings-row__sub ${subtitleError ? 'settings-row__sub--error' : ''}`}>{subtitle}</div>
       </div>
       {onClick ? (
         <span className="settings-row__chevron" aria-hidden>
@@ -328,7 +328,7 @@ function Modal({ title, children, onClose }: { title: string; children: ReactNod
     <div className="overlay overlay--settings" onClick={onClose} role="presentation">
       <div ref={sheetRef} className="sheet sheet--settings" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="settings-modal-title" tabIndex={-1}>
         <div className="sheet--settings__header">
-          <h2 id="settings-modal-title" className="sheet--settings__title">{title.toLowerCase()}</h2>
+          <h2 id="settings-modal-title" className="sheet--settings__title">{title}</h2>
           <button type="button" className="sheet--settings__close" onClick={onClose}>{t('actionClose')}</button>
         </div>
         <div className="sheet--settings__body">{children}</div>
