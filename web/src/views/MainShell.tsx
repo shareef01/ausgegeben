@@ -93,7 +93,7 @@ export function MainShell() {
             aria-label={t('appName')}
           >
             <AppBrandIcon size={40} className="app-header__logo-mark" />
-            <AppBrandWordmark height={30} className="app-header__wordmark" />
+            <AppBrandWordmark className="app-header__wordmark" />
           </button>
 
           <nav className="app-header__nav" aria-label={t('appName')}>
