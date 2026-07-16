@@ -25,6 +25,7 @@ export function useRecordViewModel() {
   /** Always current calendar month — for budget bar when list period differs. */
   const [monthBudgetExpenses, setMonthBudgetExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(searchQuery), SEARCH_DEBOUNCE_MS);
@@ -44,6 +45,7 @@ export function useRecordViewModel() {
   // Categories (small collection) + period-scoped expenses
   useEffect(() => {
     setLoading(true);
+    setLoadError(false);
     let catsReady = false;
     let listReady = false;
     let budgetReady = viewingCurrentMonth;
@@ -63,25 +65,37 @@ export function useRecordViewModel() {
     if (listRange) {
       unsubList = expenseRepository.onExpensesInRange(listRange[0], listRange[1], (exps) => {
         setPeriodExpenses(exps);
+        setLoadError(false);
         if (viewingCurrentMonth) setMonthBudgetExpenses(exps);
         listReady = true;
         tryReady();
       });
     } else {
       // all_time: one-shot fetch (no perpetual full-collection listener)
-      void expenseRepository.getAllExpenses().then((exps) => {
-        setPeriodExpenses(exps);
-        listReady = true;
-        tryReady();
-      }).catch((err) => {
-        console.error('[useRecordViewModel] getAllExpenses failed', err);
-        setPeriodExpenses([]);
-        listReady = true;
-        tryReady();
-      });
+      const loadAll = () => {
+        void expenseRepository.getAllExpenses().then((exps) => {
+          setPeriodExpenses(exps);
+          setLoadError(false);
+          listReady = true;
+          tryReady();
+        }).catch((err) => {
+          console.error('[useRecordViewModel] getAllExpenses failed', err);
+          setPeriodExpenses([]);
+          setLoadError(true);
+          listReady = true;
+          tryReady();
+        });
+      };
+      loadAll();
 
       const onDataChanged = () => {
-        void expenseRepository.getAllExpenses().then(setPeriodExpenses);
+        void expenseRepository.getAllExpenses().then((exps) => {
+          setPeriodExpenses(exps);
+          setLoadError(false);
+        }).catch((err) => {
+          console.error('[useRecordViewModel] getAllExpenses refresh failed', err);
+          setLoadError(true);
+        });
       };
       window.addEventListener(DATA_CHANGED_EVENT, onDataChanged);
       unsubList = () => window.removeEventListener(DATA_CHANGED_EVENT, onDataChanged);
@@ -102,6 +116,31 @@ export function useRecordViewModel() {
       unsubBudget();
     };
   }, [listPeriod, listRange, viewingCurrentMonth]);
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const cats = await expenseRepository.getAllCategories();
+      setCategories(cats);
+      if (listRange) {
+        const exps = await expenseRepository.getExpensesInRange(listRange[0], listRange[1]);
+        setPeriodExpenses(exps);
+        if (viewingCurrentMonth) setMonthBudgetExpenses(exps);
+      } else {
+        setPeriodExpenses(await expenseRepository.getAllExpenses());
+      }
+      if (!viewingCurrentMonth) {
+        const [start, end] = thisMonthRange();
+        setMonthBudgetExpenses(await expenseRepository.getExpensesInRange(start, end));
+      }
+    } catch (err) {
+      console.error('[useRecordViewModel] reload failed', err);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [listRange, viewingCurrentMonth]);
 
   const monthExpenses = monthBudgetExpenses;
 
@@ -145,7 +184,8 @@ export function useRecordViewModel() {
     monthExpenses,
     dayTotalsByLabel: {},
     loading,
-  }), [filteredExpenses, categories, searchQuery, typeFilter, listPeriod, monthlyBudget, monthExpenses, loading]);
+    loadError,
+  }), [filteredExpenses, categories, searchQuery, typeFilter, listPeriod, monthlyBudget, monthExpenses, loading, loadError]);
 
   const requestDelete = useCallback(async (id: string) => {
     try {
@@ -188,5 +228,6 @@ export function useRecordViewModel() {
     setListPeriod,
     requestDelete,
     duplicateExpense,
+    reload,
   };
 }
