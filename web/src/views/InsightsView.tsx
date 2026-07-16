@@ -29,7 +29,7 @@ export function InsightsView({ onAdd }: { onAdd?: () => void }) {
   return (
     <>
       <div className="page-title">
-        <h1 className="page-title__text text-on-background">
+        <h1 className="page-title__text">
           <SignatureText text={t('screenInsights')} />
         </h1>
       </div>
