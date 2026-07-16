@@ -104,7 +104,7 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
         tabIndex={-1}
       >
         <div className="flex items-center justify-between">
-          <h2 id="categories-title" className="text-2xl font-black tracking-tight">
+          <h2 id="categories-title" className="modal-title text-2xl font-extrabold tracking-tight">
             <SignatureText text={t('settingsCategories')} />
           </h2>
           <div className="flex items-center gap-3">

@@ -3,7 +3,10 @@ import type { ReactNode } from 'react';
 import { useTranslation } from '@/i18n';
 import { formatAmount } from '@/utils/currency';
 
-/** Two-tone first-letter accent — pixel-aligned baseline with the rest of the word. */
+/**
+ * Brand-aligned title word — first letter in income green (like “aus”),
+ * remainder in foreground. Always lowercase.
+ */
 export function SignatureText({
   text,
   as: Tag = 'span',
@@ -16,9 +19,11 @@ export function SignatureText({
   if (!text) return null;
   const lowercaseText = text.toLowerCase();
   return (
-    <Tag className={`signature-text leading-none flex items-baseline ${className}`.trim()}>
-      <span className="signature-text__accent leading-none inline-block">{lowercaseText[0]}</span>
-      <span className="leading-none">{lowercaseText.slice(1)}</span>
+    <Tag className={`signature-text ${className}`.trim()}>
+      <span className="signature-text__accent" aria-hidden={false}>
+        {lowercaseText[0]}
+      </span>
+      <span className="signature-text__rest">{lowercaseText.slice(1)}</span>
     </Tag>
   );
 }

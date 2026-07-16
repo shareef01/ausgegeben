@@ -97,7 +97,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
   return (
     <>
       <div className="page-title">
-        <h1 className="page-title__text font-bold text-on-background tracking-wide">
+        <h1 className="page-title__text">
           <SignatureText text={t('screenRecord')} />
         </h1>
       </div>
