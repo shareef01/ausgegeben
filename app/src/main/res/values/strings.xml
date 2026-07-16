@@ -31,6 +31,7 @@
     <string name="auth_loading_sign_in">Signing in…</string>
     <string name="auth_loading_sign_up">Creating account…</string>
     <string name="auth_error_timeout">Request timed out. Check your internet and Firebase setup.</string>
+    <string name="auth_error_weak_password">Password is too weak. Use at least 6 characters with letters and numbers.</string>
 
     <!-- Navigation -->
     <string name="nav_record">Record</string>
@@ -258,6 +259,11 @@
     <string name="category_move_down">Move down</string>
     <string name="category_edit">Edit</string>
     <string name="category_add">Add category</string>
+    <string name="category_error_add_failed">Failed to add category</string>
+    <string name="category_error_update_failed">Failed to update category</string>
+    <string name="category_error_delete_failed">Failed to delete category</string>
+    <string name="category_error_deduplicate_failed">Failed to deduplicate categories</string>
+    <string name="category_error_reorder_failed">Failed to reorder category</string>
 
     <!-- Finance summary -->
     <string name="summary_balance_period">Balance · %1$s</string>
@@ -306,4 +312,32 @@
     <string name="camera_capture">Capture receipt</string>
     <string name="camera_start_failed">Could not start camera</string>
     <string name="camera_capture_failed">Capture failed</string>
+    <string name="record_most_spent_on">Most spent on %1$s</string>
+    <string name="desc_income_row">%1$s income of %2$s. %3$s</string>
+    <string name="desc_expense_row">%1$s expense of %2$s. %3$s</string>
+    <string name="desc_transfer_row">%1$s transfer of %2$s. %3$s</string>
+    <string name="desc_finance_summary">Finance summary for %1$s. Net balance %2$s. Total earned %3$s. Total spent %4$s.</string>
+    <string name="record_filter">Filter by type</string>
+    <string name="record_gesture_hints">Swipe left to delete · Swipe right to edit · Long-press to duplicate</string>
+    <string name="state_loading">Loading…</string>
+    <string name="add_confirm_transaction">Confirm Transaction</string>
+    <string name="add_note_label">Note</string>
+    <string name="time_today">Today</string>
+    <string name="time_yesterday">Yesterday</string>
+    <string name="action_clear">Clear</string>
+    <string name="category_deduplicate_title">Merge Duplicates?</string>
+    <string name="category_deduplicate_message">This will combine categories with identical names and move all their transactions to one place.</string>
+    <string name="category_deduplicate_confirm">Merge</string>
+    <string name="category_deduplicate_done">Categories deduplicated</string>
+    <string name="settings_deduplicate_label">deduplicate categories</string>
+    <string name="settings_deduplicate_subtitle">merge categories with same name</string>
+    <string name="settings_deduplicate_done">categories deduplicated</string>
+    <string name="auth_content_desc_back">Go back</string>
+    <string name="auth_content_desc_password_visibility">Toggle password visibility</string>
+    <string name="chart_content_desc_cashflow">Cash flow chart showing income and expense trends</string>
+    <string name="chart_content_desc_income_expense">Income and expense overview chart</string>
+    <string name="record_content_desc_search">Search transactions</string>
+    <string name="add_unsaved_changes_title">Unsaved changes</string>
+    <string name="add_unsaved_changes_body">You have unsaved changes. Discard them?</string>
+    <string name="add_discard">Discard</string>
 </resources>
