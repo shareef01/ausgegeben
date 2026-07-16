@@ -28,7 +28,7 @@ button {
   cursor: pointer;
   border: none;
   background: none;
-  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), background-color 0.2s ease, box-shadow 0.2s ease;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, filter 0.2s ease;
 }
 
 .sr-only {
@@ -43,16 +43,12 @@ button {
   border: 0;
 }
 
-button:active {
-  transform: scale(0.96);
-}
-
 .btn-interactive {
   transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), opacity 0.2s ease, filter 0.2s ease;
 }
 
 .btn-interactive:active {
-  transform: scale(0.95);
+  transform: scale(0.96);
   opacity: 0.9;
 }
 
@@ -125,10 +121,23 @@ a {
   width: 100%;
 }
 
-.app-main {
-  flex: 1;
-  position: relative;
+.app-shell__main {
+  padding-top: 8px;
+  padding-bottom: calc(10rem + var(--safe-bottom, 0px));
 }
+
+@media (min-width: 400px) {
+  .app-shell__main {
+    padding-top: 16px;
+  }
+}
+
+@media (min-width: 768px) {
+  .app-shell__main {
+    padding-bottom: 4rem;
+  }
+}
+
 
 /* Tab panel transitions */
 .tab-panel--animate-in {
@@ -192,9 +201,9 @@ input[type='number'] {
 .app-header__nav {
   display: none;
   align-items: center;
-  gap: 8px;
-  padding: 6px;
-  min-width: 204px;
+  gap: 6px;
+  padding: 5px;
+  min-width: 268px;
   border-radius: 18px;
   background: color-mix(in srgb, var(--color-surface) 72%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-outline) 45%, transparent);
@@ -213,11 +222,15 @@ input[type='number'] {
 
 .app-header__nav-item {
   flex: 1 1 0;
-  min-width: 56px;
-  height: 44px;
+  min-width: 72px;
+  min-height: 48px;
+  padding: 6px 8px 7px;
   border-radius: 12px;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
   color: color-mix(in srgb, var(--color-on-surface-variant) 88%, transparent);
   background: transparent;
   border: none;
@@ -227,6 +240,14 @@ input[type='number'] {
     background-color 0.2s ease,
     box-shadow 0.2s ease,
     transform 0.2s ease;
+}
+
+.app-header__nav-label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: lowercase;
 }
 
 .app-header__nav-item:hover {
