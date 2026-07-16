@@ -131,33 +131,36 @@ function CategoryCard({ title, map, categories, currency, accent }: CategoryCard
 
   if (total <= 0) {
       return (
-          <div className="card p-8 bg-glass border border-surface-border rounded-[2rem]">
-            <div className="text-[10px] font-black uppercase tracking-widest mb-6" style={{ color: accent }}>{title}</div>
-            <p className="text-center text-xs text-on-surface-variant">{t('noDataForPeriod')}</p>
+          <div className="insights-category-card card">
+            <div className="insights-category-card__title" style={{ color: accent }}>{title}</div>
+            <p className="insights-category-card__empty">{t('noDataForPeriod')}</p>
           </div>
       );
   }
 
   return (
-    <div className="card p-8 bg-glass border border-surface-border rounded-[2rem] shadow-2xl">
-      <div className="text-[10px] font-black uppercase tracking-widest mb-8" style={{ color: accent }}>{title}</div>
-      <DonutChart segments={segments} size={200} center={{ value: formatAmount(total, currency) }} />
-      <div className="mt-8 space-y-3">
+    <div className="insights-category-card card">
+      <div className="insights-category-card__title" style={{ color: accent }}>{title}</div>
+      <div className="insights-category-card__chart">
+        <DonutChart segments={segments} size={176} center={{ value: formatAmount(total, currency) }} />
+      </div>
+      <ul className="insights-category-card__list">
         {entries.slice(0, 6).map(([catId, amount]) => {
           const cat = categories.find((c) => c.id === catId);
           const pct = Math.round((amount / total) * 100);
           const dotColor = cat ? segmentColor(cat.colorInt) : 'var(--color-outline)';
           return (
-            <div key={catId} className="flex items-center justify-between gap-4 p-3 rounded-2xl bg-white/5">
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: dotColor }} />
-                <span className="text-sm font-semibold truncate">{cat?.name ?? '?'}</span>
-              </div>
-              <span className="text-sm font-bold tabular-nums opacity-80">{formatAmount(amount, currency)} · {pct}%</span>
-            </div>
+            <li key={catId} className="insights-category-card__row">
+              <span className="insights-category-card__dot" style={{ background: dotColor }} aria-hidden />
+              <span className="insights-category-card__name">{cat?.name ?? '?'}</span>
+              <span className="insights-category-card__value">
+                {formatAmount(amount, currency)}
+                <span className="insights-category-card__pct"> · {pct}%</span>
+              </span>
+            </li>
           );
         })}
-      </div>
+      </ul>
     </div>
   );
 }
