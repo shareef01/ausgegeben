@@ -7,13 +7,13 @@ interface AppBrandWordmarkProps {
 }
 
 /**
- * SVG wordmark for the header. Uses designed typography (not a DOM text node)
- * so tracking, baseline, and the emerald accent bar stay pixel-stable.
+ * SVG wordmark for the header. Sized to sit beside the 40px mark
+ * with stronger type, tighter tracking, and a clearer emerald accent.
  */
-export function AppBrandWordmark({ height = 22, className = '' }: AppBrandWordmarkProps) {
+export function AppBrandWordmark({ height = 30, className = '' }: AppBrandWordmarkProps) {
   const id = useId().replace(/:/g, '');
-  const vbW = 154;
-  const vbH = 28;
+  const vbW = 196;
+  const vbH = 36;
   const width = Math.round((vbW / vbH) * height);
 
   return (
@@ -28,39 +28,33 @@ export function AppBrandWordmark({ height = 22, className = '' }: AppBrandWordma
     >
       <defs>
         <linearGradient id={`wm-${id}`} x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#34D399" />
-          <stop offset="100%" stopColor="#059669" />
-        </linearGradient>
-        <linearGradient id={`wm-fill-${id}`} x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="currentColor" stopOpacity="1" />
-          <stop offset="100%" stopColor="currentColor" stopOpacity="0.88" />
+          <stop offset="0%" stopColor="#6EE7B7" />
+          <stop offset="55%" stopColor="#10B981" />
+          <stop offset="100%" stopColor="#047857" />
         </linearGradient>
       </defs>
 
-      {/* Optical baseline guide — keeps glyph weight consistent across DPRs */}
       <text
         x="0"
-        y="19"
-        fill={`url(#wm-fill-${id})`}
+        y="24"
+        fill="currentColor"
         fontFamily="var(--font-family), Inter, system-ui, sans-serif"
-        fontSize="18"
+        fontSize="24"
         fontWeight="800"
-        letterSpacing="-0.055em"
+        letterSpacing="-0.045em"
         style={{ fontFeatureSettings: '"kern" 1, "liga" 1' }}
       >
         ausgegeben
       </text>
 
-      {/* Emerald accent bar — brand signal under the leading letters */}
-      <rect x="0.5" y="24" width="22" height="2.5" rx="1.25" fill={`url(#wm-${id})`} />
-
-      {/* Soft trailing tick aligned with the mark’s geometry */}
+      {/* Stronger brand underline — reads as part of the lockup */}
+      <rect x="1" y="30" width="34" height="3.5" rx="1.75" fill={`url(#wm-${id})`} />
       <path
-        d="M26 25.25h8"
+        d="M40 31.75h14"
         stroke={`url(#wm-${id})`}
-        strokeWidth="2.5"
+        strokeWidth="3.5"
         strokeLinecap="round"
-        opacity="0.35"
+        opacity="0.4"
       />
     </svg>
   );
