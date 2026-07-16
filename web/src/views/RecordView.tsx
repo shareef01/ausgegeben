@@ -1,7 +1,6 @@
 import { useMemo, useState, memo, useCallback } from 'react';
-import { EmptyState, LoadingListSkeleton, SignatureText } from '@/components/ui';
+import { EmptyState, LoadingListSkeleton, SignatureText, CategoryIconTile } from '@/components/ui';
 import { IconPaperclip, IconSearch, IconClose, IconArrowUp, IconArrowDown } from '@/components/Icons';
-import { CategoryLucideIcon } from '@/components/CategoryLucideIcon';
 import { IosSegmentedControl } from '@/components/IosSegmentedControl';
 import { FinanceSummaryCard } from '@/components/FinanceSummaryCard';
 import { BudgetProgressBar } from '@/components/BudgetProgressBar';
@@ -14,7 +13,7 @@ import { usePreferencesStore } from '@/services/preferencesStore';
 import { useTranslation } from '@/i18n';
 import { formatDateLabel, dayKey } from '@/utils/periodUtils';
 import type { Expense, Category, TransactionTypeFilter } from '@/models/types';
-import { formatAmount } from '@/utils/currency';
+import { formatAmount, colorIntToHex } from '@/utils/currency';
 import { isReceiptPath } from '@/services/receiptService';
 import { useHaptics } from '@/hooks/useHaptics';
 
@@ -287,11 +286,17 @@ const TransactionRow = memo(({ expense, category, currency, onReceiptClick }: {
 
   return (
     <div className="transaction-row flex items-center gap-3 w-full min-w-0 py-4">
-      <div className="transaction-row__icon relative flex items-center justify-center w-10 h-10 shrink-0 rounded-full bg-white/5">
+      <div className="transaction-row__icon relative shrink-0">
         {category ? (
-          <CategoryLucideIcon iconName={category.iconName} className="w-5 h-5 text-on-surface-variant" aria-hidden />
+          <CategoryIconTile iconName={category.iconName} color={colorIntToHex(category.colorInt)} size={40} />
         ) : (
-          <span className="w-5 h-5 rounded-full" style={{ background: 'color-mix(in srgb, var(--color-on-surface) 20%, transparent)' }} aria-hidden />
+          <span
+            className="flex items-center justify-center w-10 h-10 rounded-full"
+            style={{ background: 'color-mix(in srgb, var(--color-on-surface) 8%, transparent)' }}
+            aria-hidden
+          >
+            <span className="w-5 h-5 rounded-full" style={{ background: 'color-mix(in srgb, var(--color-on-surface) 20%, transparent)' }} />
+          </span>
         )}
         {!isTransfer && (
           <span
