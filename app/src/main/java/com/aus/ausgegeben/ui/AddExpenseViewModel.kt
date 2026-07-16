@@ -9,9 +9,7 @@ import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.util.CurrencyUtils
-import com.aus.ausgegeben.util.ReceiptFileUtils
 import com.aus.ausgegeben.util.datePickerMillisToLocalDayStart
-import android.net.Uri
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -34,9 +32,6 @@ class AddExpenseViewModel(
 
     private val _selectedCategory = MutableStateFlow<Category?>(null)
     val selectedCategory = _selectedCategory.asStateFlow()
-
-    private val _receiptImagePath = MutableStateFlow<String?>(null)
-    val receiptImagePath = _receiptImagePath.asStateFlow()
 
     private val _dateMillis = MutableStateFlow(System.currentTimeMillis())
     val dateMillis = _dateMillis.asStateFlow()
@@ -75,14 +70,6 @@ class AddExpenseViewModel(
         _selectedCategory.value = null
     }
 
-    fun setReceiptPath(path: String?) {
-        if (path != null) {
-            val uri = Uri.parse(path)
-            if (!ReceiptFileUtils.isReceiptValid(getApplication(), uri)) return
-        }
-        _receiptImagePath.value = path
-    }
-
     fun onDateChange(millis: Long) {
         val dayStart = datePickerMillisToLocalDayStart(millis)
         val now = java.util.Calendar.getInstance()
@@ -98,7 +85,6 @@ class AddExpenseViewModel(
         _amount.value = CurrencyUtils.formatAmountForInput(expense.amount)
         _note.value = expense.note
         _dateMillis.value = expense.dateMillis
-        _receiptImagePath.value = expense.receiptImagePath
         _selectedCategory.value = categories.find { it.id == expense.categoryId }
         _loadedTransactionType.value = TransactionType.fromKey(expense.transactionType)
     }
@@ -137,7 +123,6 @@ class AddExpenseViewModel(
                         dateMillis = _dateMillis.value,
                         categoryId = category.id,
                         note = _note.value.trim(),
-                        receiptImagePath = _receiptImagePath.value,
                         transactionType = type.storageKey
                     )
                     if (editingId != null) {
@@ -181,7 +166,6 @@ class AddExpenseViewModel(
         _amount.value = "0"
         _note.value = ""
         _selectedCategory.value = null
-        _receiptImagePath.value = null
         _dateMillis.value = System.currentTimeMillis()
         _loadedTransactionType.value = TransactionType.EXPENSE
     }

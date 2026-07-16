@@ -10,7 +10,7 @@ import androidx.compose.runtime.setValue
 import com.aus.ausgegeben.data.entity.Expense
 
 /**
- * Manages overlay navigation (add transaction, camera, category list)
+ * Manages overlay navigation (add transaction, category list)
  * and the main tab selection state. Extracted from [MainApp] to keep
  * the composable lean.
  */

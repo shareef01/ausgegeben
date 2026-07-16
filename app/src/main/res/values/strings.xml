@@ -65,7 +65,6 @@
     <string name="record_delete_message">This cannot be undone. Swipe again if you tapped by mistake.</string>
     <string name="record_delete_confirm">Delete</string>
     <string name="record_delete_cancel">Cancel</string>
-    <string name="record_view_receipt">View receipt</string>
     <string name="record_swipe_delete">Delete</string>
     <string name="record_unknown_category">Unknown</string>
     <string name="filter_all">All</string>
@@ -147,7 +146,6 @@
     <string name="add_expense">Add expense</string>
     <string name="add_edit_title">Edit transaction</string>
     <string name="add_new_title">New transaction</string>
-    <string name="add_scan_receipt">Scan receipt</string>
     <string name="add_type_expense">Expense</string>
     <string name="add_type_income">Income</string>
     <string name="add_type_transfer">Transfer</string>
@@ -158,7 +156,6 @@
     <string name="add_no_categories_subtitle">Tap New below or Manage to create one</string>
     <string name="add_create_category">Create category</string>
     <string name="add_note_placeholder">Add a note…</string>
-    <string name="add_remove_receipt">Remove receipt</string>
     <string name="add_new_category">New</string>
     <string name="add_add_category">Add category</string>
     <string name="add_backspace">Backspace</string>
@@ -300,18 +297,6 @@
     <string name="chart_cash_flow_subtitle">Income %1$s · Spending %2$s</string>
     <string name="chart_wealth_trend_delta_up">+%1$s this period</string>
     <string name="chart_wealth_trend_delta_down">-%1$s this period</string>
-
-    <!-- Receipt & camera -->
-    <string name="receipt_preview">Receipt preview</string>
-    <string name="receipt_title">Receipt</string>
-    <string name="receipt_image">Receipt image</string>
-    <string name="camera_permission_title">Camera access needed</string>
-    <string name="camera_permission_body">Allow camera access to attach receipt photos to transactions.</string>
-    <string name="camera_try_again">Try again</string>
-    <string name="camera_go_back">Go back</string>
-    <string name="camera_capture">Capture receipt</string>
-    <string name="camera_start_failed">Could not start camera</string>
-    <string name="camera_capture_failed">Capture failed</string>
     <string name="record_most_spent_on">Most spent on %1$s</string>
     <string name="desc_income_row">%1$s income of %2$s. %3$s</string>
     <string name="desc_expense_row">%1$s expense of %2$s. %3$s</string>

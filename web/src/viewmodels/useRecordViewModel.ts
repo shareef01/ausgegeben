@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Category, Expense, RecordListPeriod, RecordUiState, TransactionTypeFilter } from '@/models/types';
 import { expenseRepository } from '@/repositories/expenseRepository';
-import { receiptService } from '@/services/receiptService';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useToastStore } from '@/services/toastStore';
 import { useTranslation } from '@/i18n';
@@ -194,9 +193,6 @@ export function useRecordViewModel() {
       showToast(t('recordDeleted'), t('actionUndo'), async () => {
         await expenseRepository.restoreExpense(deleted);
       });
-      setTimeout(() => {
-        void receiptService.deletePath(deleted.receiptImagePath);
-      }, 15000);
     } catch (err) {
       console.error('[useRecordViewModel] delete failed', err);
       showToast(t('errorDeleteFailed'));
@@ -205,11 +201,9 @@ export function useRecordViewModel() {
 
   const duplicateExpense = useCallback(async (expense: Expense) => {
     try {
-      const copiedReceipt = await receiptService.copy(expense.receiptImagePath);
       const { id: _id, ...rest } = expense;
       await expenseRepository.insertExpense({
         ...rest,
-        receiptImagePath: copiedReceipt,
         dateMillis: Date.now(),
       });
       showToast(t('recordDuplicated'));

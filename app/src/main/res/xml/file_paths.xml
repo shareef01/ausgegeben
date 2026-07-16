@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <cache-path name="export" path="ausgegeben_export.csv" />
-    <files-path name="receipts" path="receipts/" />
-    <external-media-path name="media" path="ausgegeben/" />
 </paths>
