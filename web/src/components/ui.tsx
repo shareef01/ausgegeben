@@ -1,5 +1,7 @@
 import { CategoryLucideIcon } from '@/components/CategoryLucideIcon';
 import type { ReactNode } from 'react';
+import { useTranslation } from '@/i18n';
+import { formatAmount } from '@/utils/currency';
 
 /** Two-tone first-letter accent — pixel-aligned baseline with the rest of the word. */
 export function SignatureText({
@@ -22,7 +24,8 @@ export function SignatureText({
 }
 
 export function MoneyText({ amount, currency, className = 'money--body', color, style }: { amount: number; currency: string; className?: string; color?: string; style?: import('react').CSSProperties }) {
-  const formatted = new Intl.NumberFormat(currency === 'EUR' ? 'de-DE' : 'en-US', { style: 'currency', currency }).format(amount);
+  const { locale } = useTranslation();
+  const formatted = formatAmount(amount, currency, true, locale);
   return <span className={`money tabular-nums ${className}`} style={{ ...style, ...(color ? { color } : {}) }}>{formatted}</span>;
 }
 
