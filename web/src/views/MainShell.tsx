@@ -105,7 +105,7 @@ export function MainShell() {
                   title={label}
                   className={`app-header__nav-item${active ? ' app-header__nav-item--active' : ''}`}
                 >
-                  <Icon width={20} height={20} strokeWidth={active ? 2.4 : 1.9} aria-hidden />
+                  <Icon width={22} height={22} strokeWidth={active ? 2.35 : 1.85} aria-hidden />
                 </button>
               );
             })}
