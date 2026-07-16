@@ -78,7 +78,7 @@ export function MainShell() {
   return (
     <>
       {/* SINGLE MASTER CONTAINER */}
-      <div className="max-w-[1200px] mx-auto w-full px-4 sm:px-8 relative min-h-screen">
+      <div className="app-frame">
 
         {/* Header — brand and desktop nav */}
         <header className="app-header">
