@@ -1,4 +1,4 @@
-﻿const receiptCache = new Map<string, StoredReceipt>();
+﻿import { receiptStore } from '@/services/receiptStorageService';
 
 export interface StoredReceipt { id: string; mimeType: string; data: Blob; createdAt: number; }
 
@@ -11,12 +11,13 @@ function newId(): string { return crypto.randomUUID(); }
 export const receiptService = {
   async save(file: File): Promise<string> {
     const id = newId();
-    receiptCache.set(id, { id, mimeType: file.type || 'image/jpeg', data: file, createdAt: Date.now() });
+    await receiptStore.save(id, file.type || 'image/jpeg', file);
     return receiptPathFromId(id);
   },
   async getBlob(path: string | null | undefined): Promise<Blob | null> {
     if (!isReceiptPath(path)) return null;
-    return receiptCache.get(receiptIdFromPath(path))?.data ?? null;
+    const row = await receiptStore.get(receiptIdFromPath(path));
+    return row?.data ?? null;
   },
   async getObjectUrl(path: string | null | undefined): Promise<string | null> {
     const blob = await this.getBlob(path);
@@ -24,14 +25,13 @@ export const receiptService = {
   },
   async copy(path: string | null | undefined): Promise<string | null> {
     if (!isReceiptPath(path)) return null;
-    const row = receiptCache.get(receiptIdFromPath(path));
-    if (!row) return null;
-    const id = newId();
-    receiptCache.set(id, { id, mimeType: row.mimeType, data: row.data, createdAt: Date.now() });
-    return receiptPathFromId(id);
+    const sourceId = receiptIdFromPath(path);
+    const copyId = crypto.randomUUID();
+    const ok = await receiptStore.copy(sourceId, copyId);
+    return ok ? receiptPathFromId(copyId) : null;
   },
-  async deletePath(path: string | null | undefined, _excludeExpenseId?: number): Promise<void> {
+  async deletePath(path: string | null | undefined, _excludeExpenseId?: string): Promise<void> {
     if (!isReceiptPath(path)) return;
-    receiptCache.delete(receiptIdFromPath(path));
+    await receiptStore.delete(receiptIdFromPath(path));
   },
 };
