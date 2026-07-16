@@ -1,46 +1,32 @@
-import { ref, uploadBytes, getBytes, deleteObject } from 'firebase/storage';
-import { getFirebaseStorage } from '@/services/firebase';
-import { useAuthStore } from '@/services/authStore';
-import { isReceiptPath, receiptIdFromPath } from '@/services/receiptService';
+import Dexie, { type EntityTable } from 'dexie';
 
-function receiptStoragePath(uid: string, receiptId: string): string {
-  return `users/${uid}/receipts/${receiptId}`;
+interface ReceiptRow {
+  id: string;
+  mimeType: string;
+  data: Blob;
+  createdAt: number;
 }
 
-export const receiptStorageService = {
-  async upload(path: string, blob: Blob, mimeType: string): Promise<void> {
-    const storage = getFirebaseStorage();
-    const uid = useAuthStore.getState().user?.uid;
-    if (!storage || !uid || !isReceiptPath(path)) return;
-    const receiptId = receiptIdFromPath(path);
-    const storageRef = ref(storage, receiptStoragePath(uid, receiptId));
-    await uploadBytes(storageRef, blob, { contentType: mimeType });
-  },
+const db = new Dexie('ausgegeben-receipts') as Dexie & {
+  receipts: EntityTable<ReceiptRow, 'id'>;
+};
 
-  async downloadToBlob(path: string): Promise<Blob | null> {
-    const storage = getFirebaseStorage();
-    const uid = useAuthStore.getState().user?.uid;
-    if (!storage || !uid || !isReceiptPath(path)) return null;
-    const receiptId = receiptIdFromPath(path);
-    try {
-      const storageRef = ref(storage, receiptStoragePath(uid, receiptId));
-      const bytes = await getBytes(storageRef);
-      return new Blob([bytes], { type: 'image/jpeg' });
-    } catch {
-      return null;
-    }
-  },
+db.version(1).stores({ receipts: 'id' });
 
-  async delete(path: string): Promise<void> {
-    const storage = getFirebaseStorage();
-    const uid = useAuthStore.getState().user?.uid;
-    if (!storage || !uid || !isReceiptPath(path)) return;
-    const receiptId = receiptIdFromPath(path);
-    try {
-      const storageRef = ref(storage, receiptStoragePath(uid, receiptId));
-      await deleteObject(storageRef);
-    } catch {
-      // File may already be gone.
-    }
+export const receiptStore = {
+  async save(id: string, mimeType: string, data: Blob): Promise<void> {
+    await db.receipts.put({ id, mimeType, data, createdAt: Date.now() });
+  },
+  async get(id: string): Promise<ReceiptRow | undefined> {
+    return db.receipts.get(id);
+  },
+  async copy(sourceId: string, newId: string): Promise<boolean> {
+    const row = await db.receipts.get(sourceId);
+    if (!row) return false;
+    await db.receipts.put({ id: newId, mimeType: row.mimeType, data: row.data, createdAt: Date.now() });
+    return true;
+  },
+  async delete(id: string): Promise<void> {
+    await db.receipts.delete(id);
   },
 };
