@@ -322,14 +322,9 @@ function ThemeSwatch({ mode }: { mode: ThemeMode }) {
     const dark = themePalettes.dark;
     return (
       <span className="theme-swatch theme-swatch--system" aria-hidden>
-        <span className="theme-swatch__pane" style={{ background: light.background, borderColor: light.outline }}>
-          <span className="theme-swatch__chip" style={{ background: light.surfaceVariant }} />
-          <span className="theme-swatch__dot" style={{ background: light.primary }} />
-        </span>
-        <span className="theme-swatch__pane" style={{ background: dark.background, borderColor: dark.outline }}>
-          <span className="theme-swatch__chip" style={{ background: dark.surfaceVariant }} />
-          <span className="theme-swatch__dot" style={{ background: dark.income }} />
-        </span>
+        <span className="theme-swatch__half" style={{ background: light.background }} />
+        <span className="theme-swatch__half" style={{ background: dark.background }} />
+        <span className="theme-swatch__accent" style={{ background: dark.income }} />
       </span>
     );
   }
@@ -341,12 +336,7 @@ function ThemeSwatch({ mode }: { mode: ThemeMode }) {
       aria-hidden
       style={{ background: palette.background, borderColor: palette.outline }}
     >
-      <span className="theme-swatch__chip" style={{ background: palette.surfaceVariant }} />
-      <span className="theme-swatch__dots">
-        <span className="theme-swatch__dot" style={{ background: palette.primary }} />
-        <span className="theme-swatch__dot" style={{ background: palette.income }} />
-        <span className="theme-swatch__dot" style={{ background: palette.expense }} />
-      </span>
+      <span className="theme-swatch__accent" style={{ background: palette.primary }} />
     </span>
   );
 }
