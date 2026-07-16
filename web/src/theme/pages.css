@@ -717,7 +717,7 @@
  *  ═══════════════════════════════════════════════════ */
 
 .record-filters__divider {
-  margin: 16px 0;
+  margin: 0;
   border: none;
   border-top: 0.5px solid color-mix(in srgb, var(--color-outline) 10%, transparent);
   opacity: 1;
