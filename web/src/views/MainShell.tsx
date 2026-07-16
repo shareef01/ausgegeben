@@ -67,6 +67,7 @@ export function MainShell() {
                   key={id}
                   type="button"
                   onClick={() => selectTab(id)}
+                  aria-current={active ? 'page' : undefined}
                   className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-200 ${
                     active
                       ? 'bg-income text-black font-bold shadow-md'

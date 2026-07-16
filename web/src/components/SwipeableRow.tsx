@@ -1,12 +1,13 @@
 import { useRef, useState, useCallback, type ReactNode, type PointerEvent as ReactPointerEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useTranslation } from '@/i18n';
-import { IconDelete, IconEdit } from '@/components/Icons';
+import { IconDelete, IconEdit, IconLayers } from '@/components/Icons';
 
 interface SwipeableRowProps {
   children: ReactNode;
   onDelete: () => void;
   onTap?: () => void;
   onLongPress?: () => void;
+  onDuplicate?: () => void;
   ariaLabel?: string;
 }
 
@@ -15,7 +16,7 @@ const SWIPE_OPEN = 120;
 const TAP_SLOP = 6;
 const LONG_PRESS_MS = 500;
 
-export function SwipeableRow({ children, onDelete, onTap, onLongPress, ariaLabel }: SwipeableRowProps) {
+export function SwipeableRow({ children, onDelete, onTap, onLongPress, onDuplicate, ariaLabel }: SwipeableRowProps) {
   const { t } = useTranslation();
   const [dragOffset, setDragOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -175,6 +176,16 @@ export function SwipeableRow({ children, onDelete, onTap, onLongPress, ariaLabel
             onClick={onTap}
           >
             <IconEdit width={16} height={16} aria-hidden />
+          </button>
+        ) : null}
+        {onDuplicate ? (
+          <button
+            type="button"
+            className="swipeable-row__action"
+            aria-label={t('recordDuplicate')}
+            onClick={onDuplicate}
+          >
+            <IconLayers width={16} height={16} aria-hidden />
           </button>
         ) : null}
         <button
