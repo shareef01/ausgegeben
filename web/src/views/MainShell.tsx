@@ -106,10 +106,10 @@ export function MainShell() {
                   onClick={() => selectTab(id)}
                   aria-current={active ? 'page' : undefined}
                   aria-label={label}
-                  title={label}
                   className={`app-header__nav-item${active ? ' app-header__nav-item--active' : ''}`}
                 >
-                  <Icon width={22} height={22} strokeWidth={active ? 2.35 : 1.85} aria-hidden />
+                  <Icon width={20} height={20} strokeWidth={active ? 2.35 : 1.85} aria-hidden />
+                  <span className="app-header__nav-label">{label}</span>
                 </button>
               );
             })}
@@ -135,7 +135,7 @@ export function MainShell() {
         ) : null}
 
         {/* Main content */}
-        <main className="pt-2 sm:pt-4 pb-40">
+        <main className="app-shell__main">
           {(['record', 'insights', 'settings'] as Tab[]).map((tabId) => {
             const active = tab === tabId;
             if (!visitedTabs.has(tabId) && !active) return null;

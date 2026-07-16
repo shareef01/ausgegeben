@@ -39,7 +39,7 @@ export function InsightsView() {
         {/* 2. THE ANALYTICS SIDEBAR (Sticky on Desktop) */}
         <aside className="sidebar-panel">
           <div className="card p-6 bg-glass-elevated border border-surface-border rounded-3xl shadow-xl">
-             <div className="section-title mb-4 px-0 opacity-60 uppercase tracking-widest text-[10px] font-black">{t('analysisPeriod')}</div>
+             <div className="section-title mb-4 px-0 uppercase tracking-widest text-[10px] font-black">{t('analysisPeriod')}</div>
              <AnalyticsPeriodPicker
                 options={periodOptions}
                 selectedKey={uiState.periodKey}
