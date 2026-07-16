@@ -118,11 +118,18 @@ class PreferencesCloudSync(
         private const val TAG = "PreferencesCloudSync"
         private val VALID_LOCALES = setOf("en", "de")
 
+        // Same set as web preferencesSync.VALID_THEMES
+        private val VALID_THEMES = setOf(
+            "light", "dark", "system", "amoled", "midnight",
+            "ocean", "forest", "sunset", "lavender", "soft_light",
+        )
+
         private fun parseRemote(raw: Map<String, Any>?): SyncedPreferences? {
             if (raw == null) return null
             val locale = raw["locale"] as? String ?: return null
             val themeMode = raw["themeMode"] as? String ?: return null
             if (locale !in VALID_LOCALES) return null
+            if (themeMode !in VALID_THEMES) return null
             val updatedAt = when (val v = raw["updatedAt"]) {
                 is Long -> v
                 is Number -> v.toLong()
