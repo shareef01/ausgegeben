@@ -14,6 +14,8 @@ export function BudgetProgressBar({ spent, budget, currency }: BudgetProgressBar
 
   const ratio = Math.min(spent / budget, 1);
   const overBudget = spent > budget;
+  const percent = Math.round(ratio * 100);
+  const label = `${t('budgetMonthlyLabel')}: ${formatAmount(spent, currency)} / ${formatAmount(budget, currency)}`;
 
   return (
     <div className="budget-bar px-1">
@@ -23,7 +25,15 @@ export function BudgetProgressBar({ spent, budget, currency }: BudgetProgressBar
           {formatAmount(spent, currency)} <span className="opacity-40 font-medium">/ {formatAmount(budget, currency)}</span>
         </span>
       </div>
-      <div className="budget-bar__track">
+      <div
+        className="budget-bar__track"
+        role="progressbar"
+        aria-label={label}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percent}
+        aria-valuetext={label}
+      >
         <div
           className="budget-bar__fill"
           style={{
