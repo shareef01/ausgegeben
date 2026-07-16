@@ -270,9 +270,9 @@ const TransactionRow = memo(({ expense, category, currency, onReceiptClick }: {
             aria-hidden
           >
             {isIncome ? (
-              <IconArrowUp width={8} height={8} />
+              <IconArrowUp width={11} height={11} strokeWidth={2.75} />
             ) : (
-              <IconArrowDown width={8} height={8} />
+              <IconArrowDown width={11} height={11} strokeWidth={2.75} />
             )}
           </span>
         )}
