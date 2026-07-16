@@ -126,7 +126,9 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
               />
               <input
                 className="record-search__input"
+                type="search"
                 placeholder={t('recordSearchPlaceholder')}
+                aria-label={t('recordSearchPlaceholder')}
                 value={uiState.searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => setSearchFocused(true)}
@@ -198,6 +200,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
                         onDelete={() => handleDelete(expense.id)}
                         onTap={() => handleEdit(expense.id)}
                         onLongPress={() => handleDuplicate(expense)}
+                        ariaLabel={`${catMap.get(expense.categoryId)?.name || t('recordUnknownCategory')} ${formatAmount(expense.amount, currency)}`}
                       >
                         <TransactionRow
                           expense={expense}
