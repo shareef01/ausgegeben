@@ -65,7 +65,7 @@ export function AddTransactionView({
   if (!vm.ready) {
     return (
       <div className="fixed inset-0 z-[200] bg-background/80 backdrop-blur-xl flex items-center justify-center p-4" role="status" aria-live="polite">
-        <div className="card--pro max-w-xl w-full p-10 text-center text-sm font-semibold text-on-surface-variant">
+        <div className="card--pro add-txn add-txn--loading">
           {t('loading')}
         </div>
       </div>
@@ -75,22 +75,22 @@ export function AddTransactionView({
   return (
     <>
       <div
-        className="fixed inset-0 z-[200] bg-background/80 backdrop-blur-xl flex items-center justify-center p-4"
+        className="fixed inset-0 z-[200] bg-background/80 backdrop-blur-xl flex items-center justify-center p-3 sm:p-4"
         onClick={onClose}
         aria-hidden={suspended || undefined}
         style={suspended ? { visibility: 'hidden', pointerEvents: 'none' } : undefined}
       >
         <div
           ref={dialogRef}
-          className="card--pro max-w-xl w-full p-8 sm:p-10 flex flex-col gap-8 shadow-2xl overflow-y-auto max-h-[95vh]"
+          className="card--pro add-txn"
           onClick={(e) => e.stopPropagation()}
           role="dialog"
           aria-modal="true"
           aria-labelledby="add-txn-title"
           tabIndex={-1}
         >
-          <div className="flex items-center justify-between">
-            <h2 id="add-txn-title" className="modal-title text-2xl font-extrabold tracking-tight">
+          <div className="add-txn__header">
+            <h2 id="add-txn-title" className="modal-title add-txn__title">
               <SignatureText text={vm.isEditing ? t('editTransaction') : t('addTransaction')} />
             </h2>
             <button type="button" className="icon-btn" onClick={onClose} aria-label={t('actionClose')}>
@@ -98,7 +98,7 @@ export function AddTransactionView({
             </button>
           </div>
 
-          <div className="flex flex-col gap-8">
+          <div className="add-txn__body">
             <IosSegmentedControl
               aria-label={t('addTransaction')}
               options={(['expense', 'income', 'transfer'] as TransactionType[]).map((type) => ({
@@ -109,14 +109,14 @@ export function AddTransactionView({
               onChange={(type) => vm.setForm((f) => ({ ...f, transactionType: type }))}
             />
 
-            <div className="flex flex-col gap-2">
+            <div className="field">
               <label htmlFor="txn-amount" className="field__label">{t('addAmountLabel')}</label>
-              <div className="relative">
-                <span className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl font-bold text-on-surface-variant" aria-hidden>{currencySymbol(currency)}</span>
+              <div className="add-txn__amount">
+                <span className="add-txn__currency" aria-hidden>{currencySymbol(currency)}</span>
                 <input
                   id="txn-amount"
                   ref={amountInputRef}
-                  className="field__input w-full pl-14 pr-6 py-5 rounded-2xl text-3xl font-black tabular-nums"
+                  className="field__input add-txn__amount-input"
                   placeholder={zeroPlaceholder(currency)}
                   inputMode="decimal"
                   value={vm.form.amountInput}
@@ -125,7 +125,7 @@ export function AddTransactionView({
               </div>
             </div>
 
-            <div className="flex flex-col gap-2">
+            <div className="field">
               <label htmlFor="txn-date" className="field__label">{t('dateLabel')}</label>
               <input
                 id="txn-date"
@@ -139,12 +139,12 @@ export function AddTransactionView({
               />
             </div>
 
-            <div className="flex flex-col gap-4">
-              <div className="field__label mb-1" id="txn-category-label">{t('addCategoryLabel')}</div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5" role="group" aria-labelledby="txn-category-label">
+            <div className="field">
+              <div className="field__label" id="txn-category-label">{t('addCategoryLabel')}</div>
+              <div className="add-txn__cats" role="group" aria-labelledby="txn-category-label">
                 {vm.categories.length === 0 ? (
-                  <div className="col-span-full categories-empty py-10 border border-dashed border-white/5 rounded-2xl bg-background/30">
-                    <p className="categories-empty__text text-center mb-4">{t('categoriesEmptyHint')}</p>
+                  <div className="categories-empty add-txn__cats-empty">
+                    <p className="categories-empty__text">{t('categoriesEmptyHint')}</p>
                     {onManageCategories ? (
                       <button type="button" className="btn btn-primary" onClick={onManageCategories}>
                         {t('addCategory')}
@@ -152,25 +152,31 @@ export function AddTransactionView({
                     ) : null}
                   </div>
                 ) : (
-                  vm.categories.map((cat) => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      className={`flex items-center gap-3 p-3.5 rounded-xl border transition-all duration-200 active:scale-95 ${vm.form.categoryId === cat.id ? 'border-income bg-income/10' : 'border-white/5 bg-surface/60 hover:bg-on-surface/5 hover:border-white/10'}`}
-                      onClick={() => vm.setForm((f) => ({ ...f, categoryId: cat.id! }))}
-                      aria-pressed={vm.form.categoryId === cat.id}
-                    >
-                      <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-background shrink-0" style={{ color: colorIntToHex(cat.colorInt) }}>
-                        <CategoryLucideIcon iconName={cat.iconName} size={20} />
-                      </div>
-                      <span className="text-sm font-bold truncate text-left">{cat.name}</span>
-                    </button>
-                  ))
+                  vm.categories.map((cat) => {
+                    const selected = vm.form.categoryId === cat.id;
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        className={`add-txn__cat${selected ? ' add-txn__cat--selected' : ''}`}
+                        onClick={() => vm.setForm((f) => ({ ...f, categoryId: cat.id! }))}
+                        aria-pressed={selected}
+                      >
+                        <span
+                          className="add-txn__cat-icon"
+                          style={{ color: colorIntToHex(cat.colorInt) }}
+                        >
+                          <CategoryLucideIcon iconName={cat.iconName} size={18} />
+                        </span>
+                        <span className="add-txn__cat-name">{cat.name}</span>
+                      </button>
+                    );
+                  })
                 )}
               </div>
             </div>
 
-            <div className="flex flex-col gap-2">
+            <div className="field">
               <label htmlFor="txn-note" className="field__label">{t('noteLabel')}</label>
               <input
                 id="txn-note"
@@ -181,55 +187,67 @@ export function AddTransactionView({
               />
             </div>
 
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-4 p-4 rounded-2xl bg-background/40 border border-white/5 backdrop-blur-md hover:border-white/10 transition-colors">
+            <div className="field">
+              <div className="add-txn__receipt">
                 <button
                   type="button"
-                  className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 active:scale-90 ${vm.form.receiptImagePath ? 'bg-income text-on-income shadow-lg' : 'bg-surface border border-white/10 text-on-surface-variant hover:border-white/20 hover:text-white'}`}
+                  className={`add-txn__receipt-cam${vm.form.receiptImagePath ? ' add-txn__receipt-cam--active' : ''}`}
                   onClick={() => fileInputRef.current?.click()}
                   aria-label={t('addScanReceipt')}
                 >
-                  <IconCamera width={22} height={22} aria-hidden />
+                  <IconCamera width={20} height={20} aria-hidden />
                 </button>
-                <div className="flex-1 min-w-0" onClick={() => fileInputRef.current?.click()} role="presentation">
-                  <div className="text-sm font-bold truncate leading-tight">{vm.form.receiptImagePath ? t('receiptAttached') : t('addScanReceipt')}</div>
-                  <div className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mt-0.5">{t('tapToChange')}</div>
+                <div className="add-txn__receipt-meta" onClick={() => fileInputRef.current?.click()} role="presentation">
+                  <div className="add-txn__receipt-title">
+                    {vm.form.receiptImagePath ? t('receiptAttached') : t('addScanReceipt')}
+                  </div>
+                  <div className="add-txn__receipt-hint">{t('tapToChange')}</div>
                 </div>
-                {vm.form.receiptImagePath && (
-                  <div className="flex items-center gap-2">
+                {vm.form.receiptImagePath ? (
+                  <div className="add-txn__receipt-actions">
                     <ReceiptThumbnail path={vm.form.receiptImagePath} onClick={() => setPreviewReceipt(true)} />
-                    <button type="button" className="icon-btn icon-btn--danger" onClick={() => setShowRemoveReceiptConfirm(true)} aria-label={t('addRemoveReceiptTitle')}>
+                    <button
+                      type="button"
+                      className="icon-btn icon-btn--danger"
+                      onClick={() => setShowRemoveReceiptConfirm(true)}
+                      aria-label={t('addRemoveReceiptTitle')}
+                    >
                       <IconDelete width={18} height={18} aria-hidden />
                     </button>
                   </div>
-                )}
-                <input ref={fileInputRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => e.target.files?.[0] && void vm.attachReceipt(e.target.files[0])} />
+                ) : null}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  hidden
+                  onChange={(e) => e.target.files?.[0] && void vm.attachReceipt(e.target.files[0])}
+                />
               </div>
-              <p className="text-[10px] font-medium text-on-surface-variant px-1 leading-relaxed">{t('receiptDeviceLocal')}</p>
+              <p className="add-txn__receipt-note">{t('receiptDeviceLocal')}</p>
             </div>
 
             {vm.error ? (
-              <p className="text-xs font-semibold text-expense px-1" role="alert">{vm.error}</p>
+              <p className="add-txn__error" role="alert">{vm.error}</p>
             ) : null}
           </div>
 
-          <button
-            type="button"
-            className="btn btn-primary w-full py-4 rounded-xl text-base hover:brightness-110 active:scale-[0.98] transition-all duration-150 disabled:opacity-50 mt-4"
-            onClick={() => void handleSave()}
-            disabled={vm.saving}
-          >
-            {vm.saving ? (
-               <div className="flex items-center justify-center gap-3">
-                  <div
-                    className="w-5 h-5 rounded-full animate-spin"
-                    style={{ border: '2px solid color-mix(in srgb, currentColor 25%, transparent)', borderTopColor: 'currentColor' }}
-                    aria-hidden
-                  />
+          <div className="add-txn__footer">
+            <button
+              type="button"
+              className="btn btn-primary add-txn__save"
+              onClick={() => void handleSave()}
+              disabled={vm.saving}
+            >
+              {vm.saving ? (
+                <span className="add-txn__saving">
+                  <span className="add-txn__spinner" aria-hidden />
                   <span>{t('actionSaving')}</span>
-               </div>
-            ) : t('actionSave').toLowerCase()}
-          </button>
+                </span>
+              ) : t('actionSave').toLowerCase()}
+            </button>
+          </div>
         </div>
       </div>
 
