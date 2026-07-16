@@ -18,7 +18,8 @@ export function IosSegmentedControl<T extends string>({
   onChange,
   className = '',
   activeVariant = 'default',
-}: IosSegmentedControlProps<T>) {
+  'aria-label': ariaLabel,
+}: IosSegmentedControlProps<T> & { 'aria-label'?: string }) {
   const pillVariant =
     activeVariant !== 'default'
       ? activeVariant
@@ -27,7 +28,7 @@ export function IosSegmentedControl<T extends string>({
         : 'default';
 
   return (
-    <div className={`segmented ${className}`.trim()} role="radiogroup">
+    <div className={`segmented ${className}`.trim()} role="radiogroup" aria-label={ariaLabel}>
       {options.map((option) => {
         const active = option.value === value;
         return (

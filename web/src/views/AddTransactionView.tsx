@@ -10,15 +10,17 @@ import { usePreferencesStore } from '@/services/preferencesStore';
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 interface AddTransactionViewProps {
   expenseId?: string;
   onClose: () => void;
   onSaved: () => void;
+  onManageCategories?: () => void;
 }
 
-export function AddTransactionView({ expenseId, onClose, onSaved }: AddTransactionViewProps) {
+export function AddTransactionView({ expenseId, onClose, onSaved, onManageCategories }: AddTransactionViewProps) {
   const { t } = useTranslation();
   const currency = usePreferencesStore((s) => s.currency);
   const vm = useAddTransactionViewModel(expenseId);
@@ -29,10 +31,11 @@ export function AddTransactionView({ expenseId, onClose, onSaved }: AddTransacti
   const [showRemoveReceiptConfirm, setShowRemoveReceiptConfirm] = useState(false);
   const handleEscape = useCallback(() => onClose(), [onClose]);
   useFocusTrap(!showRemoveReceiptConfirm, dialogRef, handleEscape);
+  useBodyScrollLock(true);
 
   useEffect(() => {
-    amountInputRef.current?.focus();
-  }, []);
+    if (vm.ready) amountInputRef.current?.focus();
+  }, [vm.ready]);
 
   const handleSave = async () => {
     const ok = await vm.save();
@@ -41,6 +44,16 @@ export function AddTransactionView({ expenseId, onClose, onSaved }: AddTransacti
       onSaved();
     }
   };
+
+  if (!vm.ready) {
+    return (
+      <div className="fixed inset-0 z-[200] bg-background/80 backdrop-blur-xl flex items-center justify-center p-4" role="status" aria-live="polite">
+        <div className="card--pro max-w-xl w-full p-10 text-center text-sm font-semibold text-on-surface-variant">
+          {t('loading')}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -58,7 +71,7 @@ export function AddTransactionView({ expenseId, onClose, onSaved }: AddTransacti
             <h2 id="add-txn-title" className="text-2xl font-black tracking-tight">
               <SignatureText text={vm.isEditing ? t('editTransaction') : t('addTransaction')} />
             </h2>
-            <button type="button" className="w-10 h-10 rounded-full bg-surface border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all text-zinc-400 hover:text-white" onClick={onClose} aria-label={t('actionClose')}>
+            <button type="button" className="icon-btn" onClick={onClose} aria-label={t('actionClose')}>
               <IconClose width={20} height={20} aria-hidden />
             </button>
           </div>
@@ -114,14 +127,19 @@ export function AddTransactionView({ expenseId, onClose, onSaved }: AddTransacti
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5" role="group" aria-labelledby="txn-category-label">
                 {vm.categories.length === 0 ? (
                   <div className="col-span-full categories-empty py-10 border border-dashed border-white/5 rounded-2xl bg-[#0C0C0E]/30">
-                    <p className="text-xs font-medium text-zinc-600 text-center uppercase tracking-widest">{t('categoriesEmptyHint')}</p>
+                    <p className="categories-empty__text text-center mb-4">{t('categoriesEmptyHint')}</p>
+                    {onManageCategories ? (
+                      <button type="button" className="btn btn-primary" onClick={onManageCategories}>
+                        {t('addCategory')}
+                      </button>
+                    ) : null}
                   </div>
                 ) : (
                   vm.categories.map((cat) => (
                     <button
                       key={cat.id}
                       type="button"
-                      className={`flex items-center gap-3 p-3.5 rounded-xl border transition-all duration-200 active:scale-95 ${vm.form.categoryId === cat.id ? 'border-[#10B981] bg-[#10B981]/10 shadow-[0_0_20px_rgba(16,185,129,0.08)]' : 'border-white/5 bg-[#121214]/60 hover:bg-[#121214] hover:border-white/10'}`}
+                      className={`flex items-center gap-3 p-3.5 rounded-xl border transition-all duration-200 active:scale-95 ${vm.form.categoryId === cat.id ? 'border-[#10B981] bg-[#10B981]/10 shadow-[0_0_20px_rgba(16,185,129,0.08)]' : 'border-white/5 bg-[#121214]/60 hover:bg-on-surface/5 hover:border-white/10'}`}
                       onClick={() => vm.setForm((f) => ({ ...f, categoryId: cat.id! }))}
                       aria-pressed={vm.form.categoryId === cat.id}
                     >
@@ -163,7 +181,7 @@ export function AddTransactionView({ expenseId, onClose, onSaved }: AddTransacti
                 {vm.form.receiptImagePath && (
                   <div className="flex items-center gap-2">
                     <ReceiptThumbnail path={vm.form.receiptImagePath} onClick={() => fileInputRef.current?.click()} />
-                    <button type="button" className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors active:scale-90" onClick={() => setShowRemoveReceiptConfirm(true)} aria-label={t('addRemoveReceiptTitle')}>
+                    <button type="button" className="icon-btn icon-btn--danger" onClick={() => setShowRemoveReceiptConfirm(true)} aria-label={t('addRemoveReceiptTitle')}>
                       <IconDelete width={18} height={18} aria-hidden />
                     </button>
                   </div>
