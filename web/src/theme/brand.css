@@ -19,12 +19,29 @@
   stroke-opacity: 0.3;
 }
 
-/* Signature text — first-letter accent styling */
+/* Signature text — brand first-letter (matches wordmark “aus”) */
 .signature-text {
-  display: inline;
+  display: inline-flex;
+  align-items: baseline;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-family);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 0.95;
+  text-transform: lowercase;
+  font-feature-settings: 'kern' 1, 'liga' 1;
+  -webkit-font-smoothing: antialiased;
 }
 
 .signature-text__accent {
-  color: var(--color-accent);
-  font-weight: inherit;
+  color: var(--color-income);
+  font-weight: 800;
+}
+
+.signature-text__rest {
+  color: var(--color-on-background);
+  font-weight: 700;
 }

@@ -906,7 +906,23 @@
  *  ═══════════════════════════════════════════════════ */
 
 .signature-text__accent {
-  color: var(--color-accent);
+  color: var(--color-income);
+}
+
+.modal-title,
+.sheet--settings__title,
+.settings-page__title {
+  width: fit-content;
+  max-width: calc(100% - 3rem);
+}
+
+.modal-title .signature-text,
+.sheet--settings__title .signature-text,
+.settings-page__title .signature-text {
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
 }
 
 /* ═══════════════════════════════════════════════════
