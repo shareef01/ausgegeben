@@ -64,13 +64,13 @@ export function AddTransactionView({ expenseId, onClose, onSaved }: AddTransacti
           </div>
 
           <div className="flex flex-col gap-8">
-            <div className="segmented" role="tablist">
+            <div className="segmented" role="radiogroup" aria-label={t('addTransaction')}>
               {(['expense', 'income', 'transfer'] as TransactionType[]).map((type) => (
                 <button
                   key={type}
                   type="button"
-                  role="tab"
-                  aria-selected={vm.form.transactionType === type}
+                  role="radio"
+                  aria-checked={vm.form.transactionType === type}
                   className={`segmented__item ${vm.form.transactionType === type ? 'segmented__item--active' : ''}`}
                   onClick={() => vm.setForm((f) => ({ ...f, transactionType: type }))}
                 >
