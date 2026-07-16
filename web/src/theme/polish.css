@@ -2,27 +2,19 @@
  * Cross-theme UI polish — spacing, light parity, chrome refinements
  */
 
-/* ── Transaction day headers (light + shared structure) ── */
+/* ── Transaction day headers (docked / sticky) ── */
 
 .transaction-list-bare__section {
   display: flex;
   flex-direction: column;
-}
-
-/* Staggered section entrances (mirrors native staggered list) */
-.transaction-list-bare__section {
-  animation: section-fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  overflow: visible;
+  /* Opacity-only entrance — transform would create a containing block and break sticky */
+  animation: section-fade-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes section-fade-up {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 16px, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -36,27 +28,39 @@
   flex-direction: column;
 }
 
+.txn-day-header,
 .transaction-list-bare__day {
   position: sticky;
-  top: var(--record-sticky-offset, 0);
-  z-index: 12;
-  display: block;
-  margin: 0;
-  padding: 12px 0 10px;
-  min-height: 36px;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--color-label-muted, var(--color-on-surface-variant));
-  isolation: isolate;
+  top: var(--record-sticky-offset, 0px);
+  z-index: 20;
 }
 
-[data-theme='light'] .transaction-list-bare__day {
-  background: color-mix(in srgb, var(--color-background) 92%, transparent);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--hairline-divider, var(--glass-border));
+.txn-day-header.transaction-list-bare__day {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 10px;
+  padding: 10px 14px;
+  min-height: 44px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-background) 88%, transparent);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  border: 1px solid color-mix(in srgb, var(--color-outline) 40%, transparent);
+  border-bottom-color: var(--hairline-divider, var(--glass-border));
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-background) 35%, transparent);
+  color: var(--color-on-surface-variant);
+  letter-spacing: 0.12em;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+[data-theme='light'] .txn-day-header.transaction-list-bare__day {
+  background: color-mix(in srgb, var(--color-background) 94%, transparent);
+  border-color: var(--hairline-divider, var(--glass-border));
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-on-background) 6%, transparent);
 }
 
 [data-theme='light'] .sheet--settings {
