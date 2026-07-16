@@ -7,7 +7,6 @@
   --color-balance-positive: var(--color-income);
   --color-balance-negative: var(--color-expense);
   --color-stat-value: var(--color-on-background);
-  --record-sticky-offset: 52px;
 }
 
 [data-theme='dark'] body,
@@ -47,9 +46,10 @@
   border-bottom: none;
 }
 
-[data-theme='dark'] .transaction-list-bare__day {
-  background: color-mix(in srgb, var(--color-background) 92%, transparent);
-  border-bottom: 1px solid var(--hairline-divider);
+[data-theme='dark'] .transaction-list-bare__day,
+[data-theme='dark'] .txn-day-header {
+  background: color-mix(in srgb, var(--color-background) 90%, transparent);
+  border-color: var(--hairline-divider);
 }
 
 [data-theme='dark'] .transaction-list-bare .swipeable-row__content {
