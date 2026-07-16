@@ -9,11 +9,96 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    match /users/{userId} {
-      allow read, write: if isOwner(userId);
+    function validExpense() {
+      let d = request.resource.data;
+      return d.keys().hasAll(['amount', 'dateMillis', 'categoryId', 'note', 'transactionType'])
+        && d.amount is number
+        && d.amount >= 0
+        && d.amount < 1000000000
+        && d.dateMillis is number
+        && d.categoryId is string
+        && d.categoryId.size() > 0
+        && d.categoryId.size() < 64
+        && d.note is string
+        && d.note.size() < 2000
+        && d.transactionType in ['expense', 'income', 'transfer']
+        && (!('receiptImagePath' in d)
+          || d.receiptImagePath == null
+          || (d.receiptImagePath is string && d.receiptImagePath.size() < 2048))
+        && (!('updatedAt' in d) || d.updatedAt is number)
+        && (!('idempotencyKey' in d)
+          || (d.idempotencyKey is string && d.idempotencyKey.size() < 128))
+        && (!('id' in d) || (d.id is string && d.id.size() < 64));
+    }
 
-      match /{allSubcollections=**} {
-        allow read, write: if isOwner(userId);
+    function validCategory() {
+      let d = request.resource.data;
+      return d.keys().hasAll(['name', 'iconName', 'colorInt', 'transactionType', 'sortOrder'])
+        && d.name is string
+        && d.name.size() > 0
+        && d.name.size() < 80
+        && d.iconName is string
+        && d.iconName.size() > 0
+        && d.iconName.size() < 64
+        && d.colorInt is number
+        && d.transactionType in ['expense', 'income', 'transfer']
+        && d.sortOrder is number
+        && d.sortOrder >= 0
+        && d.sortOrder < 10000
+        && (!('updatedAt' in d) || d.updatedAt is number)
+        && (!('id' in d) || (d.id is string && d.id.size() < 64));
+    }
+
+    function validPreferences() {
+      let d = request.resource.data;
+      return d.keys().hasAll([
+          'currency', 'locale', 'themeMode', 'dailyReminder',
+          'reminderHour', 'reminderMinute', 'analyticsPeriod', 'updatedAt'
+        ])
+        && d.currency is string
+        && d.currency.size() >= 3
+        && d.currency.size() <= 4
+        && d.locale in ['en', 'de']
+        && d.themeMode is string
+        && d.themeMode.size() > 0
+        && d.themeMode.size() < 32
+        && d.dailyReminder is bool
+        && d.reminderHour is number
+        && d.reminderHour >= 0
+        && d.reminderHour <= 23
+        && d.reminderMinute is number
+        && d.reminderMinute >= 0
+        && d.reminderMinute <= 59
+        && d.analyticsPeriod is string
+        && d.analyticsPeriod.size() > 0
+        && d.analyticsPeriod.size() < 64
+        && d.updatedAt is number
+        && (!('monthlyBudget' in d)
+          || d.monthlyBudget == null
+          || (d.monthlyBudget is number && d.monthlyBudget >= 0 && d.monthlyBudget < 1000000000));
+    }
+
+    match /users/{userId} {
+      allow read, write: if false;
+
+      match /categories/{categoryId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && validCategory();
+        allow delete: if isOwner(userId);
+      }
+
+      match /expenses/{expenseId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && validExpense();
+        allow delete: if isOwner(userId);
+      }
+
+      match /settings/{docId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && docId == 'preferences'
+          && validPreferences();
+        allow delete: if isOwner(userId) && docId == 'preferences';
       }
     }
   }
