@@ -92,7 +92,7 @@ export function MainShell() {
             onClick={() => selectTab('record')}
             aria-label={t('appName')}
           >
-            <AppBrandIcon size={40} className="app-header__logo-mark" />
+            <AppBrandIcon size={36} className="app-header__logo-mark" />
             <AppBrandWordmark className="app-header__wordmark" />
           </button>
 
