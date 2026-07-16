@@ -10,6 +10,7 @@ import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.util.RecordListPeriod
+import com.aus.ausgegeben.util.recordListDateRangeMillis
 import com.aus.ausgegeben.util.SpendingInsights
 import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.computeDayTotals
@@ -50,7 +51,7 @@ data class RecordData(
 data class RecordToolbarState(
     val searchQuery: String = "",
     val typeFilter: TransactionTypeFilter = TransactionTypeFilter.ALL,
-    val listPeriod: RecordListPeriod = RecordListPeriod.THIS_MONTH,
+    val listPeriod: String = RecordListPeriod.THIS_MONTH.key,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
@@ -62,7 +63,7 @@ class ExpenseViewModel(
     private val _searchQuery = MutableStateFlow("")
     private val _debouncedSearch = _searchQuery.debounce(250)
     private val _typeFilter = MutableStateFlow(TransactionTypeFilter.ALL)
-    private val _listPeriod = MutableStateFlow(RecordListPeriod.THIS_MONTH)
+    private val _listPeriod = MutableStateFlow(RecordListPeriod.THIS_MONTH.key)
 
     // 1. Base data flows
     private val currencyFlow = preferenceManager.currencyFlow.distinctUntilChanged()
@@ -80,14 +81,9 @@ class ExpenseViewModel(
             repository.getExpensesInRange(start, end)
         }.distinctUntilChanged()
 
-    private val listExpensesFlow = _listPeriod.flatMapLatest { period ->
-        when (period) {
-            RecordListPeriod.ALL_TIME -> repository.allExpenses
-            RecordListPeriod.THIS_MONTH -> {
-                val range = AnalyticsPeriod.THIS_MONTH.dateRangeMillis() ?: return@flatMapLatest repository.allExpenses
-                repository.getExpensesInRange(range.first, range.second)
-            }
-        }
+    private val listExpensesFlow = _listPeriod.flatMapLatest { periodKey ->
+        val range = recordListDateRangeMillis(periodKey)
+        if (range == null) repository.allExpenses else repository.getExpensesInRange(range.first, range.second)
     }.distinctUntilChanged()
 
     // 3. Derived Insights and UI State components
@@ -132,13 +128,10 @@ class ExpenseViewModel(
         _typeFilter,
         repository.expensesRevision,
     ) { period, query, filter, _ ->
-        val (start, end) = when (period) {
-            RecordListPeriod.ALL_TIME -> 0L to Long.MAX_VALUE
-            RecordListPeriod.THIS_MONTH -> AnalyticsPeriod.THIS_MONTH.dateRangeMillis() ?: (0L to Long.MAX_VALUE)
-        }
+        val (start, end) = recordListDateRangeMillis(period) ?: (0L to Long.MAX_VALUE)
         Triple(start, end, filter)
     }.flatMapLatest { (start, end, filter) ->
-        repository.queryExpenses(ExpenseQueryParams.forPeriod(start, end, filter.toFilterKey(), _searchQuery.value))
+        repository.queryExpenses(ExpenseQueryParams.forPeriod(start, end, filter.toFilterKey()))
     }.distinctUntilChanged()
 
     fun setSearchQuery(query: String) {
@@ -149,32 +142,40 @@ class ExpenseViewModel(
         _typeFilter.value = filter
     }
 
-    fun setListPeriod(period: RecordListPeriod) {
+    fun setListPeriod(period: String) {
         _listPeriod.value = period
     }
 
     fun duplicateExpense(expense: Expense) {
         viewModelScope.launch {
-            repository.duplicateExpense(expense)
+            try {
+                repository.duplicateExpense(expense)
+            } catch (_: Exception) { }
         }
     }
 
     fun deleteExpense(expense: Expense) {
-        if (expense.id == 0L) return
+        if (expense.id.isBlank()) return
         viewModelScope.launch {
-            repository.deleteExpense(expense)
+            try {
+                repository.deleteExpense(expense)
+            } catch (_: Exception) { }
         }
     }
 
     fun restoreExpense(expense: Expense) {
         viewModelScope.launch {
-            repository.insertExpense(expense)
+            try {
+                repository.insertExpense(expense)
+            } catch (_: Exception) { }
         }
     }
 
     fun finalizeDeletedExpense(expense: Expense) {
         viewModelScope.launch {
-            repository.purgeReceiptIfUnreferenced(expense.receiptImagePath)
+            try {
+                repository.purgeReceiptIfUnreferenced(expense.receiptImagePath)
+            } catch (_: Exception) { }
         }
     }
 }

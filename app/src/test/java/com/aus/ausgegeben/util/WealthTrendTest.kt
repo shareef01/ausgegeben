@@ -115,7 +115,7 @@ class WealthTrendTest {
         Expense(
             amount = amount,
             dateMillis = millis,
-            categoryId = 1L,
+            categoryId = "1",
             note = "",
             transactionType = type,
         )

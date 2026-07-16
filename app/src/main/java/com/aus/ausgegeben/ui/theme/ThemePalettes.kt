@@ -125,7 +125,7 @@ private val ForestColorScheme = baseDarkScheme(
     secondary = Color(0xFF0D2D1B),
     outline = Color(0xFF1A4D2E),
     outlineVariant = Color(0xFF24633C),
-    onSurfaceVariant = Color(0xFF81A68D), // Muted green for secondary labels
+    onSurfaceVariant = Color(0xFF9ABFA4), // Muted green for secondary labels
     error = Color(0xFFF97373), // Coral Red
 )
 

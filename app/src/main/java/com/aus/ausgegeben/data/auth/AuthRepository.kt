@@ -41,7 +41,8 @@ class AuthRepository(
     }
 
     suspend fun signUp(email: String, password: String): Result<Unit> = runCatching {
-        firebaseAuth.createUserWithEmailAndPassword(email.trim(), password).await()
+        val result = firebaseAuth.createUserWithEmailAndPassword(email.trim(), password).await()
+        result.user?.sendEmailVerification()?.await()
     }
 
     suspend fun sendPasswordResetEmail(email: String): Result<Unit> = runCatching {

@@ -6,9 +6,16 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.ui.theme.AppLayoutTokens
+
+@Composable
+fun isWideScreen(): Boolean {
+    val configuration = LocalConfiguration.current
+    return configuration.screenWidthDp >= 600
+}
 
 /** Bottom nav bar height (Scaffold already reserves this in content padding). */
 val BottomNavBarHeight = MainBottomBarHeight + 1.dp
