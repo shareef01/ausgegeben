@@ -1,14 +1,23 @@
+import type { Locale } from '@/i18n';
+import { getLocale, localeTag } from '@/i18n';
+
 export function colorIntToHex(colorInt: number): string {
   const rgb = colorInt & 0xffffff;
   return `#${rgb.toString(16).padStart(6, '0')}`;
 }
 
-export function formatAmount(amount: number, currency = 'EUR', showSymbol = true): string {
-  const locale = currency === 'EUR' ? 'de-DE' : currency === 'GBP' ? 'en-GB' : 'en-US';
+/** Format money using the app language locale (not currency→locale heuristics). */
+export function formatAmount(
+  amount: number,
+  currency = 'EUR',
+  showSymbol = true,
+  locale?: Locale,
+): string {
+  const tag = localeTag(locale ?? getLocale());
   if (!showSymbol) {
-    return new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
+    return new Intl.NumberFormat(tag, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
   }
-  return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amount);
+  return new Intl.NumberFormat(tag, { style: 'currency', currency }).format(amount);
 }
 
 export function parseAmount(input: string): number | null {

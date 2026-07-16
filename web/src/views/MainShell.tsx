@@ -130,7 +130,7 @@ export function MainShell() {
         </nav>
         <button
           type="button"
-          className="flex items-center justify-center w-11 h-11 rounded-full bg-income text-white shadow-[0_0_0_2px_rgba(16,185,129,0.15),0_4px_24px_rgba(16,185,129,0.5)] transition-all duration-200 active:scale-90 hover:brightness-110 hover:-translate-y-0.5"
+          className="flex items-center justify-center w-11 h-11 rounded-full bg-income text-black shadow-[0_0_0_2px_rgba(16,185,129,0.15),0_4px_24px_rgba(16,185,129,0.5)] transition-all duration-200 active:scale-90 hover:brightness-110 hover:-translate-y-0.5"
           aria-label={t('navAdd')}
           onClick={() => setOverlay({ type: 'add' })}
         >
@@ -141,7 +141,7 @@ export function MainShell() {
       {/* Desktop FAB */}
       <button
         type="button"
-        className="hidden md:flex fixed bottom-8 right-8 z-50 w-14 h-14 bg-income hover:brightness-110 text-white rounded-full shadow-lg items-center justify-center transition-all duration-500"
+        className="hidden md:flex fixed bottom-8 right-8 z-50 w-14 h-14 bg-income hover:brightness-110 text-black rounded-full shadow-lg items-center justify-center transition-all duration-500"
         aria-label={t('navAdd')}
         onClick={() => setOverlay({ type: 'add' })}
       >
