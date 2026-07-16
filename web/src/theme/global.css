@@ -197,8 +197,8 @@ input[type='number'] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1.25rem;
-  min-height: 3.75rem;
+  gap: 1.5rem;
+  min-height: 4.25rem;
   padding: 0.75rem 0;
   border-bottom: 1px solid color-mix(in srgb, var(--color-outline) 70%, transparent);
 }
@@ -206,10 +206,15 @@ input[type='number'] {
 .app-header__nav {
   display: none;
   align-items: center;
-  gap: 2px;
-  padding: 3px;
+  justify-content: space-between;
+  flex: 1 1 auto;
+  width: min(26rem, 52%);
+  max-width: 26rem;
+  margin-left: auto;
+  gap: 0.5rem;
+  padding: 0.35rem;
   min-width: 0;
-  border-radius: 14px;
+  border-radius: 16px;
   background: color-mix(in srgb, var(--color-surface-variant) 72%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-outline) 50%, transparent);
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-on-surface) 5%, transparent);
@@ -223,18 +228,26 @@ input[type='number'] {
   }
 }
 
+@media (min-width: 1024px) {
+  .app-header__nav {
+    width: min(30rem, 48%);
+    max-width: 30rem;
+    gap: 0.625rem;
+  }
+}
+
 .app-header__nav-item {
   position: relative;
   flex: 1 1 0;
-  min-width: 4.5rem;
-  min-height: 2.75rem;
-  padding: 0.4rem 0.7rem 0.55rem;
-  border-radius: 11px;
+  min-width: 0;
+  min-height: 3.25rem;
+  padding: 0.5rem 0.75rem 0.65rem;
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.2rem;
+  gap: 0.3rem;
   color: var(--color-on-surface-variant);
   background: transparent;
   border: none;
@@ -249,18 +262,18 @@ input[type='number'] {
 .app-header__nav-icon,
 .app-header__nav-item svg {
   display: block;
-  width: 18px;
-  height: 18px;
-  opacity: 0.88;
+  width: 22px;
+  height: 22px;
+  opacity: 0.9;
   flex-shrink: 0;
   transition: opacity 0.16s ease;
 }
 
 .app-header__nav-label {
   font-family: var(--font-family);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 650;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   line-height: 1;
   text-transform: lowercase;
   color: inherit;
@@ -309,13 +322,13 @@ input[type='number'] {
   content: '';
   position: absolute;
   left: 50%;
-  bottom: 4px;
-  width: 11px;
+  bottom: 5px;
+  width: 14px;
   height: 2px;
   border-radius: 999px;
   background: var(--color-income);
   transform: translateX(-50%);
-  opacity: 0.85;
+  opacity: 0.9;
 }
 
 [data-theme='light'] .app-header {
