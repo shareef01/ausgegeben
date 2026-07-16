@@ -14,20 +14,18 @@ interface CashFlowChartProps {
 }
 
 const CHART_WIDTH = 400;
-const CHART_HEIGHT = 136;
-const PAD_X = 8;
-const PAD_Y_TOP = 16;
-const PAD_Y_BOTTOM = 16;
-// Mandate: 20% vertical padding at top so spikes never hit the ceiling
-const TOP_PADDING_RATIO = 0.20;
-const CHART_W = CHART_WIDTH - PAD_X * 2;
+const CHART_HEIGHT = 168;
+const PAD_X_LEFT = 44;
+const PAD_X_RIGHT = 10;
+const PAD_Y_TOP = 12;
+const PAD_Y_BOTTOM = 28;
+const TOP_PADDING_RATIO = 0.2;
+const CHART_W = CHART_WIDTH - PAD_X_LEFT - PAD_X_RIGHT;
 const CHART_H = CHART_HEIGHT - PAD_Y_TOP - PAD_Y_BOTTOM;
-// Pillar 3: Minimum pixel gap between X-axis labels to prevent collision
-const MIN_LABEL_GAP_PX = 44;
+const MIN_LABEL_GAP_PX = 48;
 
 function yFor(value: number, minV: number, maxV: number): number {
   const range = Math.max(maxV - minV, 1);
-  // Expand the max by TOP_PADDING_RATIO of the range to leave headroom
   const paddedMax = maxV + range * TOP_PADDING_RATIO;
   const paddedRange = paddedMax - minV;
   const t = (value - minV) / paddedRange;
@@ -35,8 +33,8 @@ function yFor(value: number, minV: number, maxV: number): number {
 }
 
 function xFor(index: number, count: number): number {
-  if (count <= 1) return PAD_X + CHART_W / 2;
-  return PAD_X + (index / (count - 1)) * CHART_W;
+  if (count <= 1) return PAD_X_LEFT + CHART_W / 2;
+  return PAD_X_LEFT + (index / (count - 1)) * CHART_W;
 }
 
 function polylinePath(points: { x: number; y: number }[]): string {
@@ -62,6 +60,14 @@ function areaPath(points: { x: number; y: number }[], bottomY: number): string {
   return `${line} L ${last.x} ${bottomY} L ${first.x} ${bottomY} Z`;
 }
 
+function compactAmount(value: number, currency: string): string {
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (abs >= 10_000) return `${Math.round(value / 1000)}k`;
+  if (abs >= 1000) return `${(value / 1000).toFixed(1)}k`;
+  return formatAmount(value, currency).replace(/[^\d.,\-]/g, '').slice(0, 8) || String(Math.round(value));
+}
+
 function CashFlowSeries({
   points,
   color,
@@ -83,7 +89,7 @@ function CashFlowSeries({
         d={line}
         fill="none"
         stroke={color}
-        strokeWidth={3} // Law: Flagship Bezier weight
+        strokeWidth={2.75}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -104,10 +110,10 @@ export function CashFlowChart({ trend, currency = 'EUR' }: CashFlowChartProps) {
   const expenseGradId = `cf-expense-${uid}`;
   const bottomY = PAD_Y_TOP + CHART_H;
 
-  const { incomePts, expensePts, ariaSummary } = useMemo(() => {
+  const { incomePts, expensePts, yTicks, ariaSummary } = useMemo(() => {
     const values = trend.flatMap((p) => [p.income, p.expense]);
-    const minV = Math.min(...values);
-    const maxV = Math.max(...values);
+    const minV = Math.min(0, ...values);
+    const maxV = Math.max(...values, 1);
 
     const incomePts = trend.map((p, i) => ({
       x: xFor(i, trend.length),
@@ -118,14 +124,23 @@ export function CashFlowChart({ trend, currency = 'EUR' }: CashFlowChartProps) {
       y: yFor(p.expense, minV, maxV),
     }));
 
+    const yTicks = [0, 0.5, 1].map((tVal) => {
+      const range = Math.max(maxV - minV, 1);
+      const paddedMax = maxV + range * TOP_PADDING_RATIO;
+      const valueAt = paddedMax - tVal * (paddedMax - minV);
+      return {
+        y: PAD_Y_TOP + CHART_H * tVal,
+        label: compactAmount(valueAt, currency),
+      };
+    });
+
     const totalIncome = trend.reduce((s, p) => s + p.income, 0);
     const totalExpense = trend.reduce((s, p) => s + p.expense, 0);
     const ariaSummary = `${t('chartCashFlow')}. ${t('filterIncome')}: ${formatAmount(totalIncome, currency)}. ${t('filterExpense')}: ${formatAmount(totalExpense, currency)}.`;
 
-    return { incomePts, expensePts, ariaSummary };
+    return { incomePts, expensePts, yTicks, ariaSummary };
   }, [trend, t, currency]);
 
-  // Pillar 3: Deduplicate X-axis labels — skip collisions and repeated text
   const xLabels = useMemo(() => {
     const labels: { x: number; label: string }[] = [];
     let lastX = -Infinity;
@@ -133,25 +148,24 @@ export function CashFlowChart({ trend, currency = 'EUR' }: CashFlowChartProps) {
     for (let i = 0; i < trend.length; i++) {
       const px = xFor(i, trend.length);
       const lbl = trend[i].label;
-      // Only render if far enough from previous AND label differs or is first
       if (px - lastX >= MIN_LABEL_GAP_PX && lbl !== lastLabel) {
         labels.push({ x: px, label: lbl });
         lastX = px;
         lastLabel = lbl;
       } else if (i === 0) {
-        // Always show first label
         labels.push({ x: px, label: lbl });
         lastX = px;
         lastLabel = lbl;
       }
     }
-    // Always show last label if it would be unique and far enough
     if (trend.length > 1) {
       const lastPx = xFor(trend.length - 1, trend.length);
       const lastLbl = trend[trend.length - 1].label;
       const prevLabel = labels[labels.length - 1];
       if (!prevLabel || (lastPx - prevLabel.x >= MIN_LABEL_GAP_PX && lastLbl !== prevLabel.label)) {
         labels.push({ x: lastPx, label: lastLbl });
+      } else if (prevLabel && lastLbl !== prevLabel.label) {
+        labels[labels.length - 1] = { x: lastPx, label: lastLbl };
       }
     }
     return labels;
@@ -172,46 +186,53 @@ export function CashFlowChart({ trend, currency = 'EUR' }: CashFlowChartProps) {
       >
         <defs>
           <linearGradient id={incomeGradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-income)" stopOpacity="0.32" />
+            <stop offset="0%" stopColor="var(--color-income)" stopOpacity="0.28" />
             <stop offset="100%" stopColor="var(--color-income)" stopOpacity="0.0" />
           </linearGradient>
           <linearGradient id={expenseGradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-expense)" stopOpacity="0.32" />
+            <stop offset="0%" stopColor="var(--color-expense)" stopOpacity="0.28" />
             <stop offset="100%" stopColor="var(--color-expense)" stopOpacity="0.0" />
           </linearGradient>
         </defs>
 
-        {[0, 1, 2, 3].map((index) => {
-          const y = PAD_Y_TOP + CHART_H * (index / 3);
-          return (
+        {yTicks.map((tick, index) => (
+          <g key={index}>
             <line
-              key={index}
-              x1="0"
-              y1={y}
-              x2={CHART_WIDTH}
-              y2={y}
+              x1={PAD_X_LEFT}
+              y1={tick.y}
+              x2={CHART_WIDTH - PAD_X_RIGHT}
+              y2={tick.y}
               stroke="var(--color-on-surface)"
-              strokeOpacity="0.03"
+              strokeOpacity="0.08"
               strokeWidth={1}
             />
-          );
-        })}
+            <text
+              x={PAD_X_LEFT - 6}
+              y={tick.y + 3.5}
+              textAnchor="end"
+              fill="var(--color-on-surface-variant)"
+              fontSize="11"
+              fontFamily="var(--font-family, Inter, sans-serif)"
+              fontWeight="600"
+            >
+              {tick.label}
+            </text>
+          </g>
+        ))}
 
         <CashFlowSeries points={incomePts} color="var(--color-income)" gradId={incomeGradId} bottomY={bottomY} />
         <CashFlowSeries points={expensePts} color="var(--color-expense)" gradId={expenseGradId} bottomY={bottomY} />
 
-        {/* Pillar 3: Deduplicated X-axis labels with collision avoidance */}
         {xLabels.map((lbl, i) => (
           <text
             key={i}
             x={lbl.x}
-            y={CHART_HEIGHT - 2}
+            y={CHART_HEIGHT - 8}
             textAnchor="middle"
             fill="var(--color-on-surface-variant)"
-            fillOpacity="0.55"
-            fontSize="8.5"
+            fontSize="11"
             fontFamily="var(--font-family, Inter, sans-serif)"
-            fontWeight="500"
+            fontWeight="600"
           >
             {lbl.label}
           </text>

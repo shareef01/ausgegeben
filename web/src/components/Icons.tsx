@@ -25,6 +25,8 @@ import {
   Trash2,
   Camera,
   Eraser,
+  Eye,
+  EyeOff,
   X,
 } from 'lucide-react';
 
@@ -131,6 +133,14 @@ export function IconCamera(props: IconProps) {
 
 export function IconBroom(props: IconProps) {
   return <Eraser strokeWidth={STROKE} {...props} />;
+}
+
+export function IconEye(props: IconProps) {
+  return <Eye strokeWidth={STROKE} {...props} />;
+}
+
+export function IconEyeOff(props: IconProps) {
+  return <EyeOff strokeWidth={STROKE} {...props} />;
 }
 
 export function IconClose(props: IconProps) {

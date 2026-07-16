@@ -9,6 +9,7 @@ import {
   IconLayers,
   IconDownload,
   IconCheck,
+  IconSettings,
 } from '@/components/Icons';
 import type { SVGProps } from 'react';
 import { usePreferencesStore } from '@/services/preferencesStore';
@@ -86,9 +87,6 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
           <h1 className="settings-page__title">
             <SignatureText text={t('screenSettings')} />
           </h1>
-          <p className="settings-page__version">
-            {t('settingsVersionSubtitle', { version: packageJson.version })}
-          </p>
         </header>
 
         {user ? (
@@ -110,13 +108,10 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
         ) : null}
 
         <div className="settings-grid">
-          <Section title={t('settingsAppearance')}>
+          <Section title={t('settingsPreferences')}>
             <SettingsRow icon={IconMoon} iconTint="accent" title={t('settingsTheme')} subtitle={t(THEME_OPTIONS.find((opt) => opt.key === themeMode)?.labelKey ?? 'themeSystem')} onClick={() => setShowTheme(true)} />
             <SettingsRow icon={IconGlobe} iconTint="accent" title={t('settingsLanguage')} subtitle={locale === 'de' ? t('langGerman') : t('langEnglish')} onClick={() => setShowLanguage(true)} />
             <SettingsRow icon={IconCurrency} iconTint="income" title={t('settingsCurrency')} subtitle={currencyLabel(currency)} onClick={() => setShowCurrency(true)} />
-          </Section>
-
-          <Section title={t('settingsBudget')}>
             {editBudget ? (
               <div className="settings-budget-edit">
                 <input
@@ -162,9 +157,18 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
             )}
           </Section>
 
-          <Section title={t('settingsManagement')}>
+          <Section title={t('settingsData')}>
             <SettingsRow icon={IconLayers} iconTint="accent" title={t('settingsCategories')} subtitle={t('settingsCategoriesSub')} onClick={onManageCategories} />
             <SettingsRow icon={IconDownload} iconTint="neutral" title={t('settingsExport')} subtitle={t('settingsExportSub')} onClick={() => void exportData()} />
+          </Section>
+
+          <Section title={t('settingsAbout')}>
+            <SettingsRow
+              icon={IconSettings}
+              iconTint="neutral"
+              title={t('settingsVersion')}
+              subtitle={t('settingsVersionSubtitle', { version: packageJson.version })}
+            />
           </Section>
         </div>
       </div>
