@@ -92,8 +92,8 @@ export function MainShell() {
             onClick={() => selectTab('record')}
             aria-label={t('appName')}
           >
-            <AppBrandIcon size={36} className="app-header__logo-mark" />
-            <AppBrandWordmark height={22} className="app-header__wordmark" />
+            <AppBrandIcon size={40} className="app-header__logo-mark" />
+            <AppBrandWordmark height={30} className="app-header__wordmark" />
           </button>
 
           <nav className="app-header__nav" aria-label={t('appName')}>
