@@ -143,7 +143,7 @@ function CategoryCard({ title, map, categories, currency, accent }: CategoryCard
       <div className="text-[10px] font-black uppercase tracking-widest mb-8" style={{ color: accent }}>{title}</div>
       <DonutChart segments={segments} size={200} center={{ value: formatAmount(total, currency) }} />
       <div className="mt-8 space-y-3">
-        {entries.slice(0, 4).map(([catId, amount]) => {
+        {entries.slice(0, 6).map(([catId, amount]) => {
           const cat = categories.find((c) => c.id === catId);
           const pct = Math.round((amount / total) * 100);
           const dotColor = cat ? segmentColor(cat.colorInt) : 'var(--color-outline)';

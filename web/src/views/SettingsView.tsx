@@ -8,7 +8,6 @@ import {
   IconGauge,
   IconLayers,
   IconDownload,
-  IconCloud,
   IconCheck,
 } from '@/components/Icons';
 import type { SVGProps } from 'react';
@@ -93,8 +92,8 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
 
       <div className="settings-layout">
         {/* Full-width account card */}
-        <div className="settings-account-card">
-          {user ? (
+        {user ? (
+          <div className="settings-account-card">
             <div className="account-profile-card card card--elevated">
               <div className="flex items-center gap-5 p-5">
                 <div className="account-profile-card__avatar" aria-hidden>{initial}</div>
@@ -112,20 +111,8 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
                 </button>
               </div>
             </div>
-          ) : (
-            <div className="account-profile-card card card--elevated">
-              <div className="flex items-center gap-5 p-5">
-                <div className="w-14 h-14 rounded-full bg-on-surface/5 flex items-center justify-center text-on-surface-variant shrink-0">
-                  <IconCloud width={26} height={26} />
-                </div>
-                <div className="min-w-0">
-                  <div className="font-semibold text-lg">{t('settingsOffline')}</div>
-                  <div className="text-sm text-on-surface-variant">{t('settingsOfflineSub')}</div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+          </div>
+        ) : null}
 
         {/* 2-column settings grid */}
         <div className="settings-grid">
