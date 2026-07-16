@@ -69,7 +69,7 @@ export function AuthView() {
               className="field__input"
               type="email"
               autoComplete="email"
-              placeholder="name@example.com"
+              placeholder={t('authEmailPlaceholder')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={!firebaseReady || busy}
