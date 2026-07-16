@@ -1,8 +1,151 @@
 /* ── Settings page layout ── */
+.settings-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 920px;
+}
+
+.settings-page__header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.settings-page__title {
+  margin: 0;
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--color-on-background);
+  line-height: 1.1;
+}
+
+.settings-page__version {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-on-surface-variant);
+}
+
 .settings-layout {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 24px;
+}
+
+.settings-account {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+  flex-wrap: wrap;
+}
+
+.settings-account__avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 9999px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  font-weight: 800;
+  font-size: 1.15rem;
+  background: color-mix(in srgb, var(--color-income) 18%, transparent);
+  color: var(--color-income);
+  text-transform: uppercase;
+}
+
+.settings-account__meta {
+  flex: 1;
+  min-width: 140px;
+}
+
+.settings-account__name {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--color-on-background);
+  line-height: 1.25;
+}
+
+.settings-account__email {
+  margin-top: 2px;
+  font-size: 0.875rem;
+  color: var(--color-on-surface-variant);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-account__badge {
+  margin-top: 6px;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-income);
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.settings-section__title {
+  margin: 0;
+  padding: 0 4px;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-on-surface-variant);
+}
+
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-outline) 45%, transparent);
+}
+
+.settings-budget-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+
+.settings-budget-edit__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.settings-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+@media (min-width: 768px) {
+  .settings-page {
+    gap: 28px;
+  }
+
+  .settings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px 24px;
+    align-items: start;
+  }
+
+  .settings-grid > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
 }
 
 /* ═══════════════════════════════════════════════════
@@ -1429,9 +1572,7 @@
 }
 
 .settings-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  /* styled with settings page layout block above */
 }
 
 /* ═══════════════════════════════════════════════════
@@ -2030,21 +2171,27 @@
 
 .settings-signout-btn {
   margin-left: auto;
-  padding: 8px 14px;
+  padding: 10px 16px;
   border-radius: 9999px;
   border: 1px solid var(--color-outline);
   background: transparent;
   color: var(--color-on-surface-variant);
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 700;
   cursor: pointer;
-  text-transform: lowercase;
   flex-shrink: 0;
 }
 
 .settings-signout-btn:hover {
   color: var(--color-expense);
   border-color: color-mix(in srgb, var(--color-expense) 40%, transparent);
+}
+
+@media (max-width: 520px) {
+  .settings-signout-btn {
+    margin-left: 0;
+    width: 100%;
+  }
 }
 
 .toast-host {
@@ -2126,25 +2273,20 @@
   grid-column: 1 / -1;
 }
 
-/* Settings row hover lift */
 .settings-row {
-  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease;
+  transition: background-color 0.15s ease;
 }
 
 .settings-row:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-}
-
-[data-theme='light'] .settings-row:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transform: none;
+  box-shadow: none;
 }
 
 @media (min-width: 768px) {
   .settings-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 24px 32px;
+    gap: 20px 24px;
     align-items: start;
   }
 
@@ -2155,7 +2297,7 @@
 
 @media (min-width: 1024px) {
   .settings-grid {
-    gap: 32px 40px;
+    gap: 24px 28px;
   }
 }
 
