@@ -169,11 +169,18 @@ input[type='number'] {
   font-weight: 900;
   letter-spacing: -0.05em;
   line-height: 1;
-  background: var(--hero-balance-gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 4px 12px var(--hero-balance-glow));
+  color: var(--color-on-background);
+  background: var(--hero-balance-gradient, none);
+  -webkit-background-clip: unset;
+  background-clip: unset;
+  -webkit-text-fill-color: unset;
+  filter: none;
+}
+
+.money--hero-display[style*='--hero-balance-gradient'],
+.finance-summary-card__balance .money--hero-display {
+  /* solid readable color; tone classes override via parent */
+  color: inherit;
 }
 
 .app-header__nav-pill {
@@ -237,7 +244,7 @@ input[type='number'] {
 }
 
 .app-header__nav-item--active {
-  color: #000000;
+  color: var(--color-on-income, #000000);
   background: var(--color-income);
   box-shadow:
     0 1px 0 color-mix(in srgb, #ffffff 22%, transparent) inset,
@@ -245,7 +252,7 @@ input[type='number'] {
 }
 
 .app-header__nav-item--active:hover {
-  color: #000000;
+  color: var(--color-on-income, #000000);
   background: var(--color-income);
   filter: brightness(1.05);
 }

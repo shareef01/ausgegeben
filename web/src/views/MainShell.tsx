@@ -155,7 +155,7 @@ export function MainShell() {
       {/* Bottom nav — premium floating pill + elevated add button */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 md:hidden">
         <nav
-          className="flex items-center gap-0.5 bg-[#0C0C0E]/95 backdrop-blur-2xl border border-white/[0.06] rounded-full pl-2 pr-1 py-1.5 shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_8px_32px_rgba(0,0,0,0.45)]"
+          className="bottom-nav-pill flex items-center gap-0.5 rounded-full pl-2 pr-1 py-1.5"
           aria-label={t('appName')}
         >
           {navItems.map(({ id, label, Icon }) => {
@@ -167,15 +167,13 @@ export function MainShell() {
                 onClick={() => selectTab(id)}
                 aria-current={active ? 'page' : undefined}
                 aria-label={label}
-                className={`relative w-10 h-10 flex items-center justify-center rounded-full transition-all duration-200 ${
-                  active
-                    ? 'text-[#10B981] bg-[#10B981]/10 ring-1 ring-[#10B981]/20 shadow-[0_0_16px_rgba(16,185,129,0.12)]'
-                    : 'text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.04]'
+                className={`bottom-nav-pill__item relative w-10 h-10 flex items-center justify-center rounded-full transition-all duration-200 ${
+                  active ? 'bottom-nav-pill__item--active' : ''
                 }`}
               >
                 <Icon width={20} height={20} strokeWidth={active ? 2.25 : 1.75} aria-hidden />
                 {active && (
-                  <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#10B981] shadow-[0_0_4px_rgba(16,185,129,0.6)]" aria-hidden />
+                  <span className="bottom-nav-pill__dot absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full" aria-hidden />
                 )}
               </button>
             );
@@ -183,7 +181,7 @@ export function MainShell() {
         </nav>
         <button
           type="button"
-          className="flex items-center justify-center w-11 h-11 rounded-full bg-income text-black shadow-[0_0_0_2px_rgba(16,185,129,0.15),0_4px_24px_rgba(16,185,129,0.5)] transition-all duration-200 active:scale-90 hover:brightness-110 hover:-translate-y-0.5"
+          className="fab-add flex items-center justify-center w-11 h-11 rounded-full transition-all duration-200 active:scale-90 hover:brightness-110 hover:-translate-y-0.5"
           aria-label={t('navAdd')}
           onClick={() => setOverlay({ type: 'add' })}
         >
@@ -194,7 +192,7 @@ export function MainShell() {
       {/* Desktop FAB */}
       <button
         type="button"
-        className="hidden md:flex fixed bottom-8 right-8 z-50 w-14 h-14 bg-income hover:brightness-110 text-black rounded-full shadow-lg items-center justify-center transition-all duration-500"
+        className="fab-add hidden md:flex fixed bottom-8 right-8 z-50 w-14 h-14 hover:brightness-110 rounded-full shadow-lg items-center justify-center transition-all duration-500"
         aria-label={t('navAdd')}
         onClick={() => setOverlay({ type: 'add' })}
       >
