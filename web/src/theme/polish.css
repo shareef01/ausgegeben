@@ -317,6 +317,43 @@
     0 4px 24px color-mix(in srgb, var(--color-income) 40%, transparent);
 }
 
+.fab-add--desktop {
+  display: none;
+  position: fixed;
+  z-index: 50;
+  /* Align to max-w-[1200px] column — pulls inward on wide screens */
+  right: max(1.5rem, calc((100vw - 1200px) / 2 + 2rem));
+  bottom: 2rem;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 999px;
+  align-items: center;
+  justify-content: center;
+  transition: filter 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.fab-add--desktop:hover {
+  filter: brightness(1.08);
+  transform: translateY(-2px);
+}
+
+.fab-add--desktop:active {
+  transform: scale(0.94);
+}
+
+@media (min-width: 768px) {
+  .fab-add--desktop {
+    display: flex;
+  }
+}
+
+@media (min-width: 1024px) {
+  .fab-add--desktop {
+    right: max(2rem, calc((100vw - 1200px) / 2 + 2.5rem));
+    bottom: 2.5rem;
+  }
+}
+
 [data-theme='light'] .ledger-container,
 [data-theme='light'] .transaction-list-bare__rows {
   background: var(--color-surface) !important;
