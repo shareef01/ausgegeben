@@ -1,12 +1,11 @@
 import { useMemo, useState, memo, useCallback } from 'react';
 import { EmptyState, LoadingListSkeleton, SignatureText, CategoryIconTile } from '@/components/ui';
-import { IconPaperclip, IconSearch, IconClose, IconArrowUp, IconArrowDown } from '@/components/Icons';
+import { IconSearch, IconClose, IconArrowUp, IconArrowDown } from '@/components/Icons';
 import { IosSegmentedControl } from '@/components/IosSegmentedControl';
 import { FinanceSummaryCard } from '@/components/FinanceSummaryCard';
 import { BudgetProgressBar } from '@/components/BudgetProgressBar';
 import { recordPeriodOptions, PremiumPeriodSelector } from '@/components/PeriodSelector';
 import { SwipeableRow } from '@/components/SwipeableRow';
-import { ReceiptPreview } from '@/components/ReceiptPreview';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useRecordViewModel } from '@/viewmodels/useRecordViewModel';
 import { usePreferencesStore } from '@/services/preferencesStore';
@@ -14,7 +13,6 @@ import { useTranslation } from '@/i18n';
 import { formatDateLabel, dayKey } from '@/utils/periodUtils';
 import type { Expense, Category, TransactionTypeFilter } from '@/models/types';
 import { formatAmount, colorIntToHex } from '@/utils/currency';
-import { isReceiptPath } from '@/services/receiptService';
 import { useHaptics } from '@/hooks/useHaptics';
 
 interface RecordViewProps {
@@ -34,7 +32,6 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
     [periodOptions, uiState.listPeriod],
   );
   const periodLabel = selectedPeriod.label;
-  const [receiptPath, setReceiptPath] = useState<string | null>(null);
   const [searchFocused, setSearchFocused] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const hasQuery = uiState.searchQuery.length > 0;
@@ -235,7 +232,6 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
                           expense={expense}
                           category={catMap.get(expense.categoryId)}
                           currency={currency}
-                          onReceiptClick={isReceiptPath(expense.receiptImagePath) ? () => setReceiptPath(expense.receiptImagePath!) : undefined}
                         />
                       </SwipeableRow>
                     </div>
@@ -248,8 +244,6 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
         </div>
 
       </div>
-
-      {receiptPath ? <ReceiptPreview path={receiptPath} onClose={() => setReceiptPath(null)} /> : null}
 
       <ConfirmDialog
         open={deleteConfirmId !== null}
@@ -264,11 +258,10 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
   );
 }
 
-const TransactionRow = memo(({ expense, category, currency, onReceiptClick }: {
+const TransactionRow = memo(({ expense, category, currency }: {
   expense: Expense;
   category?: Category;
   currency: string;
-  onReceiptClick?: () => void;
 }) => {
   const { t } = useTranslation();
   const isIncome = expense.transactionType === 'income';
@@ -316,18 +309,6 @@ const TransactionRow = memo(({ expense, category, currency, onReceiptClick }: {
         <div className="transaction-row__title">{categoryName}</div>
         {note && <div className="transaction-row__sub">{note}</div>}
       </div>
-
-      {onReceiptClick ? (
-        <button
-          type="button"
-          aria-label={t('recordViewReceipt')}
-          className="transaction-row__receipt"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => { e.stopPropagation(); onReceiptClick(); }}
-        >
-          <IconPaperclip width={14} height={14} aria-hidden />
-        </button>
-      ) : null}
 
       <div className="transaction-row__amount" style={{ color: amountColor }}>
         {prefix}{formatAmount(expense.amount, currency)}

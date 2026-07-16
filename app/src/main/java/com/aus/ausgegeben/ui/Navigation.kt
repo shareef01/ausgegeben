@@ -24,10 +24,6 @@ sealed interface Route : NavKey {
     /** Category CRUD */
     @Serializable
     data object CategoryList : Route
-
-    /** Receipt camera */
-    @Serializable
-    data object Camera : Route
 }
 
 val MainTabRoutes = listOf(

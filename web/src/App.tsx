@@ -6,12 +6,18 @@ import { usePreferencesStore } from '@/services/preferencesStore';
 import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
 import { applyTheme, resolveTheme } from '@/theme/tokens';
-import { enableOfflinePersistence } from '@/services/firebase';
 import { preferencesSync } from '@/services/preferencesSync';
 import { expenseRepository } from '@/repositories/expenseRepository';
 
+try {
+  localStorage.removeItem('ausgegeben-preferences');
+} catch {
+  // Ignore quota / private-mode failures
+}
+
 export function App(): JSX.Element {
   const onboardingComplete = usePreferencesStore((s) => s.onboardingComplete);
+  const preferencesReady = usePreferencesStore((s) => s.preferencesReady);
   const themeMode = usePreferencesStore((s) => s.themeMode);
   const locale = usePreferencesStore((s) => s.locale);
   const completeOnboarding = usePreferencesStore((s) => s.completeOnboarding);
@@ -35,16 +41,11 @@ export function App(): JSX.Element {
     return () => mq.removeEventListener('change', update);
   }, [themeMode]);
 
-  // Spark-compatible: cache Firestore locally for brief offline / faster reloads
-  useEffect(() => {
-    if (!user) return;
-    void enableOfflinePersistence();
-  }, [user]);
-
-  // Sync theme/locale/budget (etc.) via users/{uid}/settings/preferences — LWW by updatedAt
+  // Preferences live in Firestore (users/{uid}/settings/preferences) — LWW by updatedAt
   useEffect(() => {
     if (!user) {
       preferencesSync.stop();
+      usePreferencesStore.getState().resetPreferences();
       return;
     }
     preferencesSync.start(user.uid);
@@ -71,7 +72,16 @@ export function App(): JSX.Element {
     return <AuthView />;
   }
 
-  // Onboarding only after Auth
+  // Wait for Firestore preferences before onboarding gate (avoids flash)
+  if (!preferencesReady) {
+    return (
+      <div className="loading-screen" style={{ height: '100vh', display: 'grid', placeItems: 'center', background: 'var(--color-background)', color: 'var(--color-accent)' }}>
+        <div className="btn__spinner"><span className="spin-dot" /><span className="spin-dot" /><span className="spin-dot" /></div>
+      </div>
+    );
+  }
+
+  // Onboarding only after Auth + prefs loaded
   if (!onboardingComplete) {
     return <OnboardingView onComplete={completeOnboarding} />;
   }

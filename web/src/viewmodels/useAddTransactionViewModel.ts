@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Category, Expense, TransactionType } from '@/models/types';
 import { expenseRepository } from '@/repositories/expenseRepository';
-import { receiptService } from '@/services/receiptService';
 import { parseAmount } from '@/utils/currency';
 import { useTranslation } from '@/i18n';
-
-export const MAX_RECEIPT_SIZE = 10 * 1024 * 1024;
-const ALLOWED_RECEIPT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 
 export interface AddTransactionForm {
   amountInput: string;
@@ -14,7 +10,6 @@ export interface AddTransactionForm {
   categoryId: string | null;
   note: string;
   dateMillis: number;
-  receiptImagePath: string | null;
 }
 
 const defaultForm = (): AddTransactionForm => ({
@@ -23,7 +18,6 @@ const defaultForm = (): AddTransactionForm => ({
   categoryId: null,
   note: '',
   dateMillis: Date.now(),
-  receiptImagePath: null,
 });
 
 export function useAddTransactionViewModel(expenseId?: string) {
@@ -32,7 +26,6 @@ export function useAddTransactionViewModel(expenseId?: string) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [previousReceiptPath, setPreviousReceiptPath] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
 
   const load = useCallback(async () => {
@@ -47,28 +40,25 @@ export function useAddTransactionViewModel(expenseId?: string) {
       if (expenseId) {
         const existing = await expenseRepository.getExpenseById(expenseId);
         if (existing) {
-          setPreviousReceiptPath(existing.receiptImagePath ?? null);
           setForm({
             amountInput: existing.amount.toFixed(2),
             transactionType: existing.transactionType,
             categoryId: existing.categoryId,
             note: existing.note,
             dateMillis: existing.dateMillis,
-            receiptImagePath: existing.receiptImagePath ?? null,
           });
         }
       } else {
         const first = cats.find((c) => c.transactionType === 'expense');
         setForm({ ...defaultForm(), categoryId: first?.id ?? null });
-        setPreviousReceiptPath(null);
       }
       setReady(true);
     } catch (err) {
       console.error('[useAddTransactionViewModel] load failed', err);
-      setReady(true); // Show form even on error — let user retry
+      setReady(true);
       setError(t('errorLoadFailed'));
     }
-  }, [expenseId]);
+  }, [expenseId, t]);
 
   useEffect(() => {
     void load();
@@ -96,30 +86,6 @@ export function useAddTransactionViewModel(expenseId?: string) {
     setForm((f) => ({ ...f, amountInput: sanitized }));
   };
 
-  const attachReceipt = async (file: File) => {
-    if (!ALLOWED_RECEIPT_TYPES.includes(file.type) && file.type !== '') {
-      setError(t('errorReceiptType'));
-      return;
-    }
-    if (file.size > MAX_RECEIPT_SIZE) {
-      setError(t('errorReceiptTooLarge'));
-      return;
-    }
-    setError(null);
-    const path = await receiptService.save(file);
-    if (form.receiptImagePath && form.receiptImagePath !== previousReceiptPath) {
-      await receiptService.deletePath(form.receiptImagePath);
-    }
-    setForm((f) => ({ ...f, receiptImagePath: path }));
-  };
-
-  const removeReceipt = async () => {
-    if (form.receiptImagePath && form.receiptImagePath !== previousReceiptPath) {
-      await receiptService.deletePath(form.receiptImagePath);
-    }
-    setForm((f) => ({ ...f, receiptImagePath: null }));
-  };
-
   const save = async (): Promise<boolean> => {
     const amount = parseAmount(form.amountInput);
     if (!amount || amount <= 0) {
@@ -138,16 +104,11 @@ export function useAddTransactionViewModel(expenseId?: string) {
       note: form.note.trim(),
       dateMillis: form.dateMillis,
       transactionType: form.transactionType,
-      receiptImagePath: form.receiptImagePath,
     };
-    // Idempotency: client-generated key prevents double-submits on retry
     const idempotencyKey = `${payload.dateMillis}-${payload.categoryId}-${payload.amount.toFixed(2)}`;
     try {
       if (expenseId) {
         await expenseRepository.updateExpense({ ...payload, id: expenseId });
-        if (previousReceiptPath && previousReceiptPath !== form.receiptImagePath) {
-          await receiptService.deletePath(previousReceiptPath, expenseId);
-        }
       } else {
         await expenseRepository.insertExpense(payload, idempotencyKey);
       }
@@ -178,8 +139,6 @@ export function useAddTransactionViewModel(expenseId?: string) {
     appendDigit,
     backspace,
     setAmountInput,
-    attachReceipt,
-    removeReceipt,
     save,
     saving,
     error,

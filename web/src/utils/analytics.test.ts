@@ -18,7 +18,6 @@ function expense(partial: Partial<Expense> & Pick<Expense, 'amount' | 'transacti
     categoryId: '1',
     note: '',
     updatedAt: Date.now(),
-    receiptImagePath: null,
     ...partial,
   } as Expense;
 }

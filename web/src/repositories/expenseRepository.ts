@@ -142,7 +142,7 @@ export const expenseRepository = {
     );
   },
 
-  // SECURE: UUID for instant offline saves
+  // SECURE: client UUID so creates are idempotent under retries
   async insertCategory(cat: Omit<Category, 'id'>): Promise<string> {
     const userId = uid(); if (!userId) throw new Error('Not signed in');
     const id = crypto.randomUUID();
@@ -231,7 +231,7 @@ export const expenseRepository = {
     return snap.size;
   },
 
-  // SECURE: UUID and Math.round for persistence and integrity
+  // SECURE: UUID and Math.round for integrity
   async insertExpense(expense: Omit<Expense, 'id'>, idempotencyKey?: string): Promise<string> {
     const userId = uid(); if (!userId) throw new Error('Not signed in');
     if (idempotencyKey) {
@@ -282,7 +282,10 @@ export const expenseRepository = {
 
     // SECURE: Raw fetch to catch documents missing 'sortOrder'
     const snap = await getDocs(catCol(userId));
-    const categories = snap.docs.map(d => ({ id: d.id, ...d.data() } as Category));
+    // Keep the Uncategorized sentinel out of dedupe groups (matches Android)
+    const categories = snap.docs
+      .map(d => ({ id: d.id, ...d.data() } as Category))
+      .filter(c => c.id !== UNCATEGORIZED_ID);
 
     const groups: Record<string, Category[]> = {};
     categories.forEach(cat => {

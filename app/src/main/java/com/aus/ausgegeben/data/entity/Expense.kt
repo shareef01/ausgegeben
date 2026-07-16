@@ -8,7 +8,6 @@ data class Expense(
     val dateMillis: Long,
     val categoryId: String,
     val note: String,
-    val receiptImagePath: String? = null,
     /** expense | income | transfer */
     val transactionType: String = "expense"
 )

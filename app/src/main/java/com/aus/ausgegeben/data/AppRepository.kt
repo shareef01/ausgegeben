@@ -1,19 +1,24 @@
 package com.aus.ausgegeben.data
 
 import android.content.Context
+import android.util.Log
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.data.auth.AuthRepository
 import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.util.dateRangeMillis
-import com.aus.ausgegeben.util.ReceiptFileUtils
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.tasks.await
 import java.util.UUID
 import java.util.Locale
@@ -26,9 +31,18 @@ class AppRepository(
 ) {
     companion object {
         const val UNCATEGORIZED_ID = "0"
+        private const val TAG = "AppRepository"
     }
 
     private fun uid(): String? = authRepository.currentUserId
+
+    /** Restarts the given listener flow whenever the signed-in user changes. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun <T> perUserFlow(signedOutValue: T, build: (String) -> Flow<T>): Flow<T> =
+        authRepository.authState
+            .map { it?.uid }
+            .distinctUntilChanged()
+            .flatMapLatest { u -> if (u == null) flowOf(signedOutValue) else build(u) }
 
     private fun catCol(uid: String) = firestore.collection("users").document(uid).collection("categories")
     private fun expCol(uid: String) = firestore.collection("users").document(uid).collection("expenses")
@@ -91,15 +105,16 @@ class AppRepository(
 
     // ── Categories ──
 
-    val allCategories: Flow<List<Category>> = callbackFlow {
-        val u = uid()
-        if (u == null) { trySend(emptyList()); close(); return@callbackFlow }
-        val sub = catCol(u).orderBy("sortOrder").addSnapshotListener { snap, _ ->
-            if (snap != null) {
-                trySend(snap.documents.mapNotNull { doc -> categoryFromDoc(doc) })
+    val allCategories: Flow<List<Category>> = perUserFlow(emptyList()) { u ->
+        callbackFlow {
+            val sub = catCol(u).orderBy("sortOrder").addSnapshotListener { snap, error ->
+                if (error != null) Log.w(TAG, "categories listener error", error)
+                if (snap != null) {
+                    trySend(snap.documents.mapNotNull { doc -> categoryFromDoc(doc) })
+                }
             }
+            awaitClose { sub.remove() }
         }
-        awaitClose { sub.remove() }
     }
 
     suspend fun insertCategory(category: Category): String {
@@ -126,20 +141,22 @@ class AppRepository(
 
     // ── Expenses ──
 
-    fun getExpensesInRange(startMillis: Long, endMillis: Long): Flow<List<Expense>> = callbackFlow {
-        val u = uid()
-        if (u == null) { trySend(emptyList()); close(); return@callbackFlow }
-        val q = expCol(u)
-            .whereGreaterThanOrEqualTo("dateMillis", startMillis)
-            .whereLessThan("dateMillis", endMillis)
-            .orderBy("dateMillis", Query.Direction.DESCENDING)
-        val sub = q.addSnapshotListener { snap, _ ->
-            if (snap != null) {
-                trySend(snap.documents.mapNotNull { doc -> expenseFromDoc(doc) })
+    fun getExpensesInRange(startMillis: Long, endMillis: Long): Flow<List<Expense>> =
+        perUserFlow(emptyList()) { u ->
+            callbackFlow {
+                val q = expCol(u)
+                    .whereGreaterThanOrEqualTo("dateMillis", startMillis)
+                    .whereLessThan("dateMillis", endMillis)
+                    .orderBy("dateMillis", Query.Direction.DESCENDING)
+                val sub = q.addSnapshotListener { snap, error ->
+                    if (error != null) Log.w(TAG, "expenses-in-range listener error", error)
+                    if (snap != null) {
+                        trySend(snap.documents.mapNotNull { doc -> expenseFromDoc(doc) })
+                    }
+                }
+                awaitClose { sub.remove() }
             }
         }
-        awaitClose { sub.remove() }
-    }
 
     suspend fun insertExpense(expense: Expense): String {
         val u = uid() ?: throw IllegalStateException("Not signed in")
@@ -151,13 +168,8 @@ class AppRepository(
 
     suspend fun updateExpense(expense: Expense) {
         val u = uid() ?: return
-        val prevSnap = expDoc(u, expense.id).get().await()
-        val prevPath = prevSnap.getString("receiptImagePath")
         val e = expense.copy(amount = roundAmount(expense.amount))
         expDoc(u, expense.id).set(expensePayload(e), SetOptions.merge()).await()
-        if (prevPath != expense.receiptImagePath) {
-            purgeReceiptIfUnreferenced(prevPath, excludeExpenseId = expense.id)
-        }
     }
 
     suspend fun deleteExpense(expense: Expense) {
@@ -166,8 +178,7 @@ class AppRepository(
     }
 
     suspend fun duplicateExpense(expense: Expense) {
-        val copiedReceipt = ReceiptFileUtils.copyReceipt(appContext, expense.receiptImagePath)
-        insertExpense(expense.copy(id = "", dateMillis = System.currentTimeMillis(), receiptImagePath = copiedReceipt))
+        insertExpense(expense.copy(id = "", dateMillis = System.currentTimeMillis()))
     }
 
     suspend fun sumMonthExpenses(excludeExpenseId: String = ""): Double {
@@ -184,21 +195,25 @@ class AppRepository(
         return roundAmount(rawSum)
     }
 
-    val allExpenses: Flow<List<Expense>> = callbackFlow {
-        val u = uid()
-        if (u == null) { trySend(emptyList()); close(); return@callbackFlow }
-        val sub = expCol(u).orderBy("dateMillis", Query.Direction.DESCENDING)
-            .addSnapshotListener { snap, _ ->
-                if (snap != null) trySend(snap.documents.mapNotNull { expenseFromDoc(it) })
-            }
-        awaitClose { sub.remove() }
+    val allExpenses: Flow<List<Expense>> = perUserFlow(emptyList()) { u ->
+        callbackFlow {
+            val sub = expCol(u).orderBy("dateMillis", Query.Direction.DESCENDING)
+                .addSnapshotListener { snap, error ->
+                    if (error != null) Log.w(TAG, "expenses listener error", error)
+                    if (snap != null) trySend(snap.documents.mapNotNull { expenseFromDoc(it) })
+                }
+            awaitClose { sub.remove() }
+        }
     }
 
-    val expensesRevision: Flow<Unit> = callbackFlow {
-        val u = uid()
-        if (u == null) { trySend(Unit); close(); return@callbackFlow }
-        val sub = expCol(u).addSnapshotListener { _, _ -> trySend(Unit) }
-        awaitClose { sub.remove() }
+    val expensesRevision: Flow<Unit> = perUserFlow(Unit) { u ->
+        callbackFlow {
+            val sub = expCol(u).addSnapshotListener { _, error ->
+                if (error != null) Log.w(TAG, "expenses revision listener error", error)
+                trySend(Unit)
+            }
+            awaitClose { sub.remove() }
+        }
     }
 
     suspend fun countExpensesForCategory(categoryId: String): Int {
@@ -218,27 +233,21 @@ class AppRepository(
         }
     }
 
-    suspend fun purgeReceiptIfUnreferenced(path: String?, excludeExpenseId: String = "") {
-        if (path.isNullOrBlank()) return
-        val u = uid() ?: return
-        val snap = expCol(u).whereEqualTo("receiptImagePath", path).get().await()
-        val count = snap.documents.count { it.id != excludeExpenseId }
-        if (count == 0) ReceiptFileUtils.deleteIfStored(appContext, path)
-    }
-
-    fun queryExpenses(params: ExpenseQueryParams): Flow<List<Expense>> = callbackFlow {
-        val u = uid()
-        if (u == null) { trySend(emptyList()); close(); return@callbackFlow }
-        var q: Query = expCol(u)
-            .whereGreaterThanOrEqualTo("dateMillis", params.startMillis)
-            .whereLessThan("dateMillis", params.endMillis)
-            .orderBy("dateMillis", Query.Direction.DESCENDING)
-        if (params.typeFilter.isNotEmpty()) q = q.whereEqualTo("transactionType", params.typeFilter)
-        val sub = q.addSnapshotListener { snap, _ ->
-            if (snap != null) trySend(snap.documents.mapNotNull { expenseFromDoc(it) })
+    fun queryExpenses(params: ExpenseQueryParams): Flow<List<Expense>> =
+        perUserFlow(emptyList()) { u ->
+            callbackFlow {
+                var q: Query = expCol(u)
+                    .whereGreaterThanOrEqualTo("dateMillis", params.startMillis)
+                    .whereLessThan("dateMillis", params.endMillis)
+                    .orderBy("dateMillis", Query.Direction.DESCENDING)
+                if (params.typeFilter.isNotEmpty()) q = q.whereEqualTo("transactionType", params.typeFilter)
+                val sub = q.addSnapshotListener { snap, error ->
+                    if (error != null) Log.w(TAG, "query listener error", error)
+                    if (snap != null) trySend(snap.documents.mapNotNull { expenseFromDoc(it) })
+                }
+                awaitClose { sub.remove() }
+            }
         }
-        awaitClose { sub.remove() }
-    }
 
     // ── Helpers ──
 
@@ -304,7 +313,6 @@ class AppRepository(
             dateMillis = doc.getLong("dateMillis") ?: 0L,
             categoryId = categoryId,
             note = doc.getString("note") ?: "",
-            receiptImagePath = doc.getString("receiptImagePath"),
             transactionType = doc.getString("transactionType") ?: "expense",
         )
     }
@@ -317,7 +325,7 @@ class AppRepository(
 
     private fun expensePayload(e: Expense) = mapOf(
         "amount" to e.amount, "dateMillis" to e.dateMillis, "categoryId" to e.categoryId,
-        "note" to e.note, "receiptImagePath" to e.receiptImagePath,
+        "note" to e.note,
         "transactionType" to e.transactionType, "updatedAt" to System.currentTimeMillis()
     )
 }

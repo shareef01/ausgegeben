@@ -377,11 +377,7 @@ fun MainApp(
                                     addViewModel.resetForm()
                                     overlay.closeOverlay()
                                 },
-                                onOpenCamera = {
-                                    if (overlay.overlayStack.lastOrNull() != Route.Camera) {
-                                        overlay.overlayStack.add(Route.Camera)
-                                    }
-                                },
+
                                 onValidationError = { message -> showSnackbar(message) },
                                 onBudgetAlert = { message -> showSnackbar(message) }
                             )
@@ -394,41 +390,6 @@ fun MainApp(
                             )
                         }
 
-                        if (overlay.currentOverlay == Route.Camera) {
-                            val permissionState = rememberPermissionState(Manifest.permission.CAMERA)
-                            var askedOnce by remember { mutableStateOf(false) }
-
-                            LaunchedEffect(permissionState.status.isGranted) {
-                                if (!permissionState.status.isGranted && !askedOnce) {
-                                    permissionState.launchPermissionRequest()
-                                    askedOnce = true
-                                }
-                            }
-
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(MaterialTheme.colorScheme.background)
-                            ) {
-                                when {
-                                    permissionState.status.isGranted -> {
-                                        CameraScreen(
-                                            onImageCaptured = { uri ->
-                                                addViewModel.setReceiptPath(uri.toString())
-                                                overlay.popOverlay()
-                                            },
-                                            onBack = overlay::popOverlay
-                                        )
-                                    }
-                                    else -> {
-                                        CameraPermissionDenied(
-                                            onRetry = { permissionState.launchPermissionRequest() },
-                                            onBack = overlay::popOverlay
-                                        )
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
             }
