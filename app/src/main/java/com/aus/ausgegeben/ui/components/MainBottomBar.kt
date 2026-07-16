@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
+import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.Analytics
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
@@ -58,7 +58,7 @@ fun MainBottomBar(
     val settingsLabel = stringResource(R.string.nav_settings)
     val destinations = remember(recordLabel, billsLabel, settingsLabel) {
         listOf(
-            NavDestination(Route.ExpenseList, Icons.AutoMirrored.Rounded.ReceiptLong, recordLabel),
+            NavDestination(Route.ExpenseList, Icons.AutoMirrored.Rounded.List, recordLabel),
             NavDestination(Route.CategoryManagement, Icons.Rounded.Analytics, billsLabel),
             NavDestination(Route.Settings, Icons.Rounded.Settings, settingsLabel),
         )
