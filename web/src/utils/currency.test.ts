@@ -13,13 +13,18 @@ describe('currency', () => {
     expect(colorIntToHex(0xff1a2b3c)).toBe('#1a2b3c');
   });
 
-  it('formatAmount uses German separators for EUR', () => {
-    expect(formatAmount(1234.56, 'EUR', false)).toBe('1.234,56');
+  it('formatAmount uses app locale separators (default en)', () => {
+    expect(formatAmount(1234.56, 'EUR', false, 'en')).toBe('1,234.56');
   });
 
-  it('formatAmount includes USD symbol', () => {
-    expect(formatAmount(1234.56, 'USD')).toContain('1,234.56');
-    expect(formatAmount(1234.56, 'USD')).toContain('$');
+  it('formatAmount uses German separators when locale is de', () => {
+    expect(formatAmount(1234.56, 'EUR', false, 'de')).toBe('1.234,56');
+  });
+
+  it('formatAmount includes USD symbol with en locale', () => {
+    const formatted = formatAmount(1234.56, 'USD', true, 'en');
+    expect(formatted).toContain('1,234.56');
+    expect(formatted).toContain('$');
   });
 
   it('parseAmount handles comma and dot decimals', () => {
