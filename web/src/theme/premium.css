@@ -13,31 +13,48 @@
 
 /* ── Header Branding ── */
 .app-header__brand {
-  display: flex !important;
+  display: inline-flex !important;
   flex-direction: row !important;
   align-items: center !important;
   gap: 12px !important;
   white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  cursor: pointer;
+  color: inherit;
+}
+
+.app-header__brand:hover .app-header__wordmark {
+  color: var(--color-on-background);
+}
+
+.app-header__brand:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 4px;
+  border-radius: 10px;
 }
 
 .app-header__wordmark {
-  display: flex !important;
-  align-items: center !important;
+  display: block !important;
   font-size: 1.25rem !important;
   font-weight: 800 !important;
   line-height: 1 !important;
+  letter-spacing: -0.02em;
+  color: var(--color-on-background);
 }
 
 .app-header__logo-mark {
   width: 36px !important;
   height: 36px !important;
-  border-radius: 10px !important;
-  background: color-mix(in srgb, var(--color-accent) 20%, transparent) !important;
-  border: 1.5px solid color-mix(in srgb, var(--color-accent) 30%, transparent) !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
   flex-shrink: 0 !important;
+  display: block !important;
+  border-radius: 10px !important;
+  /* SVG draws its own plate — avoid a second box that eats the gap */
+  background: transparent !important;
+  border: none !important;
+  overflow: visible;
 }
 
 /* ── Sidebar Filters ── */
