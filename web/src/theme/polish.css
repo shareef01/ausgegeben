@@ -140,7 +140,7 @@
 
 .insights-stat-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-elevated, 0 8px 24px rgba(0, 0, 0, 0.12));
 }
 
 @media (max-width: 399px) {
@@ -247,7 +247,7 @@
 
 /* Light theme — text contrast improvements */
 [data-theme='light'] .text-on-surface-variant {
-  color: #52525B;
+  color: var(--color-on-surface-variant);
 }
 
 [data-theme='light'] .opacity-50 {
@@ -264,4 +264,69 @@
 
 [data-theme='light'] .opacity-70 {
   opacity: 0.78;
+}
+
+/* Shared readability: never wash secondary text further */
+.empty-state__hint,
+.auth-page__tagline,
+.settings-row__sub,
+.settings-section__title {
+  color: var(--color-on-surface-variant);
+}
+
+.text-black,
+.bg-income.text-black,
+.bg-\[\#10B981\].text-black {
+  color: var(--color-on-income, #000000) !important;
+}
+
+/* Bottom nav + FAB chrome */
+.bottom-nav-pill {
+  background: color-mix(in srgb, var(--color-background) 92%, transparent);
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--shadow-nav-pill);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+.bottom-nav-pill__item {
+  color: var(--color-on-surface-variant);
+}
+
+.bottom-nav-pill__item:hover {
+  color: var(--color-on-background);
+  background: color-mix(in srgb, var(--color-on-surface) 5%, transparent);
+}
+
+.bottom-nav-pill__item--active {
+  color: var(--color-income);
+  background: color-mix(in srgb, var(--color-income) 12%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-income) 22%, transparent);
+}
+
+.bottom-nav-pill__dot {
+  background: var(--color-income);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-income) 55%, transparent);
+}
+
+.fab-add {
+  background: var(--color-income);
+  color: var(--color-on-income, #000000);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--color-income) 18%, transparent),
+    0 4px 24px color-mix(in srgb, var(--color-income) 40%, transparent);
+}
+
+[data-theme='light'] .ledger-container,
+[data-theme='light'] .transaction-list-bare__rows {
+  background: var(--color-surface) !important;
+}
+
+[data-theme='light'] .field__input {
+  background: var(--color-surface-variant);
+  border-color: var(--color-outline);
+}
+
+[data-theme='light'] .field__input:focus {
+  background: var(--color-surface);
 }

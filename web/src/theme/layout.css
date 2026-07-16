@@ -211,8 +211,8 @@
 .\!p-0 { padding: 0 !important; }
 
 /* ── Placeholder utilities ── */
-.placeholder\\:text-zinc-500::placeholder { color: #71717A; }
-.placeholder\\:text-zinc-600::placeholder { color: #52525B; }
+.placeholder\\:text-zinc-500::placeholder { color: var(--color-placeholder, var(--color-on-surface-variant)); }
+.placeholder\\:text-zinc-600::placeholder { color: var(--color-placeholder, var(--color-on-surface-variant)); }
 .placeholder\\:text-transparent::placeholder { color: transparent; }
 
 /* ── Divide utilities ── */
@@ -368,8 +368,8 @@ html {
 .text-\[\#0C0C0E\] { color: var(--color-background); }
 .text-zinc-400 { color: var(--color-on-surface-variant); }
 .text-zinc-500 { color: var(--color-on-surface-variant); }
-.text-zinc-600 { color: color-mix(in srgb, var(--color-on-surface-variant) 85%, transparent); }
-.text-zinc-700 { color: color-mix(in srgb, var(--color-on-surface-variant) 70%, transparent); }
+.text-zinc-600 { color: var(--color-on-surface-variant); }
+.text-zinc-700 { color: var(--color-on-surface); }
 .text-zinc-100 { color: var(--color-on-surface); }
 .text-zinc-200 { color: var(--color-on-surface); }
 .text-zinc-300 { color: color-mix(in srgb, var(--color-on-surface) 88%, transparent); }
@@ -406,8 +406,9 @@ html {
 .hover\:bg-expense\/20:hover { background: color-mix(in srgb, var(--color-expense) 20%, transparent); }
 .hover\:bg-on-surface\/5:hover { background: color-mix(in srgb, var(--color-on-surface) 5%, transparent); }
 .hover\:bg-on-surface\/10:hover { background: color-mix(in srgb, var(--color-on-surface) 10%, transparent); }
-.hover\:bg-white\/5:hover { background: rgba(255, 255, 255, 0.05); }
-.hover\:bg-white\/\[0\.02\]:hover { background: rgba(255, 255, 255, 0.02); }
+.hover\:bg-white\/5:hover { background: color-mix(in srgb, var(--color-on-surface) 5%, transparent); }
+.hover\:bg-white\/\[0\.02\]:hover { background: color-mix(in srgb, var(--color-on-surface) 2%, transparent); }
+.hover\:bg-white\/\[0\.04\]:hover { background: color-mix(in srgb, var(--color-on-surface) 4%, transparent); }
 .hover\:text-white:hover { color: var(--color-on-background); }
 .hover\:text-zinc-200:hover { color: var(--color-on-surface); }
 .hover\:text-zinc-300:hover { color: color-mix(in srgb, var(--color-on-surface) 88%, transparent); }
