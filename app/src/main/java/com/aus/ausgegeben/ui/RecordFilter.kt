@@ -1,6 +1,7 @@
 package com.aus.ausgegeben.ui
 
 import com.aus.ausgegeben.data.entity.Expense
+import java.util.Locale
 
 enum class TransactionTypeFilter(val label: String) {
     ALL("All"),
@@ -18,14 +19,14 @@ enum class TransactionTypeFilter(val label: String) {
 
 fun List<Expense>.filterByQuery(
     query: String,
-    categoryNames: Map<Long, String> = emptyMap()
+    categoryNames: Map<String, String> = emptyMap()
 ): List<Expense> {
-    val q = query.trim().lowercase()
+    val q = query.trim().lowercase(Locale.ROOT)
     if (q.isEmpty()) return this
     return filter { expense ->
-        expense.note.lowercase().contains(q) ||
+        expense.note.lowercase(Locale.ROOT).contains(q) ||
             expense.amount.toString().contains(q) ||
             expense.transactionType.contains(q) ||
-            categoryNames[expense.categoryId]?.lowercase()?.contains(q) == true
+            categoryNames[expense.categoryId]?.lowercase(Locale.ROOT)?.contains(q) == true
     }
 }
