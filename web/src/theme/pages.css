@@ -1152,13 +1152,17 @@
   background: var(--glass-bg);
   border: 1px solid var(--surface-border);
   border-radius: 20px;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
   cursor: pointer;
 }
 
 .period-picker:hover {
   background: color-mix(in srgb, var(--color-on-surface) 5%, transparent);
   border-color: color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.period-picker:active {
+  transform: scale(0.99);
 }
 
 .period-picker__icon {
@@ -1194,8 +1198,8 @@
   display: block;
   font-size: 0.9375rem;
   font-weight: 700;
-  text-transform: lowercase;
   color: var(--color-on-background);
+  text-transform: none;
 }
 
 .period-picker__chevron {
@@ -1204,79 +1208,215 @@
   color: var(--color-on-surface-variant);
 }
 
+.overlay--period {
+  align-items: flex-end;
+  justify-content: center;
+  padding: 12px;
+  z-index: 320;
+}
+
+@media (min-width: 768px) {
+  .overlay--period {
+    align-items: center;
+    padding: 24px;
+  }
+}
+
 .period-picker-sheet {
-  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 420px);
+  max-height: min(78dvh, 640px);
+  padding: 12px 16px 20px;
+  border-radius: 24px 24px 18px 18px;
+  background: color-mix(in srgb, var(--color-surface) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-outline) 55%, transparent);
+  box-shadow:
+    0 -8px 40px color-mix(in srgb, var(--color-on-background) 28%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--color-on-surface) 6%, transparent);
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .period-picker-sheet {
+    border-radius: 24px;
+    max-height: min(72dvh, 560px);
+    padding: 16px 18px 20px;
+  }
+}
+
+.period-picker-sheet__grab {
+  width: 36px;
+  height: 4px;
+  margin: 2px auto 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-on-surface) 18%, transparent);
+}
+
+@media (min-width: 768px) {
+  .period-picker-sheet__grab {
+    display: none;
+  }
+}
+
+.period-picker-sheet__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 0 4px;
+}
+
+.period-picker-sheet__heading {
+  flex: 1;
+  min-width: 0;
 }
 
 .period-picker-sheet__header h2 {
-  font-size: 1.25rem;
+  font-size: 1.125rem;
   font-weight: 800;
   letter-spacing: -0.02em;
-  margin: 0 0 6px;
+  margin: 0 0 4px;
+  color: var(--color-on-background);
 }
 
 .period-picker-sheet__header p {
   font-size: 0.8125rem;
   font-weight: 500;
-  color: color-mix(in srgb, var(--color-on-surface-variant) 65%, transparent);
+  line-height: 1.4;
+  color: var(--color-on-surface-variant);
   margin: 0;
+}
+
+.period-picker-sheet__close {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: var(--color-on-surface-variant);
+  background: color-mix(in srgb, var(--color-on-surface) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-outline) 30%, transparent);
+}
+
+.period-picker-sheet__close:hover {
+  color: var(--color-on-background);
+  background: color-mix(in srgb, var(--color-on-surface) 10%, transparent);
+}
+
+.period-picker-sheet__body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+  overscroll-behavior: contain;
+}
+
+.period-picker-sheet__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.period-picker-sheet__section-title {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-on-surface-variant);
+  padding: 0 6px;
 }
 
 .period-picker-sheet__months {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .period-picker-option {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   width: 100%;
-  padding: 14px 16px;
+  padding: 12px 12px;
   border-radius: 14px;
+  border: 1px solid transparent;
   font-size: 0.9375rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--color-on-surface-variant);
-  transition: all 0.15s ease;
+  background: transparent;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
   cursor: pointer;
 }
 
 .period-picker-option:hover {
-  background: color-mix(in srgb, var(--color-on-surface) 5%, transparent);
+  background: color-mix(in srgb, var(--color-on-surface) 6%, transparent);
   color: var(--color-on-background);
 }
 
+.period-picker-option:active {
+  transform: scale(0.985);
+}
+
 .period-picker-option--active {
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  color: var(--color-accent);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 20%, transparent);
+  background: color-mix(in srgb, var(--color-income) 14%, transparent);
+  color: var(--color-on-background);
+  border-color: color-mix(in srgb, var(--color-income) 28%, transparent);
 }
 
 .period-picker-option--prominent {
-  padding: 18px 20px;
+  padding: 14px 14px;
   border-radius: 16px;
-  border: 1px solid var(--surface-border);
-  margin-bottom: 8px;
-  font-size: 1rem;
+  border-color: color-mix(in srgb, var(--color-outline) 40%, transparent);
+  background: color-mix(in srgb, var(--color-on-surface) 3.5%, transparent);
+  font-size: 0.975rem;
+  font-weight: 700;
+}
+
+.period-picker-option--prominent.period-picker-option--active {
+  background: color-mix(in srgb, var(--color-income) 16%, transparent);
+  border-color: color-mix(in srgb, var(--color-income) 32%, transparent);
 }
 
 .period-picker-option__icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-outline);
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--color-on-surface) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-outline) 35%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  color: inherit;
+}
+
+.period-picker-option__icon--history {
+  color: var(--color-income);
+  background: color-mix(in srgb, var(--color-income) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-income) 22%, transparent);
 }
 
 .period-picker-option__label {
   flex: 1;
   text-align: left;
-  text-transform: lowercase;
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.period-picker-option__check {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: #000000;
+  background: var(--color-income);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-income) 35%, transparent);
 }
 
 .section-title {
