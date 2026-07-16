@@ -410,10 +410,12 @@ fun CategoryManageSheet(
     onAddCategory: () -> Unit,
     onEditCategory: (Category) -> Unit,
     onDeleteCategory: (Category) -> Unit,
-    onMoveCategory: (Category, Boolean) -> Unit
+    onMoveCategory: (Category, Boolean) -> Unit,
+    onDeduplicate: (() -> Unit)? = null
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val typeLabel = transactionType.label()
+    var showDeduplicateConfirm by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -444,6 +446,20 @@ fun CategoryManageSheet(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+
+                if (onDeduplicate != null) {
+                    IconButton(
+                        onClick = { showDeduplicateConfirm = true },
+                        modifier = Modifier.padding(end = 4.dp)
+                    ) {
+                        Icon(
+                            Icons.Rounded.CleaningServices,
+                            contentDescription = "Merge Duplicates",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
                 FilledTonalButton(
                     onClick = onAddCategory,
                     shape = RoundedCornerShape(12.dp),
@@ -509,6 +525,29 @@ fun CategoryManageSheet(
                 }
             }
         }
+    }
+
+    if (showDeduplicateConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeduplicateConfirm = false },
+            title = { Text(stringResource(R.string.category_deduplicate_title)) },
+            text = { Text(stringResource(R.string.category_deduplicate_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDeduplicate?.invoke()
+                        showDeduplicateConfirm = false
+                    }
+                ) {
+                    Text(stringResource(R.string.category_deduplicate_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeduplicateConfirm = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            }
+        )
     }
 }
 

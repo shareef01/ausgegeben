@@ -7,7 +7,7 @@ import com.aus.ausgegeben.data.auth.AuthRepository
 import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.util.dateRangeMillis
 import com.aus.ausgegeben.util.ReceiptFileUtils
-import com.aus.ausgegeben.util.repairStoredCategoryColor
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
@@ -15,6 +15,9 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+import java.util.UUID
+import java.util.Locale
+import kotlin.math.round
 
 class AppRepository(
     private val appContext: Context,
@@ -22,15 +25,15 @@ class AppRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
 ) {
     companion object {
-        private const val PAGE_SIZE = 30
+        const val UNCATEGORIZED_ID = "0"
     }
 
     private fun uid(): String? = authRepository.currentUserId
 
     private fun catCol(uid: String) = firestore.collection("users").document(uid).collection("categories")
     private fun expCol(uid: String) = firestore.collection("users").document(uid).collection("expenses")
-    private fun catDoc(uid: String, id: Long) = catCol(uid).document(id.toString())
-    private fun expDoc(uid: String, id: Long) = expCol(uid).document(id.toString())
+    private fun catDoc(uid: String, id: String) = catCol(uid).document(id)
+    private fun expDoc(uid: String, id: String) = expCol(uid).document(id)
 
     suspend fun ensureSeeded() {
         val u = uid() ?: return
@@ -48,12 +51,40 @@ class AppRepository(
                 Category(name = "Refunds", iconName = "undo", colorInt = 0xffb8a060.toInt(), transactionType = "income", sortOrder = 2),
                 Category(name = "Transfer", iconName = "swap_horiz", colorInt = 0xff8e8e96.toInt(), transactionType = "transfer", sortOrder = 0),
             )
-            defaults.forEachIndexed { i, c ->
-                catCol(u).document((i + 1).toString()).set(mapOf(
-                    "name" to c.name, "iconName" to c.iconName, "colorInt" to c.colorInt.toLong(),
-                    "transactionType" to c.transactionType, "sortOrder" to c.sortOrder,
-                    "updatedAt" to System.currentTimeMillis()
-                )).await()
+            defaults.forEach { c ->
+                catDoc(u, c.id).set(categoryPayload(c)).await()
+            }
+        } else {
+            deduplicateCategories()
+        }
+        ensureUncategorizedCategory(u)
+    }
+
+    suspend fun deduplicateCategories() {
+        val u = uid() ?: return
+        
+        // SECURE: Fetch ALL categories directly (no orderBy) to catch docs missing sortOrder
+        val allSnap = catCol(u).get().await()
+        val categories = allSnap.documents.mapNotNull { categoryFromDoc(it) }
+            .filter { it.id != UNCATEGORIZED_ID }
+        
+        val groups = categories.groupBy { it.name.lowercase(Locale.ROOT).trim() to it.transactionType }
+        
+        groups.filter { it.value.size > 1 }.forEach { (_, group) ->
+            val master = group.first()
+            val duplicates = group.drop(1)
+            
+            duplicates.forEach { dup ->
+                reassignCategoryExpenses(u, fromCategoryId = dup.id, toCategoryId = master.id)
+                catDoc(u, dup.id).delete().await()
+            }
+        }
+        
+        // Repair missing sortOrder fields on remaining categories
+        val remaining = catCol(u).get().await()
+        remaining.documents.forEachIndexed { index, doc ->
+            if (!doc.contains("sortOrder")) {
+                doc.reference.update("sortOrder", index).await()
             }
         }
     }
@@ -65,23 +96,17 @@ class AppRepository(
         if (u == null) { trySend(emptyList()); close(); return@callbackFlow }
         val sub = catCol(u).orderBy("sortOrder").addSnapshotListener { snap, _ ->
             if (snap != null) {
-                trySend(snap.documents.mapNotNull { doc ->
-                    val id = doc.id.toLongOrNull() ?: return@mapNotNull null
-                    Category(id = id, name = doc.getString("name") ?: "",
-                        iconName = doc.getString("iconName") ?: "shopping_bag",
-                        colorInt = (doc.getLong("colorInt") ?: 0xff6a9fd4).toInt(),
-                        transactionType = doc.getString("transactionType") ?: "expense",
-                        sortOrder = (doc.getLong("sortOrder") ?: 0).toInt())
-                })
+                trySend(snap.documents.mapNotNull { doc -> categoryFromDoc(doc) })
             }
         }
         awaitClose { sub.remove() }
     }
 
-    suspend fun insertCategory(category: Category): Long {
+    suspend fun insertCategory(category: Category): String {
         val u = uid() ?: throw IllegalStateException("Not signed in")
-        val id = nextId(u, "categories")
-        catDoc(u, id).set(categoryPayload(category)).await()
+        val id = UUID.randomUUID().toString()
+        val c = category.copy(id = id)
+        catDoc(u, id).set(categoryPayload(c)).await()
         return id
     }
 
@@ -92,9 +117,10 @@ class AppRepository(
 
     suspend fun deleteCategory(category: Category) {
         val u = uid() ?: return
-        // Delete linked expenses
-        val linked = expCol(u).whereEqualTo("categoryId", category.id).get().await()
-        linked.documents.forEach { it.reference.delete().await() }
+        if (category.id == UNCATEGORIZED_ID) return
+        // SECURE: Move orphaned expenses to "Uncategorized" (match string + legacy numeric ids)
+        ensureUncategorizedCategory(u)
+        reassignCategoryExpenses(u, fromCategoryId = category.id, toCategoryId = UNCATEGORIZED_ID)
         catDoc(u, category.id).delete().await()
     }
 
@@ -115,16 +141,11 @@ class AppRepository(
         awaitClose { sub.remove() }
     }
 
-    fun getMonthExpenses(): Flow<List<Expense>> {
-        val range = AnalyticsPeriod.THIS_MONTH.dateRangeMillis()
-            ?: return callbackFlow { trySend(emptyList()); close() }
-        return getExpensesInRange(range.first, range.second)
-    }
-
-    suspend fun insertExpense(expense: Expense): Long {
+    suspend fun insertExpense(expense: Expense): String {
         val u = uid() ?: throw IllegalStateException("Not signed in")
-        val id = nextId(u, "expenses")
-        expDoc(u, id).set(expensePayload(expense)).await()
+        val id = if (expense.id.isBlank()) UUID.randomUUID().toString() else expense.id
+        val e = expense.copy(id = id, amount = roundAmount(expense.amount))
+        expDoc(u, id).set(expensePayload(e)).await()
         return id
     }
 
@@ -132,7 +153,8 @@ class AppRepository(
         val u = uid() ?: return
         val prevSnap = expDoc(u, expense.id).get().await()
         val prevPath = prevSnap.getString("receiptImagePath")
-        expDoc(u, expense.id).set(expensePayload(expense), SetOptions.merge()).await()
+        val e = expense.copy(amount = roundAmount(expense.amount))
+        expDoc(u, expense.id).set(expensePayload(e), SetOptions.merge()).await()
         if (prevPath != expense.receiptImagePath) {
             purgeReceiptIfUnreferenced(prevPath, excludeExpenseId = expense.id)
         }
@@ -145,10 +167,10 @@ class AppRepository(
 
     suspend fun duplicateExpense(expense: Expense) {
         val copiedReceipt = ReceiptFileUtils.copyReceipt(appContext, expense.receiptImagePath)
-        insertExpense(expense.copy(id = 0L, dateMillis = System.currentTimeMillis(), receiptImagePath = copiedReceipt))
+        insertExpense(expense.copy(id = "", dateMillis = System.currentTimeMillis(), receiptImagePath = copiedReceipt))
     }
 
-    suspend fun sumMonthExpenses(excludeExpenseId: Long = 0L): Double {
+    suspend fun sumMonthExpenses(excludeExpenseId: String = ""): Double {
         val range = AnalyticsPeriod.THIS_MONTH.dateRangeMillis() ?: return 0.0
         val u = uid() ?: return 0.0
         val snap = expCol(u)
@@ -156,20 +178,11 @@ class AppRepository(
             .whereLessThan("dateMillis", range.second)
             .whereEqualTo("transactionType", "expense")
             .get().await()
-        return snap.documents.sumOf { it.getDouble("amount") ?: 0.0 }
+        val rawSum = snap.documents
+            .filter { it.id != excludeExpenseId }
+            .sumOf { it.getDouble("amount") ?: 0.0 }
+        return roundAmount(rawSum)
     }
-
-    fun getAllExpenses(pageSize: Int = PAGE_SIZE): Flow<List<Expense>> = callbackFlow {
-        val u = uid()
-        if (u == null) { trySend(emptyList()); close(); return@callbackFlow }
-        val sub = expCol(u).orderBy("dateMillis", Query.Direction.DESCENDING).limit(pageSize.toLong())
-            .addSnapshotListener { snap, _ ->
-                if (snap != null) trySend(snap.documents.mapNotNull { expenseFromDoc(it) })
-            }
-        awaitClose { sub.remove() }
-    }
-
-    // ── Aggregated Flows (for ViewModel consumption) ──
 
     val allExpenses: Flow<List<Expense>> = callbackFlow {
         val u = uid()
@@ -181,7 +194,6 @@ class AppRepository(
         awaitClose { sub.remove() }
     }
 
-    // Simple revision signal — emits Unit on every expense change
     val expensesRevision: Flow<Unit> = callbackFlow {
         val u = uid()
         if (u == null) { trySend(Unit); close(); return@callbackFlow }
@@ -189,57 +201,31 @@ class AppRepository(
         awaitClose { sub.remove() }
     }
 
-    fun getExpensesByCategory(categoryId: Long): Flow<List<Expense>> = callbackFlow {
-        val u = uid()
-        if (u == null) { trySend(emptyList()); close(); return@callbackFlow }
-        val sub = expCol(u).whereEqualTo("categoryId", categoryId).orderBy("dateMillis", Query.Direction.DESCENDING)
-            .addSnapshotListener { snap, _ ->
-                if (snap != null) trySend(snap.documents.mapNotNull { expenseFromDoc(it) })
-            }
-        awaitClose { sub.remove() }
-    }
-
-    suspend fun getAllExpensesOnce(): List<Expense> {
-        val u = uid() ?: return emptyList()
-        return expCol(u).orderBy("dateMillis", Query.Direction.DESCENDING).get().await()
-            .documents.mapNotNull { expenseFromDoc(it) }
-    }
-
-    suspend fun getAllCategoriesOnce(): List<Category> {
-        val u = uid() ?: return emptyList()
-        return catCol(u).orderBy("sortOrder").get().await()
-            .documents.mapNotNull { doc ->
-                val id = doc.id.toLongOrNull() ?: return@mapNotNull null
-                Category(id = id, name = doc.getString("name") ?: "",
-                iconName = doc.getString("iconName") ?: "shopping_bag",
-                colorInt = (doc.getLong("colorInt") ?: 0xff6a9fd4).toInt(),
-                transactionType = doc.getString("transactionType") ?: "expense",
-                sortOrder = (doc.getLong("sortOrder") ?: 0).toInt()) }
-    }
-
-    suspend fun countExpensesForCategory(categoryId: Long): Int {
+    suspend fun countExpensesForCategory(categoryId: String): Int {
         val u = uid() ?: return 0
-        return expCol(u).whereEqualTo("categoryId", categoryId).get().await().size()
+        return expenseDocsForCategory(u, categoryId).size
     }
 
-    suspend fun updateExpenseTypesForCategory(categoryId: Long, transactionType: String) {
+    suspend fun updateExpenseTypesForCategory(categoryId: String, transactionType: String) {
         val u = uid() ?: return
-        val snap = expCol(u).whereEqualTo("categoryId", categoryId).get().await()
-        for (doc in snap.documents) {
-            val docId = doc.id.toLongOrNull() ?: continue
-            expDoc(u, docId).set(mapOf("transactionType" to transactionType), SetOptions.merge()).await()
+        val docs = expenseDocsForCategory(u, categoryId)
+        docs.chunked(450).forEach { chunk ->
+            firestore.runBatch { batch ->
+                chunk.forEach { doc ->
+                    batch.update(doc.reference, "transactionType", transactionType)
+                }
+            }.await()
         }
     }
 
-    suspend fun purgeReceiptIfUnreferenced(path: String?, excludeExpenseId: Long = 0L) {
+    suspend fun purgeReceiptIfUnreferenced(path: String?, excludeExpenseId: String = "") {
         if (path.isNullOrBlank()) return
         val u = uid() ?: return
         val snap = expCol(u).whereEqualTo("receiptImagePath", path).get().await()
-        val count = snap.documents.count { it.id.toLongOrNull() != excludeExpenseId }
+        val count = snap.documents.count { it.id != excludeExpenseId }
         if (count == 0) ReceiptFileUtils.deleteIfStored(appContext, path)
     }
 
-    // Simple query flow — replaces Room paging
     fun queryExpenses(params: ExpenseQueryParams): Flow<List<Expense>> = callbackFlow {
         val u = uid()
         if (u == null) { trySend(emptyList()); close(); return@callbackFlow }
@@ -256,24 +242,67 @@ class AppRepository(
 
     // ── Helpers ──
 
-    private suspend fun nextId(uid: String, kind: String): Long {
-        val counterRef = firestore.collection("users").document(uid).collection("_counters").document(kind)
-        return firestore.runTransaction<Long> { tx ->
-            val snap = tx.get(counterRef)
-            val current = snap.getLong("value") ?: 0L
-            val next = current + 1
-            tx.set(counterRef, mapOf("value" to next), SetOptions.merge())
-            next
-        }.await()
+    private fun roundAmount(amount: Double): Double = round(amount * 100.0) / 100.0
+
+    /**
+     * Firestore equality is type-sensitive. Older Android builds stored categoryId as a number;
+     * UUID migration stores strings. Match both so delete/dedupe never miss legacy rows.
+     */
+    private suspend fun expenseDocsForCategory(u: String, categoryId: String): List<DocumentSnapshot> {
+        val byString = expCol(u).whereEqualTo("categoryId", categoryId).get().await().documents
+        val byNumber = categoryId.toLongOrNull()?.let { n ->
+            expCol(u).whereEqualTo("categoryId", n).get().await().documents
+        }.orEmpty()
+        return (byString + byNumber).distinctBy { it.id }
+    }
+
+    private suspend fun reassignCategoryExpenses(u: String, fromCategoryId: String, toCategoryId: String) {
+        val docs = expenseDocsForCategory(u, fromCategoryId)
+        docs.chunked(450).forEach { chunk ->
+            firestore.runBatch { batch ->
+                chunk.forEach { doc ->
+                    batch.update(doc.reference, "categoryId", toCategoryId)
+                }
+            }.await()
+        }
+    }
+
+    private suspend fun ensureUncategorizedCategory(u: String) {
+        val ref = catDoc(u, UNCATEGORIZED_ID)
+        if (ref.get().await().exists()) return
+        val uncategorized = Category(
+            id = UNCATEGORIZED_ID,
+            name = "Uncategorized",
+            iconName = "help_outline",
+            colorInt = 0xff8e8e96.toInt(),
+            transactionType = "expense",
+            sortOrder = 999,
+        )
+        ref.set(categoryPayload(uncategorized)).await()
+    }
+
+    private fun categoryFromDoc(doc: DocumentSnapshot): Category? {
+        return Category(
+            id = doc.id,
+            name = doc.getString("name") ?: "",
+            iconName = doc.getString("iconName") ?: "shopping_bag",
+            colorInt = (doc.getLong("colorInt") ?: 0xff6a9fd4).toInt(),
+            transactionType = doc.getString("transactionType") ?: "expense",
+            sortOrder = (doc.getLong("sortOrder") ?: 0).toInt()
+        )
     }
 
     private fun expenseFromDoc(doc: com.google.firebase.firestore.DocumentSnapshot): Expense? {
-        val id = doc.id.toLongOrNull() ?: return null
+        val categoryId = when (val raw = doc.get("categoryId")) {
+            is String -> raw
+            is Number -> raw.toLong().toString()
+            else -> UNCATEGORIZED_ID
+        }
         return Expense(
-            id = id,
+            id = doc.id,
             amount = doc.getDouble("amount") ?: 0.0,
             dateMillis = doc.getLong("dateMillis") ?: 0L,
-            categoryId = doc.getLong("categoryId") ?: 0L,
+            categoryId = categoryId,
             note = doc.getString("note") ?: "",
             receiptImagePath = doc.getString("receiptImagePath"),
             transactionType = doc.getString("transactionType") ?: "expense",
