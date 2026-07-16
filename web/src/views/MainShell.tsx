@@ -85,11 +85,14 @@ export function MainShell() {
 
         {/* Header — brand and desktop nav */}
         <header className="flex items-center justify-between py-6 border-b border-white/[0.04]">
-          <button type="button" className="flex items-center gap-3 shrink-0 bg-transparent border-none p-0 cursor-pointer" onClick={() => selectTab('record')} aria-label={t('navRecord')}>
+          <button
+            type="button"
+            className="app-header__brand"
+            onClick={() => selectTab('record')}
+            aria-label={t('appName')}
+          >
             <AppBrandIcon size={36} className="app-header__logo-mark" />
-            <span className="app-header__wordmark text-xl font-extrabold tracking-tight text-on-background leading-none flex items-center">
-              <span className="text-accent leading-none">{t('appName').charAt(0)}</span>{t('appName').slice(1)}
-            </span>
+            <span className="app-header__wordmark">{t('appName')}</span>
           </button>
 
           <nav className="app-header__nav" aria-label={t('appName')}>
