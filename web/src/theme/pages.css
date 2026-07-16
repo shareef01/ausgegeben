@@ -87,6 +87,8 @@
 .swipeable-row {
   position: relative;
   overflow: hidden;
+  width: 100%;
+  min-width: 0;
 }
 
 .swipeable-row__bg {
@@ -123,8 +125,9 @@
 .swipeable-row__content {
   position: relative;
   z-index: 1;
+  width: 100%;
   background: var(--color-background);
-  transition: none;
+  transition: padding-right 0.15s ease;
   will-change: transform;
 }
 
@@ -136,7 +139,7 @@
 .swipeable-row__actions {
   display: none;
   position: absolute;
-  right: 12px;
+  right: 8px;
   top: 50%;
   transform: translateY(-50%);
   z-index: 2;
@@ -146,6 +149,13 @@
 .swipeable-row:hover .swipeable-row__actions,
 .swipeable-row:focus-within .swipeable-row__actions {
   display: flex;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .swipeable-row:hover .swipeable-row__content,
+  .swipeable-row:focus-within .swipeable-row__content {
+    padding-right: 132px;
+  }
 }
 
 .swipeable-row__action {
@@ -167,6 +177,11 @@
 @media (pointer: coarse) {
   .swipeable-row__actions {
     display: none !important;
+  }
+
+  .swipeable-row:hover .swipeable-row__content,
+  .swipeable-row:focus-within .swipeable-row__content {
+    padding-right: 0;
   }
 }
 
@@ -809,7 +824,7 @@
 .transaction-row__meta {
   flex: 1;
   min-width: 0;
-  padding-right: 16px;
+  padding-right: 12px;
 }
 
 .transaction-row__title {
@@ -835,7 +850,28 @@
   font-variant-numeric: tabular-nums;
   text-align: right;
   flex-shrink: 0;
-  min-width: 100px;
+  margin-left: auto;
+}
+
+.transaction-row__type-badge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--color-background);
+  box-shadow: 0 0 0 2px var(--color-background);
+}
+
+.transaction-row__type-badge--income {
+  color: var(--color-income);
+}
+
+.transaction-row__type-badge--expense {
+  color: var(--color-expense);
 }
 
 /* ═══════════════════════════════════════════════════
