@@ -49,6 +49,7 @@ export interface RecordUiState {
   monthExpenses: Expense[];
   dayTotalsByLabel: Record<string, [number, number]>;
   loading: boolean;
+  loadError?: boolean;
 }
 
 export interface DashboardUiState {
@@ -62,6 +63,7 @@ export interface DashboardUiState {
   transfersByCategory: Map<string, number>;
   cashFlowTrend: CashFlowPoint[];
   loading: boolean;
+  loadError?: boolean;
 }
 
 export interface AppPreferences {
