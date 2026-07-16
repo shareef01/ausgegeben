@@ -161,6 +161,15 @@ export function useAddTransactionViewModel(expenseId?: string) {
     }
   };
 
+  const reloadCategories = useCallback(async () => {
+    try {
+      const cats = await expenseRepository.getAllCategories();
+      setCategories(cats);
+    } catch (err) {
+      console.error('[useAddTransactionViewModel] reloadCategories failed', err);
+    }
+  }, []);
+
   return {
     form,
     setForm,
@@ -175,5 +184,6 @@ export function useAddTransactionViewModel(expenseId?: string) {
     saving,
     error,
     isEditing: Boolean(expenseId),
+    reloadCategories,
   };
 }

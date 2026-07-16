@@ -21,6 +21,7 @@ import type { ThemeMode } from '@/models/types';
 import { expenseRepository } from '@/repositories/expenseRepository';
 import { exportCsv } from '@/utils/analytics';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import packageJson from '../../package.json';
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
@@ -119,7 +120,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
                   className="field__input"
                   type="number"
                   inputMode="decimal"
-                  placeholder="0.00"
+                  placeholder={t('budgetPlaceholder')}
                   aria-label={t('settingsMonthlyLimit')}
                   value={budgetInput}
                   onChange={(e) => setBudgetInput(e.target.value)}
@@ -310,6 +311,7 @@ function Modal({ title, children, onClose }: { title: string; children: ReactNod
   const sheetRef = useRef<HTMLDivElement>(null);
   const handleEscape = useCallback(() => onClose(), [onClose]);
   useFocusTrap(true, sheetRef, handleEscape);
+  useBodyScrollLock(true);
   return (
     <div className="overlay overlay--settings" onClick={onClose} role="presentation">
       <div ref={sheetRef} className="sheet sheet--settings" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="settings-modal-title" tabIndex={-1}>

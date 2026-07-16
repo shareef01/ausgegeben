@@ -3,6 +3,7 @@ import { receiptService } from '@/services/receiptService';
 import { useTranslation } from '@/i18n';
 import { IconClose } from '@/components/Icons';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface ReceiptPreviewProps {
   path: string;
@@ -18,6 +19,7 @@ export function ReceiptPreview({ path, onClose }: ReceiptPreviewProps) {
   const titleId = useId();
   const close = useCallback(() => onClose(), [onClose]);
   useFocusTrap(true, sheetRef, close);
+  useBodyScrollLock(true);
 
   useEffect(() => {
     loadSeq.current += 1;
