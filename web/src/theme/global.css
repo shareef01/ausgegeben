@@ -302,13 +302,13 @@ input[type='number'] {
   content: '';
   position: absolute;
   left: 50%;
-  bottom: 4px;
-  width: 12px;
+  bottom: 3px;
+  width: 10px;
   height: 2px;
   border-radius: 999px;
   background: var(--color-income);
   transform: translateX(-50%);
-  opacity: 0.95;
+  opacity: 0.78;
 }
 
 .bottom-bar {
