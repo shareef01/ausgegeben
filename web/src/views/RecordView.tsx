@@ -108,7 +108,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
             ) : null}
           </div>
 
-          <div className="card record-filters flex flex-col p-5">
+          <div className="card record-filters">
             <PremiumPeriodSelector
               options={periodOptions}
               selected={selectedPeriod}
