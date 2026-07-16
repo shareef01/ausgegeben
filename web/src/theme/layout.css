@@ -303,6 +303,7 @@ html {
 .bg-rose-500\/20 { background: color-mix(in srgb, var(--color-expense) 20%, transparent); }
 .hover\:bg-rose-600:hover { background: color-mix(in srgb, var(--color-expense) 90%, black); }
 .hover\:bg-\[\#18181B\]:hover { background: var(--color-surface-variant); }
+.hover\:bg-\[\#121214\]:hover { background: var(--color-surface); }
 .hover\:bg-\[\#0EA5E9\]:hover { filter: brightness(1.08); background: var(--color-income); }
 .hover\:bg-accent:hover { background: var(--color-accent); }
 
@@ -365,7 +366,8 @@ html {
 
 .text-accent { color: var(--color-accent); }
 .text-\[\#10B981\] { color: var(--color-income); }
-.text-\[\#0C0C0E\] { color: var(--color-background); }
+.text-\[\#0C0C0E\] { color: var(--color-on-income, #09090B); }
+.bg-zinc-700 { background: var(--color-on-surface-variant); }
 .text-zinc-400 { color: var(--color-on-surface-variant); }
 .text-zinc-500 { color: var(--color-on-surface-variant); }
 .text-zinc-600 { color: var(--color-on-surface-variant); }
