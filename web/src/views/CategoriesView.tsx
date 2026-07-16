@@ -143,11 +143,6 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
                {filtered.length === 0 ? (
                  <div className="categories-empty py-10">
                    <p className="categories-empty__text">{t('categoriesEmptyForType')}</p>
-                   {!adding ? (
-                     <button type="button" className="btn btn-primary mt-4" onClick={startAdd}>
-                       {t('addCategory')}
-                     </button>
-                   ) : null}
                  </div>
                ) : (
                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -203,7 +198,7 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
         title={t('categoryDeleteConfirm', { name: deleteTarget?.name ?? '' })}
         message={deleteLinkedCount > 0
           ? t('categoryDeleteLinked', { count: String(deleteLinkedCount) })
-          : t('categoryDeleteConfirm', { name: deleteTarget?.name ?? '' })}
+          : t('categoryDeleteMessage')}
         onConfirm={confirmDeleteCategory}
         onCancel={() => { setDeleteTarget(null); setDeleteLinkedCount(0); }}
       />

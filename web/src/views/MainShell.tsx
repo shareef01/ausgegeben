@@ -1,4 +1,4 @@
-import { useState, type JSX, useEffect } from 'react';
+import { useState, type JSX } from 'react';
 import { RecordView } from '@/views/RecordView';
 import { InsightsView } from '@/views/InsightsView';
 import { SettingsView } from '@/views/SettingsView';
@@ -13,13 +13,14 @@ import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
 
 type Tab = 'record' | 'insights' | 'settings';
-type Overlay = null | { type: 'add' | 'edit' | 'categories'; expenseId?: string };
+type TxnOverlay = null | { type: 'add' } | { type: 'edit'; expenseId: string };
 
 export function MainShell() {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const [tab, setTab] = useState<Tab>('record');
-  const [overlay, setOverlay] = useState<Overlay>(null);
+  const [txnOverlay, setTxnOverlay] = useState<TxnOverlay>(null);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [visitedTabs, setVisitedTabs] = useState<Set<Tab>>(() => new Set(['record']));
   const [verifyDismissed, setVerifyDismissed] = useState(false);
   const [verifyBusy, setVerifyBusy] = useState(false);
@@ -32,16 +33,6 @@ export function MainShell() {
     setTab(next);
   };
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && overlay) {
-        setOverlay(null);
-      }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [overlay]);
-
   const navItems: { id: Tab; label: string; Icon: typeof IconRecord }[] = [
     { id: 'record', label: t('navRecord'), Icon: IconRecord },
     { id: 'insights', label: t('navInsights'), Icon: IconInsights },
@@ -49,9 +40,14 @@ export function MainShell() {
   ];
 
   const tabContent: Record<Tab, JSX.Element | null> = {
-    record: <RecordView onEdit={(id) => setOverlay({ type: 'edit', expenseId: id })} onAdd={() => setOverlay({ type: 'add' })} />,
+    record: (
+      <RecordView
+        onEdit={(id) => setTxnOverlay({ type: 'edit', expenseId: id })}
+        onAdd={() => setTxnOverlay({ type: 'add' })}
+      />
+    ),
     insights: <InsightsView />,
-    settings: <SettingsView onManageCategories={() => setOverlay({ type: 'categories' })} />,
+    settings: <SettingsView onManageCategories={() => setCategoriesOpen(true)} />,
   };
 
   const resendVerification = async () => {
@@ -179,7 +175,7 @@ export function MainShell() {
           type="button"
           className="fab-add flex items-center justify-center w-12 h-12 rounded-full transition-all duration-200 active:scale-90 hover:brightness-110 hover:-translate-y-0.5"
           aria-label={t('navAdd')}
-          onClick={() => setOverlay({ type: 'add' })}
+          onClick={() => setTxnOverlay({ type: 'add' })}
         >
           <IconAdd width={22} height={22} strokeWidth={2.5} />
         </button>
@@ -190,20 +186,21 @@ export function MainShell() {
         type="button"
         className="fab-add fab-add--desktop"
         aria-label={t('navAdd')}
-        onClick={() => setOverlay({ type: 'add' })}
+        onClick={() => setTxnOverlay({ type: 'add' })}
       >
         <IconAdd width={24} height={24} strokeWidth={2.5} />
       </button>
 
-      {overlay?.type === 'add' || overlay?.type === 'edit' ? (
+      {txnOverlay ? (
         <AddTransactionView
-          expenseId={overlay.type === 'edit' ? overlay.expenseId : undefined}
-          onClose={() => setOverlay(null)}
-          onSaved={() => setOverlay(null)}
-          onManageCategories={() => setOverlay({ type: 'categories' })}
+          expenseId={txnOverlay.type === 'edit' ? txnOverlay.expenseId : undefined}
+          suspended={categoriesOpen}
+          onClose={() => setTxnOverlay(null)}
+          onSaved={() => setTxnOverlay(null)}
+          onManageCategories={() => setCategoriesOpen(true)}
         />
       ) : null}
-      {overlay?.type === 'categories' ? <CategoriesView onClose={() => setOverlay(null)} /> : null}
+      {categoriesOpen ? <CategoriesView onClose={() => setCategoriesOpen(false)} /> : null}
 
       <ToastHost />
     </>
