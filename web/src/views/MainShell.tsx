@@ -81,14 +81,14 @@ export function MainShell() {
       <div className="max-w-[1200px] mx-auto w-full px-4 sm:px-8 relative min-h-screen">
 
         {/* Header — brand and desktop nav */}
-        <header className="app-header flex items-center justify-between py-5 border-b border-white/[0.04]">
+        <header className="app-header">
           <button
             type="button"
             className="app-header__brand"
             onClick={() => selectTab('record')}
             aria-label={t('appName')}
           >
-            <AppBrandIcon size={36} className="app-header__logo-mark" />
+            <AppBrandIcon size={32} className="app-header__logo-mark" />
             <AppBrandWordmark className="app-header__wordmark" />
           </button>
 
@@ -104,7 +104,7 @@ export function MainShell() {
                   aria-label={label}
                   className={`app-header__nav-item${active ? ' app-header__nav-item--active' : ''}`}
                 >
-                  <Icon width={20} height={20} aria-hidden />
+                  <Icon width={18} height={18} className="app-header__nav-icon" aria-hidden />
                   <span className="app-header__nav-label">{label}</span>
                 </button>
               );

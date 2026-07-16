@@ -16,18 +16,18 @@
   display: inline-flex !important;
   flex-direction: row !important;
   align-items: center !important;
-  gap: 10px !important;
+  gap: 9px !important;
   white-space: nowrap !important;
   flex-shrink: 0 !important;
   background: transparent !important;
   border: none !important;
-  padding: 0 !important;
+  padding: 2px 0 !important;
   cursor: pointer;
   color: inherit;
 }
 
 .app-header__brand:hover .app-brand-wordmark__rest {
-  color: color-mix(in srgb, var(--color-on-background) 78%, transparent);
+  color: color-mix(in srgb, var(--color-on-background) 72%, var(--color-on-surface-variant));
 }
 
 .app-header__brand:focus-visible {
@@ -47,9 +47,9 @@
   display: inline-flex;
   align-items: baseline;
   font-family: var(--font-family);
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: -0.025em;
+  font-size: 1.1875rem;
+  font-weight: 750;
+  letter-spacing: -0.03em;
   line-height: 1;
   font-feature-settings: 'kern' 1, 'liga' 1;
   -webkit-font-smoothing: antialiased;
@@ -57,19 +57,21 @@
 
 .app-brand-wordmark__aus {
   color: var(--color-income);
+  font-weight: 800;
 }
 
 .app-brand-wordmark__rest {
   color: var(--color-on-background);
+  font-weight: 700;
   transition: color 0.15s ease;
 }
 
 .app-header__logo-mark {
-  width: 36px !important;
-  height: 36px !important;
+  width: 32px !important;
+  height: 32px !important;
   flex-shrink: 0 !important;
   display: block !important;
-  border-radius: 10px !important;
+  border-radius: 9px !important;
   background: transparent !important;
   border: none !important;
   overflow: visible;
