@@ -5,8 +5,6 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
@@ -26,11 +24,9 @@ fun AusgegebenTheme(
 
     if (!view.isInEditMode && activity != null) {
         SideEffect {
-            val window = activity.window
-            window.statusBarColor = Color.Transparent.toArgb()
-            window.navigationBarColor = colorScheme.surface.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !resolvedDark
-            WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !resolvedDark
+            val controller = WindowCompat.getInsetsController(activity.window, view)
+            controller.isAppearanceLightStatusBars = !resolvedDark
+            controller.isAppearanceLightNavigationBars = !resolvedDark
         }
     }
 

@@ -32,6 +32,7 @@
     <string name="auth_loading_sign_in">anmeldung…</string>
     <string name="auth_loading_sign_up">konto wird erstellt…</string>
     <string name="auth_error_timeout">zeitüberschreitung. prüfe internet und firebase-setup.</string>
+    <string name="auth_error_weak_password">passwort ist zu schwach. verwende mindestens 6 zeichen mit buchstaben und zahlen.</string>
 
     <!-- Navigation -->
     <string name="nav_record">erfassen</string>
@@ -250,6 +251,11 @@
     <string name="category_move_down">nach unten</string>
     <string name="category_edit">bearbeiten</string>
     <string name="category_add">kategorie hinzufügen</string>
+    <string name="category_error_add_failed">kategorie konnte nicht hinzugefügt werden</string>
+    <string name="category_error_update_failed">kategorie konnte nicht aktualisiert werden</string>
+    <string name="category_error_delete_failed">kategorie konnte nicht gelöscht werden</string>
+    <string name="category_error_deduplicate_failed">deduplizierung fehlgeschlagen</string>
+    <string name="category_error_reorder_failed">neuordnung fehlgeschlagen</string>
 
     <!-- Finance summary -->
     <string name="summary_balance_period">saldo · %1$s</string>
@@ -294,4 +300,32 @@
     <!-- Languages -->
     <string name="lang_english">englisch</string>
     <string name="lang_german">deutsch</string>
+    <string name="record_most_spent_on">Am meisten ausgegeben für %1$s</string>
+    <string name="desc_income_row">%1$s Einnahme von %2$s. %3$s</string>
+    <string name="desc_expense_row">%1$s Ausgabe von %2$s. %3$s</string>
+    <string name="desc_transfer_row">%1$s Transfer von %2$s. %3$s</string>
+    <string name="desc_finance_summary">Finanzübersicht für %1$s. Netto-Saldo %2$s. Gesamteinnahmen %3$s. Gesamtausgaben %4$s.</string>
+    <string name="record_filter">Nach Typ filtern</string>
+    <string name="record_gesture_hints">Nach links wischen zum Löschen · Nach rechts wischen zum Bearbeiten · Lange drücken zum Duplizieren</string>
+    <string name="state_loading">Lade…</string>
+    <string name="add_confirm_transaction">Transaktion bestätigen</string>
+    <string name="add_note_label">Notiz</string>
+    <string name="time_today">heute</string>
+    <string name="time_yesterday">gestern</string>
+    <string name="action_clear">leeren</string>
+    <string name="category_deduplicate_title">Duplikate zusammenführen?</string>
+    <string name="category_deduplicate_message">Dies führt Kategorien mit identischen Namen zusammen und verschiebt alle ihre Transaktionen an einen Ort.</string>
+    <string name="category_deduplicate_confirm">Zusammenführen</string>
+    <string name="category_deduplicate_done">Kategorien dedupliziert</string>
+    <string name="settings_deduplicate_label">kategorien deduplizieren</string>
+    <string name="settings_deduplicate_subtitle">kategorien mit gleichem namen zusammenführen</string>
+    <string name="settings_deduplicate_done">kategorien dedupliziert</string>
+    <string name="auth_content_desc_back">Zurück</string>
+    <string name="auth_content_desc_password_visibility">Passwortsichtbarkeit umschalten</string>
+    <string name="chart_content_desc_cashflow">Cashflow-Diagramm mit Einnahmen- und Ausgabentrends</string>
+    <string name="chart_content_desc_income_expense">Einnahmen- und Ausgabenübersicht</string>
+    <string name="record_content_desc_search">Transaktionen suchen</string>
+    <string name="add_unsaved_changes_title">Ungespeicherte Änderungen</string>
+    <string name="add_unsaved_changes_body">Du hast ungespeicherte Änderungen. Verwerfen?</string>
+    <string name="add_discard">Verwerfen</string>
 </resources>
