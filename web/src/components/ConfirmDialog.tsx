@@ -63,7 +63,7 @@ export function ConfirmDialog({
             </button>
             <button
               type="button"
-              className={`btn px-8 py-3 rounded-xl font-semibold text-sm active:scale-[0.98] ${destructive ? 'bg-rose-500 text-white hover:bg-rose-600' : 'btn-primary'}`}
+              className={`btn px-8 py-3 rounded-xl font-semibold text-sm active:scale-[0.98] ${destructive ? 'btn-destructive' : 'btn-primary'}`}
               onClick={onConfirm}
             >
               {confirmText}
