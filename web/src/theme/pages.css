@@ -2096,6 +2096,10 @@
   transition: filter 0.15s ease, transform 0.15s ease, background 0.15s ease, opacity 0.15s ease;
 }
 
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
