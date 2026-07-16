@@ -24,8 +24,8 @@ android {
 
     defaultConfig {
         applicationId = "com.aus.ausgegeben"
-        minSdk = 31
-        targetSdk = 37
+        minSdk = 29
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -83,6 +83,8 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
+    implementation(libs.firebase.appcheck.playintegrity)
+    debugImplementation(libs.firebase.appcheck.debug)
     implementation(libs.play.services.auth)
     testImplementation(libs.androidx.core)
     testImplementation(libs.androidx.junit)
