@@ -1,12 +1,12 @@
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  sendEmailVerification,
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
 import { getFirebaseAuth, isFirebaseConfigured } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
-import { usePreferencesStore } from '@/services/preferencesStore';
 
 let unsubscribe: (() => void) | null = null;
 let readyFallbackTimer: ReturnType<typeof setTimeout> | null = null;
@@ -37,15 +37,10 @@ export const authService = {
 
     unsubscribe = onAuthStateChanged(auth, (user) => {
       const { setUser } = useAuthStore.getState();
-      const { setStorageMode, completeAuthGateway } = usePreferencesStore.getState();
       setUser(user);
       markAuthReady();
 
-      if (user) {
-        setStorageMode('cloud');
-        completeAuthGateway();
-      } else {
-        usePreferencesStore.getState().resetAuthGateway();
+      if (!user) {
         useAuthStore.getState().setSyncError(null);
       }
     });
@@ -69,13 +64,13 @@ export const authService = {
   async signUpWithEmail(email: string, password: string): Promise<void> {
     const auth = getFirebaseAuth();
     if (!auth) throw new Error('firebase_not_configured');
-    await createUserWithEmailAndPassword(auth, email.trim(), password);
+    const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+    await sendEmailVerification(cred.user);
   },
 
   async signOut(): Promise<void> {
     const auth = getFirebaseAuth();
     if (auth) await signOut(auth);
-    usePreferencesStore.getState().resetAuthGateway();
     useAuthStore.getState().setUser(null);
   },
 

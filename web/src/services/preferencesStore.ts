@@ -1,6 +1,6 @@
 ﻿import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { AppPreferences, ThemeMode, StorageMode, RecordListPeriod, SyncedPreferences } from '@/models/types';
+import type { AppPreferences, ThemeMode, SyncedPreferences } from '@/models/types';
 import type { Locale } from '@/i18n';
 
 const DEFAULT_PREFERENCES: AppPreferences = {
@@ -13,8 +13,7 @@ const DEFAULT_PREFERENCES: AppPreferences = {
   reminderMinute: 0,
   analyticsPeriod: 'this_month',
   monthlyBudget: null,
-  storageMode: 'local',
-  authGatewayComplete: false,
+  storageMode: 'cloud',
   lastCloudSyncAt: null,
   preferencesUpdatedAt: 0,
 };
@@ -32,9 +31,6 @@ interface PreferencesStore extends AppPreferences {
   setReminderTime: (hour: number, minute: number) => void;
   setAnalyticsPeriod: (key: string) => void;
   setMonthlyBudget: (amount: number | null) => void;
-  setStorageMode: (mode: StorageMode) => void;
-  completeAuthGateway: () => void;
-  resetAuthGateway: () => void;
   setLastCloudSyncAt: (at: number | null) => void;
   applySyncedPreferences: (prefs: SyncedPreferences) => void;
 }
@@ -65,9 +61,6 @@ export const usePreferencesStore = create<PreferencesStore>()(
       setMonthlyBudget: (monthlyBudget) => {
         set({ monthlyBudget, preferencesUpdatedAt: touchPrefs() });
       },
-      setStorageMode: (storageMode) => set({ storageMode }),
-      completeAuthGateway: () => set({ authGatewayComplete: true }),
-      resetAuthGateway: () => set({ authGatewayComplete: false, storageMode: 'local' }),
       setLastCloudSyncAt: (lastCloudSyncAt) => set({ lastCloudSyncAt }),
       applySyncedPreferences: (prefs) => set({
         currency: prefs.currency,
@@ -85,6 +78,6 @@ export const usePreferencesStore = create<PreferencesStore>()(
   ),
 );
 
-export function useListPeriod(): RecordListPeriod {
+export function useListPeriod(): string {
   return 'this_month';
 }
