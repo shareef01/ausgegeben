@@ -114,24 +114,6 @@
   }
 }
 
-/* ── Receipt icon button ── */
-
-.transaction-row__receipt {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  color: var(--color-on-surface-variant);
-  flex-shrink: 0;
-}
-
-.transaction-row__receipt:hover {
-  background: color-mix(in srgb, var(--color-on-surface) 6%, transparent);
-  color: var(--color-accent);
-}
-
 /* ── Insights sidebar dock ── */
 
 .insights-period-card {

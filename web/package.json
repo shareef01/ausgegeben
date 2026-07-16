@@ -14,11 +14,9 @@
     "prebuild": "npm run icons",
     "deploy": "npm run build && npx firebase deploy --only hosting:aus01,firestore:rules --config ../firebase.json",
     "deploy:hosting": "npm run build && npx firebase deploy --only hosting:aus01 --config ../firebase.json",
-    "deploy:storage": "npx firebase deploy --only storage --config ../firebase.json",
-    "deploy:rules": "npx firebase deploy --only firestore:rules,storage --config ../firebase.json"
+    "deploy:rules": "npx firebase deploy --only firestore:rules --config ../firebase.json"
   },
   "dependencies": {
-    "dexie": "^4.0.11",
     "firebase": "^11.10.0",
     "lucide-react": "^0.525.0",
     "react": "^19.1.0",

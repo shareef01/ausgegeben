@@ -66,7 +66,6 @@
     <string name="record_delete_message">dies kann nicht rückgängig gemacht werden.</string>
     <string name="record_delete_confirm">löschen</string>
     <string name="record_delete_cancel">abbrechen</string>
-    <string name="record_view_receipt">beleg anzeigen</string>
     <string name="record_swipe_delete">löschen</string>
     <string name="record_unknown_category">unbekannt</string>
     <string name="filter_all">alle</string>
@@ -144,7 +143,6 @@
     <string name="add_expense">ausgabe hinzufügen</string>
     <string name="add_edit_title">transaktion bearbeiten</string>
     <string name="add_new_title">neue transaktion</string>
-    <string name="add_scan_receipt">beleg scannen</string>
     <string name="add_type_expense">ausgabe</string>
     <string name="add_type_income">einnahme</string>
     <string name="add_type_transfer">transfer</string>
@@ -154,7 +152,6 @@
     <string name="add_no_categories_title">noch keine kategorien</string>
     <string name="add_create_category">kategorie erstellen</string>
     <string name="add_note_placeholder">notiz hinzufügen…</string>
-    <string name="add_remove_receipt">beleg entfernen</string>
     <string name="add_new_category">neu</string>
     <string name="add_add_category">kategorie hinzufügen</string>
     <string name="add_backspace">löschen</string>
@@ -284,18 +281,6 @@
     <string name="chart_cash_flow_subtitle">einnahmen %1$s · ausgaben %2$s</string>
     <string name="chart_wealth_trend_delta_up">+%1$s in diesem zeitraum</string>
     <string name="chart_wealth_trend_delta_down">-%1$s in diesem zeitraum</string>
-
-    <!-- Receipt & camera -->
-    <string name="receipt_preview">beleg vorschau</string>
-    <string name="receipt_title">beleg</string>
-    <string name="receipt_image">belegbild</string>
-    <string name="camera_permission_title">kamera-zugriff benötigt</string>
-    <string name="camera_permission_body">erlaube kamera-zugriff, um belegfotos anzuhängen.</string>
-    <string name="camera_try_again">erneut versuchen</string>
-    <string name="camera_go_back">zurück</string>
-    <string name="camera_capture">beleg aufnehmen</string>
-    <string name="camera_start_failed">kamera konnte nicht gestartet werden</string>
-    <string name="camera_capture_failed">aufnahme fehlgeschlagen</string>
 
     <!-- Languages -->
     <string name="lang_english">englisch</string>

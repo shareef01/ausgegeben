@@ -172,14 +172,9 @@ class ExpenseViewModel(
     }
 
     fun finalizeDeletedExpense(expense: Expense) {
-        viewModelScope.launch {
-            try {
-                repository.purgeReceiptIfUnreferenced(expense.receiptImagePath)
-            } catch (_: Exception) { }
-        }
+        // no-op retained for call-site compatibility
     }
 }
-
 private fun TransactionTypeFilter.toFilterKey(): TransactionTypeFilterKey = when (this) {
     TransactionTypeFilter.ALL -> TransactionTypeFilterKey.ALL
     TransactionTypeFilter.EXPENSE -> TransactionTypeFilterKey.EXPENSE
