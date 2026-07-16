@@ -7,6 +7,7 @@ import { CategoriesView } from '@/views/CategoriesView';
 import { ToastHost } from '@/components/ToastHost';
 import { IconAdd, IconInsights, IconRecord, IconSettings } from '@/components/Icons';
 import { AppBrandIcon } from '@/components/AppBrandIcon';
+import { AppBrandWordmark } from '@/components/AppBrandWordmark';
 import { useTranslation } from '@/i18n';
 import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
@@ -92,7 +93,7 @@ export function MainShell() {
             aria-label={t('appName')}
           >
             <AppBrandIcon size={36} className="app-header__logo-mark" />
-            <span className="app-header__wordmark">{t('appName')}</span>
+            <AppBrandWordmark height={22} className="app-header__wordmark" />
           </button>
 
           <nav className="app-header__nav" aria-label={t('appName')}>
