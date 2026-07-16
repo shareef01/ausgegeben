@@ -298,7 +298,6 @@
   width: 100%;
   background: var(--color-background);
   transition: padding-right 0.15s ease;
-  will-change: transform;
 }
 
 .swipeable-row__content:focus-visible {
@@ -1083,7 +1082,6 @@
   left: 50%;
   transform: translateX(-50%);
   z-index: 190;
-  will-change: transform, opacity;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1614,27 +1612,6 @@
   letter-spacing: 0.1em;
   color: var(--color-on-surface-variant);
   padding: 8px 4px 4px;
-}
-
-/* ═══════════════════════════════════════════════════
- *  PERFORMANCE — GPU layer hints
- *  ═══════════════════════════════════════════════════ */
-
-.card--pro,
-.card--elevated,
-.sheet,
-.overlay,
-.fab--anchored,
-.bottom-bar,
-.swipeable-row__content,
-.toast-host {
-  will-change: transform;
-}
-
-.finance-summary-card__balance,
-.insights-stat-grid,
-.period-select__menu {
-  will-change: transform, opacity;
 }
 
 /* ═══════════════════════════════════════════════════
