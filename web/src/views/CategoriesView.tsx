@@ -7,6 +7,7 @@ import { colorIntToHex } from '@/utils/currency';
 import { useTranslation } from '@/i18n';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 export function CategoriesView({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
@@ -18,6 +19,10 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const addInputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const handleEscape = useCallback(() => onClose(), [onClose]);
+  useFocusTrap(!(deleteTarget || showDedupeConfirm), dialogRef, handleEscape);
+  useBodyScrollLock(true);
 
   const reload = useCallback(async () => {
     setCategories(await expenseRepository.getAllCategories());
@@ -86,10 +91,6 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
     }
   };
 
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const handleEscape = useCallback(() => onClose(), [onClose]);
-  useFocusTrap(deleteTarget === null && !showDedupeConfirm, dialogRef, handleEscape);
-
   return (
     <div className="fixed inset-0 z-[200] bg-background/80 backdrop-blur-xl flex items-center justify-center p-4" onClick={onClose}>
       <div
@@ -108,14 +109,14 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
           <div className="flex items-center gap-3">
             <button
                 type="button"
-                className="w-10 h-10 rounded-full bg-surface border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all text-zinc-400 hover:text-white"
+                className="icon-btn"
                 onClick={() => void deduplicate()}
                 aria-label={t('categoryDeduplicateTitle')}
                 title={t('categoryDeduplicateTitle')}
             >
                 <IconBroom width={18} height={18} aria-hidden />
             </button>
-            <button type="button" className="w-10 h-10 rounded-full bg-surface border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all text-zinc-400 hover:text-white" onClick={onClose} aria-label={t('actionClose')}>
+            <button type="button" className="icon-btn" onClick={onClose} aria-label={t('actionClose')}>
                 <IconClose width={20} height={20} aria-hidden />
             </button>
           </div>
@@ -156,7 +157,7 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
                         <span className="flex-1 text-sm font-semibold text-on-background truncate">{cat.name}</span>
                         <button
                             type="button"
-                            className="p-2 text-expense hover:bg-expense/10 rounded-xl transition-all"
+                            className="icon-btn icon-btn--danger"
                             onClick={() => void deleteCategory(cat)}
                             aria-label={t('actionDelete') + ' ' + cat.name}
                         >

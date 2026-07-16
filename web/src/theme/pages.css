@@ -207,6 +207,10 @@
 }
 
 .sheet--settings__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   margin-bottom: 24px;
 }
 
@@ -215,6 +219,29 @@
   font-weight: 800;
   letter-spacing: -0.02em;
   margin: 0;
+}
+
+.sheet--settings__close {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: lowercase;
+  color: var(--color-on-surface-variant);
+  background: color-mix(in srgb, var(--color-on-surface) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-outline) 30%, transparent);
+  cursor: pointer;
+}
+
+.sheet--settings__close:hover {
+  color: var(--color-on-background);
+  background: color-mix(in srgb, var(--color-on-surface) 10%, transparent);
 }
 
 .sheet--settings__body {
@@ -456,9 +483,9 @@
 }
 
 .receipt-preview__close {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1104,9 +1131,9 @@
 }
 
 .toast-host__dismiss {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1450,8 +1477,8 @@
 }
 
 .period-picker-sheet__close {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 12px;
   display: grid;
   place-items: center;
@@ -2098,6 +2125,37 @@
 
 .btn:active:not(:disabled) {
   transform: scale(0.97);
+}
+
+.icon-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--color-on-surface-variant);
+  background: var(--color-surface);
+  border: 1px solid color-mix(in srgb, var(--color-outline) 50%, transparent);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.icon-btn:hover {
+  color: var(--color-on-background);
+  background: color-mix(in srgb, var(--color-on-surface) 8%, transparent);
+}
+
+.icon-btn--danger {
+  color: var(--color-expense);
+  border-color: transparent;
+  background: transparent;
+}
+
+.icon-btn--danger:hover {
+  background: color-mix(in srgb, var(--color-expense) 12%, transparent);
+  color: var(--color-expense);
 }
 
 .btn:disabled {

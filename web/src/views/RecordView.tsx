@@ -156,6 +156,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
 
             <IosSegmentedControl
               className="record-type-segmented w-full"
+              aria-label={t('recordTypeFilter')}
               options={(['all', 'expense', 'income', 'transfer'] as TransactionTypeFilter[]).map((f) => ({
                 value: f,
                 label: filterLabel(f, t),
@@ -280,7 +281,7 @@ const TransactionRow = memo(({ expense, category, currency, onReceiptClick }: {
         {category ? (
           <CategoryLucideIcon iconName={category.iconName} className="w-5 h-5 text-zinc-300" aria-hidden />
         ) : (
-          <span className="w-5 h-5 bg-zinc-700 rounded-full" aria-hidden />
+          <span className="w-5 h-5 rounded-full" style={{ background: 'color-mix(in srgb, var(--color-on-surface) 20%, transparent)' }} aria-hidden />
         )}
         {!isTransfer && (
           <span

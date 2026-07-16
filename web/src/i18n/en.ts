@@ -64,6 +64,7 @@ export const en = {
   filterExpense: 'expense',
   filterIncome: 'income',
   filterTransfer: 'transfer',
+  recordTypeFilter: 'transaction type',
   summaryEarned: 'earned',
   summarySpent: 'spent',
   summaryBalance: 'balance',
