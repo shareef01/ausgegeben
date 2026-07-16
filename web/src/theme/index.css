@@ -44,6 +44,7 @@
   --bottom-bar-height: 40px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --record-sticky-offset: var(--safe-top, 0px);
   --layout-breakpoint: 768px;
   --content-max-width: 100%;
   --workspace-padding: 16px;
