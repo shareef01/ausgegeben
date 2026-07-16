@@ -393,8 +393,8 @@
   display: none;
   position: fixed;
   z-index: 50;
-  /* Align to max-w-[1200px] column — pulls inward on wide screens */
-  right: max(1.5rem, calc((100vw - 1200px) / 2 + 2rem));
+  /* Align to app-frame column */
+  right: max(1.5rem, calc((100vw - var(--app-max-width, 1360px)) / 2 + 2rem));
   bottom: 2rem;
   width: 3.25rem;
   height: 3.25rem;
@@ -421,7 +421,7 @@
 
 @media (min-width: 1024px) {
   .fab-add--desktop {
-    right: max(2rem, calc((100vw - 1200px) / 2 + 2.5rem));
+    right: max(2rem, calc((100vw - var(--app-max-width, 1360px)) / 2 + 2.5rem));
     bottom: 2.5rem;
   }
 }

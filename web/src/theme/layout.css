@@ -512,28 +512,28 @@ html {
 .sidebar-layout {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 20px;
+  gap: 16px;
   align-items: start;
 }
 
 @media (min-width: 768px) {
   .sidebar-layout {
-    grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
-    gap: 28px;
+    grid-template-columns: minmax(280px, 0.42fr) minmax(0, 1fr);
+    gap: 20px;
   }
 }
 
 @media (min-width: 1024px) {
   .sidebar-layout {
-    grid-template-columns: minmax(300px, 340px) minmax(0, 1fr);
-    gap: 36px;
+    grid-template-columns: minmax(300px, 0.4fr) minmax(0, 1fr);
+    gap: 24px;
   }
 }
 
 @media (min-width: 1280px) {
   .sidebar-layout {
-    grid-template-columns: minmax(320px, 360px) minmax(0, 1fr);
-    gap: 40px;
+    grid-template-columns: minmax(320px, 0.38fr) minmax(0, 1fr);
+    gap: 28px;
   }
 }
 
@@ -541,7 +541,7 @@ html {
 .sidebar-panel {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
   width: 100%;
   min-width: 0;
 }
@@ -554,7 +554,7 @@ html {
     max-height: calc(100dvh - var(--sidebar-sticky-top, 5.5rem) - 1.5rem);
     overflow-y: auto;
     overscroll-behavior: contain;
-    gap: 18px;
+    gap: 14px;
     scrollbar-width: thin;
   }
 }
@@ -563,7 +563,7 @@ html {
   .sidebar-panel {
     top: var(--sidebar-sticky-top, calc(6rem + var(--safe-top, 0px)));
     max-height: calc(100dvh - var(--sidebar-sticky-top, 6rem) - 2rem);
-    gap: 20px;
+    gap: 16px;
   }
 }
 
@@ -581,13 +581,15 @@ html {
 .content-col {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  padding-bottom: 48px;
+  gap: 18px;
+  padding-bottom: 40px;
+  min-width: 0;
 }
 
 @media (min-width: 1024px) {
   .content-col {
-    padding-bottom: 64px;
+    gap: 20px;
+    padding-bottom: 48px;
   }
 }
 
@@ -595,18 +597,18 @@ html {
 .widget-stack {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 14px;
 }
 
 @media (min-width: 1024px) {
   .widget-stack {
-    gap: 24px;
+    gap: 16px;
   }
 }
 
 /* ── Page title ── */
 .page-title {
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
 .page-title__text {
@@ -636,16 +638,16 @@ html {
 }
 
 @media (min-width: 768px) {
-  .page-title { margin-bottom: 24px; }
+  .page-title { margin-bottom: 16px; }
   .page-title__text {
-    font-size: 2.25rem;
+    font-size: 2.125rem;
   }
 }
 
 @media (min-width: 1024px) {
-  .page-title { margin-bottom: 28px; }
+  .page-title { margin-bottom: 18px; }
   .page-title__text {
-    font-size: 2.5rem;
+    font-size: 2.25rem;
   }
 }
 
