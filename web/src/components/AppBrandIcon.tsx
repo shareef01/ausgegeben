@@ -5,6 +5,7 @@ interface AppBrandIconProps {
   className?: string;
 }
 
+/** Geometric “A” mark — mirrors Android AppBrandIcon. */
 export function AppBrandIcon({ size = 64, className = '' }: AppBrandIconProps) {
   const id = useId().replace(/:/g, '');
 
@@ -19,13 +20,26 @@ export function AppBrandIcon({ size = 64, className = '' }: AppBrandIconProps) {
       role="img"
     >
       <defs>
-        <linearGradient id={`logo-${id}`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="var(--color-income)" />
-          <stop offset="100%" stopColor="var(--color-income-light, var(--color-income))" />
-        </linearGradient>
+        <clipPath id={`plate-${id}`}>
+          <rect width="100" height="100" rx="22" />
+        </clipPath>
       </defs>
-      <rect width="100" height="100" rx="20" fill="color-mix(in srgb, var(--color-accent) 10%, transparent)" stroke="var(--color-accent)" strokeOpacity="0.15" strokeWidth="1.5" />
-      <path fill={`url(#logo-${id})`} d="M50 22 L74 76 L62 76 L50 56 L38 76 L26 76 Z M39 62 L61 62 L61 69 L39 69 Z" />
+      <rect
+        width="100"
+        height="100"
+        rx="22"
+        fill="var(--color-surface-variant)"
+        stroke="var(--surface-border)"
+        strokeWidth="1"
+      />
+      <g clipPath={`url(#plate-${id})`}>
+        {/* A letterform — same proportions as Android Canvas mark */}
+        <path
+          fill="var(--color-income)"
+          d="M50 18 L79 82 H64.5 L50 48 L35.5 82 H21 Z"
+        />
+        <rect x="34" y="58" width="32" height="8" rx="1" fill="var(--color-income)" />
+      </g>
     </svg>
   );
 }
