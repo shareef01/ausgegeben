@@ -40,14 +40,14 @@
   flex-shrink: 0 !important;
 }
 
-/* ── Sidebar Filters (De-Squashing) ── */
+/* ── Sidebar Filters ── */
 .record-filters {
   background: var(--glass-bg-elevated) !important;
-  padding: 24px !important;
-  border-radius: 2.5rem !important;
+  padding: 16px !important;
+  border-radius: 1.5rem !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: 24px !important;
+  gap: 12px !important;
   border: 1px solid var(--surface-border) !important;
 }
 
