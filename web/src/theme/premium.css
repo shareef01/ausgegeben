@@ -27,7 +27,7 @@
 }
 
 .app-header__brand:hover .app-header__wordmark {
-  color: var(--color-on-background);
+  opacity: 0.92;
 }
 
 .app-header__brand:focus-visible {
@@ -38,11 +38,9 @@
 
 .app-header__wordmark {
   display: block !important;
-  font-size: 1.25rem !important;
-  font-weight: 800 !important;
-  line-height: 1 !important;
-  letter-spacing: -0.02em;
+  flex-shrink: 0 !important;
   color: var(--color-on-background);
+  overflow: visible;
 }
 
 .app-header__logo-mark {
