@@ -10,12 +10,14 @@ const DATA_CHANGED_EVENT = 'ausgegeben:data-changed';
 export function useDashboardViewModel() {
   const periodKey = usePreferencesStore((s) => s.analyticsPeriod);
   const setAnalyticsPeriod = usePreferencesStore((s) => s.setAnalyticsPeriod);
+  const locale = usePreferencesStore((s) => s.locale);
   const [categories, setCategories] = useState<Category[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const initialLoadDone = useRef(false);
 
-  const periodOptions = useMemo(() => analyticsPeriodOptions(14), []);
+  const periodOptions = useMemo(() => analyticsPeriodOptions(14, Date.now(), locale), [locale]);
   const selectedOption = useMemo(
     () => periodOptions.find((o) => o.storageKey === periodKey) ?? periodOptions[0],
     [periodOptions, periodKey],
@@ -26,6 +28,7 @@ export function useDashboardViewModel() {
   // Live categories + period-scoped expenses (Spark-safe: no full-collection listener)
   useEffect(() => {
     if (!initialLoadDone.current) setLoading(true);
+    setLoadError(false);
 
     let catsReady = false;
     let expsReady = false;
@@ -47,6 +50,7 @@ export function useDashboardViewModel() {
     if (range) {
       unsubExps = expenseRepository.onExpensesInRange(range[0], range[1], (items) => {
         setExpenses(items);
+        setLoadError(false);
         expsReady = true;
         tryReady();
       });
@@ -54,11 +58,13 @@ export function useDashboardViewModel() {
       const loadAll = () => {
         void expenseRepository.getAllExpenses().then((items) => {
           setExpenses(items);
+          setLoadError(false);
           expsReady = true;
           tryReady();
         }).catch((err) => {
           console.error('[useDashboardViewModel] getAllExpenses failed', err);
           setExpenses([]);
+          setLoadError(true);
           expsReady = true;
           tryReady();
         });
@@ -77,14 +83,21 @@ export function useDashboardViewModel() {
 
   const reload = useCallback(async (showSkeleton = false) => {
     if (showSkeleton || !initialLoadDone.current) setLoading(true);
-    const cats = await expenseRepository.getAllCategories();
-    const items = range
-      ? await expenseRepository.getExpensesInRange(range[0], range[1])
-      : await expenseRepository.getAllExpenses();
-    setCategories(cats);
-    setExpenses(items);
-    setLoading(false);
-    initialLoadDone.current = true;
+    setLoadError(false);
+    try {
+      const cats = await expenseRepository.getAllCategories();
+      const items = range
+        ? await expenseRepository.getExpensesInRange(range[0], range[1])
+        : await expenseRepository.getAllExpenses();
+      setCategories(cats);
+      setExpenses(items);
+    } catch (err) {
+      console.error('[useDashboardViewModel] reload failed', err);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+      initialLoadDone.current = true;
+    }
   }, [range]);
 
   const uiState: DashboardUiState = useMemo(() => {
@@ -112,8 +125,9 @@ export function useDashboardViewModel() {
       transfersByCategory,
       cashFlowTrend: computeCashFlowTrend(expenses),
       loading,
+      loadError,
     };
-  }, [expenses, periodKey, selectedOption.label, loading]);
+  }, [expenses, periodKey, selectedOption.label, loading, loadError]);
 
   return { uiState, categories, periodOptions, setAnalyticsPeriod, reload };
 }

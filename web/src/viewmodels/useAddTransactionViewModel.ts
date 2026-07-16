@@ -154,7 +154,7 @@ export function useAddTransactionViewModel(expenseId?: string) {
       return true;
     } catch (err) {
       console.error('[useAddTransactionViewModel] save failed', err);
-      setError(t('authErrorGeneric'));
+      setError(t('errorSaveFailed'));
       return false;
     } finally {
       setSaving(false);
