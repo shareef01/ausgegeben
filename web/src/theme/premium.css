@@ -198,11 +198,11 @@
 
 /* ── Transaction List Restoration ── */
 .transaction-list-bare__day {
-  padding: 32px 0 12px !important;
-  font-weight: 800 !important;
-  font-size: 0.75rem !important;
+  padding: 10px 14px !important;
+  font-weight: 700 !important;
+  font-size: 0.6875rem !important;
   text-transform: uppercase !important;
-  letter-spacing: 0.15em !important;
+  letter-spacing: 0.12em !important;
 }
 
 .transaction-list-bare__rows {
