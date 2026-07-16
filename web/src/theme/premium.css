@@ -191,7 +191,7 @@
   border: 1px solid var(--surface-border) !important;
   border-radius: 2.5rem !important;
   overflow: hidden !important;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3) !important;
+  box-shadow: var(--shadow-elevated, 0 10px 40px rgba(0, 0, 0, 0.3)) !important;
 }
 
 .transaction-row {
