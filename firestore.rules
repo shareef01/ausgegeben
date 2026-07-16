@@ -22,9 +22,6 @@ service cloud.firestore {
         && d.note is string
         && d.note.size() < 2000
         && d.transactionType in ['expense', 'income', 'transfer']
-        && (!('receiptImagePath' in d)
-          || d.receiptImagePath == null
-          || (d.receiptImagePath is string && d.receiptImagePath.size() < 2048))
         && (!('updatedAt' in d) || d.updatedAt is number)
         && (!('idempotencyKey' in d)
           || (d.idempotencyKey is string && d.idempotencyKey.size() < 128))
@@ -75,7 +72,8 @@ service cloud.firestore {
         && d.updatedAt is number
         && (!('monthlyBudget' in d)
           || d.monthlyBudget == null
-          || (d.monthlyBudget is number && d.monthlyBudget >= 0 && d.monthlyBudget < 1000000000));
+          || (d.monthlyBudget is number && d.monthlyBudget >= 0 && d.monthlyBudget < 1000000000))
+        && (!('onboardingComplete' in d) || d.onboardingComplete is bool);
     }
 
     match /users/{userId} {

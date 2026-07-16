@@ -16,14 +16,12 @@ import {
   Layers,
   List,
   Moon,
-  Paperclip,
   Pencil,
   Plus,
   Search,
   Settings,
   Wallet,
   Trash2,
-  Camera,
   Eraser,
   Eye,
   EyeOff,
@@ -107,9 +105,6 @@ export function IconCheck(props: IconProps) {
   return <Check strokeWidth={STROKE} {...props} />;
 }
 
-export function IconPaperclip(props: IconProps) {
-  return <Paperclip strokeWidth={STROKE} {...props} />;
-}
 
 export function IconArrowUp(props: IconProps) {
   return <ArrowUp strokeWidth={STROKE} {...props} />;
@@ -127,9 +122,6 @@ export function IconEdit(props: IconProps) {
   return <Pencil strokeWidth={STROKE} {...props} />;
 }
 
-export function IconCamera(props: IconProps) {
-  return <Camera strokeWidth={STROKE} {...props} />;
-}
 
 export function IconBroom(props: IconProps) {
   return <Eraser strokeWidth={STROKE} {...props} />;

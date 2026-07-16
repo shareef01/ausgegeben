@@ -11,7 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
+import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -85,8 +85,6 @@ fun RecordScreen(
     // Performance: Pre-calculate groupings for 120Hz scrolling
     val grouped = remember(allExpenses) { allExpenses.groupBy { localDayStartMillis(it.dateMillis) } }
     val sortedDays = remember(grouped) { grouped.keys.sortedDescending() }
-
-    var receiptToView by remember { mutableStateOf<String?>(null) }
     var expensePendingDelete by remember { mutableStateOf<Expense?>(null) }
 
     val locale = CurrencyUtils.localeFor(currencyCode)
@@ -302,7 +300,7 @@ fun RecordScreen(
                                                 onExpenseDuplicated()
                                             },
                                             onDeleteRequest = { expensePendingDelete = expense },
-                                            onReceiptClick = expense.receiptImagePath?.let { path -> { receiptToView = path } },
+
                                         )
                                         if (rowIndex < dayExpenses.lastIndex) {
                                             HorizontalDivider(
@@ -321,7 +319,7 @@ fun RecordScreen(
                     val isSearching = uiState.toolbar.searchQuery.isNotBlank()
                     item(key = "empty") {
                         EmptyStateMessage(
-                            icon = if (isSearching) Icons.Rounded.SearchOff else Icons.AutoMirrored.Rounded.ReceiptLong,
+                            icon = if (isSearching) Icons.Rounded.SearchOff else Icons.AutoMirrored.Rounded.List,
                             title = stringResource(if (isSearching) R.string.record_no_matches_title else R.string.record_empty_title),
                             subtitle = stringResource(if (isSearching) R.string.record_no_matches_subtitle else R.string.record_empty_subtitle),
                             actionLabel = if (isSearching) stringResource(R.string.record_error_retry) else stringResource(R.string.record_empty_action),
@@ -331,10 +329,6 @@ fun RecordScreen(
                 }
             }
         }
-    }
-
-    if (receiptToView != null) {
-        ReceiptImageDialog(uri = receiptToView!!, onDismiss = { receiptToView = null })
     }
 
     if (expensePendingDelete != null) {
@@ -605,8 +599,7 @@ private fun SwipeableTransactionRow(
     currencyCode: String,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    onDeleteRequest: () -> Unit,
-    onReceiptClick: (() -> Unit)?
+    onDeleteRequest: () -> Unit
 ) {
     val incomeColor = financeIncomeColor()
     val expenseColor = financeExpenseColor()
@@ -721,7 +714,6 @@ private fun SwipeableTransactionRow(
                 currencyCode,
                 incomeColor,
                 expenseColor,
-                onReceiptClick,
             )
         }
     }
@@ -736,7 +728,6 @@ fun TransactionRow(
     currencyCode: String,
     incomeColor: Color,
     expenseColor: Color,
-    onReceiptClick: (() -> Unit)?,
 ) {
     val isIncome = expense.isIncome()
     val isTransfer = expense.isTransfer()
@@ -861,23 +852,6 @@ fun TransactionRow(
                     color = RecordAuroraTokens.slate(), 
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-        
-        if (onReceiptClick != null) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .appGlassCard(CircleShape)
-                    .smoothClickable(onClick = onReceiptClick),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.ReceiptLong,
-                    contentDescription = stringResource(R.string.record_view_receipt),
-                    tint = navigationInactiveColor(),
-                    modifier = Modifier.size(14.dp),
                 )
             }
         }

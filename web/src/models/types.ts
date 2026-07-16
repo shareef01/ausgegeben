@@ -2,7 +2,6 @@ export type TransactionType = 'expense' | 'income' | 'transfer';
 export type TransactionTypeFilter = 'all' | 'expense' | 'income' | 'transfer';
 export type RecordListPeriod = string;
 export type ThemeMode = 'light' | 'dark' | 'system' | 'amoled' | 'midnight' | 'ocean' | 'forest' | 'sunset' | 'lavender' | 'soft_light';
-export type StorageMode = 'local' | 'cloud';
 
 export interface Category {
   id: string; // SECURE: String UUID
@@ -20,7 +19,6 @@ export interface Expense {
   dateMillis: number;
   categoryId: string;
   note: string;
-  receiptImagePath: string | null;
   transactionType: TransactionType;
   updatedAt?: number;
   idempotencyKey?: string;
@@ -76,8 +74,6 @@ export interface AppPreferences {
   reminderMinute: number;
   analyticsPeriod: string;
   monthlyBudget: number | null;
-  storageMode: StorageMode;
-  lastCloudSyncAt: number | null;
   preferencesUpdatedAt: number;
 }
 
@@ -85,6 +81,7 @@ export interface SyncedPreferences {
   currency: string;
   locale: 'en' | 'de';
   themeMode: ThemeMode;
+  onboardingComplete: boolean;
   dailyReminder: boolean;
   reminderHour: number;
   reminderMinute: number;
