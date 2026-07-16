@@ -10,34 +10,35 @@
   --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
 
   /* ── Color defaults (overridden by applyTheme) ── */
-  --color-primary: #FAFAFA;
+  --color-primary: #FFFFFF;
   --color-on-primary: #000000;
   --color-background: #000000;
-  --color-on-background: #FAFAFA;
-  --color-surface: #121214;
-  --color-on-surface: #F4F4F5;
-  --color-surface-variant: #18181B;
+  --color-on-background: #FFFFFF;
+  --color-surface: #09090B;
+  --color-on-surface: #FFFFFF;
+  --color-surface-variant: #121214;
   --color-on-surface-variant: #A1A1AA;
-  --color-outline: rgba(255, 255, 255, 0.12);
+  --color-outline: #27272A;
   --color-error: #FB7185;
-  --color-income: #34D399;
+  --color-income: #10B981;
   --color-expense: #FB7185;
-  --color-transfer: #A1A1AA;
-  --color-accent: #34D399;
-  --color-focus: #34D399;
-  --color-on-income: #052E1C;
+  --color-transfer: #94A3B8;
+  --color-accent: #FFFFFF;
+  --color-on-accent: #09090B;
+  --color-focus: #3B82F6;
+  --color-on-income: #09090B;
 
-  --glass-bg: rgba(255, 255, 255, 0.04);
-  --glass-border: rgba(255, 255, 255, 0.10);
-  --glass-bg-elevated: rgba(18, 18, 20, 0.94);
-  --surface-border: rgba(255, 255, 255, 0.08);
-  --hairline-border: rgba(255, 255, 255, 0.10);
-  --hairline-divider: rgba(255, 255, 255, 0.07);
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.07);
+  --glass-bg-elevated: rgba(9, 9, 11, 0.94);
+  --surface-border: rgba(255, 255, 255, 0.07);
+  --hairline-border: rgba(255, 255, 255, 0.07);
+  --hairline-divider: rgba(255, 255, 255, 0.06);
   --color-label-muted: #A1A1AA;
   --color-placeholder: #A1A1AA;
-  --color-balance-positive: #34D399;
+  --color-balance-positive: #10B981;
   --color-balance-negative: #FB7185;
-  --color-stat-value: #FAFAFA;
+  --color-stat-value: #FFFFFF;
 
   /* ── Layout ── */
   --bottom-bar-height: 40px;

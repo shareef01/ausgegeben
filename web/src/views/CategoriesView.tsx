@@ -167,7 +167,7 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
                   onChange={(e) => setNewName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' ? void confirmAdd() : e.key === 'Escape' ? cancelAdd() : null}
                 />
-                <button type="button" className="w-14 h-14 rounded-xl bg-[#10B981] text-black flex items-center justify-center hover:brightness-110 active:scale-95 transition-all duration-150" onClick={() => void confirmAdd()} aria-label={t('actionSave')}>
+                <button type="button" className="w-14 h-14 rounded-xl bg-income flex items-center justify-center hover:brightness-110 active:scale-95 transition-all duration-150" style={{ color: 'var(--color-on-income)' }} onClick={() => void confirmAdd()} aria-label={t('actionSave')}>
                     <IconCheck width={24} height={24} strokeWidth={3} aria-hidden />
                 </button>
                 <button type="button" className="w-14 h-14 rounded-xl bg-[#121214] border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:border-white/20 transition-all" onClick={cancelAdd} aria-label={t('actionCancel')}>
