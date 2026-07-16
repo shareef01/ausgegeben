@@ -44,8 +44,8 @@
 }
 
 .app-header__logo-mark {
-  width: 36px !important;
-  height: 36px !important;
+  width: 40px !important;
+  height: 40px !important;
   flex-shrink: 0 !important;
   display: block !important;
   border-radius: 10px !important;
