@@ -204,6 +204,7 @@ export function MainShell() {
           expenseId={overlay.type === 'edit' ? overlay.expenseId : undefined}
           onClose={() => setOverlay(null)}
           onSaved={() => setOverlay(null)}
+          onManageCategories={() => setOverlay({ type: 'categories' })}
         />
       ) : null}
       {overlay?.type === 'categories' ? <CategoriesView onClose={() => setOverlay(null)} /> : null}
