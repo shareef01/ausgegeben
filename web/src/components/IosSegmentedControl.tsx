@@ -27,15 +27,15 @@ export function IosSegmentedControl<T extends string>({
         : 'default';
 
   return (
-    <div className={`segmented ${className}`.trim()} role="tablist">
+    <div className={`segmented ${className}`.trim()} role="radiogroup">
       {options.map((option) => {
         const active = option.value === value;
         return (
           <button
             key={option.value}
             type="button"
-            role="tab"
-            aria-selected={active}
+            role="radio"
+            aria-checked={active}
             data-type={option.value}
             className={[
               'segmented__item',
