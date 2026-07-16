@@ -139,7 +139,7 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
             </div>
 
             <div className="flex flex-col gap-3">
-               <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">{t('currentCategories')}</div>
+               <div className="field__label mb-3">{t('currentCategories')}</div>
                {filtered.length === 0 ? (
                  <div className="categories-empty py-10">
                    <p className="categories-empty__text">{t('categoriesEmptyForType')}</p>
@@ -173,23 +173,23 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
               <div className="flex items-center gap-3">
                 <input
                   ref={addInputRef}
-                  className="w-full px-5 py-4 bg-[#121214] border border-white/10 rounded-xl text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] transition-all"
+                  className="field__input flex-1"
                   placeholder={t('categoryNamePrompt')}
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' ? void confirmAdd() : e.key === 'Escape' ? cancelAdd() : null}
                 />
-                <button type="button" className="w-14 h-14 rounded-xl bg-income flex items-center justify-center hover:brightness-110 active:scale-95 transition-all duration-150" style={{ color: 'var(--color-on-income)' }} onClick={() => void confirmAdd()} aria-label={t('actionSave')}>
+                <button type="button" className="w-14 h-14 rounded-xl bg-income flex items-center justify-center hover:brightness-110 active:scale-95 transition-all duration-150 shrink-0" style={{ color: 'var(--color-on-income)' }} onClick={() => void confirmAdd()} aria-label={t('actionSave')}>
                     <IconCheck width={24} height={24} strokeWidth={3} aria-hidden />
                 </button>
-                <button type="button" className="w-14 h-14 rounded-xl bg-[#121214] border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:border-white/20 transition-all" onClick={cancelAdd} aria-label={t('actionCancel')}>
+                <button type="button" className="btn btn-secondary w-14 h-14 rounded-xl flex items-center justify-center shrink-0 p-0" onClick={cancelAdd} aria-label={t('actionCancel')}>
                     <IconClose width={24} height={24} aria-hidden />
                 </button>
               </div>
             ) : (
               <button
                 type="button"
-                className="w-full py-4 rounded-xl bg-[#121214] border border-white/10 text-zinc-400 hover:text-white hover:border-white/20 font-semibold text-sm active:scale-[0.98] transition-all duration-150"
+                className="btn btn-secondary w-full py-4 font-semibold text-sm active:scale-[0.98] transition-all duration-150"
                 onClick={startAdd}
               >
                 {t('addCategory').toLowerCase()}
