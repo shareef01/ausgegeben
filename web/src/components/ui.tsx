@@ -47,10 +47,17 @@ export function EmptyState({ title, subtitle, hint, action }: { title: string; s
 }
 
 export function LoadingListSkeleton({ rows = 5 }: { rows?: number }) {
+  const { t } = useTranslation();
   return (
-    <div className="skeleton-list flex flex-col gap-0 rounded-2xl overflow-hidden border border-white/[0.03] bg-[#121214]/50 backdrop-blur-sm">
+    <div
+      className="skeleton-list flex flex-col gap-0 rounded-2xl overflow-hidden border border-white/[0.03] bg-[#121214]/50 backdrop-blur-sm"
+      role="status"
+      aria-busy="true"
+      aria-live="polite"
+    >
+      <span className="sr-only">{t('loading')}</span>
       {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="skeleton-row flex items-center gap-4 p-5 border-b border-white/[0.03] last:border-b-0">
+        <div key={i} className="skeleton-row flex items-center gap-4 p-5 border-b border-white/[0.03] last:border-b-0" aria-hidden>
           <div className="skeleton skeleton--circle w-10 h-10 rounded-full bg-white/[0.03] animate-pulse shrink-0" />
           <div className="skeleton skeleton--lines flex-1 flex flex-col gap-2.5 min-w-0">
             <div className="skeleton skeleton--line h-3.5 w-32 rounded-full bg-white/[0.04] animate-pulse" />
