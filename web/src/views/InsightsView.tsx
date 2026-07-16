@@ -36,11 +36,11 @@ export function InsightsView({ onAdd }: { onAdd?: () => void }) {
 
       <div className="sidebar-layout">
 
-        {/* 2. THE ANALYTICS SIDEBAR (Sticky on Desktop) */}
-        <aside className="sidebar-panel">
-          <div className="card p-6 bg-glass-elevated border border-surface-border rounded-3xl shadow-xl">
-             <div className="section-title mb-4 px-0 uppercase tracking-widest text-[10px] font-black">{t('analysisPeriod')}</div>
-             <AnalyticsPeriodPicker
+        <aside className="sidebar-panel sidebar-panel--insights">
+          <div className="widget-stack">
+            <div className="insights-period-card card">
+              <div className="insights-period-card__label">{t('analysisPeriod')}</div>
+              <AnalyticsPeriodPicker
                 options={periodOptions}
                 selectedKey={uiState.periodKey}
                 selectedLabel={selectedLabel}
@@ -49,16 +49,14 @@ export function InsightsView({ onAdd }: { onAdd?: () => void }) {
                   setAnalyticsPeriod(o.storageKey);
                 }}
               />
-          </div>
-
-          {!loading && hasData && (
-            <div className="flex flex-col gap-6">
-               <InsightsStatGrid income={uiState.totalIncome} expense={uiState.totalExpenses} currency={currency} />
             </div>
-          )}
+
+            {!loading && hasData ? (
+              <InsightsStatGrid income={uiState.totalIncome} expense={uiState.totalExpenses} currency={currency} />
+            ) : null}
+          </div>
         </aside>
 
-        {/* 3. THE MAIN ANALYTICS COLUMN */}
         <div className="content-col">
           {loading ? (
             <LoadingListSkeleton rows={8} />
@@ -111,18 +109,18 @@ function InsightsStatGrid({ income, expense, currency }: { income: number; expen
   const netTone = net >= 0 ? 'net-positive' : 'net-negative';
 
   return (
-    <div className="insights-stat-grid">
-      <div className="insights-stat-card insights-stat-card--expense">
-        <div className="insights-stat-card__label">{t('summarySpent')}</div>
-        <div className="insights-stat-card__value">{formatAmount(expense, currency)}</div>
+    <div className="insights-summary-dock card" role="group" aria-label={t('screenInsights')}>
+      <div className="insights-summary-dock__row insights-summary-dock__row--expense">
+        <div className="insights-summary-dock__label">{t('summarySpent')}</div>
+        <div className="insights-summary-dock__value">{formatAmount(expense, currency)}</div>
       </div>
-      <div className="insights-stat-card insights-stat-card--income">
-        <div className="insights-stat-card__label">{t('summaryEarned')}</div>
-        <div className="insights-stat-card__value">{formatAmount(income, currency)}</div>
+      <div className="insights-summary-dock__row insights-summary-dock__row--income">
+        <div className="insights-summary-dock__label">{t('summaryEarned')}</div>
+        <div className="insights-summary-dock__value">{formatAmount(income, currency)}</div>
       </div>
-      <div className={`insights-stat-card insights-stat-card--${netTone}`}>
-        <div className="insights-stat-card__label">{t('billsNet')}</div>
-        <div className="insights-stat-card__value">{formatAmount(net, currency)}</div>
+      <div className={`insights-summary-dock__row insights-summary-dock__row--${netTone}`}>
+        <div className="insights-summary-dock__label">{t('billsNet')}</div>
+        <div className="insights-summary-dock__value">{formatAmount(net, currency)}</div>
       </div>
     </div>
   );
