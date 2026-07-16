@@ -223,7 +223,7 @@ export function AnalyticsPeriodPicker({
 
   return (
     <>
-      <button type="button" className="period-picker" onClick={() => setOpen(true)}>
+      <button type="button" className="period-picker" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-expanded={open}>
         <span className="period-picker__icon" aria-hidden>
           <IconCalendar width={20} height={20} />
         </span>
