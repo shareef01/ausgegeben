@@ -287,8 +287,12 @@ html {
 .bg-glass { background: var(--glass-bg); }
 .bg-glass-elevated { background: var(--glass-bg-elevated); }
 .bg-background { background: var(--color-background); }
+.bg-background\/30 { background: color-mix(in srgb, var(--color-background) 30%, transparent); }
+.bg-background\/40 { background: color-mix(in srgb, var(--color-background) 40%, transparent); }
 .bg-background\/80 { background: color-mix(in srgb, var(--color-background) 80%, transparent); }
 .bg-surface { background: var(--color-surface); }
+.bg-surface\/50 { background: color-mix(in srgb, var(--color-surface) 50%, transparent); }
+.bg-surface\/60 { background: color-mix(in srgb, var(--color-surface) 60%, transparent); }
 .bg-transparent { background: transparent; }
 .bg-white\/5 { background: color-mix(in srgb, var(--color-on-surface) 5%, transparent); }
 .bg-white\/10 { background: color-mix(in srgb, var(--color-on-surface) 10%, transparent); }
@@ -360,6 +364,7 @@ html {
 .border-\[\#10B981\] { border-color: var(--color-income); }
 .border-emerald-500\/20 { border-color: rgba(16, 185, 129, 0.20); }
 .border-t-white { border-top-color: #FFFFFF; }
+.border-income { border-color: var(--color-income); }
 .border-income\/20 { border-color: color-mix(in srgb, var(--color-income) 20%, transparent); }
 .border-income\/30 { border-color: color-mix(in srgb, var(--color-income) 30%, transparent); }
 .border-expense\/20 { border-color: color-mix(in srgb, var(--color-expense) 20%, transparent); }
@@ -383,6 +388,7 @@ html {
 .text-expense { color: var(--color-expense); }
 .text-on-surface { color: var(--color-on-surface); }
 .text-on-surface-variant { color: var(--color-on-surface-variant); }
+.text-on-income { color: var(--color-on-income, #09090B); }
 .text-on-background { color: var(--color-on-background); }
 
 .shadow-sm { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06); }
@@ -425,6 +431,8 @@ html {
 .focus\:bg-on-surface\/10:focus { background: color-mix(in srgb, var(--color-on-surface) 10%, transparent); }
 .focus\:ring-2:focus { box-shadow: 0 0 0 2px var(--color-focus); }
 .focus\:ring-1:focus { box-shadow: 0 0 0 1px var(--color-focus); }
+.focus\:ring-income:focus { box-shadow: 0 0 0 1px var(--color-income); }
+.focus\:border-income:focus { border-color: var(--color-income); }
 .focus\:ring-\[\#10B981\]:focus { box-shadow: 0 0 0 1px var(--color-income); }
 .focus\:ring-accent\/20:focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 20%, transparent); }
 .focus\:border-transparent:focus { border-color: transparent; }
