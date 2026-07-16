@@ -27,7 +27,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
   const { t } = useTranslation();
   const currency = usePreferencesStore((s) => s.currency);
   const locale = usePreferencesStore((s) => s.locale);
-  const { uiState, monthSpent, viewingCurrentMonth, setSearchQuery, setTypeFilter, setListPeriod, requestDelete, duplicateExpense } = useRecordViewModel();
+  const { uiState, monthSpent, viewingCurrentMonth, setSearchQuery, setTypeFilter, setListPeriod, requestDelete, duplicateExpense, reload } = useRecordViewModel();
   const haptics = useHaptics();
   const periodOptions = useMemo(() => recordPeriodOptions(locale, t), [locale, t]);
   const selectedPeriod = useMemo(
@@ -170,6 +170,16 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
         <div className="content-col">
           {uiState.loading ? (
             <LoadingListSkeleton rows={12} />
+          ) : uiState.loadError ? (
+            <EmptyState
+              title={t('errorLoadFailed')}
+              subtitle={t('errorLoadFailedHint')}
+              action={
+                <button type="button" className="btn btn-primary" onClick={() => void reload()}>
+                  {t('actionRetry')}
+                </button>
+              }
+            />
           ) : uiState.expenses.length === 0 ? (
             filtersActive ? (
               <EmptyState
@@ -199,7 +209,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
             <div className="transaction-list-bare txn-sections">
               {grouped.map(({ label, items, dayIncome, dayExpense }) => (
                 <section key={label} className="transaction-list-bare__section">
-                  <div className="txn-day-header">
+                  <div className="txn-day-header transaction-list-bare__day">
                     <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-on-surface-variant">{label}</span>
                     {(dayIncome > 0 || dayExpense > 0) ? (
                       <span className="txn-day-header__totals" aria-label={`${t('filterIncome')} ${formatAmount(dayIncome, currency)}, ${t('filterExpense')} ${formatAmount(dayExpense, currency)}`}>
@@ -212,7 +222,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
                       </span>
                     ) : null}
                   </div>
-                   <div className="flex flex-col">
+                   <div className="transaction-list-bare__rows flex flex-col">
                   {items.map((expense) => (
                     <div key={expense.id} className="txn-row-wrap border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors">
                       <SwipeableRow

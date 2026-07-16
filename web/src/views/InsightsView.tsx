@@ -10,10 +10,10 @@ import { formatAmount } from '@/utils/currency';
 import type { Category } from '@/models/types';
 import { useHaptics } from '@/hooks/useHaptics';
 
-export function InsightsView() {
+export function InsightsView({ onAdd }: { onAdd?: () => void }) {
   const { t } = useTranslation();
   const currency = usePreferencesStore((s) => s.currency);
-  const { uiState, categories, periodOptions, setAnalyticsPeriod } = useDashboardViewModel();
+  const { uiState, categories, periodOptions, setAnalyticsPeriod, reload } = useDashboardViewModel();
   const haptics = useHaptics();
   const hasData = uiState.totalExpenses > 0 || uiState.totalIncome > 0;
   const loading = uiState.loading;
@@ -62,8 +62,28 @@ export function InsightsView() {
         <div className="content-col">
           {loading ? (
             <LoadingListSkeleton rows={8} />
+          ) : uiState.loadError ? (
+            <EmptyState
+              title={t('errorLoadFailed')}
+              subtitle={t('errorLoadFailedHint')}
+              action={
+                <button type="button" className="btn btn-primary" onClick={() => void reload(true)}>
+                  {t('actionRetry')}
+                </button>
+              }
+            />
           ) : !hasData ? (
-            <EmptyState title={t('billsEmptyTitle')} subtitle={t('billsEmptySubtitle')} />
+            <EmptyState
+              title={t('billsEmptyTitle')}
+              subtitle={t('billsEmptySubtitle')}
+              action={
+                onAdd ? (
+                  <button type="button" className="btn btn-primary" onClick={onAdd}>
+                    {t('navAdd')}
+                  </button>
+                ) : undefined
+              }
+            />
           ) : (
             <div className="flex flex-col gap-12">
                {/* Categories Grid (Responsive) */}
