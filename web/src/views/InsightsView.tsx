@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { EmptyState, SignatureText } from '@/components/ui';
+import { EmptyState, LoadingListSkeleton, SignatureText } from '@/components/ui';
 import { DonutChart, segmentColor } from '@/components/DonutChart';
 import { CashFlowChart, CashFlowLegend } from '@/components/CashFlowChart';
 import { AnalyticsPeriodPicker } from '@/components/PeriodSelector';
@@ -16,6 +16,7 @@ export function InsightsView() {
   const { uiState, categories, periodOptions, setAnalyticsPeriod } = useDashboardViewModel();
   const haptics = useHaptics();
   const hasData = uiState.totalExpenses > 0 || uiState.totalIncome > 0;
+  const loading = uiState.loading;
 
   const selectedOption = useMemo(
     () => periodOptions.find((o) => o.storageKey === uiState.periodKey) ?? periodOptions[0],
@@ -50,7 +51,7 @@ export function InsightsView() {
               />
           </div>
 
-          {hasData && (
+          {!loading && hasData && (
             <div className="flex flex-col gap-6">
                <InsightsStatGrid income={uiState.totalIncome} expense={uiState.totalExpenses} currency={currency} />
             </div>
@@ -59,7 +60,9 @@ export function InsightsView() {
 
         {/* 3. THE MAIN ANALYTICS COLUMN */}
         <div className="content-col">
-          {!hasData ? (
+          {loading ? (
+            <LoadingListSkeleton rows={8} />
+          ) : !hasData ? (
             <EmptyState title={t('billsEmptyTitle')} subtitle={t('billsEmptySubtitle')} />
           ) : (
             <div className="flex flex-col gap-12">

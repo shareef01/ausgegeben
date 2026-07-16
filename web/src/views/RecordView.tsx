@@ -39,6 +39,12 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
   const [searchFocused, setSearchFocused] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const hasQuery = uiState.searchQuery.length > 0;
+  const filtersActive = hasQuery || uiState.typeFilter !== 'all';
+
+  const clearFilters = useCallback(() => {
+    setSearchQuery('');
+    setTypeFilter('all');
+  }, [setSearchQuery, setTypeFilter]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, Expense[]>();
@@ -164,18 +170,30 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
           {uiState.loading ? (
             <LoadingListSkeleton rows={12} />
           ) : uiState.expenses.length === 0 ? (
-            <EmptyState
-              title={t('recordEmptyTitle')}
-              subtitle={t('recordEmptySubtitle')}
-              hint={t('recordEmptyHint')}
-              action={
-                onAdd ? (
-                  <button type="button" className="btn btn-primary" onClick={onAdd}>
-                    {t('navAdd')}
+            filtersActive ? (
+              <EmptyState
+                title={t('recordNoMatchesTitle')}
+                subtitle={t('recordNoMatchesSubtitle')}
+                action={
+                  <button type="button" className="btn btn-secondary" onClick={clearFilters}>
+                    {t('recordClearFilters')}
                   </button>
-                ) : undefined
-              }
-            />
+                }
+              />
+            ) : (
+              <EmptyState
+                title={t('recordEmptyTitle')}
+                subtitle={t('recordEmptySubtitle')}
+                hint={t('recordEmptyHint')}
+                action={
+                  onAdd ? (
+                    <button type="button" className="btn btn-primary" onClick={onAdd}>
+                      {t('navAdd')}
+                    </button>
+                  ) : undefined
+                }
+              />
+            )
           ) : (
             <div className="transaction-list-bare txn-sections">
               {grouped.map(({ label, items, dayIncome, dayExpense }) => (
@@ -194,8 +212,8 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
                     ) : null}
                   </div>
                    <div className="flex flex-col">
-                  {items.map((expense, idx) => (
-                    <div key={expense.id} className="txn-row-wrap border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors tab-panel--animate-in" style={{ animationDelay: `${idx * 20}ms` }}>
+                  {items.map((expense) => (
+                    <div key={expense.id} className="txn-row-wrap border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors">
                       <SwipeableRow
                         onDelete={() => handleDelete(expense.id)}
                         onTap={() => handleEdit(expense.id)}

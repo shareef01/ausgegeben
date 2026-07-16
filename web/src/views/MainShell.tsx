@@ -153,7 +153,7 @@ export function MainShell() {
       </div>
 
       {/* Bottom nav — premium floating pill + elevated add button */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 md:hidden">
+      <div className="fixed bottom-[calc(1.5rem+var(--safe-bottom))] left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 md:hidden">
         <nav
           className="bottom-nav-pill flex items-center gap-0.5 rounded-full pl-2 pr-1 py-1.5"
           aria-label={t('appName')}
@@ -167,7 +167,7 @@ export function MainShell() {
                 onClick={() => selectTab(id)}
                 aria-current={active ? 'page' : undefined}
                 aria-label={label}
-                className={`bottom-nav-pill__item relative w-10 h-10 flex items-center justify-center rounded-full transition-all duration-200 ${
+                className={`bottom-nav-pill__item relative w-11 h-11 flex items-center justify-center rounded-full transition-all duration-200 ${
                   active ? 'bottom-nav-pill__item--active' : ''
                 }`}
               >
