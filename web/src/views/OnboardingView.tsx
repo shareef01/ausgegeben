@@ -63,7 +63,8 @@ export function OnboardingView({ onComplete }: OnboardingViewProps) {
           )}
           <button
             type="button"
-            className="px-8 py-3 rounded-xl bg-[#10B981] text-black font-bold text-sm hover:brightness-110 active:scale-[0.98] transition-all duration-150"
+            className="px-8 py-3 rounded-xl bg-income font-bold text-sm hover:brightness-110 active:scale-[0.98] transition-all duration-150"
+            style={{ color: 'var(--color-on-income)' }}
             onClick={() => (isLast ? onComplete() : setStep((s) => s + 1))}
           >
             {isLast ? t('onboardingGetStarted') : t('onboardingNext')}

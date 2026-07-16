@@ -28,9 +28,9 @@ export function AppBrandWordmark({ height = 30, className = '' }: AppBrandWordma
     >
       <defs>
         <linearGradient id={`wm-${id}`} x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#6EE7B7" />
-          <stop offset="55%" stopColor="#10B981" />
-          <stop offset="100%" stopColor="#047857" />
+          <stop offset="0%" stopColor="color-mix(in srgb, var(--color-income) 70%, white)" />
+          <stop offset="55%" stopColor="var(--color-income)" />
+          <stop offset="100%" stopColor="var(--color-income-light, var(--color-income))" />
         </linearGradient>
       </defs>
 
