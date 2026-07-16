@@ -317,26 +317,19 @@ function SettingsRow({
 }
 
 function ThemeSwatch({ mode }: { mode: ThemeMode }) {
-  if (mode === 'system') {
-    const light = themePalettes.light;
-    const dark = themePalettes.dark;
-    return (
-      <span className="theme-swatch theme-swatch--system" aria-hidden>
-        <span className="theme-swatch__half" style={{ background: light.background }} />
-        <span className="theme-swatch__half" style={{ background: dark.background }} />
-        <span className="theme-swatch__accent" style={{ background: dark.income }} />
-      </span>
-    );
-  }
+  const colors =
+    mode === 'system'
+      ? [themePalettes.light.background, themePalettes.dark.background, themePalettes.dark.income]
+      : (() => {
+          const palette = themePalettes[mode] ?? themePalettes.dark;
+          return [palette.primary, palette.income, palette.expense];
+        })();
 
-  const palette = themePalettes[mode] ?? themePalettes.dark;
   return (
-    <span
-      className="theme-swatch"
-      aria-hidden
-      style={{ background: palette.background, borderColor: palette.outline }}
-    >
-      <span className="theme-swatch__accent" style={{ background: palette.primary }} />
+    <span className="theme-swatch" aria-hidden>
+      {colors.map((color, i) => (
+        <span key={i} className="theme-swatch__dot" style={{ background: color }} />
+      ))}
     </span>
   );
 }
