@@ -89,15 +89,15 @@ function InsightsStatGrid({ income, expense, currency }: { income: number; expen
   return (
     <div className="flex flex-col gap-4">
       <div className="card p-6 bg-glass-elevated border border-surface-border rounded-3xl shadow-lg">
-        <div className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-4">{t('summarySpent')}</div>
+        <div className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-4">{t('summarySpent')}</div>
         <div className="text-2xl font-extrabold tabular-nums text-expense">{formatAmount(expense, currency)}</div>
       </div>
       <div className="card p-6 bg-glass-elevated border border-surface-border rounded-3xl shadow-lg">
-        <div className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-4">{t('summaryEarned')}</div>
+        <div className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-4">{t('summaryEarned')}</div>
         <div className="text-2xl font-extrabold tabular-nums text-income">{formatAmount(income, currency)}</div>
       </div>
       <div className="card p-6 bg-glass-elevated border border-surface-border rounded-3xl shadow-lg">
-        <div className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-4">{t('billsNet')}</div>
+        <div className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-4">{t('billsNet')}</div>
         <div className={`text-2xl font-extrabold tabular-nums ${net >= 0 ? 'text-income' : 'text-expense'}`}>{formatAmount(net, currency)}</div>
       </div>
     </div>
@@ -131,16 +131,16 @@ function CategoryCard({ title, map, categories, currency, accent }: CategoryCard
 
   if (total <= 0) {
       return (
-          <div className="card p-8 bg-glass border border-surface-border rounded-[2rem] opacity-50">
-            <div className="text-[10px] font-black uppercase tracking-widest mb-6" style={{ color: accent }}>{title.toLowerCase()}</div>
-            <p className="text-center text-xs opacity-50">{t('noDataForPeriod')}</p>
+          <div className="card p-8 bg-glass border border-surface-border rounded-[2rem]">
+            <div className="text-[10px] font-black uppercase tracking-widest mb-6" style={{ color: accent }}>{title}</div>
+            <p className="text-center text-xs text-on-surface-variant">{t('noDataForPeriod')}</p>
           </div>
       );
   }
 
   return (
     <div className="card p-8 bg-glass border border-surface-border rounded-[2rem] shadow-2xl">
-      <div className="text-[10px] font-black uppercase tracking-widest mb-8" style={{ color: accent }}>{title.toLowerCase()}</div>
+      <div className="text-[10px] font-black uppercase tracking-widest mb-8" style={{ color: accent }}>{title}</div>
       <DonutChart segments={segments} size={200} center={{ value: formatAmount(total, currency) }} />
       <div className="mt-8 space-y-3">
         {entries.slice(0, 4).map(([catId, amount]) => {
@@ -171,7 +171,7 @@ function CashFlowCard({ trend, currency }: { trend: { label: string; income: num
     <div className="card p-10 bg-glass border border-surface-border rounded-[2.5rem] shadow-2xl">
       <div className="flex items-start justify-between gap-6 mb-10">
         <div>
-          <div className="text-[10px] font-black uppercase tracking-widest opacity-50 mb-2">{t('billsCashFlow')}</div>
+          <div className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-2">{t('billsCashFlow')}</div>
           <div className="text-sm font-bold opacity-80 tabular-nums">
             {t('billsCashFlowSubtitle', {
               income: formatAmount(totalIncome, currency),
@@ -182,7 +182,7 @@ function CashFlowCard({ trend, currency }: { trend: { label: string; income: num
         <CashFlowLegend />
       </div>
       <CashFlowChart trend={trend} currency={currency} />
-      <div className="flex items-center justify-between mt-6 text-[10px] font-black uppercase tracking-widest opacity-30">
+      <div className="flex items-center justify-between mt-6 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
         <span>{trend[0]?.label}</span>
         <span>{trend[trend.length - 1]?.label}</span>
       </div>

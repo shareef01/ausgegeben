@@ -49,9 +49,9 @@ export function AuthView() {
           <div className="auth-page__alert">{t('authFirebaseNotConfigured')}</div>
         ) : null}
 
-        <div className="segmented auth-page__tabs">
-          <button type="button" className={`segmented__item ${tab === 'signin' ? 'segmented__item--active' : ''}`} onClick={() => setTab('signin')}>{t('authSignIn')}</button>
-          <button type="button" className={`segmented__item ${tab === 'signup' ? 'segmented__item--active' : ''}`} onClick={() => setTab('signup')}>{t('authSignUp')}</button>
+        <div className="segmented auth-page__tabs" role="tablist">
+          <button type="button" role="tab" aria-selected={tab === 'signin'} className={`segmented__item ${tab === 'signin' ? 'segmented__item--active' : ''}`} onClick={() => setTab('signin')}>{t('authSignIn')}</button>
+          <button type="button" role="tab" aria-selected={tab === 'signup'} className={`segmented__item ${tab === 'signup' ? 'segmented__item--active' : ''}`} onClick={() => setTab('signup')}>{t('authSignUp')}</button>
         </div>
 
         <form onSubmit={(e) => { e.preventDefault(); void handleSubmit(); }} className="auth-page__form space-y-4">

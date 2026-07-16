@@ -200,6 +200,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
                         onDelete={() => handleDelete(expense.id)}
                         onTap={() => handleEdit(expense.id)}
                         onLongPress={() => handleDuplicate(expense)}
+                        onDuplicate={() => handleDuplicate(expense)}
                         ariaLabel={`${catMap.get(expense.categoryId)?.name || t('recordUnknownCategory')} ${formatAmount(expense.amount, currency)}`}
                       >
                         <TransactionRow
