@@ -122,11 +122,13 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="flex flex-col gap-8">
-           <div className="segmented">
+           <div className="segmented" role="tablist">
               {(['expense', 'income', 'transfer'] as TransactionType[]).map((type) => (
                 <button
                   key={type}
                   type="button"
+                  role="tab"
+                  aria-selected={filter === type}
                   className={`segmented__item ${filter === type ? 'segmented__item--active' : ''}`}
                   onClick={() => setFilter(type)}
                 >
@@ -165,11 +167,11 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
                   onChange={(e) => setNewName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' ? void confirmAdd() : e.key === 'Escape' ? cancelAdd() : null}
                 />
-                <button type="button" className="w-14 h-14 rounded-xl bg-[#10B981] text-black flex items-center justify-center hover:brightness-110 active:scale-95 transition-all duration-150" onClick={() => void confirmAdd()}>
-                    <IconCheck width={24} height={24} strokeWidth={3} />
+                <button type="button" className="w-14 h-14 rounded-xl bg-[#10B981] text-black flex items-center justify-center hover:brightness-110 active:scale-95 transition-all duration-150" onClick={() => void confirmAdd()} aria-label={t('actionSave')}>
+                    <IconCheck width={24} height={24} strokeWidth={3} aria-hidden />
                 </button>
-                <button type="button" className="w-14 h-14 rounded-xl bg-[#121214] border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:border-white/20 transition-all" onClick={cancelAdd}>
-                    <IconClose width={24} height={24} />
+                <button type="button" className="w-14 h-14 rounded-xl bg-[#121214] border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:border-white/20 transition-all" onClick={cancelAdd} aria-label={t('actionCancel')}>
+                    <IconClose width={24} height={24} aria-hidden />
                 </button>
               </div>
             ) : (
