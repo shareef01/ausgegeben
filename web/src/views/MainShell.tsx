@@ -189,14 +189,14 @@ export function MainShell() {
         </button>
       </div>
 
-      {/* Desktop FAB */}
+      {/* Desktop FAB — sits on the content column’s right edge, not the viewport */}
       <button
         type="button"
-        className="fab-add hidden md:flex fixed bottom-8 right-8 z-50 w-14 h-14 hover:brightness-110 rounded-full shadow-lg items-center justify-center transition-all duration-500"
+        className="fab-add fab-add--desktop"
         aria-label={t('navAdd')}
         onClick={() => setOverlay({ type: 'add' })}
       >
-        <IconAdd width={28} height={28} strokeWidth={2.5} />
+        <IconAdd width={24} height={24} strokeWidth={2.5} />
       </button>
 
       {overlay?.type === 'add' || overlay?.type === 'edit' ? (
