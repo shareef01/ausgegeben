@@ -201,17 +201,17 @@ input[type='number'] {
 .app-header__nav {
   display: none;
   align-items: center;
-  gap: 6px;
-  padding: 5px;
-  min-width: 268px;
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-outline) 45%, transparent);
+  gap: 4px;
+  padding: 4px;
+  min-width: 0;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--color-surface-variant) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-outline) 55%, transparent);
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--color-on-surface) 5%, transparent),
-    0 8px 24px color-mix(in srgb, var(--color-on-background) 12%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+    inset 0 1px 0 color-mix(in srgb, var(--color-on-surface) 6%, transparent),
+    0 10px 28px color-mix(in srgb, var(--color-background) 45%, transparent);
+  backdrop-filter: blur(16px) saturate(1.15);
+  -webkit-backdrop-filter: blur(16px) saturate(1.15);
 }
 
 @media (min-width: 768px) {
@@ -221,42 +221,53 @@ input[type='number'] {
 }
 
 .app-header__nav-item {
+  position: relative;
   flex: 1 1 0;
-  min-width: 72px;
-  min-height: 48px;
-  padding: 6px 8px 7px;
+  min-width: 76px;
+  min-height: 52px;
+  padding: 7px 10px 8px;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  color: color-mix(in srgb, var(--color-on-surface-variant) 88%, transparent);
+  gap: 4px;
+  color: color-mix(in srgb, var(--color-on-surface-variant) 92%, transparent);
   background: transparent;
   border: none;
   cursor: pointer;
   transition:
-    color 0.2s ease,
-    background-color 0.2s ease,
-    box-shadow 0.2s ease,
-    transform 0.2s ease;
+    color 0.18s ease,
+    background-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.15s ease;
+}
+
+.app-header__nav-item svg {
+  display: block;
+  opacity: 0.92;
+  transition: opacity 0.18s ease, transform 0.18s ease;
 }
 
 .app-header__nav-label {
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-size: 0.6875rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
   line-height: 1;
   text-transform: lowercase;
 }
 
 .app-header__nav-item:hover {
   color: var(--color-on-background);
-  background: color-mix(in srgb, var(--color-on-surface) 7%, transparent);
+  background: color-mix(in srgb, var(--color-on-surface) 8%, transparent);
+}
+
+.app-header__nav-item:hover svg {
+  opacity: 1;
 }
 
 .app-header__nav-item:active {
-  transform: scale(0.96);
+  transform: scale(0.97);
 }
 
 .app-header__nav-item:focus-visible {
@@ -265,17 +276,39 @@ input[type='number'] {
 }
 
 .app-header__nav-item--active {
-  color: var(--color-on-income, #000000);
-  background: var(--color-income);
+  color: var(--color-income);
+  background: color-mix(in srgb, var(--color-income) 14%, transparent);
   box-shadow:
-    0 1px 0 color-mix(in srgb, #ffffff 22%, transparent) inset,
-    0 4px 14px color-mix(in srgb, var(--color-income) 38%, transparent);
+    inset 0 0 0 1px color-mix(in srgb, var(--color-income) 28%, transparent),
+    0 6px 16px color-mix(in srgb, var(--color-income) 16%, transparent);
+}
+
+.app-header__nav-item--active svg {
+  opacity: 1;
+}
+
+.app-header__nav-item--active .app-header__nav-label {
+  font-weight: 750;
+  color: var(--color-income);
 }
 
 .app-header__nav-item--active:hover {
-  color: var(--color-on-income, #000000);
+  color: var(--color-income);
+  background: color-mix(in srgb, var(--color-income) 18%, transparent);
+  filter: none;
+}
+
+.app-header__nav-item--active::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 5px;
+  width: 14px;
+  height: 2px;
+  border-radius: 999px;
   background: var(--color-income);
-  filter: brightness(1.05);
+  transform: translateX(-50%);
+  opacity: 0.9;
 }
 
 .bottom-bar {
