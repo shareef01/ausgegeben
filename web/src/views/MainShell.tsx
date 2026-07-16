@@ -92,7 +92,7 @@ export function MainShell() {
             </span>
           </button>
 
-          <nav className="hidden md:flex items-center gap-1 bg-surface border border-white/10 rounded-full p-1.5" aria-label={t('appName')}>
+          <nav className="app-header__nav" aria-label={t('appName')}>
             {navItems.map(({ id, label, Icon }) => {
               const active = tab === id;
               return (
@@ -101,14 +101,11 @@ export function MainShell() {
                   type="button"
                   onClick={() => selectTab(id)}
                   aria-current={active ? 'page' : undefined}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-200 ${
-                    active
-                      ? 'bg-income text-black font-bold shadow-md'
-                      : 'text-zinc-500 hover:text-white font-medium'
-                  }`}
+                  aria-label={label}
+                  title={label}
+                  className={`app-header__nav-item${active ? ' app-header__nav-item--active' : ''}`}
                 >
-                  <Icon width={18} height={18} strokeWidth={active ? 2.5 : 2} />
-                  <span className="text-xs uppercase tracking-wider">{label}</span>
+                  <Icon width={20} height={20} strokeWidth={active ? 2.4 : 1.9} aria-hidden />
                 </button>
               );
             })}
