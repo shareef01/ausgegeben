@@ -8,7 +8,5 @@
 -keepattributes *Annotation*, InnerClasses
 -dontnote kotlinx.serialization.AnnotationsKt
 
-# Firebase Auth
--keep class com.google.firebase.** { *; }
--keep class com.google.android.gms.** { *; }
+# Firebase/GMS ship consumer ProGuard rules in their AARs; no blanket keeps needed.
 -dontwarn com.google.firebase.**

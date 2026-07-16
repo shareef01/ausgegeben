@@ -61,7 +61,12 @@ object ExportUtils {
     private fun csvEscape(value: String): String = csvEscapeField(value)
 
     internal fun csvEscapeField(value: String): String {
-        if (value.none { it == ',' || it == '"' || it == '\n' }) return value
-        return "\"${value.replace("\"", "\"\"")}\""
+        // Neutralize spreadsheet formula triggers (=, +, -, @, tab, CR) so a
+        // malicious note can't execute when the CSV is opened in Excel/Sheets.
+        val safe = if (value.isNotEmpty() && value[0] in FORMULA_TRIGGERS) "'$value" else value
+        if (safe.none { it == ',' || it == '"' || it == '\n' }) return safe
+        return "\"${safe.replace("\"", "\"\"")}\""
     }
+
+    private val FORMULA_TRIGGERS = charArrayOf('=', '+', '-', '@', '\t', '\r')
 }
