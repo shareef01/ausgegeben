@@ -12,7 +12,7 @@
     "test:watch": "vitest",
     "icons": "node scripts/generate-icons.mjs",
     "prebuild": "npm run icons",
-    "deploy": "npm run build && npx firebase deploy --only hosting:aus01,firestore:rules --config ../firebase.json",
+    "deploy": "npm run build && npx firebase deploy --only hosting:aus01,firestore:rules,storage --config ../firebase.json",
     "deploy:hosting": "npm run build && npx firebase deploy --only hosting:aus01 --config ../firebase.json",
     "deploy:storage": "npx firebase deploy --only storage --config ../firebase.json"
   },

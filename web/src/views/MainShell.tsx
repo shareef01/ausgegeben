@@ -8,15 +8,23 @@ import { ToastHost } from '@/components/ToastHost';
 import { IconAdd, IconInsights, IconRecord, IconSettings } from '@/components/Icons';
 import { AppBrandIcon } from '@/components/AppBrandIcon';
 import { useTranslation } from '@/i18n';
+import { useAuthStore } from '@/services/authStore';
+import { authService } from '@/services/authService';
 
 type Tab = 'record' | 'insights' | 'settings';
 type Overlay = null | { type: 'add' | 'edit' | 'categories'; expenseId?: string };
 
 export function MainShell() {
   const { t } = useTranslation();
+  const user = useAuthStore((s) => s.user);
   const [tab, setTab] = useState<Tab>('record');
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [visitedTabs, setVisitedTabs] = useState<Set<Tab>>(() => new Set(['record']));
+  const [verifyDismissed, setVerifyDismissed] = useState(false);
+  const [verifyBusy, setVerifyBusy] = useState(false);
+  const [verifyInfo, setVerifyInfo] = useState<string | null>(null);
+
+  const showVerifyBanner = Boolean(user && !user.emailVerified && !verifyDismissed);
 
   const selectTab = (next: Tab) => {
     setVisitedTabs((prev) => new Set(prev).add(next));
@@ -43,6 +51,31 @@ export function MainShell() {
     record: <RecordView onEdit={(id) => setOverlay({ type: 'edit', expenseId: id })} onAdd={() => setOverlay({ type: 'add' })} />,
     insights: <InsightsView />,
     settings: <SettingsView onManageCategories={() => setOverlay({ type: 'categories' })} />,
+  };
+
+  const resendVerification = async () => {
+    setVerifyBusy(true);
+    setVerifyInfo(null);
+    try {
+      await authService.resendVerificationEmail();
+      setVerifyInfo(t('authVerifyEmailSent'));
+    } catch {
+      setVerifyInfo(t('authErrorGeneric'));
+    } finally {
+      setVerifyBusy(false);
+    }
+  };
+
+  const refreshVerification = async () => {
+    setVerifyBusy(true);
+    setVerifyInfo(null);
+    try {
+      await authService.refreshUser();
+    } catch {
+      setVerifyInfo(t('authErrorGeneric'));
+    } finally {
+      setVerifyBusy(false);
+    }
   };
 
   return (
@@ -82,18 +115,36 @@ export function MainShell() {
           </nav>
         </header>
 
+        {showVerifyBanner ? (
+          <div className="verify-banner" role="status" aria-live="polite">
+            <p className="verify-banner__text">{t('authVerifyBanner')}</p>
+            {verifyInfo ? <p className="verify-banner__info">{verifyInfo}</p> : null}
+            <div className="verify-banner__actions">
+              <button type="button" className="verify-banner__btn" disabled={verifyBusy} onClick={() => void resendVerification()}>
+                {t('authVerifyResend')}
+              </button>
+              <button type="button" className="verify-banner__btn verify-banner__btn--primary" disabled={verifyBusy} onClick={() => void refreshVerification()}>
+                {t('authVerifyRefresh')}
+              </button>
+              <button type="button" className="verify-banner__dismiss" disabled={verifyBusy} onClick={() => setVerifyDismissed(true)} aria-label={t('authVerifyDismiss')}>
+                {t('authVerifyDismiss')}
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         {/* Main content */}
         <main className="pt-2 sm:pt-4 pb-40">
-          {(['record', 'insights', 'settings'] as Tab[]).map((t) => {
-            const active = tab === t;
-            if (!visitedTabs.has(t) && !active) return null;
+          {(['record', 'insights', 'settings'] as Tab[]).map((tabId) => {
+            const active = tab === tabId;
+            if (!visitedTabs.has(tabId) && !active) return null;
             return (
               <div
-                key={t}
+                key={tabId}
                 className={`tab-panel ${active ? 'tab-panel--active tab-panel--animate-in' : 'hidden'}`}
                 aria-hidden={!active}
               >
-                {tabContent[t]}
+                {tabContent[tabId]}
               </div>
             );
           })}
