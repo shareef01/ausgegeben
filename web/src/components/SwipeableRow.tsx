@@ -193,7 +193,7 @@ export function SwipeableRow({ children, onDelete, onTap, onLongPress, ariaLabel
         style={{
           transform: dragOffset === 0 ? '' : `translate3d(${dragOffset}px, 0, 0)`,
         }}
-        role="button"
+        role="group"
         tabIndex={0}
         aria-label={ariaLabel ?? t('recordRowActions')}
         onPointerDown={onPointerDown}

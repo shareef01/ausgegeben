@@ -1,8 +1,9 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, useCallback } from 'react';
 import { IconCalendar, IconCheck, IconChevronDown, IconHistory } from '@/components/Icons';
 import type { TranslationKey } from '@/i18n';
 import { useTranslation } from '@/i18n';
 import type { AnalyticsPeriodOption } from '@/models/types';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 interface PremiumPeriodSelectorProps<T> {
   options: T[];
@@ -117,6 +118,9 @@ export function AnalyticsPeriodPicker({
 }: AnalyticsPeriodPickerProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const close = useCallback(() => setOpen(false), []);
+  useFocusTrap(open, sheetRef, close);
   const allTime = options.find((o) => o.storageKey === 'all_time');
   const months = options.filter((o) => o.storageKey !== 'all_time');
 
@@ -134,13 +138,15 @@ export function AnalyticsPeriodPicker({
       </button>
 
       {open ? (
-        <div className="overlay" onClick={() => setOpen(false)} role="presentation">
+        <div className="overlay" onClick={close} role="presentation">
           <div
+            ref={sheetRef}
             className="sheet period-picker-sheet"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
             aria-label={t('periodPickerTitle')}
+            tabIndex={-1}
           >
             <div className="period-picker-sheet__header">
               <h2>{t('periodPickerTitle')}</h2>
@@ -153,7 +159,7 @@ export function AnalyticsPeriodPicker({
                 className={`period-picker-option period-picker-option--prominent ${selectedKey === allTime.storageKey ? 'period-picker-option--active' : ''}`}
                 onClick={() => {
                   onSelected(allTime);
-                  setOpen(false);
+                  close();
                 }}
               >
                 <span className="period-picker-option__icon" aria-hidden>
@@ -177,7 +183,7 @@ export function AnalyticsPeriodPicker({
                         className={`period-picker-option ${active ? 'period-picker-option--active' : ''}`}
                         onClick={() => {
                           onSelected(option);
-                          setOpen(false);
+                          close();
                         }}
                       >
                         <span className="period-picker-option__icon" aria-hidden>
