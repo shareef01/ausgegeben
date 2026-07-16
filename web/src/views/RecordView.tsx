@@ -195,7 +195,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
                   </div>
                    <div className="flex flex-col">
                   {items.map((expense, idx) => (
-                    <div key={expense.id} className="flex items-center justify-between py-4 border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors tab-panel--animate-in" style={{ animationDelay: `${idx * 20}ms` }}>
+                    <div key={expense.id} className="txn-row-wrap border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors tab-panel--animate-in" style={{ animationDelay: `${idx * 20}ms` }}>
                       <SwipeableRow
                         onDelete={() => handleDelete(expense.id)}
                         onTap={() => handleEdit(expense.id)}
@@ -257,21 +257,24 @@ const TransactionRow = memo(({ expense, category, currency, onReceiptClick }: {
   const categoryName = category?.name || t('recordUnknownCategory');
 
   return (
-    <div className="flex items-center gap-4 w-full">
-      <div className="relative flex items-center justify-center w-10 h-10 rounded-full bg-white/5">
+    <div className="transaction-row flex items-center gap-3 w-full min-w-0 py-4">
+      <div className="transaction-row__icon relative flex items-center justify-center w-10 h-10 shrink-0 rounded-full bg-white/5">
         {category ? (
-          <CategoryLucideIcon iconName={category.iconName} className="w-5 h-5 text-zinc-300" />
+          <CategoryLucideIcon iconName={category.iconName} className="w-5 h-5 text-zinc-300" aria-hidden />
         ) : (
-          <span className="w-5 h-5 bg-zinc-700 rounded-full" />
+          <span className="w-5 h-5 bg-zinc-700 rounded-full" aria-hidden />
         )}
         {!isTransfer && (
-          <div className="absolute -bottom-1 -right-1 flex items-center justify-center w-4 h-4 rounded-full bg-[#0C0C0E] border-2 border-[#0C0C0E]">
+          <span
+            className={`transaction-row__type-badge ${isIncome ? 'transaction-row__type-badge--income' : 'transaction-row__type-badge--expense'}`}
+            aria-hidden
+          >
             {isIncome ? (
-              <IconArrowUp width={8} height={8} className="text-emerald-500" />
+              <IconArrowUp width={8} height={8} />
             ) : (
-              <IconArrowDown width={8} height={8} className="text-rose-500" />
+              <IconArrowDown width={8} height={8} />
             )}
-          </div>
+          </span>
         )}
       </div>
 
