@@ -68,6 +68,21 @@ export const authService = {
     await sendEmailVerification(cred.user);
   },
 
+  async resendVerificationEmail(): Promise<void> {
+    const auth = getFirebaseAuth();
+    const user = auth?.currentUser;
+    if (!user) throw new Error('not_signed_in');
+    await sendEmailVerification(user);
+  },
+
+  async refreshUser(): Promise<void> {
+    const auth = getFirebaseAuth();
+    const user = auth?.currentUser;
+    if (!user) return;
+    await user.reload();
+    useAuthStore.getState().setUser(auth.currentUser);
+  },
+
   async signOut(): Promise<void> {
     const auth = getFirebaseAuth();
     if (auth) await signOut(auth);
