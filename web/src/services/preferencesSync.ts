@@ -36,6 +36,7 @@ export function toSyncedPreferences(state: AppPreferences): SyncedPreferences {
     currency: state.currency,
     locale: state.locale,
     themeMode: state.themeMode,
+    onboardingComplete: state.onboardingComplete,
     dailyReminder: state.dailyReminder,
     reminderHour: state.reminderHour,
     reminderMinute: state.reminderMinute,
@@ -52,12 +53,18 @@ function parseRemote(raw: Record<string, unknown>): SyncedPreferences | null {
   if (typeof locale !== 'string' || !VALID_LOCALES.has(locale)) return null;
   if (typeof themeMode !== 'string' || !VALID_THEMES.has(themeMode as ThemeMode)) return null;
 
-  const monthlyBudget = typeof raw.monthlyBudget === 'number' ? raw.monthlyBudget : null;
+  // Match Android: a non-positive budget means "no budget set"
+  const monthlyBudget =
+    typeof raw.monthlyBudget === 'number' && raw.monthlyBudget > 0 ? raw.monthlyBudget : null;
+  // Existing cloud prefs docs predate this field — treat missing as already onboarded.
+  const onboardingComplete =
+    typeof raw.onboardingComplete === 'boolean' ? raw.onboardingComplete : true;
 
   return {
     currency: typeof raw.currency === 'string' && raw.currency ? raw.currency : 'EUR',
     locale: locale as 'en' | 'de',
     themeMode: themeMode as ThemeMode,
+    onboardingComplete,
     dailyReminder: typeof raw.dailyReminder === 'boolean' ? raw.dailyReminder : true,
     reminderHour: typeof raw.reminderHour === 'number' ? Math.min(23, Math.max(0, raw.reminderHour)) : 19,
     reminderMinute: typeof raw.reminderMinute === 'number' ? Math.min(59, Math.max(0, raw.reminderMinute)) : 0,
@@ -87,9 +94,6 @@ async function writeRemote(uid: string, prefs: SyncedPreferences): Promise<void>
 
   lastWrittenAt = payload.updatedAt;
   pushInFlight = setDoc(prefsRef(uid), payload, { merge: true })
-    .then(() => {
-      usePreferencesStore.getState().setLastCloudSyncAt(Date.now());
-    })
     .catch((err: unknown) => {
       console.warn('[prefs] failed to write preferences', err);
     })
@@ -102,7 +106,6 @@ async function writeRemote(uid: string, prefs: SyncedPreferences): Promise<void>
 function applyRemote(remote: SyncedPreferences): void {
   suppressPush = true;
   usePreferencesStore.getState().applySyncedPreferences(remote);
-  usePreferencesStore.getState().setLastCloudSyncAt(Date.now());
   lastWrittenAt = remote.updatedAt;
   suppressPush = false;
 }
@@ -112,7 +115,11 @@ export const preferencesSync = {
     if (activeUid === uid && snapUnsub) return;
     this.stop();
     activeUid = uid;
-    if (!getFirebaseFirestore()) return;
+    usePreferencesStore.setState({ preferencesReady: false });
+    if (!getFirebaseFirestore()) {
+      usePreferencesStore.getState().markPreferencesReady();
+      return;
+    }
 
     snapUnsub = onSnapshot(
       prefsRef(uid),
@@ -121,21 +128,32 @@ export const preferencesSync = {
         const localAt = local.preferencesUpdatedAt;
 
         if (!snap.exists()) {
-          void writeRemote(uid, toSyncedPreferences(local));
+          void writeRemote(uid, toSyncedPreferences(local)).finally(() => {
+            usePreferencesStore.getState().markPreferencesReady();
+          });
           return;
         }
 
         const remote = parseRemote(snap.data() as Record<string, unknown>);
-        if (!remote) return;
+        if (!remote) {
+          usePreferencesStore.getState().markPreferencesReady();
+          return;
+        }
 
         if (remote.updatedAt > localAt) {
           applyRemote(remote);
         } else if (localAt > remote.updatedAt) {
           void writeRemote(uid, toSyncedPreferences(local));
+        } else if (typeof (snap.data() as Record<string, unknown>).onboardingComplete !== 'boolean') {
+          // Backfill onboardingComplete onto legacy docs without bumping LWW.
+          void writeRemote(uid, { ...remote, onboardingComplete: remote.onboardingComplete });
         }
+
+        usePreferencesStore.getState().markPreferencesReady();
       },
       (err) => {
         console.warn('[prefs] sync listener error', err);
+        usePreferencesStore.getState().markPreferencesReady();
       },
     );
 

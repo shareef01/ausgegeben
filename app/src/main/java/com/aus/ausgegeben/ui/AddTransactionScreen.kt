@@ -16,7 +16,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Backspace
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -94,7 +93,6 @@ fun AddTransactionScreen(
     currencyCode: String = "EUR",
     onTransactionSaved: (wasEditing: Boolean) -> Unit,
     onBack: () -> Unit,
-    onOpenCamera: () -> Unit,
     onValidationError: (String) -> Unit,
     onBudgetAlert: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -102,24 +100,22 @@ fun AddTransactionScreen(
     var selectedTab by remember { mutableIntStateOf(0) }
     val amountText by viewModel.amount.collectAsState()
     val remarkText by viewModel.note.collectAsState()
-    
-    var showReceiptPreview by remember { mutableStateOf(false) }
+
     var showManageSheet by remember { mutableStateOf(false) }
     var showEditorDialog by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showDiscardConfirm by remember { mutableStateOf(false) }
-    
+
     var editingCategory by remember { mutableStateOf<Category?>(null) }
     var categoryToDelete by remember { mutableStateOf<Category?>(null) }
 
     val categories by viewModel.categories.collectAsState()
     val selectedCategory by viewModel.selectedCategory.collectAsState()
-    val receiptPath by viewModel.receiptImagePath.collectAsState()
     val editingExpenseId by viewModel.editingExpenseId.collectAsState()
     val loadedTransactionType by viewModel.loadedTransactionType.collectAsState()
     val dateMillis by viewModel.dateMillis.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
-    
+
     val isEditing = editingExpenseId != null
     var initialLoadDone by remember { mutableStateOf(!isEditing) }
     val scope = rememberCoroutineScope()
@@ -157,7 +153,7 @@ fun AddTransactionScreen(
     val hasAmount = (CurrencyUtils.parseAmount(amountText, currencyCode) ?: 0.0) > 0
     val hasCategory = selectedCategory != null
     val hasCategories = categories.isNotEmpty()
-    val hasUnsavedChanges = remarkText.isNotBlank() || hasAmount || receiptPath != null
+    val hasUnsavedChanges = remarkText.isNotBlank() || hasAmount
 
     BackHandler {
         if (hasUnsavedChanges && !isEditing) {
@@ -200,8 +196,6 @@ fun AddTransactionScreen(
                         ObsidianTopBar(
                             isEditing = isEditing,
                             onBack = onBack,
-                            onOpenCamera = onOpenCamera,
-                            hasReceipt = receiptPath != null,
                             accentColor = typeAccent
                         )
                     }
@@ -259,9 +253,6 @@ fun AddTransactionScreen(
                                         remark = remarkText,
                                         onRemarkChange = { viewModel.onNoteChange(it) },
                                         accentColor = typeAccent,
-                                        receiptPath = receiptPath,
-                                        onReceiptClick = { showReceiptPreview = true },
-                                        onClearReceipt = { viewModel.setReceiptPath(null) }
                                     )
                                 }
 
@@ -328,10 +319,6 @@ fun AddTransactionScreen(
                 }
             }
         }
-    }
-
-    if (showReceiptPreview && receiptPath != null) {
-        ReceiptImageDialog(uri = receiptPath!!, onDismiss = { showReceiptPreview = false })
     }
 
     if (showManageSheet) {
@@ -419,13 +406,11 @@ fun AddTransactionScreen(
 private fun ObsidianTopBar(
     isEditing: Boolean,
     onBack: () -> Unit,
-    onOpenCamera: () -> Unit,
-    hasReceipt: Boolean,
     accentColor: Color
 ) {
     val isDark = isAppDarkTheme()
     val contentColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
-    
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -445,7 +430,7 @@ private fun ObsidianTopBar(
                 modifier = Modifier.size(44.dp),
             )
         }
-        
+
         SignatureText(
             text = if (isEditing) stringResource(R.string.add_edit_title) else stringResource(R.string.add_new_title),
             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
@@ -453,22 +438,6 @@ private fun ObsidianTopBar(
             textColor = contentColor,
             modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
         )
-
-        Box(
-            modifier = Modifier
-                .padding(end = 4.dp)
-                .size(44.dp)
-                .appGlassCard(CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            AppIconButton(
-                onClick = onOpenCamera,
-                icon = if (hasReceipt) Icons.AutoMirrored.Rounded.ReceiptLong else Icons.Rounded.AddAPhoto,
-                contentDescription = stringResource(R.string.add_scan_receipt),
-                tint = if (hasReceipt) accentColor else contentColor.copy(alpha = 0.6f),
-                modifier = Modifier.size(44.dp),
-            )
-        }
     }
 }
 
@@ -513,10 +482,7 @@ private fun ObsidianNoteField(
     remark: String,
     onRemarkChange: (String) -> Unit,
     accentColor: Color,
-    receiptPath: String?,
-    onReceiptClick: () -> Unit,
-    onClearReceipt: () -> Unit
-) {
+    ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -564,25 +530,6 @@ private fun ObsidianNoteField(
                         }
                     }
                 }
-            )
-        }
-        
-        if (receiptPath != null) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .appGlassCard(CircleShape)
-                    .smoothClickable { onReceiptClick() },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Rounded.AttachFile, null, tint = accentColor, modifier = Modifier.size(16.dp))
-            }
-            Spacer(Modifier.width(8.dp))
-            AppIconButton(
-                onClick = onClearReceipt,
-                icon = Icons.Rounded.Close,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp)
             )
         }
     }

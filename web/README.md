@@ -1,8 +1,8 @@
 # Ausgegeben Web (PWA)
 
-Installable web version of **Ausgegeben**. Requires Firebase Auth; expense data lives in Cloud Firestore (with IndexedDB persistence when available). Receipt images stay on-device (browser IndexedDB) — Cloud Storage is not used so the app stays on the **Firebase Spark** free plan.
+Installable web version of **Ausgegeben**. Requires Firebase Auth; expense data and preferences live in Cloud Firestore (online). Stays on the **Firebase Spark** free plan (Hosting + Auth + Firestore).
 
-Settings (theme, locale, currency, budget, reminders) sync at `users/{uid}/settings/preferences`. Empty accounts get the same starter categories as Android.
+Settings (theme, locale, currency, budget, reminders, onboarding) sync at `users/{uid}/settings/preferences`. Empty accounts get the same starter categories as Android.
 
 **Live:** [https://aus01.web.app](https://aus01.web.app)
 
@@ -25,7 +25,7 @@ npm run preview  # test production build
 npm run deploy
 ```
 
-Deploys **Hosting** (`aus01`) + **Firestore rules** only. Storage rules are not deployed (`npm run deploy:storage` is opt-in and needs Blaze).
+Deploys **Hosting** (`aus01`) + **Firestore rules** only.
 
 ## Structure
 
@@ -33,7 +33,7 @@ Deploys **Hosting** (`aus01`) + **Firestore rules** only. Storage rules are not 
 src/
   models/         # Types
   repositories/   # Firestore CRUD
-  services/       # Auth, Firebase, preferences, local receipts
+  services/       # Auth, Firebase, preferences
   viewmodels/     # React hooks (MVVM)
   views/          # Screens
   components/     # Shared UI
