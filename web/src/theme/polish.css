@@ -290,12 +290,35 @@
 }
 
 .bottom-nav-pill__item {
+  position: relative;
+  min-width: 4.25rem;
+  min-height: 2.75rem;
+  padding: 0.35rem 0.55rem 0.4rem;
+  border: none;
+  border-radius: 999px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
   color: var(--color-on-surface-variant);
+  background: transparent;
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .bottom-nav-pill__item:hover {
   color: var(--color-on-background);
   background: color-mix(in srgb, var(--color-on-surface) 5%, transparent);
+}
+
+.bottom-nav-pill__item:active {
+  transform: scale(0.96);
+}
+
+.bottom-nav-pill__item:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
 }
 
 .bottom-nav-pill__item--active {
@@ -304,9 +327,16 @@
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-income) 22%, transparent);
 }
 
-.bottom-nav-pill__dot {
-  background: var(--color-income);
-  box-shadow: 0 0 6px color-mix(in srgb, var(--color-income) 55%, transparent);
+.bottom-nav-pill__label {
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-transform: lowercase;
+  max-width: 4.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .fab-add {
