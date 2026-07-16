@@ -122,13 +122,13 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="flex flex-col gap-8">
-           <div className="segmented" role="tablist">
+           <div className="segmented" role="radiogroup" aria-label={t('settingsCategories')}>
               {(['expense', 'income', 'transfer'] as TransactionType[]).map((type) => (
                 <button
                   key={type}
                   type="button"
-                  role="tab"
-                  aria-selected={filter === type}
+                  role="radio"
+                  aria-checked={filter === type}
                   className={`segmented__item ${filter === type ? 'segmented__item--active' : ''}`}
                   onClick={() => setFilter(type)}
                 >
@@ -139,6 +139,16 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
 
             <div className="flex flex-col gap-3">
                <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">{t('currentCategories')}</div>
+               {filtered.length === 0 ? (
+                 <div className="categories-empty py-10">
+                   <p className="categories-empty__text">{t('categoriesEmptyForType')}</p>
+                   {!adding ? (
+                     <button type="button" className="btn btn-primary mt-4" onClick={startAdd}>
+                       {t('addCategory')}
+                     </button>
+                   ) : null}
+                 </div>
+               ) : (
                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                  {filtered.map((cat) => (
                     <div key={cat.id} className="card--pro p-4 flex items-center gap-4 bg-surface border border-white/5 shadow-none">
@@ -155,6 +165,7 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
                     </div>
                  ))}
                </div>
+               )}
             </div>
 
             {adding ? (

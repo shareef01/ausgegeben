@@ -3,6 +3,7 @@ import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
 import { useTranslation } from '@/i18n';
 import { AppBrandIcon } from '@/components/AppBrandIcon';
+import { IconEye, IconEyeOff } from '@/components/Icons';
 
 export function AuthView() {
   const { t } = useTranslation();
@@ -10,14 +11,20 @@ export function AuthView() {
   const [tab, setTab] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const firebaseReady = authService.isAvailable();
+  const passwordTooShort = tab === 'signup' && password.length > 0 && password.length < 6;
 
   const handleSubmit = async () => {
     setError(null);
     setInfo(null);
+    if (tab === 'signup' && password.length < 6) {
+      setError(t('authErrorWeakPassword'));
+      return;
+    }
     setBusy(true);
     try {
       if (tab === 'signin') {
@@ -49,9 +56,9 @@ export function AuthView() {
           <div className="auth-page__alert" role="alert">{t('authFirebaseNotConfigured')}</div>
         ) : null}
 
-        <div className="segmented auth-page__tabs" role="tablist">
-          <button type="button" role="tab" aria-selected={tab === 'signin'} className={`segmented__item ${tab === 'signin' ? 'segmented__item--active' : ''}`} onClick={() => setTab('signin')}>{t('authSignIn')}</button>
-          <button type="button" role="tab" aria-selected={tab === 'signup'} className={`segmented__item ${tab === 'signup' ? 'segmented__item--active' : ''}`} onClick={() => setTab('signup')}>{t('authSignUp')}</button>
+        <div className="segmented auth-page__tabs" role="radiogroup" aria-label={t('authTagline')}>
+          <button type="button" role="radio" aria-checked={tab === 'signin'} className={`segmented__item ${tab === 'signin' ? 'segmented__item--active' : ''}`} onClick={() => setTab('signin')}>{t('authSignIn')}</button>
+          <button type="button" role="radio" aria-checked={tab === 'signup'} className={`segmented__item ${tab === 'signup' ? 'segmented__item--active' : ''}`} onClick={() => setTab('signup')}>{t('authSignUp')}</button>
         </div>
 
         <form onSubmit={(e) => { e.preventDefault(); void handleSubmit(); }} className="auth-page__form space-y-4">
@@ -70,17 +77,33 @@ export function AuthView() {
           </div>
           <div>
             <label htmlFor="auth-password" className="field__label">{t('authPassword')}</label>
-            <input
-              id="auth-password"
-              className="field__input"
-              type="password"
-              autoComplete={tab === 'signup' ? 'new-password' : 'current-password'}
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={!firebaseReady || busy}
-              onKeyDown={(e) => e.key === 'Enter' && void handleSubmit()}
-            />
+            <div className="auth-page__password">
+              <input
+                id="auth-password"
+                className="field__input auth-page__password-input"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete={tab === 'signup' ? 'new-password' : 'current-password'}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={!firebaseReady || busy}
+                aria-describedby={passwordTooShort ? 'auth-password-hint' : undefined}
+              />
+              <button
+                type="button"
+                className="auth-page__password-toggle"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? t('authHidePassword') : t('authShowPassword')}
+                tabIndex={0}
+              >
+                {showPassword ? <IconEyeOff width={18} height={18} aria-hidden /> : <IconEye width={18} height={18} aria-hidden />}
+              </button>
+            </div>
+            {passwordTooShort ? (
+              <p id="auth-password-hint" className="auth-page__field-hint" role="status">
+                {t('authErrorWeakPassword')}
+              </p>
+            ) : null}
           </div>
 
           {error ? <p className="auth-page__error" role="alert">{error}</p> : null}
@@ -90,7 +113,7 @@ export function AuthView() {
           <button
             type="submit"
             className="btn btn-primary w-full py-3.5 rounded-xl text-sm hover:brightness-110 active:scale-[0.98] transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
-            disabled={!firebaseReady || busy || !email || !password}
+            disabled={!firebaseReady || busy || !email || !password || passwordTooShort}
           >
             {busy ? t('loading') : tab === 'signin' ? t('authSignIn') : t('authSignUp')}
           </button>
