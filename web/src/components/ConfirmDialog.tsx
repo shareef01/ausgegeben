@@ -1,5 +1,6 @@
 import { useTranslation } from '@/i18n';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { useCallback, useRef, type ReactNode } from 'react';
 
 interface ConfirmDialogProps {
@@ -27,6 +28,7 @@ export function ConfirmDialog({
   const sheetRef = useRef<HTMLDivElement>(null);
   const handleEscape = useCallback(() => onCancel(), [onCancel]);
   useFocusTrap(open, sheetRef, handleEscape);
+  useBodyScrollLock(open);
 
   if (!open) return null;
 

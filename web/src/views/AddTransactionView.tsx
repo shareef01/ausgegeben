@@ -3,7 +3,7 @@ import { useAddTransactionViewModel } from '@/viewmodels/useAddTransactionViewMo
 import { useTranslation } from '@/i18n';
 import { SignatureText } from '@/components/ui';
 import { CategoryLucideIcon } from '@/components/CategoryLucideIcon';
-import { ReceiptThumbnail } from '@/components/ReceiptPreview';
+import { ReceiptPreview, ReceiptThumbnail } from '@/components/ReceiptPreview';
 import { IconCamera, IconDelete, IconClose } from '@/components/Icons';
 import { colorIntToHex } from '@/utils/currency';
 import { usePreferencesStore } from '@/services/preferencesStore';
@@ -15,12 +15,19 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 interface AddTransactionViewProps {
   expenseId?: string;
+  suspended?: boolean;
   onClose: () => void;
   onSaved: () => void;
   onManageCategories?: () => void;
 }
 
-export function AddTransactionView({ expenseId, onClose, onSaved, onManageCategories }: AddTransactionViewProps) {
+export function AddTransactionView({
+  expenseId,
+  suspended = false,
+  onClose,
+  onSaved,
+  onManageCategories,
+}: AddTransactionViewProps) {
   const { t } = useTranslation();
   const currency = usePreferencesStore((s) => s.currency);
   const vm = useAddTransactionViewModel(expenseId);
@@ -29,13 +36,22 @@ export function AddTransactionView({ expenseId, onClose, onSaved, onManageCatego
   const amountInputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const [showRemoveReceiptConfirm, setShowRemoveReceiptConfirm] = useState(false);
-  const handleEscape = useCallback(() => onClose(), [onClose]);
-  useFocusTrap(!showRemoveReceiptConfirm, dialogRef, handleEscape);
-  useBodyScrollLock(true);
+  const [previewReceipt, setPreviewReceipt] = useState(false);
+  const handleEscape = useCallback(() => {
+    if (!suspended) onClose();
+  }, [onClose, suspended]);
+  useFocusTrap(!showRemoveReceiptConfirm && !previewReceipt && !suspended, dialogRef, handleEscape);
+  useBodyScrollLock(!suspended);
 
   useEffect(() => {
-    if (vm.ready) amountInputRef.current?.focus();
-  }, [vm.ready]);
+    if (vm.ready && !suspended) amountInputRef.current?.focus();
+  }, [vm.ready, suspended]);
+
+  const wasSuspended = useRef(false);
+  useEffect(() => {
+    if (wasSuspended.current && !suspended) void vm.reloadCategories();
+    wasSuspended.current = suspended;
+  }, [suspended, vm.reloadCategories]);
 
   const handleSave = async () => {
     const ok = await vm.save();
@@ -57,7 +73,12 @@ export function AddTransactionView({ expenseId, onClose, onSaved, onManageCatego
 
   return (
     <>
-      <div className="fixed inset-0 z-[200] bg-background/80 backdrop-blur-xl flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="fixed inset-0 z-[200] bg-background/80 backdrop-blur-xl flex items-center justify-center p-4"
+        onClick={onClose}
+        aria-hidden={suspended || undefined}
+        style={suspended ? { visibility: 'hidden', pointerEvents: 'none' } : undefined}
+      >
         <div
           ref={dialogRef}
           className="card--pro max-w-xl w-full p-8 sm:p-10 flex flex-col gap-8 shadow-2xl overflow-y-auto max-h-[95vh]"
@@ -158,7 +179,7 @@ export function AddTransactionView({ expenseId, onClose, onSaved, onManageCatego
               <input
                 id="txn-note"
                 className="field__input"
-                placeholder="..."
+                placeholder={t('notePlaceholder')}
                 value={vm.form.note}
                 onChange={(e) => vm.setForm((f) => ({ ...f, note: e.target.value }))}
               />
@@ -180,7 +201,7 @@ export function AddTransactionView({ expenseId, onClose, onSaved, onManageCatego
                 </div>
                 {vm.form.receiptImagePath && (
                   <div className="flex items-center gap-2">
-                    <ReceiptThumbnail path={vm.form.receiptImagePath} onClick={() => fileInputRef.current?.click()} />
+                    <ReceiptThumbnail path={vm.form.receiptImagePath} onClick={() => setPreviewReceipt(true)} />
                     <button type="button" className="icon-btn icon-btn--danger" onClick={() => setShowRemoveReceiptConfirm(true)} aria-label={t('addRemoveReceiptTitle')}>
                       <IconDelete width={18} height={18} aria-hidden />
                     </button>
@@ -227,6 +248,10 @@ export function AddTransactionView({ expenseId, onClose, onSaved, onManageCatego
         }}
         onCancel={() => setShowRemoveReceiptConfirm(false)}
       />
+
+      {previewReceipt && vm.form.receiptImagePath ? (
+        <ReceiptPreview path={vm.form.receiptImagePath} onClose={() => setPreviewReceipt(false)} />
+      ) : null}
     </>
   );
 }
