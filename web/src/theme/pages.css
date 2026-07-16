@@ -302,9 +302,9 @@
 }
 
 .swipeable-row__action {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   border: 1px solid var(--color-outline);
   background: var(--color-surface);
   color: var(--color-on-surface-variant);
@@ -317,14 +317,14 @@
   color: var(--color-expense);
 }
 
+/* Touch: keep actions visible — swipe alone is undiscoverable */
 @media (pointer: coarse) {
   .swipeable-row__actions {
-    display: none !important;
+    display: flex !important;
   }
 
-  .swipeable-row:hover .swipeable-row__content,
-  .swipeable-row:focus-within .swipeable-row__content {
-    padding-right: 0;
+  .swipeable-row__content {
+    padding-right: 148px;
   }
 }
 
@@ -394,6 +394,9 @@
   flex-direction: column;
   padding: 8px;
   border-radius: 16px;
+  max-height: min(50vh, 320px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   animation: period-menu-in 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -720,11 +723,17 @@
 }
 
 .donut-center__value {
-  font-size: 1.5rem;
+  font-size: clamp(0.85rem, 3.2vw, 1.35rem);
   font-weight: 900;
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
   color: var(--color-on-background);
+  max-width: 72%;
+  text-align: center;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── Insights category breakdown card ── */
@@ -966,17 +975,17 @@
 
 .record-search__clear {
   position: absolute;
-  right: 10px;
+  right: 6px;
   top: 50%;
   transform: translateY(-50%);
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--color-on-surface-variant);
-  background: color-mix(in srgb, var(--color-on-surface) 8%, transparent);
+  background: transparent;
   cursor: pointer;
   border: none;
   transition: background 0.2s ease, color 0.2s ease;
@@ -1013,8 +1022,17 @@
 }
 
 .record-type-segmented .segmented__item {
-  padding: 10px 6px;
-  font-size: 0.7rem;
+  min-height: 44px;
+  padding: 10px 8px;
+  font-size: 0.75rem;
+}
+
+@media (max-width: 399px) {
+  .segmented.record-type-segmented {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+  }
 }
 
 /* ═══════════════════════════════════════════════════
