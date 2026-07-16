@@ -17,7 +17,7 @@ class PeriodUtilsTest {
         val expense = Expense(
             amount = 10.0,
             dateMillis = cal.timeInMillis,
-            categoryId = 1L,
+            categoryId = "1",
             note = "",
             transactionType = "expense"
         )
@@ -31,8 +31,8 @@ class PeriodUtilsTest {
     @Test
     fun allTime_doesNotFilter() {
         val expenses = listOf(
-            Expense(1, 5.0, 0L, 1L, "", transactionType = "expense"),
-            Expense(2, 7.0, System.currentTimeMillis(), 1L, "", transactionType = "expense")
+            Expense(id = "1", amount = 5.0, dateMillis = 0L, categoryId = "1", note = "", transactionType = "expense"),
+            Expense(id = "2", amount = 7.0, dateMillis = System.currentTimeMillis(), categoryId = "1", note = "", transactionType = "expense")
         )
         assertEquals(expenses, expenses.filterByPeriod(AnalyticsPeriod.ALL_TIME))
     }
@@ -55,7 +55,7 @@ class PeriodUtilsTest {
         val current = Expense(
             amount = 1.0,
             dateMillis = now.timeInMillis,
-            categoryId = 1L,
+            categoryId = "1",
             note = "",
             transactionType = "expense"
         )
@@ -80,14 +80,14 @@ class PeriodUtilsTest {
         val expense = Expense(
             amount = 25.0,
             dateMillis = now,
-            categoryId = 1L,
+            categoryId = "1",
             note = "",
             transactionType = "expense"
         )
         val insights = computeSpendingInsights(
             monthExpenses = listOf(expense),
             weekExpenses = listOf(expense),
-            categoryNames = mapOf(1L to "Food")
+            categoryNames = mapOf("1" to "Food")
         )
         assertEquals(25.0, insights.monthExpenseTotal, 0.001)
         assertEquals("Food", insights.topExpenseCategoryName)

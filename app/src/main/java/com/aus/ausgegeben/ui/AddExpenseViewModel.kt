@@ -9,7 +9,9 @@ import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.util.CurrencyUtils
+import com.aus.ausgegeben.util.ReceiptFileUtils
 import com.aus.ausgegeben.util.datePickerMillisToLocalDayStart
+import android.net.Uri
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -39,11 +41,14 @@ class AddExpenseViewModel(
     private val _dateMillis = MutableStateFlow(System.currentTimeMillis())
     val dateMillis = _dateMillis.asStateFlow()
 
-    private val _editingExpenseId = MutableStateFlow<Long?>(null)
+    private val _editingExpenseId = MutableStateFlow<String?>(null)
     val editingExpenseId = _editingExpenseId.asStateFlow()
 
     private val _loadedTransactionType = MutableStateFlow(TransactionType.EXPENSE)
     val loadedTransactionType = _loadedTransactionType.asStateFlow()
+
+    private val _isSaving = MutableStateFlow(false)
+    val isSaving = _isSaving.asStateFlow()
 
     val categories: StateFlow<List<Category>> = repository.allCategories
         .stateIn(
@@ -71,11 +76,14 @@ class AddExpenseViewModel(
     }
 
     fun setReceiptPath(path: String?) {
+        if (path != null) {
+            val uri = Uri.parse(path)
+            if (!ReceiptFileUtils.isReceiptValid(getApplication(), uri)) return
+        }
         _receiptImagePath.value = path
     }
 
     fun onDateChange(millis: Long) {
-        // Keep the current time-of-day so saved transactions don't collapse to 00:00.
         val dayStart = datePickerMillisToLocalDayStart(millis)
         val now = java.util.Calendar.getInstance()
         val timeOfDayMillis =
@@ -101,6 +109,8 @@ class AddExpenseViewModel(
         onError: (String) -> Unit,
         onBudgetAlert: ((String) -> Unit)? = null
     ) {
+        if (_isSaving.value) return // SECURE: Idempotency check
+
         val category = _selectedCategory.value
         val app = getApplication<Application>()
         when {
@@ -112,30 +122,37 @@ class AddExpenseViewModel(
                 )
             )
             else -> viewModelScope.launch {
-                val currency = preferenceManager.currencyFlow.first()
-                val amt = CurrencyUtils.parseAmount(_amount.value, currency) ?: 0.0
-                if (amt <= 0) {
-                    onError(app.getString(R.string.error_amount_required))
-                    return@launch
+                try {
+                    _isSaving.value = true
+                    val currency = preferenceManager.currencyFlow.first()
+                    val amt = CurrencyUtils.parseAmount(_amount.value, currency) ?: 0.0
+                    if (amt <= 0) {
+                        onError(app.getString(R.string.error_amount_required))
+                        return@launch
+                    }
+                    val editingId = _editingExpenseId.value
+                    val expense = Expense(
+                        id = editingId ?: "",
+                        amount = kotlin.math.abs(amt),
+                        dateMillis = _dateMillis.value,
+                        categoryId = category.id,
+                        note = _note.value.trim(),
+                        receiptImagePath = _receiptImagePath.value,
+                        transactionType = type.storageKey
+                    )
+                    if (editingId != null) {
+                        repository.updateExpense(expense)
+                    } else {
+                        repository.insertExpense(expense)
+                    }
+                    checkBudgetAlert(type, amt, editingId)?.let { onBudgetAlert?.invoke(it) }
+                    resetForm()
+                    onSuccess()
+                } catch (e: Exception) {
+                    onError(e.localizedMessage ?: app.getString(R.string.auth_error_generic))
+                } finally {
+                    _isSaving.value = false
                 }
-                val editingId = _editingExpenseId.value
-                val expense = Expense(
-                    id = editingId ?: 0L,
-                    amount = kotlin.math.abs(amt),
-                    dateMillis = _dateMillis.value,
-                    categoryId = category.id,
-                    note = _note.value.trim(),
-                    receiptImagePath = _receiptImagePath.value,
-                    transactionType = type.storageKey
-                )
-                if (editingId != null) {
-                    repository.updateExpense(expense)
-                } else {
-                    repository.insertExpense(expense)
-                }
-                checkBudgetAlert(type, amt, editingId)?.let { onBudgetAlert?.invoke(it) }
-                resetForm()
-                onSuccess()
             }
         }
     }
@@ -143,11 +160,11 @@ class AddExpenseViewModel(
     private suspend fun checkBudgetAlert(
         type: TransactionType,
         newAmount: Double,
-        editingId: Long?
+        editingId: String?
     ): String? {
         if (type != TransactionType.EXPENSE) return null
         val budget = preferenceManager.monthlyBudgetFlow.first() ?: return null
-        val spent = repository.sumMonthExpenses(editingId ?: 0L)
+        val spent = repository.sumMonthExpenses(editingId ?: "")
         val projected = spent + newAmount
         if (projected <= budget) return null
         val currency = preferenceManager.currencyFlow.first()

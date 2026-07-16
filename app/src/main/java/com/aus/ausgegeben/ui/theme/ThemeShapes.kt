@@ -6,6 +6,7 @@ import androidx.compose.material3.Shapes
 val GroupedShape = RoundedCornerShape(AppRadius.card)
 val GlassShape = RoundedCornerShape(AppRadius.cardLarge)
 val CapsuleShape = RoundedCornerShape(AppRadius.pill)
+val AppSheetShape = RoundedCornerShape(topStart = AppRadius.sheet, topEnd = AppRadius.sheet)
 
 internal val AppShapes = Shapes(
     extraSmall = RoundedCornerShape(AppRadius.sm),
