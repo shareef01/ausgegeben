@@ -614,7 +614,7 @@
 
 .segmented__item--active {
   font-weight: 800;
-  color: #000000;
+  color: var(--color-on-income, #000000);
   background: var(--color-income);
   box-shadow:
     0 1px 0 color-mix(in srgb, #ffffff 28%, transparent) inset,
@@ -630,7 +630,7 @@
 }
 
 .segmented__item--active.segmented__item--income {
-  color: #000000;
+  color: var(--color-on-income, #000000);
   background: var(--color-income);
   box-shadow:
     0 1px 0 color-mix(in srgb, #ffffff 28%, transparent) inset,
@@ -638,7 +638,7 @@
 }
 
 .segmented__item--active.segmented__item--transfer {
-  color: #000000;
+  color: var(--color-on-transfer, #ffffff);
   background: var(--color-transfer, #a1a1aa);
   box-shadow:
     0 1px 0 color-mix(in srgb, #ffffff 22%, transparent) inset,
@@ -646,7 +646,7 @@
 }
 
 .segmented__item--active.segmented__item--default {
-  color: #000000;
+  color: var(--color-on-income, #000000);
   background: var(--color-income);
 }
 
@@ -715,7 +715,7 @@
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #71717A;
+  color: var(--color-on-surface-variant);
   margin-bottom: 4px;
 }
 
@@ -953,7 +953,7 @@
 }
 
 .record-search__input::placeholder {
-  color: color-mix(in srgb, var(--color-on-surface-variant) 40%, transparent);
+  color: var(--color-placeholder, var(--color-on-surface-variant));
 }
 
 .record-search__input:focus {
@@ -1123,7 +1123,7 @@
 
 .transaction-row__sub {
   font-size: 0.8125rem;
-  color: color-mix(in srgb, var(--color-on-surface-variant) 55%, transparent);
+  color: var(--color-on-surface-variant);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1196,14 +1196,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: color-mix(in srgb, var(--color-on-surface-variant) 40%, transparent);
+  color: var(--color-on-surface-variant);
   margin-bottom: 4px;
 }
 
 .categories-empty__text {
   font-size: 0.875rem;
   font-weight: 600;
-  color: color-mix(in srgb, var(--color-on-surface-variant) 55%, transparent);
+  color: var(--color-on-surface-variant);
 }
 
 /* Category selection grid — active state indicator */
@@ -1333,7 +1333,7 @@
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: color-mix(in srgb, var(--color-on-surface-variant) 55%, transparent);
+  color: var(--color-on-surface-variant);
   margin-bottom: 2px;
 }
 
@@ -1557,7 +1557,7 @@
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  color: #000000;
+  color: var(--color-on-income, #000000);
   background: var(--color-income);
   box-shadow: 0 4px 12px color-mix(in srgb, var(--color-income) 35%, transparent);
 }
@@ -1567,7 +1567,7 @@
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: color-mix(in srgb, var(--color-on-surface-variant) 50%, transparent);
+  color: var(--color-on-surface-variant);
   padding: 8px 4px 4px;
 }
 
@@ -1667,7 +1667,7 @@
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: color-mix(in srgb, var(--color-on-surface-variant) 55%, transparent);
+  color: var(--color-on-surface-variant);
   padding: 0 4px;
 }
 
@@ -1859,7 +1859,7 @@
 
 .verify-banner__btn--primary {
   background: var(--color-income);
-  color: #000000;
+  color: var(--color-on-income, #000000);
 }
 
 .verify-banner__btn:disabled,
@@ -1906,7 +1906,6 @@
 
 .onboarding-card__tagline {
   color: var(--color-on-surface-variant);
-  opacity: 0.6;
 }
 
 .onboarding-slide {
@@ -1922,12 +1921,12 @@
   width: 64px;
   height: 64px;
   border-radius: 18px;
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.2);
+  background: color-mix(in srgb, var(--color-income) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-income) 22%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #34D399;
+  color: var(--color-income);
   margin-bottom: 24px;
   animation: icon-pop-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -1948,13 +1947,13 @@
   font-weight: 700;
   margin: 0 0 10px;
   letter-spacing: -0.02em;
-  color: #F4F4F5;
+  color: var(--color-on-background);
 }
 
 .onboarding-slide__body {
   font-size: 0.9375rem;
   line-height: 1.6;
-  color: #A1A1AA;
+  color: var(--color-on-surface-variant);
   margin: 0;
   max-width: 320px;
 }
@@ -1971,7 +1970,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #52525B;
+  background: color-mix(in srgb, var(--color-on-surface-variant) 45%, transparent);
   transition: all 0.3s ease;
   padding: 0;
   border: none;
@@ -1981,7 +1980,7 @@
 .onboarding-dots__dot--active {
   width: 24px;
   border-radius: 4px;
-  background: #10B981;
+  background: var(--color-income);
 }
 
 .onboarding-actions {
@@ -2043,7 +2042,7 @@
 
 .btn-primary {
   background: var(--color-income);
-  color: #000000;
+  color: var(--color-on-income, #000000);
   border-radius: 12px;
 }
 
