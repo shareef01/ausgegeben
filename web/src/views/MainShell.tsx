@@ -81,7 +81,7 @@ export function MainShell() {
       <div className="max-w-[1200px] mx-auto w-full px-4 sm:px-8 relative min-h-screen">
 
         {/* Header — brand and desktop nav */}
-        <header className="flex items-center justify-between py-6 border-b border-white/[0.04]">
+        <header className="app-header flex items-center justify-between py-5 border-b border-white/[0.04]">
           <button
             type="button"
             className="app-header__brand"
@@ -104,7 +104,7 @@ export function MainShell() {
                   aria-label={label}
                   className={`app-header__nav-item${active ? ' app-header__nav-item--active' : ''}`}
                 >
-                  <Icon width={20} height={20} strokeWidth={active ? 2.35 : 1.85} aria-hidden />
+                  <Icon width={18} height={18} strokeWidth={active ? 2.4 : 1.9} aria-hidden />
                   <span className="app-header__nav-label">{label}</span>
                 </button>
               );
