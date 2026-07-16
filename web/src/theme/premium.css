@@ -72,19 +72,104 @@
   gap: 16px !important;
 }
 
-/* ── Summary Card Perfection ── */
-.finance-summary-card__inner {
-  padding: 48px 24px 36px !important;
+/* ── Summary Card ── */
+.finance-summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px !important;
+}
+
+.finance-summary-card__eyebrow {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-on-surface-variant);
 }
 
 .finance-summary-card__balance {
-  margin: 12px 0 32px !important;
+  font-size: clamp(1.75rem, 4vw, 2.25rem) !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  margin: 0 !important;
+}
+
+.finance-summary-card__balance--positive {
+  color: var(--color-income);
+}
+
+.finance-summary-card__balance--negative {
+  color: var(--color-expense);
+}
+
+.finance-summary-card__balance--neutral {
+  color: var(--color-on-background);
+}
+
+.finance-summary-card__stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
 }
 
 .finance-stat-chip {
-  min-width: 0 !important;
-  padding: 22px 8px 24px !important;
-  border-radius: 1.5rem !important;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px !important;
+  border-radius: 14px !important;
+  background: color-mix(in srgb, var(--color-on-surface) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-outline) 35%, transparent);
+}
+
+.finance-stat-chip__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.finance-stat-chip--income .finance-stat-chip__icon {
+  color: var(--color-income);
+  background: color-mix(in srgb, var(--color-income) 14%, transparent);
+}
+
+.finance-stat-chip--expense .finance-stat-chip__icon {
+  color: var(--color-expense);
+  background: color-mix(in srgb, var(--color-expense) 14%, transparent);
+}
+
+.finance-stat-chip__copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.finance-stat-chip__label {
+  font-size: 9px !important;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-on-surface-variant);
+  line-height: 1.2;
+}
+
+.finance-stat-chip__value,
+.finance-stat-chip .money--stat,
+.finance-stat-chip .money {
+  font-size: 0.875rem !important;
+  font-weight: 800 !important;
+  line-height: 1.15;
+  color: var(--color-on-background);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Transaction List Restoration ── */
