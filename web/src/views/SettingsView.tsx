@@ -125,6 +125,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
                   type="number"
                   inputMode="decimal"
                   placeholder="0.00"
+                  aria-label={t('settingsMonthlyLimit')}
                   value={budgetInput}
                   onChange={(e) => setBudgetInput(e.target.value)}
                   onKeyDown={(e) => {
