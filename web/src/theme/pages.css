@@ -528,16 +528,99 @@
   font-weight: 900;
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
-  color: #F4F4F5;
+  color: var(--color-on-background);
 }
 
-/* Donut category list — slide on hover */
-.insights-category-list > div {
-  transition: transform 0.2s ease, background 0.2s ease;
+/* ── Insights category breakdown card ── */
+.insights-category-card {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px !important;
+  border-radius: 1.5rem !important;
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--color-on-background) 10%, transparent);
 }
 
-.insights-category-list > div:hover {
-  transform: translateX(4px);
+.insights-category-card__title {
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.insights-category-card__chart {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.insights-category-card__empty {
+  margin: 0;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--color-on-surface-variant);
+}
+
+.insights-category-card__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.insights-category-card__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-on-surface) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-outline) 18%, transparent);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.insights-category-card__row:hover {
+  background: color-mix(in srgb, var(--color-on-surface) 8%, transparent);
+  transform: translateX(2px);
+}
+
+.insights-category-card__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.insights-category-card__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.insights-category-card__value {
+  flex-shrink: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.insights-category-card__pct {
+  color: var(--color-on-surface-variant);
+  font-weight: 600;
+}
+
+@media (min-width: 768px) {
+  .content-col {
+    padding-bottom: 88px;
+  }
 }
 
 /* ═══════════════════════════════════════════════════
