@@ -225,13 +225,13 @@ input[type='number'] {
   flex: 1 1 0;
   min-width: 76px;
   min-height: 52px;
-  padding: 7px 10px 11px;
+  padding: 6px 10px 10px;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   color: color-mix(in srgb, var(--color-on-surface-variant) 92%, transparent);
   background: transparent;
   border: none;
