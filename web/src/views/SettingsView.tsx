@@ -81,40 +81,34 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
 
   return (
     <>
-      <div className="page-title">
-        <h1 className="page-title__text font-bold text-on-background tracking-wide">
-          <SignatureText text={t('screenSettings')} />
-        </h1>
-        <p className="text-sm text-on-surface-variant mt-1">
-          {t('settingsVersionSubtitle', { version: packageJson.version })}
-        </p>
-      </div>
+      <div className="settings-page">
+        <header className="settings-page__header">
+          <h1 className="settings-page__title">
+            <SignatureText text={t('screenSettings')} />
+          </h1>
+          <p className="settings-page__version">
+            {t('settingsVersionSubtitle', { version: packageJson.version })}
+          </p>
+        </header>
 
-      <div className="settings-layout">
-        {/* Full-width account card */}
         {user ? (
-          <div className="settings-account-card">
-            <div className="account-profile-card card card--elevated">
-              <div className="flex items-center gap-5 p-5">
-                <div className="account-profile-card__avatar" aria-hidden>{initial}</div>
-                <div className="min-w-0">
-                  <div className="font-semibold text-lg truncate">{displayName}</div>
-                  {user.email ? <div className="text-sm text-on-surface-variant truncate">{user.email}</div> : null}
-                  <div className="mt-1 text-xs font-bold text-income tracking-wide uppercase">{t('settingsAccountSyncEnabled')}</div>
-                </div>
-                <button
-                  type="button"
-                  className="settings-signout-btn"
-                  onClick={() => setShowSignOutConfirm(true)}
-                >
-                  {t('settingsSignOut')}
-                </button>
-              </div>
+          <section className="settings-account card card--elevated" aria-label={t('settingsCloudAccount')}>
+            <div className="settings-account__avatar" aria-hidden>{initial}</div>
+            <div className="settings-account__meta">
+              <div className="settings-account__name">{displayName}</div>
+              {user.email ? <div className="settings-account__email">{user.email}</div> : null}
+              <div className="settings-account__badge">{t('settingsAccountSyncEnabled')}</div>
             </div>
-          </div>
+            <button
+              type="button"
+              className="settings-signout-btn"
+              onClick={() => setShowSignOutConfirm(true)}
+            >
+              {t('settingsSignOut')}
+            </button>
+          </section>
         ) : null}
 
-        {/* 2-column settings grid */}
         <div className="settings-grid">
           <Section title={t('settingsAppearance')}>
             <SettingsRow icon={IconMoon} iconTint="accent" title={t('settingsTheme')} subtitle={t(THEME_OPTIONS.find((opt) => opt.key === themeMode)?.labelKey ?? 'themeSystem')} onClick={() => setShowTheme(true)} />
@@ -124,7 +118,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
 
           <Section title={t('settingsBudget')}>
             {editBudget ? (
-              <div className="flex flex-col gap-3 p-4">
+              <div className="settings-budget-edit">
                 <input
                   ref={budgetInputRef}
                   className="field__input"
@@ -144,7 +138,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
                   }}
                   autoFocus
                 />
-                <div className="flex gap-3">
+                <div className="settings-budget-edit__actions">
                   <button type="button" className="btn btn-primary flex-1 px-4 py-2.5 rounded-xl font-bold" onClick={() => {
                     const n = Number.parseFloat(budgetInput.replace(',', '.'));
                     setMonthlyBudget(Number.isFinite(n) && n > 0 ? n : null);
@@ -257,7 +251,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="settings-section">
-      <div className="section-title">{title}</div>
+      <h2 className="settings-section__title">{title}</h2>
       <div className="settings-group">{children}</div>
     </section>
   );
