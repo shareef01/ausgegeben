@@ -1541,6 +1541,16 @@
   filter: none;
 }
 
+.btn-destructive {
+  background: var(--color-expense);
+  color: #ffffff;
+  border-radius: 12px;
+}
+
+.btn-destructive:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
 .btn-secondary {
   background: var(--color-surface);
   color: var(--color-on-surface-variant);

@@ -46,7 +46,7 @@ export function AuthView() {
         </div>
 
         {!firebaseReady ? (
-          <div className="auth-page__alert">{t('authFirebaseNotConfigured')}</div>
+          <div className="auth-page__alert" role="alert">{t('authFirebaseNotConfigured')}</div>
         ) : null}
 
         <div className="segmented auth-page__tabs" role="tablist">
@@ -83,9 +83,9 @@ export function AuthView() {
             />
           </div>
 
-          {error ? <p className="auth-page__error">{error}</p> : null}
-          {info ? <p className="auth-page__info">{info}</p> : null}
-          {syncing ? <p className="auth-page__sync">{t('syncInProgress')}</p> : null}
+          {error ? <p className="auth-page__error" role="alert">{error}</p> : null}
+          {info ? <p className="auth-page__info" role="status" aria-live="polite">{info}</p> : null}
+          {syncing ? <p className="auth-page__sync" role="status" aria-live="polite">{t('syncInProgress')}</p> : null}
 
           <button
             type="submit"
