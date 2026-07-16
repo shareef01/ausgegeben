@@ -26,10 +26,10 @@ export function OnboardingView({ onComplete }: OnboardingViewProps) {
       <div className="auth-page__card onboarding-card monolith-container py-12">
         <div className="onboarding-card__hero mb-10">
           <AppBrandIcon size={72} className="onboarding-card__app-icon mb-6" />
-          <h1 className="text-2xl font-extrabold tracking-tight text-zinc-100 mb-1">
+          <h1 className="text-2xl font-extrabold tracking-tight text-on-background mb-1">
             {t('appName').toLowerCase()}
           </h1>
-          <p className="text-sm font-medium text-zinc-500">{t('authTagline')}</p>
+          <p className="text-sm font-medium text-on-surface-variant">{t('authTagline')}</p>
         </div>
 
         <div className="onboarding-slide">
@@ -55,7 +55,7 @@ export function OnboardingView({ onComplete }: OnboardingViewProps) {
 
         <div className="onboarding-actions">
           {step > 0 ? (
-            <button type="button" className="px-6 py-3 rounded-xl bg-[#121214] border border-white/10 text-zinc-400 hover:text-white hover:border-white/20 font-semibold text-sm transition-all duration-200" onClick={() => setStep((s) => s - 1)}>
+            <button type="button" className="btn btn-secondary px-6 py-3 font-semibold text-sm" onClick={() => setStep((s) => s - 1)}>
               {t('actionBack')}
             </button>
           ) : (
@@ -63,8 +63,7 @@ export function OnboardingView({ onComplete }: OnboardingViewProps) {
           )}
           <button
             type="button"
-            className="px-8 py-3 rounded-xl bg-income font-bold text-sm hover:brightness-110 active:scale-[0.98] transition-all duration-150"
-            style={{ color: 'var(--color-on-income)' }}
+            className="btn btn-primary px-8 py-3 font-bold text-sm active:scale-[0.98] transition-all duration-150"
             onClick={() => (isLast ? onComplete() : setStep((s) => s + 1))}
           >
             {isLast ? t('onboardingGetStarted') : t('onboardingNext')}

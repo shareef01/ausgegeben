@@ -93,13 +93,13 @@ export function AddTransactionView({ expenseId, onClose, onSaved, onManageCatego
             </div>
 
             <div className="flex flex-col gap-2">
-              <label htmlFor="txn-amount" className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">{t('addAmountLabel')}</label>
+              <label htmlFor="txn-amount" className="field__label">{t('addAmountLabel')}</label>
               <div className="relative">
-                <span className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl font-bold text-zinc-600" aria-hidden>{currencySymbol(currency)}</span>
+                <span className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl font-bold text-on-surface-variant" aria-hidden>{currencySymbol(currency)}</span>
                 <input
                   id="txn-amount"
                   ref={amountInputRef}
-                  className="w-full pl-14 pr-6 py-5 bg-surface border border-white/10 rounded-2xl text-3xl font-black tabular-nums focus:outline-none focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] outline-none transition-all"
+                  className="field__input w-full pl-14 pr-6 py-5 rounded-2xl text-3xl font-black tabular-nums"
                   placeholder={zeroPlaceholder(currency)}
                   inputMode="decimal"
                   value={vm.form.amountInput}
@@ -109,11 +109,11 @@ export function AddTransactionView({ expenseId, onClose, onSaved, onManageCatego
             </div>
 
             <div className="flex flex-col gap-2">
-              <label htmlFor="txn-date" className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">{t('dateLabel')}</label>
+              <label htmlFor="txn-date" className="field__label">{t('dateLabel')}</label>
               <input
                 id="txn-date"
                 type="date"
-                className="w-full px-4 py-3 bg-surface border border-white/10 rounded-xl text-sm font-semibold text-on-background focus:outline-none focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] transition-all"
+                className="field__input"
                 value={toDateInputValue(vm.form.dateMillis)}
                 onChange={(e) => {
                   if (!e.target.value) return;
@@ -123,10 +123,10 @@ export function AddTransactionView({ expenseId, onClose, onSaved, onManageCatego
             </div>
 
             <div className="flex flex-col gap-4">
-              <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1" id="txn-category-label">{t('addCategoryLabel')}</div>
+              <div className="field__label mb-1" id="txn-category-label">{t('addCategoryLabel')}</div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5" role="group" aria-labelledby="txn-category-label">
                 {vm.categories.length === 0 ? (
-                  <div className="col-span-full categories-empty py-10 border border-dashed border-white/5 rounded-2xl bg-[#0C0C0E]/30">
+                  <div className="col-span-full categories-empty py-10 border border-dashed border-white/5 rounded-2xl bg-background/30">
                     <p className="categories-empty__text text-center mb-4">{t('categoriesEmptyHint')}</p>
                     {onManageCategories ? (
                       <button type="button" className="btn btn-primary" onClick={onManageCategories}>
@@ -139,11 +139,11 @@ export function AddTransactionView({ expenseId, onClose, onSaved, onManageCatego
                     <button
                       key={cat.id}
                       type="button"
-                      className={`flex items-center gap-3 p-3.5 rounded-xl border transition-all duration-200 active:scale-95 ${vm.form.categoryId === cat.id ? 'border-[#10B981] bg-[#10B981]/10 shadow-[0_0_20px_rgba(16,185,129,0.08)]' : 'border-white/5 bg-[#121214]/60 hover:bg-on-surface/5 hover:border-white/10'}`}
+                      className={`flex items-center gap-3 p-3.5 rounded-xl border transition-all duration-200 active:scale-95 ${vm.form.categoryId === cat.id ? 'border-income bg-income/10' : 'border-white/5 bg-surface/60 hover:bg-on-surface/5 hover:border-white/10'}`}
                       onClick={() => vm.setForm((f) => ({ ...f, categoryId: cat.id! }))}
                       aria-pressed={vm.form.categoryId === cat.id}
                     >
-                      <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#0C0C0E] shrink-0" style={{ color: colorIntToHex(cat.colorInt) }}>
+                      <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-background shrink-0" style={{ color: colorIntToHex(cat.colorInt) }}>
                         <CategoryLucideIcon iconName={cat.iconName} size={20} />
                       </div>
                       <span className="text-sm font-bold truncate text-left">{cat.name}</span>
@@ -154,10 +154,10 @@ export function AddTransactionView({ expenseId, onClose, onSaved, onManageCatego
             </div>
 
             <div className="flex flex-col gap-2">
-              <label htmlFor="txn-note" className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">{t('noteLabel')}</label>
+              <label htmlFor="txn-note" className="field__label">{t('noteLabel')}</label>
               <input
                 id="txn-note"
-                className="w-full px-4 py-3 bg-surface border border-white/10 rounded-xl text-sm font-semibold text-on-background placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] transition-all"
+                className="field__input"
                 placeholder="..."
                 value={vm.form.note}
                 onChange={(e) => vm.setForm((f) => ({ ...f, note: e.target.value }))}
@@ -165,10 +165,10 @@ export function AddTransactionView({ expenseId, onClose, onSaved, onManageCatego
             </div>
 
             <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-4 p-4 rounded-2xl bg-[#0C0C0E]/40 border border-white/5 backdrop-blur-md hover:border-white/10 transition-colors">
+              <div className="flex items-center gap-4 p-4 rounded-2xl bg-background/40 border border-white/5 backdrop-blur-md hover:border-white/10 transition-colors">
                 <button
                   type="button"
-                  className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 active:scale-90 ${vm.form.receiptImagePath ? 'bg-[#10B981] text-[#0C0C0E] shadow-lg shadow-[#10B981]/20' : 'bg-surface border border-white/10 text-zinc-400 hover:border-white/20 hover:text-white'}`}
+                  className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 active:scale-90 ${vm.form.receiptImagePath ? 'bg-income text-on-income shadow-lg' : 'bg-surface border border-white/10 text-on-surface-variant hover:border-white/20 hover:text-white'}`}
                   onClick={() => fileInputRef.current?.click()}
                   aria-label={t('addScanReceipt')}
                 >
@@ -176,7 +176,7 @@ export function AddTransactionView({ expenseId, onClose, onSaved, onManageCatego
                 </button>
                 <div className="flex-1 min-w-0" onClick={() => fileInputRef.current?.click()} role="presentation">
                   <div className="text-sm font-bold truncate leading-tight">{vm.form.receiptImagePath ? t('receiptAttached') : t('addScanReceipt')}</div>
-                  <div className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mt-0.5">{t('tapToChange')}</div>
+                  <div className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mt-0.5">{t('tapToChange')}</div>
                 </div>
                 {vm.form.receiptImagePath && (
                   <div className="flex items-center gap-2">
@@ -204,7 +204,11 @@ export function AddTransactionView({ expenseId, onClose, onSaved, onManageCatego
           >
             {vm.saving ? (
                <div className="flex items-center justify-center gap-3">
-                  <div className="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+                  <div
+                    className="w-5 h-5 rounded-full animate-spin"
+                    style={{ border: '2px solid color-mix(in srgb, currentColor 25%, transparent)', borderTopColor: 'currentColor' }}
+                    aria-hidden
+                  />
                   <span>{t('actionSaving')}</span>
                </div>
             ) : t('actionSave').toLowerCase()}

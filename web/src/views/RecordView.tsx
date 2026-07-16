@@ -200,7 +200,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
               {grouped.map(({ label, items, dayIncome, dayExpense }) => (
                 <section key={label} className="transaction-list-bare__section">
                   <div className="txn-day-header">
-                    <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-zinc-500">{label}</span>
+                    <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-on-surface-variant">{label}</span>
                     {(dayIncome > 0 || dayExpense > 0) ? (
                       <span className="txn-day-header__totals" aria-label={`${t('filterIncome')} ${formatAmount(dayIncome, currency)}, ${t('filterExpense')} ${formatAmount(dayExpense, currency)}`}>
                         {dayIncome > 0 ? (
@@ -279,7 +279,7 @@ const TransactionRow = memo(({ expense, category, currency, onReceiptClick }: {
     <div className="transaction-row flex items-center gap-3 w-full min-w-0 py-4">
       <div className="transaction-row__icon relative flex items-center justify-center w-10 h-10 shrink-0 rounded-full bg-white/5">
         {category ? (
-          <CategoryLucideIcon iconName={category.iconName} className="w-5 h-5 text-zinc-300" aria-hidden />
+          <CategoryLucideIcon iconName={category.iconName} className="w-5 h-5 text-on-surface-variant" aria-hidden />
         ) : (
           <span className="w-5 h-5 rounded-full" style={{ background: 'color-mix(in srgb, var(--color-on-surface) 20%, transparent)' }} aria-hidden />
         )}

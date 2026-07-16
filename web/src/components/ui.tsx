@@ -50,7 +50,7 @@ export function LoadingListSkeleton({ rows = 5 }: { rows?: number }) {
   const { t } = useTranslation();
   return (
     <div
-      className="skeleton-list flex flex-col gap-0 rounded-2xl overflow-hidden border border-white/[0.03] bg-[#121214]/50 backdrop-blur-sm"
+      className="skeleton-list flex flex-col gap-0 rounded-2xl overflow-hidden border border-white/[0.03] bg-surface/50 backdrop-blur-sm"
       role="status"
       aria-busy="true"
       aria-live="polite"
