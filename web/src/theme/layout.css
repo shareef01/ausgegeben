@@ -606,17 +606,27 @@ html {
 
 /* ── Page title ── */
 .page-title {
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
 .page-title__text {
   margin: 0;
   padding: 0;
-  font-size: 1.625rem;
-  font-weight: 700;
-  line-height: 1.15;
-  letter-spacing: -0.02em;
+  width: fit-content;
+  max-width: 100%;
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.035em;
   text-transform: lowercase;
+  color: var(--color-on-background);
+}
+
+.page-title__text .signature-text {
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
 }
 
 @media (min-width: 640px) {
@@ -626,14 +636,14 @@ html {
 }
 
 @media (min-width: 768px) {
-  .page-title { margin-bottom: 28px; }
+  .page-title { margin-bottom: 24px; }
   .page-title__text {
     font-size: 2.25rem;
   }
 }
 
 @media (min-width: 1024px) {
-  .page-title { margin-bottom: 32px; }
+  .page-title { margin-bottom: 28px; }
   .page-title__text {
     font-size: 2.5rem;
   }

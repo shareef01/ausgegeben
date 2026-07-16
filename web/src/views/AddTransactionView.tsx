@@ -90,7 +90,7 @@ export function AddTransactionView({
           tabIndex={-1}
         >
           <div className="flex items-center justify-between">
-            <h2 id="add-txn-title" className="text-2xl font-black tracking-tight">
+            <h2 id="add-txn-title" className="modal-title text-2xl font-extrabold tracking-tight">
               <SignatureText text={vm.isEditing ? t('editTransaction') : t('addTransaction')} />
             </h2>
             <button type="button" className="icon-btn" onClick={onClose} aria-label={t('actionClose')}>
