@@ -1907,7 +1907,8 @@
 }
 
 .verify-banner__btn {
-  padding: 8px 12px;
+  min-height: 44px;
+  padding: 10px 14px;
   border-radius: 10px;
   font-size: 0.75rem;
   font-weight: 700;
@@ -1928,7 +1929,8 @@
 
 .verify-banner__dismiss {
   margin-left: auto;
-  padding: 8px 10px;
+  min-height: 44px;
+  padding: 10px 14px;
   border-radius: 10px;
   font-size: 0.75rem;
   font-weight: 600;
@@ -2266,7 +2268,8 @@
 
 .settings-signout-btn {
   margin-left: auto;
-  padding: 10px 16px;
+  min-height: 44px;
+  padding: 10px 18px;
   border-radius: 9999px;
   border: 1px solid var(--color-outline);
   background: transparent;
