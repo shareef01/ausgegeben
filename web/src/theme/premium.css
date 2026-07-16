@@ -16,7 +16,7 @@
   display: inline-flex !important;
   flex-direction: row !important;
   align-items: center !important;
-  gap: 14px !important;
+  gap: 12px !important;
   white-space: nowrap !important;
   flex-shrink: 0 !important;
   background: transparent !important;
@@ -37,10 +37,66 @@
 }
 
 .app-header__wordmark {
-  display: block !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
   flex-shrink: 0 !important;
   color: var(--color-on-background);
-  overflow: visible;
+  /* Nudge up slightly — SVG mark has visual mass above geometric center */
+  transform: translateY(-0.5px);
+}
+
+.app-brand-wordmark {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  line-height: 1;
+}
+
+.app-brand-wordmark__name {
+  display: block;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-family);
+  font-size: 1.3125rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--color-on-background);
+  font-feature-settings: 'kern' 1, 'liga' 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-brand-wordmark__rule {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 3px;
+  margin-left: 1px;
+}
+
+.app-brand-wordmark__rule-bar {
+  display: block;
+  width: 2.05em;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-income) 75%, white) 0%,
+    var(--color-income) 55%,
+    var(--color-income-light, var(--color-income)) 100%
+  );
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-income) 35%, transparent);
+}
+
+.app-brand-wordmark__rule-fade {
+  display: block;
+  width: 0.85em;
+  height: 2.5px;
+  border-radius: 999px;
+  background: var(--color-income);
+  opacity: 0.35;
 }
 
 .app-header__logo-mark {
