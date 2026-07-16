@@ -20,8 +20,8 @@ export function AppBrandIcon({ size = 64, className = '' }: AppBrandIconProps) {
     >
       <defs>
         <linearGradient id={`logo-${id}`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#10B981" />
-          <stop offset="100%" stopColor="#059669" />
+          <stop offset="0%" stopColor="var(--color-income)" />
+          <stop offset="100%" stopColor="var(--color-income-light, var(--color-income))" />
         </linearGradient>
       </defs>
       <rect width="100" height="100" rx="20" fill="color-mix(in srgb, var(--color-accent) 10%, transparent)" stroke="var(--color-accent)" strokeOpacity="0.15" strokeWidth="1.5" />
