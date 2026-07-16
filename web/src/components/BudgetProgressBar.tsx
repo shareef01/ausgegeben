@@ -20,7 +20,7 @@ export function BudgetProgressBar({ spent, budget, currency }: BudgetProgressBar
   return (
     <div className="budget-bar px-1">
       <div className="budget-bar__labels flex justify-between items-end mb-3">
-        <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">{t('budgetMonthlyLabel')}</span>
+        <span className="field__label">{t('budgetMonthlyLabel')}</span>
         <span className="text-xs font-bold tabular-nums" style={{ color: overBudget ? 'var(--color-expense)' : 'var(--color-on-surface-variant)' }}>
           {formatAmount(spent, currency)} <span className="opacity-40 font-medium">/ {formatAmount(budget, currency)}</span>
         </span>
