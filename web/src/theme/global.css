@@ -225,7 +225,7 @@ input[type='number'] {
   flex: 1 1 0;
   min-width: 76px;
   min-height: 52px;
-  padding: 7px 10px 8px;
+  padding: 7px 10px 11px;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
@@ -302,13 +302,13 @@ input[type='number'] {
   content: '';
   position: absolute;
   left: 50%;
-  bottom: 5px;
-  width: 14px;
+  bottom: 4px;
+  width: 12px;
   height: 2px;
   border-radius: 999px;
   background: var(--color-income);
   transform: translateX(-50%);
-  opacity: 0.9;
+  opacity: 0.95;
 }
 
 .bottom-bar {
