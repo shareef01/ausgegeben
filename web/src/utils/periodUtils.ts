@@ -26,7 +26,11 @@ export function thisMonthRange(now = Date.now()): [number, number] {
   return monthRange(d.getFullYear(), d.getMonth());
 }
 
-export function analyticsPeriodOptions(monthsBack = 14, now = Date.now()): AnalyticsPeriodOption[] {
+export function analyticsPeriodOptions(
+  monthsBack = 14,
+  now = Date.now(),
+  locale?: Locale,
+): AnalyticsPeriodOption[] {
   const cal = new Date(now);
   cal.setDate(1);
   cal.setHours(0, 0, 0, 0);
@@ -39,7 +43,7 @@ export function analyticsPeriodOptions(monthsBack = 14, now = Date.now()): Analy
     const month = cal.getMonth();
     const range = monthRange(year, month);
     options.push({
-      label: monthTitle(range[0]),
+      label: monthTitle(range[0], locale),
       storageKey: monthStorageKey(year, month),
       rangeMillis: range,
     });
