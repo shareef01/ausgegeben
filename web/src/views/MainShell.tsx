@@ -155,7 +155,7 @@ export function MainShell() {
       {/* Bottom nav — premium floating pill + elevated add button */}
       <div className="fixed bottom-[calc(1.5rem+var(--safe-bottom))] left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 md:hidden">
         <nav
-          className="bottom-nav-pill flex items-center gap-0.5 rounded-full pl-2 pr-1 py-1.5"
+          className="bottom-nav-pill flex items-center gap-0.5 rounded-full p-1"
           aria-label={t('appName')}
         >
           {navItems.map(({ id, label, Icon }) => {
@@ -167,21 +167,17 @@ export function MainShell() {
                 onClick={() => selectTab(id)}
                 aria-current={active ? 'page' : undefined}
                 aria-label={label}
-                className={`bottom-nav-pill__item relative w-11 h-11 flex items-center justify-center rounded-full transition-all duration-200 ${
-                  active ? 'bottom-nav-pill__item--active' : ''
-                }`}
+                className={`bottom-nav-pill__item${active ? ' bottom-nav-pill__item--active' : ''}`}
               >
                 <Icon width={20} height={20} strokeWidth={active ? 2.25 : 1.75} aria-hidden />
-                {active && (
-                  <span className="bottom-nav-pill__dot absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full" aria-hidden />
-                )}
+                <span className="bottom-nav-pill__label">{label}</span>
               </button>
             );
           })}
         </nav>
         <button
           type="button"
-          className="fab-add flex items-center justify-center w-11 h-11 rounded-full transition-all duration-200 active:scale-90 hover:brightness-110 hover:-translate-y-0.5"
+          className="fab-add flex items-center justify-center w-12 h-12 rounded-full transition-all duration-200 active:scale-90 hover:brightness-110 hover:-translate-y-0.5"
           aria-label={t('navAdd')}
           onClick={() => setOverlay({ type: 'add' })}
         >
