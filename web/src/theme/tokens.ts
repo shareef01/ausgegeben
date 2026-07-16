@@ -1,4 +1,4 @@
-/** Design tokens mirrored from Android DesignTokens.kt + Color.kt */
+/** Design tokens mirrored from Android Color.kt + ThemePalettes.kt + AppTheme.kt */
 
 export const spacing = {
   xxs: 4,
@@ -19,6 +19,14 @@ export const radius = {
   pill: 999,
 } as const;
 
+/** Shared semantic finance colors (Android AppColors / light overrides) */
+const INCOME_DARK = '#10B981';
+const INCOME_LIGHT = '#157A3A';
+const EXPENSE = '#FB7185';
+const TRANSFER_DARK = '#94A3B8';
+const TRANSFER_LIGHT = '#52525B';
+const FOCUS_DARK = '#3B82F6';
+
 export interface ThemePalette {
   primary: string;
   onPrimary: string;
@@ -38,59 +46,169 @@ export interface ThemePalette {
   isDark: boolean;
 }
 
-const baseDark = (overrides: Partial<ThemePalette> = {}): ThemePalette => ({
-  primary: '#FAFAFA',
-  onPrimary: '#000000',
-  background: '#000000',
-  onBackground: '#FAFAFA',
-  surface: '#121214', // Flagship Graphite
-  onSurface: '#F4F4F5',
-  surfaceVariant: '#18181B',
-  // ~7:1 on black — secondary labels stay WCAG AA
-  onSurfaceVariant: '#A1A1AA',
-  outline: 'rgba(255, 255, 255, 0.12)',
-  error: '#FB7185', // Flagship Coral
-  income: '#34D399', // brighter for dark surfaces
-  incomeLight: '#10B981',
-  expense: '#FB7185',
-  transfer: '#A1A1AA',
-  focusRing: '#34D399',
-  isDark: true,
-  ...overrides,
-});
+function channelLin(c: number): number {
+  const s = c / 255;
+  return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+}
 
-const baseLight = (overrides: Partial<ThemePalette> = {}): ThemePalette => ({
-  primary: '#09090B',
-  onPrimary: '#FFFFFF',
-  background: '#FFFFFF',
-  onBackground: '#09090B',
-  surface: '#FFFFFF',
-  onSurface: '#09090B',
-  surfaceVariant: '#F4F4F5',
-  // ~7:1 on white
-  onSurfaceVariant: '#52525B',
-  outline: '#D4D4D8',
-  // Darker semantic colors so amounts/labels pass AA on white (~4.7:1+)
-  error: '#E11D48',
-  income: '#047857',
-  incomeLight: '#059669',
-  expense: '#E11D48',
-  transfer: '#3F3F46',
-  focusRing: '#059669',
-  isDark: false,
-  ...overrides,
-});
+/** Relative luminance 0–1 for #RRGGBB */
+export function relativeLuminance(hex: string): number {
+  const h = hex.replace('#', '');
+  if (h.length !== 6) return 0;
+  const r = channelLin(parseInt(h.slice(0, 2), 16));
+  const g = channelLin(parseInt(h.slice(2, 4), 16));
+  const b = channelLin(parseInt(h.slice(4, 6), 16));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
 
+/** Matches Android contrastColorOn — text on filled chips/buttons */
+export function contrastOn(fill: string): string {
+  return relativeLuminance(fill) > 0.55 ? '#09090B' : '#FFFFFF';
+}
+
+/**
+ * Matches Android financeIncomeColor():
+ * light → IncomeGreenLight; dark + near-white primary → IncomeGreen; else primary.
+ */
+function resolveIncome(isDark: boolean, primary: string): string {
+  if (!isDark) return INCOME_LIGHT;
+  return relativeLuminance(primary) > 0.82 ? INCOME_DARK : primary;
+}
+
+const baseDark = (overrides: Partial<ThemePalette> = {}): ThemePalette => {
+  const primary = overrides.primary ?? '#FFFFFF';
+  const merged: ThemePalette = {
+    primary,
+    onPrimary: '#000000',
+    background: '#000000',
+    onBackground: '#FFFFFF',
+    surface: '#09090B',
+    onSurface: '#FFFFFF',
+    surfaceVariant: '#121214',
+    onSurfaceVariant: '#A1A1AA',
+    outline: '#27272A',
+    error: EXPENSE,
+    income: INCOME_DARK,
+    incomeLight: INCOME_DARK,
+    expense: EXPENSE,
+    transfer: TRANSFER_DARK,
+    focusRing: FOCUS_DARK,
+    isDark: true,
+    ...overrides,
+  };
+  // Re-derive finance income after primary is known (Android AppTheme)
+  merged.income = resolveIncome(true, merged.primary);
+  merged.incomeLight = INCOME_DARK;
+  if (!overrides.expense) merged.expense = merged.error;
+  if (!overrides.transfer) merged.transfer = TRANSFER_DARK;
+  if (!overrides.focusRing) merged.focusRing = FOCUS_DARK;
+  return merged;
+};
+
+const baseLight = (overrides: Partial<ThemePalette> = {}): ThemePalette => {
+  const merged: ThemePalette = {
+    primary: '#09090B',
+    onPrimary: '#FFFFFF',
+    background: '#FFFFFF',
+    onBackground: '#09090B',
+    surface: '#FFFFFF',
+    onSurface: '#09090B',
+    surfaceVariant: '#F8F8FA',
+    onSurfaceVariant: '#52525B',
+    outline: '#E4E4E7',
+    error: EXPENSE,
+    income: INCOME_LIGHT,
+    incomeLight: INCOME_LIGHT,
+    expense: EXPENSE,
+    transfer: TRANSFER_LIGHT,
+    focusRing: '#09090B',
+    isDark: false,
+    ...overrides,
+  };
+  merged.income = resolveIncome(false, merged.primary);
+  merged.incomeLight = INCOME_LIGHT;
+  if (!overrides.expense) merged.expense = merged.error;
+  if (!overrides.transfer) merged.transfer = TRANSFER_LIGHT;
+  if (!overrides.focusRing) merged.focusRing = merged.primary;
+  return merged;
+};
+
+/** Exact mirrors of Android ThemePalettes.kt */
 export const themePalettes: Record<string, ThemePalette> = {
-  dark: baseDark(),
+  dark: baseDark({ primary: '#FFFFFF' }),
   light: baseLight(),
-  amoled: baseDark({ primary: '#FFFFFF', background: '#000000', surface: '#050505', surfaceVariant: '#0A0A0A', onSurfaceVariant: '#A1A1AA' }),
-  midnight: baseDark({ primary: '#8AB4FF', background: '#070B1A', surface: '#0D1326', surfaceVariant: '#17203A', onSurfaceVariant: '#B4BFD9', error: '#FF8A9A', income: '#6EE7B7', focusRing: '#8AB4FF' }),
-  ocean: baseDark({ primary: '#56D6C9', background: '#061412', surface: '#0B1F1D', surfaceVariant: '#12332F', onSurfaceVariant: '#A8D0CA', error: '#FF8F80', income: '#5EEAD4', focusRing: '#56D6C9' }),
-  forest: baseDark({ primary: '#4ADE80', background: '#040F0A', surface: '#0B2416', surfaceVariant: '#11321F', onSurfaceVariant: '#9AB8A4', error: '#F97373', income: '#4ADE80', focusRing: '#4ADE80' }),
-  sunset: baseDark({ primary: '#FF9F6E', background: '#190B10', surface: '#271119', surfaceVariant: '#3B1A23', onSurfaceVariant: '#E8C0B8', error: '#FF6B6B', income: '#6EE7B7', focusRing: '#FF9F6E' }),
-  lavender: baseLight({ primary: '#6D28D9', background: '#FCFAFF', surface: '#FFFFFF', surfaceVariant: '#F3EEFF', onSurfaceVariant: '#4C4460', error: '#BE123C', income: '#047857', expense: '#BE123C', focusRing: '#7C3AED' }),
-  soft_light: baseLight({ primary: '#6B4F38', background: '#FAF7F2', surface: '#FFFCF7', surfaceVariant: '#F0E8DC', onSurfaceVariant: '#5C4F42', error: '#C2410C', income: '#3F6B4A', expense: '#C2410C', focusRing: '#7C5E44' }),
+  amoled: baseDark({
+    primary: '#FFFFFF',
+    background: '#000000',
+    surface: '#050505',
+    surfaceVariant: '#101010',
+    onSurfaceVariant: '#9A9A9A',
+    outline: '#242424',
+  }),
+  midnight: baseDark({
+    primary: '#8AB4FF',
+    onPrimary: '#000000',
+    background: '#070B1A',
+    surface: '#0D1326',
+    surfaceVariant: '#17203A',
+    onSurfaceVariant: '#AAB4CF',
+    outline: '#2B3657',
+    error: '#FF8A9A',
+  }),
+  ocean: baseDark({
+    primary: '#56D6C9',
+    onPrimary: '#000000',
+    background: '#061412',
+    surface: '#0B1F1D',
+    surfaceVariant: '#12332F',
+    onSurfaceVariant: '#A0C7C1',
+    outline: '#24504B',
+    error: '#FF8F80',
+  }),
+  forest: baseDark({
+    primary: '#22C55E',
+    onPrimary: '#000000',
+    background: '#040F0A',
+    surface: '#0B2416',
+    surfaceVariant: '#11321F',
+    onSurfaceVariant: '#9ABFA4',
+    outline: '#1A4D2E',
+    error: '#F97373',
+  }),
+  sunset: baseDark({
+    primary: '#FF9F6E',
+    onPrimary: '#000000',
+    background: '#190B10',
+    surface: '#271119',
+    surfaceVariant: '#3B1A23',
+    onSurfaceVariant: '#E6B2A8',
+    outline: '#6D3440',
+    error: '#FF6B6B',
+  }),
+  lavender: baseLight({
+    primary: '#7C3AED',
+    onPrimary: '#FFFFFF',
+    background: '#FCFAFF',
+    onBackground: '#1E1B2E',
+    surface: '#FFFFFF',
+    onSurface: '#1E1B2E',
+    surfaceVariant: '#F3EEFF',
+    onSurfaceVariant: '#574F68',
+    outline: '#E2D8F4',
+    error: '#E11D48',
+  }),
+  soft_light: baseLight({
+    primary: '#7C5E44',
+    onPrimary: '#FFFFFF',
+    background: '#FAF7F2',
+    onBackground: '#1D1A17',
+    surface: '#FFFCF7',
+    onSurface: '#1D1A17',
+    surfaceVariant: '#F0E8DC',
+    onSurfaceVariant: '#5C4F42',
+    outline: '#E0D5C8',
+    error: '#C2410C',
+  }),
 };
 
 export function resolveTheme(mode: string, systemDark: boolean): ThemePalette {
@@ -98,8 +216,9 @@ export function resolveTheme(mode: string, systemDark: boolean): ThemePalette {
   return themePalettes[mode] ?? themePalettes.dark;
 }
 
+/** Theme chrome accent = Material primary (Android) */
 export function brandAccent(palette: ThemePalette): string {
-  return palette.income;
+  return palette.primary;
 }
 
 export function financeIncome(palette: ThemePalette): string {
@@ -108,6 +227,11 @@ export function financeIncome(palette: ThemePalette): string {
 
 export function applyTheme(palette: ThemePalette): void {
   const root = document.documentElement;
+  const accent = brandAccent(palette);
+  const onIncome = contrastOn(palette.income);
+  const onTransfer = contrastOn(palette.transfer);
+  const onAccent = contrastOn(accent);
+
   root.style.setProperty('--color-primary', palette.primary);
   root.style.setProperty('--color-on-primary', palette.onPrimary);
   root.style.setProperty('--color-background', palette.background);
@@ -119,33 +243,34 @@ export function applyTheme(palette: ThemePalette): void {
   root.style.setProperty('--color-outline', palette.outline);
   root.style.setProperty('--color-error', palette.error);
   root.style.setProperty('--color-income', palette.income);
+  root.style.setProperty('--color-income-light', palette.incomeLight);
   root.style.setProperty('--color-expense', palette.expense);
   root.style.setProperty('--color-transfer', palette.transfer);
-  root.style.setProperty('--color-accent', palette.income);
+  root.style.setProperty('--color-accent', accent);
+  root.style.setProperty('--color-on-accent', onAccent);
   root.style.setProperty('--color-focus', palette.focusRing);
 
-  root.style.setProperty('--glass-bg', palette.isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.03)');
-  root.style.setProperty('--glass-border', palette.isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(0, 0, 0, 0.08)');
-  root.style.setProperty('--glass-bg-elevated', palette.isDark ? 'rgba(18, 18, 20, 0.94)' : 'rgba(255, 255, 255, 0.96)');
-  root.style.setProperty('--surface-border', palette.isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)');
-  root.style.setProperty('--hairline-border', palette.isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(0, 0, 0, 0.09)');
-  root.style.setProperty('--hairline-divider', palette.isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.08)');
+  root.style.setProperty('--glass-bg', palette.isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)');
+  root.style.setProperty('--glass-border', palette.isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.08)');
+  root.style.setProperty('--glass-bg-elevated', palette.isDark ? 'rgba(9, 9, 11, 0.94)' : 'rgba(255, 255, 255, 0.96)');
+  root.style.setProperty('--surface-border', palette.isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.08)');
+  root.style.setProperty('--hairline-border', palette.isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.09)');
+  root.style.setProperty('--hairline-divider', palette.isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.07)');
 
   root.style.setProperty('--color-label-muted', palette.onSurfaceVariant);
   root.style.setProperty('--color-placeholder', palette.onSurfaceVariant);
   root.style.setProperty('--color-balance-positive', palette.income);
   root.style.setProperty('--color-balance-negative', palette.expense);
   root.style.setProperty('--color-stat-value', palette.onBackground);
-  // Text on income fills (FAB, primary buttons, active pills)
-  root.style.setProperty('--color-on-income', palette.isDark ? '#052E1C' : '#FFFFFF');
-  root.style.setProperty('--color-on-transfer', palette.isDark ? '#09090B' : '#FFFFFF');
+  root.style.setProperty('--color-on-income', onIncome);
+  root.style.setProperty('--color-on-transfer', onTransfer);
 
   root.style.setProperty('--gradient-income', `linear-gradient(180deg, color-mix(in srgb, ${palette.income} 40%, white) 0%, ${palette.income} 100%)`);
   root.style.setProperty('--gradient-expense', `linear-gradient(180deg, color-mix(in srgb, ${palette.expense} 40%, white) 0%, ${palette.expense} 100%)`);
   root.style.setProperty('--hero-balance-gradient', `linear-gradient(180deg, ${palette.onBackground} 0%, color-mix(in srgb, ${palette.onBackground} 78%, ${palette.onSurfaceVariant}) 100%)`);
   root.style.setProperty('--hero-balance-glow', `color-mix(in srgb, ${palette.onBackground} 12%, transparent)`);
 
-  root.style.setProperty('--shadow-accent-glow', `0 12px 40px color-mix(in srgb, ${palette.income} 28%, transparent)`);
+  root.style.setProperty('--shadow-accent-glow', `0 12px 40px color-mix(in srgb, ${accent} 28%, transparent)`);
   root.style.setProperty('--shadow-elevated', palette.isDark
     ? '0 10px 40px rgba(0, 0, 0, 0.45)'
     : '0 8px 28px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04)');
