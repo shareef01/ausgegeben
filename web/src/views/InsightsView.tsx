@@ -88,20 +88,21 @@ export function InsightsView() {
 function InsightsStatGrid({ income, expense, currency }: { income: number; expense: number; currency: string }) {
   const { t } = useTranslation();
   const net = income - expense;
+  const netTone = net >= 0 ? 'net-positive' : 'net-negative';
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="card p-6 bg-glass-elevated border border-surface-border rounded-3xl shadow-lg">
-        <div className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-4">{t('summarySpent')}</div>
-        <div className="text-2xl font-extrabold tabular-nums text-expense">{formatAmount(expense, currency)}</div>
+    <div className="insights-stat-grid">
+      <div className="insights-stat-card insights-stat-card--expense">
+        <div className="insights-stat-card__label">{t('summarySpent')}</div>
+        <div className="insights-stat-card__value">{formatAmount(expense, currency)}</div>
       </div>
-      <div className="card p-6 bg-glass-elevated border border-surface-border rounded-3xl shadow-lg">
-        <div className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-4">{t('summaryEarned')}</div>
-        <div className="text-2xl font-extrabold tabular-nums text-income">{formatAmount(income, currency)}</div>
+      <div className="insights-stat-card insights-stat-card--income">
+        <div className="insights-stat-card__label">{t('summaryEarned')}</div>
+        <div className="insights-stat-card__value">{formatAmount(income, currency)}</div>
       </div>
-      <div className="card p-6 bg-glass-elevated border border-surface-border rounded-3xl shadow-lg">
-        <div className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-4">{t('billsNet')}</div>
-        <div className={`text-2xl font-extrabold tabular-nums ${net >= 0 ? 'text-income' : 'text-expense'}`}>{formatAmount(net, currency)}</div>
+      <div className={`insights-stat-card insights-stat-card--${netTone}`}>
+        <div className="insights-stat-card__label">{t('billsNet')}</div>
+        <div className="insights-stat-card__value">{formatAmount(net, currency)}</div>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
 import { useTranslation } from '@/i18n';
 import { AppBrandIcon } from '@/components/AppBrandIcon';
+import { IosSegmentedControl } from '@/components/IosSegmentedControl';
 import { IconEye, IconEyeOff } from '@/components/Icons';
 
 export function AuthView() {
@@ -56,10 +57,16 @@ export function AuthView() {
           <div className="auth-page__alert" role="alert">{t('authFirebaseNotConfigured')}</div>
         ) : null}
 
-        <div className="segmented auth-page__tabs" role="radiogroup" aria-label={t('authTagline')}>
-          <button type="button" role="radio" aria-checked={tab === 'signin'} className={`segmented__item ${tab === 'signin' ? 'segmented__item--active' : ''}`} onClick={() => setTab('signin')}>{t('authSignIn')}</button>
-          <button type="button" role="radio" aria-checked={tab === 'signup'} className={`segmented__item ${tab === 'signup' ? 'segmented__item--active' : ''}`} onClick={() => setTab('signup')}>{t('authSignUp')}</button>
-        </div>
+        <IosSegmentedControl
+          className="auth-page__tabs"
+          aria-label={t('authTagline')}
+          options={[
+            { value: 'signin' as const, label: t('authSignIn') },
+            { value: 'signup' as const, label: t('authSignUp') },
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
 
         <form onSubmit={(e) => { e.preventDefault(); void handleSubmit(); }} className="auth-page__form space-y-4">
           <div>
