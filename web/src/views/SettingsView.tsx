@@ -18,6 +18,7 @@ import { authService } from '@/services/authService';
 import { useTranslation, type Locale, type TranslationKey } from '@/i18n';
 import { currencyLabel, formatAmount, SUPPORTED_CURRENCIES } from '@/utils/currency';
 import type { ThemeMode } from '@/models/types';
+import { themePalettes } from '@/theme/tokens';
 import { expenseRepository } from '@/repositories/expenseRepository';
 import { exportCsv } from '@/utils/analytics';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
@@ -212,22 +213,31 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
 
       {showTheme ? (
         <Modal title={t('settingsChooseTheme')} onClose={() => setShowTheme(false)}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {THEME_OPTIONS.map((opt) => (
-              <button
-                key={opt.key}
-                type="button"
-                className={`settings-row flex items-center gap-4 p-4 rounded-xl transition-colors hover:bg-on-surface/5 ${themeMode === opt.key ? 'bg-accent/10' : ''}`}
-                onClick={() => {
-                  setShowTheme(false);
-                  requestAnimationFrame(() => setThemeMode(opt.key));
-                }}
-              >
-                <span className="settings-row__icon-tile w-10 h-10 flex items-center justify-center rounded-lg bg-accent/10 text-accent"><IconMoon width={20} height={20} /></span>
-                <span className="flex-1 text-left font-medium">{t(opt.labelKey)}</span>
-                {themeMode === opt.key ? <span className="text-accent" aria-hidden><IconCheck width={20} height={20} /></span> : null}
-              </button>
-            ))}
+          <div className="theme-picker" role="radiogroup" aria-label={t('settingsChooseTheme')}>
+            {THEME_OPTIONS.map((opt) => {
+              const selected = themeMode === opt.key;
+              return (
+                <button
+                  key={opt.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  className={`theme-picker__option${selected ? ' theme-picker__option--selected' : ''}`}
+                  onClick={() => {
+                    setShowTheme(false);
+                    requestAnimationFrame(() => setThemeMode(opt.key));
+                  }}
+                >
+                  <ThemeSwatch mode={opt.key} />
+                  <span className="theme-picker__label">{t(opt.labelKey)}</span>
+                  {selected ? (
+                    <span className="theme-picker__check" aria-hidden>
+                      <IconCheck width={18} height={18} strokeWidth={2.5} />
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
           </div>
         </Modal>
       ) : null}
@@ -303,6 +313,41 @@ function SettingsRow({
     <button type="button" className="settings-row settings-row--interactive" onClick={onClick}>
       {content}
     </button>
+  );
+}
+
+function ThemeSwatch({ mode }: { mode: ThemeMode }) {
+  if (mode === 'system') {
+    const light = themePalettes.light;
+    const dark = themePalettes.dark;
+    return (
+      <span className="theme-swatch theme-swatch--system" aria-hidden>
+        <span className="theme-swatch__pane" style={{ background: light.background, borderColor: light.outline }}>
+          <span className="theme-swatch__chip" style={{ background: light.surfaceVariant }} />
+          <span className="theme-swatch__dot" style={{ background: light.primary }} />
+        </span>
+        <span className="theme-swatch__pane" style={{ background: dark.background, borderColor: dark.outline }}>
+          <span className="theme-swatch__chip" style={{ background: dark.surfaceVariant }} />
+          <span className="theme-swatch__dot" style={{ background: dark.income }} />
+        </span>
+      </span>
+    );
+  }
+
+  const palette = themePalettes[mode] ?? themePalettes.dark;
+  return (
+    <span
+      className="theme-swatch"
+      aria-hidden
+      style={{ background: palette.background, borderColor: palette.outline }}
+    >
+      <span className="theme-swatch__chip" style={{ background: palette.surfaceVariant }} />
+      <span className="theme-swatch__dots">
+        <span className="theme-swatch__dot" style={{ background: palette.primary }} />
+        <span className="theme-swatch__dot" style={{ background: palette.income }} />
+        <span className="theme-swatch__dot" style={{ background: palette.expense }} />
+      </span>
+    </span>
   );
 }
 
