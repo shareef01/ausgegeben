@@ -8,7 +8,7 @@ interface IosSegmentedControlProps<T extends string> {
   value: T;
   onChange: (value: T) => void;
   className?: string;
-  /** Applied to the active segment button for type-specific tinting */
+  /** Tint the active pill by transaction type when relevant */
   activeVariant?: 'default' | 'expense' | 'income' | 'transfer';
 }
 
@@ -17,7 +17,15 @@ export function IosSegmentedControl<T extends string>({
   value,
   onChange,
   className = '',
+  activeVariant = 'default',
 }: IosSegmentedControlProps<T>) {
+  const pillVariant =
+    activeVariant !== 'default'
+      ? activeVariant
+      : value === 'expense' || value === 'income' || value === 'transfer'
+        ? value
+        : 'default';
+
   return (
     <div className={`segmented ${className}`.trim()} role="tablist">
       {options.map((option) => {
@@ -28,7 +36,12 @@ export function IosSegmentedControl<T extends string>({
             type="button"
             role="tab"
             aria-selected={active}
-            className={`segmented__item ${active ? 'segmented__item--active' : ''}`}
+            data-type={option.value}
+            className={[
+              'segmented__item',
+              active ? 'segmented__item--active' : '',
+              active ? `segmented__item--${pillVariant}` : '',
+            ].filter(Boolean).join(' ')}
             onClick={() => onChange(option.value)}
           >
             {option.label}
