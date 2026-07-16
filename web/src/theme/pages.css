@@ -351,37 +351,6 @@
   min-width: 0;
 }
 
-.swipeable-row__bg {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  padding: 0 24px;
-  transition: none;
-  z-index: 0;
-}
-
-.swipeable-row__bg--delete {
-  justify-content: flex-end;
-  background: color-mix(in srgb, var(--color-expense) 30%, transparent);
-  color: var(--color-expense);
-}
-
-.swipeable-row__bg--edit {
-  justify-content: flex-start;
-  background: color-mix(in srgb, var(--color-income) 25%, transparent);
-  color: var(--color-income);
-}
-
-.swipeable-row__bg-content {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.8125rem;
-  font-weight: 700;
-  text-transform: lowercase;
-}
-
 .swipeable-row__content {
   position: relative;
   z-index: 1;
@@ -433,7 +402,7 @@
   color: var(--color-expense);
 }
 
-/* Touch: keep actions visible — swipe alone is undiscoverable */
+/* Touch: keep actions visible */
 @media (pointer: coarse) {
   .swipeable-row__actions {
     display: flex !important;
@@ -442,19 +411,6 @@
   .swipeable-row__content {
     padding-right: 148px;
   }
-}
-
-.swipeable-row__content--dragging {
-  transition: none;
-}
-
-/* Smooth swipe background reveal */
-.swipeable-row__bg {
-  transition: opacity 0.15s ease;
-}
-
-.swipeable-row__bg--active {
-  transition: opacity 0.08s ease;
 }
 
 /* ═══════════════════════════════════════════════════
