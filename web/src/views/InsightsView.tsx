@@ -83,14 +83,12 @@ export function InsightsView({ onAdd }: { onAdd?: () => void }) {
               }
             />
           ) : (
-            <div className="flex flex-col gap-12">
-               {/* Categories Grid (Responsive) */}
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+            <div className="insights-main">
+              <div className="insights-breakdown">
                 <CategoryCard title={t('filterExpense')} map={uiState.expensesByCategory} categories={categories} currency={currency} accent="var(--color-expense)" />
                 <CategoryCard title={t('filterIncome')} map={uiState.incomeByCategory} categories={categories} currency={currency} accent="var(--color-income)" />
               </div>
 
-              {/* Cash Flow Section */}
               {uiState.cashFlowTrend.length > 0 ? (
                 <CashFlowCard trend={uiState.cashFlowTrend} currency={currency} />
               ) : null}
@@ -162,9 +160,9 @@ function CategoryCard({ title, map, categories, currency, accent }: CategoryCard
 
   return (
     <div className="insights-category-card card">
-      <div className="insights-category-card__title" style={{ color: accent }}>{title}</div>
+      <h2 className="insights-category-card__title" style={{ color: accent }}>{title}</h2>
       <div className="insights-category-card__chart">
-        <DonutChart segments={segments} size={176} center={{ value: formatAmount(total, currency) }} />
+        <DonutChart segments={segments} size={148} center={{ value: formatAmount(total, currency) }} />
       </div>
       <ul className="insights-category-card__list">
         {entries.slice(0, 6).map(([catId, amount]) => {
@@ -175,10 +173,8 @@ function CategoryCard({ title, map, categories, currency, accent }: CategoryCard
             <li key={catId} className="insights-category-card__row">
               <span className="insights-category-card__dot" style={{ background: dotColor }} aria-hidden />
               <span className="insights-category-card__name">{cat?.name ?? '?'}</span>
-              <span className="insights-category-card__value">
-                {formatAmount(amount, currency)}
-                <span className="insights-category-card__pct"> · {pct}%</span>
-              </span>
+              <span className="insights-category-card__amount">{formatAmount(amount, currency)}</span>
+              <span className="insights-category-card__pct">{pct}%</span>
             </li>
           );
         })}
