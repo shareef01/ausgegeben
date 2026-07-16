@@ -1,5 +1,5 @@
-import type { Locale } from '@/i18n';
-import { getLocale, localeTag } from '@/i18n';
+import type { Locale, TranslationKey } from '@/i18n';
+import { getLocale, localeTag, t } from '@/i18n';
 
 export function colorIntToHex(colorInt: number): string {
   const rgb = colorInt & 0xffffff;
@@ -32,12 +32,14 @@ export function formatAmountForInput(amount: number): string {
 
 export const SUPPORTED_CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF'] as const;
 
+const CURRENCY_LABEL_KEYS: Record<string, TranslationKey> = {
+  EUR: 'currencyEur',
+  USD: 'currencyUsd',
+  GBP: 'currencyGbp',
+  CHF: 'currencyChf',
+};
+
 export function currencyLabel(code: string): string {
-  const labels: Record<string, string> = {
-    EUR: 'Euro (€)',
-    USD: 'US Dollar ($)',
-    GBP: 'British Pound (£)',
-    CHF: 'Swiss Franc (CHF)',
-  };
-  return labels[code] ?? code;
+  const key = CURRENCY_LABEL_KEYS[code];
+  return key ? t(key) : code;
 }
