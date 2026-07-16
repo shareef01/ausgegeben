@@ -128,7 +128,13 @@
   color: var(--color-accent);
 }
 
-/* ── Insights stat grid mobile order ── */
+/* ── Insights stat grid ── */
+
+.insights-stat-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 
 .insights-stat-card {
   background: var(--glass-bg-elevated);
@@ -136,6 +142,39 @@
   border-radius: 20px;
   padding: 24px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.insights-stat-card__label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-on-surface-variant);
+  margin-bottom: 12px;
+}
+
+.insights-stat-card__value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.insights-stat-card--expense .insights-stat-card__value {
+  color: var(--color-expense);
+}
+
+.insights-stat-card--income .insights-stat-card__value {
+  color: var(--color-income);
+}
+
+.insights-stat-card--net-positive .insights-stat-card__value {
+  color: var(--color-income);
+}
+
+.insights-stat-card--net-negative .insights-stat-card__value {
+  color: var(--color-expense);
 }
 
 .insights-stat-card:hover {

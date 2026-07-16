@@ -6,6 +6,7 @@ import { IconBroom, IconDelete, IconCheck, IconClose } from '@/components/Icons'
 import { colorIntToHex } from '@/utils/currency';
 import { useTranslation } from '@/i18n';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { IosSegmentedControl } from '@/components/IosSegmentedControl';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
@@ -123,20 +124,15 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="flex flex-col gap-8">
-           <div className="segmented" role="radiogroup" aria-label={t('settingsCategories')}>
-              {(['expense', 'income', 'transfer'] as TransactionType[]).map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  role="radio"
-                  aria-checked={filter === type}
-                  className={`segmented__item ${filter === type ? 'segmented__item--active' : ''}`}
-                  onClick={() => setFilter(type)}
-                >
-                  {typeLabel(type)}
-                </button>
-              ))}
-            </div>
+           <IosSegmentedControl
+              aria-label={t('settingsCategories')}
+              options={(['expense', 'income', 'transfer'] as TransactionType[]).map((type) => ({
+                value: type,
+                label: typeLabel(type),
+              }))}
+              value={filter}
+              onChange={setFilter}
+            />
 
             <div className="flex flex-col gap-3">
                <div className="field__label mb-3">{t('currentCategories')}</div>
