@@ -460,6 +460,10 @@ html {
 .top-1\/2 { top: 50%; }
 .z-50 { z-index: 50; }
 .z-\[100\] { z-index: 100; }
+.max-h-\[90vh\] { max-height: 90vh; max-height: 90dvh; }
+.rounded-\[2\.5rem\] { border-radius: 2.5rem; }
+.text-\[11px\] { font-size: 11px; }
+.tracking-\[0\.15em\] { letter-spacing: 0.15em; }
 .z-\[200\] { z-index: 200; }
 
 /* ── Group hover ── */
