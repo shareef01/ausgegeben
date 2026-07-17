@@ -82,6 +82,17 @@ export function computeCashFlowTrend(expenses: Expense[], bucketCount = 7): Cash
   return buckets;
 }
 
+/**
+ * Escape a CSV field, neutralizing spreadsheet formula triggers
+ * (=, +, -, @, tab, CR) so a malicious note can't execute when the
+ * file is opened in Excel/Sheets. Mirrors Android ExportUtils.
+ */
+export function csvEscapeField(value: string): string {
+  const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  if (!/[",\n]/.test(safe)) return safe;
+  return `"${safe.replace(/"/g, '""')}"`;
+}
+
 export function exportCsv(expenses: Expense[], categories: Category[]): string {
   const catMap = new Map(categories.map((c) => [c.id, c]));
   const header = 'date,time,type,category,vendor,amount';
@@ -90,7 +101,9 @@ export function exportCsv(expenses: Expense[], categories: Category[]): string {
     const date = d.toISOString().slice(0, 10);
     const time = d.toTimeString().slice(0, 8);
     const cat = catMap.get(e.categoryId)?.name ?? 'Unknown';
-    return `${date},${time},${e.transactionType},${cat},"${e.note.replace(/"/g, '""')}",${e.amount}`;
+    return [date, time, e.transactionType, cat, e.note, String(e.amount)]
+      .map(csvEscapeField)
+      .join(',');
   });
   return [header, ...rows].join('\n');
 }
