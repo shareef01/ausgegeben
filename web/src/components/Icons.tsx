@@ -1,18 +1,13 @@
 import type { LucideProps } from 'lucide-react';
 import {
-  ArrowLeft,
-  ArrowLeftRight,
   ArrowUp,
   ArrowDown,
   BarChart3,
-  Bell,
   Calendar,
   Check,
   ChevronDown,
   ChevronRight,
-  Clock,
   Cloud,
-  CloudOff,
   CreditCard,
   Download,
   Gauge,
@@ -20,17 +15,16 @@ import {
   History,
   Layers,
   List,
-  LogOut,
   Moon,
-  Paperclip,
-  Pointer,
+  Pencil,
   Plus,
-  RefreshCw,
   Search,
   Settings,
-  Share2,
-  Shield,
   Wallet,
+  Trash2,
+  Eraser,
+  Eye,
+  EyeOff,
   X,
 } from 'lucide-react';
 
@@ -57,10 +51,6 @@ export function IconAdd(props: IconProps) {
 
 export function IconCloud(props: IconProps) {
   return <Cloud strokeWidth={STROKE} {...props} />;
-}
-
-export function IconSync(props: IconProps) {
-  return <RefreshCw strokeWidth={STROKE} {...props} />;
 }
 
 export function IconWallet(props: IconProps) {
@@ -91,14 +81,6 @@ export function IconCurrency(props: IconProps) {
   return <CreditCard strokeWidth={STROKE} {...props} />;
 }
 
-export function IconShield(props: IconProps) {
-  return <Shield strokeWidth={STROKE} {...props} />;
-}
-
-export function IconLogOut(props: IconProps) {
-  return <LogOut strokeWidth={STROKE} {...props} />;
-}
-
 export function IconGauge(props: IconProps) {
   return <Gauge strokeWidth={STROKE} {...props} />;
 }
@@ -111,24 +93,8 @@ export function IconDownload(props: IconProps) {
   return <Download strokeWidth={STROKE} {...props} />;
 }
 
-export function IconShare(props: IconProps) {
-  return <Share2 strokeWidth={STROKE} {...props} />;
-}
-
 export function IconCalendar(props: IconProps) {
   return <Calendar strokeWidth={STROKE} {...props} />;
-}
-
-export function IconBell(props: IconProps) {
-  return <Bell strokeWidth={STROKE} {...props} />;
-}
-
-export function IconTouch(props: IconProps) {
-  return <Pointer strokeWidth={STROKE} {...props} />;
-}
-
-export function IconClock(props: IconProps) {
-  return <Clock strokeWidth={STROKE} {...props} />;
 }
 
 export function IconHistory(props: IconProps) {
@@ -139,21 +105,6 @@ export function IconCheck(props: IconProps) {
   return <Check strokeWidth={STROKE} {...props} />;
 }
 
-export function IconCloudOff(props: IconProps) {
-  return <CloudOff strokeWidth={STROKE} {...props} />;
-}
-
-export function IconArrowLeft(props: IconProps) {
-  return <ArrowLeft strokeWidth={STROKE} {...props} />;
-}
-
-export function IconArrowLeftRight(props: IconProps) {
-  return <ArrowLeftRight strokeWidth={STROKE} {...props} />;
-}
-
-export function IconPaperclip(props: IconProps) {
-  return <Paperclip strokeWidth={STROKE} {...props} />;
-}
 
 export function IconArrowUp(props: IconProps) {
   return <ArrowUp strokeWidth={STROKE} {...props} />;
@@ -161,6 +112,27 @@ export function IconArrowUp(props: IconProps) {
 
 export function IconArrowDown(props: IconProps) {
   return <ArrowDown strokeWidth={STROKE} {...props} />;
+}
+
+export function IconDelete(props: IconProps) {
+  return <Trash2 strokeWidth={STROKE} {...props} />;
+}
+
+export function IconEdit(props: IconProps) {
+  return <Pencil strokeWidth={STROKE} {...props} />;
+}
+
+
+export function IconBroom(props: IconProps) {
+  return <Eraser strokeWidth={STROKE} {...props} />;
+}
+
+export function IconEye(props: IconProps) {
+  return <Eye strokeWidth={STROKE} {...props} />;
+}
+
+export function IconEyeOff(props: IconProps) {
+  return <EyeOff strokeWidth={STROKE} {...props} />;
 }
 
 export function IconClose(props: IconProps) {

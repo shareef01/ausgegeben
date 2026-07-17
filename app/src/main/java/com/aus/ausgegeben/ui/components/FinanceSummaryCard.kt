@@ -24,59 +24,34 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aus.ausgegeben.R
+import com.aus.ausgegeben.ui.theme.financeExpenseColor
+import com.aus.ausgegeben.ui.theme.financeIncomeColor
 import com.aus.ausgegeben.ui.theme.isAppDarkTheme
+import com.aus.ausgegeben.ui.theme.sectionLabelStyle
 import com.aus.ausgegeben.util.CurrencyUtils
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 
 private object AuroraTokens {
     @Composable
-    fun emerald() = Color(0xFF10B981)
+    fun emerald() = financeIncomeColor()
 
     @Composable
-    fun crimson() = Color(0xFFFB7185)
+    fun crimson() = financeExpenseColor()
 
     @Composable
     fun slate() = MaterialTheme.colorScheme.onSurfaceVariant
     
-    // Pillar 2: Adaptive Glassmorphism
-    @Composable
-    fun glassBase() = if (isAppDarkTheme()) {
-        Color(0xFFFFFFFF).copy(alpha = 0.03f)
-    } else {
-        Color(0xFF000000).copy(alpha = 0.03f)
-    }
-    
-    @Composable
-    fun specularBorder() = if (isAppDarkTheme()) {
-        Brush.linearGradient(
-            colors = listOf(Color.White.copy(alpha = 0.2f), Color.Transparent),
-            start = Offset(0f, 0f),
-            end = Offset(200f, 200f)
-        )
-    } else {
-        Brush.linearGradient(
-            colors = listOf(Color.Black.copy(alpha = 0.1f), Color.Transparent),
-            start = Offset(0f, 0f),
-            end = Offset(200f, 200f)
-        )
-    }
-
     // Pillar 3: Dynamic Multi-tone Brush for Balance
     @Composable
     fun balanceBrush(isPositive: Boolean) = if (isPositive) {
-        Brush.verticalGradient(colors = listOf(Color(0xFF6EE7B7), Color(0xFF10B981)))
+        Brush.verticalGradient(colors = listOf(Color(0xFF6EE7B7), emerald()))
     } else {
-        Brush.verticalGradient(colors = listOf(Color(0xFFFDA4AF), Color(0xFFFB7185)))
+        Brush.verticalGradient(colors = listOf(Color(0xFFFDA4AF), crimson()))
     }
 
     @Composable
-    fun labelStyle() = TextStyle(
-        fontSize = 11.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 1.5.sp,
-        color = slate()
-    )
+    fun labelStyle() = sectionLabelStyle()
 }
 
 @Composable
@@ -89,18 +64,13 @@ fun FinanceSummaryCard(
     animateChanges: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    // Pillar 2: True Glassmorphism Container
+    // Pillar 2: True Glassmorphism Container with "Hyper-Obsidian" Specular Depth
     Box(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(AuroraTokens.glassBase())
-            .border(
-                width = 1.dp,
-                brush = AuroraTokens.specularBorder(),
-                shape = RoundedCornerShape(24.dp)
-            )
+            .appGlassCard(shape = RoundedCornerShape(24.dp))
+            .glassShine()
             .padding(vertical = 32.dp),
         contentAlignment = Alignment.Center
     ) {

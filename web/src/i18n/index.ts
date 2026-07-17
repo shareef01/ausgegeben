@@ -1,5 +1,3 @@
-import { useCallback } from 'react';
-
 import { en, type TranslationKey } from './en';
 import { de } from './de';
 import { usePreferencesStore } from '@/services/preferencesStore';
@@ -25,7 +23,7 @@ export function t(key: TranslationKey, params?: Record<string, string>): string 
 
 export function useTranslation() {
   const locale = usePreferencesStore((s) => s.locale);
-  const translate = useCallback((key: TranslationKey, params?: Record<string, string>) => {
+  const translate = (key: TranslationKey, params?: Record<string, string>) => {
     let text = catalogs[locale][key] ?? catalogs.en[key] ?? key;
     if (params) {
       for (const [k, v] of Object.entries(params)) {
@@ -33,7 +31,7 @@ export function useTranslation() {
       }
     }
     return text;
-  }, [locale]);
+  };
   return { t: translate, locale };
 }
 

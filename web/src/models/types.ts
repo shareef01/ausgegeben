@@ -1,83 +1,27 @@
-import type { Locale } from '@/i18n';
-
 export type TransactionType = 'expense' | 'income' | 'transfer';
+export type TransactionTypeFilter = 'all' | 'expense' | 'income' | 'transfer';
+export type RecordListPeriod = string;
+export type ThemeMode = 'light' | 'dark' | 'system' | 'amoled' | 'midnight' | 'ocean' | 'forest' | 'sunset' | 'lavender' | 'soft_light';
 
 export interface Category {
-  id?: number;
-  cloudId: string;
+  id: string; // SECURE: String UUID
   name: string;
   iconName: string;
   colorInt: number;
-  transactionType: TransactionType;
+  transactionType: string;
   sortOrder: number;
   updatedAt?: number;
-  pendingSync?: boolean;
 }
 
 export interface Expense {
-  id?: number;
-  cloudId: string;
+  id: string; // SECURE: String UUID
   amount: number;
   dateMillis: number;
-  categoryId: number;
+  categoryId: string;
   note: string;
-  receiptImagePath?: string | null;
   transactionType: TransactionType;
   updatedAt?: number;
-  pendingSync?: boolean;
-}
-
-export type ThemeMode =
-  | 'system'
-  | 'light'
-  | 'dark'
-  | 'amoled'
-  | 'midnight'
-  | 'ocean'
-  | 'forest'
-  | 'sunset'
-  | 'lavender'
-  | 'soft_light';
-
-export type StorageMode = 'local' | 'cloud';
-
-export type RecordListPeriod = 'this_month' | 'all_time';
-
-export type TransactionTypeFilter = 'all' | 'expense' | 'income' | 'transfer';
-
-export interface AppPreferences {
-  currency: string;
-  locale: Locale;
-  themeMode: ThemeMode;
-  onboardingComplete: boolean;
-  dailyReminder: boolean;
-  reminderHour: number;
-  reminderMinute: number;
-  analyticsPeriod: string;
-  recordListPeriod: RecordListPeriod;
-  monthlyBudget: number | null;
-  storageMode: StorageMode;
-  authGatewayComplete: boolean;
-  lastCloudSyncAt: number | null;
-  preferencesUpdatedAt: number;
-  pendingExpenseDeleteCloudIds: string[];
-  pendingCategoryDeleteCloudIds: string[];
-  /** Last Firebase uid that owned local IndexedDB data (account-switch guard). */
-  lastCloudUserId: string | null;
-}
-
-/** Preferences synced to Firestore (device-local flags excluded). */
-export interface SyncedPreferences {
-  currency: string;
-  locale: Locale;
-  themeMode: ThemeMode;
-  dailyReminder: boolean;
-  reminderHour: number;
-  reminderMinute: number;
-  analyticsPeriod: string;
-  recordListPeriod: RecordListPeriod;
-  monthlyBudget: number | null;
-  updatedAt: number;
+  idempotencyKey?: string;
 }
 
 export interface AnalyticsPeriodOption {
@@ -86,29 +30,24 @@ export interface AnalyticsPeriodOption {
   rangeMillis: [number, number] | null;
 }
 
-export interface SpendingInsights {
-  topCategoryName?: string;
-  topCategoryAmount?: number;
-  weekTotal?: number;
-  monthDeltaPercent?: number;
+export interface CashFlowPoint {
+  label: string;
+  income: number;
+  expense: number;
 }
 
 export interface RecordUiState {
-  displayExpenses: Expense[];
-  hasMore: boolean;
-  listCount: number;
-  summaryTotals: { totalExpenses: number; totalIncome: number };
+  expenses: Expense[];
   categories: Category[];
   searchQuery: string;
   typeFilter: TransactionTypeFilter;
   listPeriod: RecordListPeriod;
-  insights: SpendingInsights;
+  insights: Record<string, never>;
   monthlyBudget: number | null;
   monthExpenses: Expense[];
-  dayTotalsByLabel: Record<string, { income: number; expense: number }>;
+  dayTotalsByLabel: Record<string, [number, number]>;
   loading: boolean;
-  loadingMore: boolean;
-  loadError: string | null;
+  loadError?: boolean;
 }
 
 export interface DashboardUiState {
@@ -117,21 +56,36 @@ export interface DashboardUiState {
   totalExpenses: number;
   totalIncome: number;
   totalTransfers: number;
-  expensesByCategory: Map<number, number>;
-  incomeByCategory: Map<number, number>;
-  transfersByCategory: Map<number, number>;
+  expensesByCategory: Map<string, number>;
+  incomeByCategory: Map<string, number>;
+  transfersByCategory: Map<string, number>;
   cashFlowTrend: CashFlowPoint[];
   loading: boolean;
-  loadError: string | null;
+  loadError?: boolean;
 }
 
-export interface CashFlowPoint {
-  label: string;
-  bucketStartMillis: number;
-  income: number;
-  expense: number;
+export interface AppPreferences {
+  currency: string;
+  locale: 'en' | 'de';
+  themeMode: ThemeMode;
+  onboardingComplete: boolean;
+  dailyReminder: boolean;
+  reminderHour: number;
+  reminderMinute: number;
+  analyticsPeriod: string;
+  monthlyBudget: number | null;
+  preferencesUpdatedAt: number;
 }
 
-export interface ExpenseWithCategory extends Expense {
-  category?: Category;
+export interface SyncedPreferences {
+  currency: string;
+  locale: 'en' | 'de';
+  themeMode: ThemeMode;
+  onboardingComplete: boolean;
+  dailyReminder: boolean;
+  reminderHour: number;
+  reminderMinute: number;
+  analyticsPeriod: string;
+  monthlyBudget: number | null;
+  updatedAt: number;
 }
