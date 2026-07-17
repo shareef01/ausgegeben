@@ -149,7 +149,7 @@ export function MainShell() {
       </div>
 
       {/* Bottom nav — premium floating pill + elevated add button */}
-      <div className="fixed bottom-[calc(1.5rem+var(--safe-bottom))] left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 md:hidden">
+      <div className="mobile-dock">
         <nav
           className="bottom-nav-pill flex items-center gap-0.5 rounded-full p-1"
           aria-label={t('appName')}
