@@ -1,459 +1,208 @@
-import { ScreenTitle, EmptyState, LoadingListSkeleton } from '@/components/ui';
-import { IconCloudOff, IconInsights } from '@/components/Icons';
-import { PullToRefreshSurface } from '@/components/PullToRefreshSurface';
-import { CloudSyncButton } from '@/components/CloudSyncButton';
-import { AddTransactionButton } from '@/components/AddTransactionButton';
-import { isCloudSyncActive } from '@/services/cloudSync';
-
-import { DonutChart } from '@/components/DonutChart';
-import { forChartDisplayHex } from '@/utils/chartColors';
-
-import { CategoryMetricRow } from '@/components/CategoryMetricRow';
-import { IncomeExpenseOverviewChart } from '@/components/IncomeExpenseOverviewChart';
-
+import { useMemo } from 'react';
+import { EmptyState, LoadingListSkeleton, SignatureText } from '@/components/ui';
+import { DonutChart, segmentColor } from '@/components/DonutChart';
 import { CashFlowChart, CashFlowLegend } from '@/components/CashFlowChart';
-
 import { AnalyticsPeriodPicker } from '@/components/PeriodSelector';
-
 import { useDashboardViewModel } from '@/viewmodels/useDashboardViewModel';
-
 import { usePreferencesStore } from '@/services/preferencesStore';
-
 import { useTranslation } from '@/i18n';
-
 import { formatAmount } from '@/utils/currency';
-
 import type { Category } from '@/models/types';
+import { useHaptics } from '@/hooks/useHaptics';
 
-
-
-export function InsightsView({ onAdd, onAddLongPress }: { onAdd?: () => void; onAddLongPress?: () => void }) {
-
+export function InsightsView({ onAdd }: { onAdd?: () => void }) {
   const { t } = useTranslation();
-
   const currency = usePreferencesStore((s) => s.currency);
+  const { uiState, categories, periodOptions, setAnalyticsPeriod, reload } = useDashboardViewModel();
+  const haptics = useHaptics();
+  const hasData = uiState.totalExpenses > 0 || uiState.totalIncome > 0;
+  const loading = uiState.loading;
 
-  const { uiState, categories, periodOptions, setAnalyticsPeriod, reload, refreshFromCloud, refreshing } = useDashboardViewModel();
-  const cloudSync = isCloudSyncActive();
-  const pullLabel = refreshing ? t('syncInProgress') : t('recordPullToSync');
-
-  const hasData = uiState.expensesByCategory.size > 0
-
-    || uiState.incomeByCategory.size > 0
-
-    || uiState.transfersByCategory.size > 0;
-
-  const showOverview = uiState.totalExpenses > 0 || uiState.totalIncome > 0;
-
-
-
-  const selectedOption = periodOptions.find((o) => o.storageKey === uiState.periodKey) ?? periodOptions[0];
-
+  const selectedOption = useMemo(
+    () => periodOptions.find((o) => o.storageKey === uiState.periodKey) ?? periodOptions[0],
+    [periodOptions, uiState.periodKey],
+  );
   const selectedLabel = uiState.periodKey === 'all_time'
     ? t('periodAllTime')
-    : selectedOption.label;
-
-
-
-  const showHeaderAdd = Boolean(onAdd && hasData && !uiState.loading && !uiState.loadError);
-
-  const headerActions = showHeaderAdd || cloudSync ? (
-    <div className="record-screen-actions">
-      {cloudSync ? (
-        <CloudSyncButton refreshing={refreshing} onRefresh={() => void refreshFromCloud()} />
-      ) : null}
-      {showHeaderAdd ? (
-        <AddTransactionButton
-          className="btn btn-primary record-add-btn"
-          onAdd={onAdd!}
-          onLongPress={onAddLongPress}
-        >
-          {t('addTransaction')}
-        </AddTransactionButton>
-      ) : null}
-    </div>
-  ) : undefined;
+    : selectedOption?.label ?? t('periodAllTime');
 
   return (
-    <PullToRefreshSurface
-      enabled={cloudSync}
-      refreshing={refreshing}
-      onRefresh={() => void refreshFromCloud()}
-      label={pullLabel}
-    >
-    <div className="insights-view page-content">
+    <>
+      <div className="page-title">
+        <h1 className="page-title__text">
+          <SignatureText text={t('screenInsights')} />
+        </h1>
+      </div>
 
-      <ScreenTitle
-        title={t('screenInsights')}
-        action={headerActions}
-      />
+      <div className="sidebar-layout">
 
-      <div className="insights-view__workspace">
-        <div className="insights-view__sidebar">
-          <div className="insights-period-panel chart-reveal-in">
-            <AnalyticsPeriodPicker
-              options={periodOptions}
-              selectedKey={uiState.periodKey}
-              selectedLabel={selectedLabel}
-              onSelected={(o) => setAnalyticsPeriod(o.storageKey)}
-            />
-          </div>
-        </div>
-
-        <div className="insights-view__main">
-
-      {uiState.loadError ? (
-        <EmptyState
-          title={t('insightsErrorTitle')}
-          subtitle={uiState.loadError}
-          icon={<IconCloudOff width={28} height={28} />}
-          action={
-            <button type="button" className="btn btn-primary" onClick={() => void reload(true)}>
-              {t('recordErrorRetry')}
-            </button>
-          }
-        />
-      ) : uiState.loading ? (
-        <div className="insights-loader" role="status" aria-live="polite" aria-busy="true">
-          <LoadingListSkeleton rows={3} />
-          <div className="insights-loader__gap" />
-          <LoadingListSkeleton rows={3} />
-        </div>
-      ) : !hasData ? (
-
-        <EmptyState
-          title={t('billsEmptyTitle')}
-          subtitle={t('billsEmptySubtitle')}
-          hint={t('billsEmptyHint')}
-          icon={<IconInsights width={28} height={28} />}
-          action={
-
-            onAdd ? (
-              <AddTransactionButton
-                className="btn btn-primary"
-                onAdd={onAdd}
-                onLongPress={onAddLongPress}
-              >
-                {t('recordEmptyAction')}
-              </AddTransactionButton>
-            ) : undefined
-
-          }
-
-        />
-
-      ) : (
-
-        <>
-
-          {showOverview ? (
-            <section
-              key={`overview-${uiState.periodKey}`}
-              className="insights-overview-stack chart-reveal-in"
-              aria-labelledby={`insights-overview-${uiState.periodKey}`}
-            >
-            <h2 id={`insights-overview-${uiState.periodKey}`} className="sr-only">{t('chartOverviewTitle')}</h2>
-            <IncomeExpenseOverviewChart
-              periodKey={uiState.periodKey}
-              expenseTotal={uiState.totalExpenses}
-              incomeTotal={uiState.totalIncome}
-              currency={currency}
-            />
-            <InsightsStatGrid
-              periodKey={uiState.periodKey}
-              income={uiState.totalIncome}
-              expense={uiState.totalExpenses}
-              currency={currency}
-            />
-            </section>
-          ) : null}
-
-          <section
-            key={`donuts-${uiState.periodKey}`}
-            className="insights-layout chart-reveal-stagger"
-            aria-label={t('a11yCategoryBreakdown')}
-          >
-            <div className="insights-primary-row">
-              <CategoryCard
-                periodKey={uiState.periodKey}
-                cardKey="expense"
-                title={t('filterExpense')}
-                map={uiState.expensesByCategory}
-                categories={categories}
-                currency={currency}
-                accent="var(--color-expense)"
-                centerLabel={t('billsTotalExpense')}
-                compact
+        <aside className="sidebar-panel sidebar-panel--insights">
+          <div className="widget-stack">
+            <div className="insights-period-card card">
+              <div className="insights-period-card__label">{t('analysisPeriod')}</div>
+              <AnalyticsPeriodPicker
+                options={periodOptions}
+                selectedKey={uiState.periodKey}
+                selectedLabel={selectedLabel}
+                onSelected={(o) => {
+                  haptics.light();
+                  setAnalyticsPeriod(o.storageKey);
+                }}
               />
+            </div>
+
+            {!loading && hasData ? (
+              <InsightsStatGrid income={uiState.totalIncome} expense={uiState.totalExpenses} currency={currency} />
+            ) : null}
+          </div>
+        </aside>
+
+        <div className="content-col">
+          {loading ? (
+            <LoadingListSkeleton rows={8} />
+          ) : uiState.loadError ? (
+            <EmptyState
+              title={t('errorLoadFailed')}
+              subtitle={t('errorLoadFailedHint')}
+              action={
+                <button type="button" className="btn btn-primary" onClick={() => void reload(true)}>
+                  {t('actionRetry')}
+                </button>
+              }
+            />
+          ) : !hasData ? (
+            <EmptyState
+              title={t('billsEmptyTitle')}
+              subtitle={t('billsEmptySubtitle')}
+              action={
+                onAdd ? (
+                  <button type="button" className="btn btn-primary" onClick={onAdd}>
+                    {t('navAdd')}
+                  </button>
+                ) : undefined
+              }
+            />
+          ) : (
+            <div className="insights-main">
+              <div className="insights-breakdown">
+                <CategoryCard title={t('filterExpense')} map={uiState.expensesByCategory} categories={categories} currency={currency} accent="var(--color-expense)" />
+                <CategoryCard title={t('filterIncome')} map={uiState.incomeByCategory} categories={categories} currency={currency} accent="var(--color-income)" />
+              </div>
+
               {uiState.cashFlowTrend.length > 0 ? (
-                <CashFlowCard
-                  periodKey={uiState.periodKey}
-                  trend={uiState.cashFlowTrend}
-                  currency={currency}
-                  headingId={`cashflow-${uiState.periodKey}`}
-                  compact
-                />
+                <CashFlowCard trend={uiState.cashFlowTrend} currency={currency} />
               ) : null}
             </div>
-
-            <div className="insights-secondary-grid">
-              <CategoryCard
-                periodKey={uiState.periodKey}
-                cardKey="income"
-                title={t('filterIncome')}
-                map={uiState.incomeByCategory}
-                categories={categories}
-                currency={currency}
-                accent="var(--color-income)"
-                centerLabel={t('billsTotalIncome')}
-                compact
-              />
-              <CategoryCard
-                periodKey={uiState.periodKey}
-                cardKey="transfer"
-                title={t('filterTransfer')}
-                map={uiState.transfersByCategory}
-                categories={categories}
-                currency={currency}
-                accent="var(--color-transfer)"
-                centerLabel={t('billsTotalTransfer')}
-                compact
-              />
-            </div>
-          </section>
-
-        </>
-
-      )}
-
+          )}
         </div>
-      </div>
 
-    </div>
-    </PullToRefreshSurface>
+      </div>
+    </>
   );
 }
 
-
-
-function InsightsStatGrid({
-  periodKey,
-  income,
-  expense,
-  currency,
-}: {
-  periodKey: string;
-  income: number;
-  expense: number;
-  currency: string;
-}) {
+function InsightsStatGrid({ income, expense, currency }: { income: number; expense: number; currency: string }) {
   const { t } = useTranslation();
   const net = income - expense;
-  const netClass = net >= 0 ? 'insights-stat-card--net-positive' : 'insights-stat-card--net-negative';
+  const netTone = net >= 0 ? 'net-positive' : 'net-negative';
 
   return (
-    <div key={periodKey} className="insights-stat-grid chart-reveal-in chart-reveal-in--delay-1" role="group" aria-label={t('a11yInsightsSummary')}>
-
-      <div className="insights-stat-card insights-stat-card--expense">
-
-        <div className="insights-stat-card__label">{t('summarySpent')}</div>
-
-        <div className="insights-stat-card__value tabular-nums" style={{ color: 'var(--color-expense)' }}>
-
-          {formatAmount(expense, currency)}
-
-        </div>
-
+    <div className="insights-summary-dock card" role="group" aria-label={t('screenInsights')}>
+      <div className="insights-summary-dock__row insights-summary-dock__row--expense">
+        <div className="insights-summary-dock__label">{t('summarySpent')}</div>
+        <div className="insights-summary-dock__value">{formatAmount(expense, currency)}</div>
       </div>
-
-      <div className={`insights-stat-card insights-stat-card--net ${netClass}`}>
-
-        <div className="insights-stat-card__label">{t('billsNet')}</div>
-
-        <div className="insights-stat-card__value tabular-nums" style={{ color: net >= 0 ? 'var(--color-income)' : 'var(--color-expense)' }}>
-
-          {formatAmount(net, currency)}
-
-        </div>
-
+      <div className="insights-summary-dock__row insights-summary-dock__row--income">
+        <div className="insights-summary-dock__label">{t('summaryEarned')}</div>
+        <div className="insights-summary-dock__value">{formatAmount(income, currency)}</div>
       </div>
-
-      <div className="insights-stat-card insights-stat-card--income">
-
-        <div className="insights-stat-card__label">{t('summaryEarned')}</div>
-
-        <div className="insights-stat-card__value tabular-nums" style={{ color: 'var(--color-income)' }}>
-
-          {formatAmount(income, currency)}
-
-        </div>
-
+      <div className={`insights-summary-dock__row insights-summary-dock__row--${netTone}`}>
+        <div className="insights-summary-dock__label">{t('billsNet')}</div>
+        <div className="insights-summary-dock__value">{formatAmount(net, currency)}</div>
       </div>
-
     </div>
-
   );
-
 }
 
-
-
-function CategoryCard({
-  periodKey,
-  cardKey,
-  title,
-  map,
-  categories,
-  currency,
-  accent,
-  centerLabel,
-  compact = false,
-}: {
-  periodKey: string;
-  cardKey: string;
+interface CategoryCardProps {
   title: string;
-  map: Map<number, number>;
+  map: Map<string, number>;
   categories: Category[];
   currency: string;
   accent: string;
-  centerLabel: string;
-  compact?: boolean;
-}) {
+}
 
-  const entries = [...map.entries()].sort((a, b) => b[1] - a[1]);
+function CategoryCard({ title, map, categories, currency, accent }: CategoryCardProps) {
+  const { t } = useTranslation();
+  const entries = useMemo(() => [...map.entries()].sort((a, b) => b[1] - a[1]), [map]);
+  const total = useMemo(() => entries.reduce((s, [, v]) => s + v, 0), [entries]);
 
-  const total = entries.reduce((s, [, v]) => s + v, 0);
+  const segments = useMemo(() => {
+    if (total <= 0) return [];
+    return entries.slice(0, 6).map(([catId, value], i) => {
+        const cat = categories.find((c) => c.id === catId);
+        return {
+            label: cat?.name ?? '?',
+            value,
+            color: cat ? segmentColor(cat.colorInt) : `hsl(${i * 40}, 60%, 55%)`
+        };
+      });
+  }, [entries, categories, total]);
 
-  if (total <= 0) return null;
-
-  const segments = entries.map(([catId, value], i) => {
-
-    const cat = categories.find((c) => c.id === catId);
-
-    return { label: cat?.name ?? '?', value, color: cat ? forChartDisplayHex(cat.colorInt, i) : `hsl(${i * 40}, 60%, 55%)` };
-
-  });
-
-
+  if (total <= 0) {
+      return (
+          <div className="insights-category-card card">
+            <div className="insights-category-card__title" style={{ color: accent }}>{title}</div>
+            <p className="insights-category-card__empty">{t('noDataForPeriod')}</p>
+          </div>
+      );
+  }
 
   return (
-
-    <article className={`card insights-category-card insights-glass-island${compact ? ' insights-category-card--compact' : ''}`} aria-labelledby={`insights-${periodKey}-${cardKey}-title`}>
-
-      <h3 id={`insights-${periodKey}-${cardKey}-title`} className="insights-category-card__title" style={{ color: accent }}>{title}</h3>
-
+    <div className="insights-category-card card">
+      <h2 className="insights-category-card__title" style={{ color: accent }}>{title}</h2>
       <div className="insights-category-card__chart">
-        <DonutChart
-
-          segments={segments}
-
-          size={compact ? 148 : 180}
-
-          animationKey={`${periodKey}|${entries.map(([id, v]) => `${id}:${v}`).join('|')}`}
-
-          center={{ label: centerLabel, value: formatAmount(total, currency) }}
-
-        />
+        <DonutChart segments={segments} size={148} center={{ value: formatAmount(total, currency) }} />
       </div>
-
-      <div className="category-metric-list">
-        {entries.map(([catId, amount], index) => {
+      <ul className="insights-category-card__list">
+        {entries.slice(0, 6).map(([catId, amount]) => {
           const cat = categories.find((c) => c.id === catId);
-          const dotColor = cat ? forChartDisplayHex(cat.colorInt, entries.findIndex(([id]) => id === catId)) : 'var(--color-outline)';
-
+          const pct = Math.round((amount / total) * 100);
+          const dotColor = cat ? segmentColor(cat.colorInt) : 'var(--color-outline)';
           return (
-            <div key={catId}>
-              <CategoryMetricRow
-                name={cat?.name ?? '?'}
-                amount={amount}
-                total={total}
-                color={dotColor}
-                currency={currency}
-              />
-              {index < entries.length - 1 ? <div className="category-metric-row__sep" aria-hidden /> : null}
-            </div>
+            <li key={catId} className="insights-category-card__row">
+              <span className="insights-category-card__dot" style={{ background: dotColor }} aria-hidden />
+              <span className="insights-category-card__name">{cat?.name ?? '?'}</span>
+              <span className="insights-category-card__amount">{formatAmount(amount, currency)}</span>
+              <span className="insights-category-card__pct">{pct}%</span>
+            </li>
           );
         })}
-      </div>
-
-    </article>
-
+      </ul>
+    </div>
   );
-
 }
 
-
-
-function CashFlowCard({
-  periodKey,
-  trend,
-  currency,
-  headingId,
-  compact = false,
-}: {
-  periodKey: string;
-  trend: { label: string; income: number; expense: number }[];
-  currency: string;
-  headingId: string;
-  compact?: boolean;
-}) {
-
+function CashFlowCard({ trend, currency }: { trend: { label: string; income: number; expense: number }[]; currency: string }) {
   const { t } = useTranslation();
-
-  const totalIncome = trend.reduce((s, p) => s + p.income, 0);
-
-  const totalExpense = trend.reduce((s, p) => s + p.expense, 0);
-
-
+  const totalIncome = useMemo(() => trend.reduce((s, p) => s + p.income, 0), [trend]);
+  const totalExpense = useMemo(() => trend.reduce((s, p) => s + p.expense, 0), [trend]);
 
   return (
-
-    <div className={`card insights-cashflow-card insights-glass-island${compact ? ' insights-cashflow-card--compact' : ''}`}>
-
-      <div className="insights-cashflow-card__header">
-
+    <div className="card p-10 bg-glass border border-surface-border rounded-[2.5rem] shadow-2xl">
+      <div className="flex items-start justify-between gap-6 mb-10">
         <div>
-
-          <h3 id={headingId} className="insights-cashflow-card__title">{t('billsCashFlow')}</h3>
-
-          <div className="insights-cashflow-card__subtitle">
-
+          <div className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-2">{t('billsCashFlow')}</div>
+          <div className="text-sm font-bold opacity-80 tabular-nums">
             {t('billsCashFlowSubtitle', {
-
               income: formatAmount(totalIncome, currency),
-
               expense: formatAmount(totalExpense, currency),
-
             })}
-
           </div>
-
         </div>
-
         <CashFlowLegend />
-
       </div>
-
-      <CashFlowChart periodKey={periodKey} trend={trend} ariaLabelledBy={headingId} />
-
-      <div className="insights-cashflow-card__axis">
-
-        <span>{trend[0]?.label}</span>
-
-        <span>{trend[trend.length - 1]?.label}</span>
-
-      </div>
-
-      <div className="insights-cashflow-card__hint">
-
-        {t('billsCashFlowHint', { currency })}
-
-      </div>
-
+      <CashFlowChart trend={trend} currency={currency} />
     </div>
-
   );
-
 }
-
-

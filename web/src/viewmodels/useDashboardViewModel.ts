@@ -1,90 +1,104 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Category, DashboardUiState, Expense } from '@/models/types';
 import { expenseRepository } from '@/repositories/expenseRepository';
-import {
-  getCachedCategories,
-  isCategoryCacheReady,
-  preloadCategories,
-} from '@/services/categoryCache';
-import { receiptService } from '@/services/receiptService';
 import { usePreferencesStore } from '@/services/preferencesStore';
-import { t } from '@/i18n';
-import { hapticSuccess } from '@/utils/haptics';
-import { cloudRefreshThenReload } from '@/utils/cloudRefresh';
 import { computeCashFlowTrend, groupByCategory } from '@/utils/analytics';
-import {
-  analyticsDateRangeMillis,
-  analyticsPeriodOptionFromStorage,
-  analyticsPeriodOptions,
-} from '@/utils/periodUtils';
+import { analyticsDateRangeMillis, analyticsPeriodOptions } from '@/utils/periodUtils';
+
+const DATA_CHANGED_EVENT = 'ausgegeben:data-changed';
 
 export function useDashboardViewModel() {
   const periodKey = usePreferencesStore((s) => s.analyticsPeriod);
   const setAnalyticsPeriod = usePreferencesStore((s) => s.setAnalyticsPeriod);
-  const [categories, setCategories] = useState<Category[]>(() => getCachedCategories());
+  const locale = usePreferencesStore((s) => s.locale);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [loading, setLoading] = useState(() => !isCategoryCacheReady());
-  const [refreshing, setRefreshing] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const initialLoadDone = useRef(false);
 
-  const periodOptions = useMemo(() => analyticsPeriodOptions(24), []);
+  const periodOptions = useMemo(() => analyticsPeriodOptions(14, Date.now(), locale), [locale]);
   const selectedOption = useMemo(
-    () => analyticsPeriodOptionFromStorage(periodKey),
-    [periodKey],
+    () => periodOptions.find((o) => o.storageKey === periodKey) ?? periodOptions[0],
+    [periodOptions, periodKey],
   );
 
-  const reload = useCallback(async (showSkeleton = false) => {
-    if (showSkeleton || !initialLoadDone.current) {
-      setLoading(true);
+  const range = useMemo(() => analyticsDateRangeMillis(periodKey), [periodKey]);
+
+  // Live categories + period-scoped expenses (Spark-safe: no full-collection listener)
+  useEffect(() => {
+    if (!initialLoadDone.current) setLoading(true);
+    setLoadError(false);
+
+    let catsReady = false;
+    let expsReady = false;
+    const tryReady = () => {
+      if (catsReady && expsReady) {
+        setLoading(false);
+        initialLoadDone.current = true;
+      }
+    };
+
+    const unsubCats = expenseRepository.onCategoriesChanged((cats) => {
+      setCategories(cats);
+      catsReady = true;
+      tryReady();
+    });
+
+    let unsubExps = () => {};
+
+    if (range) {
+      unsubExps = expenseRepository.onExpensesInRange(range[0], range[1], (items) => {
+        setExpenses(items);
+        setLoadError(false);
+        expsReady = true;
+        tryReady();
+      });
+    } else {
+      const loadAll = () => {
+        void expenseRepository.getAllExpenses().then((items) => {
+          setExpenses(items);
+          setLoadError(false);
+          expsReady = true;
+          tryReady();
+        }).catch((err) => {
+          console.error('[useDashboardViewModel] getAllExpenses failed', err);
+          setExpenses([]);
+          setLoadError(true);
+          expsReady = true;
+          tryReady();
+        });
+      };
+      loadAll();
+      const onDataChanged = () => loadAll();
+      window.addEventListener(DATA_CHANGED_EVENT, onDataChanged);
+      unsubExps = () => window.removeEventListener(DATA_CHANGED_EVENT, onDataChanged);
     }
-    setLoadError(null);
+
+    return () => {
+      unsubCats();
+      unsubExps();
+    };
+  }, [range, periodKey]);
+
+  const reload = useCallback(async (showSkeleton = false) => {
+    if (showSkeleton || !initialLoadDone.current) setLoading(true);
+    setLoadError(false);
     try {
-      const cats = isCategoryCacheReady()
-        ? getCachedCategories()
-        : await preloadCategories();
-      const range = analyticsDateRangeMillis(periodKey);
+      const cats = await expenseRepository.getAllCategories();
       const items = range
         ? await expenseRepository.getExpensesInRange(range[0], range[1])
         : await expenseRepository.getAllExpenses();
       setCategories(cats);
       setExpenses(items);
-      void receiptService.prefetch(items.map((e) => e.receiptImagePath));
-      initialLoadDone.current = true;
-    } catch {
-      setLoadError(t('errorLoadFailed'));
+    } catch (err) {
+      console.error('[useDashboardViewModel] reload failed', err);
+      setLoadError(true);
     } finally {
       setLoading(false);
+      initialLoadDone.current = true;
     }
-  }, [periodKey]);
-
-  useEffect(() => {
-    void reload(!initialLoadDone.current);
-  }, [reload]);
-
-  useEffect(() => {
-    const handler = () => void reload(false);
-    window.addEventListener('ausgegeben:data-changed', handler);
-    return () => window.removeEventListener('ausgegeben:data-changed', handler);
-  }, [reload]);
-
-  const refreshFromCloud = useCallback(async () => {
-    if (refreshing) return;
-    setRefreshing(true);
-    setLoadError(null);
-    try {
-      const result = await cloudRefreshThenReload(() => reload(false));
-      if (!result.ok) {
-        setLoadError(result.error ?? t('errorLoadFailed'));
-        return;
-      }
-      hapticSuccess();
-    } catch {
-      setLoadError(t('errorLoadFailed'));
-    } finally {
-      setRefreshing(false);
-    }
-  }, [refreshing, reload]);
+  }, [range]);
 
   const uiState: DashboardUiState = useMemo(() => {
     const expensesByCategory = groupByCategory(expenses, 'expense');
@@ -103,9 +117,9 @@ export function useDashboardViewModel() {
     return {
       periodKey,
       periodLabel: selectedOption.label,
-      totalExpenses,
-      totalIncome,
-      totalTransfers,
+      totalExpenses: Math.round(totalExpenses * 100) / 100,
+      totalIncome: Math.round(totalIncome * 100) / 100,
+      totalTransfers: Math.round(totalTransfers * 100) / 100,
       expensesByCategory,
       incomeByCategory,
       transfersByCategory,
@@ -115,5 +129,5 @@ export function useDashboardViewModel() {
     };
   }, [expenses, periodKey, selectedOption.label, loading, loadError]);
 
-  return { uiState, categories, periodOptions, setAnalyticsPeriod, reload, refreshFromCloud, refreshing };
+  return { uiState, categories, periodOptions, setAnalyticsPeriod, reload };
 }

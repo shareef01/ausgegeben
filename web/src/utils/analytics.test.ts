@@ -13,14 +13,13 @@ import {
 
 function expense(partial: Partial<Expense> & Pick<Expense, 'amount' | 'transactionType'>): Expense {
   return {
-    id: 1,
-    cloudId: 'expense-1',
+    id: 'test-id',
     dateMillis: Date.now(),
-    categoryId: 1,
+    categoryId: '1',
     note: '',
     updatedAt: Date.now(),
     ...partial,
-  };
+  } as Expense;
 }
 
 describe('analytics', () => {
@@ -45,14 +44,14 @@ describe('analytics', () => {
   it('groupByCategory sums per category', () => {
     const map = groupByCategory(
       [
-        expense({ amount: 10, transactionType: 'expense', categoryId: 1 }),
-        expense({ amount: 5, transactionType: 'expense', categoryId: 1 }),
-        expense({ amount: 7, transactionType: 'income', categoryId: 2 }),
+        expense({ amount: 10, transactionType: 'expense', categoryId: '1' }),
+        expense({ amount: 5, transactionType: 'expense', categoryId: '1' }),
+        expense({ amount: 7, transactionType: 'income', categoryId: '2' }),
       ],
       'expense',
     );
-    expect(map.get(1)).toBe(15);
-    expect(map.has(2)).toBe(false);
+    expect(map.get('1')).toBe(15);
+    expect(map.has('2')).toBe(false);
   });
 
   it('computeDayTotals ignores transfers', () => {
@@ -72,7 +71,7 @@ describe('analytics', () => {
   });
 
   it('exportCsv quotes notes with commas', () => {
-    const categories: Category[] = [{ id: 1, cloudId: 'cat-1', name: 'Food', iconName: 'food', colorInt: 0, transactionType: 'expense', sortOrder: 0, updatedAt: 0 }];
+    const categories: Category[] = [{ id: '1', name: 'Food', iconName: 'food', colorInt: 0, transactionType: 'expense', sortOrder: 0, updatedAt: 0 }];
     const csv = exportCsv(
       [
         expense({
@@ -80,6 +79,7 @@ describe('analytics', () => {
           transactionType: 'expense',
           note: 'Coffee, pastry',
           dateMillis: new Date(2026, 5, 10, 14, 30).getTime(),
+          categoryId: '1'
         }),
       ],
       categories,

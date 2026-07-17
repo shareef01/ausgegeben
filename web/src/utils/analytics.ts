@@ -22,14 +22,22 @@ export function computeTotals(expenses: Expense[]) {
     else if (isIncome(e)) totalIncome += e.amount;
     else totalTransfers += e.amount;
   }
-  return { totalExpenses, totalIncome, totalTransfers, net: totalIncome - totalExpenses };
+  return {
+    totalExpenses: Math.round(totalExpenses * 100) / 100,
+    totalIncome: Math.round(totalIncome * 100) / 100,
+    totalTransfers: Math.round(totalTransfers * 100) / 100,
+    net: Math.round((totalIncome - totalExpenses) * 100) / 100
+  };
 }
 
-export function groupByCategory(expenses: Expense[], type: Expense['transactionType']): Map<number, number> {
-  const map = new Map<number, number>();
+export function groupByCategory(expenses: Expense[], type: Expense['transactionType']): Map<string, number> {
+  const map = new Map<string, number>();
   for (const e of expenses) {
     if (e.transactionType !== type) continue;
     map.set(e.categoryId, (map.get(e.categoryId) ?? 0) + e.amount);
+  }
+  for (const [key, value] of map) {
+    map.set(key, Math.round(value * 100) / 100);
   }
   return map;
 }
@@ -67,16 +75,15 @@ export function computeCashFlowTrend(expenses: Expense[], bucketCount = 7): Cash
     }
     buckets.push({
       label: new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(new Date(bucketStart)),
-      bucketStartMillis: bucketStart,
-      income,
-      expense,
+      income: Math.round(income * 100) / 100,
+      expense: Math.round(expense * 100) / 100,
     });
   }
   return buckets;
 }
 
 export function exportCsv(expenses: Expense[], categories: Category[]): string {
-  const catMap = new Map(categories.map((c) => [c.id!, c]));
+  const catMap = new Map(categories.map((c) => [c.id, c]));
   const header = 'date,time,type,category,vendor,amount';
   const rows = expenses.map((e) => {
     const d = new Date(e.dateMillis);

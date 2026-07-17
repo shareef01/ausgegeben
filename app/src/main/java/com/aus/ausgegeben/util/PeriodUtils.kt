@@ -9,9 +9,51 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-enum class RecordListPeriod(val label: String) {
-    THIS_MONTH("This month"),
-    ALL_TIME("All time")
+enum class RecordListPeriod(val key: String, val label: String) {
+    THIS_MONTH("this_month", "This month"),
+    ALL_TIME("all_time", "All time");
+
+    companion object {
+        fun fromKey(key: String): RecordListPeriod = when (key) {
+            "this_month" -> THIS_MONTH
+            "all_time" -> ALL_TIME
+            else -> THIS_MONTH
+        }
+
+        fun monthOptions(nowMillis: Long = System.currentTimeMillis()): List<Pair<String, String>> {
+            val cal = Calendar.getInstance().apply {
+                timeInMillis = nowMillis
+                set(Calendar.DAY_OF_MONTH, 1)
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            val fmt = SimpleDateFormat("MMMM yyyy", Locale.getDefault())
+            val months = mutableListOf<Pair<String, String>>()
+            for (i in 0 until 12) {
+                val year = cal.get(Calendar.YEAR)
+                val month = cal.get(Calendar.MONTH)
+                val key = monthStorageKey(year, month)
+                val label = fmt.format(cal.time)
+                months.add(key to label)
+                cal.add(Calendar.MONTH, -1)
+            }
+            return months
+        }
+    }
+}
+
+/** Compute date range for a record list period (supports month keys). */
+fun recordListDateRangeMillis(key: String, nowMillis: Long = System.currentTimeMillis()): Pair<Long, Long>? {
+    return when (key) {
+        "this_month" -> {
+            val cal = Calendar.getInstance().apply { timeInMillis = nowMillis }
+            monthRange(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH))
+        }
+        "all_time" -> null
+        else -> analyticsMonthRangeFromStorageKey(key)
+    }
 }
 
 enum class AnalyticsPeriod(val label: String, val storageKey: String) {
@@ -138,10 +180,10 @@ private fun monthRange(year: Int, month: Int): Pair<Long, Long> {
     return start.timeInMillis to end.timeInMillis
 }
 
-private fun monthStorageKey(year: Int, zeroBasedMonth: Int): String =
+internal fun monthStorageKey(year: Int, zeroBasedMonth: Int): String =
     "month:%04d-%02d".format(Locale.US, year, zeroBasedMonth + 1)
 
-private fun analyticsMonthRangeFromStorageKey(key: String): Pair<Long, Long>? {
+internal fun analyticsMonthRangeFromStorageKey(key: String): Pair<Long, Long>? {
     if (!key.startsWith("month:")) return null
     val parts = key.removePrefix("month:").split("-")
     val year = parts.getOrNull(0)?.toIntOrNull() ?: return null
@@ -184,7 +226,7 @@ fun recentWeekRangeMillis(nowMillis: Long = System.currentTimeMillis()): Pair<Lo
 fun computeSpendingInsights(
     monthExpenses: List<Expense>,
     weekExpenses: List<Expense>,
-    categoryNames: Map<Long, String>,
+    categoryNames: Map<String, String>,
 ): SpendingInsights {
     val daysLogged = weekExpenses
         .map { localDayStartMillis(it.dateMillis) }

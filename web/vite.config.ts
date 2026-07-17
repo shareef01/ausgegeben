@@ -10,11 +10,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      strategies: 'injectManifest',
-      srcDir: 'src/sw',
-      filename: 'sw.ts',
       registerType: 'autoUpdate',
-      injectRegister: 'auto',
       includeAssets: ['icons/*.png', 'icons/*.svg', 'favicon.ico', 'favicon-32.png'],
       manifest: {
         name: 'Ausgegeben',
@@ -23,7 +19,7 @@ export default defineConfig({
         theme_color: '#000000',
         background_color: '#000000',
         display: 'standalone',
-        orientation: 'any',
+        orientation: 'portrait',
         scope: '/',
         start_url: '/',
         icons: [
@@ -33,23 +29,25 @@ export default defineConfig({
           { src: '/icons/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
         ],
       },
-      injectManifest: {
+      workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-      },
-      devOptions: {
-        enabled: true,
-        type: 'module',
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: { cacheName: 'google-fonts-cache', expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 } },
+          },
+        ],
       },
     }),
   ],
-  server: { port: 5173, host: true, allowedHosts: true },
-  preview: { port: 4173, host: true, allowedHosts: true },
+  server: { port: 5173, host: true },
+  preview: { port: 4173, host: true },
   build: {
     rollupOptions: {
       output: {
         manualChunks(id) {
           if (id.includes('node_modules/firebase')) return 'firebase';
-          if (id.includes('node_modules/dexie')) return 'dexie';
           if (id.includes('node_modules/react-dom') || id.includes('node_modules/react/')) return 'react-vendor';
         },
       },

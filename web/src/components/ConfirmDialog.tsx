@@ -1,72 +1,73 @@
-import type { ReactNode } from 'react';
-import { useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { hapticLight, hapticMedium } from '@/utils/haptics';
+import { useTranslation } from '@/i18n';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { useCallback, useRef, type ReactNode } from 'react';
 
 interface ConfirmDialogProps {
+  open: boolean;
   title: string;
-  children: ReactNode;
-  cancelLabel: string;
-  confirmLabel: string;
-  onCancel: () => void;
-  onConfirm: () => void;
+  message: string | ReactNode;
+  confirmLabel?: string;
+  cancelLabel?: string;
   destructive?: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
 }
 
 export function ConfirmDialog({
+  open,
   title,
-  children,
-  cancelLabel,
+  message,
   confirmLabel,
-  onCancel,
-  onConfirm,
+  cancelLabel,
   destructive = true,
+  onConfirm,
+  onCancel,
 }: ConfirmDialogProps) {
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const { t } = useTranslation();
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const handleEscape = useCallback(() => onCancel(), [onCancel]);
+  useFocusTrap(open, sheetRef, handleEscape);
+  useBodyScrollLock(open);
 
-  const handleCancel = () => {
-    hapticLight();
-    onCancel();
-  };
+  if (!open) return null;
 
-  const handleConfirm = () => {
-    hapticMedium();
-    onConfirm();
-  };
+  const confirmText = confirmLabel ?? t('actionDelete');
+  const cancelText = cancelLabel ?? t('actionCancel');
+  const titleId = 'confirm-dialog-title';
+  const messageId = 'confirm-dialog-message';
 
-  useFocusTrap(true, dialogRef, () => {
-    hapticLight();
-    onCancel();
-  });
-
-  const dialog = (
-    <div className="overlay overlay--confirm" onClick={handleCancel} role="presentation">
+  return (
+    <div className="overlay overlay--confirm" onClick={onCancel} role="presentation">
       <div
-        ref={dialogRef}
-        className="confirm-dialog confirm-dialog--glass"
+        ref={sheetRef}
+        className={`confirm-dialog${destructive ? ' confirm-dialog--destructive' : ''}`}
         onClick={(e) => e.stopPropagation()}
         role="alertdialog"
         aria-modal="true"
-        aria-labelledby="confirm-dialog-title"
+        aria-labelledby={titleId}
+        aria-describedby={messageId}
+        tabIndex={-1}
       >
-        <h3 id="confirm-dialog-title" className="confirm-dialog__title">{title}</h3>
-        <div className="confirm-dialog__body">{children}</div>
+        <h2 id={titleId} className="confirm-dialog__title">{title}</h2>
+        {typeof message === 'string' ? (
+          <p id={messageId} className="confirm-dialog__message">{message}</p>
+        ) : (
+          <div id={messageId} className="confirm-dialog__message">{message}</div>
+        )}
         <div className="confirm-dialog__actions">
-          <button type="button" className="btn btn-secondary" onClick={handleCancel}>
-            {cancelLabel}
+          <button type="button" className="btn btn-secondary confirm-dialog__btn" onClick={onCancel}>
+            {cancelText}
           </button>
           <button
             type="button"
-            className={destructive ? 'btn btn-destructive' : 'btn btn-primary'}
-            onClick={handleConfirm}
+            className={`btn confirm-dialog__btn ${destructive ? 'btn-destructive' : 'btn-primary'}`}
+            onClick={onConfirm}
           >
-            {confirmLabel}
+            {confirmText}
           </button>
         </div>
       </div>
     </div>
   );
-
-  return typeof document !== 'undefined' ? createPortal(dialog, document.body) : dialog;
 }

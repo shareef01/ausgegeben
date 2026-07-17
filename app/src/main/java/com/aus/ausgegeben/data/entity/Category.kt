@@ -1,7 +1,9 @@
 package com.aus.ausgegeben.data.entity
 
+import java.util.UUID
+
 data class Category(
-    val id: Long = 0,
+    val id: String = UUID.randomUUID().toString(),
     val name: String,
     val iconName: String,
     val colorInt: Int,

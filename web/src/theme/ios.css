@@ -1,6 +1,5 @@
 /**
- * iOS / mobile-specific scroll and safe-area behavior.
- * Desktop scroll is handled in global.css (in-card .app-main only).
+ * iOS / iPhone Specific Flagship Optimizations - SCROLL FIX
  */
 
 :root {
@@ -10,27 +9,33 @@
   --safe-right: env(safe-area-inset-right, 0px);
 }
 
-@media (max-width: 767px) {
-  html {
-    height: -webkit-fill-available;
-  }
+/* ── Force Body Scroll ── */
 
-  body {
-    position: relative !important;
-    height: auto !important;
-    min-height: 100vh;
-    min-height: -webkit-fill-available;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    -webkit-overflow-scrolling: touch;
-    -webkit-tap-highlight-color: transparent;
-    background-color: var(--color-background);
-  }
+html {
+  height: -webkit-fill-available;
+}
 
-  .app-shell {
-    min-height: 100vh;
-    min-height: -webkit-fill-available;
-  }
+body {
+  /* Restore absolute standard scrolling */
+  position: relative !important;
+  height: auto !important;
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch;
+
+  /* Visual tweaks */
+  -webkit-tap-highlight-color: transparent;
+  background-color: var(--color-background);
+}
+
+/* ── UI Anchor Stability ── */
+
+.app-shell {
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  min-height: 100dvh;
 }
 
 /* ── Transaction Sheet Fit ── */
@@ -43,26 +48,43 @@
 
 /* ── Touch Interaction ── */
 
-.swipeable-row,
 .pressable-row,
 .btn,
 .numpad__key {
+  /* Prevent browser gestures interfering with custom ones */
   touch-action: pan-y pinch-zoom;
+  /* Prevent selection */
   -webkit-user-select: none;
 }
 
-/* ── Safe Area Insets (mobile only) ── */
+/* ── Safe Area Insets ── */
 
-@media (max-width: 767px) {
-  .screen-title-bar,
-  .transaction-list-bare,
-  .finance-summary-card,
-  .record-filters,
-  .budget-bar,
-  .insights-stat-grid,
-  .insights-layout,
-  .insights-period-panel {
-    padding-left: calc(var(--workspace-padding) + var(--safe-left));
-    padding-right: calc(var(--workspace-padding) + var(--safe-right));
+/* Safe-area only — shell already provides horizontal padding */
+.transaction-list-bare,
+.finance-summary-card,
+.record-filters,
+.budget-bar,
+.insights-stat-grid,
+.insights-grid {
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
+}
+
+/* FAB safe area */
+.fab--anchored {
+  bottom: calc(32px + var(--safe-bottom)) !important;
+}
+
+/* Header safe area top padding — only on iOS notch devices */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .app-header {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* ── iOS status bar style ── */
+@supports (-webkit-touch-callout: none) {
+  .app-shell {
+    padding-top: env(safe-area-inset-top);
   }
 }
