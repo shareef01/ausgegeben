@@ -98,9 +98,9 @@ class DashboardViewModel(
         var totalExpenses = 0.0
         var totalIncome = 0.0
         var totalTransfers = 0.0
-        val expenseTotals = mutableMapOf<Long, Double>()
-        val incomeTotals = mutableMapOf<Long, Double>()
-        val transferTotals = mutableMapOf<Long, Double>()
+        val expenseTotals = mutableMapOf<String, Double>()
+        val incomeTotals = mutableMapOf<String, Double>()
+        val transferTotals = mutableMapOf<String, Double>()
 
         for (expense in scoped) {
             when {
@@ -122,7 +122,7 @@ class DashboardViewModel(
             }
         }
 
-        fun mapTotals(totals: Map<Long, Double>): Map<Category, Double> =
+        fun mapTotals(totals: Map<String, Double>): Map<Category, Double> =
             totals.mapNotNull { (categoryId, amount) ->
                 categoryById[categoryId]?.let { it to amount }
             }.toMap()

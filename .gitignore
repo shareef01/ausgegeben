@@ -31,10 +31,17 @@ android-sdk/
 # Firebase local
 .firebase/
 
+# Node (any location — main once had node_modules committed at the root)
+node_modules/
+
+# Claude Code personal settings
+.claude/settings.local.json
+
 # Web
 web/node_modules/
 web/dist/
 web/.env.local
+web/.env.production
 web/.vite/
 web/*.tsbuildinfo
 

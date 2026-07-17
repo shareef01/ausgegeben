@@ -1,303 +1,70 @@
 /**
- * Hyper-Premium OLED Minimalism
- * Linear × Stripe × Apple design mandates — presentation only.
+ * OLED Dark Theme — clean, minimal overrides
  */
 
-[data-theme-mode='amoled'] {
-  --color-oled-surface: #09090b;
-  --color-oled-surface-elevated: #0a0a0a;
-  --hairline-border: rgba(255, 255, 255, 0.06);
-  --hairline-divider: rgba(255, 255, 255, 0.04);
-  --color-label-muted: #71717a;
-  --color-balance-positive: #10b981;
-  --color-balance-negative: #dc2626;
-  --color-stat-value: #ffffff;
-  --shadow-cta-physical:
-    0 0 0 1px rgba(16, 185, 129, 0.2),
-    0 4px 12px rgba(16, 185, 129, 0.2),
-    0 12px 32px rgba(16, 185, 129, 0.15);
-  --record-sticky-offset: 52px;
+[data-theme='dark'] {
+  --color-label-muted: var(--color-on-surface-variant);
+  --color-balance-positive: var(--color-income);
+  --color-balance-negative: var(--color-expense);
+  --color-stat-value: var(--color-on-background);
 }
 
-/* ── True OLED canvas ── */
-
-[data-theme-mode='amoled'] body,
-[data-theme-mode='amoled'] .app-shell,
-[data-theme-mode='amoled'] .app-shell__body,
-[data-theme-mode='amoled'] .app-main {
-  background: #000000;
+[data-theme='dark'] body,
+[data-theme='dark'] .app-shell,
+[data-theme='dark'] .app-container {
+  background: var(--color-background);
 }
 
-[data-theme-mode='amoled'] .app-viewport {
-  background: #000000;
-}
-
-@media (min-width: 768px) {
-  [data-theme-mode='amoled'] .app-shell:not(.auth-page):not(.onboarding-page) {
-    background: #000000;
-    border: 1px solid var(--hairline-border);
-    box-shadow: none;
-  }
-
-  [data-theme-mode='amoled'] .app-shell__body {
-    background: #000000;
-  }
-
-  [data-theme-mode='amoled'] .app-shell__header {
-    background: #000000;
-    border-bottom-color: var(--hairline-border);
-  }
-}
-
-@media (min-width: 1200px) {
-  [data-theme-mode='amoled'] .app-shell:not(.auth-page):not(.onboarding-page) {
-    border: none;
-  }
-}
-
-/* ── Hairline-bordered OLED cards ── */
-
-[data-theme-mode='amoled'] .card,
-[data-theme-mode='amoled'] .finance-summary-card,
-[data-theme-mode='amoled'] .record-filters,
-[data-theme-mode='amoled'] .insights-stat-card,
-[data-theme-mode='amoled'] .insights-category-card,
-[data-theme-mode='amoled'] .insights-cashflow-card,
-[data-theme-mode='amoled'] .settings-group,
-[data-theme-mode='amoled'] .period-picker {
-  background: var(--color-oled-surface);
-  border: 1px solid var(--hairline-border);
-  box-shadow: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
-[data-theme-mode='amoled'] .finance-summary-card {
-  background: linear-gradient(180deg, var(--color-oled-surface) 0%, var(--color-oled-surface-elevated) 100%);
-}
-
-[data-theme-mode='amoled'] .finance-summary-card__glow {
-  display: none;
-}
-
-[data-theme-mode='amoled'] .record-filters {
-  background: var(--color-oled-surface-elevated);
-}
-
-/* ── Balance hero typography ── */
-
-[data-theme-mode='amoled'] .finance-summary-card__label {
-  font-size: 0.625rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  color: var(--color-label-muted);
-}
-
-[data-theme-mode='amoled'] .finance-summary-card__balance--positive .money--hero-display {
+/* ── Balance colors ── */
+[data-theme='dark'] .finance-summary-card__balance--positive .money--hero-display {
   color: var(--color-balance-positive);
 }
 
-[data-theme-mode='amoled'] .finance-summary-card__balance--negative .money--hero-display {
+[data-theme='dark'] .finance-summary-card__balance--negative .money--hero-display {
   color: var(--color-balance-negative);
 }
 
-[data-theme-mode='amoled'] .finance-summary-card__balance--neutral .money--hero-display {
-  color: #fafafa;
-}
-
-/* ── Earned / Spent sub-cards ── */
-
-[data-theme-mode='amoled'] .finance-stat-chip {
-  background: var(--color-oled-surface-elevated);
-  border: 1px solid var(--hairline-border);
-  box-shadow: none;
-}
-
-[data-theme-mode='amoled'] .finance-stat-chip__label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.625rem;
-  letter-spacing: 0.1em;
-  color: var(--color-label-muted);
-}
-
-[data-theme-mode='amoled'] .finance-stat-chip__indicator {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-[data-theme-mode='amoled'] .finance-stat-chip--income .finance-stat-chip__indicator {
-  background: var(--color-income);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--color-income) 55%, transparent);
-}
-
-[data-theme-mode='amoled'] .finance-stat-chip--expense .finance-stat-chip__indicator {
-  background: var(--color-expense);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--color-expense) 45%, transparent);
-}
-
-[data-theme-mode='amoled'] .finance-stat-chip .money--stat {
-  color: var(--color-stat-value);
-}
-
-[data-theme-mode='amoled'] .finance-stat-chip--income,
-[data-theme-mode='amoled'] .finance-stat-chip--expense {
-  background: var(--color-oled-surface-elevated);
-  border: 1px solid var(--hairline-border);
-  box-shadow: none;
-}
-
-/* ── Unboxed transaction list ── */
-
-[data-theme-mode='amoled'] .transaction-list-bare {
-  margin: 4px 0 24px;
-  padding: 0 var(--workspace-padding);
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  border-radius: 0;
-}
-
-[data-theme-mode='amoled'] .transaction-list-bare .transaction-row {
-  border-bottom: 1px solid var(--hairline-divider);
-  background: transparent;
-}
-
-[data-theme-mode='amoled'] .transaction-list-bare .transaction-row:last-child {
-  border-bottom: none;
-}
-
-[data-theme-mode='amoled'] .transaction-list-bare .transaction-list-card__day,
-[data-theme-mode='amoled'] .transaction-list-bare__day {
-  position: sticky;
-  top: var(--record-sticky-offset);
-  z-index: 12;
-  display: block;
-  margin: 0;
-  padding: 12px 0 10px;
-  min-height: 36px;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  color: var(--color-label-muted);
-  background: rgba(0, 0, 0, 0.92);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-bottom: 1px solid var(--hairline-divider);
-  isolation: isolate;
-}
-
-[data-theme-mode='amoled'] .transaction-list-bare__section {
-  display: flex;
-  flex-direction: column;
-}
-
-[data-theme-mode='amoled'] .transaction-list-bare__rows {
-  display: flex;
-  flex-direction: column;
-}
-
-[data-theme-mode='amoled'] .transaction-list-bare .swipeable-row__content,
-[data-theme='light'] .transaction-list-bare .swipeable-row__content {
-  background: transparent;
-}
-
-[data-theme-mode='amoled'] .transaction-list-bare .pressable-row:active {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-/* ── Physical-light CTA ── */
-
-[data-theme-mode='amoled'] .fab,
-[data-theme-mode='amoled'] .fab--record {
-  width: var(--fab-size);
-  height: var(--fab-size);
-  background: var(--color-primary) !important;
-  border: 1px solid var(--hairline-border) !important;
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-primary) 40%, transparent) !important;
-}
-
-/* ── Desktop bottom bar + header (OLED) ── */
-
-@media (min-width: 768px) {
-  [data-theme-mode='amoled'] .app-brand-header .brand-hub {
-    background: rgba(255, 255, 255, 0.03);
-    border-color: var(--hairline-border);
-    box-shadow: none;
-  }
-
-  [data-theme-mode='amoled'] .bottom-bar {
-    background: rgba(255, 255, 255, 0.04);
-    border-color: var(--hairline-border);
-    box-shadow: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-
-  [data-theme-mode='amoled'] .bottom-bar__item {
-    color: rgba(255, 255, 255, 0.42);
-  }
-
-  [data-theme-mode='amoled'] .bottom-bar__item:hover:not(.bottom-bar__item--active) {
-    background: rgba(255, 255, 255, 0.05);
-    color: rgba(255, 255, 255, 0.72);
-  }
-
-  [data-theme-mode='amoled'] .bottom-bar__item--active {
-    color: #ffffff;
-  }
-
-  [data-theme-mode='amoled'] .sync-pill--header {
-    background: rgba(255, 255, 255, 0.03);
-    border-color: var(--hairline-border);
-    box-shadow: none;
-    color: rgba(255, 255, 255, 0.72);
-  }
-}
-
-/* ── Mobile bottom bar (OLED) ── */
-
-[data-theme-mode='amoled'] .bottom-bar__item {
-  color: rgba(255, 255, 255, 0.42);
-}
-
-[data-theme-mode='amoled'] .bottom-bar__label {
-  color: inherit;
-}
-
-[data-theme-mode='amoled'] .bottom-bar__item--active {
-  color: #ffffff;
-}
-
-[data-theme-mode='amoled'] .bottom-bar__item--active .bottom-bar__pill {
-  background: color-mix(in srgb, var(--color-primary) 14%, transparent);
-}
-
-[data-theme-mode='amoled'] .bottom-bar__item--active .bottom-bar__icon {
+[data-theme='dark'] .finance-summary-card__balance--neutral .money--hero-display {
   color: var(--color-on-background);
 }
 
-/* ── iOS segmented on OLED ── */
-
-[data-theme-mode='amoled'] .ios-segmented {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--hairline-border);
+[data-theme='dark'] .finance-stat-chip__label {
+  color: var(--color-label-muted);
 }
 
-[data-theme-mode='amoled'] .ios-segmented__item--active {
-  background: var(--color-oled-surface-elevated);
-  box-shadow: inset 0 0 0 1px var(--hairline-border);
+[data-theme='dark'] .finance-stat-chip .money--stat {
+  color: var(--color-stat-value);
 }
 
-/* ── Screen title glass on scroll ── */
-
-[data-theme-mode='amoled'] .screen-title-bar--glass {
-  background: rgba(0, 0, 0, 0.72);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+/* ── Transaction list ── */
+[data-theme='dark'] .transaction-list-bare .transaction-row {
   border-bottom: 1px solid var(--hairline-divider);
-  box-shadow: none;
+  background: transparent;
+}
+
+[data-theme='dark'] .transaction-list-bare .transaction-row:last-child {
+  border-bottom: none;
+}
+
+[data-theme='dark'] .transaction-list-bare__day,
+[data-theme='dark'] .txn-day-header {
+  background: color-mix(in srgb, var(--color-background) 90%, transparent);
+  border-color: var(--hairline-divider);
+}
+
+[data-theme='dark'] .transaction-list-bare .swipeable-row__content {
+  background: var(--color-background);
+}
+
+[data-theme='light'] .transaction-list-bare .swipeable-row__content {
+  background: var(--color-background);
+}
+
+/* ── Input autofill ── */
+[data-theme='dark'] input:-webkit-autofill,
+[data-theme='dark'] input:-webkit-autofill:hover,
+[data-theme='dark'] input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0px 1000px var(--color-surface-variant) inset;
+  -webkit-text-fill-color: var(--color-on-background);
+  transition: background-color 5000s ease-in-out 0s;
 }

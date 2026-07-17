@@ -1,4 +1,4 @@
-import { useRef, type KeyboardEvent } from 'react';
+import { useCallback, useRef, type KeyboardEvent } from 'react';
 
 interface SegmentOption<T extends string> {
   value: T;
@@ -10,7 +10,7 @@ interface IosSegmentedControlProps<T extends string> {
   value: T;
   onChange: (value: T) => void;
   className?: string;
-  /** Applied to the active segment button for type-specific tinting */
+  /** Tint the active pill by transaction type when relevant */
   activeVariant?: 'default' | 'expense' | 'income' | 'transfer';
 }
 
@@ -19,52 +19,85 @@ export function IosSegmentedControl<T extends string>({
   value,
   onChange,
   className = '',
-}: IosSegmentedControlProps<T>) {
-  const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  activeVariant = 'default',
+  'aria-label': ariaLabel,
+}: IosSegmentedControlProps<T> & { 'aria-label'?: string }) {
+  const groupRef = useRef<HTMLDivElement>(null);
 
-  const focusSegment = (index: number) => {
-    buttonRefs.current[index]?.focus();
-  };
+  const pillVariant =
+    activeVariant !== 'default'
+      ? activeVariant
+      : value === 'expense' || value === 'income' || value === 'transfer'
+        ? value
+        : 'default';
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
-    const last = options.length - 1;
-    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
-      event.preventDefault();
-      const next = index < last ? index + 1 : 0;
+  const focusIndex = useCallback((index: number) => {
+    const buttons = groupRef.current?.querySelectorAll<HTMLButtonElement>('[role="radio"]');
+    buttons?.[index]?.focus();
+  }, []);
+
+  const selectByOffset = useCallback(
+    (offset: number) => {
+      const current = Math.max(0, options.findIndex((o) => o.value === value));
+      const next = (current + offset + options.length) % options.length;
       onChange(options[next].value);
-      focusSegment(next);
-    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
-      event.preventDefault();
-      const prev = index > 0 ? index - 1 : last;
-      onChange(options[prev].value);
-      focusSegment(prev);
-    } else if (event.key === 'Home') {
-      event.preventDefault();
-      onChange(options[0].value);
-      focusSegment(0);
-    } else if (event.key === 'End') {
-      event.preventDefault();
-      onChange(options[last].value);
-      focusSegment(last);
+      // Focus after state update paints — requestAnimationFrame is enough for same-tick DOM
+      requestAnimationFrame(() => focusIndex(next));
+    },
+    [focusIndex, onChange, options, value],
+  );
+
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    switch (e.key) {
+      case 'ArrowRight':
+      case 'ArrowDown':
+        e.preventDefault();
+        selectByOffset(1);
+        break;
+      case 'ArrowLeft':
+      case 'ArrowUp':
+        e.preventDefault();
+        selectByOffset(-1);
+        break;
+      case 'Home':
+        e.preventDefault();
+        onChange(options[0].value);
+        requestAnimationFrame(() => focusIndex(0));
+        break;
+      case 'End':
+        e.preventDefault();
+        onChange(options[options.length - 1].value);
+        requestAnimationFrame(() => focusIndex(options.length - 1));
+        break;
+      default:
+        break;
     }
   };
 
   return (
-    <div className={`ios-segmented ${className}`.trim()} role="tablist">
-      {options.map((option, index) => {
+    <div
+      ref={groupRef}
+      className={`segmented ${className}`.trim()}
+      role="radiogroup"
+      aria-label={ariaLabel}
+      onKeyDown={onKeyDown}
+    >
+      {options.map((option) => {
         const active = option.value === value;
         return (
           <button
             key={option.value}
-            ref={(el) => { buttonRefs.current[index] = el; }}
             type="button"
-            role="tab"
-            aria-selected={active}
+            role="radio"
+            aria-checked={active}
             tabIndex={active ? 0 : -1}
-            data-segment={option.value}
-            className={`ios-segmented__item ${active ? 'ios-segmented__item--active' : ''}`}
+            data-type={option.value}
+            className={[
+              'segmented__item',
+              active ? 'segmented__item--active' : '',
+              active ? `segmented__item--${pillVariant}` : '',
+            ].filter(Boolean).join(' ')}
             onClick={() => onChange(option.value)}
-            onKeyDown={(event) => handleKeyDown(event, index)}
           >
             {option.label}
           </button>
