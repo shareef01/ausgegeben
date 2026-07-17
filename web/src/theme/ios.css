@@ -88,3 +88,22 @@ body {
     padding-top: env(safe-area-inset-top);
   }
 }
+
+/* ── Mobile input zoom guard ──
+   iOS Safari auto-zooms the page when a focused input's font-size is
+   below 16px. Enforce 16px on touch devices; desktop keeps the
+   compact sizing. */
+@media (pointer: coarse) {
+  .field__input,
+  .record-search__input {
+    font-size: 1rem;
+  }
+}
+
+/* ── App-like scroll behavior ──
+   Stop pull-to-refresh (Pixel/Chrome) and scroll chaining from
+   reloading or rubber-banding the installed app. */
+html,
+body {
+  overscroll-behavior-y: none;
+}
