@@ -13,10 +13,10 @@
     "icons": "node scripts/generate-icons.mjs",
     "prebuild": "npm run icons",
     "deploy": "npm run build && npx firebase deploy --only hosting:aus01,firestore:rules --config ../firebase.json",
-    "deploy:hosting": "npm run build && npx firebase deploy --only hosting:aus01 --config ../firebase.json"
+    "deploy:hosting": "npm run build && npx firebase deploy --only hosting:aus01 --config ../firebase.json",
+    "deploy:rules": "npx firebase deploy --only firestore:rules --config ../firebase.json"
   },
   "dependencies": {
-    "dexie": "^4.0.11",
     "firebase": "^11.10.0",
     "lucide-react": "^0.525.0",
     "react": "^19.1.0",
@@ -27,11 +27,11 @@
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.4.1",
-    "firebase-tools": "^14.27.0",
+    "firebase-tools": "^15.23.0",
     "sharp": "^0.35.2",
     "typescript": "~5.8.3",
     "vite": "^6.3.5",
     "vite-plugin-pwa": "^0.21.2",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.6"
   }
 }

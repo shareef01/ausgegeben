@@ -9,143 +9,94 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isTransactionType(value) {
-      return value in ['expense', 'income', 'transfer'];
+    function validExpense() {
+      let d = request.resource.data;
+      return d.keys().hasAll(['amount', 'dateMillis', 'categoryId', 'note', 'transactionType'])
+        && d.amount is number
+        && d.amount >= 0
+        && d.amount < 1000000000
+        && d.dateMillis is number
+        && d.categoryId is string
+        && d.categoryId.size() > 0
+        && d.categoryId.size() < 64
+        && d.note is string
+        && d.note.size() < 2000
+        && d.transactionType in ['expense', 'income', 'transfer']
+        && (!('updatedAt' in d) || d.updatedAt is number)
+        && (!('idempotencyKey' in d)
+          || (d.idempotencyKey is string && d.idempotencyKey.size() < 128))
+        && (!('id' in d) || (d.id is string && d.id.size() < 64));
     }
 
-    function isThemeMode(value) {
-      return value in [
-        'system', 'light', 'dark', 'amoled', 'midnight',
-        'ocean', 'forest', 'sunset', 'lavender', 'soft_light'
-      ];
+    function validCategory() {
+      let d = request.resource.data;
+      return d.keys().hasAll(['name', 'iconName', 'colorInt', 'transactionType', 'sortOrder'])
+        && d.name is string
+        && d.name.size() > 0
+        && d.name.size() < 80
+        && d.iconName is string
+        && d.iconName.size() > 0
+        && d.iconName.size() < 64
+        && d.colorInt is number
+        && d.transactionType in ['expense', 'income', 'transfer']
+        && d.sortOrder is number
+        && d.sortOrder >= 0
+        && d.sortOrder < 10000
+        && (!('updatedAt' in d) || d.updatedAt is number)
+        && (!('id' in d) || (d.id is string && d.id.size() < 64));
     }
 
-    function isOptionalReceiptPath(value) {
-      return value == null
-        || (value is string
-          && value.size() <= 512
-          && (value.size() == 0 || value.matches('receipt://.+')));
-    }
-
-    function isValidCategory(data) {
-      return data.keys().hasAll([
-          'cloudId', 'name', 'iconName', 'colorInt',
-          'transactionType', 'sortOrder', 'updatedAt', 'deleted'
-        ])
-        && data.cloudId is string
-        && data.cloudId.size() > 0
-        && data.cloudId.size() <= 64
-        && data.name is string
-        && data.name.size() > 0
-        && data.name.size() <= 120
-        && data.iconName is string
-        && data.iconName.size() > 0
-        && data.iconName.size() <= 64
-        && data.colorInt is int
-        && data.colorInt >= -2147483648
-        && data.colorInt <= 2147483647
-        && data.transactionType is string
-        && isTransactionType(data.transactionType)
-        && data.sortOrder is int
-        && data.sortOrder >= -10000
-        && data.sortOrder <= 10000
-        && data.deleted is bool
-        && data.updatedAt is timestamp;
-    }
-
-    function isValidExpense(data) {
-      return data.keys().hasAll([
-          'cloudId', 'amount', 'dateMillis', 'categoryId', 'categoryCloudId',
-          'note', 'transactionType', 'updatedAt', 'deleted'
-        ])
-        && data.cloudId is string
-        && data.cloudId.size() > 0
-        && data.cloudId.size() <= 64
-        && data.amount is number
-        && data.amount >= -999999999
-        && data.amount <= 999999999
-        && data.dateMillis is int
-        && data.dateMillis >= 0
-        && data.dateMillis <= 4102444800000
-        && data.categoryId is int
-        && data.categoryCloudId is string
-        && data.categoryCloudId.size() > 0
-        && data.categoryCloudId.size() <= 64
-        && data.note is string
-        && data.note.size() <= 2000
-        && (!('receiptImagePath' in data) || isOptionalReceiptPath(data.receiptImagePath))
-        && data.transactionType is string
-        && isTransactionType(data.transactionType)
-        && data.deleted is bool
-        && data.updatedAt is timestamp;
-    }
-
-    function isValidPreferences(data) {
-      return data.keys().hasAll([
+    function validPreferences() {
+      let d = request.resource.data;
+      return d.keys().hasAll([
           'currency', 'locale', 'themeMode', 'dailyReminder',
-          'reminderHour', 'reminderMinute', 'analyticsPeriod',
-          'recordListPeriod', 'updatedAt'
+          'reminderHour', 'reminderMinute', 'analyticsPeriod', 'updatedAt'
         ])
-        && data.currency is string
-        && data.currency.size() >= 3
-        && data.currency.size() <= 8
-        && data.locale is string
-        && data.locale in ['en', 'de']
-        && data.themeMode is string
-        && isThemeMode(data.themeMode)
-        && data.dailyReminder is bool
-        && data.reminderHour is int
-        && data.reminderHour >= 0
-        && data.reminderHour <= 23
-        && data.reminderMinute is int
-        && data.reminderMinute >= 0
-        && data.reminderMinute <= 59
-        && data.analyticsPeriod is string
-        && data.analyticsPeriod.size() <= 64
-        && data.recordListPeriod is string
-        && data.recordListPeriod.size() <= 64
-        && (!('monthlyBudget' in data)
-          || data.monthlyBudget == null
-          || (data.monthlyBudget is number
-            && data.monthlyBudget > 0
-            && data.monthlyBudget <= 999999999))
-        && data.updatedAt is timestamp;
-    }
-
-    function isValidUserMeta(data) {
-      return (!('lastPushAt' in data)
-          || (data.lastPushAt is number && data.lastPushAt > 0 && data.lastPushAt <= 4102444800000))
-        && (!('lastPullAt' in data)
-          || (data.lastPullAt is number && data.lastPullAt > 0 && data.lastPullAt <= 4102444800000));
+        && d.currency is string
+        && d.currency.size() >= 3
+        && d.currency.size() <= 4
+        && d.locale in ['en', 'de']
+        && d.themeMode is string
+        && d.themeMode.size() > 0
+        && d.themeMode.size() < 32
+        && d.dailyReminder is bool
+        && d.reminderHour is number
+        && d.reminderHour >= 0
+        && d.reminderHour <= 23
+        && d.reminderMinute is number
+        && d.reminderMinute >= 0
+        && d.reminderMinute <= 59
+        && d.analyticsPeriod is string
+        && d.analyticsPeriod.size() > 0
+        && d.analyticsPeriod.size() < 64
+        && d.updatedAt is number
+        && (!('monthlyBudget' in d)
+          || d.monthlyBudget == null
+          || (d.monthlyBudget is number && d.monthlyBudget >= 0 && d.monthlyBudget < 1000000000))
+        && (!('onboardingComplete' in d) || d.onboardingComplete is bool);
     }
 
     match /users/{userId} {
-      allow read: if isOwner(userId);
-      allow create, update: if isOwner(userId) && isValidUserMeta(request.resource.data);
-      allow delete: if false;
-
-      match /preferences/{docId} {
-        allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId)
-          && docId == 'settings'
-          && isValidPreferences(request.resource.data);
-        allow delete: if false;
-      }
+      allow read, write: if false;
 
       match /categories/{categoryId} {
         allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId)
-          && categoryId == request.resource.data.cloudId
-          && isValidCategory(request.resource.data);
+        allow create, update: if isOwner(userId) && validCategory();
         allow delete: if isOwner(userId);
       }
 
       match /expenses/{expenseId} {
         allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId)
-          && expenseId == request.resource.data.cloudId
-          && isValidExpense(request.resource.data);
+        allow create, update: if isOwner(userId) && validExpense();
         allow delete: if isOwner(userId);
+      }
+
+      match /settings/{docId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && docId == 'preferences'
+          && validPreferences();
+        allow delete: if isOwner(userId) && docId == 'preferences';
       }
     }
   }
