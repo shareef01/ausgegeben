@@ -21,7 +21,7 @@ val Typography = Typography(
         fontFamily = InterFontFamily,
         fontWeight = FontWeight.Bold,
         fontSize = 52.sp,
-        lineHeight = 56.sp,
+        lineHeight = 64.sp,
         letterSpacing = (-1.5).sp,
         fontFeatureSettings = "tnum, lnum"
     ),
@@ -48,6 +48,13 @@ val Typography = Typography(
         lineHeight = 26.sp,
         letterSpacing = (-0.3).sp
     ),
+    titleMedium = TextStyle(
+        fontFamily = InterFontFamily,
+        fontWeight = FontWeight.Medium,
+        fontSize = 16.sp,
+        lineHeight = 22.sp,
+        letterSpacing = 0.sp
+    ),
     bodyLarge = TextStyle(
         fontFamily = InterFontFamily,
         fontWeight = FontWeight.Normal,
@@ -62,13 +69,34 @@ val Typography = Typography(
         lineHeight = 20.sp,
         fontFeatureSettings = "tnum"
     ),
-    /** Muted Metadata Sub-labels */
-    labelSmall = TextStyle(
+    bodySmall = TextStyle(
         fontFamily = InterFontFamily,
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.Normal,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
+        fontFeatureSettings = "tnum"
+    ),
+    labelLarge = TextStyle(
+        fontFamily = InterFontFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.5.sp
+    ),
+    labelMedium = TextStyle(
+        fontFamily = InterFontFamily,
+        fontWeight = FontWeight.Medium,
         fontSize = 11.sp,
         lineHeight = 14.sp,
-        letterSpacing = 1.5.sp, // Wide tracking
+        letterSpacing = 0.3.sp
+    ),
+    /** Tiny metadata labels — not for section headers */
+    labelSmall = TextStyle(
+        fontFamily = InterFontFamily,
+        fontWeight = FontWeight.Medium,
+        fontSize = 10.sp,
+        lineHeight = 13.sp,
+        letterSpacing = 0.4.sp
     )
 )
 
@@ -76,4 +104,12 @@ val AmountTextStyle = TextStyle(
     fontFamily = InterFontFamily,
     fontWeight = FontWeight.SemiBold,
     fontFeatureSettings = "tnum, lnum",
+)
+
+/** Unified section / label style for uppercase metadata across screens. */
+val SectionLabelStyle = TextStyle(
+    fontFamily = InterFontFamily,
+    fontSize = 11.sp,
+    fontWeight = FontWeight.Bold,
+    letterSpacing = 1.5.sp,
 )

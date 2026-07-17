@@ -1,8 +1,11 @@
 package com.aus.ausgegeben.ui
 
-import android.os.Build
+import android.content.Intent
+import android.net.Uri
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -12,32 +15,46 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Help
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.core.os.LocaleListCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.data.AppRepository
+import com.aus.ausgegeben.data.StorageMode
 import com.aus.ausgegeben.data.auth.AuthRepository
 import com.aus.ausgegeben.ui.components.*
 import com.aus.ausgegeben.ui.theme.*
 import com.aus.ausgegeben.util.CurrencyUtils
+import com.aus.ausgegeben.util.ExportUtils
+import com.aus.ausgegeben.notification.ReminderScheduler
+import com.aus.ausgegeben.util.formatRelativeTimestamp
+import com.aus.ausgegeben.util.rememberAppHaptics
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,146 +64,387 @@ fun SettingsScreen(
     preferenceManager: PreferenceManager,
     authRepository: AuthRepository,
     authViewModel: AuthViewModel,
+    syncError: String? = null,
+    syncing: Boolean = false,
+    onRetrySync: () -> Unit = {},
     onNavigateToCategories: () -> Unit,
     onShowMessage: (String) -> Unit,
     onRequestNotificationPermission: () -> Unit,
     onRequestSignIn: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val themeMode by preferenceManager.themeModeFlow.collectAsState(initial = ThemeMode.SYSTEM)
-    val currency by preferenceManager.currencyFlow.collectAsState(initial = "EUR")
-    val language by preferenceManager.languageFlow.collectAsState(initial = "en")
-    val dailyReminder by preferenceManager.dailyReminderFlow.collectAsState(initial = true)
-    
+    val isWide = isWideScreen()
+    val themeMode by preferenceManager.themeModeFlow.collectAsStateWithLifecycle(initialValue = ThemeMode.SYSTEM)
+    val currency by preferenceManager.currencyFlow.collectAsStateWithLifecycle(initialValue = "EUR")
+    val language by preferenceManager.languageFlow.collectAsStateWithLifecycle(initialValue = "en")
+    val dailyReminder by preferenceManager.dailyReminderFlow.collectAsStateWithLifecycle(initialValue = true)
+    val reminderHour by preferenceManager.reminderHourFlow.collectAsStateWithLifecycle(initialValue = 19)
+    val reminderMinute by preferenceManager.reminderMinuteFlow.collectAsStateWithLifecycle(initialValue = 0)
+    val monthlyBudget by preferenceManager.monthlyBudgetFlow.collectAsStateWithLifecycle(initialValue = null)
+    val storageMode by preferenceManager.storageModeFlow.collectAsStateWithLifecycle(initialValue = StorageMode.LOCAL)
+    val lastCloudSyncAt by preferenceManager.lastCloudSyncAtFlow.collectAsStateWithLifecycle(initialValue = null)
+
     // Reactive Auth State
-    val currentUser by authRepository.authState.collectAsState(initial = authRepository.currentUser)
-    
+    val currentUser by authRepository.authState.collectAsStateWithLifecycle(initialValue = authRepository.currentUser)
+
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val haptics = rememberAppHaptics()
+
     var showThemeSheet by remember { mutableStateOf(false) }
     var showLanguageSheet by remember { mutableStateOf(false) }
     var showCurrencySheet by remember { mutableStateOf(false) }
+    var showBudgetDialog by remember { mutableStateOf(false) }
+    var showReminderTimeDialog by remember { mutableStateOf(false) }
+    var showSignOutConfirm by remember { mutableStateOf(false) }
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
-        contentPadding = tabScreenListBottomPadding()
-    ) {
-        item { ScreenTitle(title = stringResource(R.string.screen_settings)) }
+    val reminderTimeLabel = remember(reminderHour, reminderMinute) {
+        "%02d:%02d".format(reminderHour, reminderMinute)
+    }
 
-        item { GroupedSectionLabel(text = stringResource(R.string.settings_section_appearance)) }
-        item {
-            GroupedSection {
-                SettingsActionRow(
-                    icon = Icons.Rounded.Category,
-                    tint = MaterialTheme.colorScheme.primary,
-                    title = stringResource(R.string.settings_categories).lowercase(),
-                    onClick = onNavigateToCategories
-                )
-                IosSeparator(insetStart = 56.dp)
-                SettingsActionRow(
-                    icon = Icons.Rounded.Palette,
-                    tint = Color(0xFFFB7185), // Soft Coral
-                    title = stringResource(R.string.settings_theme).lowercase(),
-                    subtitle = themeMode.label.lowercase(),
-                    onClick = { showThemeSheet = true }
-                )
-                IosSeparator(insetStart = 56.dp)
-                SettingsActionRow(
-                    icon = Icons.Rounded.Language,
-                    tint = Color(0xFF8B5CF6), // Violet
-                    title = stringResource(R.string.settings_language).lowercase(),
-                    subtitle = if (language == "de") stringResource(R.string.lang_german).lowercase() else stringResource(R.string.lang_english).lowercase(),
-                    onClick = { showLanguageSheet = true }
-                )
-                IosSeparator(insetStart = 56.dp)
-                SettingsActionRow(
-                    icon = Icons.Rounded.Payments,
-                    tint = Color(0xFF10B981), // Emerald
-                    title = stringResource(R.string.settings_currency).lowercase(),
-                    subtitle = currency,
-                    onClick = { showCurrencySheet = true }
-                )
-            }
-        }
-
-        item { GroupedSectionLabel(text = stringResource(R.string.settings_section_notifications)) }
-        item {
-            GroupedSection {
-                SettingsSwitchRow(
-                    icon = Icons.Rounded.NotificationsActive,
-                    tint = Color(0xFFFBBF24), // Amber
-                    title = stringResource(R.string.settings_evening_reminder).lowercase(),
-                    checked = dailyReminder,
-                    onCheckedChange = { 
-                        if (it) onRequestNotificationPermission()
-                        scope.launch { preferenceManager.updateDailyReminder(it) } 
-                    }
-                )
-            }
-        }
-
-        item { GroupedSectionLabel(text = stringResource(R.string.settings_section_management)) }
-        item {
-            GroupedSection {
-                if (currentUser != null) {
+    @Composable
+    fun AppearanceSection() {
+        Column {
+            GroupedSectionLabel(text = stringResource(R.string.settings_section_appearance))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = AppSpacing.md)
+                    .appGlassCard(shape = RoundedCornerShape(AppRadius.card)),
+            ) {
+                Column {
                     SettingsActionRow(
-                        icon = Icons.Rounded.CloudDone,
-                        tint = Color(0xFF10B981),
-                        title = stringResource(R.string.settings_account_cloud).lowercase(),
-                        subtitle = (currentUser?.email ?: "").lowercase(),
-                        onClick = { /* data is always live with Firestore */ }
-                    )
-                    IosSeparator(insetStart = 56.dp)
-                } else {
-                    SettingsActionRow(
-                        icon = Icons.Rounded.CloudUpload,
+                        icon = Icons.Rounded.Category,
                         tint = MaterialTheme.colorScheme.primary,
-                        title = stringResource(R.string.settings_account_cloud).lowercase(),
-                        onClick = onRequestSignIn
+                        title = stringResource(R.string.settings_categories).lowercase(),
+                        onClick = onNavigateToCategories
                     )
                     IosSeparator(insetStart = 56.dp)
+                    SettingsActionRow(
+                        icon = Icons.Rounded.Palette,
+                        tint = settingsIconTintAccent(),
+                        title = stringResource(R.string.settings_theme).lowercase(),
+                        subtitle = themeMode.label.lowercase(),
+                        onClick = { showThemeSheet = true }
+                    )
+                    IosSeparator(insetStart = 56.dp)
+                    SettingsActionRow(
+                        icon = Icons.Rounded.Language,
+                        tint = settingsIconTintAccent(),
+                        title = stringResource(R.string.settings_language).lowercase(),
+                        subtitle = if (language == "de") stringResource(R.string.lang_german).lowercase() else stringResource(R.string.lang_english).lowercase(),
+                        onClick = { showLanguageSheet = true }
+                    )
+                    IosSeparator(insetStart = 56.dp)
+                    val deduplicateMessage = stringResource(R.string.settings_deduplicate_done)
+                    SettingsActionRow(
+                        icon = Icons.Rounded.CleaningServices,
+                        tint = MaterialTheme.colorScheme.primary,
+                        title = stringResource(R.string.settings_deduplicate_label),
+                        subtitle = stringResource(R.string.settings_deduplicate_subtitle),
+                        onClick = {
+                            scope.launch {
+                                repository.deduplicateCategories()
+                                onShowMessage(deduplicateMessage)
+                            }
+                        }
+                    )
                 }
+            }
+        }
+    }
+
+    @Composable
+    fun NotificationSection() {
+        Column {
+            GroupedSectionLabel(text = stringResource(R.string.settings_section_notifications))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = AppSpacing.md)
+                    .appGlassCard(shape = RoundedCornerShape(AppRadius.card)),
+            ) {
+                Column {
+                    SettingsSwitchRow(
+                        icon = Icons.Rounded.NotificationsActive,
+                        tint = settingsIconTintAccent(),
+                        title = stringResource(R.string.settings_evening_reminder).lowercase(),
+                        checked = dailyReminder,
+                        onCheckedChange = { 
+                            if (it) onRequestNotificationPermission()
+                            scope.launch { preferenceManager.updateDailyReminder(it) } 
+                        }
+                    )
+                    if (dailyReminder) {
+                        IosSeparator(insetStart = 56.dp)
+                        SettingsActionRow(
+                            icon = Icons.Rounded.Schedule,
+                            tint = MaterialTheme.colorScheme.primary,
+                            title = stringResource(R.string.settings_reminder_time).lowercase(),
+                            subtitle = reminderTimeLabel,
+                            onClick = { showReminderTimeDialog = true },
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun ManagementSection() {
+        Column {
+            GroupedSectionLabel(text = stringResource(R.string.settings_section_management))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = AppSpacing.md)
+                    .appGlassCard(shape = RoundedCornerShape(AppRadius.card)),
+            ) {
+                Column {
+                    if (currentUser != null && storageMode == StorageMode.CLOUD) {
+                        val email = currentUser?.email
+                        val accountTitle = currentUser?.displayName?.takeIf { it.isNotBlank() }
+                            ?: email?.substringBefore('@')?.replaceFirstChar { it.titlecase() }
+                            ?: stringResource(R.string.settings_account_cloud)
+                        val accountSubtitle = when {
+                            syncing -> stringResource(R.string.settings_sync_in_progress)
+                            lastCloudSyncAt != null -> stringResource(
+                                R.string.settings_last_synced,
+                                formatRelativeTimestamp(context, lastCloudSyncAt!!),
+                            )
+                            else -> stringResource(R.string.settings_never_synced)
+                        }
+                        SettingsInfoRow(
+                            icon = Icons.Rounded.CloudDone,
+                            tint = MaterialTheme.colorScheme.primary,
+                            title = accountTitle,
+                            subtitle = buildString {
+                                if (!email.isNullOrBlank() && accountTitle != email) {
+                                    append(email)
+                                    append('\n')
+                                }
+                                append(accountSubtitle)
+                            },
+                        )
+                        IosSeparator(insetStart = 56.dp)
+                        SettingsActionRow(
+                            icon = Icons.Rounded.Sync,
+                            tint = MaterialTheme.colorScheme.primary,
+                            title = stringResource(R.string.settings_sync_now).lowercase(),
+                            subtitle = stringResource(R.string.settings_account_cloud_subtitle).lowercase(),
+                            onClick = {
+                                if (syncing) return@SettingsActionRow
+                                onRetrySync()
+                            },
+                        )
+                        IosSeparator(insetStart = 56.dp)
+                    } else {
+                        SettingsActionRow(
+                            icon = Icons.Rounded.CloudUpload,
+                            tint = MaterialTheme.colorScheme.primary,
+                            title = stringResource(R.string.settings_sign_in).lowercase(),
+                            subtitle = stringResource(R.string.settings_sign_in_subtitle).lowercase(),
+                            onClick = onRequestSignIn,
+                        )
+                        IosSeparator(insetStart = 56.dp)
+                    }
+                    val deduplicateDoneMsg = stringResource(R.string.settings_deduplicate_done)
+                    SettingsActionRow(
+                        icon = Icons.Rounded.CleaningServices,
+                        tint = MaterialTheme.colorScheme.primary,
+                        title = stringResource(R.string.settings_deduplicate_label),
+                        subtitle = stringResource(R.string.settings_deduplicate_subtitle),
+                        onClick = {
+                            scope.launch {
+                                repository.deduplicateCategories()
+                                onShowMessage(deduplicateDoneMsg)
+                            }
+                        }
+                    )
+                    IosSeparator(insetStart = 56.dp)
+                    SettingsActionRow(
+                        icon = Icons.Rounded.FileDownload,
+                        tint = settingsIconTintMuted(),
+                        title = stringResource(R.string.settings_export_csv).lowercase(),
+                        subtitle = stringResource(R.string.settings_export_subtitle).lowercase(),
+                        onClick = {
+                            scope.launch {
+                                val ok = ExportUtils.exportCsv(context, repository)
+                                if (ok) haptics.success() else haptics.light()
+                                onShowMessage(
+                                    context.getString(
+                                        if (ok) R.string.settings_export_ok else R.string.settings_export_failed,
+                                    ),
+                                )
+                            }
+                        },
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun BudgetSection() {
+        Column {
+            GroupedSectionLabel(text = stringResource(R.string.settings_section_budget))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = AppSpacing.md)
+                    .appGlassCard(shape = RoundedCornerShape(AppRadius.card)),
+            ) {
                 SettingsActionRow(
-                    icon = Icons.Rounded.FileDownload,
-                    tint = Color(0xFF94A3B8), // Slate
-                    title = stringResource(R.string.settings_export_csv).lowercase(),
-                    onClick = { /* Handle export click */ }
+                    icon = Icons.Rounded.Speed,
+                    tint = settingsIconTintMuted(),
+                    title = stringResource(R.string.settings_monthly_limit).lowercase(),
+                    subtitle = monthlyBudget?.let {
+                        CurrencyUtils.formatAmount(it, currency, showSymbol = true)
+                    } ?: stringResource(R.string.settings_monthly_limit_not_set).lowercase(),
+                    onClick = { showBudgetDialog = true },
                 )
             }
         }
+    }
 
-        if (currentUser != null) {
-            item { Spacer(Modifier.height(32.dp)) }
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFFFB7185).copy(alpha = 0.1f))
-                        .premiumClickable {
-                            authViewModel.signOut {
-                                scope.launch {
-                                    preferenceManager.resetAuthGateway()
+    @Composable
+    fun AboutSection() {
+        Column {
+            GroupedSectionLabel(text = stringResource(R.string.settings_section_about))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = AppSpacing.md)
+                    .appGlassCard(shape = RoundedCornerShape(AppRadius.card)),
+            ) {
+                Column {
+                    SettingsActionRow(
+                        icon = Icons.AutoMirrored.Rounded.Help,
+                        tint = settingsIconTintMuted(),
+                        title = stringResource(R.string.settings_support).lowercase(),
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_SENDTO).apply {
+                                data = Uri.parse("mailto:support@ausgegeben.app")
+                                putExtra(Intent.EXTRA_SUBJECT, "Ausgegeben Support")
+                            }
+                            try {
+                                context.startActivity(intent)
+                            } catch (_: Exception) {
+                                onShowMessage(context.getString(R.string.settings_no_email_app))
+                            }
+                        }
+                    )
+                    IosSeparator(insetStart = 56.dp)
+                    SettingsInfoRow(
+                        icon = Icons.Rounded.Info,
+                        tint = settingsIconTintMuted(),
+                        title = stringResource(R.string.app_name),
+                        subtitle = stringResource(R.string.settings_version_subtitle, "1.0.0"),
+                    )
+                }
+            }
+        }
+    }
+
+    Box(modifier = modifier.fillMaxSize().background(AppAurora.background())) {
+        Box(modifier = Modifier.fillMaxSize().background(AppAurora.brush(center = Offset(1000f, 0f))))
+
+        // Law: Centered Monolith constraint for large displays
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = if (isWide) 32.dp else 0.dp),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .widthIn(max = 800.dp),
+                contentPadding = tabScreenListBottomPadding()
+            ) {
+                item { ScreenTitle(title = stringResource(R.string.screen_settings)) }
+
+                if (syncError != null) {
+                    item {
+                        SyncErrorBanner(
+                            error = syncError,
+                            onRetry = onRetrySync,
+                            modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs),
+                        )
+                    }
+                }
+
+                if (isWide) {
+                    item {
+                        @OptIn(ExperimentalLayoutApi::class)
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            maxItemsInEachRow = 2
+                        ) {
+                            Box(modifier = Modifier.weight(1f)) {
+                                SettingsSectionEntrance(index = 0) { AppearanceSection() }
+                            }
+                            Box(modifier = Modifier.weight(1f)) {
+                                SettingsSectionEntrance(index = 1) { NotificationSection() }
+                            }
+                            Box(modifier = Modifier.weight(1f)) {
+                                SettingsSectionEntrance(index = 2) { BudgetSection() }
+                            }
+                            Box(modifier = Modifier.weight(1f)) {
+                                SettingsSectionEntrance(index = 3) { ManagementSection() }
+                            }
+                            Box(modifier = Modifier.weight(1f)) {
+                                SettingsSectionEntrance(index = 4) { AboutSection() }
+                            }
+                        }
+                    }
+                } else {
+                    item { SettingsSectionEntrance(index = 0) { AppearanceSection() } }
+                    item { SettingsSectionEntrance(index = 1) { NotificationSection() } }
+                    item { SettingsSectionEntrance(index = 2) { BudgetSection() } }
+                    item { SettingsSectionEntrance(index = 3) { ManagementSection() } }
+                    item { SettingsSectionEntrance(index = 4) { AboutSection() } }
+                }
+
+                if (currentUser != null) {
+                    item { Spacer(Modifier.height(32.dp)) }
+                    item {
+                        SettingsSectionEntrance(index = 5) {
+                            val signOutColor = settingsDestructiveColor()
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = AppSpacing.md)
+                                    .appGlassCard(RoundedCornerShape(AppRadius.card))
+                                    .padding(12.dp),
+                            ) {
+                                AppOutlinedButton(
+                                    onClick = {
+                                        haptics.light()
+                                        showSignOutConfirm = true
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentColor = signOutColor,
+                                    borderColor = signOutColor.copy(alpha = 0.35f),
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.settings_sign_out).lowercase(),
+                                        style = TextStyle(
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 15.sp,
+                                            letterSpacing = 0.5.sp,
+                                        ),
+                                    )
                                 }
                             }
                         }
-                        .padding(vertical = 16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = stringResource(R.string.settings_sign_out).lowercase(),
-                        style = TextStyle(
-                            color = Color(0xFFFB7185),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            letterSpacing = 0.5.sp
-                        )
-                    )
+                    }
                 }
+                
+                item { Spacer(Modifier.height(56.dp)) }
             }
         }
-        
-        item { Spacer(Modifier.height(40.dp)) }
     }
 
     if (showThemeSheet) {
@@ -225,6 +483,66 @@ fun SettingsScreen(
             onDismiss = { showCurrencySheet = false }
         )
     }
+
+    if (showReminderTimeDialog) {
+        ReminderTimeDialog(
+            initialHour = reminderHour,
+            initialMinute = reminderMinute,
+            onDismiss = { showReminderTimeDialog = false },
+            onConfirm = { hour, minute ->
+                scope.launch {
+                    preferenceManager.updateReminderTime(hour, minute)
+                    if (dailyReminder) {
+                        ReminderScheduler.scheduleNext(context)
+                    }
+                    onShowMessage(
+                        context.getString(R.string.settings_reminder_set, "%02d:%02d".format(hour, minute)),
+                    )
+                }
+                showReminderTimeDialog = false
+            },
+        )
+    }
+
+    if (showBudgetDialog) {
+        MonthlyBudgetSheet(
+            currencyCode = currency,
+            currentBudget = monthlyBudget,
+            onDismiss = { showBudgetDialog = false },
+            onSave = { amount ->
+                scope.launch {
+                    preferenceManager.updateMonthlyBudget(amount)
+                    onShowMessage(
+                        context.getString(
+                            if (amount != null) R.string.settings_budget_set
+                            else R.string.settings_budget_cleared,
+                        ),
+                    )
+                }
+                showBudgetDialog = false
+            },
+        )
+    }
+
+    if (showSignOutConfirm) {
+        AppDestructiveConfirmDialog(
+            onDismissRequest = { showSignOutConfirm = false },
+            confirmLabel = stringResource(R.string.settings_sign_out),
+            onConfirm = {
+                showSignOutConfirm = false
+                authViewModel.signOut { }
+            },
+            title = {
+                Text(
+                    text = stringResource(R.string.settings_sign_out).lowercase(),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            },
+            text = {
+                AppDialogBodyText(stringResource(R.string.settings_sign_out_confirm))
+            },
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -236,31 +554,33 @@ private fun ThemeSelectionSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
-        scrimColor = Color.Black.copy(alpha = 0.45f),
-        dragHandle = { BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)) },
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+        containerColor = appSheetContainerColor(),
+        scrimColor = appSheetScrimColor(),
+        dragHandle = { AppSheetDragHandle() },
+        shape = AppSheetShape,
     ) {
         SelectionSheetContent(
             title = stringResource(R.string.settings_choose_theme),
-            items = ThemeMode.entries,
+            options = ThemeMode.entries,
             isSelected = { it == currentMode },
-            label = { it.label },
-            preview = { mode ->
-                val previewColors = mode.getPreviewColors()
+            label = { it.label.lowercase() },
+            icon = { mode ->
+                val colors = mode.getPreviewColors()
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(24.dp)
                         .clip(CircleShape)
                         .background(
                             Brush.sweepGradient(
-                                colors = if (previewColors.size > 1) previewColors else listOf(previewColors[0], previewColors[0])
+                                0.0f to colors[0],
+                                0.5f to colors[1],
+                                1.0f to colors[0]
                             )
                         )
-                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), CircleShape)
                 )
             },
-            onSelect = onSelect
+            onSelect = onSelect,
+            onDismiss = onDismiss
         )
     }
 }
@@ -272,32 +592,21 @@ private fun LanguageSelectionSheet(
     onSelect: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val options = listOf("en" to stringResource(R.string.lang_english), "de" to stringResource(R.string.lang_german))
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
-        dragHandle = { BottomSheetDefaults.DragHandle() },
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+        containerColor = appSheetContainerColor(),
+        scrimColor = appSheetScrimColor(),
+        dragHandle = { AppSheetDragHandle() },
+        shape = AppSheetShape,
     ) {
         SelectionSheetContent(
             title = stringResource(R.string.settings_choose_language),
-            items = listOf("en", "de"),
-            isSelected = { it == currentLanguage },
-            label = { if (it == "de") stringResource(R.string.lang_german) else stringResource(R.string.lang_english) },
-            preview = { lang ->
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = lang.uppercase(),
-                        style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    )
-                }
-            },
-            onSelect = onSelect
+            options = options,
+            isSelected = { it.first == currentLanguage },
+            label = { it.second.lowercase() },
+            onSelect = { onSelect(it.first) },
+            onDismiss = onDismiss
         )
     }
 }
@@ -309,32 +618,22 @@ private fun CurrencySelectionSheet(
     onSelect: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val currencies = CurrencyUtils.supportedCurrencies
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
-        dragHandle = { BottomSheetDefaults.DragHandle() },
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+        containerColor = appSheetContainerColor(),
+        scrimColor = appSheetScrimColor(),
+        dragHandle = { AppSheetDragHandle() },
+        shape = AppSheetShape,
     ) {
         SelectionSheetContent(
             title = stringResource(R.string.settings_choose_currency),
-            items = CurrencyUtils.supportedCurrencies,
+            options = currencies,
             isSelected = { it == currentCurrency },
-            label = { CurrencyUtils.labelFor(it) },
-            preview = { cur ->
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF10B981).copy(alpha = 0.1f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = CurrencyUtils.symbolFor(cur),
-                        style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
-                    )
-                }
-            },
-            onSelect = onSelect
+            label = { it },
+            secondaryLabel = { CurrencyUtils.labelFor(it).lowercase() },
+            onSelect = onSelect,
+            onDismiss = onDismiss
         )
     }
 }
@@ -342,84 +641,87 @@ private fun CurrencySelectionSheet(
 @Composable
 private fun <T> SelectionSheetContent(
     title: String,
-    items: List<T>,
+    options: List<T>,
     isSelected: (T) -> Boolean,
     label: @Composable (T) -> String,
-    preview: @Composable (T) -> Unit,
-    onSelect: (T) -> Unit
+    secondaryLabel: @Composable ((T) -> String)? = null,
+    icon: @Composable ((T) -> Unit)? = null,
+    onSelect: (T) -> Unit,
+    onDismiss: () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .navigationBarsPadding()
-            .padding(bottom = 24.dp)
+            .padding(horizontal = 24.dp)
+            .padding(bottom = 32.dp)
     ) {
-        Text(
-            text = title.lowercase(),
-            style = MaterialTheme.typography.labelSmall.copy(
-                letterSpacing = 1.2.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            ),
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-        )
+        SheetHeader(title = title)
         
-        Spacer(Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        LazyColumn(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .selectableGroup(),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            items(items) { item ->
+            options.forEach { option ->
                 SelectionOptionRow(
-                    label = label(item),
-                    isSelected = isSelected(item),
-                    preview = { preview(item) },
-                    onClick = { onSelect(item) }
+                    text = label(option),
+                    secondaryText = secondaryLabel?.invoke(option),
+                    selected = isSelected(option),
+                    icon = icon?.let { { it(option) } },
+                    onClick = { onSelect(option) }
                 )
             }
         }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        SheetDismissButton(onClick = onDismiss)
     }
 }
 
+
 @Composable
 private fun SelectionOptionRow(
-    label: String,
-    isSelected: Boolean,
-    preview: @Composable () -> Unit,
+    text: String,
+    selected: Boolean,
+    secondaryText: String? = null,
+    icon: @Composable (() -> Unit)? = null,
     onClick: () -> Unit
 ) {
-    val background by animateColorAsState(
-        targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else Color.Transparent,
-        animationSpec = tween(200),
-        label = "rowBg"
-    )
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(background)
-            .premiumClickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .clip(RoundedCornerShape(AppRadius.interactive))
+            .semantics(mergeDescendants = true) {
+                role = Role.RadioButton
+                this.selected = selected
+            }
+            .smoothClickable { onClick() }
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        preview()
-
-        Spacer(Modifier.width(16.dp))
-
-        Text(
-            text = label.lowercase(),
-            style = MaterialTheme.typography.bodyLarge.copy(
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                letterSpacing = (-0.2).sp
-            ),
-            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f)
-        )
-
-        if (isSelected) {
+        if (icon != null) {
+            icon()
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+            )
+            if (secondaryText != null) {
+                Text(
+                    text = secondaryText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = readableSecondaryColor()
+                )
+            }
+        }
+        if (selected) {
             Icon(
                 imageVector = Icons.Rounded.Check,
                 contentDescription = null,
@@ -431,132 +733,291 @@ private fun SelectionOptionRow(
 }
 
 @Composable
-private fun SettingsActionRow(
+fun SettingsInfoRow(
+    icon: ImageVector,
+    tint: Color,
+    title: String,
+    subtitle: String,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .appGlassCard(CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            SignatureText(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                accentColor = tint,
+                textColor = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = readableSecondaryColor(),
+            )
+        }
+    }
+}
+
+@Composable
+fun SettingsActionRow(
     icon: ImageVector,
     tint: Color,
     title: String,
     subtitle: String? = null,
     onClick: () -> Unit
 ) {
-    val accentColor = MaterialTheme.colorScheme.primary
-    val onSurfaceColor = MaterialTheme.colorScheme.onSurface
-    val annotatedTitle = remember(title, accentColor, onSurfaceColor) {
-        buildAnnotatedString {
-            val lower = title.lowercase()
-            if (lower.isNotEmpty()) {
-                withStyle(SpanStyle(color = accentColor, fontWeight = FontWeight.Bold)) {
-                    append(lower[0].toString())
-                }
-                if (lower.length > 1) {
-                    withStyle(SpanStyle(color = onSurfaceColor, fontWeight = FontWeight.Medium)) {
-                        append(lower.substring(1))
-                    }
-                }
-            }
-        }
-    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .premiumClickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .smoothClickable { onClick() }
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Box(
             modifier = Modifier
-                .size(36.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(tint.copy(alpha = 0.1f)),
+                .size(40.dp)
+                .appGlassCard(CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(icon, null, tint = tint, modifier = Modifier.size(20.dp))
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(20.dp)
+            )
         }
-
-        Spacer(Modifier.width(16.dp))
-
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = annotatedTitle,
-                style = MaterialTheme.typography.bodyLarge
+                text = title,
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                color = MaterialTheme.colorScheme.onSurface,
             )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = readableSecondaryColor(),
+                )
+            }
         }
-
-        if (subtitle != null) {
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(end = 8.dp)
-            )
-        }
-
         Icon(
-            Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-            null,
-            tint = MaterialTheme.colorScheme.outlineVariant,
+            imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+            contentDescription = null,
+            tint = navigationInactiveColor(),
             modifier = Modifier.size(20.dp)
         )
     }
 }
 
 @Composable
-private fun SettingsSwitchRow(
+fun SettingsSwitchRow(
     icon: ImageVector,
     tint: Color,
     title: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
-    val accentColor = MaterialTheme.colorScheme.primary
-    val onSurfaceColor = MaterialTheme.colorScheme.onSurface
-    val annotatedTitle = remember(title, accentColor, onSurfaceColor) {
-        buildAnnotatedString {
-            val lower = title.lowercase()
-            if (lower.isNotEmpty()) {
-                withStyle(SpanStyle(color = accentColor, fontWeight = FontWeight.Bold)) {
-                    append(lower[0].toString())
-                }
-                if (lower.length > 1) {
-                    withStyle(SpanStyle(color = onSurfaceColor, fontWeight = FontWeight.Medium)) {
-                        append(lower.substring(1))
-                    }
-                }
-            }
-        }
-    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Box(
             modifier = Modifier
-                .size(36.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(tint.copy(alpha = 0.1f)),
+                .size(40.dp)
+                .appGlassCard(CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(icon, null, tint = tint, modifier = Modifier.size(20.dp))
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(20.dp)
+            )
         }
-
-        Spacer(Modifier.width(16.dp))
-
         Text(
-            text = annotatedTitle,
-            style = MaterialTheme.typography.bodyLarge,
+            text = title,
+            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+            color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f)
         )
-
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
-                checkedTrackColor = Color(0xFF10B981),
-                uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                uncheckedThumbColor = readableSecondaryColor(),
+                uncheckedTrackColor = appGlassBase()
             )
         )
+    }
+}
+
+@Composable
+fun ReminderTimeDialog(
+    initialHour: Int,
+    initialMinute: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (Int, Int) -> Unit
+) {
+    var hour by remember { mutableIntStateOf(initialHour) }
+    var minute by remember { mutableIntStateOf(initialMinute) }
+
+    AppAlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_reminder_time).lowercase()) },
+        confirmButton = {
+            AppButton(onClick = { onConfirm(hour, minute) }) {
+                Text(stringResource(R.string.action_save).lowercase())
+            }
+        },
+        dismissButton = {
+            AppTextButton(onClick = onDismiss, text = stringResource(R.string.action_cancel).lowercase())
+        }
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            NumberPicker(
+                value = hour,
+                range = 0..23,
+                onValueChange = { hour = it },
+                label = "hr"
+            )
+            Text(":", style = MaterialTheme.typography.headlineMedium)
+            NumberPicker(
+                value = minute,
+                range = 0..59,
+                onValueChange = { minute = it },
+                label = "min"
+            )
+        }
+    }
+}
+
+@Composable
+private fun NumberPicker(
+    value: Int,
+    range: IntRange,
+    onValueChange: (Int) -> Unit,
+    label: String
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        IconButton(onClick = { if (value < range.last) onValueChange(value + 1) }) {
+            Icon(Icons.Rounded.Add, null)
+        }
+        Text(
+            text = "%02d".format(value),
+            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold)
+        )
+        Text(label, style = MaterialTheme.typography.labelSmall, color = readableSecondaryColor())
+        IconButton(onClick = { if (value > range.first) onValueChange(value - 1) }) {
+            Icon(Icons.Rounded.Remove, null)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MonthlyBudgetSheet(
+    currencyCode: String,
+    currentBudget: Double?,
+    onDismiss: () -> Unit,
+    onSave: (Double?) -> Unit
+) {
+    var amountText by remember { mutableStateOf(currentBudget?.let { "%.2f".format(it) } ?: "") }
+    
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = appSheetContainerColor(),
+        scrimColor = appSheetScrimColor(),
+        dragHandle = { AppSheetDragHandle() },
+        shape = AppSheetShape,
+    ) {
+        Column(modifier = Modifier.padding(16.dp).navigationBarsPadding()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                SheetHeader(
+                    title = stringResource(R.string.settings_budget_dialog_title),
+                    subtitle = stringResource(R.string.settings_budget_dialog_body),
+                    modifier = Modifier.weight(1f)
+                )
+                SheetDismissButton(onClick = onDismiss)
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            OutlinedTextField(
+                value = amountText,
+                onValueChange = { if (it.all { c -> c.isDigit() || c == '.' }) amountText = it },
+                label = { Text(stringResource(R.string.settings_budget_amount_label, currencyCode).lowercase()) },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                colors = appTextFieldColors()
+            )
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                AppOutlinedButton(
+                    onClick = { onSave(null) },
+                    modifier = Modifier.weight(1f),
+                    contentColor = MaterialTheme.colorScheme.error
+                ) {
+                    Text(stringResource(R.string.action_clear).lowercase())
+                }
+                AppButton(
+                    onClick = { onSave(amountText.toDoubleOrNull()) },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(stringResource(R.string.action_save).lowercase())
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable
+private fun SettingsSectionEntrance(
+    index: Int,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
+    val delayMillis = 40 + index * 40
+    AnimatedVisibility(
+        visible = visible,
+        modifier = modifier,
+        enter = fadeIn(animationSpec = tween(durationMillis = 420, delayMillis = delayMillis)) +
+            slideInVertically(
+                animationSpec = tween(durationMillis = 420, delayMillis = delayMillis),
+            ) { fullHeight -> fullHeight / 5 },
+    ) {
+        content()
     }
 }

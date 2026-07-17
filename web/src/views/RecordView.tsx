@@ -1,178 +1,158 @@
-import { useEffect, useMemo, useRef, useState, memo, type CSSProperties, type ReactNode } from 'react';
-import { ScreenTitle, EmptyState, LoadingGlassSpinner, LoadingListSkeleton } from '@/components/ui';
-import { IconPaperclip, IconSearch, IconArrowUp, IconArrowDown, IconClose, IconInsights, IconArrowLeftRight, IconRecord, IconCloudOff, IconAdd } from '@/components/Icons';
-import { CategoryLucideIcon } from '@/components/CategoryLucideIcon';
+import { useMemo, useState, memo, useCallback } from 'react';
+import { EmptyState, LoadingListSkeleton, SignatureText, CategoryIconTile } from '@/components/ui';
+import { IconSearch, IconClose, IconArrowUp, IconArrowDown } from '@/components/Icons';
 import { IosSegmentedControl } from '@/components/IosSegmentedControl';
 import { FinanceSummaryCard } from '@/components/FinanceSummaryCard';
 import { BudgetProgressBar } from '@/components/BudgetProgressBar';
-import { recordPeriodOptions } from '@/components/PeriodSelector';
+import { recordPeriodOptions, PremiumPeriodSelector } from '@/components/PeriodSelector';
 import { SwipeableRow } from '@/components/SwipeableRow';
-import { ReceiptPreview } from '@/components/ReceiptPreview';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { PullToRefreshSurface } from '@/components/PullToRefreshSurface';
-import { CloudSyncButton } from '@/components/CloudSyncButton';
-import { AddTransactionButton } from '@/components/AddTransactionButton';
 import { useRecordViewModel } from '@/viewmodels/useRecordViewModel';
 import { usePreferencesStore } from '@/services/preferencesStore';
-import { isCloudSyncActive } from '@/services/cloudSync';
 import { useTranslation } from '@/i18n';
 import { formatDateLabel, dayKey } from '@/utils/periodUtils';
-import type { Expense, Category, TransactionTypeFilter, RecordListPeriod } from '@/models/types';
-import { colorIntToHex, formatAmount } from '@/utils/currency';
-import { contrastColorOn, readCssColor } from '@/theme/tokens';
-import { isReceiptPath } from '@/services/receiptService';
+import type { Expense, Category, TransactionTypeFilter } from '@/models/types';
+import { formatAmount, colorIntToHex } from '@/utils/currency';
+import { useHaptics } from '@/hooks/useHaptics';
 
 interface RecordViewProps {
-  onEdit: (id: number) => void;
+  onEdit: (id: string) => void;
   onAdd?: () => void;
-  onAddLongPress?: () => void;
 }
 
-export function RecordView({ onEdit, onAdd, onAddLongPress }: RecordViewProps) {
+export function RecordView({ onEdit, onAdd }: RecordViewProps) {
   const { t } = useTranslation();
   const currency = usePreferencesStore((s) => s.currency);
-  const { uiState, monthSpent, setSearchQuery, setTypeFilter, setListPeriod, requestDelete, duplicateExpense, loadMore, reload, refreshFromCloud, refreshing } = useRecordViewModel();
-  const cloudSync = isCloudSyncActive();
-  const pullLabel = refreshing ? t('syncInProgress') : t('recordPullToSync');
-  const periodOptions = recordPeriodOptions();
-  const periodLabel = uiState.listPeriod === 'this_month' ? t('recordPeriodThisMonth') : t('recordPeriodAllTime');
-  const [receiptPath, setReceiptPath] = useState<string | null>(null);
-  const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
+  const locale = usePreferencesStore((s) => s.locale);
+  const { uiState, monthSpent, viewingCurrentMonth, setSearchQuery, setTypeFilter, setListPeriod, requestDelete, duplicateExpense, reload } = useRecordViewModel();
+  const haptics = useHaptics();
+  const periodOptions = useMemo(() => recordPeriodOptions(locale, t), [locale, t]);
+  const selectedPeriod = useMemo(
+    () => periodOptions.find((o) => o.key === uiState.listPeriod) ?? periodOptions[0],
+    [periodOptions, uiState.listPeriod],
+  );
+  const periodLabel = selectedPeriod.label;
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const hasQuery = uiState.searchQuery.length > 0;
+  const filtersActive = hasQuery || uiState.typeFilter !== 'all';
 
-  useEffect(() => {
-    if (deleteTargetId == null) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setDeleteTargetId(null);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [deleteTargetId]);
+  const clearFilters = useCallback(() => {
+    setSearchQuery('');
+    setTypeFilter('all');
+  }, [setSearchQuery, setTypeFilter]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, Expense[]>();
-    for (const e of uiState.displayExpenses) {
+    for (const e of uiState.expenses) {
       const key = dayKey(e.dateMillis);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(e);
     }
-    return [...map.entries()].map(([, items]) => ({
-      label: formatDateLabel(items[0].dateMillis),
-      items
-    }));
-  }, [uiState.displayExpenses]);
-  const catMap = useMemo(() => new Map(uiState.categories.map((c) => [c.id!, c])), [uiState.categories]);
+    return [...map.entries()].map(([, items]) => {
+      const dayIncome = items
+        .filter((e) => e.transactionType === 'income')
+        .reduce((s, e) => s + e.amount, 0);
+      const dayExpense = items
+        .filter((e) => e.transactionType === 'expense')
+        .reduce((s, e) => s + e.amount, 0);
+      return {
+        label: formatDateLabel(items[0].dateMillis),
+        items,
+        dayIncome: Math.round(dayIncome * 100) / 100,
+        dayExpense: Math.round(dayExpense * 100) / 100,
+      };
+    });
+  }, [uiState.expenses]);
 
-  const addButton = (className: string, label: ReactNode) =>
-    onAdd ? (
-      <AddTransactionButton
-        className={className}
-        onAdd={onAdd}
-        onLongPress={onAddLongPress}
-      >
-        {label}
-      </AddTransactionButton>
-    ) : null;
+  const catMap = useMemo(() => new Map(uiState.categories.map((c) => [c.id, c])), [uiState.categories]);
 
-  const screenActions = (includeAdd = true) => (
-    <div className="record-screen-actions">
-      {cloudSync ? (
-        <CloudSyncButton refreshing={refreshing} onRefresh={() => void refreshFromCloud()} />
-      ) : null}
-      {includeAdd && onAdd ? addButton('btn btn-primary record-add-btn', t('addTransaction')) : null}
-    </div>
-  );
+  // SECURE: Prop stability for React.memo children
+  const handleDelete = useCallback((id: string) => {
+      setDeleteConfirmId(id);
+  }, []);
 
-  if (uiState.loading) {
-    return (
-      <PullToRefreshSurface
-        enabled={cloudSync}
-        refreshing={refreshing}
-        onRefresh={() => void refreshFromCloud()}
-        label={pullLabel}
-      >
-      <div className="record-view page-content">
-        <ScreenTitle
-          title={t('screenRecord')}
-          action={screenActions()}
-        />
-        <div className="record-view__workspace">
-          <div className="record-view__sidebar">
-            <div className="record-loading-stack__summary skeleton insights-glass-island" aria-hidden />
-            {onAdd ? addButton('btn btn-primary record-sidebar-add-btn', (
-              <>
-                <IconAdd width={18} height={18} aria-hidden />
-                {t('addTransaction')}
-              </>
-            )) : null}
-          </div>
-          <div className="record-view__main">
-            <LoadingListSkeleton rows={8} />
-          </div>
-        </div>
-      </div>
-      </PullToRefreshSurface>
-    );
-  }
+  const confirmDelete = useCallback(() => {
+    if (!deleteConfirmId) return;
+    haptics.heavy();
+    void requestDelete(deleteConfirmId);
+    setDeleteConfirmId(null);
+  }, [deleteConfirmId, requestDelete, haptics]);
+
+  const cancelDelete = useCallback(() => setDeleteConfirmId(null), []);
+
+  const handleEdit = useCallback((id: string) => {
+      haptics.light();
+      onEdit(id);
+  }, [onEdit, haptics]);
+
+  const handleDuplicate = useCallback((e: Expense) => {
+      haptics.medium();
+      void duplicateExpense(e);
+  }, [duplicateExpense, haptics]);
 
   return (
-    <PullToRefreshSurface
-      enabled={cloudSync}
-      refreshing={refreshing}
-      onRefresh={() => void refreshFromCloud()}
-      label={pullLabel}
-    >
-    <div className="record-view page-content">
-      <ScreenTitle
-        title={t('screenRecord')}
-        action={screenActions()}
-      />
+    <>
+      <div className="page-title">
+        <h1 className="page-title__text">
+          <SignatureText text={t('screenRecord')} />
+        </h1>
+      </div>
 
-      <div className="record-view__workspace">
-        <div className="record-view__sidebar">
-          <FinanceSummaryCard
-            totalExpenses={uiState.summaryTotals.totalExpenses}
-            totalIncome={uiState.summaryTotals.totalIncome}
-            currency={currency}
-            periodLabel={periodLabel}
-          />
+      <div className="sidebar-layout">
 
-          {uiState.monthlyBudget ? (
-            <BudgetProgressBar spent={monthSpent} budget={uiState.monthlyBudget} currency={currency} />
-          ) : null}
+        <aside className="sidebar-panel">
+          <div className="widget-stack">
+            <FinanceSummaryCard expenses={uiState.expenses} currency={currency} periodLabel={periodLabel} />
 
-          <div className="card record-filters insights-glass-island">
-            <div className="record-toolbar">
-              <IosSegmentedControl
-                className="record-period-segmented"
-                options={periodOptions.map((p) => ({ value: p.key, label: p.label }))}
-                value={uiState.listPeriod}
-                onChange={(key) => setListPeriod(key as RecordListPeriod)}
+            {uiState.monthlyBudget && viewingCurrentMonth ? (
+              <BudgetProgressBar spent={monthSpent} budget={uiState.monthlyBudget} currency={currency} />
+            ) : null}
+          </div>
+
+          <div className="card record-filters">
+            <PremiumPeriodSelector
+              options={periodOptions}
+              selected={selectedPeriod}
+              labelFor={(o) => o.label}
+              isSelected={(a, b) => a.key === b.key}
+              onSelected={(o) => setListPeriod(o.key)}
+            />
+
+            <hr className="record-filters__divider" />
+
+            <div className={`record-search relative ${searchFocused ? 'record-search--focused' : ''}`}>
+              <IconSearch
+                className="record-search__icon"
+                width={17} height={17} aria-hidden
               />
-              <div className={`record-search${uiState.searchQuery ? ' record-search--active' : ''}`}>
-                <IconSearch className="record-search__icon" width={18} height={18} aria-hidden />
-                <input
-                  className="record-search__input"
-                  type="search"
-                  placeholder={t('recordSearchPlaceholder')}
-                  aria-label={t('recordSearchPlaceholder')}
-                  value={uiState.searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                {uiState.searchQuery ? (
-                  <button
-                    type="button"
-                    className="record-search__clear"
-                    aria-label={t('actionClear')}
-                    onClick={() => setSearchQuery('')}
-                  >
-                    <IconClose width={16} height={16} aria-hidden />
-                  </button>
-                ) : null}
-              </div>
+              <input
+                className="record-search__input"
+                type="search"
+                placeholder={t('recordSearchPlaceholder')}
+                aria-label={t('recordSearchPlaceholder')}
+                value={uiState.searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
+              />
+              {hasQuery && (
+                <button
+                  type="button"
+                  className="record-search__clear"
+                  aria-label={t('recordSearchClear')}
+                  onClick={() => setSearchQuery('')}
+                >
+                  <IconClose width={14} height={14} aria-hidden />
+                </button>
+              )}
             </div>
 
+            <hr className="record-filters__divider" />
+
             <IosSegmentedControl
-              className="record-type-segmented"
+              className="record-type-segmented w-full"
+              aria-label={t('recordTypeFilter')}
               options={(['all', 'expense', 'income', 'transfer'] as TransactionTypeFilter[]).map((f) => ({
                 value: f,
                 label: filterLabel(f, t),
@@ -180,145 +160,113 @@ export function RecordView({ onEdit, onAdd, onAddLongPress }: RecordViewProps) {
               value={uiState.typeFilter}
               onChange={setTypeFilter}
             />
-
-            {!uiState.loadError && uiState.listCount > 0 && uiState.insights.topCategoryName ? (
-              <div className="record-filters__insight" role="status">
-                <span className="record-filters__insight-icon" aria-hidden>
-                  <IconInsights width={14} height={14} />
-                </span>
-                <span className="record-filters__insight-label">
-                  {t('recordMostSpentOn', { name: uiState.insights.topCategoryName })}
-                </span>
-              </div>
-            ) : null}
           </div>
+        </aside>
 
-          {onAdd ? addButton('btn btn-primary record-sidebar-add-btn', (
-            <>
-              <IconAdd width={18} height={18} aria-hidden />
-              {t('addTransaction')}
-            </>
-          )) : null}
-        </div>
-
-        <div className="record-view__main">
-      {uiState.loadError ? (
-        <EmptyState
-          title={t('recordErrorTitle')}
-          subtitle={uiState.loadError}
-          icon={<IconCloudOff width={28} height={28} />}
-          action={
-            <button type="button" className="btn btn-primary" onClick={() => void reload(true)}>
-              {t('recordErrorRetry')}
-            </button>
-          }
-        />
-      ) : uiState.loading && uiState.displayExpenses.length === 0 ? (
-        <LoadingGlassSpinner />
-      ) : uiState.listCount === 0 ? (
-        (() => {
-          const empty = recordEmptyCopy(uiState, t);
-          return (
-        <EmptyState
-          title={empty.title}
-          subtitle={empty.subtitle}
-          hint={empty.hint}
-          icon={<IconRecord width={28} height={28} />}
-          action={
-            empty.showAdd && onAdd ? addButton('btn btn-primary', t('recordEmptyAction')) : undefined
-          }
-        />
-          );
-        })()
-      ) : (
-        <>
-          <div className="transaction-list-bare">
-          {grouped.map(({ label, items }, sectionIndex) => {
-            const dayTotals = uiState.dayTotalsByLabel[label];
-            return (
-            <section
-              key={label}
-              className="transaction-list-bare__section record-day-section"
-              style={{ animationDelay: `${Math.min(sectionIndex * 0.05, 0.25)}s` }}
-            >
-              <div className="record-day-header insights-glass-island">
-                <span className="record-day-header__label">{label}</span>
-                {dayTotals && (dayTotals.income > 0 || dayTotals.expense > 0) ? (
-                  <span className="record-day-header__totals">
-                    {dayTotals.income > 0 ? (
-                      <span className="record-day-header__income">+{formatAmount(dayTotals.income, currency)}</span>
+        <div className="content-col">
+          {uiState.loading ? (
+            <LoadingListSkeleton rows={12} />
+          ) : uiState.loadError ? (
+            <EmptyState
+              title={t('errorLoadFailed')}
+              subtitle={t('errorLoadFailedHint')}
+              action={
+                <button type="button" className="btn btn-primary" onClick={() => void reload()}>
+                  {t('actionRetry')}
+                </button>
+              }
+            />
+          ) : uiState.expenses.length === 0 ? (
+            filtersActive ? (
+              <EmptyState
+                title={t('recordNoMatchesTitle')}
+                subtitle={t('recordNoMatchesSubtitle')}
+                action={
+                  <button type="button" className="btn btn-secondary" onClick={clearFilters}>
+                    {t('recordClearFilters')}
+                  </button>
+                }
+              />
+            ) : (
+              <EmptyState
+                title={t('recordEmptyTitle')}
+                subtitle={t('recordEmptySubtitle')}
+                hint={t('recordEmptyHint')}
+                action={
+                  onAdd ? (
+                    <button type="button" className="btn btn-primary" onClick={onAdd}>
+                      {t('navAdd')}
+                    </button>
+                  ) : undefined
+                }
+              />
+            )
+          ) : (
+            <div className="transaction-list-bare txn-sections">
+              {grouped.map(({ label, items, dayIncome, dayExpense }) => (
+                <section key={label} className="transaction-list-bare__section">
+                  <div className="txn-day-header transaction-list-bare__day">
+                    <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-on-surface-variant">{label}</span>
+                    {(dayIncome > 0 || dayExpense > 0) ? (
+                      <span className="txn-day-header__totals" aria-label={`${t('filterIncome')} ${formatAmount(dayIncome, currency)}, ${t('filterExpense')} ${formatAmount(dayExpense, currency)}`}>
+                        {dayIncome > 0 ? (
+                          <span className="txn-day-header__total--income">+{formatAmount(dayIncome, currency)}</span>
+                        ) : null}
+                        {dayExpense > 0 ? (
+                          <span className="txn-day-header__total--expense">−{formatAmount(dayExpense, currency)}</span>
+                        ) : null}
+                      </span>
                     ) : null}
-                    {dayTotals.expense > 0 ? (
-                      <span className="record-day-header__expense">-{formatAmount(dayTotals.expense, currency)}</span>
-                    ) : null}
-                  </span>
-                ) : null}
-              </div>
-              <div className="transaction-list-bare__rows insights-glass-island">
-              {items.map((expense) => (
-                <SwipeableRow
-                  key={expense.id}
-                  onDelete={() => setDeleteTargetId(expense.id!)}
-                  onTap={() => onEdit(expense.id!)}
-                  onLongPress={() => void duplicateExpense(expense)}
-                >
-                  <TransactionRow
-                    expense={expense}
-                    category={catMap.get(expense.categoryId)}
-                    currency={currency}
-                    onClick={() => onEdit(expense.id!)}
-                    onLongClick={() => void duplicateExpense(expense)}
-                    onReceiptClick={isReceiptPath(expense.receiptImagePath) ? () => setReceiptPath(expense.receiptImagePath!) : undefined}
-                  />
-                </SwipeableRow>
+                  </div>
+                   <div className="transaction-list-bare__rows flex flex-col">
+                  {items.map((expense) => (
+                    <div key={expense.id} className="txn-row-wrap border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors">
+                      <SwipeableRow
+                        onDelete={() => handleDelete(expense.id)}
+                        onTap={() => handleEdit(expense.id)}
+                        onLongPress={() => handleDuplicate(expense)}
+                        onDuplicate={() => handleDuplicate(expense)}
+                        ariaLabel={`${catMap.get(expense.categoryId)?.name || t('recordUnknownCategory')} ${formatAmount(expense.amount, currency)}`}
+                      >
+                        <TransactionRow
+                          expense={expense}
+                          category={catMap.get(expense.categoryId)}
+                          currency={currency}
+                        />
+                      </SwipeableRow>
+                    </div>
+                  ))}
+                  </div>
+                </section>
               ))}
-              </div>
-            </section>
-          );
-          })}
-          <LoadMoreSentinel hasMore={uiState.hasMore} loading={uiState.loadingMore} onVisible={loadMore} />
-          </div>
-        </>
-      )}
+            </div>
+          )}
         </div>
+
       </div>
 
-      {deleteTargetId != null ? (
-        <ConfirmDialog
-          title={t('recordDeleteTitle')}
-          cancelLabel={t('recordDeleteCancel')}
-          confirmLabel={t('recordDeleteConfirm')}
-          onCancel={() => setDeleteTargetId(null)}
-          onConfirm={() => {
-            const id = deleteTargetId;
-            setDeleteTargetId(null);
-            void requestDelete(id);
-          }}
-        >
-          {t('recordDeleteMessage')}
-        </ConfirmDialog>
-      ) : null}
-
-      {receiptPath ? <ReceiptPreview path={receiptPath} onClose={() => setReceiptPath(null)} /> : null}
-    </div>
-    </PullToRefreshSurface>
+      <ConfirmDialog
+        open={deleteConfirmId !== null}
+        title={t('recordDeleteTitle')}
+        message={t('recordDeleteConfirm')}
+        confirmLabel={t('actionDelete')}
+        cancelLabel={t('actionCancel')}
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+      />
+    </>
   );
 }
 
-const TransactionRow = memo(({ expense, category, currency, onClick, onLongClick, onReceiptClick }: {
+const TransactionRow = memo(({ expense, category, currency }: {
   expense: Expense;
   category?: Category;
   currency: string;
-  onClick?: () => void;
-  onLongClick?: () => void;
-  onReceiptClick?: () => void;
 }) => {
   const { t } = useTranslation();
   const isIncome = expense.transactionType === 'income';
   const isTransfer = expense.transactionType === 'transfer';
 
-  const color = category ? colorIntToHex(category.colorInt) : '#888';
-  const transferColor = readCssColor('--color-transfer');
   const amountColor = isIncome
     ? 'var(--color-income)'
     : isTransfer
@@ -328,113 +276,46 @@ const TransactionRow = memo(({ expense, category, currency, onClick, onLongClick
 
   const note = expense.note?.trim();
   const categoryName = category?.name || t('recordUnknownCategory');
-  const badgeFill = isTransfer
-    ? transferColor
-    : readCssColor(isIncome ? '--color-income' : '--color-expense');
-  const badgeIconColor = contrastColorOn(badgeFill);
-  const iconTint = isTransfer ? transferColor : color;
-
-  const amountText = formatAmount(expense.amount, currency);
-  const rowLabel = isIncome
-    ? t('descIncomeRow', { category: categoryName, amount: amountText, note: note || '' })
-    : isTransfer
-      ? t('descTransferRow', { category: categoryName, amount: amountText, note: note || '' })
-      : t('descExpenseRow', { category: categoryName, amount: amountText, note: note || '' });
 
   return (
-    <div className="transaction-row pressable-row">
-      <button
-        type="button"
-        className="transaction-row__main"
-        onClick={onClick}
-        onContextMenu={onLongClick}
-        aria-label={rowLabel}
-      >
-      <div className="transaction-row__icon-wrap">
-        <div className="transaction-row__icon" style={{ '--cat-color': iconTint } as CSSProperties}>
-          {isTransfer ? (
-            <IconArrowLeftRight width={18} height={18} color={iconTint} />
-          ) : category ? (
-            <CategoryLucideIcon iconName={category.iconName} width={18} height={18} color={iconTint} />
-          ) : (
-            <span className="transaction-row__icon-fallback" />
-          )}
-        </div>
-        <div
-          className={`transaction-row__indicator${isTransfer ? ' transaction-row__indicator--transfer' : ''}`}
-          style={{ background: isTransfer ? transferColor : isIncome ? 'var(--color-income)' : 'var(--color-expense)' }}
-        >
-          {isTransfer ? (
-            <IconArrowLeftRight width={8} height={8} color={badgeIconColor} />
-          ) : isIncome ? (
-            <IconArrowUp width={8} height={8} color={badgeIconColor} />
-          ) : (
-            <IconArrowDown width={8} height={8} color={badgeIconColor} />
-          )}
-        </div>
+    <div className="transaction-row flex items-center gap-3 w-full min-w-0 py-4">
+      <div className="transaction-row__icon relative shrink-0">
+        {category ? (
+          <CategoryIconTile iconName={category.iconName} color={colorIntToHex(category.colorInt)} size={40} />
+        ) : (
+          <span
+            className="flex items-center justify-center w-10 h-10 rounded-full"
+            style={{ background: 'color-mix(in srgb, var(--color-on-surface) 8%, transparent)' }}
+            aria-hidden
+          >
+            <span className="w-5 h-5 rounded-full" style={{ background: 'color-mix(in srgb, var(--color-on-surface) 20%, transparent)' }} />
+          </span>
+        )}
+        {!isTransfer && (
+          <span
+            className={`transaction-row__type-badge ${isIncome ? 'transaction-row__type-badge--income' : 'transaction-row__type-badge--expense'}`}
+            aria-hidden
+          >
+            {isIncome ? (
+              <IconArrowUp width={11} height={11} strokeWidth={2.75} />
+            ) : (
+              <IconArrowDown width={11} height={11} strokeWidth={2.75} />
+            )}
+          </span>
+        )}
       </div>
-      <div className="transaction-row__meta" aria-hidden="true">
+
+      <div className="transaction-row__meta">
         <div className="transaction-row__title">{categoryName}</div>
         {note && <div className="transaction-row__sub">{note}</div>}
       </div>
-      <div className="transaction-row__amount tabular-nums" style={{ color: amountColor }} aria-hidden="true">
-        {prefix}{amountText}
+
+      <div className="transaction-row__amount" style={{ color: amountColor }}>
+        {prefix}{formatAmount(expense.amount, currency)}
       </div>
-      </button>
-      {onReceiptClick ? (
-        <button
-          type="button"
-          aria-label={t('recordViewReceipt')}
-          className="transaction-row__receipt"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => { e.stopPropagation(); onReceiptClick(); }}
-        >
-          <IconPaperclip width={14} height={14} aria-hidden />
-        </button>
-      ) : null}
     </div>
   );
 });
-
-function LoadMoreSentinel({ hasMore, loading, onVisible }: { hasMore: boolean; loading?: boolean; onVisible: () => void }) {
-  const { t } = useTranslation();
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!hasMore || loading || !ref.current) return;
-    const node = ref.current;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) onVisible();
-      },
-      { rootMargin: '240px' },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [hasMore, loading, onVisible]);
-  if (!hasMore && !loading) return null;
-  return (
-    <div ref={ref} className="record-load-more" aria-busy={loading || undefined}>
-      {loading ? <span className="record-load-more__spinner receipt-preview__spinner" aria-label={t('loading')} /> : null}
-    </div>
-  );
-}
-
-function recordEmptyCopy(
-  uiState: { searchQuery: string; typeFilter: TransactionTypeFilter; listPeriod: import('@/models/types').RecordListPeriod },
-  t: (key: import('@/i18n').TranslationKey, params?: Record<string, string>) => string,
-) {
-  if (hasActiveFilters(uiState)) {
-    return { title: t('recordNoMatchesTitle'), subtitle: t('recordNoMatchesSubtitle'), hint: undefined, showAdd: false };
-  }
-  if (uiState.listPeriod === 'this_month') {
-    return { title: t('recordEmptyMonthTitle'), subtitle: t('recordEmptyMonthSubtitle'), hint: t('recordGestureHints'), showAdd: true };
-  }
-  return { title: t('recordEmptyTitle'), subtitle: t('recordEmptySubtitle'), hint: t('recordGestureHints'), showAdd: true };
-}
-
-function hasActiveFilters(uiState: { searchQuery: string; typeFilter: TransactionTypeFilter }): boolean {
-  return Boolean(uiState.searchQuery.trim()) || uiState.typeFilter !== 'all';
-}
 
 function filterLabel(f: TransactionTypeFilter, t: (key: import('@/i18n').TranslationKey, params?: Record<string, string>) => string): string {
   switch (f) {

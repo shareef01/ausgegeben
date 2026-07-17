@@ -1,64 +1,60 @@
-import { useEffect, useRef, type RefObject } from 'react';
+import { useEffect, type RefObject } from 'react';
 
-const FOCUSABLE_SELECTOR =
-  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+const FOCUSABLE =
+  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-function getFocusable(container: HTMLElement): HTMLElement[] {
-  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
-    (el) => !el.hasAttribute('disabled')
-      && el.getAttribute('aria-hidden') !== 'true'
-      && !el.closest('[inert]'),
-  );
-}
-
-/** Trap Tab focus inside a modal and restore focus on unmount. */
+/** Trap Tab focus inside a dialog and optionally handle Escape. Restores prior focus on unmount. */
 export function useFocusTrap(
   active: boolean,
   containerRef: RefObject<HTMLElement | null>,
   onEscape?: () => void,
 ) {
-  const previousFocusRef = useRef<HTMLElement | null>(null);
-
   useEffect(() => {
     if (!active) return;
-    const container = containerRef.current;
-    if (!container) return;
+    const root = containerRef.current;
+    if (!root) return;
 
-    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previouslyFocused = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
 
-    const focusables = getFocusable(container);
-    (focusables[0] ?? container).focus();
+    const getFocusable = () =>
+      Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+        (el) => !el.hasAttribute('disabled') && el.getAttribute('aria-hidden') !== 'true',
+      );
+
+    const focusable = getFocusable();
+    (focusable[0] ?? root).focus();
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopImmediatePropagation();
         onEscape?.();
         return;
       }
       if (e.key !== 'Tab') return;
 
-      const items = getFocusable(container);
+      const items = getFocusable();
       if (items.length === 0) {
         e.preventDefault();
         return;
       }
-
       const first = items[0];
       const last = items[items.length - 1];
-      const activeEl = document.activeElement;
-
-      if (e.shiftKey && activeEl === first) {
+      if (e.shiftKey && document.activeElement === first) {
         e.preventDefault();
         last.focus();
-      } else if (!e.shiftKey && activeEl === last) {
+      } else if (!e.shiftKey && document.activeElement === last) {
         e.preventDefault();
         first.focus();
       }
     };
 
-    window.addEventListener('keydown', onKeyDown);
+    document.addEventListener('keydown', onKeyDown);
     return () => {
-      window.removeEventListener('keydown', onKeyDown);
-      previousFocusRef.current?.focus();
+      document.removeEventListener('keydown', onKeyDown);
+      previouslyFocused?.focus?.();
     };
   }, [active, containerRef, onEscape]);
 }

@@ -12,7 +12,7 @@ Project: **ausgegeben01** · PWA: [aus01.web.app](https://aus01.web.app)
 6. Deploy rules from repo root:
 
 ```bash
-firebase deploy --only firestore:rules,storage
+firebase deploy --only firestore:rules
 ```
 
 ## Web (PWA)
@@ -27,25 +27,20 @@ npm install
 npm run deploy
 ```
 
-This builds the PWA and deploys hosting (`aus01`), Firestore rules, and Storage rules from the repo root.
+This builds the PWA and deploys hosting (`aus01`) + Firestore rules from the repo root.
 
 ## Sync
 
-- Firestore paths: `users/{uid}/categories/{id}`, `users/{uid}/expenses/{id}`
-- Storage receipts: `users/{uid}/receipts/{id}`
+- Firestore paths: `users/{uid}/categories/{id}`, `users/{uid}/expenses/{id}`, `users/{uid}/settings/preferences`
 - Use the **same email/password** on Android and the PWA
-
-## Offline mode
-
-Users can tap **Continue offline** on first launch. Data stays in local Room (Android) or IndexedDB (web) until they sign in.
+- Web is online-only (no local expense/preferences cache). Sign-in is required.
 
 ## Config files
 
 | File | Purpose |
 |------|---------|
-| `firebase.json` | Hosting + Firestore + Storage (repo root) |
+| `firebase.json` | Hosting + Firestore (repo root) |
 | `.firebaserc` | Default project `ausgegeben01` |
 | `firestore.rules` | Per-user data access |
-| `storage.rules` | Receipt image access |
 | `app/google-services.json` | Android config (gitignored, per developer) |
 | `web/.env.local` | Web Firebase keys (gitignored) |

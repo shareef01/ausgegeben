@@ -1,197 +1,232 @@
-import type { CSSProperties } from 'react';
 import type { TransactionType } from '@/models/types';
 import { useAddTransactionViewModel } from '@/viewmodels/useAddTransactionViewModel';
 import { useTranslation } from '@/i18n';
 import { SignatureText } from '@/components/ui';
 import { CategoryLucideIcon } from '@/components/CategoryLucideIcon';
-import { ReceiptThumbnail } from '@/components/ReceiptPreview';
+import { IosSegmentedControl } from '@/components/IosSegmentedControl';
+import { IconClose } from '@/components/Icons';
 import { colorIntToHex } from '@/utils/currency';
 import { usePreferencesStore } from '@/services/preferencesStore';
-import { useRef } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
+import { useHaptics } from '@/hooks/useHaptics';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface AddTransactionViewProps {
-  expenseId?: number;
+  expenseId?: string;
+  suspended?: boolean;
   onClose: () => void;
   onSaved: () => void;
+  onManageCategories?: () => void;
 }
 
-export function AddTransactionView({ expenseId, onClose, onSaved }: AddTransactionViewProps) {
+export function AddTransactionView({
+  expenseId,
+  suspended = false,
+  onClose,
+  onSaved,
+  onManageCategories,
+}: AddTransactionViewProps) {
   const { t } = useTranslation();
   const currency = usePreferencesStore((s) => s.currency);
   const vm = useAddTransactionViewModel(expenseId);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const haptics = useHaptics();
+  const amountInputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const handleEscape = useCallback(() => {
+    if (!suspended) onClose();
+  }, [onClose, suspended]);
+  useFocusTrap(!suspended, dialogRef, handleEscape);
+  useBodyScrollLock(!suspended);
+
+  useEffect(() => {
+    if (vm.ready && !suspended) amountInputRef.current?.focus();
+  }, [vm.ready, suspended]);
+
+  const wasSuspended = useRef(false);
+  useEffect(() => {
+    if (wasSuspended.current && !suspended) void vm.reloadCategories();
+    wasSuspended.current = suspended;
+  }, [suspended, vm.reloadCategories]);
 
   const handleSave = async () => {
     const ok = await vm.save();
-    if (ok) onSaved();
-  };
-
-  const typeLabel = (type: TransactionType) => {
-    switch (type) {
-      case 'expense': return t('typeExpense');
-      case 'income': return t('typeIncome');
-      case 'transfer': return t('typeTransfer');
+    if (ok) {
+      haptics.success();
+      onSaved();
     }
   };
 
+  if (!vm.ready) {
+    return (
+      <div className="fixed inset-0 z-[200] bg-background/80 backdrop-blur-xl flex items-center justify-center p-4" role="status" aria-live="polite">
+        <div className="card--pro add-txn add-txn--loading">
+          {t('loading')}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="overlay overlay--transaction" onClick={onClose} role="presentation">
+    <div
+      className="fixed inset-0 z-[200] bg-background/80 backdrop-blur-xl flex items-center justify-center p-3 sm:p-4"
+      onClick={onClose}
+      aria-hidden={suspended || undefined}
+      style={suspended ? { visibility: 'hidden', pointerEvents: 'none' } : undefined}
+    >
       <div
-        className="sheet sheet--transaction sheet--transaction-premium"
+        ref={dialogRef}
+        className="card--pro add-txn"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
+        aria-labelledby="add-txn-title"
+        tabIndex={-1}
       >
-        <div className="sheet__header">
-          <h2 className="sheet__title">
-            <SignatureText text={vm.isEditing ? t('editTransaction') : t('addTransaction')} as="span" />
+        <div className="add-txn__header">
+          <h2 id="add-txn-title" className="modal-title add-txn__title">
+            <SignatureText text={vm.isEditing ? t('editTransaction') : t('addTransaction')} />
           </h2>
-          <button type="button" className="sheet__close" onClick={onClose}>{t('actionClose')}</button>
+          <button type="button" className="icon-btn" onClick={onClose} aria-label={t('actionClose')}>
+            <IconClose width={20} height={20} aria-hidden />
+          </button>
         </div>
 
-        <div className="segmented sheet__segmented">
-          {(['expense', 'income', 'transfer'] as TransactionType[]).map((type) => (
-            <button key={type} type="button" className={vm.form.transactionType === type ? 'active' : ''} onClick={() => vm.setForm((f) => ({ ...f, transactionType: type }))}>
-              {typeLabel(type)}
-            </button>
-          ))}
-        </div>
+        <div className="add-txn__body">
+          <IosSegmentedControl
+            aria-label={t('addTransaction')}
+            options={(['expense', 'income', 'transfer'] as TransactionType[]).map((type) => ({
+              value: type,
+              label: t(`type${type.charAt(0).toUpperCase()}${type.slice(1)}` as 'typeExpense' | 'typeIncome' | 'typeTransfer'),
+            }))}
+            value={vm.form.transactionType}
+            onChange={(type) => vm.setForm((f) => ({ ...f, transactionType: type }))}
+          />
 
-        <div className="amount-entry">
-          <div className="amount-hero amount-hero--mobile-only" aria-live="polite">
-            <span className="amount-hero__currency">{currencySymbol(currency)}</span>
-            <span className="amount-hero__value tabular-nums">{vm.form.amountInput || '0,00'}</span>
+          <div className="field">
+            <label htmlFor="txn-amount" className="field__label">{t('addAmountLabel')}</label>
+            <div className="add-txn__amount">
+              <span className="add-txn__currency" aria-hidden>{currencySymbol(currency)}</span>
+              <input
+                id="txn-amount"
+                ref={amountInputRef}
+                className="field__input add-txn__amount-input"
+                placeholder={zeroPlaceholder(currency)}
+                inputMode="decimal"
+                value={vm.form.amountInput}
+                onChange={(e) => vm.setAmountInput(e.target.value)}
+              />
+            </div>
           </div>
-          <label className="field amount-entry__field">
-            <span className="field__label">{t('addAmountLabel')}</span>
+
+          <div className="field">
+            <label htmlFor="txn-date" className="field__label">{t('dateLabel')}</label>
             <input
-              className="field__input amount-entry__input amount-entry__input--desktop"
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              placeholder="0,00"
-              value={vm.form.amountInput}
-              onChange={(e) => vm.setAmountInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') void handleSave();
+              id="txn-date"
+              type="date"
+              className="field__input"
+              value={toDateInputValue(vm.form.dateMillis)}
+              onChange={(e) => {
+                if (!e.target.value) return;
+                vm.setForm((f) => ({ ...f, dateMillis: fromDateInputValue(e.target.value) }));
               }}
             />
-          </label>
-
-          <div className="numpad numpad--compact numpad--mobile-only" aria-label="Amount keypad">
-            {['1', '2', '3', '4', '5', '6', '7', '8', '9', ',', '0', '⌫'].map((key) => (
-              <button
-                key={key}
-                type="button"
-                className="numpad__key"
-                onClick={() => (key === '⌫' ? vm.backspace() : vm.appendDigit(key))}
-              >
-                {key}
-              </button>
-            ))}
           </div>
-        </div>
 
-        <label className="field">
-          <span className="field__label">{t('addCategoryLabel')}</span>
-          {!vm.ready ? (
-            <div className="category-tiles" aria-busy="true">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="category-tile category-tile--skeleton">
-                  <span className="category-tile__icon skeleton skeleton--circle" />
-                  <span className="category-tile__name skeleton skeleton--text" />
+          <div className="field">
+            <div className="field__label" id="txn-category-label">{t('addCategoryLabel')}</div>
+            <div className="add-txn__cats" role="group" aria-labelledby="txn-category-label">
+              {vm.categories.length === 0 ? (
+                <div className="categories-empty add-txn__cats-empty">
+                  <p className="categories-empty__text">{t('categoriesEmptyHint')}</p>
+                  {onManageCategories ? (
+                    <button type="button" className="btn btn-primary" onClick={onManageCategories}>
+                      {t('addCategory')}
+                    </button>
+                  ) : null}
                 </div>
-              ))}
+              ) : (
+                vm.categories.map((cat) => {
+                  const selected = vm.form.categoryId === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      className={`add-txn__cat${selected ? ' add-txn__cat--selected' : ''}`}
+                      onClick={() => vm.setForm((f) => ({ ...f, categoryId: cat.id! }))}
+                      aria-pressed={selected}
+                    >
+                      <span
+                        className="add-txn__cat-icon"
+                        style={{ color: colorIntToHex(cat.colorInt) }}
+                      >
+                        <CategoryLucideIcon iconName={cat.iconName} size={18} />
+                      </span>
+                      <span className="add-txn__cat-name">{cat.name}</span>
+                    </button>
+                  );
+                })
+              )}
             </div>
-          ) : (
-            <div className="category-tiles" role="listbox" aria-label={t('addCategoryLabel')}>
-            {vm.categories.map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
-                role="option"
-                aria-selected={vm.form.categoryId === cat.id}
-                className={`category-tile ${vm.form.categoryId === cat.id ? 'category-tile--active' : ''}`}
-                style={{ '--cat-color': colorIntToHex(cat.colorInt) } as CSSProperties}
-                onClick={() => vm.setForm((f) => ({ ...f, categoryId: cat.id! }))}
-              >
-                <span className="category-tile__icon" aria-hidden>
-                  <CategoryLucideIcon iconName={cat.iconName} size={22} />
-                </span>
-                <span className="category-tile__name">{cat.name}</span>
-              </button>
-            ))}
-            </div>
-          )}
-        </label>
+          </div>
 
-        <label className="field">
-          <span className="field__label">{t('noteLabel')}</span>
-          <input
-            className="field__input"
-            value={vm.form.note}
-            onChange={(e) => vm.setForm((f) => ({ ...f, note: e.target.value }))}
-          />
-        </label>
+          <div className="field">
+            <label htmlFor="txn-note" className="field__label">{t('noteLabel')}</label>
+            <input
+              id="txn-note"
+              className="field__input"
+              placeholder={t('notePlaceholder')}
+              value={vm.form.note}
+              onChange={(e) => vm.setForm((f) => ({ ...f, note: e.target.value }))}
+            />
+          </div>
 
-        <div className="receipt-row">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            hidden
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) void vm.attachReceipt(file);
-              e.target.value = '';
-            }}
-          />
-          <button type="button" className="btn btn-secondary" onClick={() => fileInputRef.current?.click()}>
-            📷 {t('addScanReceipt')}
-          </button>
-          {vm.form.receiptImagePath ? (
-            <>
-              <ReceiptThumbnail path={vm.form.receiptImagePath} onClick={() => fileInputRef.current?.click()} />
-              <button type="button" className="receipt-row__remove" onClick={() => void vm.removeReceipt()}>{t('addRemoveReceipt')}</button>
-            </>
+          {vm.error ? (
+            <p className="add-txn__error" role="alert">{vm.error}</p>
           ) : null}
         </div>
 
-        <label className="field">
-          <span className="field__label">{t('dateLabel')}</span>
-          <input
-            className="field__input"
-            type="datetime-local"
-            value={toLocalInput(vm.form.dateMillis)}
-            onChange={(e) => vm.setForm((f) => ({ ...f, dateMillis: new Date(e.target.value).getTime() }))}
-          />
-        </label>
-
-        {vm.error ? <p className="sheet__error">{vm.error}</p> : null}
-
-        <button type="button" className="btn btn-primary btn-block sheet__save" onClick={() => void handleSave()} disabled={vm.saving}>
-          {vm.saving ? (
-            <span className="btn__spinner" aria-label={t('syncInProgress')}>
-              <span className="spin-dot" />
-              <span className="spin-dot" />
-              <span className="spin-dot" />
-            </span>
-          ) : (
-            t('actionSave')
-          )}
-        </button>
+        <div className="add-txn__footer">
+          <button
+            type="button"
+            className="btn btn-primary add-txn__save"
+            onClick={() => void handleSave()}
+            disabled={vm.saving}
+          >
+            {vm.saving ? (
+              <span className="add-txn__saving">
+                <span className="add-txn__spinner" aria-hidden />
+                <span>{t('actionSaving')}</span>
+              </span>
+            ) : t('actionSave').toLowerCase()}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-function toLocalInput(ms: number): string {
-  const d = new Date(ms);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 function currencySymbol(currency: string): string {
   return currency === 'EUR' ? '€' : currency === 'USD' ? '$' : currency === 'GBP' ? '£' : currency;
+}
+
+function decimalSep(currency: string): string {
+  return currency === 'EUR' ? ',' : '.';
+}
+
+function zeroPlaceholder(currency: string): string {
+  return `0${decimalSep(currency)}00`;
+}
+
+function toDateInputValue(ms: number): string {
+  const d = new Date(ms);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function fromDateInputValue(value: string): number {
+  const [y, m, d] = value.split('-').map(Number);
+  return new Date(y, m - 1, d).getTime();
 }

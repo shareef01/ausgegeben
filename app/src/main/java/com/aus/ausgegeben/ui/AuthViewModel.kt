@@ -3,6 +3,7 @@ package com.aus.ausgegeben.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.data.StorageMode
 import com.aus.ausgegeben.data.AppRepository
@@ -200,12 +201,12 @@ class AuthViewModel(
 
     private fun mapAuthError(error: Throwable): String {
         return when {
-            error is TimeoutCancellationException -> "Request timed out"
-            error is FirebaseAuthInvalidCredentialsException -> "Invalid email or password"
-            error is FirebaseAuthInvalidUserException -> "No account found with this email"
-            error is FirebaseAuthUserCollisionException -> "An account already exists with this email"
-            error is FirebaseAuthWeakPasswordException -> "Password is too weak"
-            else -> error.localizedMessage ?: "Authentication failed"
+            error is TimeoutCancellationException -> appString(R.string.auth_error_timeout)
+            error is FirebaseAuthInvalidCredentialsException -> appString(R.string.auth_error_invalid_credentials)
+            error is FirebaseAuthInvalidUserException -> appString(R.string.auth_error_user_not_found)
+            error is FirebaseAuthUserCollisionException -> appString(R.string.auth_error_email_in_use)
+            error is FirebaseAuthWeakPasswordException -> appString(R.string.auth_error_weak_password)
+            else -> error.localizedMessage ?: appString(R.string.auth_error_generic)
         }
     }
 }

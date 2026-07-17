@@ -1,61 +1,77 @@
 @import './global.css';
-@import './premium.css';
-@import './oled.css';
+@import './layout.css';
+@import './pages.css';
 @import './brand.css';
+@import './oled.css';
 @import './polish.css';
 @import './ios.css';
+@import './premium.css'; /* Master override imported last */
 
 :root {
   --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
-  --bottom-bar-height: 72px;
-  --fab-size: 64px;
-  --fab-clearance: 88px;
+
+  /* ── Color defaults (overridden by applyTheme) ── */
+  --color-primary: #FFFFFF;
+  --color-on-primary: #000000;
+  --color-background: #000000;
+  --color-on-background: #FFFFFF;
+  --color-surface: #09090B;
+  --color-on-surface: #FFFFFF;
+  --color-surface-variant: #121214;
+  --color-on-surface-variant: #A1A1AA;
+  --color-outline: #27272A;
+  --color-error: #FB7185;
+  --color-income: #10B981;
+  --color-expense: #FB7185;
+  --color-transfer: #94A3B8;
+  --color-accent: #FFFFFF;
+  --color-on-accent: #09090B;
+  --color-focus: #3B82F6;
+  --color-on-income: #09090B;
+
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.07);
+  --glass-bg-elevated: rgba(9, 9, 11, 0.94);
+  --surface-border: rgba(255, 255, 255, 0.07);
+  --hairline-border: rgba(255, 255, 255, 0.07);
+  --hairline-divider: rgba(255, 255, 255, 0.06);
+  --color-label-muted: #A1A1AA;
+  --color-placeholder: #A1A1AA;
+  --color-balance-positive: #10B981;
+  --color-balance-negative: #FB7185;
+  --color-stat-value: #FFFFFF;
+
+  /* ── Layout ── */
+  --bottom-bar-height: 40px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --record-sticky-offset: var(--safe-top, 0px);
   --layout-breakpoint: 768px;
-  --app-max-width: 100%;
-  --app-sidebar-width: 240px;
-  --content-max-width: min(calc(100vw - var(--app-sidebar-width) - 80px), 1200px);
-  --content-sidebar-gap: 28px;
+  --content-max-width: 100%;
   --workspace-padding: 16px;
-  --workspace-padding-desktop: 32px;
-  --radius-lg: 20px;
-  --radius-md: 14px;
-  --radius-sm: 10px;
-  --glass-blur: 20px;
-  --surface-border: rgba(255, 255, 255, 0.06);
-  --transition-premium: 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Wider phones (iPhone 15 Pro Max, Plus models) — more spacious padding */
 @media (min-width: 400px) {
   :root {
     --workspace-padding: 20px;
-    --bottom-bar-height: 76px;
+    --bottom-bar-height: 60px;
   }
 }
 
 @media (min-width: 430px) {
   :root {
     --workspace-padding: 24px;
-    --fab-clearance: 96px;
   }
 }
 
-@media (min-width: 1200px) {
+@media (min-width: 768px) {
   :root {
-    --content-max-width: min(calc(100vw - var(--app-sidebar-width) - 120px), 1200px);
-    --app-sidebar-width: 260px;
-    --workspace-padding-desktop: 32px;
-    --content-sidebar-gap: 40px;
+    --content-max-width: 768px;
   }
 }
 
-@media (min-width: 1440px) {
+@media (min-width: 1024px) {
   :root {
-    --content-max-width: min(calc(100vw - var(--app-sidebar-width) - 160px), 1400px);
-    --app-sidebar-width: 280px;
-    --workspace-padding-desktop: 40px;
-    --app-max-width: min(1680px, 94vw);
+    --content-max-width: 1200px;
   }
 }

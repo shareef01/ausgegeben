@@ -1,157 +1,136 @@
-import { useRef, useState, type ReactNode, type PointerEvent } from 'react';
-import { Pencil, Trash2 } from 'lucide-react';
-import { contrastColorOn, readCssColor } from '@/theme/tokens';
-import { hapticLight, hapticMedium } from '@/utils/haptics';
+import { useRef, useCallback, type ReactNode, type PointerEvent as ReactPointerEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useTranslation } from '@/i18n';
+import { IconDelete, IconEdit, IconLayers } from '@/components/Icons';
 
 interface SwipeableRowProps {
   children: ReactNode;
   onDelete: () => void;
   onTap?: () => void;
   onLongPress?: () => void;
+  onDuplicate?: () => void;
+  ariaLabel?: string;
 }
 
-const SWIPE_THRESHOLD = 72;
-const SWIPE_OPEN = 88;
-const TAP_SLOP = 10;
+const TAP_SLOP = 6;
 const LONG_PRESS_MS = 500;
 
-export function SwipeableRow({ children, onDelete, onTap, onLongPress }: SwipeableRowProps) {
-  const [offset, setOffset] = useState(0);
-  const offsetRef = useRef(0);
+export function SwipeableRow({ children, onDelete, onTap, onLongPress, onDuplicate, ariaLabel }: SwipeableRowProps) {
+  const { t } = useTranslation();
   const contentRef = useRef<HTMLDivElement>(null);
   const startX = useRef(0);
   const startY = useRef(0);
-  const tracking = useRef(false);
-  const swipeAxis = useRef<'none' | 'x' | 'y'>('none');
+  const moved = useRef(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFired = useRef(false);
+  const pointerId = useRef(-1);
 
-  const applyOffset = (value: number, commitState = false) => {
-    offsetRef.current = value;
-    if (contentRef.current) {
-      contentRef.current.style.transform = value === 0 ? '' : `translateX(${value}px)`;
-    }
-    if (commitState) {
-      setOffset(value);
-    }
-  };
-
-  const clearLongPress = () => {
+  const clearLongPress = useCallback(() => {
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
     }
-  };
+  }, []);
 
-  const onPointerDown = (e: PointerEvent) => {
+  const onPointerDown = (e: ReactPointerEvent) => {
     if (e.button !== 0) return;
-    tracking.current = true;
-    swipeAxis.current = 'none';
-    longPressFired.current = false;
     startX.current = e.clientX;
     startY.current = e.clientY;
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    contentRef.current?.classList.add('swipeable-row__content--dragging');
+    pointerId.current = e.pointerId;
+    moved.current = false;
+    longPressFired.current = false;
+
+    try { contentRef.current?.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+
     if (onLongPress) {
       longPressTimer.current = setTimeout(() => {
         longPressFired.current = true;
-        hapticLight();
         onLongPress();
       }, LONG_PRESS_MS);
     }
   };
 
-  const onPointerMove = (e: PointerEvent) => {
-    if (!tracking.current || longPressFired.current) return;
-    const dx = e.clientX - startX.current;
-    const dy = e.clientY - startY.current;
-
-    if (swipeAxis.current === 'none' && (Math.abs(dx) > TAP_SLOP || Math.abs(dy) > TAP_SLOP)) {
-      swipeAxis.current = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y';
-    }
-
-    if (swipeAxis.current === 'y') {
+  const onPointerMove = (e: ReactPointerEvent) => {
+    if (pointerId.current === -1 || longPressFired.current) return;
+    const dx = Math.abs(e.clientX - startX.current);
+    const dy = Math.abs(e.clientY - startY.current);
+    if (dx > TAP_SLOP || dy > TAP_SLOP) {
+      moved.current = true;
       clearLongPress();
-      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-      tracking.current = false;
-      return;
-    }
-
-    if (swipeAxis.current === 'x') {
-      clearLongPress();
-      const next = Math.max(-SWIPE_OPEN, Math.min(dx, SWIPE_OPEN));
-      applyOffset(next, true);
     }
   };
 
-  const onPointerUp = () => {
-    tracking.current = false;
+  const onPointerUp = (e: ReactPointerEvent) => {
+    if (pointerId.current === -1) return;
     clearLongPress();
-    contentRef.current?.classList.remove('swipeable-row__content--dragging');
 
-    if (longPressFired.current) {
-      applyOffset(0, true);
-      swipeAxis.current = 'none';
-      return;
+    try { contentRef.current?.releasePointerCapture(e.pointerId); } catch { /* ok */ }
+
+    const wasTap = !moved.current && !longPressFired.current;
+    pointerId.current = -1;
+
+    if (wasTap) {
+      onTap?.();
     }
-
-    const movedX = swipeAxis.current === 'x';
-    const current = offsetRef.current;
-
-    if (movedX) {
-      if (current <= -SWIPE_THRESHOLD) {
-        hapticMedium();
-        onDelete();
-        applyOffset(0, true);
-      } else if (current >= SWIPE_THRESHOLD) {
-        hapticLight();
-        onTap?.();
-        applyOffset(0, true);
-      } else {
-        applyOffset(0, true);
-      }
-    } else {
-      applyOffset(0, true);
-    }
-
-    swipeAxis.current = 'none';
   };
 
-  const deleteProgress = offset < 0 ? Math.min(1, Math.abs(offset) / SWIPE_THRESHOLD) : 0;
-  const editProgress = offset > 0 ? Math.min(1, offset / SWIPE_THRESHOLD) : 0;
-  const expenseFill = readCssColor('--color-expense');
-  const primaryFill = readCssColor('--color-primary');
+  const onKeyDown = (e: ReactKeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onTap?.();
+    } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault();
+      onDelete();
+    }
+  };
 
   return (
     <div className="swipeable-row">
-      <div className="swipeable-row__bg swipeable-row__bg--delete" style={{ opacity: deleteProgress }} aria-hidden>
-        <span className="swipeable-row__bg-icon">
-          <Trash2
-            size={20}
-            strokeWidth={2.25}
-            color={contrastColorOn(expenseFill)}
-            style={{ opacity: Math.max(0.35, deleteProgress) }}
-          />
-        </span>
+      <div
+        className="swipeable-row__actions"
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        {onTap ? (
+          <button
+            type="button"
+            className="swipeable-row__action"
+            aria-label={t('editOrTap')}
+            onClick={onTap}
+          >
+            <IconEdit width={16} height={16} aria-hidden />
+          </button>
+        ) : null}
+        {onDuplicate ? (
+          <button
+            type="button"
+            className="swipeable-row__action"
+            aria-label={t('recordDuplicate')}
+            onClick={onDuplicate}
+          >
+            <IconLayers width={16} height={16} aria-hidden />
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="swipeable-row__action swipeable-row__action--danger"
+          aria-label={t('recordSwipeDelete')}
+          onClick={onDelete}
+        >
+          <IconDelete width={16} height={16} aria-hidden />
+        </button>
       </div>
-      <div className="swipeable-row__bg swipeable-row__bg--edit" style={{ opacity: editProgress }} aria-hidden>
-        <span className="swipeable-row__bg-icon">
-          <Pencil
-            size={20}
-            strokeWidth={2.25}
-            color={contrastColorOn(primaryFill)}
-            style={{ opacity: Math.max(0.35, editProgress) }}
-          />
-        </span>
-      </div>
+
       <div
         ref={contentRef}
         className="swipeable-row__content"
-        style={offset === 0 ? undefined : { transform: `translateX(${offset}px)` }}
+        role="group"
+        tabIndex={0}
+        aria-label={ariaLabel ?? t('recordRowActions')}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
+        onKeyDown={onKeyDown}
       >
         {children}
       </div>

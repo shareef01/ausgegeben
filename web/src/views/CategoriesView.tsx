@@ -1,72 +1,88 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties, ReactNode } from 'react';
-import { createPortal } from 'react-dom';
-import { ChevronDown, ChevronUp, Pencil } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Category, TransactionType } from '@/models/types';
 import { expenseRepository } from '@/repositories/expenseRepository';
-import {
-  getCachedCategories,
-  isCategoryCacheReady,
-  preloadCategories,
-  refreshCategoryCache,
-} from '@/services/categoryCache';
-import { useToastStore } from '@/services/toastStore';
-import { CategoryEditor } from '@/components/CategoryEditor';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { CategoryLucideIcon } from '@/components/CategoryLucideIcon';
-import { EmptyState, LoadingGlassSpinner } from '@/components/ui';
-import { IconAdd, IconArrowLeft, IconLayers } from '@/components/Icons';
+import { CategoryIconTile, SignatureText } from '@/components/ui';
+import { IconBroom, IconDelete, IconCheck, IconClose } from '@/components/Icons';
 import { colorIntToHex } from '@/utils/currency';
-import { iconTintOnCategoryFill, normalizeArgbInt } from '@/utils/categoryUtils';
-import { t } from '@/i18n';
-import { hapticLight } from '@/utils/haptics';
+import { useTranslation } from '@/i18n';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { IosSegmentedControl } from '@/components/IosSegmentedControl';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
-import { useSheetScrollLock } from '@/hooks/useSheetScrollLock';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
-const TRANSACTION_TYPES: TransactionType[] = ['expense', 'income', 'transfer'];
-
-export function CategoriesView({
-  onClose,
-  lockFilter,
-}: {
-  onClose: () => void;
-  lockFilter?: TransactionType;
-}) {
-  const showToast = useToastStore((s) => s.show);
-  const [categories, setCategories] = useState<Category[]>(() => getCachedCategories());
-  const [loading, setLoading] = useState(() => !isCategoryCacheReady());
-  const [editorCategory, setEditorCategory] = useState<Category | null | 'new'>(null);
+export function CategoriesView({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [filter, setFilter] = useState<TransactionType>('expense');
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
-  const [linkedCount, setLinkedCount] = useState(-1);
-  const pageRef = useRef<HTMLDivElement>(null);
+  const [deleteLinkedCount, setDeleteLinkedCount] = useState(0);
+  const [showDedupeConfirm, setShowDedupeConfirm] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState('');
+  const addInputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const handleEscape = useCallback(() => onClose(), [onClose]);
+  useFocusTrap(!(deleteTarget || showDedupeConfirm), dialogRef, handleEscape);
+  useBodyScrollLock(true);
 
   const reload = useCallback(async () => {
-    if (!isCategoryCacheReady()) setLoading(true);
-    try {
-      const cats = isCategoryCacheReady()
-        ? await refreshCategoryCache()
-        : await preloadCategories();
-      setCategories(cats);
-    } catch {
-      showToast(t('errorLoadFailed'));
-    } finally {
-      setLoading(false);
-    }
-  }, [showToast]);
+    setCategories(await expenseRepository.getAllCategories());
+  }, []);
 
   useEffect(() => { void reload(); }, [reload]);
 
-  useSheetScrollLock();
+  const filtered = categories.filter((c) => c.transactionType === filter);
 
-  useFocusTrap(true, pageRef, onClose);
+  const startAdd = () => {
+    setAdding(true);
+    setNewName('');
+    requestAnimationFrame(() => addInputRef.current?.focus());
+  };
 
-  useEffect(() => {
-    if (!deleteTarget?.id) {
-      setLinkedCount(-1);
-      return;
-    }
-    void expenseRepository.countLinkedExpenses(deleteTarget.id).then(setLinkedCount);
-  }, [deleteTarget]);
+  const confirmAdd = async () => {
+    const name = newName.trim();
+    if (!name) { setAdding(false); return; }
+    const maxOrder = filtered.reduce((m, c) => Math.max(m, c.sortOrder), -1);
+    await expenseRepository.insertCategory({
+      name,
+      iconName: 'shopping_bag',
+      colorInt: 0xff6a9fd4,
+      transactionType: filter,
+      sortOrder: maxOrder + 1,
+    });
+    await reload();
+    setAdding(false);
+    setNewName('');
+  };
+
+  const cancelAdd = () => {
+    setAdding(false);
+    setNewName('');
+  };
+
+  const deleteCategory = async (cat: Category) => {
+    const count = await expenseRepository.countExpensesForCategory(cat.id);
+    setDeleteLinkedCount(count);
+    setDeleteTarget(cat);
+  };
+
+  const confirmDeleteCategory = async () => {
+    if (!deleteTarget) return;
+    await expenseRepository.deleteCategory(deleteTarget.id);
+    setDeleteTarget(null);
+    setDeleteLinkedCount(0);
+    await reload();
+  };
+
+  const deduplicate = () => {
+    setShowDedupeConfirm(true);
+  };
+
+  const confirmDeduplicate = async () => {
+    setShowDedupeConfirm(false);
+    await expenseRepository.deduplicateCategories();
+    await reload();
+  };
 
   const typeLabel = (type: TransactionType) => {
     switch (type) {
@@ -76,263 +92,121 @@ export function CategoriesView({
     }
   };
 
-  const groupedSections = useMemo(() => {
-    if (lockFilter) {
-      const items = categories
-        .filter((c) => c.transactionType === lockFilter)
-        .sort((a, b) => a.sortOrder - b.sortOrder);
-      return items.length > 0 ? [{ type: lockFilter, items }] : [];
-    }
-    return TRANSACTION_TYPES
-      .map((type) => ({
-        type,
-        items: categories
-          .filter((c) => c.transactionType === type)
-          .sort((a, b) => a.sortOrder - b.sortOrder),
-      }))
-      .filter((section) => section.items.length > 0);
-  }, [categories, lockFilter]);
-
-  const handleEditorConfirm = async (
-    name: string,
-    transactionType: TransactionType,
-    colorInt: number,
-    iconName: string,
-  ) => {
-    try {
-      if (editorCategory === 'new') {
-        const sameType = categories.filter((c) => c.transactionType === transactionType);
-        const maxOrder = sameType.reduce((m, c) => Math.max(m, c.sortOrder), -1);
-        await expenseRepository.insertCategory({
-          name,
-          iconName,
-          colorInt: normalizeArgbInt(colorInt),
-          transactionType,
-          sortOrder: maxOrder + 1,
-        });
-      } else if (editorCategory) {
-        await expenseRepository.updateCategory({
-          ...editorCategory,
-          name,
-          transactionType,
-          colorInt: normalizeArgbInt(colorInt),
-          iconName,
-        });
-      }
-      setEditorCategory(null);
-      await reload();
-      window.dispatchEvent(new Event('ausgegeben:data-changed'));
-    } catch {
-      showToast(t('errorSaveFailed'));
-    }
-  };
-
-  const confirmDelete = async () => {
-    if (!deleteTarget) return;
-    try {
-      await expenseRepository.deleteCategory(deleteTarget);
-      setDeleteTarget(null);
-      await reload();
-      window.dispatchEvent(new Event('ausgegeben:data-changed'));
-    } catch {
-      showToast(t('errorSaveFailed'));
-    }
-  };
-
-  const linkedSuffix = () => {
-    if (linkedCount < 0) return t('categoryDeleteLinkedFallback');
-    if (linkedCount === 0) return t('categoryDeleteLinkedNone');
-    if (linkedCount === 1) return t('categoryDeleteLinkedOne');
-    return t('categoryDeleteLinkedMany', { count: String(linkedCount) });
-  };
-
-  const moveCategory = async (cat: Category, up: boolean) => {
-    try {
-      await expenseRepository.moveCategory(cat, up);
-      await reload();
-    } catch {
-      showToast(t('errorSaveFailed'));
-    }
-  };
-
-  const renderRow = (cat: Category, index: number, items: Category[]) => {
-    const color = colorIntToHex(cat.colorInt);
-    const tint = iconTintOnCategoryFill(cat.colorInt);
-    return (
-      <div key={cat.id} className="settings-row settings-row--interactive category-row">
-        <button
-          type="button"
-          className="category-row__main"
-          onClick={() => setEditorCategory(cat)}
-        >
-          <span
-            className="category-row__icon"
-            style={{
-              '--cat-color': color,
-              background: `var(--aurora-glow), color-mix(in srgb, ${color} 14%, var(--glass-bg-elevated))`,
-            } as CSSProperties}
-          >
-            <CategoryLucideIcon iconName={cat.iconName} size={18} color={tint} />
-          </span>
-          <span className="settings-row__label category-row__label">
-            <span className="settings-row__title">{cat.name}</span>
-          </span>
-        </button>
-        <div className="category-row__actions">
-          <button
-            type="button"
-            className="category-row__action"
-            aria-label={t('categoryMoveUp')}
-            disabled={index === 0}
-            onClick={() => void moveCategory(cat, true)}
-          >
-            <ChevronUp size={18} />
-          </button>
-          <button
-            type="button"
-            className="category-row__action"
-            aria-label={t('categoryMoveDown')}
-            disabled={index === items.length - 1}
-            onClick={() => void moveCategory(cat, false)}
-          >
-            <ChevronDown size={18} />
-          </button>
-          <button
-            type="button"
-            className="category-row__action"
-            aria-label={t('categoryEdit')}
-            onClick={() => setEditorCategory(cat)}
-          >
-            <Pencil size={16} />
-          </button>
-          <button
-            type="button"
-            className="category-row__action category-row__action--delete"
-            aria-label={t('actionDelete')}
-            onClick={() => setDeleteTarget(cat)}
-          >
-            {t('actionDelete')}
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  let listBody: ReactNode;
-  if (loading) {
-    listBody = <LoadingGlassSpinner label={t('loading')} />;
-  } else if (categories.length === 0) {
-    listBody = (
-      <EmptyState
-        title={t('categoryEmptyTitle')}
-        subtitle={t('categoryEmptySubtitle')}
-        hint={t('gestureTapEdit')}
-        icon={<IconLayers width={28} height={28} />}
-        action={(
-          <button type="button" className="btn btn-primary" onClick={() => setEditorCategory('new')}>
-            {t('categoryNewTitle')}
-          </button>
-        )}
-      />
-    );
-  } else if (groupedSections.length === 0) {
-    listBody = (
-      <EmptyState
-        title={t('categoryEmptyTitle')}
-        subtitle={t('categoryEmptySubtitle')}
-        icon={<IconLayers width={28} height={28} />}
-        action={(
-          <button type="button" className="btn btn-primary" onClick={() => setEditorCategory('new')}>
-            {t('categoryNewTitle')}
-          </button>
-        )}
-      />
-    );
-  } else {
-    listBody = groupedSections.map(({ type, items }, sectionIndex) => (
-      <section
-        key={type}
-        className="categories-section chart-reveal-in"
-        style={{ animationDelay: `${Math.min(sectionIndex * 0.05, 0.2)}s` }}
-        aria-labelledby={lockFilter ? undefined : `categories-section-${type}`}
+  return (
+    <div className="fixed inset-0 z-[200] bg-background/80 backdrop-blur-xl flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        ref={dialogRef}
+        className="card--pro max-w-2xl w-full p-8 sm:p-10 flex flex-col gap-8 shadow-2xl overflow-y-auto max-h-[90vh]"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="categories-title"
+        tabIndex={-1}
       >
-        {!lockFilter ? (
-          <h3 id={`categories-section-${type}`} className="categories-section__label">{typeLabel(type)}</h3>
-        ) : null}
-        <div className="settings-group settings-group--glass card categories-list categories-list--section">
-          {items.map((cat, index) => renderRow(cat, index, items))}
-        </div>
-      </section>
-    ));
-  }
-
-  const page = (
-    <>
-      <div className="categories-page overlay overlay--categories" onClick={onClose} role="presentation">
-        <div
-          ref={pageRef}
-          className="sheet sheet--categories sheet--transaction-premium categories-page-content"
-          onClick={(e) => e.stopPropagation()}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="categories-page-title"
-        >
-          <header className="categories-page__header add-sheet__topbar">
+        <div className="flex items-center justify-between">
+          <h2 id="categories-title" className="modal-title text-2xl font-extrabold tracking-tight">
+            <SignatureText text={t('settingsCategories')} />
+          </h2>
+          <div className="flex items-center gap-3">
             <button
-              type="button"
-              className="add-sheet__icon-btn insights-glass-island"
-              onClick={() => { hapticLight(); onClose(); }}
-              aria-label={t('actionBack')}
-            >
-              <IconArrowLeft width={20} height={20} aria-hidden />
-            </button>
-            <div className="categories-page__titles add-sheet__title">
-              <h1 id="categories-page-title" className="categories-page__title">
-                {lockFilter ? t('categoryManageTitle') : t('settingsCategories')}
-              </h1>
-            </div>
-            {categories.length > 0 ? (
-              <button
                 type="button"
-                className="add-sheet__icon-btn add-sheet__icon-btn--accent insights-glass-island"
-                onClick={() => { hapticLight(); setEditorCategory('new'); }}
-                aria-label={t('categoryNewTitle')}
-              >
-                <IconAdd width={22} height={22} aria-hidden />
-              </button>
-            ) : (
-              <span className="add-sheet__icon-btn" style={{ opacity: 0 }} aria-hidden />
-            )}
-          </header>
-
-          <div className="categories-page__body add-sheet__scroll settings-view">
-            {listBody}
+                className="icon-btn"
+                onClick={() => void deduplicate()}
+                aria-label={t('categoryDeduplicateTitle')}
+                title={t('categoryDeduplicateTitle')}
+            >
+                <IconBroom width={18} height={18} aria-hidden />
+            </button>
+            <button type="button" className="icon-btn" onClick={onClose} aria-label={t('actionClose')}>
+                <IconClose width={20} height={20} aria-hidden />
+            </button>
           </div>
         </div>
+
+        <div className="flex flex-col gap-8">
+           <IosSegmentedControl
+              aria-label={t('settingsCategories')}
+              options={(['expense', 'income', 'transfer'] as TransactionType[]).map((type) => ({
+                value: type,
+                label: typeLabel(type),
+              }))}
+              value={filter}
+              onChange={setFilter}
+            />
+
+            <div className="flex flex-col gap-3">
+               <div className="field__label mb-3">{t('currentCategories')}</div>
+               {filtered.length === 0 ? (
+                 <div className="categories-empty py-10">
+                   <p className="categories-empty__text">{t('categoriesEmptyForType')}</p>
+                 </div>
+               ) : (
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                 {filtered.map((cat) => (
+                    <div key={cat.id} className="card--pro p-4 flex items-center gap-4 bg-surface border border-white/5 shadow-none">
+                        <CategoryIconTile iconName={cat.iconName} color={colorIntToHex(cat.colorInt)} />
+                        <span className="flex-1 text-sm font-semibold text-on-background truncate">{cat.name}</span>
+                        <button
+                            type="button"
+                            className="icon-btn icon-btn--danger"
+                            onClick={() => void deleteCategory(cat)}
+                            aria-label={t('actionDelete') + ' ' + cat.name}
+                        >
+                            <IconDelete width={18} height={18} aria-hidden />
+                        </button>
+                    </div>
+                 ))}
+               </div>
+               )}
+            </div>
+
+            {adding ? (
+              <div className="flex items-center gap-3">
+                <input
+                  ref={addInputRef}
+                  className="field__input flex-1"
+                  placeholder={t('categoryNamePrompt')}
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' ? void confirmAdd() : e.key === 'Escape' ? cancelAdd() : null}
+                />
+                <button type="button" className="w-14 h-14 rounded-xl bg-income flex items-center justify-center hover:brightness-110 active:scale-95 transition-all duration-150 shrink-0" style={{ color: 'var(--color-on-income)' }} onClick={() => void confirmAdd()} aria-label={t('actionSave')}>
+                    <IconCheck width={24} height={24} strokeWidth={3} aria-hidden />
+                </button>
+                <button type="button" className="btn btn-secondary w-14 h-14 rounded-xl flex items-center justify-center shrink-0 p-0" onClick={cancelAdd} aria-label={t('actionCancel')}>
+                    <IconClose width={24} height={24} aria-hidden />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-secondary w-full py-4 font-semibold text-sm active:scale-[0.98] transition-all duration-150"
+                onClick={startAdd}
+              >
+                {t('addCategory').toLowerCase()}
+              </button>
+            )}
+        </div>
       </div>
 
-      {editorCategory != null ? (
-        <CategoryEditor
-          initialCategory={editorCategory === 'new' ? null : editorCategory}
-          lockTransactionType={editorCategory === 'new' && lockFilter ? lockFilter : undefined}
-          onDismiss={() => setEditorCategory(null)}
-          onConfirm={(name, type, colorInt, iconName) => void handleEditorConfirm(name, type, colorInt, iconName)}
-        />
-      ) : null}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={t('categoryDeleteConfirm', { name: deleteTarget?.name ?? '' })}
+        message={deleteLinkedCount > 0
+          ? t('categoryDeleteLinked', { count: String(deleteLinkedCount) })
+          : t('categoryDeleteMessage')}
+        onConfirm={confirmDeleteCategory}
+        onCancel={() => { setDeleteTarget(null); setDeleteLinkedCount(0); }}
+      />
 
-      {deleteTarget ? (
-        <ConfirmDialog
-          title={t('categoryDeleteTitle')}
-          cancelLabel={t('actionCancel')}
-          confirmLabel={t('actionDelete')}
-          onCancel={() => setDeleteTarget(null)}
-          onConfirm={() => void confirmDelete()}
-        >
-          {t('categoryDeleteBody', { name: deleteTarget.name, suffix: linkedSuffix() })}
-        </ConfirmDialog>
-      ) : null}
-    </>
+      <ConfirmDialog
+        open={showDedupeConfirm}
+        title={t('categoryDeduplicateTitle')}
+        message={t('categoryDeduplicateMessage')}
+        confirmLabel={t('categoryDeduplicateConfirm')}
+        onConfirm={confirmDeduplicate}
+        onCancel={() => setShowDedupeConfirm(false)}
+      />
+    </div>
   );
-
-  return typeof document !== 'undefined' ? createPortal(page, document.body) : page;
 }

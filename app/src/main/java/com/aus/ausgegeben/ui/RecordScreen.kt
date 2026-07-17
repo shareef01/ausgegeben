@@ -1,24 +1,25 @@
 ﻿package com.aus.ausgegeben.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.Spring
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
+import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,6 +34,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.core.Animatable
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.ui.components.*
@@ -40,43 +49,18 @@ import com.aus.ausgegeben.ui.theme.*
 import com.aus.ausgegeben.util.*
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Locale
+import com.aus.ausgegeben.util.recordListDateRangeMillis
 
 private object RecordAuroraTokens {
     @Composable
-    fun background() = MaterialTheme.colorScheme.background
+    fun slate() = readableSecondaryColor()
 
     @Composable
-    fun surface() = MaterialTheme.colorScheme.surface
+    fun hairline() = appDividerColor()
 
     @Composable
-    fun slate() = MaterialTheme.colorScheme.onSurfaceVariant
-
-    @Composable
-    fun hairline() = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-
-    @Composable
-    fun emerald() = Color(0xFF10B981)
-    
-    // Pillar 1: Ambient Aurora Background
-    @Composable
-    fun auroraBrush() = Brush.radialGradient(
-        colors = listOf(emerald().copy(alpha = if (isAppDarkTheme()) 0.15f else 0.08f), Color.Transparent),
-        radius = 1000f,
-        center = Offset(x = 1000f, y = 0f) // Subtly in top corner
-    )
-
-    @Composable
-    fun labelStyle() = TextStyle(
-        fontSize = 11.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 1.5.sp,
-        color = slate()
-    )
-
-    val TabularValueStyle = TextStyle(
-        fontFeatureSettings = "tnum",
-        fontWeight = FontWeight.SemiBold
-    )
+    fun labelStyle() = sectionLabelStyle()
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -90,17 +74,18 @@ fun RecordScreen(
     onAddTransaction: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val allExpenses by viewModel.pagedExpenses.collectAsState(initial = emptyList())
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val allExpenses by viewModel.pagedExpenses.collectAsStateWithLifecycle(initialValue = emptyList<Expense>())
     
-    // Performance: Memoize derived calculations to prevent UI jank during scroll
+    // Performance: Memoize derived calculations
     val dayTotalsByLabel = remember(uiState.dayTotalsByLabel) { uiState.dayTotalsByLabel }
     val categories = remember(uiState.data.categories) { uiState.data.categories }
     val categoryById = remember(categories) { categories.associateBy { it.id } }
     
-    var receiptToView by remember { mutableStateOf<String?>(null) }
+    // Performance: Pre-calculate groupings for 120Hz scrolling
+    val grouped = remember(allExpenses) { allExpenses.groupBy { localDayStartMillis(it.dateMillis) } }
+    val sortedDays = remember(grouped) { grouped.keys.sortedDescending() }
     var expensePendingDelete by remember { mutableStateOf<Expense?>(null) }
-    var searchExpanded by rememberSaveable { mutableStateOf(false) }
 
     val locale = CurrencyUtils.localeFor(currencyCode)
     val dateFormat = remember(locale) { SimpleDateFormat("dd MMM EEE", locale) }
@@ -108,246 +93,438 @@ fun RecordScreen(
     val allTimeLabel = stringResource(R.string.record_period_all_time)
     val listPeriodLabel = remember(uiState.toolbar.listPeriod, allTimeLabel) {
         when (uiState.toolbar.listPeriod) {
-            RecordListPeriod.THIS_MONTH -> AnalyticsPeriod.THIS_MONTH.displayTitle()
-            RecordListPeriod.ALL_TIME -> allTimeLabel
+            RecordListPeriod.THIS_MONTH.key -> AnalyticsPeriod.THIS_MONTH.displayTitle()
+            RecordListPeriod.ALL_TIME.key -> allTimeLabel
+            else -> {
+                val range = recordListDateRangeMillis(uiState.toolbar.listPeriod)
+                if (range != null) {
+                    val fmt = SimpleDateFormat("MMMM yyyy", Locale.getDefault())
+                    fmt.format(Date(range.first))
+                } else {
+                    AnalyticsPeriod.THIS_MONTH.displayTitle()
+                }
+            }
         }
     }
 
+    // Motion: Track period/filter changes to trigger list stagger
+    val entranceKey = remember(uiState.toolbar.listPeriod, uiState.toolbar.typeFilter) { Any() }
+
+    val scope = rememberCoroutineScope()
+    val haptics = rememberAppHaptics()
+    val isWide = isWideScreen()
+    
+    var isSearchExpanded by remember { mutableStateOf(false) }
+    var isFilterExpanded by remember { mutableStateOf(false) }
+
     // Pillar 1: Ambient Aurora Wrap
-    Box(modifier = modifier.fillMaxSize().background(RecordAuroraTokens.background())) {
-        Box(modifier = Modifier.fillMaxSize().background(RecordAuroraTokens.auroraBrush()))
-        
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = recordListBottomPadding()
+    Box(modifier = modifier.fillMaxSize().background(AppAurora.background())) {
+        Box(modifier = Modifier.fillMaxSize().background(AppAurora.brush(opacity = if (isAppDarkTheme()) 0.15f else 0.1f, center = Offset(1000f, 0f))))
+
+        // Law: Centered Monolith constraint for large displays
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = if (isWide) 32.dp else 0.dp),
+            contentAlignment = Alignment.TopCenter
         ) {
-            item(key = "hero") {
-                val headerExpenses = uiState.data.headerExpenses
-                val expenseTotal = remember(headerExpenses) { headerExpenses.filter { it.isExpense() }.sumOf { it.amount } }
-                val incomeTotal = remember(headerExpenses) { headerExpenses.filter { it.isIncome() }.sumOf { it.amount } }
-                val net = remember(headerExpenses) { 
-                    headerExpenses.filter { !it.isTransfer() }.let { list ->
-                        list.filter { it.isIncome() }.sumOf { it.amount } - list.filter { it.isExpense() }.sumOf { it.amount }
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .widthIn(max = 800.dp),
+                contentPadding = recordListBottomPadding()
+            ) {
+                if (isWide) {
+                    item(key = "title") {
+                        ScreenTitle(
+                            title = stringResource(R.string.nav_record),
+                            action = {
+                                AppButton(
+                                    onClick = onAddTransaction,
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = contrastColorOn(MaterialTheme.colorScheme.primary),
+                                ) {
+                                    Text(stringResource(R.string.nav_add_transaction))
+                                }
+                            },
+                        )
                     }
                 }
-                
-                FinanceSummaryCard(
-                    expenseTotal = expenseTotal,
-                    incomeTotal = incomeTotal,
-                    net = net,
-                    currencyCode = currencyCode,
-                    periodLabel = listPeriodLabel,
-                    animateChanges = true
-                )
-            }
 
-            stickyHeader(key = "toolbar") {
-                RecordListToolbar(
-                    listPeriod = uiState.toolbar.listPeriod,
-                    onListPeriod = viewModel::setListPeriod,
-                    searchQuery = uiState.toolbar.searchQuery,
-                    onSearchChange = viewModel::setSearchQuery,
-                    searchExpanded = searchExpanded,
-                    onSearchExpandedChange = { searchExpanded = it }
-                )
-            }
-
-            item { Spacer(Modifier.height(24.dp)) }
-
-            if (allExpenses.isNotEmpty()) {
-                uiState.insights.topExpenseCategoryName?.let { name ->
-                    item(key = "insight") {
-                        Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                            Text(
-                                text = "MOST SPENT ON $name".uppercase(),
-                                style = RecordAuroraTokens.labelStyle()
-                            )
+                item(key = "hero") {
+                    val headerExpenses = uiState.data.headerExpenses
+                    val sequence = remember(headerExpenses) { headerExpenses.asSequence() }
+                    
+                    val expenseTotal = remember(sequence) { sequence.filter { it.isExpense() }.sumOf { it.amount } }
+                    val incomeTotal = remember(sequence) { sequence.filter { it.isIncome() }.sumOf { it.amount } }
+                    val net = remember(sequence) { 
+                        sequence.filter { !it.isTransfer() }.let { seq ->
+                            seq.filter { it.isIncome() }.sumOf { it.amount } - seq.filter { it.isExpense() }.sumOf { it.amount }
                         }
                     }
-                }
-            }
-
-            if (allExpenses.isEmpty()) {
-                item(key = "empty") {
-                    EmptyStateMessage(
-                        icon = Icons.AutoMirrored.Rounded.ReceiptLong,
-                        title = stringResource(R.string.record_empty_title),
-                        subtitle = stringResource(R.string.record_empty_subtitle),
-                        actionLabel = stringResource(R.string.record_empty_action),
-                        onAction = onAddTransaction
+                    
+                    FinanceSummaryCard(
+                        expenseTotal = expenseTotal,
+                        incomeTotal = incomeTotal,
+                        net = net,
+                        currencyCode = currencyCode,
+                        periodLabel = listPeriodLabel,
+                        animateChanges = true
                     )
                 }
-            } else {
-                items(
-                    count = allExpenses.size,
-                    key = { allExpenses[it].id }
-                ) { index ->
-                            val expense = allExpenses.getOrNull(index) ?: return@items
-                            val dayStart = localDayStartMillis(expense.dateMillis)
-                            val isFirstInDay = if (index > 0) {
-                                val prev = allExpenses.getOrNull(index - 1)
-                                prev == null || localDayStartMillis(prev.dateMillis) != dayStart
-                            } else true
 
-                            if (isFirstInDay) {
-                                val dateLabel = dateFormat.format(Date(dayStart))
-                                DateSectionHeader(dateLabel, dayTotalsByLabel[dateLabel] ?: (0.0 to 0.0), currencyCode)
-                            }
-
-                            val category = categoryById[expense.categoryId]
-                            SwipeableTransactionRow(
-                                expense = expense,
-                                categoryName = category?.name ?: stringResource(R.string.record_unknown_category),
-                                categoryColor = category?.colorInt,
-                                icon = iconForCategory(category?.iconName, category?.name),
-                                currencyCode = currencyCode,
-                                onClick = { onExpenseClick(expense) },
-                                onLongClick = {
-                                    viewModel.duplicateExpense(expense)
-                                    onExpenseDuplicated()
-                                },
-                                onDeleteRequest = { expensePendingDelete = expense },
-                                onReceiptClick = expense.receiptImagePath?.let { path -> { receiptToView = path } },
-                            )
-                            
-                            HorizontalDivider(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                                thickness = 0.5.dp,
-                                color = RecordAuroraTokens.hairline()
-                            )
+                uiState.data.monthlyBudget?.let { budget ->
+                    item(key = "budget") {
+                        val monthSpent = remember(uiState.data.monthExpenses) {
+                            uiState.data.monthExpenses.asSequence().filter { it.isExpense() }.sumOf { it.amount }
                         }
+                        BudgetProgressBar(
+                            spent = monthSpent,
+                            budget = budget,
+                            currencyCode = currencyCode,
+                        )
+                    }
+                }
+
+                stickyHeader(key = "toolbar") {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(AppAurora.background())
+                    ) {
+                        RecordListToolbar(
+                            listPeriod = uiState.toolbar.listPeriod,
+                            onListPeriod = viewModel::setListPeriod,
+                            typeFilter = uiState.toolbar.typeFilter,
+                            onTypeFilter = viewModel::setTypeFilter,
+                            searchQuery = uiState.toolbar.searchQuery,
+                            onSearchChange = viewModel::setSearchQuery,
+                            isSearchExpanded = isSearchExpanded,
+                            onSearchToggle = { isSearchExpanded = it },
+                            isFilterExpanded = isFilterExpanded,
+                            onFilterToggle = { isFilterExpanded = it }
+                        )
+                        HorizontalDivider(
+                            thickness = 0.5.dp,
+                            color = RecordAuroraTokens.hairline(),
+                        )
+                    }
+                }
+
+                item { Spacer(Modifier.height(24.dp)) }
+
+                if (allExpenses.isNotEmpty()) {
+                    uiState.insights.topExpenseCategoryName?.let { name ->
+                        item(key = "insight") {
+                            val mostSpentLabel = stringResource(R.string.record_most_spent_on, name)
+                            Box(
+                                modifier = Modifier
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                                    .appGlassCard(shape = RoundedCornerShape(AppRadius.interactive))
+                                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                                    .semantics { contentDescription = mostSpentLabel },
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .appGlassCard(CircleShape),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Insights,
+                                            contentDescription = null,
+                                            tint = financeExpenseColor(),
+                                            modifier = Modifier.size(14.dp),
+                                        )
+                                    }
+                                    Text(
+                                        text = mostSpentLabel.uppercase(),
+                                        style = RecordAuroraTokens.labelStyle(),
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    sortedDays.forEachIndexed { dayIdx, dayStart ->
+                        val dayExpenses = grouped[dayStart] ?: emptyList()
+                        val dateLabel = dateFormat.format(Date(dayStart))
+                        
+                        item(key = "day-$dayStart") {
+                            val revealAlpha = remember(entranceKey, dayIdx) { Animatable(0f) }
+                            val revealOffset = remember(entranceKey, dayIdx) { Animatable(32f) }
+                            
+                            LaunchedEffect(entranceKey) {
+                                val delay = dayIdx.coerceAtMost(8) * 45
+                                launch {
+                                    revealAlpha.animateTo(1f, tween(500, delayMillis = delay))
+                                }
+                                launch {
+                                    revealOffset.animateTo(0f, spring(Spring.DampingRatioLowBouncy, Spring.StiffnessMediumLow))
+                                }
+                            }
+                            
+                            Column(
+                                modifier = Modifier
+                                    .graphicsLayer { 
+                                        alpha = revealAlpha.value
+                                        translationY = revealOffset.value
+                                    }
+                            ) {
+                                DateSectionHeader(
+                                    dateLabel,
+                                    dayTotalsByLabel[dateLabel] ?: (0.0 to 0.0),
+                                    currencyCode,
+                                )
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp)
+                                        .appGlassCard(shape = RoundedCornerShape(AppRadius.card)),
+                                ) {
+                                    dayExpenses.forEachIndexed { rowIndex, expense ->
+                                        val category = categoryById[expense.categoryId]
+                                        SwipeableTransactionRow(
+                                            expense = expense,
+                                            categoryName = category?.name ?: stringResource(R.string.record_unknown_category),
+                                            categoryColor = category?.colorInt,
+                                            icon = iconForCategory(category?.iconName, category?.name),
+                                            currencyCode = currencyCode,
+                                            onClick = { onExpenseClick(expense) },
+                                            onLongClick = {
+                                                viewModel.duplicateExpense(expense)
+                                                onExpenseDuplicated()
+                                            },
+                                            onDeleteRequest = { expensePendingDelete = expense },
+
+                                        )
+                                        if (rowIndex < dayExpenses.lastIndex) {
+                                            HorizontalDivider(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                thickness = 0.5.dp,
+                                                color = RecordAuroraTokens.hairline(),
+                                            )
+                                        }
+                                    }
+                                }
+                                Spacer(Modifier.height(8.dp))
+                            }
+                        }
+                    }
+                } else {
+                    val isSearching = uiState.toolbar.searchQuery.isNotBlank()
+                    item(key = "empty") {
+                        EmptyStateMessage(
+                            icon = if (isSearching) Icons.Rounded.SearchOff else Icons.AutoMirrored.Rounded.List,
+                            title = stringResource(if (isSearching) R.string.record_no_matches_title else R.string.record_empty_title),
+                            subtitle = stringResource(if (isSearching) R.string.record_no_matches_subtitle else R.string.record_empty_subtitle),
+                            actionLabel = if (isSearching) stringResource(R.string.record_error_retry) else stringResource(R.string.record_empty_action),
+                            onAction = if (isSearching) { { viewModel.setSearchQuery("") } } else onAddTransaction
+                        )
+                    }
                 }
             }
         }
-
-    if (receiptToView != null) {
-        ReceiptImageDialog(uri = receiptToView!!, onDismiss = { receiptToView = null })
     }
 
     if (expensePendingDelete != null) {
-        AlertDialog(
+        AppDestructiveConfirmDialog(
             onDismissRequest = { expensePendingDelete = null },
-            containerColor = RecordAuroraTokens.surface(),
-            title = { Text(stringResource(R.string.record_delete_title), color = MaterialTheme.colorScheme.onSurface) },
-            text = { Text(stringResource(R.string.record_delete_message), color = RecordAuroraTokens.slate()) },
-            confirmButton = {
-                TextButton(onClick = {
-                    expensePendingDelete?.let { viewModel.deleteExpense(it); onExpenseDeleted(it) }
-                    expensePendingDelete = null
-                }) {
-                    Text(stringResource(R.string.record_delete_confirm), color = Color(0xFFFB7185))
-                }
+            title = {
+                Text(
+                    stringResource(R.string.record_delete_title),
+                    style = MaterialTheme.typography.titleMedium,
+                )
             },
-            dismissButton = {
-                TextButton(onClick = { expensePendingDelete = null }) {
-                    Text(stringResource(R.string.record_delete_cancel), color = MaterialTheme.colorScheme.onSurface)
+            text = {
+                AppDialogBodyText(stringResource(R.string.record_delete_message))
+            },
+            confirmLabel = stringResource(R.string.record_delete_confirm),
+            dismissLabel = stringResource(R.string.record_delete_cancel),
+            onConfirm = {
+                expensePendingDelete?.let {
+                    viewModel.deleteExpense(it)
+                    onExpenseDeleted(it)
                 }
-            }
+                expensePendingDelete = null
+            },
         )
     }
 }
 
 @Composable
 private fun RecordListToolbar(
-    listPeriod: RecordListPeriod,
-    onListPeriod: (RecordListPeriod) -> Unit,
+    listPeriod: String,
+    onListPeriod: (String) -> Unit,
+    typeFilter: TransactionTypeFilter,
+    onTypeFilter: (TransactionTypeFilter) -> Unit,
     searchQuery: String,
     onSearchChange: (String) -> Unit,
-    searchExpanded: Boolean,
-    onSearchExpandedChange: (Boolean) -> Unit,
+    isSearchExpanded: Boolean,
+    onSearchToggle: (Boolean) -> Unit,
+    isFilterExpanded: Boolean,
+    onFilterToggle: (Boolean) -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+    val typeFilterLabels = TransactionTypeFilter.entries.map { it.label }
+    val typeFilterIndex = TransactionTypeFilter.entries.indexOf(typeFilter).coerceAtLeast(0)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp)
+            .padding(horizontal = 16.dp)
+            .appGlassCard(RoundedCornerShape(AppRadius.card))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        val thisMonthLabel = stringResource(R.string.record_period_this_month)
+        val allTimeLabel = stringResource(R.string.record_period_all_time)
+        
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(42.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(RecordAuroraTokens.surface())
-                    .padding(4.dp)
-            ) {
-                val thisMonthLabel = stringResource(R.string.add_type_expense)
-                val allTimeLabel = stringResource(R.string.record_period_all_time)
-                
-                listOf(RecordListPeriod.THIS_MONTH, RecordListPeriod.ALL_TIME).forEach { period ->
-                    val isSelected = listPeriod == period
-                    val label = if (period == RecordListPeriod.THIS_MONTH) thisMonthLabel else allTimeLabel
-                    
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (isSelected) RecordAuroraTokens.background() else Color.Transparent)
-                            .clickable { onListPeriod(period) },
-                        contentAlignment = Alignment.Center
+            AnimatedContent(
+                targetState = isSearchExpanded,
+                transitionSpec = {
+                    fadeIn(animationSpec = tween(220, delayMillis = 90)) + scaleIn(initialScale = 0.92f, animationSpec = tween(220, delayMillis = 90)) togetherWith
+                    fadeOut(animationSpec = tween(90))
+                },
+                label = "toolbarSearchAnim",
+                modifier = Modifier.weight(1f)
+            ) { expanded ->
+                if (!expanded) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = label.uppercase(),
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            style = TextStyle(
-                                fontSize = 11.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                letterSpacing = 1.sp,
-                                color = if (isSelected) MaterialTheme.colorScheme.onSurface else RecordAuroraTokens.slate()
+                        IosSegmentedControl(
+                            options = listOf(thisMonthLabel, allTimeLabel),
+                            selectedIndex = if (listPeriod == RecordListPeriod.ALL_TIME.key) 1 else 0,
+                            onSelected = { index ->
+                                onListPeriod(
+                                    if (index == 0) RecordListPeriod.THIS_MONTH.key else RecordListPeriod.ALL_TIME.key,
+                                )
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                        
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .appGlassCard(CircleShape)
+                                .smoothClickable { onSearchToggle(true) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Rounded.Search,
+                                contentDescription = stringResource(R.string.record_search),
+                                tint = if (searchQuery.isNotBlank()) MaterialTheme.colorScheme.primary else navigationInactiveColor(),
+                                modifier = Modifier.size(20.dp)
                             )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .appGlassCard(CircleShape)
+                                .smoothClickable { onFilterToggle(!isFilterExpanded) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Rounded.FilterList,
+                                contentDescription = stringResource(R.string.record_filter),
+                                tint = if (typeFilter != TransactionTypeFilter.ALL) MaterialTheme.colorScheme.primary else navigationInactiveColor(),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .appGlassCard(RoundedCornerShape(AppRadius.interactive))
+                                .border(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), RoundedCornerShape(AppRadius.interactive))
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                Icons.Rounded.Search,
+                                null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            BasicTextField(
+                                value = searchQuery,
+                                onValueChange = onSearchChange,
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                ),
+                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                keyboardActions = KeyboardActions(onSearch = { }),
+                                decorationBox = { inner ->
+                                    if (searchQuery.isEmpty()) {
+                                        Text(
+                                            text = stringResource(R.string.record_search_placeholder),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = readableSecondaryColor().copy(alpha = 0.7f),
+                                        )
+                                    }
+                                    inner()
+                                },
+                            )
+                            if (searchQuery.isNotBlank()) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .smoothClickable { onSearchChange("") },
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.Close,
+                                        null,
+                                        tint = navigationInactiveColor(),
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                }
+                            }
+                        }
+                        
+                        Text(
+                            text = stringResource(R.string.action_cancel).lowercase(),
+                            style = MaterialTheme.typography.labelLarge.copy(color = MaterialTheme.colorScheme.primary),
+                            modifier = Modifier.smoothClickable { 
+                                onSearchToggle(false)
+                                onSearchChange("")
+                            }
                         )
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            IconButton(
-                onClick = { onSearchExpandedChange(!searchExpanded) },
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(RecordAuroraTokens.surface())
-            ) {
-                Icon(
-                    imageVector = if (searchExpanded) Icons.Rounded.Close else Icons.Rounded.Search,
-                    contentDescription = null,
-                    tint = if (searchQuery.isNotBlank()) MaterialTheme.colorScheme.primary else RecordAuroraTokens.slate(),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
         }
 
-        AnimatedVisibility(
-            visible = searchExpanded,
-            enter = expandVertically(
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioNoBouncy,
-                    stiffness = Spring.StiffnessMediumLow
-                )
-            ) + androidx.compose.animation.fadeIn(),
-            exit = shrinkVertically(
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioNoBouncy,
-                    stiffness = Spring.StiffnessHigh
-                )
-            ) + androidx.compose.animation.fadeOut()
-        ) {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = onSearchChange,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                placeholder = { Text(stringResource(R.string.record_search_placeholder), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)) },
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                    unfocusedBorderColor = RecordAuroraTokens.hairline(),
-                    focusedContainerColor = RecordAuroraTokens.surface(),
-                    unfocusedContainerColor = RecordAuroraTokens.surface(),
-                    cursorColor = MaterialTheme.colorScheme.primary,
-                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
-                ),
-                singleLine = true
+        if (isFilterExpanded || typeFilter != TransactionTypeFilter.ALL) {
+            IosSegmentedControl(
+                options = typeFilterLabels,
+                selectedIndex = typeFilterIndex,
+                onSelected = { index ->
+                    TransactionTypeFilter.entries.getOrNull(index)?.let(onTypeFilter)
+                },
             )
         }
     }
@@ -357,46 +534,56 @@ private fun RecordListToolbar(
 private fun DateSectionHeader(
     date: String,
     dayTotals: Pair<Double, Double>,
-    currencyCode: String
+    currencyCode: String,
+    modifier: Modifier = Modifier
 ) {
-    // Law 4: Header Alignment sharing same horizontal padding as rows
-    Row(
-        modifier = Modifier
+    val incomeColor = financeIncomeColor()
+    val expenseColor = financeExpenseColor()
+    Box(
+        modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .appGlassCard(shape = RoundedCornerShape(AppRadius.md))
+            .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
-        Text(
-            text = date.uppercase(), 
-            style = RecordAuroraTokens.labelStyle(),
-            modifier = Modifier.weight(1f) 
-        )
-        
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            val (dayIncome, dayExpense) = dayTotals
-            if (dayIncome > 0) {
-                Text(
-                    text = "+" + CurrencyUtils.formatAmount(dayIncome, currencyCode),
-                    style = TextStyle(
-                        fontSize = 11.sp, 
-                        fontWeight = FontWeight.Bold, 
-                        fontFeatureSettings = "tnum", 
-                        color = Color(0xFF10B981), 
-                        textAlign = TextAlign.End
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // Anchor point
+            Box(
+                modifier = Modifier
+                    .size(4.dp)
+                    .background(MaterialTheme.colorScheme.primary, CircleShape)
+            )
+            Spacer(Modifier.width(8.dp))
+
+            Text(
+                text = date.uppercase(),
+                style = RecordAuroraTokens.labelStyle(),
+                modifier = Modifier.weight(1f),
+            )
+
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                val (dayIncome, dayExpense) = dayTotals
+                if (dayIncome > 0) {
+                    Text(
+                        text = "+" + CurrencyUtils.formatAmount(dayIncome, currencyCode),
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            color = incomeColor,
+                            textAlign = TextAlign.End,
+                        ),
                     )
-                )
-            }
-            if (dayExpense > 0) {
-                Text(
-                    text = "-" + CurrencyUtils.formatAmount(dayExpense, currencyCode),
-                    style = TextStyle(
-                        fontSize = 11.sp, 
-                        fontWeight = FontWeight.Bold, 
-                        fontFeatureSettings = "tnum", 
-                        color = Color(0xFFFB7185), 
-                        textAlign = TextAlign.End
+                }
+                if (dayExpense > 0) {
+                    Text(
+                        text = "-" + CurrencyUtils.formatAmount(dayExpense, currencyCode),
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            color = expenseColor,
+                            textAlign = TextAlign.End,
+                        ),
                     )
-                )
+                }
             }
         }
     }
@@ -412,19 +599,26 @@ private fun SwipeableTransactionRow(
     currencyCode: String,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    onDeleteRequest: () -> Unit,
-    onReceiptClick: (() -> Unit)?
+    onDeleteRequest: () -> Unit
 ) {
+    val incomeColor = financeIncomeColor()
+    val expenseColor = financeExpenseColor()
+    val haptics = rememberAppHaptics()
+    val deleteColor = financeExpenseColor()
+    val editSwipeColor = MaterialTheme.colorScheme.primary
+
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { 
             when (it) {
                 SwipeToDismissBoxValue.EndToStart -> {
                     onDeleteRequest()
+                    haptics.medium()
                     false // Return to center
                 }
                 SwipeToDismissBoxValue.StartToEnd -> {
-                    onClick() // Trigger Edit
-                    false // Return to center
+                    onClick()
+                    haptics.light()
+                    false
                 }
                 else -> true
             }
@@ -436,30 +630,59 @@ private fun SwipeableTransactionRow(
         enableDismissFromStartToEnd = true, // Law: Enable Swipe-to-Edit
         backgroundContent = {
             val direction = dismissState.dismissDirection
+            val swipeFraction = dismissState.progress.coerceIn(0f, 1f)
             
             when (direction) {
                 SwipeToDismissBoxValue.EndToStart -> {
-                    // Delete Zone (Red)
                     Box(
                         Modifier
                             .fillMaxSize()
-                            .background(Color(0xFFEF4444))
+                            .background(deleteColor.copy(alpha = swipeFraction))
                             .padding(horizontal = 24.dp),
                         contentAlignment = Alignment.CenterEnd
                     ) {
-                        Icon(Icons.Rounded.Delete, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                        val iconScale by animateFloatAsState(
+                            targetValue = if (swipeFraction > 0.5f) 1.2f else 1.0f,
+                            animationSpec = spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMedium),
+                            label = "deleteIconScale"
+                        )
+                        Icon(
+                            Icons.Rounded.Delete,
+                            null,
+                            tint = contrastColorOn(deleteColor).copy(alpha = swipeFraction.coerceAtLeast(0.35f)),
+                            modifier = Modifier
+                                .size(24.dp)
+                                .graphicsLayer {
+                                    scaleX = iconScale
+                                    scaleY = iconScale
+                                },
+                        )
                     }
                 }
                 SwipeToDismissBoxValue.StartToEnd -> {
-                    // Edit Zone (Emerald)
                     Box(
                         Modifier
                             .fillMaxSize()
-                            .background(Color(0xFF10B981))
+                            .background(editSwipeColor.copy(alpha = swipeFraction))
                             .padding(horizontal = 24.dp),
                         contentAlignment = Alignment.CenterStart
                     ) {
-                        Icon(Icons.Rounded.Edit, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                        val iconScale by animateFloatAsState(
+                            targetValue = if (swipeFraction > 0.5f) 1.2f else 1.0f,
+                            animationSpec = spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMedium),
+                            label = "editIconScale"
+                        )
+                        Icon(
+                            Icons.Rounded.Edit,
+                            null,
+                            tint = contrastColorOn(editSwipeColor).copy(alpha = swipeFraction.coerceAtLeast(0.35f)),
+                            modifier = Modifier
+                                .size(24.dp)
+                                .graphicsLayer {
+                                    scaleX = iconScale
+                                    scaleY = iconScale
+                                },
+                        )
                     }
                 }
                 else -> {}
@@ -470,13 +693,28 @@ private fun SwipeableTransactionRow(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(RecordAuroraTokens.background())
+                .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
+                .background(Color.Transparent)
                 .combinedClickable(
-                    onClick = {}, // Law: Accidental tap disabled. Must swipe to edit.
-                    onLongClick = onLongClick
+                    onClick = {
+                        haptics.light()
+                        onClick()
+                    },
+                    onLongClick = {
+                        haptics.medium()
+                        onLongClick()
+                    },
                 )
         ) {
-            TransactionRow(expense, categoryName, categoryColor, icon, currencyCode, onReceiptClick)
+            TransactionRow(
+                expense,
+                categoryName,
+                categoryColor,
+                icon,
+                currencyCode,
+                incomeColor,
+                expenseColor,
+            )
         }
     }
 }
@@ -488,69 +726,118 @@ fun TransactionRow(
     categoryColor: Int?,
     icon: ImageVector,
     currencyCode: String,
-    onReceiptClick: (() -> Unit)?,
+    incomeColor: Color,
+    expenseColor: Color,
 ) {
     val isIncome = expense.isIncome()
     val isTransfer = expense.isTransfer()
+    val transferColor = financeTransferColor()
     
     val amountColor = when {
-        isIncome -> Color(0xFF10B981)
-        isTransfer -> Color(0xFF94A3B8)
+        isIncome -> incomeColor
+        isTransfer -> transferColor
         else -> MaterialTheme.colorScheme.onSurface
     }
     
-    val indicatorColor = categoryColor?.let { colorIntToCompose(it) } ?: MaterialTheme.colorScheme.onSurface
+    val indicatorColor = categoryColor?.let { colorIntToCompose(it) }
+        ?: if (isTransfer) transferColor else MaterialTheme.colorScheme.onSurface
+
+    val rowDescription = stringResource(
+        if (isIncome) R.string.desc_income_row else if (isTransfer) R.string.desc_transfer_row else R.string.desc_expense_row,
+        categoryName,
+        CurrencyUtils.formatAmount(expense.amount, currencyCode),
+        if (expense.note.isNotBlank()) expense.note else ""
+    )
 
     // Law 2: Ironclad Transaction Row Alignments
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 16.dp),
+            .height(IntrinsicSize.Min) // Pillar 4: Consistent vertical metrics
+            .semantics { contentDescription = rowDescription },
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // Law 6: Category Spine
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .fillMaxHeight()
+                .padding(vertical = 12.dp)
+                .clip(CircleShape)
+                .background(indicatorColor.copy(alpha = 0.65f))
+        )
+
+        Spacer(Modifier.width(12.dp))
+
         // [Icon Box with Directional Overlay]
-        Box(contentAlignment = Alignment.BottomEnd) {
+        Box(
+            modifier = Modifier.padding(vertical = 16.dp),
+            contentAlignment = Alignment.BottomEnd
+        ) {
             Box(
                 modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(indicatorColor.copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center
+                    .size(44.dp)
+                    .appGlassCard(CircleShape),
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = icon,
+                    imageVector = if (isTransfer) Icons.Rounded.SwapHoriz else icon,
                     contentDescription = null,
                     tint = indicatorColor,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(20.dp),
                 )
             }
             
-            if (!isTransfer) {
+            if (isTransfer) {
+                val badgeFill = transferColor.copy(alpha = 0.9f)
                 Box(
                     modifier = Modifier
-                        .size(14.dp)
+                        .size(16.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.background)
-                        .padding(1.dp)
+                        .padding(1.5.dp)
                         .clip(CircleShape)
-                        .background(if (isIncome) Color(0xFF10B981) else Color(0xFFFB7185)),
+                        .background(badgeFill),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.SwapHoriz,
+                        contentDescription = null,
+                        tint = contrastColorOn(badgeFill),
+                        modifier = Modifier.size(10.dp),
+                    )
+                }
+            } else {
+                val badgeFill = if (isIncome) incomeColor else expenseColor
+                Box(
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.background)
+                        .padding(1.5.dp)
+                        .clip(CircleShape)
+                        .background(badgeFill),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = if (isIncome) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward,
                         contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(8.dp)
+                        tint = contrastColorOn(badgeFill),
+                        modifier = Modifier.size(10.dp)
                     )
                 }
             }
         }
         
-        // [Spacer(12.dp)]
         Spacer(modifier = Modifier.width(12.dp))
         
-        // [Column containing Category/Note] - CRITICAL: Modifier.weight(1f)
-        Column(modifier = Modifier.weight(1f)) {
+        // [Column containing Category/Note]
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(vertical = 16.dp)
+                .padding(end = 8.dp)
+        ) {
             Text(
                 text = categoryName, 
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), 
@@ -569,28 +856,19 @@ fun TransactionRow(
             }
         }
         
-        if (onReceiptClick != null) {
-            Icon(
-                imageVector = Icons.Rounded.AttachFile, 
-                contentDescription = null, 
-                tint = RecordAuroraTokens.slate(), 
-                modifier = Modifier
-                    .size(14.dp)
-                    .padding(end = 8.dp)
-                    .clickable { onReceiptClick() }
-            )
-        }
-        
-        // [Amount Text] - fontFeatureSettings = "tnum"
+        Spacer(Modifier.width(8.dp))
+
+        // SECURE: Amount has a dedicated non-shrinking boundary to prevent overlap
         Text(
             text = when {
                 isIncome -> "+" + CurrencyUtils.formatAmount(expense.amount, currencyCode)
                 isTransfer -> CurrencyUtils.formatAmount(expense.amount, currencyCode)
                 else -> "-" + CurrencyUtils.formatAmount(expense.amount, currencyCode)
             },
+            modifier = Modifier.widthIn(min = 80.dp),
             style = TextStyle(
                 fontSize = 15.sp, 
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Bold,
                 fontFeatureSettings = "tnum",
                 color = amountColor,
                 textAlign = TextAlign.End

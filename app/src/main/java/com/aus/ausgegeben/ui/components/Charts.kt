@@ -32,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.Path
@@ -43,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.theme.AppChartRevealSpring
 import com.aus.ausgegeben.ui.theme.AppRadius
@@ -53,7 +55,9 @@ import com.aus.ausgegeben.ui.theme.chartColorAt
 import com.aus.ausgegeben.ui.theme.financeExpenseColor
 import com.aus.ausgegeben.ui.theme.financeIncomeColor
 import com.aus.ausgegeben.ui.theme.forChartDisplay
+import com.aus.ausgegeben.ui.theme.readableSecondaryColor
 import com.aus.ausgegeben.util.CurrencyUtils
+import com.aus.ausgegeben.util.CashFlowPoint
 
 private val DONUT_STROKE = ChartStrokeWidth
 
@@ -85,19 +89,22 @@ fun IncomeExpenseOverviewChart(
     val chartTrack = appDividerColor().copy(alpha = 0.55f)
     val expenseColor = financeExpenseColor()
     val incomeColor = financeIncomeColor()
+    val chartDescription = stringResource(R.string.chart_content_desc_income_expense)
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs)
-            .clip(cardShape)
-            .appCard(shape = cardShape)
+            .appGlassCard(shape = cardShape)
+            .semantics { contentDescription = chartDescription }
             .padding(vertical = AppSpacing.md)
     ) {
         Text(
-            text = stringResource(R.string.chart_overview_title),
-            style = MaterialTheme.typography.titleSmall,
-            color = onBackground,
-            fontWeight = FontWeight.Normal,
+            text = stringResource(R.string.chart_overview_title).uppercase(),
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.5.sp,
+                color = readableSecondaryColor(),
+            ),
             modifier = Modifier
                 .padding(horizontal = AppSpacing.md)
                 .padding(bottom = AppSpacing.sm)
@@ -354,16 +361,23 @@ fun DonutChart(
                         if (sweep <= 0f) return@forEachIndexed
 
                         drawArc(
-                            color = base.copy(alpha = 0.20f * easedReveal),
+                            color = base.copy(alpha = 0.15f * easedReveal),
                             startAngle = startAngle + gapDegrees / 2f,
                             sweepAngle = sweep,
                             useCenter = false,
-                            style = Stroke(width = 12.dp.toPx() * 1.5f, cap = StrokeCap.Round),
+                            style = Stroke(width = 12.dp.toPx() * 1.8f, cap = StrokeCap.Round),
                             size = arcBoxSize,
                             topLeft = arcTopLeft
                         )
+                        
+                        // Main Neon Segment
                         drawArc(
-                            color = base,
+                            brush = Brush.sweepGradient(
+                                0.0f to base.copy(alpha = 0.8f),
+                                0.5f to base,
+                                1.0f to base.copy(alpha = 0.8f),
+                                center = center
+                            ),
                             startAngle = startAngle + gapDegrees / 2f,
                             sweepAngle = sweep,
                             useCenter = false,
@@ -470,8 +484,9 @@ fun AnimatedCategoryBar(
 private const val CASHFLOW_TOP_HEADROOM = 0.20f
 
 @Composable
-fun CashFlowLineChart(
+fun CashFlowChart(
     trend: List<CashFlowPoint>,
+    periodKey: String,
     modifier: Modifier = Modifier
 ) {
     if (trend.isEmpty()) return
@@ -489,12 +504,14 @@ fun CashFlowLineChart(
 
     val chartHeight = 136.dp
     val strokePx = 3.dp
+    val chartDescription = stringResource(R.string.chart_content_desc_cashflow)
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = AppSpacing.xs)
             .height(chartHeight)
+            .semantics { contentDescription = chartDescription }
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val w = size.width
@@ -506,8 +523,8 @@ fun CashFlowLineChart(
             val reveal = progress.value
 
             val allValues = trend.flatMap { listOf(it.income, it.expense) }
-            val minV = allValues.min()
-            val maxV = allValues.max()
+            val minV = allValues.minOrNull() ?: 0.0
+            val maxV = allValues.maxOrNull() ?: 1.0
             val range = (maxV - minV).coerceAtLeast(1.0)
             val paddedMax = maxV + range * CASHFLOW_TOP_HEADROOM
             val paddedRange = paddedMax - minV
@@ -570,8 +587,24 @@ fun CashFlowLineChart(
     }
 }
 
-data class CashFlowPoint(
-    val label: String,
-    val income: Double,
-    val expense: Double
-)
+@Composable
+fun CashFlowLegend(modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        LegendDot(financeIncomeColor())
+        LegendDot(financeExpenseColor())
+    }
+}
+
+@Composable
+private fun LegendDot(color: Color) {
+    Box(
+        modifier = Modifier
+            .size(8.dp)
+            .clip(CircleShape)
+            .background(color)
+    )
+}

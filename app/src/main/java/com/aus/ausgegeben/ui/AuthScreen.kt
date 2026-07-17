@@ -36,7 +36,9 @@ import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.components.AppBrandIcon
 import com.aus.ausgegeben.ui.components.AppIconButton
 import com.aus.ausgegeben.ui.components.premiumClickable
+import com.aus.ausgegeben.ui.theme.financeIncomeColor
 import com.aus.ausgegeben.ui.theme.isAppDarkTheme
+import com.aus.ausgegeben.ui.theme.sectionLabelStyle
 import androidx.compose.ui.geometry.Offset
 
 private object AuthAuroraTokens {
@@ -50,7 +52,7 @@ private object AuthAuroraTokens {
     fun slate() = MaterialTheme.colorScheme.onSurfaceVariant
 
     @Composable
-    fun emerald() = Color(0xFF10B981)
+    fun emerald() = financeIncomeColor()
 
     // Pillar 1: Ambient Aurora Background
     @Composable
@@ -84,12 +86,7 @@ private object AuthAuroraTokens {
     }
 
     @Composable
-    fun labelStyle() = TextStyle(
-        fontSize = 11.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 1.5.sp,
-        color = slate()
-    )
+    fun labelStyle() = sectionLabelStyle()
 }
 
 @Composable
@@ -317,7 +314,7 @@ private fun AuthTopBar(onDismiss: (() -> Unit)?) {
             AppIconButton(
                 onClick = onDismiss,
                 icon = Icons.AutoMirrored.Rounded.ArrowBack,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.auth_content_desc_back),
                 tint = MaterialTheme.colorScheme.onSurface
             )
         }
@@ -407,7 +404,7 @@ private fun AuthTextField(
                 IconButton(onClick = onToggleVisibility!!) {
                     Icon(
                         if (passwordVisible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
-                        null,
+                        contentDescription = stringResource(R.string.auth_content_desc_password_visibility),
                         modifier = Modifier.size(20.dp)
                     )
                 }

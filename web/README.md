@@ -1,8 +1,8 @@
 # Ausgegeben Web (PWA)
 
-Installable web version of **Ausgegeben**. Works offline with IndexedDB; optional Firebase sync when signed in with the same account as Android. Evening reminders use the service worker when enabled in Settings.
+Installable web version of **Ausgegeben**. Requires Firebase Auth; expense data and preferences live in Cloud Firestore (online). Stays on the **Firebase Spark** free plan (Hosting + Auth + Firestore).
 
-Receipt photos are stored **locally** on the free Spark plan (Firebase Storage requires Blaze). Cloud sync covers transactions, categories, and preferences.
+Settings (theme, locale, currency, budget, reminders, onboarding) sync at `users/{uid}/settings/preferences`. Empty accounts get the same starter categories as Android.
 
 **Live:** [https://aus01.web.app](https://aus01.web.app)
 
@@ -16,25 +16,24 @@ npm run build    # output in dist/
 npm run preview  # test production build
 ```
 
-## Deploy
+## Deploy (Spark-safe)
 
-1. Copy `web/.env.example` → `web/.env.local` with Firebase Web config
+1. Copy `web/.env.example` → `web/.env.local` with Firebase Web config (Auth + Firestore only)
 2. From `web/`:
 
 ```bash
-npm run deploy          # hosting + Firestore rules (Spark-friendly)
-npm run deploy:hosting  # hosting only
+npm run deploy
 ```
 
-Uses `firebase.json` at the repo root (hosting site **aus01**, Firestore rules). Storage rules are kept in-repo for optional Blaze upgrade but are not deployed by default.
+Deploys **Hosting** (`aus01`) + **Firestore rules** only.
 
 ## Structure
 
 ```
 src/
   models/         # Types
-  repositories/   # IndexedDB CRUD
-  services/       # Dexie, auth, sync, preferences
+  repositories/   # Firestore CRUD
+  services/       # Auth, Firebase, preferences
   viewmodels/     # React hooks (MVVM)
   views/          # Screens
   components/     # Shared UI
