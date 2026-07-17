@@ -32,7 +32,7 @@ object AppColors {
 
     val OnBackground = Color(0xFFFFFFFF)
     /** Metadata / Secondary Labels: Muted Slate */
-    val OnSurfaceVariant = Color(0xFF71717A)
+    val OnSurfaceVariant = Color(0xFFA1A1AA)
 }
 
 // ── Palette aliases ───────────────────────────────────────────────────────────

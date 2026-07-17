@@ -1,6 +1,5 @@
-# Keep Room entities and DAOs
+# Keep data entities (serialized via Firestore)
 -keep class com.aus.ausgegeben.data.entity.** { *; }
--keep class com.aus.ausgegeben.data.dao.** { *; }
 
 # WorkManager workers
 -keep class com.aus.ausgegeben.notification.** { *; }
@@ -9,7 +8,5 @@
 -keepattributes *Annotation*, InnerClasses
 -dontnote kotlinx.serialization.AnnotationsKt
 
-# Firebase Auth
--keep class com.google.firebase.** { *; }
--keep class com.google.android.gms.** { *; }
+# Firebase/GMS ship consumer ProGuard rules in their AARs; no blanket keeps needed.
 -dontwarn com.google.firebase.**
