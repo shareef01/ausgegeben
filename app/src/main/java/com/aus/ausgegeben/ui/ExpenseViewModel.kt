@@ -12,7 +12,6 @@ import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.util.RecordListPeriod
 import com.aus.ausgegeben.util.recordListDateRangeMillis
 import com.aus.ausgegeben.util.SpendingInsights
-import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.computeDayTotals
 import com.aus.ausgegeben.util.computeSpendingInsights
 import com.aus.ausgegeben.util.dateRangeMillis
@@ -27,6 +26,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
@@ -37,7 +37,7 @@ data class RecordUiState(
     val data: RecordData = RecordData(),
     val toolbar: RecordToolbarState = RecordToolbarState(),
     val insights: SpendingInsights = SpendingInsights(),
-    val dayTotalsByLabel: Map<String, Pair<Double, Double>> = emptyMap(),
+    val dayTotalsByDay: Map<Long, Pair<Double, Double>> = emptyMap(),
 )
 
 data class RecordData(
@@ -96,12 +96,9 @@ class ExpenseViewModel(
         computeSpendingInsights(month, week, categoryNames)
     }.flowOn(Dispatchers.Default)
 
-    private val dayTotalsFlow = combine(
-        listExpensesFlow,
-        currencyFlow
-    ) { expenses, currency ->
-        computeDayTotals(expenses, CurrencyUtils.localeFor(currency))
-    }.flowOn(Dispatchers.Default)
+    private val dayTotalsFlow = listExpensesFlow
+        .map { expenses -> computeDayTotals(expenses) }
+        .flowOn(Dispatchers.Default)
 
     // 4. Final UI State assembly
     val uiState: StateFlow<RecordUiState> = combine(
