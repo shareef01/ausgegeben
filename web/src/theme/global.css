@@ -115,6 +115,7 @@ a {
 
 .app-shell {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--color-background);
@@ -126,6 +127,7 @@ a {
   width: 100%;
   max-width: var(--app-max-width, 1360px);
   min-height: 100vh;
+  min-height: 100dvh;
   margin-inline: auto;
   padding-inline: 1rem;
 }
