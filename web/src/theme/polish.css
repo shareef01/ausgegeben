@@ -304,6 +304,26 @@
   color: var(--color-on-income, #000000) !important;
 }
 
+/* Floating dock that carries the bottom nav pill + add button on mobile.
+   Replaces an undefined arbitrary utility class that left the dock with
+   position:fixed but no bottom offset — pushing it below the viewport. */
+.mobile-dock {
+  position: fixed;
+  bottom: calc(1.5rem + var(--safe-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@media (min-width: 768px) {
+  .mobile-dock {
+    display: none;
+  }
+}
+
 /* Bottom nav + FAB chrome */
 .bottom-nav-pill {
   background: color-mix(in srgb, var(--color-background) 92%, transparent);
