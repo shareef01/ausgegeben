@@ -6,6 +6,34 @@
 
 ---
 
+## Screenshots
+
+### Web (PWA)
+
+| Record | Insights |
+|---|---|
+| ![Record — balance, budget, and transaction list](docs/screenshots/web/web-record.png) | ![Insights — expense/income breakdown and cash flow](docs/screenshots/web/web-insights.png) |
+
+| Add Transaction | Settings |
+|---|---|
+| ![Add transaction dialog](docs/screenshots/web/web-add-transaction.png) | ![Settings](docs/screenshots/web/web-settings.png) |
+
+<p align="center">
+  <img src="docs/screenshots/web/web-record-mobile.png" width="240" alt="Record page at mobile viewport" />
+</p>
+
+### Android
+
+<p align="center">
+  <img src="docs/screenshots/android/record.png" width="180" alt="Record" />
+  <img src="docs/screenshots/android/add-transaction-expense.png" width="180" alt="Add expense" />
+  <img src="docs/screenshots/android/bills-overview.png" width="180" alt="Bills overview" />
+  <img src="docs/screenshots/android/bills-categories.png" width="180" alt="Category breakdown" />
+  <img src="docs/screenshots/android/settings-account.png" width="180" alt="Settings" />
+</p>
+
+---
+
 ## Technical Philosophy & Architecture
 
 This project serves as a showcase of modern software engineering practices, moving beyond basic CRUD to implement robust architectural patterns:
@@ -13,8 +41,8 @@ This project serves as a showcase of modern software engineering practices, movi
 ### Android: Modern Native Development
 *   **Architecture:** Adheres to **Clean Architecture** principles using **MVVM (Model-View-ViewModel)**. Data flow is managed via **Kotlin Coroutines** and **Flow**, ensuring a reactive and lifecycle-aware UI.
 *   **UI Framework:** 100% **Jetpack Compose** with a custom design system based on **Material 3**, featuring dynamic theming (10+ modes) and optimized layouts.
-*   **Data Strategy:** An **Offline-First** approach using **Room SQLite** for local persistence and **DataStore** for preferences. Data synchronization with **Firebase Firestore** is handled gracefully, managing optimistic updates and conflict resolution.
-*   **Efficiency:** Utilizes **Paging 3** for handling large transaction histories with zero UI jank and **WorkManager** for reliable background scheduling of daily reminders.
+*   **Data Strategy:** **Cloud Firestore** as the single source of truth with its built-in offline cache, plus **DataStore** for local preferences synced cross-device via last-write-wins. Real-time snapshot listeners are keyed to auth state.
+*   **Efficiency:** Range-scoped Firestore queries to respect free-tier quotas, and **WorkManager** for reliable background scheduling of daily reminders.
 
 ### Web: High-Performance PWA
 *   **Framework:** Built with **React 19** and **TypeScript**, leveraging **Vite** for an optimized build pipeline.
@@ -54,7 +82,7 @@ ausgegeben/
 
 ### Android
 *   **Tooling:** Android Studio Ladybug+
-*   **Stack:** Kotlin 2.2, AGP 9.2, KSP, Compose BOM 2024.09
+*   **Stack:** Kotlin 2.2, AGP 9.3, Compose BOM 2025.06, Firebase BoM 34
 *   **Setup:** Requires `google-services.json` in the `app/` directory and JDK 17.
 
 ### Web
