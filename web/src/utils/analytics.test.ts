@@ -87,4 +87,22 @@ describe('analytics', () => {
     expect(csv).toContain('"Coffee, pastry"');
     expect(csv.split('\n')).toHaveLength(2);
   });
+
+  it('exportCsv neutralizes formula triggers and escapes category names', () => {
+    const categories: Category[] = [{ id: '1', name: 'Food, drink', iconName: 'food', colorInt: 0, transactionType: 'expense', sortOrder: 0, updatedAt: 0 }];
+    const csv = exportCsv(
+      [
+        expense({
+          amount: 5,
+          transactionType: 'expense',
+          note: '=SUM(A1:A9)',
+          dateMillis: new Date(2026, 5, 10, 14, 30).getTime(),
+          categoryId: '1'
+        }),
+      ],
+      categories,
+    );
+    expect(csv).toContain("'=SUM(A1:A9)");
+    expect(csv).toContain('"Food, drink"');
+  });
 });
