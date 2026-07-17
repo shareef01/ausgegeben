@@ -252,17 +252,17 @@ fun computeSpendingInsights(
     )
 }
 
+/** Income/expense totals keyed by local day start (millis) — locale-independent. */
 fun computeDayTotals(
     expenses: List<Expense>,
-    locale: Locale,
-): Map<String, Pair<Double, Double>> {
+): Map<Long, Pair<Double, Double>> {
     val dayTotals = mutableMapOf<Long, Pair<Double, Double>>()
-    
+
     for (expense in expenses) {
         if (expense.isTransfer()) continue
         val dayStart = localDayStartMillis(expense.dateMillis)
         val current = dayTotals.getOrDefault(dayStart, 0.0 to 0.0)
-        
+
         val next = if (expense.isIncome()) {
             (current.first + expense.amount) to current.second
         } else {
@@ -270,7 +270,6 @@ fun computeDayTotals(
         }
         dayTotals[dayStart] = next
     }
-    
-    val dateFormat = SimpleDateFormat("dd.MM EEE", locale)
-    return dayTotals.mapKeys { dateFormat.format(Date(it.key)) }
+
+    return dayTotals
 }

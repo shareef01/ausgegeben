@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.animation.core.Animatable
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
@@ -78,7 +79,7 @@ fun RecordScreen(
     val allExpenses by viewModel.pagedExpenses.collectAsStateWithLifecycle(initialValue = emptyList<Expense>())
     
     // Performance: Memoize derived calculations
-    val dayTotalsByLabel = remember(uiState.dayTotalsByLabel) { uiState.dayTotalsByLabel }
+    val dayTotalsByDay = remember(uiState.dayTotalsByDay) { uiState.dayTotalsByDay }
     val categories = remember(uiState.data.categories) { uiState.data.categories }
     val categoryById = remember(categories) { categories.associateBy { it.id } }
     
@@ -87,7 +88,8 @@ fun RecordScreen(
     val sortedDays = remember(grouped) { grouped.keys.sortedDescending() }
     var expensePendingDelete by remember { mutableStateOf<Expense?>(null) }
 
-    val locale = CurrencyUtils.localeFor(currencyCode)
+    // Date headers follow the UI language, not the currency's home locale
+    val locale = LocalConfiguration.current.locales[0]
     val dateFormat = remember(locale) { SimpleDateFormat("dd MMM EEE", locale) }
     
     val allTimeLabel = stringResource(R.string.record_period_all_time)
@@ -277,7 +279,7 @@ fun RecordScreen(
                             ) {
                                 DateSectionHeader(
                                     dateLabel,
-                                    dayTotalsByLabel[dateLabel] ?: (0.0 to 0.0),
+                                    dayTotalsByDay[dayStart] ?: (0.0 to 0.0),
                                     currencyCode,
                                 )
                                 Column(
