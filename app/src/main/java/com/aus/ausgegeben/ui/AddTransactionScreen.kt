@@ -149,9 +149,9 @@ fun AddTransactionScreen(
         }
     }
 
-    val canSave = selectedCategory != null && (CurrencyUtils.parseAmount(amountText, currencyCode) ?: 0.0) > 0
     val hasAmount = (CurrencyUtils.parseAmount(amountText, currencyCode) ?: 0.0) > 0
     val hasCategory = selectedCategory != null
+    val canSave = hasCategory && hasAmount
     val hasCategories = categories.isNotEmpty()
     val hasUnsavedChanges = remarkText.isNotBlank() || hasAmount
 

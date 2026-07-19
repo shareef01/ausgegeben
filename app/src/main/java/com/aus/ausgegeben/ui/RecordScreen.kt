@@ -70,8 +70,10 @@ fun RecordScreen(
     viewModel: ExpenseViewModel,
     currencyCode: String = "EUR",
     onExpenseDeleted: (Expense) -> Unit = {},
+    onExpenseDeleteFailed: () -> Unit = {},
     onExpenseClick: (Expense) -> Unit = {},
     onExpenseDuplicated: () -> Unit = {},
+    onExpenseDuplicateFailed: () -> Unit = {},
     onAddTransaction: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -298,8 +300,9 @@ fun RecordScreen(
                                             currencyCode = currencyCode,
                                             onClick = { onExpenseClick(expense) },
                                             onLongClick = {
-                                                viewModel.duplicateExpense(expense)
-                                                onExpenseDuplicated()
+                                                viewModel.duplicateExpense(expense) { success ->
+                                                    if (success) onExpenseDuplicated() else onExpenseDuplicateFailed()
+                                                }
                                             },
                                             onDeleteRequest = { expensePendingDelete = expense },
 
@@ -349,8 +352,9 @@ fun RecordScreen(
             dismissLabel = stringResource(R.string.record_delete_cancel),
             onConfirm = {
                 expensePendingDelete?.let {
-                    viewModel.deleteExpense(it)
-                    onExpenseDeleted(it)
+                    viewModel.deleteExpense(it) { success ->
+                        if (success) onExpenseDeleted(it) else onExpenseDeleteFailed()
+                    }
                 }
                 expensePendingDelete = null
             },

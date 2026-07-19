@@ -3,10 +3,6 @@ package com.aus.ausgegeben.ui
 import android.content.Intent
 import android.net.Uri
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -134,20 +130,6 @@ fun SettingsScreen(
                         title = stringResource(R.string.settings_language).lowercase(),
                         subtitle = if (language == "de") stringResource(R.string.lang_german).lowercase() else stringResource(R.string.lang_english).lowercase(),
                         onClick = { showLanguageSheet = true }
-                    )
-                    IosSeparator(insetStart = 56.dp)
-                    val deduplicateMessage = stringResource(R.string.settings_deduplicate_done)
-                    SettingsActionRow(
-                        icon = Icons.Rounded.CleaningServices,
-                        tint = MaterialTheme.colorScheme.primary,
-                        title = stringResource(R.string.settings_deduplicate_label),
-                        subtitle = stringResource(R.string.settings_deduplicate_subtitle),
-                        onClick = {
-                            scope.launch {
-                                repository.deduplicateCategories()
-                                onShowMessage(deduplicateMessage)
-                            }
-                        }
                     )
                 }
             }
@@ -383,34 +365,34 @@ fun SettingsScreen(
                             maxItemsInEachRow = 2
                         ) {
                             Box(modifier = Modifier.weight(1f)) {
-                                SettingsSectionEntrance(index = 0) { AppearanceSection() }
+                                StaggeredEntrance(index = 0) { AppearanceSection() }
                             }
                             Box(modifier = Modifier.weight(1f)) {
-                                SettingsSectionEntrance(index = 1) { NotificationSection() }
+                                StaggeredEntrance(index = 1) { NotificationSection() }
                             }
                             Box(modifier = Modifier.weight(1f)) {
-                                SettingsSectionEntrance(index = 2) { BudgetSection() }
+                                StaggeredEntrance(index = 2) { BudgetSection() }
                             }
                             Box(modifier = Modifier.weight(1f)) {
-                                SettingsSectionEntrance(index = 3) { ManagementSection() }
+                                StaggeredEntrance(index = 3) { ManagementSection() }
                             }
                             Box(modifier = Modifier.weight(1f)) {
-                                SettingsSectionEntrance(index = 4) { AboutSection() }
+                                StaggeredEntrance(index = 4) { AboutSection() }
                             }
                         }
                     }
                 } else {
-                    item { SettingsSectionEntrance(index = 0) { AppearanceSection() } }
-                    item { SettingsSectionEntrance(index = 1) { NotificationSection() } }
-                    item { SettingsSectionEntrance(index = 2) { BudgetSection() } }
-                    item { SettingsSectionEntrance(index = 3) { ManagementSection() } }
-                    item { SettingsSectionEntrance(index = 4) { AboutSection() } }
+                    item { StaggeredEntrance(index = 0) { AppearanceSection() } }
+                    item { StaggeredEntrance(index = 1) { NotificationSection() } }
+                    item { StaggeredEntrance(index = 2) { BudgetSection() } }
+                    item { StaggeredEntrance(index = 3) { ManagementSection() } }
+                    item { StaggeredEntrance(index = 4) { AboutSection() } }
                 }
 
                 if (currentUser != null) {
                     item { Spacer(Modifier.height(32.dp)) }
                     item {
-                        SettingsSectionEntrance(index = 5) {
+                        StaggeredEntrance(index = 5) {
                             val signOutColor = settingsDestructiveColor()
                             Box(
                                 modifier = Modifier
@@ -998,26 +980,5 @@ fun MonthlyBudgetSheet(
             }
             Spacer(Modifier.height(24.dp))
         }
-    }
-}
-
-@Composable
-private fun SettingsSectionEntrance(
-    index: Int,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
-    var visible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { visible = true }
-    val delayMillis = 40 + index * 40
-    AnimatedVisibility(
-        visible = visible,
-        modifier = modifier,
-        enter = fadeIn(animationSpec = tween(durationMillis = 420, delayMillis = delayMillis)) +
-            slideInVertically(
-                animationSpec = tween(durationMillis = 420, delayMillis = delayMillis),
-            ) { fullHeight -> fullHeight / 5 },
-    ) {
-        content()
     }
 }

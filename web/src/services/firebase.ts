@@ -1,6 +1,11 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
-import { getFirestore, type Firestore } from 'firebase/firestore';
+import {
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  type Firestore,
+} from 'firebase/firestore';
 import { initializeAppCheck, ReCaptchaEnterpriseProvider, type AppCheck } from 'firebase/app-check';
 
 export const firebaseConfig = {
@@ -50,7 +55,14 @@ export function getFirebaseFirestore(): Firestore | null {
   const firebaseApp = getFirebaseApp();
   if (!firebaseApp) return null;
   if (!firestore) {
-    firestore = getFirestore(firebaseApp);
+    // Persistent local cache (IndexedDB) so onSnapshot listeners resolve from
+    // cache instantly when offline — without this, users/{uid}/settings/preferences
+    // never resolves offline and the app hangs on the loading spinner forever.
+    // Must be the FIRST call that touches Firestore for this app instance:
+    // initializeFirestore throws if getFirestore() was already called for `app`.
+    firestore = initializeFirestore(firebaseApp, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    });
   }
   return firestore;
 }
