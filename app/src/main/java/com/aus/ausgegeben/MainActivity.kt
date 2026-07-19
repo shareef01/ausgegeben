@@ -112,6 +112,7 @@ fun MainApp(
     val authGatewayComplete by preferenceManager.authGatewayCompleteFlow.collectAsState(initial = false)
     val isOnline by ConnectivityObserver.observe(context).collectAsState(initial = true)
     val prefsSyncError by preferencesCloudSync.syncError.collectAsState(initial = null)
+    val listenerError by repository.listenerError.collectAsState(initial = null)
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var pendingOpenAdd by remember { mutableStateOf(openAddFromNotification) }
@@ -161,9 +162,15 @@ fun MainApp(
     val updatedMessage = stringResource(R.string.snackbar_transaction_updated)
     val deleteFailedMessage = stringResource(R.string.snackbar_transaction_delete_failed)
     val duplicateFailedMessage = stringResource(R.string.snackbar_transaction_duplicate_failed)
+    val restoreFailedMessage = stringResource(R.string.snackbar_transaction_restore_failed)
+    val dataListenerErrorMessage = stringResource(R.string.snackbar_data_listener_error)
 
     fun showSnackbar(message: String) {
         scope.launch { snackbarHostState.showSnackbar(message) }
+    }
+
+    LaunchedEffect(listenerError) {
+        if (listenerError != null) showSnackbar(dataListenerErrorMessage)
     }
 
     LaunchedEffect(pendingOpenAdd) {
@@ -312,7 +319,9 @@ fun MainApp(
                                         duration = SnackbarDuration.Short
                                     )
                                     if (result == SnackbarResult.ActionPerformed) {
-                                        expenseViewModel.restoreExpense(expense)
+                                        expenseViewModel.restoreExpense(expense) { success ->
+                                            if (!success) showSnackbar(restoreFailedMessage)
+                                        }
                                     } else {
                                         expenseViewModel.finalizeDeletedExpense(expense)
                                     }

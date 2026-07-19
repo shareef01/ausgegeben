@@ -83,6 +83,41 @@ class WealthTrendTest {
     }
 
     @Test
+    fun dstSpringForward_bucketsAllDaysCorrectly() {
+        // 2026-03-29 is the EU spring-forward transition (23-hour day). A cursor that
+        // advances by a fixed 24h-in-millis step drifts off local midnight starting the
+        // following day, causing that day's bucket to be dropped from the trend.
+        val now = fixedTime(2026, Calendar.MARCH, 31, 12)
+        val expenses = listOf(
+            expense(amount = 20.0, type = "income", day = 28, now = now),
+            expense(amount = 5.0, type = "expense", day = 29, now = now),
+            expense(amount = 15.0, type = "income", day = 30, now = now),
+        )
+        val trend = expenses.computeWealthTrend(AnalyticsPeriod.THIS_MONTH, nowMillis = now)
+
+        val day30 = trend.find { it.periodNet == 15.0 }
+        assertTrue("day after DST transition should still have its own bucket", day30 != null)
+        assertEquals(30.0, trend.last().cumulativeNet, 0.001)
+    }
+
+    @Test
+    fun dstFallBack_bucketsAllDaysCorrectly() {
+        // 2026-10-25 is the EU fall-back transition (25-hour day) — the same fixed
+        // millisecond-step bug would drift the cursor the other direction.
+        val now = fixedTime(2026, Calendar.OCTOBER, 31, 12)
+        val expenses = listOf(
+            expense(amount = 10.0, type = "income", day = 24, now = now),
+            expense(amount = 3.0, type = "expense", day = 25, now = now),
+            expense(amount = 7.0, type = "income", day = 26, now = now),
+        )
+        val trend = expenses.computeWealthTrend(AnalyticsPeriod.THIS_MONTH, nowMillis = now)
+
+        val day26 = trend.find { it.periodNet == 7.0 }
+        assertTrue("day after DST transition should still have its own bucket", day26 != null)
+        assertEquals(14.0, trend.last().cumulativeNet, 0.001)
+    }
+
+    @Test
     fun zeroActivityDays_stillAppearInRange() {
         val now = fixedTime(2026, Calendar.JUNE, 3, 12)
         val expenses = listOf(

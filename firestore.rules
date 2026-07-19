@@ -46,6 +46,13 @@ service cloud.firestore {
         && (!('id' in d) || (d.id is string && d.id.size() < 64));
     }
 
+    function validDedupeMarker() {
+      let d = request.resource.data;
+      return d.keys().hasAll(['categoriesDeduped'])
+        && d.categoriesDeduped is bool
+        && (!('ranAt' in d) || d.ranAt is number);
+    }
+
     function validPreferences() {
       let d = request.resource.data;
       return d.keys().hasAll([
@@ -97,6 +104,11 @@ service cloud.firestore {
           && docId == 'preferences'
           && validPreferences();
         allow delete: if isOwner(userId) && docId == 'preferences';
+      }
+
+      match /meta/{docId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && docId == 'dedupe' && validDedupeMarker();
       }
     }
   }

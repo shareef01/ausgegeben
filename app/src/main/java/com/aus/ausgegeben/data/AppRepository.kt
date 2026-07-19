@@ -16,11 +16,16 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
 import java.util.UUID
 import java.util.Locale
@@ -35,6 +40,20 @@ class AppRepository(
         const val UNCATEGORIZED_ID = "0"
         private const val TAG = "AppRepository"
     }
+
+    // Guards ensureSeeded() so two concurrent callers (e.g. AuthViewModel right after
+    // sign-in and MainActivity's post-auth-gateway LaunchedEffect) can't both observe an
+    // empty categories collection and both batch-insert the default set.
+    private val ensureSeededMutex = Mutex()
+
+    private val _listenerError = MutableStateFlow<String?>(null)
+    /**
+     * Non-null when a Firestore realtime listener (currently `allExpenses` / `queryExpenses`,
+     * the most user-visible ones) most recently failed, so callers can tell "genuinely empty"
+     * apart from "listener broke" — cleared as soon as a listener emits data successfully again.
+     * Surfaced as a snackbar in MainActivity.kt.
+     */
+    val listenerError: StateFlow<String?> = _listenerError.asStateFlow()
 
     private fun uid(): String? = authRepository.currentUserId
 
@@ -54,41 +73,43 @@ class AppRepository(
     private fun dedupeMarkerDoc(uid: String) = metaCol(uid).document("dedupe")
 
     suspend fun ensureSeeded() {
-        val u = uid() ?: return
-        val snap = catCol(u).get().await()
-        if (snap.isEmpty) {
-            val defaults = listOf(
-                Category(name = "Groceries", iconName = "shopping_cart", colorInt = 0xffe86b5a.toInt(), transactionType = "expense", sortOrder = 0),
-                Category(name = "Shopping", iconName = "shopping_bag", colorInt = 0xffe8a060.toInt(), transactionType = "expense", sortOrder = 1),
-                Category(name = "Dining", iconName = "restaurant", colorInt = 0xffd4849a.toInt(), transactionType = "expense", sortOrder = 2),
-                Category(name = "Transport", iconName = "car", colorInt = 0xff6a9fd4.toInt(), transactionType = "expense", sortOrder = 3),
-                Category(name = "Bills", iconName = "bolt", colorInt = 0xff9a8fd4.toInt(), transactionType = "expense", sortOrder = 4),
-                Category(name = "Subscriptions", iconName = "subscriptions", colorInt = 0xff5ab8aa.toInt(), transactionType = "expense", sortOrder = 5),
-                Category(name = "Salary", iconName = "credit_card", colorInt = 0xff5cb88a.toInt(), transactionType = "income", sortOrder = 0),
-                Category(name = "Freelance", iconName = "work", colorInt = 0xff6a9fd4.toInt(), transactionType = "income", sortOrder = 1),
-                Category(name = "Refunds", iconName = "undo", colorInt = 0xffb8a060.toInt(), transactionType = "income", sortOrder = 2),
-                Category(name = "Transfer", iconName = "swap_horiz", colorInt = 0xff8e8e96.toInt(), transactionType = "transfer", sortOrder = 0),
-            )
-            firestore.runBatch { batch ->
-                defaults.forEach { c ->
-                    batch.set(catDoc(u, c.id), categoryPayload(c))
+        ensureSeededMutex.withLock {
+            val u = uid() ?: return
+            val snap = catCol(u).get().await()
+            if (snap.isEmpty) {
+                val defaults = listOf(
+                    Category(name = "Groceries", iconName = "shopping_cart", colorInt = 0xffe86b5a.toInt(), transactionType = "expense", sortOrder = 0),
+                    Category(name = "Shopping", iconName = "shopping_bag", colorInt = 0xffe8a060.toInt(), transactionType = "expense", sortOrder = 1),
+                    Category(name = "Dining", iconName = "restaurant", colorInt = 0xffd4849a.toInt(), transactionType = "expense", sortOrder = 2),
+                    Category(name = "Transport", iconName = "car", colorInt = 0xff6a9fd4.toInt(), transactionType = "expense", sortOrder = 3),
+                    Category(name = "Bills", iconName = "bolt", colorInt = 0xff9a8fd4.toInt(), transactionType = "expense", sortOrder = 4),
+                    Category(name = "Subscriptions", iconName = "subscriptions", colorInt = 0xff5ab8aa.toInt(), transactionType = "expense", sortOrder = 5),
+                    Category(name = "Salary", iconName = "credit_card", colorInt = 0xff5cb88a.toInt(), transactionType = "income", sortOrder = 0),
+                    Category(name = "Freelance", iconName = "work", colorInt = 0xff6a9fd4.toInt(), transactionType = "income", sortOrder = 1),
+                    Category(name = "Refunds", iconName = "undo", colorInt = 0xffb8a060.toInt(), transactionType = "income", sortOrder = 2),
+                    Category(name = "Transfer", iconName = "swap_horiz", colorInt = 0xff8e8e96.toInt(), transactionType = "transfer", sortOrder = 0),
+                )
+                firestore.runBatch { batch ->
+                    defaults.forEach { c ->
+                        batch.set(catDoc(u, c.id), categoryPayload(c))
+                    }
+                }.await()
+            } else {
+                // SECURE: dedupe is expensive (full category-collection reads); only run it once per
+                // account instead of on every cold start / sign-in. Manual calls to
+                // deduplicateCategories() (e.g. Settings' "Deduplicate categories" button) bypass this
+                // marker entirely since they call the function directly, not through ensureSeeded().
+                val markerSnap = dedupeMarkerDoc(u).get().await()
+                if (markerSnap.getBoolean("categoriesDeduped") != true) {
+                    deduplicateCategories()
+                    dedupeMarkerDoc(u).set(
+                        mapOf("categoriesDeduped" to true, "ranAt" to System.currentTimeMillis()),
+                        SetOptions.merge()
+                    ).await()
                 }
-            }.await()
-        } else {
-            // SECURE: dedupe is expensive (full category-collection reads); only run it once per
-            // account instead of on every cold start / sign-in. Manual calls to
-            // deduplicateCategories() (e.g. Settings' "Deduplicate categories" button) bypass this
-            // marker entirely since they call the function directly, not through ensureSeeded().
-            val markerSnap = dedupeMarkerDoc(u).get().await()
-            if (markerSnap.getBoolean("categoriesDeduped") != true) {
-                deduplicateCategories()
-                dedupeMarkerDoc(u).set(
-                    mapOf("categoriesDeduped" to true, "ranAt" to System.currentTimeMillis()),
-                    SetOptions.merge()
-                ).await()
             }
+            ensureUncategorizedCategory(u)
         }
-        ensureUncategorizedCategory(u)
     }
 
     suspend fun deduplicateCategories() {
@@ -216,8 +237,14 @@ class AppRepository(
         callbackFlow {
             val sub = expCol(u).orderBy("dateMillis", Query.Direction.DESCENDING)
                 .addSnapshotListener { snap, error ->
-                    if (error != null) Log.w(TAG, "expenses listener error", error)
-                    if (snap != null) trySend(snap.documents.mapNotNull { expenseFromDoc(it) })
+                    if (error != null) {
+                        Log.w(TAG, "expenses listener error", error)
+                        _listenerError.value = error.message ?: "expenses listener error"
+                    }
+                    if (snap != null) {
+                        _listenerError.value = null
+                        trySend(snap.documents.mapNotNull { expenseFromDoc(it) })
+                    }
                 }
             awaitClose { sub.remove() }
         }
@@ -259,8 +286,14 @@ class AppRepository(
                     .orderBy("dateMillis", Query.Direction.DESCENDING)
                 if (params.typeFilter.isNotEmpty()) q = q.whereEqualTo("transactionType", params.typeFilter)
                 val sub = q.addSnapshotListener { snap, error ->
-                    if (error != null) Log.w(TAG, "query listener error", error)
-                    if (snap != null) trySend(snap.documents.mapNotNull { expenseFromDoc(it) })
+                    if (error != null) {
+                        Log.w(TAG, "query listener error", error)
+                        _listenerError.value = error.message ?: "query listener error"
+                    }
+                    if (snap != null) {
+                        _listenerError.value = null
+                        trySend(snap.documents.mapNotNull { expenseFromDoc(it) })
+                    }
                 }
                 awaitClose { sub.remove() }
             }

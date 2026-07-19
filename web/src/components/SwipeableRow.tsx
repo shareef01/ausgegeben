@@ -1,4 +1,4 @@
-import { useRef, useCallback, type ReactNode, type PointerEvent as ReactPointerEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useRef, useCallback, useEffect, type ReactNode, type PointerEvent as ReactPointerEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useTranslation } from '@/i18n';
 import { IconDelete, IconEdit, IconLayers } from '@/components/Icons';
 
@@ -30,6 +30,10 @@ export function SwipeableRow({ children, onDelete, onTap, onLongPress, onDuplica
       longPressTimer.current = null;
     }
   }, []);
+
+  useEffect(() => {
+    return () => clearLongPress();
+  }, [clearLongPress]);
 
   const onPointerDown = (e: ReactPointerEvent) => {
     if (e.button !== 0) return;

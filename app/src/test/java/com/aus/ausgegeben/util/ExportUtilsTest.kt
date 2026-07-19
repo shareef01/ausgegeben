@@ -17,6 +17,14 @@ class ExportUtilsTest {
     }
 
     @Test
+    fun csvEscapeField_quotesEmbeddedCarriageReturn() {
+        // A bare \r (e.g. from old Mac-formatted clipboard text pasted into a note)
+        // must be quoted like \n is, otherwise Excel/Sheets treat it as a row break.
+        assertEquals("\"line1\rline2\"", ExportUtils.csvEscapeField("line1\rline2"))
+        assertEquals("\"line1\r\nline2\"", ExportUtils.csvEscapeField("line1\r\nline2"))
+    }
+
+    @Test
     fun csvEscapeField_neutralizesFormulaTriggers() {
         assertEquals("'=SUM(A1:A9)", ExportUtils.csvEscapeField("=SUM(A1:A9)"))
         assertEquals("'+491234", ExportUtils.csvEscapeField("+491234"))
