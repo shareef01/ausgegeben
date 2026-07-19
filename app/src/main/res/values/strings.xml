@@ -185,6 +185,8 @@
     <string name="snackbar_transaction_updated">Transaction updated</string>
     <string name="snackbar_transaction_delete_failed">Couldn\'t delete transaction</string>
     <string name="snackbar_transaction_duplicate_failed">Couldn\'t duplicate transaction</string>
+    <string name="snackbar_transaction_restore_failed">Couldn\'t restore transaction</string>
+    <string name="snackbar_data_listener_error">Trouble loading the latest data. Check your connection.</string>
 
     <!-- Analytics periods -->
     <string name="period_this_month">This month</string>

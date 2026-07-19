@@ -82,11 +82,14 @@ class AddExpenseViewModel(
 
     fun loadForEdit(expense: Expense, categories: List<Category>) {
         _editingExpenseId.value = expense.id
-        _amount.value = CurrencyUtils.formatAmountForInput(expense.amount)
         _note.value = expense.note
         _dateMillis.value = expense.dateMillis
         _selectedCategory.value = categories.find { it.id == expense.categoryId }
         _loadedTransactionType.value = TransactionType.fromKey(expense.transactionType)
+        viewModelScope.launch {
+            val currency = preferenceManager.currencyFlow.first()
+            _amount.value = CurrencyUtils.formatAmountForInput(expense.amount, currency)
+        }
     }
 
     fun saveExpense(
