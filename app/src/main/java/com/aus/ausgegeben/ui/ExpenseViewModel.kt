@@ -119,17 +119,33 @@ class ExpenseViewModel(
     )
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val pagedExpenses: Flow<List<Expense>> = combine(
+    private val queriedExpensesFlow: Flow<List<Expense>> = combine(
         _listPeriod,
-        _debouncedSearch,
         _typeFilter,
         repository.expensesRevision,
-    ) { period, query, filter, _ ->
+    ) { period, filter, _ ->
         val (start, end) = recordListDateRangeMillis(period) ?: (0L to Long.MAX_VALUE)
-        Triple(start, end, filter)
-    }.flatMapLatest { (start, end, filter) ->
-        repository.queryExpenses(ExpenseQueryParams.forPeriod(start, end, filter.toFilterKey()))
+        Pair(start, end) to filter
+    }.flatMapLatest { (range, filter) ->
+        repository.queryExpenses(ExpenseQueryParams.forPeriod(range.first, range.second, filter.toFilterKey()))
     }.distinctUntilChanged()
+
+    // Firestore query is scoped to period + type only; search matches client-side
+    // (note, amount, category name), same fields the web client filters on.
+    val pagedExpenses: Flow<List<Expense>> = combine(
+        queriedExpensesFlow,
+        _debouncedSearch,
+        categoriesFlow,
+    ) { expenses, query, categories ->
+        val needle = query.trim().lowercase()
+        if (needle.isEmpty()) return@combine expenses
+        val categoryNames = categories.associate { it.id to it.name.lowercase() }
+        expenses.filter { expense ->
+            expense.note.lowercase().contains(needle) ||
+                expense.amount.toString().contains(needle) ||
+                categoryNames[expense.categoryId]?.contains(needle) == true
+        }
+    }
 
     fun setSearchQuery(query: String) {
         _searchQuery.value = query
@@ -143,20 +159,31 @@ class ExpenseViewModel(
         _listPeriod.value = period
     }
 
-    fun duplicateExpense(expense: Expense) {
+    fun duplicateExpense(expense: Expense, onResult: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
-            try {
+            val success = try {
                 repository.duplicateExpense(expense)
-            } catch (_: Exception) { }
+                true
+            } catch (_: Exception) {
+                false
+            }
+            onResult(success)
         }
     }
 
-    fun deleteExpense(expense: Expense) {
-        if (expense.id.isBlank()) return
+    fun deleteExpense(expense: Expense, onResult: (Boolean) -> Unit = {}) {
+        if (expense.id.isBlank()) {
+            onResult(false)
+            return
+        }
         viewModelScope.launch {
-            try {
+            val success = try {
                 repository.deleteExpense(expense)
-            } catch (_: Exception) { }
+                true
+            } catch (_: Exception) {
+                false
+            }
+            onResult(success)
         }
     }
 

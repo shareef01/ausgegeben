@@ -62,9 +62,9 @@ export function useRecordViewModel() {
     let unsubBudget = () => {};
 
     if (listRange) {
-      unsubList = expenseRepository.onExpensesInRange(listRange[0], listRange[1], (exps) => {
+      unsubList = expenseRepository.onExpensesInRange(listRange[0], listRange[1], (exps, error) => {
         setPeriodExpenses(exps);
-        setLoadError(false);
+        setLoadError(Boolean(error));
         if (viewingCurrentMonth) setMonthBudgetExpenses(exps);
         listReady = true;
         tryReady();
@@ -102,8 +102,9 @@ export function useRecordViewModel() {
 
     if (!viewingCurrentMonth) {
       const [start, end] = thisMonthRange();
-      unsubBudget = expenseRepository.onExpensesInRange(start, end, (exps) => {
+      unsubBudget = expenseRepository.onExpensesInRange(start, end, (exps, error) => {
         setMonthBudgetExpenses(exps);
+        if (error) setLoadError(true);
         budgetReady = true;
         tryReady();
       });

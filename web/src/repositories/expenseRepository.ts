@@ -13,8 +13,9 @@ function catCol(u: string) { return collection(fs()!, 'users', u, 'categories');
 function expCol(u: string) { return collection(fs()!, 'users', u, 'expenses'); }
 function catDoc(u: string, id: string) { return doc(fs()!, 'users', u, 'categories', id); }
 function expDoc(u: string, id: string) { return doc(fs()!, 'users', u, 'expenses', id); }
+function metaDoc(u: string, id: string) { return doc(fs()!, 'users', u, 'meta', id); }
 
-const UNCATEGORIZED_ID = '0';
+export const UNCATEGORIZED_ID = '0';
 const DATA_CHANGED_EVENT = 'ausgegeben:data-changed';
 
 /** Match Android Int colorInts (signed 32-bit) for shared Firestore docs. */
@@ -48,6 +49,25 @@ function emitDataChanged() {
 
 /** 2-decimal precision for financial data */
 function roundAmount(amt: number) { return Math.round(amt * 100) / 100; }
+
+/**
+ * SECURE: Guarantee the Uncategorized sentinel category (id '0') exists before anything
+ * reassigns expenses to it. Mirrors Android's AppRepository.ensureUncategorizedCategory().
+ */
+async function ensureUncategorizedCategory(userId: string): Promise<void> {
+  const ref = catDoc(userId, UNCATEGORIZED_ID);
+  const snap = await getDoc(ref);
+  if (snap.exists()) return;
+  await setDoc(ref, {
+    id: UNCATEGORIZED_ID,
+    name: 'Uncategorized',
+    iconName: 'help_outline',
+    colorInt: argb(0xff8e8e96),
+    transactionType: 'expense',
+    sortOrder: 999,
+    updatedAt: now(),
+  });
+}
 
 export const expenseRepository = {
 
@@ -113,8 +133,18 @@ export const expenseRepository = {
             }),
           );
         } else {
-          await expenseRepository.deduplicateCategories();
+          // SECURE: dedupe is expensive (full category-collection reads); only run it once per
+          // account instead of on every cold start / sign-in. Manual calls to
+          // deduplicateCategories() (e.g. CategoriesView's "Deduplicate" button) bypass this
+          // marker entirely since they call the function directly, not through ensureSeeded().
+          const marker = metaDoc(userId, 'dedupe');
+          const markerSnap = await getDoc(marker);
+          if (markerSnap.data()?.categoriesDeduped !== true) {
+            await expenseRepository.deduplicateCategories();
+            await setDoc(marker, { categoriesDeduped: true, ranAt: now() }, { merge: true });
+          }
         }
+        await ensureUncategorizedCategory(userId);
       } catch (err) {
         console.warn('[ensureSeeded]', err);
       } finally {
@@ -158,6 +188,8 @@ export const expenseRepository = {
   // SECURE: Safety-first deletion (move orphaned to uncategorized)
   async deleteCategory(id: string): Promise<void> {
     const userId = uid(); if (!userId) return;
+    if (id === UNCATEGORIZED_ID) return;
+    await ensureUncategorizedCategory(userId);
     const linked = await getDocs(query(expCol(userId), where('categoryId', '==', id)));
     if (!linked.empty) {
         const batch = writeBatch(fs()!);
@@ -201,7 +233,13 @@ export const expenseRepository = {
     return items;
   },
 
-  onExpensesInRange(start: number, end: number, cb: (exps: Expense[]) => void): Unsubscribe {
+  /**
+   * `cb`'s second argument is `true` only when the listener itself failed
+   * (auth/permission/index/quota error) — callers must use it to distinguish
+   * a genuine empty-range result from a broken listener (see loadError in
+   * useDashboardViewModel / useRecordViewModel).
+   */
+  onExpensesInRange(start: number, end: number, cb: (exps: Expense[], error?: boolean) => void): Unsubscribe {
     const userId = uid();
     if (!userId) {
       cb([]);
@@ -220,7 +258,7 @@ export const expenseRepository = {
       },
       (err) => {
         console.error('[onExpensesInRange]', err);
-        cb([]);
+        cb([], true);
       },
     );
   },
@@ -294,30 +332,33 @@ export const expenseRepository = {
       groups[key].push(cat);
     });
 
-    for (const key in groups) {
-      const group = groups[key];
-      if (group.length > 1) {
-        const master = group[0];
-        const duplicates = group.slice(1);
-
-        for (const dup of duplicates) {
-          const linked = await getDocs(query(expCol(userId), where('categoryId', '==', dup.id)));
-          if (!linked.empty) {
-            // Handle chunking for Firestore batch limit (500)
-            const docs = linked.docs;
-            for (let i = 0; i < docs.length; i += 450) {
-              const chunk = docs.slice(i, i + 450);
-              const batch = writeBatch(fs()!);
-              chunk.forEach(d => {
-                batch.update(d.ref, { categoryId: master.id });
-              });
-              await batch.commit();
-            }
+    // Each duplicate group is independent of the others (disjoint category docs / expense
+    // sets), so groups run concurrently. Within a group, ops stay sequential per duplicate:
+    // the batch commit must wait on that duplicate's own getDocs read before it can fire.
+    const resolveGroup = async (master: Category, duplicates: Category[]) => {
+      for (const dup of duplicates) {
+        const linked = await getDocs(query(expCol(userId), where('categoryId', '==', dup.id)));
+        if (!linked.empty) {
+          // Handle chunking for Firestore batch limit (500)
+          const docs = linked.docs;
+          for (let i = 0; i < docs.length; i += 450) {
+            const chunk = docs.slice(i, i + 450);
+            const batch = writeBatch(fs()!);
+            chunk.forEach(d => {
+              batch.update(d.ref, { categoryId: master.id });
+            });
+            await batch.commit();
           }
-          await deleteDoc(catDoc(userId, dup.id));
         }
+        await deleteDoc(catDoc(userId, dup.id));
       }
-    }
+    };
+
+    await Promise.all(
+      Object.values(groups)
+        .filter(group => group.length > 1)
+        .map(group => resolveGroup(group[0], group.slice(1))),
+    );
 
     // Repair missing sortOrder fields
     const finalSnap = await getDocs(catCol(userId));

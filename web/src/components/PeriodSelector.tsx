@@ -5,6 +5,7 @@ import type { TranslationKey } from '@/i18n';
 import { useTranslation } from '@/i18n';
 import type { AnalyticsPeriodOption } from '@/models/types';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface PremiumPeriodSelectorProps<T> {
   options: T[];
@@ -123,17 +124,9 @@ export function AnalyticsPeriodPicker({
   const titleId = useId();
   const close = useCallback(() => setOpen(false), []);
   useFocusTrap(open, sheetRef, close);
+  useBodyScrollLock(open);
   const allTime = options.find((o) => o.storageKey === 'all_time');
   const months = options.filter((o) => o.storageKey !== 'all_time');
-
-  useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
 
   const sheet = open ? (
     <div className="overlay overlay--period" onClick={close} role="presentation">

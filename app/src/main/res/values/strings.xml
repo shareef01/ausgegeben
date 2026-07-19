@@ -165,9 +165,9 @@
     <string name="add_amount_transfer">Transfer amount</string>
     <string name="add_delete_category_title">Delete category?</string>
     <string name="add_delete_category_none">No transactions are linked to this category.</string>
-    <string name="add_delete_category_one">1 linked transaction will also be deleted.</string>
-    <string name="add_delete_category_many">%1$d linked transactions will also be deleted.</string>
-    <string name="add_delete_category_fallback">Linked transactions will also be deleted.</string>
+    <string name="add_delete_category_one">1 linked transaction will move to Uncategorized.</string>
+    <string name="add_delete_category_many">%1$d linked transactions will move to Uncategorized.</string>
+    <string name="add_delete_category_fallback">Linked transactions will move to Uncategorized.</string>
     <string name="add_delete_category_body">Deleting \"%1$s\" cannot be undone. %2$s</string>
     <string name="action_ok">OK</string>
 
@@ -183,6 +183,8 @@
     <string name="snackbar_transaction_duplicated">Transaction duplicated for today</string>
     <string name="snackbar_transaction_saved">Transaction saved</string>
     <string name="snackbar_transaction_updated">Transaction updated</string>
+    <string name="snackbar_transaction_delete_failed">Couldn\'t delete transaction</string>
+    <string name="snackbar_transaction_duplicate_failed">Couldn\'t duplicate transaction</string>
 
     <!-- Analytics periods -->
     <string name="period_this_month">This month</string>
