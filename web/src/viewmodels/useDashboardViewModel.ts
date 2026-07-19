@@ -48,9 +48,9 @@ export function useDashboardViewModel() {
     let unsubExps = () => {};
 
     if (range) {
-      unsubExps = expenseRepository.onExpensesInRange(range[0], range[1], (items) => {
+      unsubExps = expenseRepository.onExpensesInRange(range[0], range[1], (items, error) => {
         setExpenses(items);
-        setLoadError(false);
+        setLoadError(Boolean(error));
         expsReady = true;
         tryReady();
       });

@@ -1,9 +1,5 @@
 package com.aus.ausgegeben.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.core.tween
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -41,9 +37,18 @@ import kotlinx.coroutines.launch
 fun CategoryScreen(
     viewModel: CategoryViewModel,
     onBack: () -> Unit,
+    onShowMessage: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val categories by viewModel.categories.collectAsStateWithLifecycle()
+    val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
+    LaunchedEffect(errorMessage) {
+        val message = errorMessage
+        if (message != null) {
+            onShowMessage(message)
+            viewModel.clearError()
+        }
+    }
     val categoriesByType = remember(categories) {
         TransactionType.entries.mapNotNull { type ->
             val items = categories
@@ -139,12 +144,12 @@ fun CategoryScreen(
                 ) {
                     categoriesByType.forEachIndexed { sectionIndex, (type, typeCategories) ->
                         item(key = "header-${type.storageKey}") {
-                            CategorySectionEntrance(index = sectionIndex * 3) {
+                            StaggeredEntrance(index = sectionIndex * 3) {
                                 GroupedSectionLabel(text = type.localizedLabel(LocalContext.current).lowercase())
                             }
                         }
                         itemsIndexed(typeCategories, key = { _, c -> c.id }) { index, category ->
-                            CategorySectionEntrance(index = sectionIndex * 3 + 1 + index) {
+                            StaggeredEntrance(index = sectionIndex * 3 + 1 + index) {
                                 CategoryListItem(
                                     category = category,
                                     typeLabel = type.localizedLabel(LocalContext.current),
@@ -321,26 +326,5 @@ private fun CategoryListItem(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun CategorySectionEntrance(
-    index: Int,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
-    var visible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { visible = true }
-    val delayMillis = 40 + index.coerceAtMost(12) * 35
-    AnimatedVisibility(
-        visible = visible,
-        modifier = modifier,
-        enter = fadeIn(animationSpec = tween(durationMillis = 420, delayMillis = delayMillis)) +
-            slideInVertically(
-                animationSpec = tween(durationMillis = 420, delayMillis = delayMillis),
-            ) { fullHeight -> fullHeight / 6 },
-    ) {
-        content()
     }
 }
