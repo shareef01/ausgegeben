@@ -17,7 +17,7 @@
     "deploy:rules": "npx firebase deploy --only firestore:rules,firestore:indexes --config ../firebase.json"
   },
   "dependencies": {
-    "firebase": "^11.10.0",
+    "firebase": "^12.16.0",
     "lucide-react": "^0.525.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -26,12 +26,12 @@
   "devDependencies": {
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
-    "@vitejs/plugin-react": "^4.4.1",
-    "firebase-tools": "^15.23.0",
+    "@vitejs/plugin-react": "^6.0.3",
+    "firebase-tools": "^15.24.0",
     "sharp": "^0.35.2",
     "typescript": "~5.8.3",
-    "vite": "^6.3.5",
-    "vite-plugin-pwa": "^0.21.2",
-    "vitest": "^3.2.6"
+    "vite": "^8.1.5",
+    "vite-plugin-pwa": "^1.3.0",
+    "vitest": "^4.1.10"
   }
 }
