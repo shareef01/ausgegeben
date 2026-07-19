@@ -351,9 +351,17 @@ fun DonutChart(
                     var startAngle = -90f
                     val gapDegrees = if (sorted.size > 1) 2f else 0f
 
+                    // First pass: compute each segment's floor-applied sweep, then
+                    // proportionally rescale so the sum never exceeds 360° even when
+                    // many tiny segments each get pushed up to the 0.5° minimum.
+                    val rawSweeps = sorted.map { (_, value) ->
+                        ((value / total).toFloat() * 360f - gapDegrees).coerceAtLeast(0.5f)
+                    }
+                    val totalRawSweep = rawSweeps.sum()
+                    val scale = if (totalRawSweep > 0f) 360f / totalRawSweep else 1f
+
                     sorted.forEachIndexed { index, (name, value) ->
-                        val fullSweep =
-                            ((value / total).toFloat() * 360f - gapDegrees).coerceAtLeast(0.5f)
+                        val fullSweep = rawSweeps[index] * scale
                         val segmentReveal = ((reveal * sorted.size) - index).coerceIn(0f, 1f)
                         val base = colors[name]?.forChartDisplay(index) ?: chartColorAt(index)
                         val easedReveal = segmentReveal * segmentReveal * (3f - 2f * segmentReveal)

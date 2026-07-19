@@ -312,7 +312,7 @@ fun AddTransactionScreen(
                             },
                             onQuickAdd = { increment ->
                                 val current = CurrencyUtils.parseAmount(amountText, currencyCode) ?: 0.0
-                                viewModel.onAmountChange(CurrencyUtils.formatAmountForInput(current + increment))
+                                viewModel.onAmountChange(CurrencyUtils.formatAmountForInput(current + increment, currencyCode))
                             }
                         )
                     }
