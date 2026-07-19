@@ -200,13 +200,10 @@
 }
 
 /* ── Transaction List Restoration ── */
-.transaction-list-bare__day {
-  padding: 10px 14px !important;
-  font-weight: 700 !important;
-  font-size: 0.6875rem !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.12em !important;
-}
+/* .transaction-list-bare__day styling lives in polish.css's
+   .txn-day-header.transaction-list-bare__day (the only way this class is ever
+   rendered, per RecordView.tsx) with identical values — a standalone override
+   here was pure redundant dead weight. */
 
 .transaction-list-bare__rows {
   background: var(--glass-bg) !important;

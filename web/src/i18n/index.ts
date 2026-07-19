@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from 'react';
 import { en, type TranslationKey } from './en';
 import { de } from './de';
 import { usePreferencesStore } from '@/services/preferencesStore';
@@ -23,16 +24,23 @@ export function t(key: TranslationKey, params?: Record<string, string>): string 
 
 export function useTranslation() {
   const locale = usePreferencesStore((s) => s.locale);
-  const translate = (key: TranslationKey, params?: Record<string, string>) => {
-    let text = catalogs[locale][key] ?? catalogs.en[key] ?? key;
-    if (params) {
-      for (const [k, v] of Object.entries(params)) {
-        text = text.replace(`{${k}}`, v);
+  // Stable across renders (deps: locale only) — callers put `t` in useCallback/useEffect
+  // dependency arrays (e.g. useAddTransactionViewModel's `load`); an unstable `t` here
+  // previously caused those effects to re-run on every render, e.g. re-fetching
+  // categories and resetting the Add Transaction form on every keystroke.
+  const translate = useCallback(
+    (key: TranslationKey, params?: Record<string, string>) => {
+      let text = catalogs[locale][key] ?? catalogs.en[key] ?? key;
+      if (params) {
+        for (const [k, v] of Object.entries(params)) {
+          text = text.replace(`{${k}}`, v);
+        }
       }
-    }
-    return text;
-  };
-  return { t: translate, locale };
+      return text;
+    },
+    [locale],
+  );
+  return useMemo(() => ({ t: translate, locale }), [translate, locale]);
 }
 
 export type { TranslationKey } from './en';

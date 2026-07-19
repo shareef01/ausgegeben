@@ -12,7 +12,9 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -46,8 +48,10 @@ class AppRepository(
 
     private fun catCol(uid: String) = firestore.collection("users").document(uid).collection("categories")
     private fun expCol(uid: String) = firestore.collection("users").document(uid).collection("expenses")
+    private fun metaCol(uid: String) = firestore.collection("users").document(uid).collection("meta")
     private fun catDoc(uid: String, id: String) = catCol(uid).document(id)
     private fun expDoc(uid: String, id: String) = expCol(uid).document(id)
+    private fun dedupeMarkerDoc(uid: String) = metaCol(uid).document("dedupe")
 
     suspend fun ensureSeeded() {
         val u = uid() ?: return
@@ -65,11 +69,24 @@ class AppRepository(
                 Category(name = "Refunds", iconName = "undo", colorInt = 0xffb8a060.toInt(), transactionType = "income", sortOrder = 2),
                 Category(name = "Transfer", iconName = "swap_horiz", colorInt = 0xff8e8e96.toInt(), transactionType = "transfer", sortOrder = 0),
             )
-            defaults.forEach { c ->
-                catDoc(u, c.id).set(categoryPayload(c)).await()
-            }
+            firestore.runBatch { batch ->
+                defaults.forEach { c ->
+                    batch.set(catDoc(u, c.id), categoryPayload(c))
+                }
+            }.await()
         } else {
-            deduplicateCategories()
+            // SECURE: dedupe is expensive (full category-collection reads); only run it once per
+            // account instead of on every cold start / sign-in. Manual calls to
+            // deduplicateCategories() (e.g. Settings' "Deduplicate categories" button) bypass this
+            // marker entirely since they call the function directly, not through ensureSeeded().
+            val markerSnap = dedupeMarkerDoc(u).get().await()
+            if (markerSnap.getBoolean("categoriesDeduped") != true) {
+                deduplicateCategories()
+                dedupeMarkerDoc(u).set(
+                    mapOf("categoriesDeduped" to true, "ranAt" to System.currentTimeMillis()),
+                    SetOptions.merge()
+                ).await()
+            }
         }
         ensureUncategorizedCategory(u)
     }
@@ -257,12 +274,14 @@ class AppRepository(
      * Firestore equality is type-sensitive. Older Android builds stored categoryId as a number;
      * UUID migration stores strings. Match both so delete/dedupe never miss legacy rows.
      */
-    private suspend fun expenseDocsForCategory(u: String, categoryId: String): List<DocumentSnapshot> {
-        val byString = expCol(u).whereEqualTo("categoryId", categoryId).get().await().documents
-        val byNumber = categoryId.toLongOrNull()?.let { n ->
-            expCol(u).whereEqualTo("categoryId", n).get().await().documents
-        }.orEmpty()
-        return (byString + byNumber).distinctBy { it.id }
+    private suspend fun expenseDocsForCategory(u: String, categoryId: String): List<DocumentSnapshot> = coroutineScope {
+        val byStringDeferred = async { expCol(u).whereEqualTo("categoryId", categoryId).get().await().documents }
+        val byNumberDeferred = async {
+            categoryId.toLongOrNull()?.let { n ->
+                expCol(u).whereEqualTo("categoryId", n).get().await().documents
+            }.orEmpty()
+        }
+        (byStringDeferred.await() + byNumberDeferred.await()).distinctBy { it.id }
     }
 
     private suspend fun reassignCategoryExpenses(u: String, fromCategoryId: String, toCategoryId: String) {

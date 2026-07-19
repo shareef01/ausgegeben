@@ -184,6 +184,7 @@ class PreferenceManager(private val context: Context) {
             currency = prefs[PreferencesKeys.CURRENCY] ?: "EUR",
             locale = prefs[PreferencesKeys.LANGUAGE] ?: "en",
             themeMode = theme.storageKey,
+            onboardingComplete = prefs[PreferencesKeys.ONBOARDING_COMPLETE] ?: false,
             dailyReminder = prefs[PreferencesKeys.DAILY_REMINDER] ?: true,
             reminderHour = prefs[PreferencesKeys.REMINDER_HOUR] ?: 19,
             reminderMinute = prefs[PreferencesKeys.REMINDER_MINUTE] ?: 0,
@@ -206,6 +207,10 @@ class PreferenceManager(private val context: Context) {
                 ThemeMode.DARK, ThemeMode.AMOLED, ThemeMode.MIDNIGHT, ThemeMode.OCEAN, ThemeMode.FOREST, ThemeMode.SUNSET ->
                     preferences[PreferencesKeys.DARK_MODE] = true
                 ThemeMode.SYSTEM -> Unit
+            }
+            // Onboarding only ever moves false -> true; never let a stale/legacy remote doc re-trigger it.
+            if (remote.onboardingComplete) {
+                preferences[PreferencesKeys.ONBOARDING_COMPLETE] = true
             }
             preferences[PreferencesKeys.DAILY_REMINDER] = remote.dailyReminder
             preferences[PreferencesKeys.REMINDER_HOUR] = remote.reminderHour.coerceIn(0, 23)
@@ -254,9 +259,7 @@ class PreferenceManager(private val context: Context) {
     }
 
     suspend fun setOnboardingComplete() {
-        context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.ONBOARDING_COMPLETE] = true
-        }
+        touchEdit { this[PreferencesKeys.ONBOARDING_COMPLETE] = true }
     }
 
     suspend fun updateDailyReminder(enabled: Boolean) {
@@ -339,6 +342,7 @@ data class SyncedPreferences(
     val currency: String,
     val locale: String,
     val themeMode: String,
+    val onboardingComplete: Boolean,
     val dailyReminder: Boolean,
     val reminderHour: Int,
     val reminderMinute: Int,
