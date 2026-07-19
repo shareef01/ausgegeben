@@ -79,6 +79,7 @@ class MainActivity : AppCompatActivity() {
                     repository = repository,
                     preferenceManager = preferenceManager,
                     authRepository = authRepository,
+                    preferencesCloudSync = preferencesCloudSync,
                     openAddFromNotification = intent?.getBooleanExtra(
                         NotificationHelper.EXTRA_OPEN_ADD,
                         false
@@ -100,6 +101,7 @@ fun MainApp(
     repository: AppRepository,
     preferenceManager: PreferenceManager,
     authRepository: AuthRepository,
+    preferencesCloudSync: PreferencesCloudSync,
     openAddFromNotification: Boolean = false
 ) {
     val context = LocalContext.current
@@ -109,6 +111,7 @@ fun MainApp(
     val onboardingComplete by preferenceManager.onboardingCompleteFlow.collectAsState(initial = false)
     val authGatewayComplete by preferenceManager.authGatewayCompleteFlow.collectAsState(initial = false)
     val isOnline by ConnectivityObserver.observe(context).collectAsState(initial = true)
+    val prefsSyncError by preferencesCloudSync.syncError.collectAsState(initial = null)
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var pendingOpenAdd by remember { mutableStateOf(openAddFromNotification) }
@@ -156,6 +159,8 @@ fun MainApp(
     val duplicatedMessage = stringResource(R.string.snackbar_transaction_duplicated)
     val savedMessage = stringResource(R.string.snackbar_transaction_saved)
     val updatedMessage = stringResource(R.string.snackbar_transaction_updated)
+    val deleteFailedMessage = stringResource(R.string.snackbar_transaction_delete_failed)
+    val duplicateFailedMessage = stringResource(R.string.snackbar_transaction_duplicate_failed)
 
     fun showSnackbar(message: String) {
         scope.launch { snackbarHostState.showSnackbar(message) }
@@ -273,23 +278,18 @@ fun MainApp(
                         bottom = innerPadding.calculateBottomPadding()
                     )
             ) {
-                // Offline connectivity banner
+                // Offline / cloud-sync-error banner — same SyncErrorBanner used in Settings,
+                // so there's one visual treatment for "something's wrong with sync" everywhere.
                 AnimatedVisibility(
                     visible = !isOnline,
-                    modifier = Modifier.align(Alignment.TopCenter)
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm)
                 ) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.errorContainer,
-                        tonalElevation = 2.dp,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = stringResource(R.string.settings_sync_error_network),
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onErrorContainer
-                        )
-                    }
+                    SyncErrorBanner(
+                        error = stringResource(R.string.settings_sync_error_network),
+                        onRetry = { preferencesCloudSync.retry() },
+                    )
                 }
                 MainTabPager(
                     currentRoute = overlay.selectedTab,
@@ -318,8 +318,14 @@ fun MainApp(
                                     }
                                 }
                             },
+                            onExpenseDeleteFailed = {
+                                showSnackbar(deleteFailedMessage)
+                            },
                             onExpenseDuplicated = {
                                 showSnackbar(duplicatedMessage)
+                            },
+                            onExpenseDuplicateFailed = {
+                                showSnackbar(duplicateFailedMessage)
                             }
                         )
                     },
@@ -336,6 +342,8 @@ fun MainApp(
                             preferenceManager = preferenceManager,
                             authRepository = authRepository,
                             authViewModel = authViewModel,
+                            syncError = prefsSyncError,
+                            onRetrySync = { preferencesCloudSync.retry() },
                             onNavigateToCategories = {
                                 overlay.overlayStack.clear()
                                 overlay.overlayStack.add(Route.CategoryList)
@@ -386,7 +394,8 @@ fun MainApp(
                         if (overlay.currentOverlay == Route.CategoryList) {
                             CategoryScreen(
                                 viewModel = categoryViewModel,
-                                onBack = overlay::closeOverlay
+                                onBack = overlay::closeOverlay,
+                                onShowMessage = ::showSnackbar
                             )
                         }
 

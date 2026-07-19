@@ -171,40 +171,32 @@ fun ScreenTitle(
                 verticalAlignment = Alignment.Top,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    SignatureText(
-                        text = title,
-                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                        modifier = Modifier.semantics { heading() },
-                    )
-                    if (subtitle != null) {
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = subtitle.uppercase(),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = readableSecondaryColor(),
-                            modifier = Modifier.padding(top = AppSpacing.xs),
-                        )
-                    }
+                    TitleAndSubtitle(title = title, subtitle = subtitle)
                 }
                 Spacer(Modifier.width(12.dp))
                 action()
             }
         } else {
-            SignatureText(
-                text = title,
-                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                modifier = Modifier.semantics { heading() },
-            )
-            if (subtitle != null) {
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = subtitle.uppercase(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = readableSecondaryColor(),
-                    modifier = Modifier.padding(top = AppSpacing.xs),
-                )
-            }
+            TitleAndSubtitle(title = title, subtitle = subtitle)
         }
+    }
+}
+
+@Composable
+private fun TitleAndSubtitle(title: String, subtitle: String?) {
+    SignatureText(
+        text = title,
+        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+        modifier = Modifier.semantics { heading() },
+    )
+    if (subtitle != null) {
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = subtitle.uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            color = readableSecondaryColor(),
+            modifier = Modifier.padding(top = AppSpacing.xs),
+        )
     }
 }
 
