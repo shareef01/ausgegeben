@@ -131,20 +131,14 @@ class ExpenseViewModel(
     }.distinctUntilChanged()
 
     // Firestore query is scoped to period + type only; search matches client-side
-    // (note, amount, category name), same fields the web client filters on.
+    // (note, amount, transaction type, category name), same fields the web client filters on.
     val pagedExpenses: Flow<List<Expense>> = combine(
         queriedExpensesFlow,
         _debouncedSearch,
         categoriesFlow,
     ) { expenses, query, categories ->
-        val needle = query.trim().lowercase()
-        if (needle.isEmpty()) return@combine expenses
-        val categoryNames = categories.associate { it.id to it.name.lowercase() }
-        expenses.filter { expense ->
-            expense.note.lowercase().contains(needle) ||
-                expense.amount.toString().contains(needle) ||
-                categoryNames[expense.categoryId]?.contains(needle) == true
-        }
+        val categoryNames = categories.associate { it.id to it.name }
+        expenses.filterByQuery(query, categoryNames)
     }
 
     fun setSearchQuery(query: String) {
@@ -187,11 +181,15 @@ class ExpenseViewModel(
         }
     }
 
-    fun restoreExpense(expense: Expense) {
+    fun restoreExpense(expense: Expense, onResult: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
-            try {
+            val success = try {
                 repository.insertExpense(expense)
-            } catch (_: Exception) { }
+                true
+            } catch (_: Exception) {
+                false
+            }
+            onResult(success)
         }
     }
 

@@ -7,6 +7,14 @@
         { "fieldPath": "idempotencyKey", "order": "ASCENDING" },
         { "fieldPath": "dateMillis", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "expenses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "transactionType", "order": "ASCENDING" },
+        { "fieldPath": "dateMillis", "order": "DESCENDING" }
+      ]
     }
   ]
 }

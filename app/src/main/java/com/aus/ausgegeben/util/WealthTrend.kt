@@ -47,11 +47,12 @@ fun List<Expense>.computeCashFlowTrend(
     } else {
         val (rangeStart, rangeEnd) = range
         buildList {
-            var cursor = localDayStartMillis(rangeStart)
+            val cursorCal = Calendar.getInstance().apply { timeInMillis = localDayStartMillis(rangeStart) }
             val end = localDayStartMillis(rangeEnd - 1)
-            while (cursor <= end) {
+            while (cursorCal.timeInMillis <= end) {
+                val cursor = cursorCal.timeInMillis
                 add(cursor to dayLabel.format(Date(cursor)))
-                cursor += 24L * 60 * 60 * 1000
+                cursorCal.add(Calendar.DAY_OF_MONTH, 1)
             }
         }
     }
@@ -98,16 +99,17 @@ fun List<Expense>.computeWealthTrend(
             val range = period.dateRangeMillis(nowMillis) ?: return emptyList()
             val (rangeStart, rangeEnd) = range
             buildList {
-                var cursor = localDayStartMillis(rangeStart)
+                val cursorCal = Calendar.getInstance().apply { timeInMillis = localDayStartMillis(rangeStart) }
                 val end = localDayStartMillis(rangeEnd - 1)
-                while (cursor <= end) {
+                while (cursorCal.timeInMillis <= end) {
+                    val cursor = cursorCal.timeInMillis
                     val label = if (period == AnalyticsPeriod.THIS_MONTH || period == AnalyticsPeriod.LAST_MONTH) {
                         dayLabel.format(Date(cursor))
                     } else {
                         monthDayLabel.format(Date(cursor))
                     }
                     add(cursor to label)
-                    cursor += 24L * 60 * 60 * 1000
+                    cursorCal.add(Calendar.DAY_OF_MONTH, 1)
                 }
             }
         }
