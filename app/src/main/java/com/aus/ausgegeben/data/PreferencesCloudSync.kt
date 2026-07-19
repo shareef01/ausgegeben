@@ -9,6 +9,9 @@ import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -25,13 +28,19 @@ class PreferencesCloudSync(
     private var registration: ListenerRegistration? = null
     private var pushJob: Job? = null
     private var activeUid: String? = null
+    private var activeScope: CoroutineScope? = null
     @Volatile private var suppressPush = false
     @Volatile private var lastWrittenAt = 0L
+
+    private val _syncError = MutableStateFlow<String?>(null)
+    /** Non-null when the last push/pull to `users/{uid}/settings/preferences` failed. */
+    val syncError: StateFlow<String?> = _syncError.asStateFlow()
 
     fun start(uid: String, scope: CoroutineScope) {
         if (activeUid == uid && registration != null) return
         stop()
         activeUid = uid
+        activeScope = scope
         val ref = firestore
             .collection("users")
             .document(uid)
@@ -41,6 +50,7 @@ class PreferencesCloudSync(
         registration = ref.addSnapshotListener { snap, error ->
             if (error != null) {
                 Log.w(TAG, "preferences listener error", error)
+                _syncError.value = error.message ?: "listener error"
                 return@addSnapshotListener
             }
             scope.launch(Dispatchers.IO) {
@@ -53,6 +63,7 @@ class PreferencesCloudSync(
                 when {
                     remote.updatedAt > localAt -> applyRemote(remote)
                     localAt > remote.updatedAt -> writeRemote(uid, preferenceManager.snapshotSyncedPreferences())
+                    else -> _syncError.value = null
                 }
             }
         }
@@ -72,8 +83,20 @@ class PreferencesCloudSync(
         pushJob?.cancel()
         pushJob = null
         activeUid = null
+        activeScope = null
         suppressPush = false
         lastWrittenAt = 0L
+        _syncError.value = null
+    }
+
+    /** Re-attempt the last push after a failure (e.g. user tapped retry on the sync error banner). */
+    fun retry() {
+        val uid = activeUid ?: return
+        val scope = activeScope ?: return
+        scope.launch(Dispatchers.IO) {
+            lastWrittenAt = 0L
+            writeRemote(uid, preferenceManager.snapshotSyncedPreferences())
+        }
     }
 
     private suspend fun applyRemote(remote: SyncedPreferences) {
@@ -82,6 +105,7 @@ class PreferencesCloudSync(
             preferenceManager.applySyncedPreferences(remote)
             preferenceManager.setLastCloudSyncAt(System.currentTimeMillis())
             lastWrittenAt = remote.updatedAt
+            _syncError.value = null
             withContext(Dispatchers.Main) {
                 AppCompatDelegate.setApplicationLocales(
                     LocaleListCompat.forLanguageTags(remote.locale),
@@ -109,8 +133,10 @@ class PreferencesCloudSync(
                 .set(payload.toFirestoreMap(), SetOptions.merge())
                 .await()
             preferenceManager.setLastCloudSyncAt(System.currentTimeMillis())
+            _syncError.value = null
         } catch (e: Exception) {
             Log.w(TAG, "failed to write preferences", e)
+            _syncError.value = e.message ?: "write failed"
         }
     }
 
@@ -124,7 +150,7 @@ class PreferencesCloudSync(
             "ocean", "forest", "sunset", "lavender", "soft_light",
         )
 
-        private fun parseRemote(raw: Map<String, Any>?): SyncedPreferences? {
+        internal fun parseRemote(raw: Map<String, Any>?): SyncedPreferences? {
             if (raw == null) return null
             val locale = raw["locale"] as? String ?: return null
             val themeMode = raw["themeMode"] as? String ?: return null
@@ -139,10 +165,14 @@ class PreferencesCloudSync(
                 is Number -> v.toDouble().takeIf { it > 0 }
                 else -> null
             }
+            // Existing cloud prefs docs predate this field — treat missing as already onboarded
+            // (matches web's parseRemote), so a legacy doc never re-triggers onboarding.
+            val onboardingComplete = raw["onboardingComplete"] as? Boolean ?: true
             return SyncedPreferences(
                 currency = (raw["currency"] as? String)?.takeIf { it.isNotBlank() } ?: "EUR",
                 locale = locale,
                 themeMode = themeMode,
+                onboardingComplete = onboardingComplete,
                 dailyReminder = raw["dailyReminder"] as? Boolean ?: true,
                 reminderHour = ((raw["reminderHour"] as? Number)?.toInt() ?: 19).coerceIn(0, 23),
                 reminderMinute = ((raw["reminderMinute"] as? Number)?.toInt() ?: 0).coerceIn(0, 59),
@@ -156,6 +186,7 @@ class PreferencesCloudSync(
             "currency" to currency,
             "locale" to locale,
             "themeMode" to themeMode,
+            "onboardingComplete" to onboardingComplete,
             "dailyReminder" to dailyReminder,
             "reminderHour" to reminderHour,
             "reminderMinute" to reminderMinute,

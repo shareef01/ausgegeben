@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Category, Expense, TransactionType } from '@/models/types';
-import { expenseRepository } from '@/repositories/expenseRepository';
+import { expenseRepository, UNCATEGORIZED_ID } from '@/repositories/expenseRepository';
 import { parseAmount } from '@/utils/currency';
 import { useTranslation } from '@/i18n';
 
@@ -65,7 +65,7 @@ export function useAddTransactionViewModel(expenseId?: string) {
   }, [load]);
 
   const filteredCategories = useMemo(
-    () => categories.filter((c) => c.transactionType === form.transactionType && c.name?.trim()),
+    () => categories.filter((c) => c.transactionType === form.transactionType && c.name?.trim() && c.id !== UNCATEGORIZED_ID),
     [categories, form.transactionType],
   );
 

@@ -23,6 +23,7 @@ import { expenseRepository } from '@/repositories/expenseRepository';
 import { exportCsv } from '@/utils/analytics';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import packageJson from '../../package.json';
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
@@ -175,39 +176,33 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
         </div>
       </div>
 
-      {showSignOutConfirm ? (
-        <Modal title={t('settingsSignOut')} onClose={() => setShowSignOutConfirm(false)}>
-          <p className="settings-confirm-copy mb-8 leading-relaxed">{t('settingsSignOutConfirm')}</p>
-          <div className="flex justify-end gap-3">
-            <button type="button" className="btn btn-secondary px-6 py-3 rounded-xl" onClick={() => setShowSignOutConfirm(false)}>{t('actionCancel')}</button>
-            <button
-              type="button"
-              className="btn btn-primary px-8 py-3 rounded-xl bg-expense hover:bg-expense/90"
-              onClick={() => {
-                setShowSignOutConfirm(false);
-                void authService.signOut();
-              }}
-            >
-              {t('settingsSignOut')}
-            </button>
-          </div>
-        </Modal>
-      ) : null}
+      <ConfirmDialog
+        open={showSignOutConfirm}
+        title={t('settingsSignOut')}
+        message={t('settingsSignOutConfirm')}
+        confirmLabel={t('settingsSignOut')}
+        cancelLabel={t('actionCancel')}
+        onConfirm={() => {
+          setShowSignOutConfirm(false);
+          void authService.signOut();
+        }}
+        onCancel={() => setShowSignOutConfirm(false)}
+      />
 
       {showLanguage ? (
         <Modal title={t('settingsLanguage')} onClose={() => setShowLanguage(false)}>
-          {(['en', 'de'] as Locale[]).map((code) => (
-            <button
-              key={code}
-              type="button"
-              className={`settings-row w-full flex items-center gap-4 p-4 rounded-xl transition-colors hover:bg-on-surface/5 ${locale === code ? 'bg-accent/10' : ''}`}
-              onClick={() => { setLocale(code); setShowLanguage(false); }}
-            >
-              <span className="settings-row__icon-tile w-10 h-10 flex items-center justify-center rounded-lg bg-accent/10 text-accent"><IconGlobe width={20} height={20} /></span>
-              <span className="flex-1 text-left font-medium">{code === 'de' ? t('langGerman') : t('langEnglish')}</span>
-              {locale === code ? <span className="text-accent" aria-hidden><IconCheck width={20} height={20} /></span> : null}
-            </button>
-          ))}
+          <div role="radiogroup" aria-label={t('settingsLanguage')}>
+            {(['en', 'de'] as Locale[]).map((code) => (
+              <PickerOptionRow
+                key={code}
+                icon={IconGlobe}
+                tint="accent"
+                label={code === 'de' ? t('langGerman') : t('langEnglish')}
+                selected={locale === code}
+                onClick={() => { setLocale(code); setShowLanguage(false); }}
+              />
+            ))}
+          </div>
         </Modal>
       ) : null}
 
@@ -244,18 +239,16 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
 
       {showCurrency ? (
         <Modal title={t('settingsChooseCurrency')} onClose={() => setShowCurrency(false)}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2" role="radiogroup" aria-label={t('settingsChooseCurrency')}>
             {SUPPORTED_CURRENCIES.map((c) => (
-              <button
+              <PickerOptionRow
                 key={c}
-                type="button"
-                className={`settings-row flex items-center gap-4 p-4 rounded-xl transition-colors hover:bg-on-surface/5 ${currency === c ? 'bg-income/10' : ''}`}
+                icon={IconCurrency}
+                tint="income"
+                label={currencyLabel(c)}
+                selected={currency === c}
                 onClick={() => { setCurrency(c); setShowCurrency(false); }}
-              >
-                <span className="settings-row__icon-tile w-10 h-10 flex items-center justify-center rounded-lg bg-income/10 text-income"><IconCurrency width={20} height={20} /></span>
-                <span className="flex-1 text-left font-medium">{currencyLabel(c)}</span>
-                {currency === c ? <span className="text-income" aria-hidden><IconCheck width={20} height={20} /></span> : null}
-              </button>
+              />
             ))}
           </div>
         </Modal>
@@ -312,6 +305,48 @@ function SettingsRow({
   return (
     <button type="button" className="settings-row settings-row--interactive" onClick={onClick}>
       {content}
+    </button>
+  );
+}
+
+const PICKER_TINT_CLASSES: Record<IconTint, { bg: string; text: string }> = {
+  accent: { bg: 'bg-accent/10', text: 'text-accent' },
+  income: { bg: 'bg-income/10', text: 'text-income' },
+  expense: { bg: 'bg-expense/10', text: 'text-expense' },
+  neutral: { bg: 'bg-on-surface/10', text: 'text-on-surface-variant' },
+};
+
+function PickerOptionRow({
+  icon: Icon,
+  tint = 'accent',
+  label,
+  selected,
+  onClick,
+}: {
+  icon: IconComponent;
+  tint?: IconTint;
+  label: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  const { bg, text } = PICKER_TINT_CLASSES[tint];
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      className={`settings-row w-full flex items-center gap-4 p-4 rounded-xl transition-colors hover:bg-on-surface/5 ${selected ? bg : ''}`}
+      onClick={onClick}
+    >
+      <span className="settings-row__icon-tile" data-tint={tint}>
+        <Icon width={20} height={20} />
+      </span>
+      <span className="flex-1 text-left font-medium">{label}</span>
+      {selected ? (
+        <span className={text} aria-hidden>
+          <IconCheck width={20} height={20} />
+        </span>
+      ) : null}
     </button>
   );
 }
