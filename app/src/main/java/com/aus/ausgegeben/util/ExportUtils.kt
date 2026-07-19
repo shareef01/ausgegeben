@@ -21,7 +21,7 @@ object ExportUtils {
                 val categoryById = categories.associateBy { it.id }
                 val dateFormat = SimpleDateFormat("yyyy-MM-dd,HH:mm", Locale.US)
 
-                val header = "date,time,type,category,vendor,amount"
+                val header = "date,time,type,category,note,amount"
                 val rows = expenses.map { expense ->
                     val category = categoryById[expense.categoryId]?.name ?: "Unknown"
                     val date = dateFormat.format(Date(expense.dateMillis)).split(",")
@@ -64,7 +64,7 @@ object ExportUtils {
         // Neutralize spreadsheet formula triggers (=, +, -, @, tab, CR) so a
         // malicious note can't execute when the CSV is opened in Excel/Sheets.
         val safe = if (value.isNotEmpty() && value[0] in FORMULA_TRIGGERS) "'$value" else value
-        if (safe.none { it == ',' || it == '"' || it == '\n' }) return safe
+        if (safe.none { it == ',' || it == '"' || it == '\n' || it == '\r' }) return safe
         return "\"${safe.replace("\"", "\"\"")}\""
     }
 

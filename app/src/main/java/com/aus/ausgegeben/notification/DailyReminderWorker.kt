@@ -17,7 +17,6 @@ class DailyReminderWorker(
     override suspend fun doWork(): Result {
         val preferenceManager = PreferenceManager(applicationContext)
         if (!preferenceManager.isDailyReminderEnabled()) {
-            ReminderScheduler.scheduleNext(applicationContext)
             return Result.success()
         }
 
