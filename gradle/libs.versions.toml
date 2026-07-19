@@ -23,9 +23,9 @@ kotlinxCoroutinesCore = "1.10.2"
 accompanistPermissions = "0.37.3"
 datastorePreferences = "1.1.7"
 workmanager = "2.10.1"
-firebaseBom = "33.7.0"
+firebaseBom = "34.16.0"
 googleServices = "4.4.2"
-playServicesAuth = "21.3.0"
+playServicesAuth = "21.6.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
