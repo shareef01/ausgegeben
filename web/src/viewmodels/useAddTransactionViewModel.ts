@@ -47,6 +47,14 @@ export function useAddTransactionViewModel(expenseId?: string) {
             note: existing.note,
             dateMillis: existing.dateMillis,
           });
+        } else {
+          // The expense was deleted elsewhere (another tab/device) between opening this
+          // edit view and this fetch. Without this branch the form silently stayed blank
+          // with no error, and Save would happily recreate a new document under the
+          // (now stale) expenseId with only the freshly-typed fields — a data-loss-adjacent
+          // bug. Surface the same load-failure copy used below so the user sees an error
+          // instead of a deceptively empty "Edit Transaction" form.
+          setError(t('errorLoadFailed'));
         }
       } else {
         const first = cats.find((c) => c.transactionType === 'expense');

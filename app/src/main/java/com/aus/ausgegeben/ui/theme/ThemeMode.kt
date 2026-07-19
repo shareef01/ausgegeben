@@ -29,8 +29,10 @@ enum class ThemeMode(val storageKey: String, val label: String) {
 /** Previews for the theme selection UI. */
 internal fun ThemeMode.getPreviewColors(): List<Color> = when (this) {
     ThemeMode.SYSTEM -> listOf(Color(0xFF09090B), Color(0xFFFAFAFA))
-    ThemeMode.LIGHT -> listOf(Color(0xFFFFFFFF), Color(0xFF10B981))
-    ThemeMode.DARK -> listOf(Color(0xFF000000), Color(0xFF10B981))
+    // Matches DefaultLightColorScheme/DefaultDarkColorScheme's actual primary in ThemePalettes.kt —
+    // was a placeholder green that didn't match either theme's real (near-black/white) primary.
+    ThemeMode.LIGHT -> listOf(Color(0xFFFFFFFF), Color(0xFF09090B))
+    ThemeMode.DARK -> listOf(Color(0xFF000000), Color(0xFFFFFFFF))
     ThemeMode.AMOLED -> listOf(Color(0xFF000000), Color(0xFFFFFFFF))
     ThemeMode.MIDNIGHT -> listOf(Color(0xFF070B1A), Color(0xFF8AB4FF))
     ThemeMode.OCEAN -> listOf(Color(0xFF061412), Color(0xFF56D6C9))

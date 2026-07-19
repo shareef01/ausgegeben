@@ -131,6 +131,14 @@ fun SettingsScreen(
                         subtitle = if (language == "de") stringResource(R.string.lang_german).lowercase() else stringResource(R.string.lang_english).lowercase(),
                         onClick = { showLanguageSheet = true }
                     )
+                    IosSeparator(insetStart = 56.dp)
+                    SettingsActionRow(
+                        icon = Icons.Rounded.Payments,
+                        tint = settingsIconTintAccent(),
+                        title = stringResource(R.string.settings_currency).lowercase(),
+                        subtitle = CurrencyUtils.labelFor(currency).lowercase(),
+                        onClick = { showCurrencySheet = true }
+                    )
                 }
             }
         }

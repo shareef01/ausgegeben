@@ -38,7 +38,11 @@ export function ConfirmDialog({
   const messageId = 'confirm-dialog-message';
 
   return (
-    <div className="overlay overlay--confirm" onClick={onCancel} role="presentation">
+    <div
+      className="overlay overlay--confirm"
+      onClick={(e) => { e.stopPropagation(); onCancel(); }}
+      role="presentation"
+    >
       <div
         ref={sheetRef}
         className={`confirm-dialog${destructive ? ' confirm-dialog--destructive' : ''}`}

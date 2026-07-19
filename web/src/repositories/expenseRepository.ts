@@ -198,6 +198,25 @@ export const expenseRepository = {
         });
         await batch.commit();
     }
+    // SECURE (mitigation, not a full guarantee): ideally this whole read-reassign-delete
+    // sequence would run inside a single runTransaction(db, ...) so no expense could be
+    // (re)linked to `id` between the read above and the deleteDoc below. But Firestore's
+    // Web SDK only allows direct doc reads (tx.get(docRef)) inside a transaction callback —
+    // query-based reads like getDocs(query(...)) aren't transactional, and "all expenses
+    // with categoryId == id" is a query over an a-priori unknown set of docs, so it can't
+    // be wrapped that way. As the best available mitigation, we re-run the same query one
+    // more time immediately before deleting the category, and reassign anything that shows
+    // up newly linked. This shrinks the race window from "arbitrarily long" down to "the
+    // network latency of one extra query round-trip" — a concurrent write landing in that
+    // final gap can still orphan an expense; it just makes the window much narrower.
+    const recheck = await getDocs(query(expCol(userId), where('categoryId', '==', id)));
+    if (!recheck.empty) {
+        const recheckBatch = writeBatch(fs()!);
+        recheck.docs.forEach(d => {
+            recheckBatch.update(d.ref, { categoryId: UNCATEGORIZED_ID });
+        });
+        await recheckBatch.commit();
+    }
     await deleteDoc(catDoc(userId, id));
   },
 
@@ -348,6 +367,28 @@ export const expenseRepository = {
               batch.update(d.ref, { categoryId: master.id });
             });
             await batch.commit();
+          }
+        }
+        // SECURE (mitigation, not a full guarantee): same TOCTOU gap as deleteCategory()
+        // above — an expense could be (re)linked to `dup.id` between the getDocs read and
+        // the deleteDoc below, leaving it orphaned once the duplicate category is gone. A
+        // single Firestore transaction can't wrap this because the Web SDK only supports
+        // transactional direct doc reads (tx.get), not query-based reads like
+        // getDocs(query(...)), and "expenses with categoryId == dup.id" is a query, not a
+        // known set of doc refs. As the best available mitigation, re-run the query once
+        // more immediately before deleting, and reassign anything newly linked. This
+        // narrows the race window from "arbitrarily long" to "one extra query round-trip"
+        // rather than closing it entirely.
+        const recheck = await getDocs(query(expCol(userId), where('categoryId', '==', dup.id)));
+        if (!recheck.empty) {
+          const recheckDocs = recheck.docs;
+          for (let i = 0; i < recheckDocs.length; i += 450) {
+            const chunk = recheckDocs.slice(i, i + 450);
+            const recheckBatch = writeBatch(fs()!);
+            chunk.forEach(d => {
+              recheckBatch.update(d.ref, { categoryId: master.id });
+            });
+            await recheckBatch.commit();
           }
         }
         await deleteDoc(catDoc(userId, dup.id));
