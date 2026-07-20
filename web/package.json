@@ -28,6 +28,7 @@
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^6.0.3",
     "firebase-tools": "^15.24.0",
+    "playwright": "^1.61.1",
     "sharp": "^0.35.2",
     "typescript": "~5.8.3",
     "vite": "^8.1.5",
