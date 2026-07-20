@@ -22,7 +22,7 @@
   flex-shrink: 0 !important;
   background: transparent !important;
   border: none !important;
-  padding: 2px 0 !important;
+  padding: 6px 8px !important; /* larger hit target */
   cursor: pointer;
   color: inherit;
 }
@@ -48,7 +48,7 @@
   display: inline-flex;
   align-items: baseline;
   font-family: var(--font-family);
-  font-size: 1.1875rem;
+  font-size: 1.25rem;
   font-weight: 750;
   letter-spacing: -0.03em;
   line-height: 1;
@@ -62,7 +62,7 @@
 }
 
 .app-brand-wordmark__rest {
-  color: var(--color-on-background);
+  color: color-mix(in srgb, var(--color-on-background) 92%, var(--color-on-surface-variant));
   font-weight: 700;
   transition: color 0.15s ease;
 }
@@ -76,6 +76,33 @@
   background: transparent !important;
   border: none !important;
   overflow: visible;
+}
+
+/* Active nav: subtle elevation and stronger contrast */
+.app-header__nav-item--active {
+  color: var(--color-income);
+  background: color-mix(in srgb, var(--color-income) 18%, transparent);
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--color-on-surface) 6%, transparent);
+  transform: translateY(-1px);
+}
+
+/* Accent-forward light themes: surface the palette accent on the primary
+   interactive chrome (active nav + FAB) instead of the semantic finance
+   green, so lavender/soft_light read as their own theme, not plain light.
+   Dark themes already express accent via --color-income, so they're untouched. */
+:root[data-theme-name='lavender'] .app-header__nav-item--active,
+:root[data-theme-name='soft_light'] .app-header__nav-item--active {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+
+:root[data-theme-name='lavender'] .fab-add,
+:root[data-theme-name='soft_light'] .fab-add {
+  background: var(--color-accent);
+  color: var(--color-on-accent, #ffffff);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--color-accent) 18%, transparent),
+    0 4px 24px color-mix(in srgb, var(--color-accent) 40%, transparent);
 }
 
 /* ── Sidebar Filters ── */
@@ -93,6 +120,20 @@
   display: flex !important;
   flex-direction: column !important;
   gap: 16px !important;
+}
+
+/* ── Mobile density: on phones the balance hero + filter card were eating
+   most of the first screen, pushing the transaction list below the fold.
+   Trim padding/gaps so more of the list is visible at rest. Desktop
+   (>=768px, the sticky-sidebar layout) is intentionally left unchanged. ── */
+@media (max-width: 767px) {
+  .page-title { margin-bottom: 10px; }
+  .sidebar-layout { gap: 12px; }
+  .sidebar-panel { gap: 10px; }
+  .widget-stack { gap: 10px; }
+  .content-col { gap: 14px; }
+  .finance-summary-card { padding: 14px !important; gap: 10px; }
+  .record-filters { padding: 12px !important; gap: 10px !important; }
 }
 
 /* ── Summary Card ── */
