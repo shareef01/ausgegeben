@@ -70,6 +70,23 @@ describe('analytics', () => {
     expect(computeCashFlowTrend([])).toEqual([]);
   });
 
+  it('computeCashFlowTrend includes the most-recent transaction (no boundary drop)', () => {
+    const base = new Date(2026, 0, 1).getTime();
+    const day = 86_400_000;
+    const txns = [
+      expense({ amount: 100, transactionType: 'expense', dateMillis: base }),
+      expense({ amount: 50, transactionType: 'income', dateMillis: base + day }),
+      // Latest transaction sits exactly at `end` — previously dropped by the exclusive bound.
+      expense({ amount: 120, transactionType: 'expense', dateMillis: base + 6 * day }),
+    ];
+    const trend = computeCashFlowTrend(txns);
+    const totalExpense = trend.reduce((s, p) => s + p.expense, 0);
+    const totalIncome = trend.reduce((s, p) => s + p.income, 0);
+    // Trend totals must match the raw totals — every transaction is bucketed.
+    expect(totalExpense).toBe(220);
+    expect(totalIncome).toBe(50);
+  });
+
   it('exportCsv quotes notes with commas', () => {
     const categories: Category[] = [{ id: '1', name: 'Food', iconName: 'food', colorInt: 0, transactionType: 'expense', sortOrder: 0, updatedAt: 0 }];
     const csv = exportCsv(
