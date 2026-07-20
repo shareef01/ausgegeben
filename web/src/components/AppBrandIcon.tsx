@@ -15,6 +15,7 @@ export function AppBrandIcon({ size = 64, className = '' }: AppBrandIconProps) {
       width={size}
       height={size}
       viewBox="0 0 100 100"
+      preserveAspectRatio="xMidYMid meet"
       fill="none"
       aria-hidden
       role="img"
