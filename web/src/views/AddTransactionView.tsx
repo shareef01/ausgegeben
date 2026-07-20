@@ -36,7 +36,7 @@ export function AddTransactionView({
   const handleEscape = useCallback(() => {
     if (!suspended) onClose();
   }, [onClose, suspended]);
-  useFocusTrap(!suspended, dialogRef, handleEscape);
+  useFocusTrap(!suspended && vm.ready, dialogRef, handleEscape);
   useBodyScrollLock(!suspended);
 
   useEffect(() => {
