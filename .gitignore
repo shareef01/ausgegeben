@@ -30,6 +30,13 @@ android-sdk/
 
 # Firebase local
 .firebase/
+firebase-debug.log
+firestore-debug.log
+firebase.emulator.json
+
+# Local audit harness (Playwright feature audit — local only, never committed)
+web/.audit-*.mjs
+web/.inspect-*.mjs
 
 # Node (any location — main once had node_modules committed at the root)
 node_modules/
