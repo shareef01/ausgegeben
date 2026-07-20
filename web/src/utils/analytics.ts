@@ -67,8 +67,13 @@ export function computeCashFlowTrend(expenses: Expense[], bucketCount = 7): Cash
     const bucketEnd = bucketStart + bucketSize;
     let income = 0;
     let expense = 0;
+    // Final bucket is inclusive of its upper bound so the most-recent
+    // transaction (dateMillis === end) isn't dropped from the trend.
+    const isLastBucket = i === bucketCount - 1;
     for (const e of sorted) {
-      if (e.dateMillis >= bucketStart && e.dateMillis < bucketEnd) {
+      const inBucket = e.dateMillis >= bucketStart &&
+        (isLastBucket ? e.dateMillis <= bucketEnd : e.dateMillis < bucketEnd);
+      if (inBucket) {
         if (isIncome(e)) income += e.amount;
         if (isExpense(e)) expense += e.amount;
       }

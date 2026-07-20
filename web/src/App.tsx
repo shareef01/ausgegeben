@@ -35,7 +35,13 @@ export function App(): JSX.Element {
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const update = () => applyTheme(resolveTheme(themeMode, mq.matches));
+    const update = () => {
+      applyTheme(resolveTheme(themeMode, mq.matches));
+      // Expose the resolved palette name so per-theme CSS (e.g. accent-forward
+      // light themes) can target it; 'system' collapses to dark/light.
+      const name = themeMode === 'system' ? (mq.matches ? 'dark' : 'light') : themeMode;
+      document.documentElement.dataset.themeName = name;
+    };
     update();
     mq.addEventListener('change', update);
     return () => mq.removeEventListener('change', update);
