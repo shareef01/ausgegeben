@@ -278,7 +278,7 @@ const TransactionRow = memo(({ expense, category, currency }: {
   const categoryName = category?.name || t('recordUnknownCategory');
 
   return (
-    <div className="transaction-row flex items-center gap-3 w-full min-w-0 py-4">
+    <div className="transaction-row flex items-center gap-3 w-full min-w-0 py-3">
       <div className="transaction-row__icon relative shrink-0">
         {category ? (
           <CategoryIconTile iconName={category.iconName} color={colorIntToHex(category.colorInt)} size={40} />
