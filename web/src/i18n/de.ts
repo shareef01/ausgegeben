@@ -122,6 +122,7 @@ export const de: Record<TranslationKey, string> = {
   settingsAbout: 'über',
   onboardingGetStarted: 'loslegen',
   onboardingNext: 'weiter',
+  onboardingSkip: 'überspringen',
   actionSave: 'speichern',
   actionSaving: 'wird gespeichert…',
   actionCancel: 'abbrechen',

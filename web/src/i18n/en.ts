@@ -120,6 +120,7 @@ export const en = {
   settingsAbout: 'about',
   onboardingGetStarted: 'get started',
   onboardingNext: 'next',
+  onboardingSkip: 'skip',
   actionSave: 'save',
   actionSaving: 'saving…',
   actionCancel: 'cancel',
