@@ -24,6 +24,15 @@ export function OnboardingView({ onComplete }: OnboardingViewProps) {
   return (
     <div className="app-shell auth-page onboarding-page p-4">
       <div className="auth-page__card onboarding-card monolith-container py-12">
+        {!isLast && (
+          <button
+            type="button"
+            className="onboarding-card__skip"
+            onClick={onComplete}
+          >
+            {t('onboardingSkip')}
+          </button>
+        )}
         <div className="onboarding-card__hero mb-10">
           <AppBrandIcon size={72} className="onboarding-card__app-icon mb-6" />
           <h1 className="text-2xl font-extrabold tracking-tight text-on-background mb-1">
