@@ -82,6 +82,8 @@ function CashFlowSeries({
   const line = polylinePath(points);
   if (!line) return null;
 
+  const last = points[points.length - 1];
+
   return (
     <g>
       <path d={areaPath(points, bottomY)} fill={`url(#${gradId})`} />
@@ -93,12 +95,19 @@ function CashFlowSeries({
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {points.length === 1 && points.map((pt, i) => (
-        <g key={i}>
-          <circle cx={pt.x} cy={pt.y} r={4} fill={color} />
-          <circle cx={pt.x} cy={pt.y} r={2} fill="var(--color-surface)" />
-        </g>
-      ))}
+      {points.length === 1 && (
+        <>
+          <circle cx={last.x} cy={last.y} r={4} fill={color} />
+          <circle cx={last.x} cy={last.y} r={2} fill="var(--color-surface)" />
+        </>
+      )}
+      {/* Anchor the eye on the latest value with a ringed endpoint marker. */}
+      {points.length > 1 && (
+        <>
+          <circle cx={last.x} cy={last.y} r={4.5} fill="var(--color-surface)" />
+          <circle cx={last.x} cy={last.y} r={3} fill={color} />
+        </>
+      )}
     </g>
   );
 }
@@ -203,7 +212,7 @@ export function CashFlowChart({ trend, currency = 'EUR' }: CashFlowChartProps) {
               x2={CHART_WIDTH - PAD_X_RIGHT}
               y2={tick.y}
               stroke="var(--color-on-surface)"
-              strokeOpacity="0.08"
+              strokeOpacity={index === yTicks.length - 1 ? '0.2' : '0.08'}
               strokeWidth={1}
             />
             <text
