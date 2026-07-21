@@ -189,8 +189,8 @@ function CashFlowCard({ trend, currency }: { trend: { label: string; income: num
   const totalExpense = useMemo(() => trend.reduce((s, p) => s + p.expense, 0), [trend]);
 
   return (
-    <div className="card p-10 bg-glass border border-surface-border rounded-[2.5rem] shadow-2xl">
-      <div className="flex items-start justify-between gap-6 mb-10">
+    <div className="insights-cashflow-card card p-10 bg-glass border border-surface-border rounded-[2.5rem] shadow-2xl">
+      <div className="insights-cashflow-card__header flex items-start justify-between gap-6 mb-10">
         <div>
           <div className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-2">{t('billsCashFlow')}</div>
           <div className="text-sm font-bold opacity-80 tabular-nums">
