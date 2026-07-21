@@ -229,8 +229,8 @@ input[type='number'] {
 .app-header__nav {
   display: none;
   align-items: center;
-  justify-content: space-between;
-  flex: 1 1 auto;
+  justify-content: center;
+  flex: 0 0 auto;
   width: auto;
   max-width: none;
   margin-left: clamp(1rem, 4vw, 3rem);
@@ -260,10 +260,10 @@ input[type='number'] {
 
 .app-header__nav-item {
   position: relative;
-  flex: 1 1 0;
+  flex: 0 0 auto;
   min-width: 0;
   min-height: 2.75rem; /* ~44px: accessible touch target */
-  padding: 0.5rem 0.9rem;
+  padding: 0.5rem 1.15rem;
   border-radius: 12px;
   display: flex;
   flex-direction: row;
