@@ -2393,7 +2393,34 @@
 }
 
 .onboarding-card {
+  position: relative;
   max-width: 440px;
+}
+
+.onboarding-card__skip {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-on-surface-variant);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: lowercase;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.onboarding-card__skip:hover {
+  color: var(--color-on-background);
+  background: color-mix(in srgb, var(--color-on-surface) 6%, transparent);
+}
+
+.onboarding-card__skip:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
 }
 
 .onboarding-card__hero {
