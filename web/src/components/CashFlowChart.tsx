@@ -1,4 +1,4 @@
-import { useId, useMemo } from 'react';
+import { useId, useMemo, useRef, useState, type PointerEvent } from 'react';
 import { useTranslation } from '@/i18n';
 import { formatAmount } from '@/utils/currency';
 
@@ -118,6 +118,19 @@ export function CashFlowChart({ trend, currency = 'EUR' }: CashFlowChartProps) {
   const incomeGradId = `cf-income-${uid}`;
   const expenseGradId = `cf-expense-${uid}`;
   const bottomY = PAD_Y_TOP + CHART_H;
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+
+  const onPointerMove = (e: PointerEvent<SVGSVGElement>) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0 || trend.length === 0) return;
+    const px = ((e.clientX - rect.left) / rect.width) * CHART_WIDTH;
+    const idx = trend.length === 1
+      ? 0
+      : Math.round(((px - PAD_X_LEFT) / CHART_W) * (trend.length - 1));
+    setHoverIdx(Math.max(0, Math.min(trend.length - 1, idx)));
+  };
+  const onPointerLeave = () => setHoverIdx(null);
 
   const { incomePts, expensePts, yTicks, ariaSummary } = useMemo(() => {
     const values = trend.flatMap((p) => [p.income, p.expense]);
@@ -185,6 +198,7 @@ export function CashFlowChart({ trend, currency = 'EUR' }: CashFlowChartProps) {
   return (
     <div className="cashflow-chart">
       <svg
+        ref={svgRef}
         className="cashflow-chart__svg"
         width="100%"
         height={CHART_HEIGHT}
@@ -192,6 +206,9 @@ export function CashFlowChart({ trend, currency = 'EUR' }: CashFlowChartProps) {
         preserveAspectRatio="xMidYMid meet"
         role="img"
         aria-label={ariaSummary}
+        onPointerMove={onPointerMove}
+        onPointerDown={onPointerMove}
+        onPointerLeave={onPointerLeave}
       >
         <defs>
           <linearGradient id={incomeGradId} x1="0" y1="0" x2="0" y2="1">
@@ -232,6 +249,30 @@ export function CashFlowChart({ trend, currency = 'EUR' }: CashFlowChartProps) {
         <CashFlowSeries points={incomePts} color="var(--color-income)" gradId={incomeGradId} bottomY={bottomY} />
         <CashFlowSeries points={expensePts} color="var(--color-expense)" gradId={expenseGradId} bottomY={bottomY} />
 
+        {hoverIdx !== null && incomePts[hoverIdx] ? (
+          <g pointerEvents="none">
+            <line
+              x1={incomePts[hoverIdx].x}
+              y1={PAD_Y_TOP}
+              x2={incomePts[hoverIdx].x}
+              y2={bottomY}
+              stroke="var(--color-on-surface)"
+              strokeOpacity="0.25"
+              strokeWidth={1}
+              strokeDasharray="3 3"
+            />
+            {[
+              { pt: incomePts[hoverIdx], color: 'var(--color-income)' },
+              { pt: expensePts[hoverIdx], color: 'var(--color-expense)' },
+            ].map(({ pt, color }, i) => (
+              <g key={i}>
+                <circle cx={pt.x} cy={pt.y} r={5} fill="var(--color-surface)" />
+                <circle cx={pt.x} cy={pt.y} r={3.25} fill={color} />
+              </g>
+            ))}
+          </g>
+        ) : null}
+
         {xLabels.map((lbl, i) => (
           <text
             key={i}
@@ -247,6 +288,29 @@ export function CashFlowChart({ trend, currency = 'EUR' }: CashFlowChartProps) {
           </text>
         ))}
       </svg>
+
+      {hoverIdx !== null && trend[hoverIdx] ? (
+        <div
+          className="cashflow-tooltip"
+          role="status"
+          style={{
+            left: `${(incomePts[hoverIdx].x / CHART_WIDTH) * 100}%`,
+            transform: `translateX(${incomePts[hoverIdx].x > CHART_WIDTH * 0.62 ? '-100%' : incomePts[hoverIdx].x < CHART_WIDTH * 0.2 ? '0%' : '-50%'})`,
+          }}
+        >
+          <div className="cashflow-tooltip__label">{trend[hoverIdx].label}</div>
+          <div className="cashflow-tooltip__row">
+            <span className="cashflow-tooltip__dot cashflow-tooltip__dot--income" aria-hidden />
+            <span className="cashflow-tooltip__name">{t('filterIncome')}</span>
+            <span className="cashflow-tooltip__value">{formatAmount(trend[hoverIdx].income, currency)}</span>
+          </div>
+          <div className="cashflow-tooltip__row">
+            <span className="cashflow-tooltip__dot cashflow-tooltip__dot--expense" aria-hidden />
+            <span className="cashflow-tooltip__name">{t('filterExpense')}</span>
+            <span className="cashflow-tooltip__value">{formatAmount(trend[hoverIdx].expense, currency)}</span>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

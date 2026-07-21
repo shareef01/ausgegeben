@@ -1383,9 +1383,68 @@
  *  ═══════════════════════════════════════════════════ */
 
 .cashflow-chart {
+  position: relative;
   width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+/* ── Hover crosshair tooltip ── */
+.cashflow-tooltip {
+  position: absolute;
+  top: 0;
+  pointer-events: none;
+  min-width: 148px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--glass-bg-elevated);
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--shadow-elevated, 0 8px 28px rgba(0, 0, 0, 0.2));
+  z-index: 5;
+}
+
+.cashflow-tooltip__label {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-on-surface-variant);
+  margin-bottom: 5px;
+}
+
+.cashflow-tooltip__row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.cashflow-tooltip__row + .cashflow-tooltip__row {
+  margin-top: 3px;
+}
+
+.cashflow-tooltip__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.cashflow-tooltip__dot--income { background: var(--color-income); }
+.cashflow-tooltip__dot--expense { background: var(--color-expense); }
+
+.cashflow-tooltip__name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-on-surface-variant);
+  text-transform: lowercase;
+}
+
+.cashflow-tooltip__value {
+  margin-left: auto;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-on-surface);
+  font-variant-numeric: tabular-nums;
 }
 
 .cashflow-chart__svg {
