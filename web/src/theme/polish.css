@@ -83,8 +83,15 @@
 }
 
 .empty-state__icon {
-  opacity: 0.18;
-  margin-bottom: 24px;
+  width: 72px;
+  height: 72px;
+  margin-bottom: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--color-on-surface) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-on-surface) 9%, transparent);
+  color: var(--color-on-surface-variant);
 }
 
 .empty-state__hint {
