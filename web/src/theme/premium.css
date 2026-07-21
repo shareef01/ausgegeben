@@ -134,6 +134,17 @@
   .content-col { gap: 14px; }
   .finance-summary-card { padding: 14px !important; gap: 10px; }
   .record-filters { padding: 12px !important; gap: 10px !important; }
+
+  /* Insights — same density pass */
+  .insights-period-card { padding: 14px 14px 12px; gap: 10px; }
+  .insights-summary-dock__row { padding: 12px 16px; }
+  .insights-cashflow-card { padding: 18px !important; border-radius: 1.5rem; }
+  .insights-cashflow-card__header { margin-bottom: 16px !important; }
+
+  /* Settings — tighten section spacing, account card, and rows */
+  .settings-page { gap: 16px; }
+  .settings-account { padding: 14px 16px; }
+  .settings-row { padding: 11px 14px; }
 }
 
 /* ── Summary Card ── */
