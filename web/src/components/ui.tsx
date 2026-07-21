@@ -38,7 +38,7 @@ export function EmptyState({ title, subtitle, hint, action }: { title: string; s
   return (
     <div className="empty-state flex flex-col items-center text-center py-12 px-4">
       <div className="empty-state__icon mb-6" aria-hidden>
-        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" className="text-on-surface-variant opacity-50">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="4" width="18" height="16" rx="2" />
           <path d="M8 10h8M8 14h5" />
         </svg>
