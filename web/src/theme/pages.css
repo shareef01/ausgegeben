@@ -1026,6 +1026,12 @@
   transition: opacity 0.2s ease, visibility 0.2s ease;
 }
 
+/* Reserve height while a lazily-loaded view chunk resolves, so the shell
+   doesn't collapse/jump on first open. */
+.tab-panel__loading {
+  min-height: 60vh;
+}
+
 .tab-panel--active {
   opacity: 1;
   visibility: visible;
