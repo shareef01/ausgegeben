@@ -1,7 +1,8 @@
-import { useEffect, type JSX } from 'react';
+import { useEffect, lazy, Suspense, type JSX } from 'react';
 import { MainShell } from '@/views/MainShell';
 import { AuthView } from '@/views/AuthView';
-import { OnboardingView } from '@/views/OnboardingView';
+// New-user only — split out of the initial bundle.
+const OnboardingView = lazy(() => import('@/views/OnboardingView').then((m) => ({ default: m.OnboardingView })));
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
@@ -89,7 +90,11 @@ export function App(): JSX.Element {
 
   // Onboarding only after Auth + prefs loaded
   if (!onboardingComplete) {
-    return <OnboardingView onComplete={completeOnboarding} />;
+    return (
+      <Suspense fallback={null}>
+        <OnboardingView onComplete={completeOnboarding} />
+      </Suspense>
+    );
   }
 
   return <MainShell />;

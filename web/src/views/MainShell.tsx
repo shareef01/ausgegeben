@@ -1,9 +1,11 @@
-import { useState, type JSX } from 'react';
+import { useState, lazy, Suspense, type JSX } from 'react';
 import { RecordView } from '@/views/RecordView';
-import { InsightsView } from '@/views/InsightsView';
-import { SettingsView } from '@/views/SettingsView';
-import { AddTransactionView } from '@/views/AddTransactionView';
-import { CategoriesView } from '@/views/CategoriesView';
+// Lazy-loaded so their code (and the charts Insights pulls in) is split into
+// on-demand chunks instead of the initial bundle — Record is the first view.
+const InsightsView = lazy(() => import('@/views/InsightsView').then((m) => ({ default: m.InsightsView })));
+const SettingsView = lazy(() => import('@/views/SettingsView').then((m) => ({ default: m.SettingsView })));
+const AddTransactionView = lazy(() => import('@/views/AddTransactionView').then((m) => ({ default: m.AddTransactionView })));
+const CategoriesView = lazy(() => import('@/views/CategoriesView').then((m) => ({ default: m.CategoriesView })));
 import { ToastHost } from '@/components/ToastHost';
 import { IconAdd, IconInsights, IconRecord, IconSettings } from '@/components/Icons';
 import { AppBrandIcon } from '@/components/AppBrandIcon';
@@ -141,7 +143,9 @@ export function MainShell() {
                 className={`tab-panel ${active ? 'tab-panel--active tab-panel--animate-in' : 'hidden'}`}
                 aria-hidden={!active}
               >
-                {tabContent[tabId]}
+                <Suspense fallback={<div className="tab-panel__loading" aria-hidden />}>
+                  {tabContent[tabId]}
+                </Suspense>
               </div>
             );
           })}
@@ -192,15 +196,21 @@ export function MainShell() {
       </button>
 
       {txnOverlay ? (
-        <AddTransactionView
-          expenseId={txnOverlay.type === 'edit' ? txnOverlay.expenseId : undefined}
-          suspended={categoriesOpen}
-          onClose={() => setTxnOverlay(null)}
-          onSaved={() => setTxnOverlay(null)}
-          onManageCategories={() => setCategoriesOpen(true)}
-        />
+        <Suspense fallback={null}>
+          <AddTransactionView
+            expenseId={txnOverlay.type === 'edit' ? txnOverlay.expenseId : undefined}
+            suspended={categoriesOpen}
+            onClose={() => setTxnOverlay(null)}
+            onSaved={() => setTxnOverlay(null)}
+            onManageCategories={() => setCategoriesOpen(true)}
+          />
+        </Suspense>
       ) : null}
-      {categoriesOpen ? <CategoriesView onClose={() => setCategoriesOpen(false)} /> : null}
+      {categoriesOpen ? (
+        <Suspense fallback={null}>
+          <CategoriesView onClose={() => setCategoriesOpen(false)} />
+        </Suspense>
+      ) : null}
 
       <ToastHost />
     </>
