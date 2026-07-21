@@ -1821,6 +1821,27 @@
   opacity: 0.85;
 }
 
+/* Native date field: make the whole control feel like an app input and give
+   the calendar picker a tidy, tappable indicator (color-scheme handles the
+   picker's light/dark rendering). */
+.field__input[type='date'] {
+  cursor: pointer;
+}
+
+.field__input[type='date']::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.65;
+  padding: 4px;
+  margin-left: 4px;
+  border-radius: 8px;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.field__input[type='date']::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  background: color-mix(in srgb, var(--color-on-surface) 12%, transparent);
+}
+
 /* ═══════════════════════════════════════════════════
  *  ADD / EDIT TRANSACTION DIALOG
  *  ═══════════════════════════════════════════════════ */

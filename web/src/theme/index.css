@@ -8,6 +8,10 @@
 @import './premium.css'; /* Master override imported last */
 
 :root {
+  /* Theme native controls (date picker, selects, scrollbars) to match the
+     app theme. Base is dark; light themes override below via data-theme. */
+  color-scheme: dark;
+
   --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
 
   /* ── Color defaults (overridden by applyTheme) ── */
@@ -49,6 +53,10 @@
   --layout-breakpoint: 768px;
   --content-max-width: 100%;
   --workspace-padding: 16px;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
 }
 
 @media (min-width: 400px) {
