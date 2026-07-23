@@ -769,6 +769,41 @@
 
 .donut {
   transform: rotate(-90deg);
+  overflow: visible;
+}
+
+/* Segments draw in as a continuous "pen" sweep around the ring on first paint.
+   Per-segment delay/duration (set inline) are proportional to each arc, so the
+   handoff is seamless. The final dash length tracks --seg-len, so live data
+   updates re-resolve the filled state without replaying the sweep. */
+.donut__ring {
+  filter: drop-shadow(0 3px 7px color-mix(in srgb, var(--color-on-background) 10%, transparent));
+}
+
+.donut__seg {
+  animation-name: donut-draw;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+  transition: opacity var(--dur-base, 0.26s) var(--ease-out, ease),
+    filter var(--dur-base, 0.26s) var(--ease-out, ease);
+}
+
+/* Hover focus — the pointed-at slice stays vivid while the rest recede */
+.donut-wrap:hover .donut__seg:not(:hover) {
+  opacity: 0.4;
+}
+
+.donut__seg:hover {
+  filter: brightness(1.14) saturate(1.08);
+}
+
+@keyframes donut-draw {
+  from {
+    stroke-dasharray: 0 var(--seg-c);
+  }
+  to {
+    stroke-dasharray: var(--seg-len) var(--seg-c);
+  }
 }
 
 .donut-center {
@@ -779,6 +814,19 @@
   align-items: center;
   justify-content: center;
   pointer-events: none;
+  animation: donut-center-in var(--dur-base, 0.26s) var(--ease-spring, ease) both;
+  animation-delay: 0.34s;
+}
+
+@keyframes donut-center-in {
+  from {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .donut-center__label {
