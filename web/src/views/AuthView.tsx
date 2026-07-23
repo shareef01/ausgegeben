@@ -122,7 +122,9 @@ export function AuthView() {
             className="btn btn-primary w-full py-3.5 rounded-xl text-sm hover:brightness-110 active:scale-[0.98] transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
             disabled={!firebaseReady || busy || !email || !password || passwordTooShort}
           >
-            {busy ? t('loading') : tab === 'signin' ? t('authSignIn') : t('authSignUp')}
+            <span key={busy ? 'busy' : tab} className="auth-page__submit-label">
+              {busy ? t('loading') : tab === 'signin' ? t('authSignIn') : t('authSignUp')}
+            </span>
           </button>
         </form>
 
