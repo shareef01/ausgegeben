@@ -663,10 +663,10 @@
   text-transform: lowercase;
   cursor: pointer;
   transition:
-    background-color 0.2s ease,
-    color 0.2s ease,
-    box-shadow 0.2s ease,
-    transform 0.15s ease;
+    background-color var(--dur-base, 0.2s) var(--ease-out, ease),
+    color var(--dur-base, 0.2s) var(--ease-out, ease),
+    box-shadow var(--dur-base, 0.2s) var(--ease-out, ease),
+    transform var(--dur-fast, 0.15s) var(--ease-out, ease);
 }
 
 .segmented__item:hover:not(.segmented__item--active) {
@@ -1961,7 +1961,10 @@
   font-size: 0.9375rem;
   font-weight: 600;
   color: var(--color-on-surface);
-  transition: all 0.2s ease;
+  transition: border-color var(--dur-base, 0.26s) var(--ease-out, ease),
+    background var(--dur-base, 0.26s) var(--ease-out, ease),
+    box-shadow var(--dur-base, 0.26s) var(--ease-out, ease),
+    transform var(--dur-base, 0.26s) var(--ease-out, ease);
   outline: none;
 }
 
@@ -2264,15 +2267,35 @@
  *  ═══════════════════════════════════════════════════ */
 
 .auth-page {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 100vh;
   min-height: 100dvh;
   padding: 24px;
+  /* Clip only horizontally so the entrance scale can't spawn a scrollbar;
+     vertical stays scrollable so a tall card is never cut off on short screens. */
+  overflow-x: hidden;
+}
+
+/* Soft accent glow behind the card for depth (subtle, theme-aware) */
+.auth-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    110% 70% at 50% -5%,
+    color-mix(in srgb, var(--color-income) 12%, transparent),
+    transparent 62%
+  );
+  pointer-events: none;
+  opacity: 0.9;
+  animation: auth-glow-in 1.1s var(--ease-out, ease) both;
 }
 
 .auth-page__card {
+  position: relative;
   width: 100%;
   max-width: 420px;
   display: flex;
@@ -2286,6 +2309,49 @@
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   color: var(--color-on-surface);
+  transform-origin: center 40%;
+  animation: auth-card-in var(--dur-slow, 0.42s) var(--ease-spring, ease) both;
+}
+
+/* Staggered reveal of the card's sections for a polished first paint */
+.auth-page__brand,
+.auth-page__alert,
+.auth-page__tabs,
+.auth-page__form,
+.auth-page__hint {
+  animation: auth-rise-in var(--dur-base, 0.26s) var(--ease-out, ease) both;
+}
+.auth-page__brand { animation-delay: 0.10s; }
+.auth-page__alert { animation-delay: 0.16s; }
+.auth-page__tabs { animation-delay: 0.18s; }
+.auth-page__form { animation-delay: 0.24s; }
+.auth-page__hint { animation-delay: 0.32s; }
+
+@keyframes auth-card-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 26px, 0) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes auth-rise-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes auth-glow-in {
+  from { opacity: 0; }
+  to { opacity: 0.9; }
 }
 
 [data-theme='light'] .auth-page__card {
@@ -2348,11 +2414,46 @@
   background: transparent;
   color: var(--color-on-surface-variant);
   cursor: pointer;
+  transition: color var(--dur-fast, 0.16s) var(--ease-out, ease),
+    background var(--dur-fast, 0.16s) var(--ease-out, ease);
 }
 
 .auth-page__password-toggle:hover {
   color: var(--color-on-background);
   background: color-mix(in srgb, var(--color-on-surface) 6%, transparent);
+}
+
+.auth-page__password-toggle:active {
+  transform: translateY(-50%) scale(0.9);
+}
+
+/* Focus micro-interaction — a gentle lift so the active field feels tactile */
+.auth-page__form .field__input:focus {
+  transform: translateY(-1px);
+}
+
+/* Messages animate in rather than snapping into the layout */
+.auth-page__error,
+.auth-page__info,
+.auth-page__field-hint {
+  animation: auth-rise-in var(--dur-base, 0.26s) var(--ease-out, ease) both;
+}
+
+/* Submit label re-animates when the tab (or busy state) changes */
+.auth-page__submit-label {
+  display: inline-block;
+  animation: auth-label-in var(--dur-base, 0.26s) var(--ease-out, ease) both;
+}
+
+@keyframes auth-label-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 5px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
 }
 
 .auth-page__field-hint {

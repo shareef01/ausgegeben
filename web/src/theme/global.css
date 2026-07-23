@@ -104,7 +104,9 @@ input[type='number'] {
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
   }
 }
 
@@ -162,19 +164,20 @@ a {
 }
 
 
-/* Tab panel transitions */
+/* Tab panel transitions — a soft rise + settle when a view becomes active */
 .tab-panel--animate-in {
-  animation: tab-in 0.4s cubic-bezier(0.2, 1, 0.4, 1) forwards;
+  animation: tab-in var(--dur-slow, 0.42s) var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)) both;
+  will-change: opacity, transform;
 }
 
 @keyframes tab-in {
   from {
     opacity: 0;
-    transform: translate3d(0, 12px, 0);
+    transform: translate3d(0, 16px, 0) scale(0.992);
   }
   to {
     opacity: 1;
-    transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0) scale(1);
   }
 }
 
