@@ -56,7 +56,6 @@ fun AnalyticsPeriodPicker(
     modifier: Modifier = Modifier,
 ) {
     var sheetOpen by remember { mutableStateOf(false) }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val triggerShape = RoundedCornerShape(AppRadius.xl)
     val accent = MaterialTheme.colorScheme.primary
 
@@ -108,82 +107,100 @@ fun AnalyticsPeriodPicker(
     }
 
     if (sheetOpen) {
-        val allTimeOption = options.firstOrNull { it.storageKey == "all_time" }
-        val monthOptions = options.filter { it.storageKey != "all_time" }
+        PeriodPickerSheet(
+            options = options,
+            selectedKey = selectedKey,
+            onSelected = onSelected,
+            onDismiss = { sheetOpen = false },
+        )
+    }
+}
 
-        ModalBottomSheet(
-            onDismissRequest = { sheetOpen = false },
-            sheetState = sheetState,
-            containerColor = MaterialTheme.colorScheme.surface,
-            dragHandle = { BottomSheetDefaults.DragHandle() },
+/** Bottom sheet listing "all time" + month options — shared by Bills and Record. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PeriodPickerSheet(
+    options: List<AnalyticsPeriodOption>,
+    selectedKey: String,
+    onSelected: (AnalyticsPeriodOption) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val allTimeOption = options.firstOrNull { it.storageKey == "all_time" }
+    val monthOptions = options.filter { it.storageKey != "all_time" }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+        dragHandle = { BottomSheetDefaults.DragHandle() },
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = AppSpacing.xl),
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(bottom = AppSpacing.xl),
-            ) {
-                Text(
-                    text = stringResource(R.string.period_picker_title),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs),
-                )
-                Text(
-                    text = stringResource(R.string.period_picker_subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.xxs),
-                )
+            Text(
+                text = stringResource(R.string.period_picker_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs),
+            )
+            Text(
+                text = stringResource(R.string.period_picker_subtitle),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.xxs),
+            )
 
-                if (allTimeOption != null) {
-                    PeriodOptionRow(
-                        label = stringResource(R.string.period_all_time),
-                        selected = allTimeOption.storageKey == selectedKey,
-                        leadingIcon = Icons.Rounded.History,
-                        onClick = {
-                            onSelected(allTimeOption)
-                            sheetOpen = false
-                        },
-                        modifier = Modifier.padding(
-                            horizontal = AppSpacing.md,
-                            vertical = AppSpacing.sm,
-                        ),
-                        prominent = true,
-                    )
-                }
+            if (allTimeOption != null) {
+                PeriodOptionRow(
+                    label = stringResource(R.string.period_all_time),
+                    selected = allTimeOption.storageKey == selectedKey,
+                    leadingIcon = Icons.Rounded.History,
+                    onClick = {
+                        onSelected(allTimeOption)
+                        onDismiss()
+                    },
+                    modifier = Modifier.padding(
+                        horizontal = AppSpacing.md,
+                        vertical = AppSpacing.sm,
+                    ),
+                    prominent = true,
+                )
+            }
 
-                if (monthOptions.isNotEmpty()) {
-                    GroupedSectionLabel(
-                        text = stringResource(R.string.period_picker_months),
-                        modifier = Modifier.padding(top = AppSpacing.xs),
-                    )
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = AppSpacing.md)
-                            .clip(GroupedShape)
-                            .appCard(shape = GroupedShape, bordered = true),
-                    ) {
-                        monthOptions.forEachIndexed { index, option ->
-                            if (index > 0) {
-                                IosSeparator()
-                            }
-                            PeriodOptionRow(
-                                label = option.label,
-                                selected = option.storageKey == selectedKey,
-                                leadingIcon = Icons.Rounded.DateRange,
-                                onClick = {
-                                    onSelected(option)
-                                    sheetOpen = false
-                                },
-                                modifier = Modifier.padding(
-                                    horizontal = AppSpacing.md,
-                                    vertical = AppSpacing.sm,
-                                ),
-                            )
+            if (monthOptions.isNotEmpty()) {
+                GroupedSectionLabel(
+                    text = stringResource(R.string.period_picker_months),
+                    modifier = Modifier.padding(top = AppSpacing.xs),
+                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = AppSpacing.md)
+                        .clip(GroupedShape)
+                        .appCard(shape = GroupedShape, bordered = true),
+                ) {
+                    monthOptions.forEachIndexed { index, option ->
+                        if (index > 0) {
+                            IosSeparator()
                         }
+                        PeriodOptionRow(
+                            label = option.label,
+                            selected = option.storageKey == selectedKey,
+                            leadingIcon = Icons.Rounded.DateRange,
+                            onClick = {
+                                onSelected(option)
+                                onDismiss()
+                            },
+                            modifier = Modifier.padding(
+                                horizontal = AppSpacing.md,
+                                vertical = AppSpacing.sm,
+                            ),
+                        )
                     }
                 }
             }
