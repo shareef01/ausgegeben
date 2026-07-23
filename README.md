@@ -19,25 +19,23 @@
 
 ## Screenshots
 
+Every screen ships in matching **light and dark** themes.
+
 ### Web
 
-| Record | Insights |
-|---|---|
-| ![Record — balance, budget, and transaction list](docs/screenshots/web/web-record.png) | ![Insights — expense/income breakdown and cash flow](docs/screenshots/web/web-insights.png) |
-
-| Add Transaction | Settings |
-|---|---|
-| ![Add transaction dialog](docs/screenshots/web/web-add-transaction.png) | ![Settings](docs/screenshots/web/web-settings.png) |
+| | Light | Dark |
+|---|---|---|
+| **Record** | ![Web Record — light](docs/screenshots/web/web-record-light.png) | ![Web Record — dark](docs/screenshots/web/web-record-dark.png) |
+| **Insights** | ![Web Insights — light](docs/screenshots/web/web-insights-light.png) | ![Web Insights — dark](docs/screenshots/web/web-insights-dark.png) |
+| **Add Transaction** | ![Web Add Transaction — light](docs/screenshots/web/web-add-transaction-light.png) | ![Web Add Transaction — dark](docs/screenshots/web/web-add-transaction-dark.png) |
+| **Settings** | ![Web Settings — light](docs/screenshots/web/web-settings-light.png) | ![Web Settings — dark](docs/screenshots/web/web-settings-dark.png) |
 
 ### Android
 
-<p align="center">
-  <img src="docs/screenshots/android/record.png" width="160" alt="Record" />
-  <img src="docs/screenshots/android/add-transaction-expense.png" width="160" alt="Add expense" />
-  <img src="docs/screenshots/android/bills-overview.png" width="160" alt="Bills overview" />
-  <img src="docs/screenshots/android/bills-categories.png" width="160" alt="Category breakdown" />
-  <img src="docs/screenshots/android/settings-account.png" width="160" alt="Settings" />
-</p>
+| Record | Bills | Settings |
+|---|---|---|
+| ![Android Record — light](docs/screenshots/android/record-light.png) | ![Android Bills — light](docs/screenshots/android/bills-light.png) | ![Android Settings — light](docs/screenshots/android/settings-light.png) |
+| ![Android Record — dark](docs/screenshots/android/record-dark.png) | ![Android Bills — dark](docs/screenshots/android/bills-dark.png) | ![Android Settings — dark](docs/screenshots/android/settings-dark.png) |
 
 ---
 
