@@ -53,6 +53,21 @@ export function analyticsPeriodOptions(
   return options;
 }
 
+/**
+ * Map legacy keys ('this_month' / 'last_month') to their concrete month key so
+ * the period picker can mark the matching option as selected. Unknown keys pass
+ * through unchanged.
+ */
+export function normalizeAnalyticsPeriodKey(storageKey: string, now = Date.now()): string {
+  const d = new Date(now);
+  if (storageKey === 'this_month') return monthStorageKey(d.getFullYear(), d.getMonth());
+  if (storageKey === 'last_month') {
+    const prev = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+    return monthStorageKey(prev.getFullYear(), prev.getMonth());
+  }
+  return storageKey;
+}
+
 export function analyticsDateRangeMillis(storageKey: string, now = Date.now()): [number, number] | null {
   if (storageKey === 'all_time') return null;
   if (storageKey === 'this_month') return thisMonthRange(now);

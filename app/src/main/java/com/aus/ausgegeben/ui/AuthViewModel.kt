@@ -4,8 +4,6 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.aus.ausgegeben.R
-import com.aus.ausgegeben.data.PreferenceManager
-import com.aus.ausgegeben.data.StorageMode
 import com.aus.ausgegeben.data.AppRepository
 import com.aus.ausgegeben.data.auth.AuthRepository
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
@@ -42,7 +40,6 @@ data class AuthUiState(
 class AuthViewModel(
     application: Application,
     private val authRepository: AuthRepository,
-    private val preferenceManager: PreferenceManager,
     private val repository: AppRepository,
 ) : AndroidViewModel(application) {
 
@@ -78,14 +75,6 @@ class AuthViewModel(
 
     fun onTogglePasswordVisibility() {
         _uiState.update { it.copy(passwordVisible = !it.passwordVisible) }
-    }
-
-    fun continueOffline(onSuccess: () -> Unit) {
-        viewModelScope.launch {
-            preferenceManager.setStorageMode(StorageMode.LOCAL)
-            preferenceManager.setAuthGatewayComplete()
-            onSuccess()
-        }
     }
 
     fun submit(onSuccess: () -> Unit) {
@@ -167,7 +156,6 @@ class AuthViewModel(
     fun signOut(onComplete: () -> Unit = {}) {
         viewModelScope.launch {
             authRepository.signOut()
-            preferenceManager.setStorageMode(StorageMode.LOCAL)
             onComplete()
         }
     }
@@ -180,8 +168,6 @@ class AuthViewModel(
         result.fold(
             onSuccess = {
                 _uiState.update { it.copy(isLoading = false, loadingMessage = null) }
-                preferenceManager.setStorageMode(StorageMode.CLOUD)
-                preferenceManager.setAuthGatewayComplete()
                 viewModelScope.launch(Dispatchers.IO) {
                     repository.ensureSeeded()
                 }

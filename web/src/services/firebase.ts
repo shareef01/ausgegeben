@@ -1,12 +1,20 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app';
-import { getAuth, type Auth } from 'firebase/auth';
+import { connectAuthEmulator, getAuth, type Auth } from 'firebase/auth';
 import {
+  connectFirestoreEmulator,
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager,
   type Firestore,
 } from 'firebase/firestore';
 import { initializeAppCheck, ReCaptchaEnterpriseProvider, type AppCheck } from 'firebase/app-check';
+
+/**
+ * Dev-only: point Auth/Firestore at the local emulators (firebase.emulator.json)
+ * when running `vite --mode emulator` with VITE_FIREBASE_USE_EMULATORS=true.
+ * Guarded by import.meta.env.DEV so production bundles can never opt in.
+ */
+const useEmulators = import.meta.env.DEV && import.meta.env.VITE_FIREBASE_USE_EMULATORS === 'true';
 
 export const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? '',
@@ -47,7 +55,12 @@ export function getFirebaseApp(): FirebaseApp | null {
 export function getFirebaseAuth(): Auth | null {
   const firebaseApp = getFirebaseApp();
   if (!firebaseApp) return null;
-  if (!auth) auth = getAuth(firebaseApp);
+  if (!auth) {
+    auth = getAuth(firebaseApp);
+    if (useEmulators) {
+      connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+    }
+  }
   return auth;
 }
 
@@ -63,6 +76,9 @@ export function getFirebaseFirestore(): Firestore | null {
     firestore = initializeFirestore(firebaseApp, {
       localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
     });
+    if (useEmulators) {
+      connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
+    }
   }
   return firestore;
 }

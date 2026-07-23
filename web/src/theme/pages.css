@@ -402,14 +402,25 @@
   color: var(--color-expense);
 }
 
-/* Touch: keep actions visible */
+/* Touch: no hover, so keep a compact always-visible delete affordance.
+   Edit = tap the row, duplicate = long-press; showing all three buttons
+   reserved 148px and crushed row content at phone widths. */
 @media (pointer: coarse) {
   .swipeable-row__actions {
     display: flex !important;
   }
 
+  .swipeable-row__action:not(.swipeable-row__action--danger) {
+    display: none;
+  }
+
+  .swipeable-row__action {
+    width: 40px;
+    height: 40px;
+  }
+
   .swipeable-row__content {
-    padding-right: 148px;
+    padding-right: 56px;
   }
 }
 
@@ -1320,6 +1331,90 @@
   border-radius: 50%;
   flex-shrink: 0;
   transition: transform 0.2s ease;
+}
+
+/* Category editor — icon + color pickers (parity with Android's editor) */
+.category-editor__icons {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  gap: 8px;
+}
+
+.category-editor__icon {
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--surface-border);
+  background: var(--glass-bg);
+  color: var(--color-on-surface-variant);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+
+.category-editor__icon:active {
+  transform: scale(0.94);
+}
+
+.category-editor__icon--selected {
+  border-width: 1.5px;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.category-editor__colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.category-editor__swatch {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: #1c1c22;
+  transition: transform 0.1s ease, border-color 0.15s ease;
+}
+
+.category-editor__swatch:active {
+  transform: scale(0.92);
+}
+
+.category-editor__swatch--selected {
+  border-color: var(--color-on-background);
+}
+
+.category-editor__preview {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px dashed var(--surface-border);
+}
+
+.category-editor__preview-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-on-background);
+}
+
+.category-row-edit {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.category-row-edit:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+  border-radius: 10px;
 }
 
 /* Categories empty state */

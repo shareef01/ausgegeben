@@ -198,6 +198,7 @@ fun RecordScreen(
                     ) {
                         RecordListToolbar(
                             listPeriod = uiState.toolbar.listPeriod,
+                            listPeriodLabel = listPeriodLabel,
                             onListPeriod = viewModel::setListPeriod,
                             typeFilter = uiState.toolbar.typeFilter,
                             onTypeFilter = viewModel::setTypeFilter,
@@ -365,6 +366,7 @@ fun RecordScreen(
 @Composable
 private fun RecordListToolbar(
     listPeriod: String,
+    listPeriodLabel: String,
     onListPeriod: (String) -> Unit,
     typeFilter: TransactionTypeFilter,
     onTypeFilter: (TransactionTypeFilter) -> Unit,
@@ -377,6 +379,27 @@ private fun RecordListToolbar(
 ) {
     val typeFilterLabels = TransactionTypeFilter.entries.map { it.label }
     val typeFilterIndex = TransactionTypeFilter.entries.indexOf(typeFilter).coerceAtLeast(0)
+    val isMonthPeriod = listPeriod.startsWith("month:")
+    var showMonthSheet by remember { mutableStateOf(false) }
+    // Same 12-month sheet as Bills so Record can scope the list to any month (parity with web)
+    val monthPickerOptions = remember { analyticsPeriodOptions(monthsBack = 12) }
+    val currentMonthKey = remember(monthPickerOptions) {
+        monthPickerOptions.firstOrNull { it.storageKey != "all_time" }?.storageKey
+    }
+
+    if (showMonthSheet) {
+        PeriodPickerSheet(
+            options = monthPickerOptions,
+            selectedKey = if (listPeriod == RecordListPeriod.THIS_MONTH.key) currentMonthKey ?: listPeriod else listPeriod,
+            onSelected = { option ->
+                onListPeriod(
+                    if (option.storageKey == currentMonthKey) RecordListPeriod.THIS_MONTH.key
+                    else option.storageKey,
+                )
+            },
+            onDismiss = { showMonthSheet = false },
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -410,17 +433,77 @@ private fun RecordListToolbar(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        IosSegmentedControl(
-                            options = listOf(thisMonthLabel, allTimeLabel),
-                            selectedIndex = if (listPeriod == RecordListPeriod.ALL_TIME.key) 1 else 0,
-                            onSelected = { index ->
-                                onListPeriod(
-                                    if (index == 0) RecordListPeriod.THIS_MONTH.key else RecordListPeriod.ALL_TIME.key,
+                        if (isMonthPeriod) {
+                            // Active month scope — chip with a clear affordance back to "this month"
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .appGlassCard(RoundedCornerShape(AppRadius.pill))
+                                    .border(
+                                        0.5.dp,
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
+                                        RoundedCornerShape(AppRadius.pill),
+                                    )
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Icon(
+                                    Icons.Rounded.CalendarMonth,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp),
                                 )
-                            },
-                            modifier = Modifier.weight(1f)
-                        )
-                        
+                                Text(
+                                    text = listPeriodLabel.lowercase(),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .smoothClickable { onListPeriod(RecordListPeriod.THIS_MONTH.key) },
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.Close,
+                                        contentDescription = stringResource(R.string.record_clear_month_filter),
+                                        tint = navigationInactiveColor(),
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                }
+                            }
+                        } else {
+                            IosSegmentedControl(
+                                options = listOf(thisMonthLabel, allTimeLabel),
+                                selectedIndex = if (listPeriod == RecordListPeriod.ALL_TIME.key) 1 else 0,
+                                onSelected = { index ->
+                                    onListPeriod(
+                                        if (index == 0) RecordListPeriod.THIS_MONTH.key else RecordListPeriod.ALL_TIME.key,
+                                    )
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .appGlassCard(CircleShape)
+                                .smoothClickable { showMonthSheet = true },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Rounded.CalendarMonth,
+                                contentDescription = stringResource(R.string.record_pick_month),
+                                tint = if (isMonthPeriod) MaterialTheme.colorScheme.primary else navigationInactiveColor(),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
                         Box(
                             modifier = Modifier
                                 .size(36.dp)
@@ -871,7 +954,9 @@ fun TransactionRow(
                 isTransfer -> CurrencyUtils.formatAmount(expense.amount, currencyCode)
                 else -> "-" + CurrencyUtils.formatAmount(expense.amount, currencyCode)
             },
-            modifier = Modifier.widthIn(min = 80.dp),
+            modifier = Modifier
+                .widthIn(min = 80.dp)
+                .padding(end = 14.dp),
             style = TextStyle(
                 fontSize = 15.sp, 
                 fontWeight = FontWeight.Bold,

@@ -1,5 +1,6 @@
 import type { Expense, Category, CashFlowPoint } from '@/models/types';
-import { dayKey } from '@/utils/periodUtils';
+import { analyticsDateRangeMillis, dayKey } from '@/utils/periodUtils';
+import { getLocale, localeTag } from '@/i18n';
 
 export function isExpense(e: { transactionType: string }): boolean {
   return e.transactionType === 'expense';
@@ -53,38 +54,65 @@ export function computeDayTotals(expenses: Expense[]): Record<string, { income: 
   return result;
 }
 
-export function computeCashFlowTrend(expenses: Expense[], bucketCount = 7): CashFlowPoint[] {
-  if (expenses.length === 0) return [];
-  const sorted = [...expenses].sort((a, b) => a.dateMillis - b.dateMillis);
-  const start = sorted[0].dateMillis;
-  const end = sorted[sorted.length - 1].dateMillis;
-  const span = Math.max(end - start, 1);
-  const bucketSize = span / bucketCount;
+function monthBucketStart(millis: number): number {
+  const d = new Date(millis);
+  return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+}
 
-  const buckets: CashFlowPoint[] = [];
-  for (let i = 0; i < bucketCount; i++) {
-    const bucketStart = start + bucketSize * i;
-    const bucketEnd = bucketStart + bucketSize;
-    let income = 0;
-    let expense = 0;
-    // Final bucket is inclusive of its upper bound so the most-recent
-    // transaction (dateMillis === end) isn't dropped from the trend.
-    const isLastBucket = i === bucketCount - 1;
-    for (const e of sorted) {
-      const inBucket = e.dateMillis >= bucketStart &&
-        (isLastBucket ? e.dateMillis <= bucketEnd : e.dateMillis < bucketEnd);
-      if (inBucket) {
-        if (isIncome(e)) income += e.amount;
-        if (isExpense(e)) expense += e.amount;
-      }
+function dayBucketStart(millis: number): number {
+  const d = new Date(millis);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+/**
+ * Same bucketing as Android WealthTrend.computeCashFlowTrend: month periods get
+ * one zero-filled bucket per calendar day; all-time gets one bucket per month
+ * that has data. Transfers are excluded from both series.
+ */
+export function computeCashFlowTrend(expenses: Expense[], periodKey = 'all_time'): CashFlowPoint[] {
+  const billable = expenses.filter((e) => !isTransfer(e));
+  if (billable.length === 0) return [];
+  const tag = localeTag(getLocale());
+  const range = analyticsDateRangeMillis(periodKey === 'all_time' ? 'all_time' : periodKey);
+
+  let buckets: { start: number; label: string }[];
+  let keyFor: (millis: number) => number;
+
+  if (range === null) {
+    const monthFmt = new Intl.DateTimeFormat(tag, { month: 'short', year: '2-digit' });
+    keyFor = monthBucketStart;
+    buckets = [...new Set(billable.map((e) => monthBucketStart(e.dateMillis)))]
+      .sort((a, b) => a - b)
+      .map((start) => ({ start, label: monthFmt.format(new Date(start)) }));
+  } else {
+    const dayFmt = new Intl.DateTimeFormat(tag, { month: 'short', day: 'numeric' });
+    keyFor = dayBucketStart;
+    buckets = [];
+    const cursor = new Date(range[0]);
+    const end = dayBucketStart(range[1] - 1);
+    while (cursor.getTime() <= end) {
+      buckets.push({ start: cursor.getTime(), label: dayFmt.format(cursor) });
+      cursor.setDate(cursor.getDate() + 1);
     }
-    buckets.push({
-      label: new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(new Date(bucketStart)),
-      income: Math.round(income * 100) / 100,
-      expense: Math.round(expense * 100) / 100,
-    });
   }
-  return buckets;
+
+  const byBucket = new Map<number, { income: number; expense: number }>();
+  for (const e of billable) {
+    const key = keyFor(e.dateMillis);
+    const entry = byBucket.get(key) ?? { income: 0, expense: 0 };
+    if (isIncome(e)) entry.income += e.amount;
+    if (isExpense(e)) entry.expense += e.amount;
+    byBucket.set(key, entry);
+  }
+
+  return buckets.map(({ start, label }) => {
+    const entry = byBucket.get(start);
+    return {
+      label,
+      income: Math.round((entry?.income ?? 0) * 100) / 100,
+      expense: Math.round((entry?.expense ?? 0) * 100) / 100,
+    };
+  });
 }
 
 /**
@@ -98,13 +126,15 @@ export function csvEscapeField(value: string): string {
   return `"${safe.replace(/"/g, '""')}"`;
 }
 
+/** Same columns and local-time formatting as Android ExportUtils ("yyyy-MM-dd,HH:mm"). */
 export function exportCsv(expenses: Expense[], categories: Category[]): string {
   const catMap = new Map(categories.map((c) => [c.id, c]));
-  const header = 'date,time,type,category,vendor,amount';
+  const header = 'date,time,type,category,note,amount';
+  const pad = (n: number) => String(n).padStart(2, '0');
   const rows = expenses.map((e) => {
     const d = new Date(e.dateMillis);
-    const date = d.toISOString().slice(0, 10);
-    const time = d.toTimeString().slice(0, 8);
+    const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
     const cat = catMap.get(e.categoryId)?.name ?? 'Unknown';
     return [date, time, e.transactionType, cat, e.note, String(e.amount)]
       .map(csvEscapeField)
