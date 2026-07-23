@@ -57,13 +57,14 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
         .filter((e) => e.transactionType === 'expense')
         .reduce((s, e) => s + e.amount, 0);
       return {
-        label: formatDateLabel(items[0].dateMillis),
+        label: formatDateLabel(items[0].dateMillis, locale),
         items,
         dayIncome: Math.round(dayIncome * 100) / 100,
         dayExpense: Math.round(dayExpense * 100) / 100,
       };
     });
-  }, [uiState.expenses]);
+    // `locale` keeps day-header labels in the UI language after a language switch.
+  }, [uiState.expenses, locale]);
 
   const catMap = useMemo(() => new Map(uiState.categories.map((c) => [c.id, c])), [uiState.categories]);
 

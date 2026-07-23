@@ -33,8 +33,6 @@ class PreferenceManager(private val context: Context) {
         val REMINDER_MINUTE = intPreferencesKey("reminder_minute")
         val ANALYTICS_PERIOD = stringPreferencesKey("analytics_period")
         val MONTHLY_BUDGET = stringPreferencesKey("monthly_budget")
-        val STORAGE_MODE = stringPreferencesKey("storage_mode")
-        val AUTH_GATEWAY_COMPLETE = booleanPreferencesKey("auth_gateway_complete")
         val LAST_CLOUD_SYNC_AT = stringPreferencesKey("last_cloud_sync_at")
         val LANGUAGE = stringPreferencesKey("language")
         /** LWW clock shared with web (`users/{uid}/settings/preferences.updatedAt`). */
@@ -130,22 +128,6 @@ class PreferenceManager(private val context: Context) {
         }
         .map { prefs ->
             prefs[PreferencesKeys.MONTHLY_BUDGET]?.toDoubleOrNull()?.takeIf { it > 0 }
-        }
-
-    val storageModeFlow: Flow<StorageMode> = context.dataStore.data
-        .catch { exception ->
-            if (exception is IOException) emit(emptyPreferences()) else throw exception
-        }
-        .map { preferences ->
-            StorageMode.fromStorageKey(preferences[PreferencesKeys.STORAGE_MODE])
-        }
-
-    val authGatewayCompleteFlow: Flow<Boolean> = context.dataStore.data
-        .catch { exception ->
-            if (exception is IOException) emit(emptyPreferences()) else throw exception
-        }
-        .map { preferences ->
-            preferences[PreferencesKeys.AUTH_GATEWAY_COMPLETE] ?: false
         }
 
     val lastCloudSyncAtFlow: Flow<Long?> = context.dataStore.data
@@ -288,24 +270,6 @@ class PreferenceManager(private val context: Context) {
             } else {
                 this[PreferencesKeys.MONTHLY_BUDGET] = amount.toString()
             }
-        }
-    }
-
-    suspend fun setStorageMode(mode: StorageMode) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.STORAGE_MODE] = mode.storageKey
-        }
-    }
-
-    suspend fun setAuthGatewayComplete() {
-        context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.AUTH_GATEWAY_COMPLETE] = true
-        }
-    }
-
-    suspend fun resetAuthGateway() {
-        context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.AUTH_GATEWAY_COMPLETE] = false
         }
     }
 

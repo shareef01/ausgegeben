@@ -15,13 +15,9 @@
     <string name="auth_toggle_password">passwort anzeigen</string>
     <string name="auth_sign_in">anmelden</string>
     <string name="auth_create_account">konto erstellen</string>
-    <string name="auth_or">oder</string>
-    <string name="auth_continue_google">mit google fortfahren</string>
     <string name="auth_forgot_password">passwort vergessen?</string>
     <string name="auth_reset_email_sent">passwort-reset-e-mail gesendet. prüfe deinen posteingang.</string>
-    <string name="auth_continue_offline">offline fortfahren</string>
-    <string name="auth_continue_offline_subtitle">alle daten nur auf diesem gerät speichern</string>
-    <string name="auth_privacy_note">der offline-modus speichert alles lokal. cloud-konten nutzen firebase authentication.</string>
+    <string name="auth_offline_hint">transaktionen synchronisieren über die cloud und funktionieren nach der anmeldung auch offline.</string>
     <string name="auth_error_email_required">gib deine e-mail-adresse ein</string>
     <string name="auth_error_password_short">passwort muss mindestens 6 zeichen lang sein</string>
     <string name="auth_error_password_mismatch">passwörter stimmen nicht überein</string>
@@ -269,6 +265,27 @@
     <!-- Bills charts -->
     <string name="bills_section_expenses">ausgaben</string>
     <string name="bills_section_income">einnahmen</string>
+    <string name="bills_total_income">gesamteinnahmen</string>
+    <string name="bills_total_expense">gesamtausgaben</string>
+    <string name="add_delete_category_fallback">verknüpfte transaktionen werden zu „nicht kategorisiert" verschoben.</string>
+    <string name="add_delete_category_many">%1$d verknüpfte transaktionen werden zu „nicht kategorisiert" verschoben.</string>
+    <string name="add_delete_category_none">keine transaktionen sind mit dieser kategorie verknüpft.</string>
+    <string name="add_delete_category_one">1 verknüpfte transaktion wird zu „nicht kategorisiert" verschoben.</string>
+    <string name="add_no_categories_subtitle">tippe unten auf neu oder verwalten, um eine zu erstellen</string>
+    <plurals name="insight_days_logged">
+        <item quantity="one">%d tag diese woche erfasst</item>
+        <item quantity="other">%d tage diese woche erfasst</item>
+    </plurals>
+    <string name="settings_sync_error_config_placeholder">cloud-backup ist in diesem build nicht verfügbar.</string>
+    <string name="settings_sync_error_firestore_missing">cloud-backup ist vorübergehend nicht verfügbar. bitte später erneut versuchen.</string>
+    <string name="snackbar_data_listener_error">probleme beim laden der neuesten daten. prüfe deine verbindung.</string>
+    <string name="snackbar_transaction_delete_failed">transaktion konnte nicht gelöscht werden</string>
+    <string name="snackbar_transaction_duplicate_failed">transaktion konnte nicht dupliziert werden</string>
+    <string name="snackbar_transaction_restore_failed">transaktion konnte nicht wiederhergestellt werden</string>
+    <plurals name="summary_transfers">
+        <item quantity="one">%1$d umbuchung · %2$s</item>
+        <item quantity="other">%1$d umbuchungen · %2$s</item>
+    </plurals>
     <string name="bills_section_transfers">transfers</string>
     <string name="chart_total_label">gesamt</string>
     <string name="chart_overview_title">einnahmen vs. ausgaben</string>
@@ -291,6 +308,8 @@
     <string name="desc_transfer_row">%1$s Transfer von %2$s. %3$s</string>
     <string name="desc_finance_summary">Finanzübersicht für %1$s. Netto-Saldo %2$s. Gesamteinnahmen %3$s. Gesamtausgaben %4$s.</string>
     <string name="record_filter">Nach Typ filtern</string>
+    <string name="record_pick_month">monat wählen</string>
+    <string name="record_clear_month_filter">zurück zu diesem monat</string>
     <string name="record_gesture_hints">Nach links wischen zum Löschen · Nach rechts wischen zum Bearbeiten · Lange drücken zum Duplizieren</string>
     <string name="state_loading">Lade…</string>
     <string name="add_confirm_transaction">Transaktion bestätigen</string>
