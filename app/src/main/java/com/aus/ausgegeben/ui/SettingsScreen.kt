@@ -42,7 +42,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.data.AppRepository
-import com.aus.ausgegeben.data.StorageMode
 import com.aus.ausgegeben.data.auth.AuthRepository
 import com.aus.ausgegeben.ui.components.*
 import com.aus.ausgegeben.ui.theme.*
@@ -77,7 +76,6 @@ fun SettingsScreen(
     val reminderHour by preferenceManager.reminderHourFlow.collectAsStateWithLifecycle(initialValue = 19)
     val reminderMinute by preferenceManager.reminderMinuteFlow.collectAsStateWithLifecycle(initialValue = 0)
     val monthlyBudget by preferenceManager.monthlyBudgetFlow.collectAsStateWithLifecycle(initialValue = null)
-    val storageMode by preferenceManager.storageModeFlow.collectAsStateWithLifecycle(initialValue = StorageMode.LOCAL)
     val lastCloudSyncAt by preferenceManager.lastCloudSyncAtFlow.collectAsStateWithLifecycle(initialValue = null)
 
     // Reactive Auth State
@@ -191,7 +189,7 @@ fun SettingsScreen(
                     .appGlassCard(shape = RoundedCornerShape(AppRadius.card)),
             ) {
                 Column {
-                    if (currentUser != null && storageMode == StorageMode.CLOUD) {
+                    if (currentUser != null) {
                         val email = currentUser?.email
                         val accountTitle = currentUser?.displayName?.takeIf { it.isNotBlank() }
                             ?: email?.substringBefore('@')?.replaceFirstChar { it.titlecase() }
@@ -938,8 +936,19 @@ fun MonthlyBudgetSheet(
     onDismiss: () -> Unit,
     onSave: (Double?) -> Unit
 ) {
-    var amountText by remember { mutableStateOf(currentBudget?.let { "%.2f".format(it) } ?: "") }
-    
+    // Prefill with the currency's decimal separator (e.g. "900,00" for EUR). The old
+    // "%.2f".format(...) used the device locale, so on German devices the comma-formatted
+    // prefill failed the digit/dot input filter and toDoubleOrNull(), silently clearing
+    // the budget when Save was tapped without edits.
+    var amountText by remember {
+        mutableStateOf(currentBudget?.let { CurrencyUtils.formatAmountForInput(it, currencyCode) } ?: "")
+    }
+
+    // Save only commits a valid positive amount; invalid or empty text can't silently
+    // wipe the budget (use Clear for that). Parse mirrors the currency's separators.
+    val parsedBudget = CurrencyUtils.parseAmount(amountText, currencyCode)
+    val canSave = parsedBudget != null && parsedBudget > 0.0
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = appSheetContainerColor(),
@@ -961,7 +970,14 @@ fun MonthlyBudgetSheet(
             
             OutlinedTextField(
                 value = amountText,
-                onValueChange = { if (it.all { c -> c.isDigit() || c == '.' }) amountText = it },
+                onValueChange = { input ->
+                    // Digits plus at most one decimal separator — blocks "9,9,9" that
+                    // would parse to null and clear the budget.
+                    val separators = input.count { it == '.' || it == ',' }
+                    if (input.all { c -> c.isDigit() || c == '.' || c == ',' } && separators <= 1) {
+                        amountText = input
+                    }
+                },
                 label = { Text(stringResource(R.string.settings_budget_amount_label, currencyCode).lowercase()) },
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -980,7 +996,8 @@ fun MonthlyBudgetSheet(
                     Text(stringResource(R.string.action_clear).lowercase())
                 }
                 AppButton(
-                    onClick = { onSave(amountText.toDoubleOrNull()) },
+                    onClick = { parsedBudget?.let(onSave) },
+                    enabled = canSave,
                     modifier = Modifier.weight(1f)
                 ) {
                     Text(stringResource(R.string.action_save).lowercase())

@@ -3,12 +3,15 @@ import type { Category, DashboardUiState, Expense } from '@/models/types';
 import { expenseRepository } from '@/repositories/expenseRepository';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { computeCashFlowTrend, groupByCategory } from '@/utils/analytics';
-import { analyticsDateRangeMillis, analyticsPeriodOptions } from '@/utils/periodUtils';
+import { analyticsDateRangeMillis, analyticsPeriodOptions, normalizeAnalyticsPeriodKey } from '@/utils/periodUtils';
 
 const DATA_CHANGED_EVENT = 'ausgegeben:data-changed';
 
 export function useDashboardViewModel() {
-  const periodKey = usePreferencesStore((s) => s.analyticsPeriod);
+  // Normalized so legacy keys like 'this_month' resolve to a concrete month
+  // option — otherwise the picker falls back to (and displays) "all time".
+  const storedPeriodKey = usePreferencesStore((s) => s.analyticsPeriod);
+  const periodKey = useMemo(() => normalizeAnalyticsPeriodKey(storedPeriodKey), [storedPeriodKey]);
   const setAnalyticsPeriod = usePreferencesStore((s) => s.setAnalyticsPeriod);
   const locale = usePreferencesStore((s) => s.locale);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -123,7 +126,7 @@ export function useDashboardViewModel() {
       expensesByCategory,
       incomeByCategory,
       transfersByCategory,
-      cashFlowTrend: computeCashFlowTrend(expenses),
+      cashFlowTrend: computeCashFlowTrend(expenses, periodKey),
       loading,
       loadError,
     };

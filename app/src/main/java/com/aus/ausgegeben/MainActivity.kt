@@ -106,10 +106,12 @@ fun MainApp(
 ) {
     val context = LocalContext.current
     val activity = LocalActivity.current as? AppCompatActivity ?: return
+    val currentUser by authRepository.authState.collectAsState(initial = authRepository.currentUser)
     val currency by preferenceManager.currencyFlow.collectAsState(initial = "EUR")
     val dailyReminder by preferenceManager.dailyReminderFlow.collectAsState(initial = true)
+    val reminderHour by preferenceManager.reminderHourFlow.collectAsState(initial = 19)
+    val reminderMinute by preferenceManager.reminderMinuteFlow.collectAsState(initial = 0)
     val onboardingComplete by preferenceManager.onboardingCompleteFlow.collectAsState(initial = false)
-    val authGatewayComplete by preferenceManager.authGatewayCompleteFlow.collectAsState(initial = false)
     val isOnline by ConnectivityObserver.observe(context).collectAsState(initial = true)
     val prefsSyncError by preferencesCloudSync.syncError.collectAsState(initial = null)
     val listenerError by repository.listenerError.collectAsState(initial = null)
@@ -134,12 +136,14 @@ fun MainApp(
         DashboardViewModel(repository, preferenceManager)
     }
     val authViewModel: AuthViewModel = viewModel(activity) {
-        AuthViewModel(activity.application, authRepository, preferenceManager, repository)
+        AuthViewModel(activity.application, authRepository, repository)
     }
 
     val overlay = rememberAppOverlayState(addViewModel, expenseViewModel)
 
-    LaunchedEffect(dailyReminder) {
+    // Keyed on the time too, so a reminder-time change synced from another device
+    // (which doesn't toggle dailyReminder) still reschedules the local WorkManager job.
+    LaunchedEffect(dailyReminder, reminderHour, reminderMinute) {
         NotificationHelper.ensureChannel(context)
         if (dailyReminder) {
             ReminderScheduler.scheduleNext(context)
@@ -200,11 +204,13 @@ fun MainApp(
         return
     }
 
-    if (!authGatewayComplete || showAuthFromSettings) {
+    // Sign-in is mandatory (matches web): the Firestore-backed repository has no
+    // local fallback, so an unauthenticated session could neither load nor save data.
+    if (currentUser == null || showAuthFromSettings) {
         AuthScreen(
             viewModel = authViewModel,
             onAuthenticated = { showAuthFromSettings = false },
-            onDismiss = if (authGatewayComplete) {
+            onDismiss = if (currentUser != null) {
                 { showAuthFromSettings = false }
             } else {
                 null

@@ -132,22 +132,37 @@ interface CategoryCardProps {
   accent: string;
 }
 
+const TOP_CATEGORY_COUNT = 6;
+
 function CategoryCard({ title, map, categories, currency, accent }: CategoryCardProps) {
   const { t } = useTranslation();
   const entries = useMemo(() => [...map.entries()].sort((a, b) => b[1] - a[1]), [map]);
   const total = useMemo(() => entries.reduce((s, [, v]) => s + v, 0), [entries]);
 
+  // Top categories plus an aggregate "other" so the donut and the percentages
+  // always account for 100% of the period, even with many small categories.
+  const displayEntries = useMemo(() => {
+    const top = entries.slice(0, TOP_CATEGORY_COUNT);
+    const restTotal = entries.slice(TOP_CATEGORY_COUNT).reduce((s, [, v]) => s + v, 0);
+    const rows: { key: string; name: string; value: number; color: string }[] = top.map(([catId, value], i) => {
+      const cat = categories.find((c) => c.id === catId);
+      return {
+        key: catId,
+        name: cat?.name ?? '?',
+        value,
+        color: cat ? segmentColor(cat.colorInt) : `hsl(${i * 40}, 60%, 55%)`,
+      };
+    });
+    if (restTotal > 0) {
+      rows.push({ key: '__other__', name: t('categoryOther'), value: Math.round(restTotal * 100) / 100, color: 'var(--color-outline)' });
+    }
+    return rows;
+  }, [entries, categories, t]);
+
   const segments = useMemo(() => {
     if (total <= 0) return [];
-    return entries.slice(0, 6).map(([catId, value], i) => {
-        const cat = categories.find((c) => c.id === catId);
-        return {
-            label: cat?.name ?? '?',
-            value,
-            color: cat ? segmentColor(cat.colorInt) : `hsl(${i * 40}, 60%, 55%)`
-        };
-      });
-  }, [entries, categories, total]);
+    return displayEntries.map(({ name, value, color }) => ({ label: name, value, color }));
+  }, [displayEntries, total]);
 
   if (total <= 0) {
       return (
@@ -165,15 +180,13 @@ function CategoryCard({ title, map, categories, currency, accent }: CategoryCard
         <DonutChart segments={segments} size={148} center={{ value: formatAmount(total, currency) }} />
       </div>
       <ul className="insights-category-card__list">
-        {entries.slice(0, 6).map(([catId, amount]) => {
-          const cat = categories.find((c) => c.id === catId);
-          const pct = Math.round((amount / total) * 100);
-          const dotColor = cat ? segmentColor(cat.colorInt) : 'var(--color-outline)';
+        {displayEntries.map(({ key, name, value, color }) => {
+          const pct = Math.round((value / total) * 100);
           return (
-            <li key={catId} className="insights-category-card__row">
-              <span className="insights-category-card__dot" style={{ background: dotColor }} aria-hidden />
-              <span className="insights-category-card__name">{cat?.name ?? '?'}</span>
-              <span className="insights-category-card__amount">{formatAmount(amount, currency)}</span>
+            <li key={key} className="insights-category-card__row">
+              <span className="insights-category-card__dot" style={{ background: color }} aria-hidden />
+              <span className="insights-category-card__name">{name}</span>
+              <span className="insights-category-card__amount">{formatAmount(value, currency)}</span>
               <span className="insights-category-card__pct">{pct}%</span>
             </li>
           );

@@ -70,21 +70,31 @@ describe('analytics', () => {
     expect(computeCashFlowTrend([])).toEqual([]);
   });
 
-  it('computeCashFlowTrend includes the most-recent transaction (no boundary drop)', () => {
-    const base = new Date(2026, 0, 1).getTime();
-    const day = 86_400_000;
+  it('computeCashFlowTrend buckets all transactions (all-time: one bucket per month with data)', () => {
     const txns = [
-      expense({ amount: 100, transactionType: 'expense', dateMillis: base }),
-      expense({ amount: 50, transactionType: 'income', dateMillis: base + day }),
-      // Latest transaction sits exactly at `end` — previously dropped by the exclusive bound.
-      expense({ amount: 120, transactionType: 'expense', dateMillis: base + 6 * day }),
+      expense({ amount: 100, transactionType: 'expense', dateMillis: new Date(2026, 0, 1).getTime() }),
+      expense({ amount: 50, transactionType: 'income', dateMillis: new Date(2026, 0, 15).getTime() }),
+      expense({ amount: 120, transactionType: 'expense', dateMillis: new Date(2026, 2, 10).getTime() }),
+      expense({ amount: 999, transactionType: 'transfer', dateMillis: new Date(2026, 2, 11).getTime() }),
     ];
     const trend = computeCashFlowTrend(txns);
-    const totalExpense = trend.reduce((s, p) => s + p.expense, 0);
-    const totalIncome = trend.reduce((s, p) => s + p.income, 0);
-    // Trend totals must match the raw totals — every transaction is bucketed.
-    expect(totalExpense).toBe(220);
-    expect(totalIncome).toBe(50);
+    // Jan and Mar have data; Feb (empty) is skipped, transfers excluded — matches Android.
+    expect(trend).toHaveLength(2);
+    expect(trend.reduce((s, p) => s + p.expense, 0)).toBe(220);
+    expect(trend.reduce((s, p) => s + p.income, 0)).toBe(50);
+  });
+
+  it('computeCashFlowTrend uses zero-filled daily buckets for month periods (Android parity)', () => {
+    const txns = [
+      expense({ amount: 30, transactionType: 'expense', dateMillis: new Date(2026, 5, 5, 12).getTime() }),
+      expense({ amount: 70, transactionType: 'income', dateMillis: new Date(2026, 5, 20, 9).getTime() }),
+    ];
+    const trend = computeCashFlowTrend(txns, 'month:2026-06');
+    expect(trend).toHaveLength(30); // every day of June, gaps zero-filled
+    expect(trend[4].expense).toBe(30);
+    expect(trend[19].income).toBe(70);
+    expect(trend.reduce((s, p) => s + p.expense, 0)).toBe(30);
+    expect(trend.reduce((s, p) => s + p.income, 0)).toBe(70);
   });
 
   it('exportCsv quotes notes with commas', () => {
@@ -103,6 +113,26 @@ describe('analytics', () => {
     );
     expect(csv).toContain('"Coffee, pastry"');
     expect(csv.split('\n')).toHaveLength(2);
+  });
+
+  it('exportCsv matches the Android column layout with local date and time', () => {
+    const categories: Category[] = [{ id: '1', name: 'Food', iconName: 'food', colorInt: 0, transactionType: 'expense', sortOrder: 0, updatedAt: 0 }];
+    const csv = exportCsv(
+      [
+        expense({
+          amount: 9.5,
+          transactionType: 'expense',
+          note: 'late snack',
+          // Just after local midnight — a UTC-based date would report the wrong day
+          dateMillis: new Date(2026, 5, 10, 0, 30).getTime(),
+          categoryId: '1',
+        }),
+      ],
+      categories,
+    );
+    const [header, row] = csv.split('\n');
+    expect(header).toBe('date,time,type,category,note,amount');
+    expect(row).toBe('2026-06-10,00:30,expense,Food,late snack,9.5');
   });
 
   it('exportCsv neutralizes formula triggers and escapes category names', () => {
