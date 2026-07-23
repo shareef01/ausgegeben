@@ -6,6 +6,7 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.appcheck.AppCheckProviderFactory
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
 
@@ -15,12 +16,43 @@ class AusgegebenApplication : Application() {
         if (FirebaseApp.getApps(this).isEmpty()) {
             FirebaseApp.initializeApp(this)
         }
-        installAppCheck()
+        val emulatorsHooked = maybeUseFirebaseEmulators()
+        if (!emulatorsHooked) {
+            installAppCheck()
+        }
         // Spark-compatible: cache Firestore locally for offline / faster reloads
         FirebaseFirestore.getInstance().firestoreSettings = FirebaseFirestoreSettings.Builder()
             .setPersistenceEnabled(true)
             .setCacheSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
             .build()
+    }
+
+    /**
+     * Debug-only: route Auth/Firestore at the host machine's local emulators
+     * (firebase.emulator.json) when `adb shell setprop debug.ausgegeben.fb_emulators 1`
+     * was set before launch. Lets automated tests exercise the full app without
+     * touching the production project. Never active in release builds.
+     */
+    private fun maybeUseFirebaseEmulators(): Boolean {
+        if (!BuildConfig.DEBUG) return false
+        val requested = try {
+            val clazz = Class.forName("android.os.SystemProperties")
+            clazz.getMethod("get", String::class.java, String::class.java)
+                .invoke(null, "debug.ausgegeben.fb_emulators", "") == "1"
+        } catch (_: Exception) {
+            false
+        }
+        if (!requested) return false
+        return try {
+            // 10.0.2.2 = host loopback from the Android emulator
+            FirebaseAuth.getInstance().useEmulator("10.0.2.2", 9099)
+            FirebaseFirestore.getInstance().useEmulator("10.0.2.2", 8080)
+            Log.i(TAG, "Using local Firebase emulators (auth:9099, firestore:8080)")
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to hook Firebase emulators", e)
+            false
+        }
     }
 
     private fun installAppCheck() {

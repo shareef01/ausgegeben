@@ -469,7 +469,9 @@ private fun CategoryAnalyticsIsland(
                 data = chartData,
                 colors = chartColors,
                 centerLabel = CurrencyUtils.formatAmount(total, currencyCode, showSymbol = false),
-                centerSubLabel = if (isIncome) "TOTAL INCOME" else "TOTAL EXPENSE",
+                centerSubLabel = stringResource(
+                    if (isIncome) R.string.bills_total_income else R.string.bills_total_expense
+                ).uppercase(),
                 chartSize = 180.dp,
                 currencyCode = currencyCode,
             )

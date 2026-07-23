@@ -4,6 +4,7 @@ import {
   analyticsPeriodOptions,
   dayKey,
   formatRelativeTimestamp,
+  normalizeAnalyticsPeriodKey,
   thisMonthRange,
 } from '@/utils/periodUtils';
 
@@ -38,6 +39,13 @@ describe('periodUtils', () => {
   it('analyticsDateRangeMillis falls back for malformed month keys', () => {
     const range = analyticsDateRangeMillis('month:bad', JUNE_2026);
     expect(range).toEqual(thisMonthRange(JUNE_2026));
+  });
+
+  it('normalizeAnalyticsPeriodKey maps legacy keys to month keys', () => {
+    expect(normalizeAnalyticsPeriodKey('this_month', JUNE_2026)).toBe('month:2026-06');
+    expect(normalizeAnalyticsPeriodKey('last_month', JUNE_2026)).toBe('month:2026-05');
+    expect(normalizeAnalyticsPeriodKey('all_time', JUNE_2026)).toBe('all_time');
+    expect(normalizeAnalyticsPeriodKey('month:2026-02', JUNE_2026)).toBe('month:2026-02');
   });
 
   it('dayKey is stable for same calendar day', () => {

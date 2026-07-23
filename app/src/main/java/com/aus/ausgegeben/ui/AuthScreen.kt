@@ -35,7 +35,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.components.AppBrandIcon
 import com.aus.ausgegeben.ui.components.AppIconButton
-import com.aus.ausgegeben.ui.components.premiumClickable
 import com.aus.ausgegeben.ui.theme.financeIncomeColor
 import com.aus.ausgegeben.ui.theme.isAppDarkTheme
 import com.aus.ausgegeben.ui.theme.sectionLabelStyle
@@ -274,28 +273,15 @@ fun AuthScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // Secondary Action: Offline Mode
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            .premiumClickable { viewModel.continueOffline(onAuthenticated) }
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Rounded.CloudOff, null, tint = AuthAuroraTokens.slate(), modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = stringResource(R.string.auth_continue_offline).uppercase(),
-                            style = AuthAuroraTokens.labelStyle().copy(color = MaterialTheme.colorScheme.onSurface)
-                        )
-                    }
-                    Text(
-                        text = stringResource(R.string.auth_continue_offline_subtitle),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = AuthAuroraTokens.slate()
-                    )
-                }
+                // Data lives in the user's private Firestore space; Firestore's offline
+                // cache keeps the app usable without a connection once signed in.
+                Text(
+                    text = stringResource(R.string.auth_offline_hint),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AuthAuroraTokens.slate(),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
     }

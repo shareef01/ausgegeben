@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Category, Expense, TransactionType } from '@/models/types';
 import { expenseRepository, UNCATEGORIZED_ID } from '@/repositories/expenseRepository';
-import { parseAmount } from '@/utils/currency';
+import { formatAmountForInput, parseAmount } from '@/utils/currency';
+import { usePreferencesStore } from '@/services/preferencesStore';
 import { useTranslation } from '@/i18n';
 
 export interface AddTransactionForm {
@@ -41,7 +42,7 @@ export function useAddTransactionViewModel(expenseId?: string) {
         const existing = await expenseRepository.getExpenseById(expenseId);
         if (existing) {
           setForm({
-            amountInput: existing.amount.toFixed(2),
+            amountInput: formatAmountForInput(existing.amount, usePreferencesStore.getState().currency),
             transactionType: existing.transactionType,
             categoryId: existing.categoryId,
             note: existing.note,
@@ -95,7 +96,7 @@ export function useAddTransactionViewModel(expenseId?: string) {
   };
 
   const save = async (): Promise<boolean> => {
-    const amount = parseAmount(form.amountInput);
+    const amount = parseAmount(form.amountInput, usePreferencesStore.getState().currency);
     if (!amount || amount <= 0) {
       setError(t('errorValidAmount'));
       return false;

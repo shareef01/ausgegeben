@@ -14,13 +14,9 @@
     <string name="auth_toggle_password">Show password</string>
     <string name="auth_sign_in">Sign in</string>
     <string name="auth_create_account">Create account</string>
-    <string name="auth_or">or</string>
-    <string name="auth_continue_google">Continue with Google</string>
     <string name="auth_forgot_password">Forgot password?</string>
     <string name="auth_reset_email_sent">Password reset email sent. Check your inbox.</string>
-    <string name="auth_continue_offline">Continue offline</string>
-    <string name="auth_continue_offline_subtitle">Keep all data on this device only</string>
-    <string name="auth_privacy_note">Offline mode stores everything locally. Cloud accounts use Firebase Authentication.</string>
+    <string name="auth_offline_hint">Transactions sync via the cloud and keep working offline once you\'re signed in.</string>
     <string name="auth_error_email_required">Enter your email address</string>
     <string name="auth_error_password_short">Password must be at least 6 characters</string>
     <string name="auth_error_password_mismatch">Passwords do not match</string>
@@ -289,6 +285,8 @@
     <!-- Bills charts -->
     <string name="bills_section_expenses">Expenses</string>
     <string name="bills_section_income">Income</string>
+    <string name="bills_total_income">Total income</string>
+    <string name="bills_total_expense">Total expense</string>
     <string name="bills_section_transfers">Transfers</string>
     <string name="chart_total_label">total</string>
     <string name="chart_overview_title">Income vs expenses</string>
@@ -307,6 +305,8 @@
     <string name="desc_transfer_row">%1$s transfer of %2$s. %3$s</string>
     <string name="desc_finance_summary">Finance summary for %1$s. Net balance %2$s. Total earned %3$s. Total spent %4$s.</string>
     <string name="record_filter">Filter by type</string>
+    <string name="record_pick_month">Pick a month</string>
+    <string name="record_clear_month_filter">Back to this month</string>
     <string name="record_gesture_hints">Swipe left to delete · Swipe right to edit · Long-press to duplicate</string>
     <string name="state_loading">Loading…</string>
     <string name="add_confirm_transaction">Confirm Transaction</string>

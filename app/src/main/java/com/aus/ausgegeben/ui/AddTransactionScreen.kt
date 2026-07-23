@@ -218,7 +218,28 @@ fun AddTransactionScreen(
                                     stringResource(R.string.add_type_transfer),
                                 ),
                                 selectedIndex = selectedTab,
-                                onSelected = { selectedTab = it },
+                                onSelected = { index ->
+                                    selectedTab = index
+                                    // A category of the old type can't be saved under the new
+                                    // type — swap to the new type's first category (like web)
+                                    // instead of leaving a doomed selection behind.
+                                    val newType = when (index) {
+                                        1 -> TransactionType.INCOME
+                                        2 -> TransactionType.TRANSFER
+                                        else -> TransactionType.EXPENSE
+                                    }
+                                    val current = viewModel.selectedCategory.value
+                                    if (current != null && !CategoryGroups.matches(newType, current)) {
+                                        val replacement = categories.firstOrNull {
+                                            it.id != "0" && it.name.isNotBlank() && CategoryGroups.matches(newType, it)
+                                        }
+                                        if (replacement != null) {
+                                            viewModel.onCategorySelect(replacement)
+                                        } else {
+                                            viewModel.clearCategorySelection()
+                                        }
+                                    }
+                                },
                                 modifier = Modifier.padding(horizontal = 16.dp),
                             )
 
@@ -704,7 +725,7 @@ private fun ObsidianNumpadContainer(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             listOf(1.0, 5.0, 10.0, 50.0).forEach { amount ->
-                val label = "+$amount"
+                val label = "+${amount.toInt()}"
                 Box(
                     modifier = Modifier
                         .weight(1f)
