@@ -160,7 +160,7 @@ export function AddTransactionView({
                         className="add-txn__cat-icon"
                         style={{ color: colorIntToHex(cat.colorInt) }}
                       >
-                        <CategoryLucideIcon iconName={cat.iconName} size={18} />
+                        <CategoryLucideIcon iconName={cat.iconName} size={20} />
                       </span>
                       <span className="add-txn__cat-name">{cat.name}</span>
                     </button>
