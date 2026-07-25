@@ -266,8 +266,33 @@
   box-shadow: var(--shadow-elevated, 0 10px 40px rgba(0, 0, 0, 0.3)) !important;
 }
 
+.transaction-list-bare__rows .txn-row-wrap {
+  position: relative;
+  transition: background-color 0.15s ease;
+}
+
+.transaction-list-bare__rows .txn-row-wrap:hover {
+  background: color-mix(in srgb, var(--color-on-surface) 4%, transparent);
+}
+
+/* Inset hairline — starts after icon column so it doesn’t collide with card radius */
+.transaction-list-bare__rows .txn-row-wrap:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 76px; /* 24px pad + 40px icon + 12px gap */
+  right: 24px;
+  bottom: 0;
+  height: 1px;
+  background: color-mix(in srgb, var(--color-outline) 28%, transparent);
+  pointer-events: none;
+}
+
+.transaction-list-bare .swipeable-row__content {
+  background: transparent !important;
+}
+
 .transaction-row {
-  border-bottom: 0.5px solid var(--hairline-divider) !important;
+  border-bottom: none !important;
   padding: 18px 24px !important;
   background: transparent !important;
 }
