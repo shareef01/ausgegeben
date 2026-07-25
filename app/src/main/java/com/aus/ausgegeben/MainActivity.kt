@@ -376,16 +376,9 @@ fun MainApp(
                     }
                 )
 
-                AnimatedVisibility(
+                MainOverlayHost(
                     visible = overlay.currentOverlay != null,
-                    enter = slideInVertically(initialOffsetY = { it / 2 }, animationSpec = tween(400, easing = EaseOutQuart)) + fadeIn(animationSpec = tween(300)),
-                    exit = slideOutVertically(targetOffsetY = { it / 2 }, animationSpec = tween(350, easing = EaseInQuart)) + fadeOut(animationSpec = tween(250)),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.background),
-                    ) {
+                    content = {
                         if (overlay.overlayStack.contains(Route.AddTransaction)) {
                             AddTransactionScreen(
                                 viewModel = addViewModel,
@@ -399,7 +392,6 @@ fun MainApp(
                                     addViewModel.resetForm()
                                     overlay.closeOverlay()
                                 },
-
                                 onValidationError = { message -> showSnackbar(message) },
                                 onBudgetAlert = { message -> showSnackbar(message) }
                             )
@@ -412,11 +404,29 @@ fun MainApp(
                                 onShowMessage = ::showSnackbar
                             )
                         }
-
-                    }
-                }
+                    },
+                )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun MainOverlayHost(
+    visible: Boolean,
+    content: @Composable () -> Unit,
+) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = slideInVertically(initialOffsetY = { it / 2 }, animationSpec = tween(400, easing = EaseOutQuart)) + fadeIn(animationSpec = tween(300)),
+        exit = slideOutVertically(targetOffsetY = { it / 2 }, animationSpec = tween(350, easing = EaseInQuart)) + fadeOut(animationSpec = tween(250)),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+            content = { content() },
+        )
     }
 }
