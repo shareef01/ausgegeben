@@ -47,13 +47,10 @@
     <string name="record_no_matches_subtitle">versuche eine andere suche oder filter</string>
     <string name="record_empty_title">noch keine transaktionen</string>
     <string name="record_empty_subtitle">tippe auf das plus, um deine erste ausgabe zu erfassen</string>
-    <string name="record_empty_hint">lange drücken, um eine transaktion zu duplizieren</string>
     <string name="record_empty_action">transaktion hinzufügen</string>
     <string name="record_error_title">konnte transaktionen nicht laden</string>
     <string name="record_error_retry">erneut versuchen</string>
     <string name="record_search">suche</string>
-    <string name="gesture_swipe_delete">zum löschen wischen</string>
-    <string name="gesture_long_press_duplicate">zum duplizieren gedrückt halten</string>
     <string name="record_period_this_month">dieser monat</string>
     <string name="record_period_all_time">gesamt</string>
     <string name="record_delete_title">transaktion löschen?</string>
@@ -200,6 +197,7 @@
     <string name="onboarding_body_reminders">optionale abendliche erinnerungen helfen dir, nichts zu vergessen.</string>
     <string name="onboarding_next">weiter</string>
     <string name="onboarding_skip">überspringen</string>
+    <string name="onboarding_page_indicator">seite %1$d von %2$d</string>
     <string name="onboarding_get_started">loslegen</string>
     <string name="onboarding_enable_reminders">erinnerungen aktivieren &amp; fortfahren</string>
     <string name="onboarding_title_gestures">schnelle gesten</string>

@@ -24,6 +24,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -108,13 +110,6 @@ fun SettingsScreen(
             ) {
                 Column {
                     SettingsActionRow(
-                        icon = Icons.Rounded.Category,
-                        tint = MaterialTheme.colorScheme.primary,
-                        title = stringResource(R.string.settings_categories).lowercase(),
-                        onClick = onNavigateToCategories
-                    )
-                    IosSeparator(insetStart = 56.dp)
-                    SettingsActionRow(
                         icon = Icons.Rounded.Palette,
                         tint = settingsIconTintAccent(),
                         title = stringResource(R.string.settings_theme).lowercase(),
@@ -179,9 +174,9 @@ fun SettingsScreen(
     }
 
     @Composable
-    fun ManagementSection() {
+    fun AccountSection() {
         Column {
-            GroupedSectionLabel(text = stringResource(R.string.settings_section_management))
+            GroupedSectionLabel(text = stringResource(R.string.settings_section_account))
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -191,23 +186,26 @@ fun SettingsScreen(
                 Column {
                     if (currentUser != null) {
                         val email = currentUser?.email
-                        val accountTitle = currentUser?.displayName?.takeIf { it.isNotBlank() }
-                            ?: email?.substringBefore('@')?.replaceFirstChar { it.titlecase() }
-                            ?: stringResource(R.string.settings_account_cloud)
+                        val accountTitle = stringResource(
+                            R.string.settings_account_signed_in_as,
+                            currentUser?.displayName?.takeIf { it.isNotBlank() }
+                                ?: email?.substringBefore('@')?.replaceFirstChar { it.titlecase() }
+                                ?: stringResource(R.string.settings_account_cloud),
+                        )
                         val accountSubtitle = when {
                             syncing -> stringResource(R.string.settings_sync_in_progress)
                             lastCloudSyncAt != null -> stringResource(
                                 R.string.settings_last_synced,
                                 formatRelativeTimestamp(context, lastCloudSyncAt!!),
                             )
-                            else -> stringResource(R.string.settings_never_synced)
+                            else -> stringResource(R.string.settings_account_sync_enabled)
                         }
                         SettingsInfoRow(
                             icon = Icons.Rounded.CloudDone,
                             tint = MaterialTheme.colorScheme.primary,
                             title = accountTitle,
                             subtitle = buildString {
-                                if (!email.isNullOrBlank() && accountTitle != email) {
+                                if (!email.isNullOrBlank()) {
                                     append(email)
                                     append('\n')
                                 }
@@ -225,17 +223,39 @@ fun SettingsScreen(
                                 onRetrySync()
                             },
                         )
-                        IosSeparator(insetStart = 56.dp)
                     } else {
                         SettingsActionRow(
                             icon = Icons.Rounded.CloudUpload,
                             tint = MaterialTheme.colorScheme.primary,
                             title = stringResource(R.string.settings_sign_in).lowercase(),
-                            subtitle = stringResource(R.string.settings_sign_in_subtitle).lowercase(),
+                            subtitle = stringResource(R.string.settings_account_offline_subtitle).lowercase(),
                             onClick = onRequestSignIn,
                         )
-                        IosSeparator(insetStart = 56.dp)
                     }
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun ManagementSection() {
+        Column {
+            GroupedSectionLabel(text = stringResource(R.string.settings_section_management))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = AppSpacing.md)
+                    .appGlassCard(shape = RoundedCornerShape(AppRadius.card)),
+            ) {
+                Column {
+                    SettingsActionRow(
+                        icon = Icons.Rounded.Category,
+                        tint = MaterialTheme.colorScheme.primary,
+                        title = stringResource(R.string.settings_categories).lowercase(),
+                        subtitle = stringResource(R.string.settings_categories_subtitle).lowercase(),
+                        onClick = onNavigateToCategories,
+                    )
+                    IosSeparator(insetStart = 56.dp)
                     val deduplicateDoneMsg = stringResource(R.string.settings_deduplicate_done)
                     val deduplicateFailedMsg = stringResource(R.string.category_error_deduplicate_failed)
                     SettingsActionRow(
@@ -382,10 +402,13 @@ fun SettingsScreen(
                                 StaggeredEntrance(index = 2) { BudgetSection() }
                             }
                             Box(modifier = Modifier.weight(1f)) {
-                                StaggeredEntrance(index = 3) { ManagementSection() }
+                                StaggeredEntrance(index = 3) { AccountSection() }
                             }
                             Box(modifier = Modifier.weight(1f)) {
-                                StaggeredEntrance(index = 4) { AboutSection() }
+                                StaggeredEntrance(index = 4) { ManagementSection() }
+                            }
+                            Box(modifier = Modifier.weight(1f)) {
+                                StaggeredEntrance(index = 5) { AboutSection() }
                             }
                         }
                     }
@@ -393,14 +416,15 @@ fun SettingsScreen(
                     item { StaggeredEntrance(index = 0) { AppearanceSection() } }
                     item { StaggeredEntrance(index = 1) { NotificationSection() } }
                     item { StaggeredEntrance(index = 2) { BudgetSection() } }
-                    item { StaggeredEntrance(index = 3) { ManagementSection() } }
-                    item { StaggeredEntrance(index = 4) { AboutSection() } }
+                    item { StaggeredEntrance(index = 3) { AccountSection() } }
+                    item { StaggeredEntrance(index = 4) { ManagementSection() } }
+                    item { StaggeredEntrance(index = 5) { AboutSection() } }
                 }
 
                 if (currentUser != null) {
                     item { Spacer(Modifier.height(32.dp)) }
                     item {
-                        StaggeredEntrance(index = 5) {
+                        StaggeredEntrance(index = 6) {
                             val signOutColor = settingsDestructiveColor()
                             Box(
                                 modifier = Modifier
@@ -776,6 +800,7 @@ fun SettingsActionRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .semantics(mergeDescendants = true) { role = Role.Button }
             .smoothClickable { onClick() }
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -828,6 +853,11 @@ fun SettingsSwitchRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .semantics(mergeDescendants = true) {
+                role = Role.Switch
+                toggleableState = if (checked) ToggleableState.On else ToggleableState.Off
+            }
+            .smoothClickable { onCheckedChange(!checked) }
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -853,7 +883,7 @@ fun SettingsSwitchRow(
         )
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange,
+            onCheckedChange = null,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
                 checkedTrackColor = MaterialTheme.colorScheme.primary,
