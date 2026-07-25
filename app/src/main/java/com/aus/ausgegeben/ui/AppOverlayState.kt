@@ -40,13 +40,13 @@ class AppOverlayState(
     fun openAddFlow() {
         addViewModel.resetForm()
         overlayStack.clear()
-        overlayStack.add(Route.Dashboard)
+        overlayStack.add(Route.AddTransaction)
     }
 
     fun openEditFlow(expense: Expense) {
         addViewModel.loadForEdit(expense, expenseViewModel.uiState.value.data.categories)
         overlayStack.clear()
-        overlayStack.add(Route.Dashboard)
+        overlayStack.add(Route.AddTransaction)
     }
 }
 
