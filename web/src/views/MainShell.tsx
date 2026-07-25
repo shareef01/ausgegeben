@@ -106,7 +106,7 @@ export function MainShell() {
                   aria-label={label}
                   className={`app-header__nav-item${active ? ' app-header__nav-item--active' : ''}`}
                 >
-                  <Icon width={20} height={20} className="app-header__nav-icon" aria-hidden />
+                  <Icon width={18} height={18} className="app-header__nav-icon" aria-hidden />
                   <span className="app-header__nav-label">{label}</span>
                 </button>
               );
