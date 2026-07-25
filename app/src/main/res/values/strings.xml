@@ -5,7 +5,7 @@
     <!-- Auth -->
     <string name="auth_tagline">Your money, your way</string>
     <string name="auth_headline">Welcome back</string>
-    <string name="auth_subheadline">Sign in to sync across devices, or stay fully offline.</string>
+    <string name="auth_subheadline">Sign in to sync your data across devices.</string>
     <string name="auth_tab_sign_in">Sign in</string>
     <string name="auth_tab_sign_up">Sign up</string>
     <string name="auth_email_label">Email</string>
@@ -37,7 +37,7 @@
 
     <!-- Screen titles -->
     <string name="screen_record">Record</string>
-    <string name="screen_bills">Bills</string>
+    <string name="screen_bills">Insights</string>
     <string name="screen_settings">Settings</string>
     <string name="settings_version_subtitle">Ausgegeben · v%1$s</string>
 
@@ -112,16 +112,16 @@
     <string name="settings_budget_cleared">Monthly limit cleared</string>
     <string name="settings_account_cloud">Cloud account</string>
     <string name="settings_account_sync_enabled">Cloud backup enabled</string>
-    <string name="settings_account_offline">Offline mode</string>
+    <string name="settings_account_offline">Not signed in</string>
     <string name="settings_account_signed_in_as">Signed in as %1$s</string>
     <string name="settings_account_cloud_subtitle">Your data syncs across devices</string>
-    <string name="settings_account_offline_subtitle">Data stays on this device only</string>
+    <string name="settings_account_offline_subtitle">Sign in to sync and back up your data</string>
     <string name="settings_sign_in">Sign in / Create account</string>
     <string name="settings_sign_in_subtitle">Back up and sync across devices</string>
     <string name="settings_sign_out">Sign out</string>
-    <string name="settings_sign_out_subtitle">Switch back to offline mode</string>
-    <string name="settings_sign_out_confirm">Sign out and return to offline mode? Your local data will stay on this device.</string>
-    <string name="settings_signed_out">Signed out. You are now in offline mode.</string>
+    <string name="settings_sign_out_subtitle">End this session on this device</string>
+    <string name="settings_sign_out_confirm">Sign out? You\'ll need to sign in again to access your cloud data.</string>
+    <string name="settings_signed_out">Signed out</string>
     <string name="settings_sync_now">Sync now</string>
     <string name="settings_last_synced">Last synced %1$s</string>
     <string name="settings_never_synced">Not synced yet — tap Sync now after sign-in</string>
@@ -287,6 +287,7 @@
     <string name="bills_section_income">Income</string>
     <string name="bills_total_income">Total income</string>
     <string name="bills_total_expense">Total expense</string>
+    <string name="bills_total_transfers">Total transfers</string>
     <string name="bills_section_transfers">Transfers</string>
     <string name="chart_total_label">total</string>
     <string name="chart_overview_title">Income vs expenses</string>
