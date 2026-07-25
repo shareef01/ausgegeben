@@ -17,62 +17,37 @@
   display: inline-flex !important;
   flex-direction: row !important;
   align-items: center !important;
-  gap: 9px !important;
+  justify-content: center !important;
+  gap: 0 !important;
   white-space: nowrap !important;
   flex-shrink: 0 !important;
   background: transparent !important;
   border: none !important;
-  padding: 6px 8px !important; /* larger hit target */
+  padding: 4px !important;
+  border-radius: 10px;
   cursor: pointer;
   color: inherit;
 }
 
-.app-header__brand:hover .app-brand-wordmark__rest {
-  color: color-mix(in srgb, var(--color-on-background) 72%, var(--color-on-surface-variant));
+.app-header__brand:hover {
+  background: color-mix(in srgb, var(--color-on-surface) 6%, transparent) !important;
 }
 
 .app-header__brand:focus-visible {
   outline: 2px solid var(--color-focus);
-  outline-offset: 4px;
-  border-radius: 10px;
+  outline-offset: 3px;
 }
 
 .app-header__wordmark {
-  display: block !important;
-  flex-shrink: 0 !important;
-  line-height: 1 !important;
-  transform: none !important;
-}
-
-.app-brand-wordmark {
-  display: inline-flex;
-  align-items: baseline;
-  font-family: var(--font-family);
-  font-size: 1.25rem;
-  font-weight: 750;
-  letter-spacing: -0.03em;
-  line-height: 1;
-  font-feature-settings: 'kern' 1, 'liga' 1;
-  -webkit-font-smoothing: antialiased;
-}
-
-.app-brand-wordmark__aus {
-  color: var(--color-income);
-  font-weight: 800;
-}
-
-.app-brand-wordmark__rest {
-  color: color-mix(in srgb, var(--color-on-background) 92%, var(--color-on-surface-variant));
-  font-weight: 700;
-  transition: color 0.15s ease;
+  display: none !important;
 }
 
 .app-header__logo-mark {
-  width: 32px !important;
-  height: 32px !important;
+  width: 28px !important;
+  height: 28px !important;
   flex-shrink: 0 !important;
   display: block !important;
-  border-radius: 9px !important;
+  border-radius: 8px !important;
   background: transparent !important;
   border: none !important;
   overflow: visible;
