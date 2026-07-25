@@ -237,15 +237,15 @@ input[type='number'] {
   width: auto;
   max-width: none;
   margin-left: clamp(1rem, 4vw, 3rem);
-  gap: 0.5rem;
-  padding: 0.35rem;
+  gap: 0.25rem;
+  padding: 0.25rem;
   min-width: 0;
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--color-surface-variant) 72%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-outline) 50%, transparent);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-on-surface) 5%, transparent);
-  backdrop-filter: blur(14px) saturate(1.1);
-  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-surface-variant) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-outline) 42%, transparent);
+  box-shadow: none;
+  backdrop-filter: blur(16px) saturate(1.15);
+  -webkit-backdrop-filter: blur(16px) saturate(1.15);
 }
 
 @media (min-width: 768px) {
@@ -256,7 +256,7 @@ input[type='number'] {
 
 @media (min-width: 1024px) {
   .app-header__nav {
-    gap: 0.625rem;
+    gap: 0.3rem;
     margin-left: clamp(1.5rem, 6vw, 4.5rem);
   }
 }
@@ -265,15 +265,15 @@ input[type='number'] {
   position: relative;
   flex: 0 0 auto;
   min-width: 0;
-  min-height: 2.75rem; /* ~44px: accessible touch target */
-  padding: 0.5rem 1.15rem;
-  border-radius: 12px;
+  min-height: 2.375rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 0.55rem;
-  color: var(--color-on-surface-variant);
+  gap: 0.4rem;
+  color: color-mix(in srgb, var(--color-on-surface) 72%, var(--color-on-surface-variant));
   background: transparent;
   border: none;
   cursor: pointer;
@@ -287,17 +287,17 @@ input[type='number'] {
 .app-header__nav-icon,
 .app-header__nav-item svg {
   display: block;
-  width: 20px;
-  height: 20px;
-  opacity: 0.9;
+  width: 18px;
+  height: 18px;
+  opacity: 0.88;
   flex-shrink: 0;
-  transition: opacity 0.16s ease;
+  transition: opacity 0.16s ease, color 0.16s ease;
 }
 
 .app-header__nav-label {
   font-family: var(--font-family);
-  font-size: 0.875rem;
-  font-weight: 650;
+  font-size: 0.8125rem;
+  font-weight: 600;
   letter-spacing: -0.01em;
   line-height: 1;
   text-transform: lowercase;
@@ -307,7 +307,7 @@ input[type='number'] {
 
 .app-header__nav-item:hover {
   color: var(--color-on-background);
-  background: color-mix(in srgb, var(--color-on-surface) 7%, transparent);
+  background: color-mix(in srgb, var(--color-on-surface) 8%, transparent);
 }
 
 .app-header__nav-item:hover .app-header__nav-icon,
@@ -316,7 +316,7 @@ input[type='number'] {
 }
 
 .app-header__nav-item:active {
-  transform: scale(0.985);
+  transform: scale(0.98);
 }
 
 @media (max-width: 767px) {
@@ -333,8 +333,8 @@ input[type='number'] {
 
 .app-header__nav-item--active {
   color: var(--color-income);
-  background: color-mix(in srgb, var(--color-income) 14%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-income) 28%, transparent);
+  background: color-mix(in srgb, var(--color-income) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-income) 32%, transparent);
 }
 
 .app-header__nav-item--active .app-header__nav-icon,
@@ -343,12 +343,12 @@ input[type='number'] {
 }
 
 .app-header__nav-item--active .app-header__nav-label {
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .app-header__nav-item--active:hover {
   color: var(--color-income);
-  background: color-mix(in srgb, var(--color-income) 18%, transparent);
+  background: color-mix(in srgb, var(--color-income) 16%, transparent);
 }
 
 [data-theme='light'] .app-header {
@@ -356,17 +356,18 @@ input[type='number'] {
 }
 
 [data-theme='light'] .app-header__nav {
-  background: color-mix(in srgb, var(--color-surface-variant) 90%, transparent);
-  border-color: var(--color-outline);
+  background: color-mix(in srgb, var(--color-surface-variant) 88%, transparent);
+  border-color: color-mix(in srgb, var(--color-outline) 80%, transparent);
   box-shadow: none;
 }
 
 [data-theme='light'] .app-header__nav-item {
-  color: color-mix(in srgb, var(--color-on-surface) 62%, var(--color-on-surface-variant));
+  color: color-mix(in srgb, var(--color-on-surface) 70%, var(--color-on-surface-variant));
 }
 
 [data-theme='light'] .app-header__nav-item--active {
   background: color-mix(in srgb, var(--color-income) 10%, var(--color-surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-income) 24%, transparent);
 }
 
 .bottom-bar {
