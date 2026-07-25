@@ -3,11 +3,9 @@ package com.aus.ausgegeben.ui.components
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,8 +41,8 @@ fun Modifier.tabHorizontalSwipe(
 }
 
 /**
- * Transparent swipe bands on empty areas (edges + title strip) so horizontal
- * navigation does not fight vertical list scrolling.
+ * Transparent swipe band on the title strip so horizontal tab navigation
+ * does not fight row swipe-to-delete/edit or vertical list scrolling.
  */
 @Composable
 fun SwipeableTabSurface(
@@ -52,7 +50,6 @@ fun SwipeableTabSurface(
     canSwipeToNext: Boolean,
     onSwipeToPrevious: () -> Unit,
     onSwipeToNext: () -> Unit,
-    edgeWidth: Dp = 44.dp,
     titleBandHeight: Dp = 104.dp,
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit
@@ -60,24 +57,6 @@ fun SwipeableTabSurface(
     Box(modifier = modifier.fillMaxSize()) {
         content()
 
-        TabSwipeBand(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .fillMaxHeight()
-                .width(edgeWidth),
-            enabled = canSwipeToPrevious,
-            onSwipeToPrevious = onSwipeToPrevious,
-            onSwipeToNext = null
-        )
-        TabSwipeBand(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .fillMaxHeight()
-                .width(edgeWidth),
-            enabled = canSwipeToNext,
-            onSwipeToPrevious = null,
-            onSwipeToNext = onSwipeToNext
-        )
         TabSwipeBand(
             modifier = Modifier
                 .align(Alignment.TopCenter)
