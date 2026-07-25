@@ -125,7 +125,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
             <div className={`record-search relative ${searchFocused ? 'record-search--focused' : ''}`}>
               <IconSearch
                 className="record-search__icon"
-                width={17} height={17} aria-hidden
+                width={18} height={18} aria-hidden
               />
               <input
                 className="record-search__input"
@@ -136,6 +136,8 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => setSearchFocused(true)}
                 onBlur={() => setSearchFocused(false)}
+                autoComplete="off"
+                spellCheck={false}
               />
               {hasQuery && (
                 <button
