@@ -257,7 +257,7 @@ export const expenseRepository = {
    * `cb`'s second argument is `true` only when the listener itself failed
    * (auth/permission/index/quota error) — callers must use it to distinguish
    * a genuine empty-range result from a broken listener (see loadError in
-   * useDashboardViewModel / useRecordViewModel).
+   * useInsightsViewModel / useRecordViewModel).
    */
   onExpensesInRange(start: number, end: number, cb: (exps: Expense[], error?: boolean) => void): Unsubscribe {
     const userId = uid();

@@ -19,7 +19,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
+import com.aus.ausgegeben.ui.components.AppButton
 import com.aus.ausgegeben.ui.components.AppScreen
+import com.aus.ausgegeben.ui.components.AppTextButton
 import com.aus.ausgegeben.ui.theme.AccentCoral
 import kotlinx.coroutines.launch
 
@@ -99,39 +101,33 @@ fun OnboardingScreen(
             }
 
             if (isLastPage) {
-                Button(
+                AppButton(
                     onClick = onComplete,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    shape = RoundedCornerShape(16.dp)
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text(stringResource(R.string.onboarding_get_started))
+                    Text(stringResource(R.string.onboarding_get_started).uppercase())
                 }
-                TextButton(
+                AppTextButton(
                     onClick = {
                         onEnableReminders()
                         onComplete()
                     },
-                    modifier = Modifier.padding(top = 8.dp)
-                ) {
-                    Text(stringResource(R.string.onboarding_enable_reminders))
-                }
+                    text = stringResource(R.string.onboarding_enable_reminders),
+                    modifier = Modifier.padding(top = 8.dp),
+                )
             } else {
-                Button(
+                AppButton(
                     onClick = {
                         scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
                     },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    shape = RoundedCornerShape(16.dp)
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text(stringResource(R.string.onboarding_next))
+                    Text(stringResource(R.string.onboarding_next).uppercase())
                 }
-                TextButton(onClick = onComplete) {
-                    Text(stringResource(R.string.onboarding_skip))
-                }
+                AppTextButton(
+                    onClick = onComplete,
+                    text = stringResource(R.string.onboarding_skip),
+                )
             }
         }
     }
