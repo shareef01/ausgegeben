@@ -300,7 +300,6 @@ private fun CategoryListItem(
                     icon = Icons.Rounded.KeyboardArrowUp,
                     contentDescription = stringResource(R.string.category_move_up),
                     tint = if (canMoveUp) MaterialTheme.colorScheme.onSurface else navigationInactiveColor(),
-                    modifier = Modifier.size(36.dp)
                 )
                 AppIconButton(
                     onClick = onMoveDown,
@@ -308,21 +307,18 @@ private fun CategoryListItem(
                     icon = Icons.Rounded.KeyboardArrowDown,
                     contentDescription = stringResource(R.string.category_move_down),
                     tint = if (canMoveDown) MaterialTheme.colorScheme.onSurface else navigationInactiveColor(),
-                    modifier = Modifier.size(36.dp)
                 )
                 AppIconButton(
                     onClick = onEdit,
                     icon = Icons.Rounded.Edit,
                     contentDescription = stringResource(R.string.category_edit),
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(36.dp)
                 )
                 AppIconButton(
                     onClick = onDelete,
                     icon = Icons.Rounded.DeleteOutline,
                     contentDescription = stringResource(R.string.action_delete),
                     tint = financeExpenseColor(),
-                    modifier = Modifier.size(36.dp)
                 )
             }
         }

@@ -328,6 +328,7 @@ fun RecordScreen(
                             icon = if (isSearching) Icons.Rounded.SearchOff else Icons.AutoMirrored.Rounded.List,
                             title = stringResource(if (isSearching) R.string.record_no_matches_title else R.string.record_empty_title),
                             subtitle = stringResource(if (isSearching) R.string.record_no_matches_subtitle else R.string.record_empty_subtitle),
+                            hint = if (isSearching) null else stringResource(R.string.record_gesture_hints),
                             actionLabel = if (isSearching) stringResource(R.string.record_error_retry) else stringResource(R.string.record_empty_action),
                             onAction = if (isSearching) { { viewModel.setSearchQuery("") } } else onAddTransaction
                         )
@@ -465,7 +466,7 @@ private fun RecordListToolbar(
                                 )
                                 Box(
                                     modifier = Modifier
-                                        .size(24.dp)
+                                        .size(48.dp)
                                         .smoothClickable { onListPeriod(RecordListPeriod.THIS_MONTH.key) },
                                     contentAlignment = Alignment.Center,
                                 ) {
@@ -492,7 +493,7 @@ private fun RecordListToolbar(
 
                         Box(
                             modifier = Modifier
-                                .size(36.dp)
+                                .size(48.dp)
                                 .appGlassCard(CircleShape)
                                 .smoothClickable { showMonthSheet = true },
                             contentAlignment = Alignment.Center
@@ -507,7 +508,7 @@ private fun RecordListToolbar(
 
                         Box(
                             modifier = Modifier
-                                .size(36.dp)
+                                .size(48.dp)
                                 .appGlassCard(CircleShape)
                                 .smoothClickable { onSearchToggle(true) },
                             contentAlignment = Alignment.Center
@@ -522,7 +523,7 @@ private fun RecordListToolbar(
 
                         Box(
                             modifier = Modifier
-                                .size(36.dp)
+                                .size(48.dp)
                                 .appGlassCard(CircleShape)
                                 .smoothClickable { onFilterToggle(!isFilterExpanded) },
                             contentAlignment = Alignment.Center
@@ -581,7 +582,7 @@ private fun RecordListToolbar(
                             if (searchQuery.isNotBlank()) {
                                 Box(
                                     modifier = Modifier
-                                        .size(24.dp)
+                                        .size(48.dp)
                                         .smoothClickable { onSearchChange("") },
                                     contentAlignment = Alignment.Center,
                                 ) {
