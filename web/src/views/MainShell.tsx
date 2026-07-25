@@ -9,7 +9,6 @@ const CategoriesView = lazy(() => import('@/views/CategoriesView').then((m) => (
 import { ToastHost } from '@/components/ToastHost';
 import { IconAdd, IconInsights, IconRecord, IconSettings } from '@/components/Icons';
 import { AppBrandIcon } from '@/components/AppBrandIcon';
-import { AppBrandWordmark } from '@/components/AppBrandWordmark';
 import { useTranslation } from '@/i18n';
 import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
@@ -82,16 +81,16 @@ export function MainShell() {
       {/* SINGLE MASTER CONTAINER */}
       <div className="app-frame">
 
-        {/* Header — brand and desktop nav */}
+        {/* Header — mark + icon nav */}
         <header className="app-header">
           <button
             type="button"
             className="app-header__brand"
             onClick={() => selectTab('record')}
             aria-label={t('appName')}
+            title={t('appName')}
           >
-            <AppBrandIcon size={32} className="app-header__logo-mark" />
-            <AppBrandWordmark className="app-header__wordmark" />
+            <AppBrandIcon size={28} className="app-header__logo-mark" />
           </button>
 
           <nav className="app-header__nav" aria-label={t('navMain')}>
@@ -104,10 +103,10 @@ export function MainShell() {
                   onClick={() => selectTab(id)}
                   aria-current={active ? 'page' : undefined}
                   aria-label={label}
+                  title={label}
                   className={`app-header__nav-item${active ? ' app-header__nav-item--active' : ''}`}
                 >
-                  <Icon width={18} height={18} className="app-header__nav-icon" aria-hidden />
-                  <span className="app-header__nav-label">{label}</span>
+                  <Icon width={20} height={20} className="app-header__nav-icon" aria-hidden />
                 </button>
               );
             })}
