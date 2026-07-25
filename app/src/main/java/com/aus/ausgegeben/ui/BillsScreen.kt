@@ -139,7 +139,11 @@ fun BillsScreen(
                     }
                 }
 
-                if (!hasAnalytics) {
+                if (uiState.isLoading) {
+                    item(key = "loading") {
+                        AppLoadingState()
+                    }
+                } else if (!hasAnalytics) {
                     item(key = "empty") {
                         EmptyStateMessage(
                             icon = Icons.Rounded.Analytics,
