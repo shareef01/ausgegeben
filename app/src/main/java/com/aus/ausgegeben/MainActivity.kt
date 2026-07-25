@@ -135,8 +135,8 @@ fun MainApp(
     val expenseViewModel: ExpenseViewModel = viewModel(activity) {
         ExpenseViewModel(repository, preferenceManager)
     }
-    val dashboardViewModel: DashboardViewModel = viewModel(activity) {
-        DashboardViewModel(repository, preferenceManager)
+    val insightsViewModel: InsightsViewModel = viewModel(activity) {
+        InsightsViewModel(repository, preferenceManager)
     }
     val authViewModel: AuthViewModel = viewModel(activity) {
         AuthViewModel(activity.application, authRepository)
@@ -351,7 +351,7 @@ fun MainApp(
                     },
                     billsContent = {
                         BillsScreen(
-                            viewModel = dashboardViewModel,
+                            viewModel = insightsViewModel,
                             currencyCode = currency,
                             onAddTransaction = overlay::openAddFlow,
                         )

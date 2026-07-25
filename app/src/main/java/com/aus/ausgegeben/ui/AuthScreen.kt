@@ -18,7 +18,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -34,7 +33,10 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.components.AppBrandIcon
+import com.aus.ausgegeben.ui.components.AppButton
 import com.aus.ausgegeben.ui.components.AppIconButton
+import com.aus.ausgegeben.ui.components.AppTextButton
+import com.aus.ausgegeben.ui.theme.contrastColorOn
 import com.aus.ausgegeben.ui.theme.financeIncomeColor
 import com.aus.ausgegeben.ui.theme.isAppDarkTheme
 import com.aus.ausgegeben.ui.theme.sectionLabelStyle
@@ -234,49 +236,36 @@ fun AuthScreen(
                             )
                         }
 
-                        // Premium CTA Button
-                        Button(
+                        AppButton(
                             onClick = { viewModel.submit(onAuthenticated) },
                             enabled = !uiState.isLoading,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp)
-                                .shadow(
-                                    elevation = if (uiState.isLoading) 0.dp else 12.dp,
-                                    shape = RoundedCornerShape(16.dp),
-                                    spotColor = emerald
-                                ),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = emerald,
-                                contentColor = Color.White,
-                                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
-                            ),
-                            elevation = ButtonDefaults.buttonElevation(0.dp)
+                            modifier = Modifier.fillMaxWidth(),
+                            containerColor = emerald,
+                            contentColor = contrastColorOn(emerald),
                         ) {
                             if (uiState.isLoading) {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    color = contrastColorOn(emerald),
+                                    strokeWidth = 2.dp,
+                                )
                             } else {
                                 Text(
-                                    text = if (uiState.selectedTab == AuthTab.SIGN_IN) 
-                                        stringResource(R.string.auth_sign_in).uppercase() 
-                                        else stringResource(R.string.auth_create_account).uppercase(),
-                                    style = TextStyle(fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                                    text = if (uiState.selectedTab == AuthTab.SIGN_IN)
+                                        stringResource(R.string.auth_sign_in).uppercase()
+                                    else stringResource(R.string.auth_create_account).uppercase(),
+                                    style = TextStyle(fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp),
                                 )
                             }
                         }
 
                         if (uiState.selectedTab == AuthTab.SIGN_IN) {
-                            TextButton(
+                            AppTextButton(
                                 onClick = viewModel::sendPasswordReset,
-                                modifier = Modifier.align(Alignment.CenterHorizontally)
-                            ) {
-                                Text(
-                                    stringResource(R.string.auth_forgot_password),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = AuthAuroraTokens.slate()
-                                )
-                            }
+                                text = stringResource(R.string.auth_forgot_password),
+                                modifier = Modifier.align(Alignment.CenterHorizontally),
+                                contentColor = AuthAuroraTokens.slate(),
+                            )
                         }
                     }
                 }
