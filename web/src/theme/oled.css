@@ -38,12 +38,7 @@
 
 /* ── Transaction list ── */
 [data-theme='dark'] .transaction-list-bare .transaction-row {
-  border-bottom: 1px solid var(--hairline-divider);
   background: transparent;
-}
-
-[data-theme='dark'] .transaction-list-bare .transaction-row:last-child {
-  border-bottom: none;
 }
 
 [data-theme='dark'] .transaction-list-bare__day,
@@ -52,12 +47,9 @@
   border-color: var(--hairline-divider);
 }
 
-[data-theme='dark'] .transaction-list-bare .swipeable-row__content {
-  background: var(--color-background);
-}
-
+[data-theme='dark'] .transaction-list-bare .swipeable-row__content,
 [data-theme='light'] .transaction-list-bare .swipeable-row__content {
-  background: var(--color-background);
+  background: transparent;
 }
 
 /* ── Input autofill ── */
