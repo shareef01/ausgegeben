@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -19,6 +20,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -27,6 +32,7 @@ import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.theme.financeExpenseColor
 import com.aus.ausgegeben.ui.theme.financeIncomeColor
 import com.aus.ausgegeben.ui.theme.isAppDarkTheme
+import com.aus.ausgegeben.ui.theme.readableSecondaryColor
 import com.aus.ausgegeben.ui.theme.sectionLabelStyle
 import com.aus.ausgegeben.util.CurrencyUtils
 import androidx.compose.material.icons.Icons
@@ -194,6 +200,37 @@ private fun SummaryPane(
                 .height(4.dp)
                 .clip(CircleShape)
                 .background(color.copy(alpha = 0.6f))
+        )
+    }
+}
+
+@Composable
+fun AppLoadingState(
+    modifier: Modifier = Modifier,
+    message: String = stringResource(R.string.state_loading),
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(48.dp)
+            .semantics {
+                liveRegion = LiveRegionMode.Polite
+                contentDescription = message
+            },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(36.dp),
+            color = MaterialTheme.colorScheme.primary,
+            strokeWidth = 3.dp,
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = readableSecondaryColor(),
+            textAlign = TextAlign.Center,
         )
     }
 }
