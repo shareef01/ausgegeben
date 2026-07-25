@@ -2,17 +2,17 @@ package com.aus.ausgegeben.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-enum class ThemeMode(val storageKey: String, val label: String) {
-    SYSTEM("system", "System"),
-    LIGHT("light", "Light"),
-    DARK("dark", "Dark"),
-    AMOLED("amoled", "AMOLED black"),
-    MIDNIGHT("midnight", "Midnight blue"),
-    OCEAN("ocean", "Ocean teal"),
-    FOREST("forest", "Forest green"),
-    SUNSET("sunset", "Sunset coral"),
-    LAVENDER("lavender", "Lavender"),
-    SOFT_LIGHT("soft_light", "Soft Light");
+enum class ThemeMode(val storageKey: String) {
+    SYSTEM("system"),
+    LIGHT("light"),
+    DARK("dark"),
+    AMOLED("amoled"),
+    MIDNIGHT("midnight"),
+    OCEAN("ocean"),
+    FOREST("forest"),
+    SUNSET("sunset"),
+    LAVENDER("lavender"),
+    SOFT_LIGHT("soft_light");
 
     fun resolvesDark(systemDark: Boolean): Boolean = when (this) {
         SYSTEM -> systemDark

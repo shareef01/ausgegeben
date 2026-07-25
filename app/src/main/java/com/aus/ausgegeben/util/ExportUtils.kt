@@ -3,6 +3,7 @@ package com.aus.ausgegeben.util
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
+import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.AppRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -22,8 +23,9 @@ object ExportUtils {
                 val dateFormat = SimpleDateFormat("yyyy-MM-dd,HH:mm", Locale.US)
 
                 val header = "date,time,type,category,note,amount"
+                val unknownLabel = context.getString(R.string.record_unknown_category)
                 val rows = expenses.map { expense ->
-                    val category = categoryById[expense.categoryId]?.name ?: "Unknown"
+                    val category = categoryById[expense.categoryId]?.name ?: unknownLabel
                     val date = dateFormat.format(Date(expense.dateMillis)).split(",")
                     listOf(
                         date[0],

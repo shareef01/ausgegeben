@@ -118,7 +118,7 @@ fun SettingsScreen(
                         icon = Icons.Rounded.Palette,
                         tint = settingsIconTintAccent(),
                         title = stringResource(R.string.settings_theme).lowercase(),
-                        subtitle = themeMode.label.lowercase(),
+                        subtitle = themeMode.label().lowercase(),
                         onClick = { showThemeSheet = true }
                     )
                     IosSeparator(insetStart = 56.dp)
@@ -237,6 +237,7 @@ fun SettingsScreen(
                         IosSeparator(insetStart = 56.dp)
                     }
                     val deduplicateDoneMsg = stringResource(R.string.settings_deduplicate_done)
+                    val deduplicateFailedMsg = stringResource(R.string.category_error_deduplicate_failed)
                     SettingsActionRow(
                         icon = Icons.Rounded.CleaningServices,
                         tint = MaterialTheme.colorScheme.primary,
@@ -245,7 +246,8 @@ fun SettingsScreen(
                         onClick = {
                             scope.launch {
                                 repository.deduplicateCategories()
-                                onShowMessage(deduplicateDoneMsg)
+                                    .onSuccess { onShowMessage(deduplicateDoneMsg) }
+                                    .onFailure { onShowMessage(deduplicateFailedMsg) }
                             }
                         }
                     )
@@ -551,7 +553,7 @@ private fun ThemeSelectionSheet(
             title = stringResource(R.string.settings_choose_theme),
             options = ThemeMode.entries,
             isSelected = { it == currentMode },
-            label = { it.label.lowercase() },
+            label = { it.label().lowercase() },
             icon = { mode ->
                 val colors = mode.getPreviewColors()
                 Box(

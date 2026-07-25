@@ -46,7 +46,7 @@ class CategoryViewModel(
                 val sameType = repository.allCategories.first()
                     .filter { it.transactionType == transactionType }
                 val nextOrder = (sameType.maxOfOrNull { it.sortOrder } ?: -1) + 1
-                val id = repository.insertCategory(
+                val idResult = repository.insertCategory(
                     Category(
                         name = name,
                         iconName = iconName,
@@ -55,16 +55,21 @@ class CategoryViewModel(
                         sortOrder = nextOrder
                     )
                 )
-                onAdded?.invoke(
-                    Category(
-                        id = id,
-                        name = name,
-                        iconName = iconName,
-                        colorInt = normalizeArgbInt(colorInt),
-                        transactionType = transactionType,
-                        sortOrder = nextOrder
+                idResult.onSuccess { id ->
+                    onAdded?.invoke(
+                        Category(
+                            id = id,
+                            name = name,
+                            iconName = iconName,
+                            colorInt = normalizeArgbInt(colorInt),
+                            transactionType = transactionType,
+                            sortOrder = nextOrder
+                        )
                     )
-                )
+                }.onFailure { e ->
+                    _errorMessage.value = e.localizedMessage
+                        ?: getApplication<Application>().getString(R.string.category_error_add_failed)
+                }
             } catch (e: Exception) {
                 _errorMessage.value = e.localizedMessage
                     ?: getApplication<Application>().getString(R.string.category_error_add_failed)
@@ -74,17 +79,19 @@ class CategoryViewModel(
 
     fun updateCategory(category: Category) {
         viewModelScope.launch {
-            try {
-                val existing = repository.allCategories.first().find { it.id == category.id }
-                val normalized = category.copy(colorInt = normalizeArgbInt(category.colorInt))
-                repository.updateCategory(normalized)
+            val existing = repository.allCategories.first().find { it.id == category.id }
+            val normalized = category.copy(colorInt = normalizeArgbInt(category.colorInt))
+            repository.updateCategory(normalized).onSuccess {
                 if (existing != null && existing.transactionType != normalized.transactionType) {
                     repository.updateExpenseTypesForCategory(
                         normalized.id,
                         normalized.transactionType
-                    )
+                    ).onFailure { e ->
+                        _errorMessage.value = e.localizedMessage
+                            ?: getApplication<Application>().getString(R.string.category_error_update_failed)
+                    }
                 }
-            } catch (e: Exception) {
+            }.onFailure { e ->
                 _errorMessage.value = e.localizedMessage
                     ?: getApplication<Application>().getString(R.string.category_error_update_failed)
             }
@@ -93,9 +100,7 @@ class CategoryViewModel(
 
     fun deleteCategory(category: Category) {
         viewModelScope.launch {
-            try {
-                repository.deleteCategory(category)
-            } catch (e: Exception) {
+            repository.deleteCategory(category).onFailure { e ->
                 _errorMessage.value = e.localizedMessage
                     ?: getApplication<Application>().getString(R.string.category_error_delete_failed)
             }
@@ -104,9 +109,7 @@ class CategoryViewModel(
 
     fun deduplicateCategories() {
         viewModelScope.launch {
-            try {
-                repository.deduplicateCategories()
-            } catch (e: Exception) {
+            repository.deduplicateCategories().onFailure { e ->
                 _errorMessage.value = e.localizedMessage
                     ?: getApplication<Application>().getString(R.string.category_error_deduplicate_failed)
             }
@@ -115,19 +118,22 @@ class CategoryViewModel(
 
     fun moveCategory(category: Category, moveUp: Boolean) {
         viewModelScope.launch {
-            try {
-                val sorted = repository.allCategories.first()
-                    .filter { it.transactionType == category.transactionType }
-                    .sortedBy { it.sortOrder }
-                val index = sorted.indexOfFirst { it.id == category.id }
-                if (index < 0) return@launch
-                val targetIndex = if (moveUp) index - 1 else index + 1
-                if (targetIndex !in sorted.indices) return@launch
-                val current = sorted[index]
-                val swap = sorted[targetIndex]
-                repository.updateCategory(current.copy(sortOrder = swap.sortOrder))
-                repository.updateCategory(swap.copy(sortOrder = current.sortOrder))
-            } catch (e: Exception) {
+            val sorted = repository.allCategories.first()
+                .filter { it.transactionType == category.transactionType }
+                .sortedBy { it.sortOrder }
+            val index = sorted.indexOfFirst { it.id == category.id }
+            if (index < 0) return@launch
+            val targetIndex = if (moveUp) index - 1 else index + 1
+            if (targetIndex !in sorted.indices) return@launch
+            val current = sorted[index]
+            val swap = sorted[targetIndex]
+            val first = repository.updateCategory(current.copy(sortOrder = swap.sortOrder))
+            if (first.isFailure) {
+                _errorMessage.value = first.exceptionOrNull()?.localizedMessage
+                    ?: getApplication<Application>().getString(R.string.category_error_reorder_failed)
+                return@launch
+            }
+            repository.updateCategory(swap.copy(sortOrder = current.sortOrder)).onFailure { e ->
                 _errorMessage.value = e.localizedMessage
                     ?: getApplication<Application>().getString(R.string.category_error_reorder_failed)
             }

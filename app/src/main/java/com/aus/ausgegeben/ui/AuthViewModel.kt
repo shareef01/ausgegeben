@@ -4,7 +4,6 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.aus.ausgegeben.R
-import com.aus.ausgegeben.data.AppRepository
 import com.aus.ausgegeben.data.auth.AuthRepository
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
@@ -14,9 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.TimeoutCancellationException
 
@@ -40,7 +37,6 @@ data class AuthUiState(
 class AuthViewModel(
     application: Application,
     private val authRepository: AuthRepository,
-    private val repository: AppRepository,
 ) : AndroidViewModel(application) {
 
     companion object {
@@ -164,13 +160,12 @@ class AuthViewModel(
         return getApplication<Application>().getString(resId)
     }
 
-    private suspend fun handleAuthResult(result: Result<Unit>, onSuccess: () -> Unit) {
+    private fun handleAuthResult(result: Result<Unit>, onSuccess: () -> Unit) {
         result.fold(
             onSuccess = {
                 _uiState.update { it.copy(isLoading = false, loadingMessage = null) }
-                viewModelScope.launch(Dispatchers.IO) {
-                    repository.ensureSeeded()
-                }
+                // Category seeding runs from MainApp after preferencesReady so default
+                // category names match the synced app locale (not a race with prefs pull).
                 onSuccess()
             },
             onFailure = { error ->

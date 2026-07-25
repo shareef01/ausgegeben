@@ -94,10 +94,12 @@ class ExpenseViewModel(
     ) { month, week, cats ->
         val categoryNames = cats.associate { it.id to it.name }
         computeSpendingInsights(month, week, categoryNames)
-    }.flowOn(Dispatchers.Default)
+    }.distinctUntilChanged()
+    .flowOn(Dispatchers.Default)
 
     private val dayTotalsFlow = listExpensesFlow
         .map { expenses -> computeDayTotals(expenses) }
+        .distinctUntilChanged()
         .flowOn(Dispatchers.Default)
 
     // 4. Final UI State assembly
@@ -155,13 +157,8 @@ class ExpenseViewModel(
 
     fun duplicateExpense(expense: Expense, onResult: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
-            val success = try {
-                repository.duplicateExpense(expense)
-                true
-            } catch (_: Exception) {
-                false
-            }
-            onResult(success)
+            val result = repository.duplicateExpense(expense)
+            onResult(result.isSuccess)
         }
     }
 
@@ -171,25 +168,15 @@ class ExpenseViewModel(
             return
         }
         viewModelScope.launch {
-            val success = try {
-                repository.deleteExpense(expense)
-                true
-            } catch (_: Exception) {
-                false
-            }
-            onResult(success)
+            val result = repository.deleteExpense(expense)
+            onResult(result.isSuccess)
         }
     }
 
     fun restoreExpense(expense: Expense, onResult: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
-            val success = try {
-                repository.insertExpense(expense)
-                true
-            } catch (_: Exception) {
-                false
-            }
-            onResult(success)
+            val result = repository.insertExpense(expense)
+            onResult(result.isSuccess)
         }
     }
 
