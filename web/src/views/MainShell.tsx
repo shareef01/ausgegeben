@@ -188,7 +188,7 @@ export function MainShell() {
           aria-label={t('navAdd')}
           onClick={() => setTxnOverlay({ type: 'add' })}
         >
-          <IconAdd width={22} height={22} strokeWidth={2.5} />
+          <IconAdd width={22} height={22} strokeWidth={2.5} aria-hidden />
         </button>
       </div>
 
@@ -199,7 +199,7 @@ export function MainShell() {
         aria-label={t('navAdd')}
         onClick={() => setTxnOverlay({ type: 'add' })}
       >
-        <IconAdd width={24} height={24} strokeWidth={2.5} />
+        <IconAdd width={24} height={24} strokeWidth={2.5} aria-hidden />
       </button>
 
       {txnOverlay ? (

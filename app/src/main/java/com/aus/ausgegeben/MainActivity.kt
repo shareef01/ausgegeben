@@ -391,7 +391,7 @@ fun MainApp(
                             .fillMaxSize()
                             .background(MaterialTheme.colorScheme.background),
                     ) {
-                        if (overlay.overlayStack.contains(Route.Dashboard)) {
+                        if (overlay.overlayStack.contains(Route.AddTransaction)) {
                             AddTransactionScreen(
                                 viewModel = addViewModel,
                                 categoryViewModel = categoryViewModel,
