@@ -68,7 +68,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
   const exportData = async () => {
     const expenses = await expenseRepository.getAllExpenses();
     const categories = await expenseRepository.getAllCategories();
-    const csv = exportCsv(expenses, categories);
+    const csv = exportCsv(expenses, categories, t('recordUnknownCategory'));
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
