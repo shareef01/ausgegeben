@@ -57,36 +57,9 @@ body {
   -webkit-user-select: none;
 }
 
-/* ── Safe Area Insets ── */
-
-/* Safe-area only — shell already provides horizontal padding */
-.transaction-list-bare,
-.finance-summary-card,
-.record-filters,
-.budget-bar,
-.insights-stat-grid,
-.insights-grid {
-  padding-left: var(--safe-left);
-  padding-right: var(--safe-right);
-}
-
-/* FAB safe area */
+/* ── FAB safe area ── */
 .fab--anchored {
   bottom: calc(32px + var(--safe-bottom)) !important;
-}
-
-/* Header safe area top padding — only on iOS notch devices */
-@supports (padding-top: env(safe-area-inset-top)) {
-  .app-header {
-    padding-top: env(safe-area-inset-top);
-  }
-}
-
-/* ── iOS status bar style ── */
-@supports (-webkit-touch-callout: none) {
-  .app-shell {
-    padding-top: env(safe-area-inset-top);
-  }
 }
 
 /* ── Mobile input zoom guard ──
@@ -95,7 +68,9 @@ body {
    compact sizing. */
 @media (pointer: coarse) {
   .field__input,
-  .record-search__input {
+  .record-search__input,
+  .period-select__trigger,
+  .auth-page__form .field__input {
     font-size: 1rem;
   }
 }
@@ -106,4 +81,48 @@ body {
 html,
 body {
   overscroll-behavior-y: none;
+}
+
+/* ── Full-screen overlays / centered modals ──
+   Categories + Add Transaction: pad for notch + home bar. */
+.safe-overlay {
+  padding-top: max(1rem, var(--safe-top, 0px)) !important;
+  padding-bottom: max(1rem, var(--safe-bottom, 0px)) !important;
+  padding-left: max(1rem, var(--safe-left, 0px)) !important;
+  padding-right: max(1rem, var(--safe-right, 0px)) !important;
+  box-sizing: border-box;
+}
+
+.overlay {
+  padding-top: max(16px, var(--safe-top, 0px));
+  padding-bottom: max(16px, var(--safe-bottom, 0px));
+  padding-left: max(16px, var(--safe-left, 0px));
+  padding-right: max(16px, var(--safe-right, 0px));
+  box-sizing: border-box;
+}
+
+/* Modal cards inside overlays should leave room for the home indicator */
+@media (max-width: 767px) {
+  .safe-overlay .card--pro,
+  .safe-overlay .add-txn {
+    max-height: min(90dvh, calc(100dvh - var(--safe-top, 0px) - var(--safe-bottom, 0px) - 2rem));
+  }
+}
+
+/* Narrow phones (SE / mini): keep the dock from overflowing */
+@media (max-width: 379px) {
+  .bottom-nav-pill__item {
+    min-width: 3.5rem;
+    padding-inline: 0.35rem;
+  }
+
+  .bottom-nav-pill__label {
+    font-size: 0.625rem;
+    max-width: 3.75rem;
+  }
+
+  .mobile-dock {
+    gap: 0.35rem;
+    bottom: calc(0.85rem + var(--safe-bottom, 0px));
+  }
 }

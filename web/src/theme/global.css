@@ -131,18 +131,21 @@ a {
   min-height: 100vh;
   min-height: 100dvh;
   margin-inline: auto;
-  padding-inline: 1rem;
+  padding-left: max(1rem, var(--safe-left, 0px));
+  padding-right: max(1rem, var(--safe-right, 0px));
 }
 
 @media (min-width: 640px) {
   .app-frame {
-    padding-inline: 1.5rem;
+    padding-left: max(1.5rem, var(--safe-left, 0px));
+    padding-right: max(1.5rem, var(--safe-right, 0px));
   }
 }
 
 @media (min-width: 1024px) {
   .app-frame {
-    padding-inline: 2rem;
+    padding-left: max(2rem, var(--safe-left, 0px));
+    padding-right: max(2rem, var(--safe-right, 0px));
   }
 }
 
@@ -225,7 +228,7 @@ input[type='number'] {
   justify-content: space-between;
   gap: 1rem;
   min-height: 3rem;
-  padding: 0.35rem 0;
+  padding: calc(0.35rem + var(--safe-top, 0px)) 0 0.35rem;
   border-bottom: 1px solid color-mix(in srgb, var(--color-outline) 70%, transparent);
 }
 

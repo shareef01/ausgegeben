@@ -162,8 +162,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: max(16px, var(--safe-top, 0px)) max(16px, var(--safe-right, 0px)) max(16px, var(--safe-bottom, 0px)) max(16px, var(--safe-left, 0px));
   animation: overlay-fade-in 0.2s ease both;
+  box-sizing: border-box;
 }
 
 @keyframes overlay-fade-in {
@@ -429,32 +430,80 @@
 
 .period-select__trigger {
   width: 100%;
+  box-sizing: border-box;
+  min-height: 48px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 14px 18px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-outline);
+  gap: 12px;
+  padding: 0 14px 0 14px;
+  background: color-mix(in srgb, var(--color-on-surface) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-outline) 28%, transparent);
   border-radius: 14px;
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--color-on-surface);
-  transition: all 0.2s ease;
+  color: var(--color-on-background);
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    background 0.25s ease,
+    color 0.2s ease;
   cursor: pointer;
 }
 
 .period-select__trigger:hover {
-  background: var(--color-surface-variant);
-  border-color: color-mix(in srgb, var(--color-income) 30%, transparent);
+  background: color-mix(in srgb, var(--color-on-surface) 8%, transparent);
+  border-color: color-mix(in srgb, var(--color-outline) 42%, transparent);
+}
+
+.period-select__trigger:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.period-select__trigger--open,
+.period-select__trigger[aria-expanded='true'] {
+  border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--color-accent) 12%, transparent),
+    inset 0 0 0 0.5px color-mix(in srgb, var(--color-accent) 22%, transparent);
+  background: color-mix(in srgb, var(--color-on-surface) 8%, transparent);
+}
+
+.period-select__leading {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: color-mix(in srgb, var(--color-on-surface) 62%, var(--color-on-surface-variant));
+  transition: color 0.2s ease;
+}
+
+.period-select__trigger--open .period-select__leading,
+.period-select__trigger[aria-expanded='true'] .period-select__leading,
+.period-select__trigger:hover .period-select__leading {
+  color: var(--color-accent);
 }
 
 .period-select__label {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
   text-transform: lowercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .period-select__chevron {
-  opacity: 0.5;
-  transition: transform 0.2s ease;
+  flex-shrink: 0;
+  opacity: 0.45;
+  color: var(--color-on-surface-variant);
+  transition: transform 0.2s ease, opacity 0.2s ease, color 0.2s ease;
+}
+
+.period-select__trigger:hover .period-select__chevron,
+.period-select__trigger--open .period-select__chevron {
+  opacity: 0.75;
 }
 
 .period-select__chevron--open {
@@ -469,6 +518,7 @@
   z-index: 50;
   display: flex;
   flex-direction: column;
+  gap: 2px;
   padding: 8px;
   border-radius: 16px;
   max-height: min(50vh, 320px);
@@ -490,6 +540,10 @@
 
 .period-select__option {
   width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   padding: 12px 14px;
   border-radius: 10px;
   font-size: 0.875rem;
@@ -497,7 +551,19 @@
   color: var(--color-on-surface-variant);
   text-transform: lowercase;
   text-align: left;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.period-select__option-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.period-select__option-check {
+  flex-shrink: 0;
+  color: var(--color-accent);
 }
 
 .period-select__option:hover {
@@ -506,8 +572,8 @@
 }
 
 .period-select__option--active {
-  background: color-mix(in srgb, var(--color-income) 12%, transparent);
-  color: var(--color-income);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-on-background);
 }
 
 /* ═══════════════════════════════════════════════════
@@ -1211,27 +1277,34 @@
 }
 
 /* ═══════════════════════════════════════════════════
- *  RECORD — type filter segmented control
- *  ═══════════════════════════════════════════════════ */
+ *  RECORD — type filter segmented control (icon-only)
+ * ═══════════════════════════════════════════════════ */
 
-.record-type-segmented {
+.segmented.record-type-segmented {
   margin-top: 0;
+  display: flex;
+  gap: 2px;
   padding: 4px;
   border-radius: 16px;
 }
 
 .record-type-segmented .segmented__item {
+  flex: 1 1 0;
+  min-width: 0;
   min-height: 44px;
-  padding: 10px 8px;
-  font-size: 0.75rem;
+  padding: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-@media (max-width: 399px) {
-  .segmented.record-type-segmented {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 4px;
-  }
+.record-type-segmented .segmented__item--icon {
+  line-height: 0;
+}
+
+.record-type-segmented .segmented__item svg {
+  display: block;
+  flex-shrink: 0;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -2372,10 +2445,11 @@
   justify-content: center;
   min-height: 100vh;
   min-height: 100dvh;
-  padding: 24px;
+  padding: max(24px, var(--safe-top, 0px)) max(24px, var(--safe-right, 0px)) max(24px, var(--safe-bottom, 0px)) max(24px, var(--safe-left, 0px));
   /* Clip only horizontally so the entrance scale can't spawn a scrollbar;
      vertical stays scrollable so a tall card is never cut off on short screens. */
   overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 /* Soft accent glow behind the card for depth (subtle, theme-aware) */

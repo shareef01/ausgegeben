@@ -66,7 +66,7 @@ export function AddTransactionView({
 
   if (!vm.ready) {
     return (
-      <div className="fixed inset-0 z-[200] bg-background/80 backdrop-blur-xl flex items-center justify-center p-4" role="status" aria-live="polite">
+      <div className="fixed inset-0 z-[200] safe-overlay bg-background/80 backdrop-blur-xl flex items-center justify-center" role="status" aria-live="polite">
         <div className="card--pro add-txn add-txn--loading">
           {t('loading')}
         </div>
@@ -76,7 +76,7 @@ export function AddTransactionView({
 
   return (
     <div
-      className="fixed inset-0 z-[200] bg-background/80 backdrop-blur-xl flex items-center justify-center p-3 sm:p-4"
+      className="fixed inset-0 z-[200] safe-overlay bg-background/80 backdrop-blur-xl flex items-center justify-center"
       onClick={onClose}
       aria-hidden={suspended || undefined}
       style={suspended ? { visibility: 'hidden', pointerEvents: 'none' } : undefined}
