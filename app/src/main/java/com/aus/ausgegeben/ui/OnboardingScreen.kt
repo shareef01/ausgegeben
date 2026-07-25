@@ -16,6 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
@@ -79,9 +81,16 @@ fun OnboardingScreen(
                 OnboardingPageContent(page = pages[page])
             }
 
+            val pageIndicatorLabel = stringResource(
+                R.string.onboarding_page_indicator,
+                pagerState.currentPage + 1,
+                pages.size,
+            )
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(vertical = 24.dp)
+                modifier = Modifier
+                    .padding(vertical = 24.dp)
+                    .semantics { contentDescription = pageIndicatorLabel }
             ) {
                 pages.indices.forEach { index ->
                     val selected = pagerState.currentPage == index

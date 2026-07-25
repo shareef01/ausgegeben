@@ -69,6 +69,8 @@ private object RecordAuroraTokens {
 fun RecordScreen(
     viewModel: ExpenseViewModel,
     currencyCode: String = "EUR",
+    dataError: String? = null,
+    onRetryDataError: () -> Unit = {},
     onExpenseDeleted: (Expense) -> Unit = {},
     onExpenseDeleteFailed: () -> Unit = {},
     onExpenseClick: (Expense) -> Unit = {},
@@ -226,6 +228,17 @@ fun RecordScreen(
                             AppLoadingState()
                         }
                     }
+                    dataError != null && allExpenses.isEmpty() -> {
+                        item(key = "error") {
+                            EmptyStateMessage(
+                                icon = Icons.Rounded.CloudOff,
+                                title = stringResource(R.string.record_error_title),
+                                subtitle = stringResource(R.string.snackbar_data_listener_error),
+                                actionLabel = stringResource(R.string.record_error_retry),
+                                onAction = onRetryDataError,
+                            )
+                        }
+                    }
                     allExpenses.isNotEmpty() -> {
                     uiState.insights.topExpenseCategoryName?.let { name ->
                         item(key = "insight") {
@@ -268,10 +281,16 @@ fun RecordScreen(
                         val dateLabel = dateFormat.format(Date(dayStart))
                         
                         item(key = "day-$dayStart") {
-                            val revealAlpha = remember(entranceKey, dayIdx) { Animatable(0f) }
-                            val revealOffset = remember(entranceKey, dayIdx) { Animatable(32f) }
+                            val reduceMotion = rememberReduceMotion()
+                            val revealAlpha = remember(entranceKey, dayIdx) { Animatable(if (reduceMotion) 1f else 0f) }
+                            val revealOffset = remember(entranceKey, dayIdx) { Animatable(if (reduceMotion) 0f else 32f) }
                             
-                            LaunchedEffect(entranceKey) {
+                            LaunchedEffect(entranceKey, reduceMotion) {
+                                if (reduceMotion) {
+                                    revealAlpha.snapTo(1f)
+                                    revealOffset.snapTo(0f)
+                                    return@LaunchedEffect
+                                }
                                 val delay = dayIdx.coerceAtMost(8) * 45
                                 launch {
                                     revealAlpha.animateTo(1f, tween(500, delayMillis = delay))

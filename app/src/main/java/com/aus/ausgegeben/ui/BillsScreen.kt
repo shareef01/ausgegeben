@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Analytics
+import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -52,6 +53,8 @@ private object BillsAuroraTokens {
 fun BillsScreen(
     viewModel: InsightsViewModel,
     currencyCode: String = "EUR",
+    dataError: String? = null,
+    onRetryDataError: () -> Unit = {},
     onAddTransaction: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -143,6 +146,16 @@ fun BillsScreen(
                     item(key = "loading") {
                         AppLoadingState()
                     }
+                } else if (dataError != null && !hasAnalytics) {
+                    item(key = "error") {
+                        EmptyStateMessage(
+                            icon = Icons.Rounded.CloudOff,
+                            title = stringResource(R.string.record_error_title),
+                            subtitle = stringResource(R.string.snackbar_data_listener_error),
+                            actionLabel = stringResource(R.string.record_error_retry),
+                            onAction = onRetryDataError,
+                        )
+                    }
                 } else if (!hasAnalytics) {
                     item(key = "empty") {
                         EmptyStateMessage(
@@ -156,8 +169,13 @@ fun BillsScreen(
                 } else {
                     if (expenseTotal > 0 || incomeTotal > 0) {
                         item(key = "overview") {
-                            val revealAlpha = remember(entranceKey) { Animatable(0f) }
-                            LaunchedEffect(entranceKey) {
+                            val reduceMotion = rememberReduceMotion()
+                            val revealAlpha = remember(entranceKey) { Animatable(if (reduceMotion) 1f else 0f) }
+                            LaunchedEffect(entranceKey, reduceMotion) {
+                                if (reduceMotion) {
+                                    revealAlpha.snapTo(1f)
+                                    return@LaunchedEffect
+                                }
                                 revealAlpha.animateTo(1f, tween(420, delayMillis = 40))
                             }
                             Box(
