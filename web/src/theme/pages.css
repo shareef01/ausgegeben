@@ -1224,10 +1224,10 @@
  *  ═══════════════════════════════════════════════════ */
 
 .transaction-list-divider {
-  width: calc(100% - 48px);
-  margin: 0 auto;
+  width: calc(100% - 100px);
+  margin: 0 24px 0 76px;
   border: none;
-  border-top: 0.5px solid color-mix(in srgb, var(--color-outline) 14%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--color-outline) 28%, transparent);
 }
 
 /* ═══════════════════════════════════════════════════
