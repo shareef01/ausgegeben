@@ -217,7 +217,7 @@ fun BillsScreen(
                                             title = stringResource(R.string.bills_section_expenses),
                                             data = uiState.expensesByCategory,
                                             currencyCode = currencyCode,
-                                            isIncome = false
+                                            kind = AnalyticsKind.Expense,
                                         )
                                     }
                                 }
@@ -227,7 +227,17 @@ fun BillsScreen(
                                             title = stringResource(R.string.bills_section_income),
                                             data = uiState.incomeByCategory,
                                             currencyCode = currencyCode,
-                                            isIncome = true
+                                            kind = AnalyticsKind.Income,
+                                        )
+                                    }
+                                }
+                                if (uiState.transfersByCategory.isNotEmpty()) {
+                                    Box(modifier = Modifier.weight(1f)) {
+                                        CategoryAnalyticsIsland(
+                                            title = stringResource(R.string.bills_section_transfers),
+                                            data = uiState.transfersByCategory,
+                                            currencyCode = currencyCode,
+                                            kind = AnalyticsKind.Transfer,
                                         )
                                     }
                                 }
@@ -246,7 +256,7 @@ fun BillsScreen(
                                         title = stringResource(R.string.bills_section_expenses),
                                         data = uiState.expensesByCategory,
                                         currencyCode = currencyCode,
-                                        isIncome = false
+                                        kind = AnalyticsKind.Expense,
                                     )
                                 }
                             }
@@ -263,7 +273,24 @@ fun BillsScreen(
                                         title = stringResource(R.string.bills_section_income),
                                         data = uiState.incomeByCategory,
                                         currencyCode = currencyCode,
-                                        isIncome = true
+                                        kind = AnalyticsKind.Income,
+                                    )
+                                }
+                            }
+                        }
+
+                        if (uiState.transfersByCategory.isNotEmpty()) {
+                            item(key = "transfers-card") {
+                                val revealAlpha = remember(entranceKey) { Animatable(0f) }
+                                LaunchedEffect(entranceKey) {
+                                    revealAlpha.animateTo(1f, tween(500, delayMillis = 350))
+                                }
+                                Box(modifier = Modifier.graphicsLayer { alpha = revealAlpha.value }) {
+                                    CategoryAnalyticsIsland(
+                                        title = stringResource(R.string.bills_section_transfers),
+                                        data = uiState.transfersByCategory,
+                                        currencyCode = currencyCode,
+                                        kind = AnalyticsKind.Transfer,
                                     )
                                 }
                             }
@@ -279,7 +306,7 @@ fun BillsScreen(
                             Box(
                                 modifier = Modifier
                                     .graphicsLayer { alpha = revealAlpha.value }
-                                    .then(if (isWide) Modifier.fillMaxWidth(0.85f).fillMaxWidth() else Modifier),
+                                    .then(if (isWide) Modifier.fillMaxWidth(0.85f) else Modifier),
                                 contentAlignment = Alignment.Center
                             ) {
                                 CashFlowCard(
@@ -433,12 +460,14 @@ private fun CashFlowCard(
     }
 }
 
+private enum class AnalyticsKind { Expense, Income, Transfer }
+
 @Composable
 private fun CategoryAnalyticsIsland(
     title: String,
     data: Map<Category, Double>,
     currencyCode: String,
-    isIncome: Boolean = false,
+    kind: AnalyticsKind = AnalyticsKind.Expense,
 ) {
     val total = data.values.sum()
     val sorted = remember(data) { data.toList().sortedByDescending { it.second } }
@@ -447,7 +476,16 @@ private fun CategoryAnalyticsIsland(
     }
     val chartData = remember(sorted) { sorted.associate { (category, amount) -> category.name to amount } }
 
-    val accentColor = if (isIncome) financeIncomeColor() else financeExpenseColor()
+    val accentColor = when (kind) {
+        AnalyticsKind.Income -> financeIncomeColor()
+        AnalyticsKind.Transfer -> financeTransferColor()
+        AnalyticsKind.Expense -> financeExpenseColor()
+    }
+    val totalLabelRes = when (kind) {
+        AnalyticsKind.Income -> R.string.bills_total_income
+        AnalyticsKind.Transfer -> R.string.bills_total_transfers
+        AnalyticsKind.Expense -> R.string.bills_total_expense
+    }
 
     Box(
         modifier = Modifier
@@ -469,9 +507,7 @@ private fun CategoryAnalyticsIsland(
                 data = chartData,
                 colors = chartColors,
                 centerLabel = CurrencyUtils.formatAmount(total, currencyCode, showSymbol = false),
-                centerSubLabel = stringResource(
-                    if (isIncome) R.string.bills_total_income else R.string.bills_total_expense
-                ).uppercase(),
+                centerSubLabel = stringResource(totalLabelRes).uppercase(),
                 chartSize = 180.dp,
                 currencyCode = currencyCode,
             )

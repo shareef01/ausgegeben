@@ -68,8 +68,15 @@ export function App(): JSX.Element {
   // Wait for Firebase Auth to initialize before deciding what to show
   if (!authReady) {
     return (
-      <div className="loading-screen" style={{ height: '100vh', display: 'grid', placeItems: 'center', background: 'var(--color-background)', color: 'var(--color-accent)' }}>
-        <div className="btn__spinner"><span className="spin-dot" /><span className="spin-dot" /><span className="spin-dot" /></div>
+      <div
+        className="loading-screen"
+        role="status"
+        aria-busy="true"
+        aria-live="polite"
+        style={{ height: '100vh', display: 'grid', placeItems: 'center', background: 'var(--color-background)', color: 'var(--color-accent)' }}
+      >
+        <span className="sr-only">loading…</span>
+        <div className="btn__spinner" aria-hidden><span className="spin-dot" /><span className="spin-dot" /><span className="spin-dot" /></div>
       </div>
     );
   }
@@ -82,8 +89,15 @@ export function App(): JSX.Element {
   // Wait for Firestore preferences before onboarding gate (avoids flash)
   if (!preferencesReady) {
     return (
-      <div className="loading-screen" style={{ height: '100vh', display: 'grid', placeItems: 'center', background: 'var(--color-background)', color: 'var(--color-accent)' }}>
-        <div className="btn__spinner"><span className="spin-dot" /><span className="spin-dot" /><span className="spin-dot" /></div>
+      <div
+        className="loading-screen"
+        role="status"
+        aria-busy="true"
+        aria-live="polite"
+        style={{ height: '100vh', display: 'grid', placeItems: 'center', background: 'var(--color-background)', color: 'var(--color-accent)' }}
+      >
+        <span className="sr-only">loading…</span>
+        <div className="btn__spinner" aria-hidden><span className="spin-dot" /><span className="spin-dot" /><span className="spin-dot" /></div>
       </div>
     );
   }

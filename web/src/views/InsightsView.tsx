@@ -15,7 +15,10 @@ export function InsightsView({ onAdd }: { onAdd?: () => void }) {
   const currency = usePreferencesStore((s) => s.currency);
   const { uiState, categories, periodOptions, setAnalyticsPeriod, reload } = useDashboardViewModel();
   const haptics = useHaptics();
-  const hasData = uiState.totalExpenses > 0 || uiState.totalIncome > 0;
+  const hasData =
+    uiState.totalExpenses > 0 ||
+    uiState.totalIncome > 0 ||
+    uiState.totalTransfers > 0;
   const loading = uiState.loading;
 
   const selectedOption = useMemo(
@@ -87,6 +90,7 @@ export function InsightsView({ onAdd }: { onAdd?: () => void }) {
               <div className="insights-breakdown">
                 <CategoryCard title={t('filterExpense')} map={uiState.expensesByCategory} categories={categories} currency={currency} accent="var(--color-expense)" />
                 <CategoryCard title={t('filterIncome')} map={uiState.incomeByCategory} categories={categories} currency={currency} accent="var(--color-income)" />
+                <CategoryCard title={t('filterTransfer')} map={uiState.transfersByCategory} categories={categories} currency={currency} accent="var(--color-transfer, var(--color-outline))" />
               </div>
 
               {uiState.cashFlowTrend.length > 0 ? (
