@@ -24,7 +24,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-data class DashboardUiState(
+data class InsightsUiState(
     val periodKey: String = AnalyticsPeriod.THIS_MONTH.storageKey,
     val periodLabel: String = "",
     val totalExpenses: Double = 0.0,
@@ -37,7 +37,7 @@ data class DashboardUiState(
     val cashFlowTrend: List<CashFlowPoint> = emptyList(),
 )
 
-class DashboardViewModel(
+class InsightsViewModel(
     private val repository: AppRepository,
     private val preferenceManager: PreferenceManager
 ) : ViewModel() {
@@ -54,22 +54,22 @@ class DashboardViewModel(
         }
     }
 
-    val uiState: StateFlow<DashboardUiState> = combine(
+    val uiState: StateFlow<InsightsUiState> = combine(
         preferenceManager.currencyFlow,
         repository.allCategories,
         periodExpensesFlow,
         _periodKey,
     ) { currency, categories, scopedExpenses, periodKey ->
-        buildDashboardState(currency, categories, scopedExpenses, periodKey)
+        buildInsightsState(currency, categories, scopedExpenses, periodKey)
     }
         .flowOn(Dispatchers.Default)
         .distinctUntilChanged { previous, current ->
-            dashboardStatesEquivalent(previous, current)
+            insightsStatesEquivalent(previous, current)
         }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = DashboardUiState()
+            initialValue = InsightsUiState()
         )
 
     init {
@@ -87,12 +87,12 @@ class DashboardViewModel(
         }
     }
 
-    private fun buildDashboardState(
+    private fun buildInsightsState(
         currency: String,
         categories: List<Category>,
         scoped: List<Expense>,
         periodKey: String,
-    ): DashboardUiState {
+    ): InsightsUiState {
         val categoryById = categories.associateBy { it.id }
 
         var totalExpenses = 0.0
@@ -127,7 +127,7 @@ class DashboardViewModel(
                 categoryById[categoryId]?.let { it to amount }
             }.toMap()
 
-        return DashboardUiState(
+        return InsightsUiState(
             periodKey = periodKey,
             periodLabel = analyticsPeriodOptionFromStorage(periodKey).label,
             totalExpenses = totalExpenses,
@@ -141,7 +141,7 @@ class DashboardViewModel(
         )
     }
 
-    private fun dashboardStatesEquivalent(previous: DashboardUiState, current: DashboardUiState): Boolean {
+    private fun insightsStatesEquivalent(previous: InsightsUiState, current: InsightsUiState): Boolean {
         if (previous.periodKey != current.periodKey ||
             previous.periodLabel != current.periodLabel ||
             previous.currency != current.currency ||
