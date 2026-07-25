@@ -2151,16 +2151,32 @@
 }
 
 .add-txn__cats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
   gap: 10px;
-  max-height: min(17.5rem, 36vh);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 2px;
-  margin: 0 -2px;
-  scrollbar-gutter: stable;
+  max-height: none;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 8px;
+  padding: 6px 4px 12px;
+  margin: 0 -4px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   -webkit-overflow-scrolling: touch;
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 16px,
+    #000 calc(100% - 16px),
+    transparent
+  );
+}
+
+.add-txn__cats::-webkit-scrollbar {
+  display: none;
 }
 
 @media (min-width: 480px) {
@@ -2182,9 +2198,8 @@
   }
 
   .add-txn__cats {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-    max-height: min(18.5rem, 38vh);
+    gap: 12px;
+    scroll-padding-inline: 12px;
   }
 
   .add-txn__title {
@@ -2193,8 +2208,9 @@
 }
 
 .add-txn__cats-empty {
-  grid-column: 1 / -1;
-  padding: 1.75rem 1rem;
+  flex: 0 0 auto;
+  min-width: min(100%, 18rem);
+  padding: 1.25rem 1rem;
 }
 
 .add-txn .field:has(.add-txn__cats) {
@@ -2204,17 +2220,22 @@
 
 .add-txn__cat {
   display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
-  min-width: 0;
-  min-height: 48px;
-  padding: 10px 12px;
-  border-radius: 14px;
+  justify-content: center;
+  gap: 8px;
+  width: 5.75rem;
+  min-width: 5.75rem;
+  min-height: 5.5rem;
+  padding: 12px 10px;
+  border-radius: 18px;
   border: 1px solid color-mix(in srgb, var(--color-outline) 55%, transparent);
   background: color-mix(in srgb, var(--color-on-surface) 4%, var(--color-surface));
   color: var(--color-on-surface);
-  text-align: left;
+  text-align: center;
   cursor: pointer;
+  scroll-snap-align: center;
   transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
@@ -2224,7 +2245,7 @@
 }
 
 .add-txn__cat:active {
-  transform: scale(0.985);
+  transform: scale(0.97);
 }
 
 .add-txn__cat:focus-visible {
@@ -2241,9 +2262,9 @@
 }
 
 .add-txn__cat-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
@@ -2252,12 +2273,14 @@
 }
 
 .add-txn__cat-name {
+  width: 100%;
   min-width: 0;
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: 0.75rem;
+  font-weight: 650;
   line-height: 1.2;
   letter-spacing: -0.01em;
   text-transform: lowercase;
+  text-align: center;
   color: var(--color-on-surface);
   overflow: hidden;
   text-overflow: ellipsis;
