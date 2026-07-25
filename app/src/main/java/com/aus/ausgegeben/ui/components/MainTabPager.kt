@@ -64,7 +64,7 @@ fun MainTabPager(
             Box(Modifier.fillMaxSize()) {
                 when (route) {
                     Route.ExpenseList -> recordContent()
-                    Route.CategoryManagement -> billsContent()
+                    Route.Insights -> billsContent()
                     Route.Settings -> settingsContent()
                     else -> recordContent()
                 }
