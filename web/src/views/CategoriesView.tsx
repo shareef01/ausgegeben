@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Category, TransactionType } from '@/models/types';
-import { expenseRepository } from '@/repositories/expenseRepository';
+import { expenseRepository, UNCATEGORIZED_ID } from '@/repositories/expenseRepository';
+
 import { CategoryIconTile, SignatureText } from '@/components/ui';
 import { CategoryLucideIcon, CATEGORY_ICON_KEYS, categoryIconLabel } from '@/components/CategoryLucideIcon';
 import { IconBroom, IconDelete, IconCheck, IconClose } from '@/components/Icons';
@@ -44,12 +45,16 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
   useBodyScrollLock(true);
 
   const reload = useCallback(async () => {
+    // Purge the legacy Uncategorized sentinel so it never sticks in the manage list.
+    await expenseRepository.deleteCategory(UNCATEGORIZED_ID);
     setCategories(await expenseRepository.getAllCategories());
   }, []);
 
   useEffect(() => { void reload(); }, [reload]);
 
-  const filtered = categories.filter((c) => c.transactionType === filter);
+  const filtered = categories.filter(
+    (c) => c.transactionType === filter && c.id !== UNCATEGORIZED_ID,
+  );
 
   const startCreate = () => {
     setEditor({ id: null, name: '', iconName: DEFAULT_ICON, colorInt: CATEGORY_COLOR_INTS[0] });
@@ -123,7 +128,7 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[200] bg-background/80 backdrop-blur-xl flex items-center justify-center p-4" onClick={handleEscape}>
+    <div className="fixed inset-0 z-[200] safe-overlay bg-background/80 backdrop-blur-xl flex items-center justify-center" onClick={handleEscape}>
       <div
         ref={dialogRef}
         className="card--pro max-w-2xl w-full p-8 sm:p-10 flex flex-col gap-8 shadow-2xl overflow-y-auto max-h-[90vh]"
@@ -300,9 +305,13 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
       <ConfirmDialog
         open={deleteTarget !== null}
         title={t('categoryDeleteConfirm', { name: deleteTarget?.name ?? '' })}
-        message={deleteLinkedCount > 0
-          ? t('categoryDeleteLinked', { count: String(deleteLinkedCount) })
-          : t('categoryDeleteMessage')}
+        message={deleteTarget?.id === UNCATEGORIZED_ID
+          ? (deleteLinkedCount > 0
+              ? t('categoryDeleteUncategorizedLinked', { count: String(deleteLinkedCount) })
+              : t('categoryDeleteUncategorizedMessage'))
+          : (deleteLinkedCount > 0
+              ? t('categoryDeleteLinked', { count: String(deleteLinkedCount) })
+              : t('categoryDeleteMessage'))}
         onConfirm={confirmDeleteCategory}
         onCancel={() => { setDeleteTarget(null); setDeleteLinkedCount(0); }}
       />

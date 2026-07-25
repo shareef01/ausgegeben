@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
+import com.aus.ausgegeben.data.AppRepository
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.ui.TransactionType
 import com.aus.ausgegeben.ui.label
@@ -416,6 +417,9 @@ fun CategoryManageSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val typeLabel = transactionType.label()
     var showDeduplicateConfirm by remember { mutableStateOf(false) }
+    val visibleCategories = remember(categories) {
+        categories.filter { it.id != AppRepository.UNCATEGORIZED_ID }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -441,7 +445,7 @@ fun CategoryManageSheet(
                         color = MaterialTheme.colorScheme.onBackground
                     )
                     Text(
-                        stringResource(R.string.category_manage_subtitle, typeLabel, categories.size),
+                        stringResource(R.string.category_manage_subtitle, typeLabel, visibleCategories.size),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -480,7 +484,7 @@ fun CategoryManageSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            if (categories.isEmpty()) {
+            if (visibleCategories.isEmpty()) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -511,11 +515,11 @@ fun CategoryManageSheet(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.heightIn(max = 400.dp)
                 ) {
-                    itemsIndexed(categories, key = { _, c -> c.id }) { index, category ->
+                    itemsIndexed(visibleCategories, key = { _, c -> c.id }) { index, category ->
                         CategoryManageRow(
                             category = category,
                             canMoveUp = index > 0,
-                            canMoveDown = index < categories.lastIndex,
+                            canMoveDown = index < visibleCategories.lastIndex,
                             onEdit = { onEditCategory(category) },
                             onDelete = { onDeleteCategory(category) },
                             onMoveUp = { onMoveCategory(category, true) },
