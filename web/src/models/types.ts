@@ -50,7 +50,7 @@ export interface RecordUiState {
   loadError?: boolean;
 }
 
-export interface DashboardUiState {
+export interface InsightsUiState {
   periodKey: string;
   periodLabel: string;
   totalExpenses: number;

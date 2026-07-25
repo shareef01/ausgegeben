@@ -50,7 +50,7 @@ private object BillsAuroraTokens {
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun BillsScreen(
-    viewModel: DashboardViewModel,
+    viewModel: InsightsViewModel,
     currencyCode: String = "EUR",
     onAddTransaction: () -> Unit = {},
     modifier: Modifier = Modifier

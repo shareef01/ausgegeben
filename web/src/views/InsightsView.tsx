@@ -3,7 +3,7 @@ import { EmptyState, LoadingListSkeleton, SignatureText } from '@/components/ui'
 import { DonutChart, segmentColor } from '@/components/DonutChart';
 import { CashFlowChart, CashFlowLegend } from '@/components/CashFlowChart';
 import { AnalyticsPeriodPicker } from '@/components/PeriodSelector';
-import { useDashboardViewModel } from '@/viewmodels/useDashboardViewModel';
+import { useInsightsViewModel } from '@/viewmodels/useInsightsViewModel';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useTranslation } from '@/i18n';
 import { formatAmount } from '@/utils/currency';
@@ -13,7 +13,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 export function InsightsView({ onAdd }: { onAdd?: () => void }) {
   const { t } = useTranslation();
   const currency = usePreferencesStore((s) => s.currency);
-  const { uiState, categories, periodOptions, setAnalyticsPeriod, reload } = useDashboardViewModel();
+  const { uiState, categories, periodOptions, setAnalyticsPeriod, reload } = useInsightsViewModel();
   const haptics = useHaptics();
   const hasData =
     uiState.totalExpenses > 0 ||
