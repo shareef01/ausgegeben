@@ -2153,7 +2153,14 @@
 .add-txn__cats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 10px;
+  max-height: min(17.5rem, 36vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px;
+  margin: 0 -2px;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
 }
 
 @media (min-width: 480px) {
@@ -2176,6 +2183,8 @@
 
   .add-txn__cats {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    max-height: min(18.5rem, 38vh);
   }
 
   .add-txn__title {
@@ -2188,29 +2197,34 @@
   padding: 1.75rem 1rem;
 }
 
+.add-txn .field:has(.add-txn__cats) {
+  gap: 12px;
+  min-height: 0;
+}
+
 .add-txn__cat {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
-  min-height: 44px;
-  padding: 8px 10px;
-  border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--color-outline) 85%, transparent);
-  background: color-mix(in srgb, var(--color-surface) 92%, transparent);
+  min-height: 48px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--color-outline) 55%, transparent);
+  background: color-mix(in srgb, var(--color-on-surface) 4%, var(--color-surface));
   color: var(--color-on-surface);
   text-align: left;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .add-txn__cat:hover {
-  background: color-mix(in srgb, var(--color-on-surface) 5%, var(--color-surface));
-  border-color: color-mix(in srgb, var(--color-on-surface) 18%, transparent);
+  background: color-mix(in srgb, var(--color-on-surface) 8%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-on-surface) 22%, transparent);
 }
 
 .add-txn__cat:active {
-  transform: scale(0.98);
+  transform: scale(0.985);
 }
 
 .add-txn__cat:focus-visible {
@@ -2219,27 +2233,31 @@
 }
 
 .add-txn__cat--selected {
-  border-color: color-mix(in srgb, var(--color-income) 65%, transparent);
-  background: color-mix(in srgb, var(--color-income) 12%, var(--color-surface));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-income) 20%, transparent);
+  border-color: color-mix(in srgb, var(--color-income) 70%, transparent);
+  background: color-mix(in srgb, var(--color-income) 14%, var(--color-surface));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-income) 28%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--color-income) 12%, transparent);
 }
 
 .add-txn__cat-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  background: color-mix(in srgb, var(--color-background) 80%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-outline) 60%, transparent);
+  background: color-mix(in srgb, currentColor 16%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 24%, transparent);
 }
 
 .add-txn__cat-name {
   min-width: 0;
-  font-size: 0.8125rem;
-  font-weight: 650;
+  font-size: 0.875rem;
+  font-weight: 600;
   line-height: 1.2;
+  letter-spacing: -0.01em;
+  text-transform: lowercase;
   color: var(--color-on-surface);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2248,6 +2266,7 @@
 
 .add-txn__cat--selected .add-txn__cat-name {
   color: var(--color-on-background);
+  font-weight: 700;
 }
 
 .add-txn__error {
