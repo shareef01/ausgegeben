@@ -4,9 +4,6 @@
     <string name="app_tagline">ausgaben verfolgen</string>
 
     <!-- Auth -->
-    <string name="auth_tagline">dein geld, deine regeln</string>
-    <string name="auth_headline">willkommen zurück</string>
-    <string name="auth_subheadline">melde dich an, um deine daten geräteübergreifend zu synchronisieren.</string>
     <string name="auth_tab_sign_in">anmelden</string>
     <string name="auth_tab_sign_up">registrieren</string>
     <string name="auth_email_label">e-mail</string>

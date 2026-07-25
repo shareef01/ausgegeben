@@ -35,6 +35,7 @@ data class InsightsUiState(
     val incomeByCategory: Map<Category, Double> = emptyMap(),
     val transfersByCategory: Map<Category, Double> = emptyMap(),
     val cashFlowTrend: List<CashFlowPoint> = emptyList(),
+    val isLoading: Boolean = true,
 )
 
 class InsightsViewModel(
@@ -138,6 +139,7 @@ class InsightsViewModel(
             incomeByCategory = mapTotals(incomeTotals),
             transfersByCategory = mapTotals(transferTotals),
             cashFlowTrend = scoped.computeCashFlowTrend(periodKey),
+            isLoading = false,
         )
     }
 
