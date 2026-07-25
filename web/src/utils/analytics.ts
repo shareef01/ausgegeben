@@ -127,7 +127,7 @@ export function csvEscapeField(value: string): string {
 }
 
 /** Same columns and local-time formatting as Android ExportUtils ("yyyy-MM-dd,HH:mm"). */
-export function exportCsv(expenses: Expense[], categories: Category[]): string {
+export function exportCsv(expenses: Expense[], categories: Category[], unknownLabel: string): string {
   const catMap = new Map(categories.map((c) => [c.id, c]));
   const header = 'date,time,type,category,note,amount';
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -135,7 +135,7 @@ export function exportCsv(expenses: Expense[], categories: Category[]): string {
     const d = new Date(e.dateMillis);
     const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    const cat = catMap.get(e.categoryId)?.name ?? 'Unknown';
+    const cat = catMap.get(e.categoryId)?.name ?? unknownLabel;
     return [date, time, e.transactionType, cat, e.note, String(e.amount)]
       .map(csvEscapeField)
       .join(',');

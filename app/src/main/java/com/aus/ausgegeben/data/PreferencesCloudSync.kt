@@ -36,11 +36,19 @@ class PreferencesCloudSync(
     /** Non-null when the last push/pull to `users/{uid}/settings/preferences` failed. */
     val syncError: StateFlow<String?> = _syncError.asStateFlow()
 
+    private val _preferencesReady = MutableStateFlow(false)
+    /**
+     * True after the first preferences snapshot for the active uid has been applied
+     * (or failed safely). Used to defer locale-sensitive work like category seeding.
+     */
+    val preferencesReady: StateFlow<Boolean> = _preferencesReady.asStateFlow()
+
     fun start(uid: String, scope: CoroutineScope) {
         if (activeUid == uid && registration != null) return
         stop()
         activeUid = uid
         activeScope = scope
+        _preferencesReady.value = false
         val ref = firestore
             .collection("users")
             .document(uid)
@@ -51,19 +59,24 @@ class PreferencesCloudSync(
             if (error != null) {
                 Log.w(TAG, "preferences listener error", error)
                 _syncError.value = error.message ?: "listener error"
+                _preferencesReady.value = true
                 return@addSnapshotListener
             }
             scope.launch(Dispatchers.IO) {
-                val localAt = preferenceManager.preferencesUpdatedAt()
-                if (snap == null || !snap.exists()) {
-                    writeRemote(uid, preferenceManager.snapshotSyncedPreferences())
-                    return@launch
-                }
-                val remote = parseRemote(snap.data) ?: return@launch
-                when {
-                    remote.updatedAt > localAt -> applyRemote(remote)
-                    localAt > remote.updatedAt -> writeRemote(uid, preferenceManager.snapshotSyncedPreferences())
-                    else -> _syncError.value = null
+                try {
+                    val localAt = preferenceManager.preferencesUpdatedAt()
+                    if (snap == null || !snap.exists()) {
+                        writeRemote(uid, preferenceManager.snapshotSyncedPreferences())
+                        return@launch
+                    }
+                    val remote = parseRemote(snap.data) ?: return@launch
+                    when {
+                        remote.updatedAt > localAt -> applyRemote(remote)
+                        localAt > remote.updatedAt -> writeRemote(uid, preferenceManager.snapshotSyncedPreferences())
+                        else -> _syncError.value = null
+                    }
+                } finally {
+                    _preferencesReady.value = true
                 }
             }
         }
@@ -87,6 +100,7 @@ class PreferencesCloudSync(
         suppressPush = false
         lastWrittenAt = 0L
         _syncError.value = null
+        _preferencesReady.value = false
     }
 
     /** Re-attempt the last push after a failure (e.g. user tapped retry on the sync error banner). */

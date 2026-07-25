@@ -332,4 +332,16 @@
     <string name="add_unsaved_changes_title">Ungespeicherte Änderungen</string>
     <string name="add_unsaved_changes_body">Du hast ungespeicherte Änderungen. Verwerfen?</string>
     <string name="add_discard">Verwerfen</string>
+
+    <!-- Default Categories -->
+    <string name="cat_groceries">Lebensmittel</string>
+    <string name="cat_shopping">Shopping</string>
+    <string name="cat_dining">Restaurant</string>
+    <string name="cat_transport">Transport</string>
+    <string name="cat_bills">Rechnungen</string>
+    <string name="cat_subscriptions">Abos</string>
+    <string name="cat_salary">Gehalt</string>
+    <string name="cat_freelance">Freelance</string>
+    <string name="cat_refunds">Rückerstattung</string>
+    <string name="cat_transfer">Transfer</string>
 </resources>

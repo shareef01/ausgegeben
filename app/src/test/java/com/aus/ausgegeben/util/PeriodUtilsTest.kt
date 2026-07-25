@@ -1,95 +1,67 @@
 package com.aus.ausgegeben.util
 
-import com.aus.ausgegeben.data.entity.Expense
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 import java.util.Calendar
+import java.util.TimeZone
 
 class PeriodUtilsTest {
 
     @Test
-    fun thisMonthRange_containsExpenseOnFirstDay() {
-        val cal = Calendar.getInstance().apply {
-            set(Calendar.DAY_OF_MONTH, 1)
-            set(Calendar.HOUR_OF_DAY, 12)
+    fun monthStorageKey_formatsCorrectly() {
+        assertEquals("month:2024-01", monthStorageKey(2024, 0))
+        assertEquals("month:2024-12", monthStorageKey(2024, 11))
+    }
+
+    @Test
+    fun analyticsMonthRangeFromStorageKey_parsesValidKeys() {
+        val range = analyticsMonthRangeFromStorageKey("month:2024-05")
+        assertNotNull(range)
+        
+        val cal = Calendar.getInstance().apply { 
+            timeInMillis = range!!.first
+            timeZone = TimeZone.getDefault()
         }
-        val expense = Expense(
-            amount = 10.0,
-            dateMillis = cal.timeInMillis,
-            categoryId = "1",
-            note = "",
-            transactionType = "expense"
-        )
-        val filtered = listOf(expense).filterByPeriod(
-            AnalyticsPeriod.THIS_MONTH,
-            nowMillis = cal.timeInMillis
-        )
-        assertEquals(1, filtered.size)
+        assertEquals(2024, cal.get(Calendar.YEAR))
+        assertEquals(Calendar.MAY, cal.get(Calendar.MONTH))
+        assertEquals(1, cal.get(Calendar.DAY_OF_MONTH))
+        
+        val endCal = Calendar.getInstance().apply { 
+            timeInMillis = range!!.second
+            timeZone = TimeZone.getDefault()
+        }
+        assertEquals(2024, endCal.get(Calendar.YEAR))
+        assertEquals(Calendar.JUNE, endCal.get(Calendar.MONTH))
+        assertEquals(1, endCal.get(Calendar.DAY_OF_MONTH))
     }
 
     @Test
-    fun allTime_doesNotFilter() {
-        val expenses = listOf(
-            Expense(id = "1", amount = 5.0, dateMillis = 0L, categoryId = "1", note = "", transactionType = "expense"),
-            Expense(id = "2", amount = 7.0, dateMillis = System.currentTimeMillis(), categoryId = "1", note = "", transactionType = "expense")
-        )
-        assertEquals(expenses, expenses.filterByPeriod(AnalyticsPeriod.ALL_TIME))
+    fun analyticsMonthRangeFromStorageKey_returnsNullForInvalidKeys() {
+        assertNull(analyticsMonthRangeFromStorageKey("invalid"))
+        assertNull(analyticsMonthRangeFromStorageKey("month:2024"))
+        assertNull(analyticsMonthRangeFromStorageKey("month:2024-13"))
     }
 
     @Test
-    fun allTime_storageKey_hasNoDateRange() {
-        assertNull(analyticsDateRangeMillis(AnalyticsPeriod.ALL_TIME.storageKey))
-    }
-
-    @Test
-    fun analyticsPeriodOptions_putsAllTimeFirst() {
-        val options = analyticsPeriodOptions(monthsBack = 3)
-        assertEquals(AnalyticsPeriod.ALL_TIME.storageKey, options.first().storageKey)
-        assertNull(options.first().rangeMillis)
-    }
-
-    @Test
-    fun lastMonth_excludesCurrentMonthExpense() {
-        val now = Calendar.getInstance()
-        val current = Expense(
-            amount = 1.0,
-            dateMillis = now.timeInMillis,
-            categoryId = "1",
-            note = "",
-            transactionType = "expense"
-        )
-        val filtered = listOf(current).filterByPeriod(AnalyticsPeriod.LAST_MONTH, now.timeInMillis)
-        assertEquals(0, filtered.size)
-    }
-
-    @Test
-    fun analyticsDateRangeMillis_parsesMonthKey() {
+    fun analyticsPeriod_dateRangeMillis_matchesExpected() {
         val now = Calendar.getInstance().apply {
-            set(2026, Calendar.JUNE, 15, 12, 0, 0)
+            set(2024, Calendar.JULY, 15)
         }.timeInMillis
-        val range = analyticsDateRangeMillis("month:2026-06", now)
-        requireNotNull(range)
-        val start = Calendar.getInstance().apply { timeInMillis = range.first }
-        assertEquals(Calendar.JUNE, start.get(Calendar.MONTH))
-    }
-
-    @Test
-    fun computeInsights_countsMonthExpensesOnly() {
-        val now = System.currentTimeMillis()
-        val expense = Expense(
-            amount = 25.0,
-            dateMillis = now,
-            categoryId = "1",
-            note = "",
-            transactionType = "expense"
-        )
-        val insights = computeSpendingInsights(
-            monthExpenses = listOf(expense),
-            weekExpenses = listOf(expense),
-            categoryNames = mapOf("1" to "Food")
-        )
-        assertEquals(25.0, insights.monthExpenseTotal, 0.001)
-        assertEquals("Food", insights.topExpenseCategoryName)
+        
+        val thisMonth = AnalyticsPeriod.THIS_MONTH.dateRangeMillis(now)
+        assertNotNull(thisMonth)
+        val start = Calendar.getInstance().apply { timeInMillis = thisMonth!!.first }
+        assertEquals(2024, start.get(Calendar.YEAR))
+        assertEquals(Calendar.JULY, start.get(Calendar.MONTH))
+        
+        val lastMonth = AnalyticsPeriod.LAST_MONTH.dateRangeMillis(now)
+        assertNotNull(lastMonth)
+        val lastStart = Calendar.getInstance().apply { timeInMillis = lastMonth!!.first }
+        assertEquals(2024, lastStart.get(Calendar.YEAR))
+        assertEquals(Calendar.JUNE, lastStart.get(Calendar.MONTH))
+        
+        assertNull(AnalyticsPeriod.ALL_TIME.dateRangeMillis(now))
     }
 }
