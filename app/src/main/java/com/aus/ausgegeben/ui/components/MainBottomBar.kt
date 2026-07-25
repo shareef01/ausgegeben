@@ -7,12 +7,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.List
@@ -20,6 +20,7 @@ import androidx.compose.material.icons.rounded.Analytics
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -30,7 +31,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.Route
 import com.aus.ausgegeben.ui.theme.AppColorSpring
@@ -39,7 +48,7 @@ import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.navigationInactiveColor
 
-val MainBottomBarHeight = 68.dp
+val MainBottomBarHeight = 72.dp
 
 private data class NavDestination(
     val route: Route,
@@ -54,12 +63,12 @@ fun MainBottomBar(
     modifier: Modifier = Modifier,
 ) {
     val recordLabel = stringResource(R.string.nav_record)
-    val billsLabel = stringResource(R.string.nav_bills)
+    val insightsLabel = stringResource(R.string.nav_bills)
     val settingsLabel = stringResource(R.string.nav_settings)
-    val destinations = remember(recordLabel, billsLabel, settingsLabel) {
+    val destinations = remember(recordLabel, insightsLabel, settingsLabel) {
         listOf(
             NavDestination(Route.ExpenseList, Icons.AutoMirrored.Rounded.List, recordLabel),
-            NavDestination(Route.CategoryManagement, Icons.Rounded.Analytics, billsLabel),
+            NavDestination(Route.Insights, Icons.Rounded.Analytics, insightsLabel),
             NavDestination(Route.Settings, Icons.Rounded.Settings, settingsLabel),
         )
     }
@@ -76,7 +85,7 @@ fun MainBottomBar(
         destinations.forEach { destination ->
             val selected = when (destination.route) {
                 Route.ExpenseList -> currentRoute is Route.ExpenseList
-                Route.CategoryManagement -> currentRoute is Route.CategoryManagement
+                Route.Insights -> currentRoute is Route.Insights
                 Route.Settings -> currentRoute is Route.Settings
                 else -> false
             }
@@ -116,37 +125,44 @@ private fun MainBottomBarItem(
         label = "navItemTint",
     )
     val iconSize by animateDpAsState(
-        targetValue = if (selected) 31.dp else 28.dp,
+        targetValue = if (selected) 24.dp else 22.dp,
         animationSpec = AppDpSpring,
         label = "navIconSize",
     )
     val interactionSource = remember { MutableInteractionSource() }
 
-    Box(
+    Column(
         modifier = modifier
-            .height(56.dp)
+            .height(60.dp)
             .clip(RoundedCornerShape(AppRadius.pill))
+            .background(containerColor)
+            .semantics {
+                role = Role.Tab
+                contentDescription = destination.label
+                this.selected = selected
+            }
             .clickable(
                 interactionSource = interactionSource,
-                indication = ripple(bounded = true, radius = 28.dp),
+                indication = ripple(bounded = true),
                 onClick = onClick,
             )
-            .padding(vertical = AppSpacing.xs),
-        contentAlignment = Alignment.Center,
+            .padding(horizontal = 4.dp, vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
     ) {
-        Box(
-            modifier = Modifier
-                .size(50.dp)
-                .clip(CircleShape)
-                .background(containerColor),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = destination.icon,
-                contentDescription = destination.label,
-                tint = contentColor,
-                modifier = Modifier.size(iconSize),
-            )
-        }
+        Icon(
+            imageVector = destination.icon,
+            contentDescription = null,
+            tint = contentColor,
+            modifier = Modifier.size(iconSize),
+        )
+        Text(
+            text = destination.label.lowercase(),
+            color = contentColor,
+            fontSize = 11.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }

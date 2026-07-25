@@ -5,30 +5,30 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 sealed interface Route : NavKey {
-    /** Add transaction screen */
+    /** Add / edit transaction overlay */
     @Serializable
-    data object Dashboard : Route
+    data object AddTransaction : Route
 
-    /** Record / transaction list */
+    /** Record / transaction list tab */
     @Serializable
     data object ExpenseList : Route
 
-    /** Settings */
+    /** Settings tab */
     @Serializable
     data object Settings : Route
 
-    /** Bills / analytics */
+    /** Insights / analytics tab */
     @Serializable
-    data object CategoryManagement : Route
+    data object Insights : Route
 
-    /** Category CRUD */
+    /** Category CRUD overlay */
     @Serializable
     data object CategoryList : Route
 }
 
 val MainTabRoutes = listOf(
     Route.ExpenseList,
-    Route.CategoryManagement,
+    Route.Insights,
     Route.Settings
 )
 

@@ -190,7 +190,7 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
                       style={selected ? { color: colorIntToHex(editor.colorInt), borderColor: colorIntToHex(editor.colorInt) } : undefined}
                       onClick={() => setEditor({ ...editor, iconName: key })}
                       aria-pressed={selected}
-                      aria-label={categoryIconLabel(key)}
+                      aria-label={categoryIconLabel(key, t)}
                     >
                       <CategoryLucideIcon iconName={key} size={19} />
                     </button>

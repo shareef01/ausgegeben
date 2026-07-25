@@ -1,4 +1,5 @@
 import type { LucideIcon, LucideProps } from 'lucide-react';
+import type { TranslationKey } from '@/i18n';
 import {
   ArrowLeftRight,
   Baby,
@@ -83,42 +84,48 @@ export const CATEGORY_ICON_KEYS = [
 ] as const;
 
 /** Readable names for the icon picker's aria-labels (raw keys read poorly, e.g. "emoji events"). */
-const ICON_LABELS: Record<string, string> = {
-  category: 'category',
-  shopping_cart: 'shopping cart',
-  shopping_bag: 'shopping bag',
-  restaurant: 'restaurant',
-  cafe: 'café',
-  car: 'car',
-  gas: 'fuel',
-  home: 'home',
-  bolt: 'electricity',
-  wifi: 'internet',
-  subscriptions: 'subscriptions',
-  smoking: 'smoking',
-  health: 'health',
-  fitness: 'fitness',
-  education: 'education',
-  work: 'work',
-  flight: 'flight',
-  hotel: 'hotel',
-  wallet: 'wallet',
-  savings: 'savings',
-  credit_card: 'credit card',
-  trending_up: 'investments',
-  undo: 'refund',
-  swap: 'transfer',
-  gift: 'gift',
-  entertainment: 'entertainment',
-  pets: 'pets',
-  child: 'child',
-  phone: 'phone',
-  laptop: 'laptop',
-  emoji_events: 'awards',
+const ICON_LABEL_KEYS: Record<string, TranslationKey> = {
+  category: 'iconCategory',
+  shopping_cart: 'iconShoppingCart',
+  shopping_bag: 'iconShoppingBag',
+  restaurant: 'iconRestaurant',
+  cafe: 'iconCafe',
+  car: 'iconCar',
+  gas: 'iconGas',
+  home: 'iconHome',
+  bolt: 'iconBolt',
+  wifi: 'iconWifi',
+  subscriptions: 'iconSubscriptions',
+  smoking: 'iconSmoking',
+  health: 'iconHealth',
+  fitness: 'iconFitness',
+  education: 'iconEducation',
+  work: 'iconWork',
+  flight: 'iconFlight',
+  hotel: 'iconHotel',
+  wallet: 'iconWallet',
+  savings: 'iconSavings',
+  credit_card: 'iconCreditCard',
+  trending_up: 'iconTrendingUp',
+  undo: 'iconUndo',
+  swap: 'iconSwap',
+  swap_horiz: 'iconSwap',
+  gift: 'iconGift',
+  entertainment: 'iconEntertainment',
+  pets: 'iconPets',
+  child: 'iconChild',
+  phone: 'iconPhone',
+  laptop: 'iconLaptop',
+  emoji_events: 'iconAwards',
+  help_outline: 'iconHelp',
 };
 
-export function categoryIconLabel(iconName: string): string {
-  return ICON_LABELS[iconName] ?? iconName.replace(/_/g, ' ');
+export function categoryIconLabel(
+  iconName: string,
+  translate: (key: TranslationKey) => string,
+): string {
+  const key = ICON_LABEL_KEYS[iconName];
+  return key ? translate(key) : iconName.replace(/_/g, ' ');
 }
 
 export function CategoryLucideIcon({ iconName, ...props }: LucideProps & { iconName: string }) {
