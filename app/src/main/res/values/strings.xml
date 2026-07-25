@@ -41,6 +41,7 @@
     <!-- Record -->
     <string name="record_search_placeholder">Search notes, categories, amounts</string>
     <string name="record_clear_search">Clear search</string>
+    <string name="record_clear_filters">Clear filters</string>
     <string name="record_no_matches_title">No matches</string>
     <string name="record_no_matches_subtitle">Try a different search or filter</string>
     <string name="record_empty_title">No transactions yet</string>
@@ -187,7 +188,7 @@
     <string name="period_all_time">All time</string>
     <string name="period_picker_label">Showing</string>
     <string name="period_picker_title">Choose period</string>
-    <string name="period_picker_subtitle">View your bills and charts for a month or your full history.</string>
+    <string name="period_picker_subtitle">View your insights and charts for a month or your full history.</string>
     <string name="period_picker_months">By month</string>
 
     <!-- Theme -->
@@ -204,7 +205,7 @@
 
     <!-- Onboarding -->
     <string name="onboarding_title_track">Track every expense</string>
-    <string name="onboarding_body_track">Log spending, income, and transfers in seconds. Your history stays on this device.</string>
+    <string name="onboarding_body_track">Log spending, income, and transfers in seconds. Sign in to keep your history in sync.</string>
     <string name="onboarding_title_insights">See where money goes</string>
     <string name="onboarding_body_insights">Charts and insights break down spending by category and month so you can spot patterns.</string>
     <string name="onboarding_title_reminders">Stay on top of habits</string>

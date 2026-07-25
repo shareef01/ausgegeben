@@ -138,11 +138,11 @@ fun RecordScreen(
                     .widthIn(max = 800.dp),
                 contentPadding = recordListBottomPadding()
             ) {
-                if (isWide) {
-                    item(key = "title") {
-                        ScreenTitle(
-                            title = stringResource(R.string.nav_record),
-                            action = {
+                item(key = "title") {
+                    ScreenTitle(
+                        title = stringResource(R.string.nav_record),
+                        action = if (isWide) {
+                            {
                                 AppButton(
                                     onClick = onAddTransaction,
                                     containerColor = MaterialTheme.colorScheme.primary,
@@ -150,9 +150,11 @@ fun RecordScreen(
                                 ) {
                                     Text(stringResource(R.string.nav_add_transaction))
                                 }
-                            },
-                        )
-                    }
+                            }
+                        } else {
+                            null
+                        },
+                    )
                 }
 
                 item(key = "hero") {
@@ -330,14 +332,34 @@ fun RecordScreen(
                     }
                     else -> {
                     val isSearching = uiState.toolbar.searchQuery.isNotBlank()
+                    val hasActiveFilters = uiState.toolbar.typeFilter != TransactionTypeFilter.ALL ||
+                        uiState.toolbar.listPeriod != RecordListPeriod.THIS_MONTH.key
+                    val isConstrained = isSearching || hasActiveFilters
                     item(key = "empty") {
                         EmptyStateMessage(
-                            icon = if (isSearching) Icons.Rounded.SearchOff else Icons.AutoMirrored.Rounded.List,
-                            title = stringResource(if (isSearching) R.string.record_no_matches_title else R.string.record_empty_title),
-                            subtitle = stringResource(if (isSearching) R.string.record_no_matches_subtitle else R.string.record_empty_subtitle),
-                            hint = if (isSearching) null else stringResource(R.string.record_gesture_hints),
-                            actionLabel = if (isSearching) stringResource(R.string.record_error_retry) else stringResource(R.string.record_empty_action),
-                            onAction = if (isSearching) { { viewModel.setSearchQuery("") } } else onAddTransaction
+                            icon = if (isConstrained) Icons.Rounded.SearchOff else Icons.AutoMirrored.Rounded.List,
+                            title = stringResource(
+                                if (isConstrained) R.string.record_no_matches_title else R.string.record_empty_title
+                            ),
+                            subtitle = stringResource(
+                                if (isConstrained) R.string.record_no_matches_subtitle else R.string.record_empty_subtitle
+                            ),
+                            hint = if (isConstrained) null else stringResource(R.string.record_gesture_hints),
+                            actionLabel = stringResource(
+                                when {
+                                    isSearching -> R.string.record_clear_search
+                                    hasActiveFilters -> R.string.record_clear_filters
+                                    else -> R.string.record_empty_action
+                                }
+                            ),
+                            onAction = when {
+                                isSearching -> {{ viewModel.setSearchQuery("") }}
+                                hasActiveFilters -> {{
+                                    viewModel.setTypeFilter(TransactionTypeFilter.ALL)
+                                    viewModel.setListPeriod(RecordListPeriod.THIS_MONTH.key)
+                                }}
+                                else -> onAddTransaction
+                            },
                         )
                     }
                     }

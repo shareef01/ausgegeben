@@ -69,14 +69,14 @@ fun BudgetProgressBar(
         androidx.compose.foundation.layout.Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(3.dp)
+                .height(6.dp)
                 .clip(trackShape)
                 .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.12f))
         ) {
             androidx.compose.foundation.layout.Box(
                 modifier = Modifier
                     .fillMaxWidth(displayRatio)
-                    .height(3.dp)
+                    .height(6.dp)
                     .clip(trackShape)
                     .background(barColor.copy(alpha = 0.85f))
             )
