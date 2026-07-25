@@ -218,7 +218,13 @@ fun RecordScreen(
 
                 item { Spacer(Modifier.height(24.dp)) }
 
-                if (allExpenses.isNotEmpty()) {
+                when {
+                    uiState.isLoading -> {
+                        item(key = "loading") {
+                            AppLoadingState()
+                        }
+                    }
+                    allExpenses.isNotEmpty() -> {
                     uiState.insights.topExpenseCategoryName?.let { name ->
                         item(key = "insight") {
                             val mostSpentLabel = stringResource(R.string.record_most_spent_on, name)
@@ -321,7 +327,8 @@ fun RecordScreen(
                             }
                         }
                     }
-                } else {
+                    }
+                    else -> {
                     val isSearching = uiState.toolbar.searchQuery.isNotBlank()
                     item(key = "empty") {
                         EmptyStateMessage(
@@ -332,6 +339,7 @@ fun RecordScreen(
                             actionLabel = if (isSearching) stringResource(R.string.record_error_retry) else stringResource(R.string.record_empty_action),
                             onAction = if (isSearching) { { viewModel.setSearchQuery("") } } else onAddTransaction
                         )
+                    }
                     }
                 }
             }

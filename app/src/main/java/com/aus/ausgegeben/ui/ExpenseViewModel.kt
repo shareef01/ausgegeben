@@ -38,6 +38,7 @@ data class RecordUiState(
     val toolbar: RecordToolbarState = RecordToolbarState(),
     val insights: SpendingInsights = SpendingInsights(),
     val dayTotalsByDay: Map<Long, Pair<Double, Double>> = emptyMap(),
+    val isLoading: Boolean = true,
 )
 
 data class RecordData(
@@ -113,7 +114,7 @@ class ExpenseViewModel(
         insightsFlow,
         dayTotalsFlow
     ) { data, toolbar, insights, totals ->
-        RecordUiState(data, toolbar, insights, totals)
+        RecordUiState(data, toolbar, insights, totals, isLoading = false)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),

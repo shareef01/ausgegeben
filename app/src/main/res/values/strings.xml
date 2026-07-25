@@ -3,9 +3,6 @@
     <string name="app_tagline">track spending</string>
 
     <!-- Auth -->
-    <string name="auth_tagline">Your money, your way</string>
-    <string name="auth_headline">Welcome back</string>
-    <string name="auth_subheadline">Sign in to sync your data across devices.</string>
     <string name="auth_tab_sign_in">Sign in</string>
     <string name="auth_tab_sign_up">Sign up</string>
     <string name="auth_email_label">Email</string>
