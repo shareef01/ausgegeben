@@ -221,7 +221,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
                   </div>
                    <div className="transaction-list-bare__rows flex flex-col">
                   {items.map((expense) => (
-                    <div key={expense.id} className="txn-row-wrap border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors">
+                    <div key={expense.id} className="txn-row-wrap border-b border-[color-mix(in_srgb,var(--color-outline)_35%,transparent)] last:border-0 hover:bg-[color-mix(in_srgb,var(--color-on-surface)_4%,transparent)] transition-colors">
                       <SwipeableRow
                         onDelete={() => handleDelete(expense.id)}
                         onTap={() => handleEdit(expense.id)}

@@ -59,7 +59,7 @@ export function AuthView() {
 
         <IosSegmentedControl
           className="auth-page__tabs"
-          aria-label={t('authTagline')}
+          aria-label={`${t('authSignIn')} / ${t('authSignUp')}`}
           options={[
             { value: 'signin' as const, label: t('authSignIn') },
             { value: 'signup' as const, label: t('authSignUp') },
