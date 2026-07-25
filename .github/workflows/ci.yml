@@ -37,7 +37,9 @@ jobs:
       - run: npm ci
         working-directory: web
 
-      - run: npm audit --audit-level=high
+      # Audit runtime deps only — firebase-tools / vite-plugin-pwa pull
+      # known-high transitive advisories that don't ship in the browser bundle.
+      - run: npm audit --omit=dev --audit-level=high
         working-directory: web
 
       - run: npm test
