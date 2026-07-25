@@ -145,7 +145,14 @@ export const expenseRepository = {
             await setDoc(marker, { categoriesDeduped: true, ranAt: now() }, { merge: true });
           }
         }
-        await ensureUncategorizedCategory(userId);
+        // Remove the legacy Uncategorized sentinel (id "0") so it stays gone.
+        // When another category is deleted with linked transactions, deleteCategory
+        // still creates a temporary sink; the next seed clears it again.
+        try {
+          await deleteDoc(catDoc(userId, UNCATEGORIZED_ID));
+        } catch {
+          // ignore — doc may already be absent
+        }
       } catch (err) {
         console.warn('[ensureSeeded]', err);
       } finally {
@@ -186,10 +193,15 @@ export const expenseRepository = {
     await setDoc(catDoc(userId, cat.id), { ...cat, updatedAt: now() }, { merge: true });
   },
 
-  // SECURE: Safety-first deletion (move orphaned to uncategorized)
+  // SECURE: Safety-first deletion (move orphaned to uncategorized — except when
+  // deleting the uncategorized sentinel itself, which is allowed and leaves
+  // linked expenses with categoryId '0'; the UI already falls back to "unknown").
   async deleteCategory(id: string): Promise<void> {
     const userId = uid(); if (!userId) return;
-    if (id === UNCATEGORIZED_ID) return;
+    if (id === UNCATEGORIZED_ID) {
+      await deleteDoc(catDoc(userId, id));
+      return;
+    }
     await ensureUncategorizedCategory(userId);
     const linked = await getDocs(query(expCol(userId), where('categoryId', '==', id)));
     if (!linked.empty) {

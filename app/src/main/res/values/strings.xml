@@ -159,6 +159,9 @@
     <string name="add_delete_category_one">1 linked transaction will move to Uncategorized.</string>
     <string name="add_delete_category_many">%1$d linked transactions will move to Uncategorized.</string>
     <string name="add_delete_category_fallback">Linked transactions will move to Uncategorized.</string>
+    <string name="add_delete_category_uncategorized_one">1 linked transaction will show as unknown until you assign a category.</string>
+    <string name="add_delete_category_uncategorized_many">%1$d linked transactions will show as unknown until you assign a category.</string>
+    <string name="add_delete_category_uncategorized_fallback">Linked transactions will show as unknown until you assign a category.</string>
     <string name="add_delete_category_body">Deleting \"%1$s\" cannot be undone. %2$s</string>
     <string name="action_ok">OK</string>
 

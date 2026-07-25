@@ -1,8 +1,11 @@
-import { useCallback, useRef, type KeyboardEvent } from 'react';
+import type { ReactNode, KeyboardEvent } from 'react';
+import { useCallback, useRef } from 'react';
 
 interface SegmentOption<T extends string> {
   value: T;
+  /** Accessible name; also shown when `icon` is omitted */
   label: string;
+  icon?: ReactNode;
 }
 
 interface IosSegmentedControlProps<T extends string> {
@@ -84,22 +87,26 @@ export function IosSegmentedControl<T extends string>({
     >
       {options.map((option) => {
         const active = option.value === value;
+        const iconOnly = option.icon != null;
         return (
           <button
             key={option.value}
             type="button"
             role="radio"
             aria-checked={active}
+            aria-label={iconOnly ? option.label : undefined}
+            title={iconOnly ? option.label : undefined}
             tabIndex={active ? 0 : -1}
             data-type={option.value}
             className={[
               'segmented__item',
+              iconOnly ? 'segmented__item--icon' : '',
               active ? 'segmented__item--active' : '',
               active ? `segmented__item--${pillVariant}` : '',
             ].filter(Boolean).join(' ')}
             onClick={() => onChange(option.value)}
           >
-            {option.label}
+            {option.icon ?? option.label}
           </button>
         );
       })}

@@ -49,6 +49,8 @@ export const de: Record<TranslationKey, string> = {
   errorDeleteFailed: 'Transaktion konnte nicht gelöscht werden. Bitte versuche es erneut.',
   errorDuplicateFailed: 'Transaktion konnte nicht dupliziert werden.',
   categoryDeleteLinked: 'Diese Kategorie hat {count} verknüpfte Transaktion(en). Beim Löschen werden sie nach „Unkategorisiert" verschoben. Trotzdem löschen?',
+  categoryDeleteUncategorizedLinked: 'Diese Kategorie hat {count} verknüpfte Transaktion(en). Sie werden als „unbekannt“ angezeigt, bis du eine Kategorie zuweist. Trotzdem löschen?',
+  categoryDeleteUncategorizedMessage: 'Dies kann nicht rückgängig gemacht werden. Verknüpfte Transaktionen werden als „unbekannt“ angezeigt, bis du eine Kategorie zuweist.',
   categoryDeduplicateTitle: 'Doppelte Kategorien zusammenführen?',
   categoryDeduplicateMessage: 'Kategorien mit identischen Namen werden zusammengeführt und ihre Transaktionen kombiniert.',
   categoryDeduplicateConfirm: 'Zusammenführen',

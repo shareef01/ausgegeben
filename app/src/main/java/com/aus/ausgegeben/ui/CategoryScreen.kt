@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aus.ausgegeben.R
+import com.aus.ausgegeben.data.AppRepository
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.ui.components.*
 import com.aus.ausgegeben.ui.theme.*
@@ -52,7 +53,7 @@ fun CategoryScreen(
     val categoriesByType = remember(categories) {
         TransactionType.entries.mapNotNull { type ->
             val items = categories
-                .filter { it.transactionType == type.storageKey }
+                .filter { it.id != AppRepository.UNCATEGORIZED_ID && it.transactionType == type.storageKey }
                 .sortedBy { it.sortOrder }
             if (items.isEmpty()) null else type to items
         }
@@ -207,10 +208,17 @@ fun CategoryScreen(
             onDismissRequest = { categoryToDelete = null },
             title = { Text(stringResource(R.string.add_delete_category_title)) },
             text = {
-                val suffix = when (linkedCount) {
-                    0 -> stringResource(R.string.add_delete_category_none)
-                    1 -> stringResource(R.string.add_delete_category_one)
-                    in 2..Int.MAX_VALUE -> stringResource(R.string.add_delete_category_many, linkedCount)
+                val isUncategorized = category.id == AppRepository.UNCATEGORIZED_ID
+                val suffix = when {
+                    linkedCount == 0 -> stringResource(R.string.add_delete_category_none)
+                    isUncategorized && linkedCount == 1 ->
+                        stringResource(R.string.add_delete_category_uncategorized_one)
+                    isUncategorized && linkedCount >= 2 ->
+                        stringResource(R.string.add_delete_category_uncategorized_many, linkedCount)
+                    isUncategorized ->
+                        stringResource(R.string.add_delete_category_uncategorized_fallback)
+                    linkedCount == 1 -> stringResource(R.string.add_delete_category_one)
+                    linkedCount >= 2 -> stringResource(R.string.add_delete_category_many, linkedCount)
                     else -> stringResource(R.string.add_delete_category_fallback)
                 }
                 AppDialogBodyText(stringResource(R.string.add_delete_category_body, category.name, suffix))
