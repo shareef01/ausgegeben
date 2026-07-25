@@ -46,14 +46,22 @@ export function PremiumPeriodSelector<T>({
     <div className="period-select" ref={rootRef}>
       <button
         type="button"
-        className="period-select__trigger"
+        className={`period-select__trigger${open ? ' period-select__trigger--open' : ''}`}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
         onClick={() => setOpen((v) => !v)}
       >
+        <span className="period-select__leading" aria-hidden>
+          <IconCalendar width={18} height={18} />
+        </span>
         <span className="period-select__label">{labelFor(selected)}</span>
-        <IconChevronDown width={16} height={16} className={`period-select__chevron ${open ? 'period-select__chevron--open' : ''}`} />
+        <IconChevronDown
+          width={16}
+          height={16}
+          className={`period-select__chevron${open ? ' period-select__chevron--open' : ''}`}
+          aria-hidden
+        />
       </button>
       {open ? (
         <div className="period-select__menu card card--elevated" role="listbox" id={listId}>
@@ -65,13 +73,16 @@ export function PremiumPeriodSelector<T>({
                 type="button"
                 role="option"
                 aria-selected={active}
-                className={`period-select__option ${active ? 'period-select__option--active' : ''}`}
+                className={`period-select__option${active ? ' period-select__option--active' : ''}`}
                 onClick={() => {
                   onSelected(option);
                   setOpen(false);
                 }}
               >
-                {labelFor(option)}
+                <span className="period-select__option-label">{labelFor(option)}</span>
+                {active ? (
+                  <IconCheck width={16} height={16} strokeWidth={2.75} className="period-select__option-check" aria-hidden />
+                ) : null}
               </button>
             );
           })}

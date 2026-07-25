@@ -123,7 +123,10 @@ class AppRepository(
                     }
                 }
             }
-            ensureUncategorizedCategory(u)
+            // Remove legacy Uncategorized (id "0") so intentional deletes stick.
+            // deleteCategory still creates a temporary sink when reassigning linked
+            // expenses; the next seed clears that sink again.
+            runCatching { catDoc(u, UNCATEGORIZED_ID).delete().await() }
         }
     }
 
@@ -185,7 +188,12 @@ class AppRepository(
 
     suspend fun deleteCategory(category: Category): Result<Unit> = runCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
-        if (category.id == UNCATEGORIZED_ID) return@runCatching
+        // Deleting the uncategorized sentinel is allowed; linked expenses keep
+        // categoryId "0" and the UI falls back to the unknown label.
+        if (category.id == UNCATEGORIZED_ID) {
+            catDoc(u, category.id).delete().await()
+            return@runCatching
+        }
         // SECURE: Move orphaned expenses to "Uncategorized" (match string + legacy numeric ids)
         ensureUncategorizedCategory(u)
         reassignCategoryExpenses(u, fromCategoryId = category.id, toCategoryId = UNCATEGORIZED_ID)

@@ -47,6 +47,8 @@ export const en = {
   errorDeleteFailed: 'Failed to delete transaction. Please try again.',
   errorDuplicateFailed: 'Failed to duplicate transaction.',
   categoryDeleteLinked: 'This category has {count} linked transaction(s). Deleting it will move them to Uncategorized. Delete anyway?',
+  categoryDeleteUncategorizedLinked: 'This category has {count} linked transaction(s). They will show as unknown until you assign a category. Delete anyway?',
+  categoryDeleteUncategorizedMessage: 'This cannot be undone. Linked transactions will show as unknown until you assign a category.',
   categoryDeduplicateTitle: 'Merge duplicate categories?',
   categoryDeduplicateMessage: 'Categories with identical names will be merged and their transactions combined into one.',
   categoryDeduplicateConfirm: 'Merge',
