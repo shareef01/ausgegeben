@@ -42,6 +42,7 @@
     <!-- Record -->
     <string name="record_search_placeholder">notizen, kategorien, beträge suchen</string>
     <string name="record_clear_search">suche löschen</string>
+    <string name="record_clear_filters">filter zurücksetzen</string>
     <string name="record_no_matches_title">keine treffer</string>
     <string name="record_no_matches_subtitle">versuche eine andere suche oder filter</string>
     <string name="record_empty_title">noch keine transaktionen</string>
@@ -175,7 +176,7 @@
     <string name="period_all_time">gesamt</string>
     <string name="period_picker_label">zeitraum</string>
     <string name="period_picker_title">zeitraum wählen</string>
-    <string name="period_picker_subtitle">rechnungen und diagramme für monat oder historie anzeigen.</string>
+    <string name="period_picker_subtitle">einblicke und diagramme für monat oder historie anzeigen.</string>
     <string name="period_picker_months">nach monat</string>
 
     <!-- Theme -->

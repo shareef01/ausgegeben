@@ -380,7 +380,7 @@ private fun StatCard(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = label.uppercase(),
-                style = BillsAuroraTokens.labelStyle().copy(fontSize = 9.sp),
+                style = BillsAuroraTokens.labelStyle().copy(fontSize = 11.sp),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )

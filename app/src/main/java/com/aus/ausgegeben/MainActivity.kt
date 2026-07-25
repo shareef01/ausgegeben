@@ -286,7 +286,7 @@ fun MainApp(
             }
         ) { innerPadding ->
             val layoutDirection = LocalLayoutDirection.current
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .statusBarsPadding()
@@ -298,17 +298,14 @@ fun MainApp(
             ) {
                 // Offline / cloud-sync-error banner — same SyncErrorBanner used in Settings,
                 // so there's one visual treatment for "something's wrong with sync" everywhere.
-                AnimatedVisibility(
-                    visible = !isOnline,
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm)
-                ) {
+                AnimatedVisibility(visible = !isOnline) {
                     SyncErrorBanner(
                         error = stringResource(R.string.settings_sync_error_network),
                         onRetry = { preferencesCloudSync.retry() },
+                        modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm),
                     )
                 }
+                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 MainTabPager(
                     currentRoute = overlay.selectedTab,
                     onRouteChange = { route ->
@@ -398,7 +395,6 @@ fun MainApp(
                                 currencyCode = currency,
                                 onTransactionSaved = { wasEditing ->
                                     overlay.closeOverlay()
-                                    overlay.selectedTab = Route.ExpenseList
                                     showSnackbar(if (wasEditing) updatedMessage else savedMessage)
                                 },
                                 onBack = {
@@ -420,6 +416,7 @@ fun MainApp(
                         }
 
                     }
+                }
                 }
             }
         }
