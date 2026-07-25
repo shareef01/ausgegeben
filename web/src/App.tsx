@@ -59,11 +59,11 @@ export function App(): JSX.Element {
     return () => preferencesSync.stop();
   }, [user]);
 
-  // Seed default categories for empty accounts (same set as Android)
+  // Seed after prefs (locale) are ready so DEFAULT_CATEGORIES(t) uses the synced language
   useEffect(() => {
-    if (!user) return;
+    if (!user || !preferencesReady) return;
     void expenseRepository.ensureSeeded();
-  }, [user]);
+  }, [user, preferencesReady]);
 
   // Wait for Firebase Auth to initialize before deciding what to show
   if (!authReady) {

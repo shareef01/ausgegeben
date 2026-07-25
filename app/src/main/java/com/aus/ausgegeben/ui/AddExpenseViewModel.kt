@@ -128,14 +128,19 @@ class AddExpenseViewModel(
                         note = _note.value.trim(),
                         transactionType = type.storageKey
                     )
-                    if (editingId != null) {
+                    val saveResult = if (editingId != null) {
                         repository.updateExpense(expense)
                     } else {
                         repository.insertExpense(expense)
                     }
-                    checkBudgetAlert(type, amt, editingId)?.let { onBudgetAlert?.invoke(it) }
-                    resetForm()
-                    onSuccess()
+                    
+                    saveResult.onSuccess {
+                        checkBudgetAlert(type, amt, editingId)?.let { onBudgetAlert?.invoke(it) }
+                        resetForm()
+                        onSuccess()
+                    }.onFailure { e ->
+                        onError(e.localizedMessage ?: app.getString(R.string.auth_error_generic))
+                    }
                 } catch (e: Exception) {
                     onError(e.localizedMessage ?: app.getString(R.string.auth_error_generic))
                 } finally {

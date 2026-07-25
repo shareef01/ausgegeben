@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.ui.components.*
@@ -98,8 +99,8 @@ fun AddTransactionScreen(
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    val amountText by viewModel.amount.collectAsState()
-    val remarkText by viewModel.note.collectAsState()
+    val amountText by viewModel.amount.collectAsStateWithLifecycle()
+    val remarkText by viewModel.note.collectAsStateWithLifecycle()
 
     var showManageSheet by remember { mutableStateOf(false) }
     var showEditorDialog by remember { mutableStateOf(false) }
@@ -109,12 +110,12 @@ fun AddTransactionScreen(
     var editingCategory by remember { mutableStateOf<Category?>(null) }
     var categoryToDelete by remember { mutableStateOf<Category?>(null) }
 
-    val categories by viewModel.categories.collectAsState()
-    val selectedCategory by viewModel.selectedCategory.collectAsState()
-    val editingExpenseId by viewModel.editingExpenseId.collectAsState()
-    val loadedTransactionType by viewModel.loadedTransactionType.collectAsState()
-    val dateMillis by viewModel.dateMillis.collectAsState()
-    val isSaving by viewModel.isSaving.collectAsState()
+    val categories by viewModel.categories.collectAsStateWithLifecycle()
+    val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
+    val editingExpenseId by viewModel.editingExpenseId.collectAsStateWithLifecycle()
+    val loadedTransactionType by viewModel.loadedTransactionType.collectAsStateWithLifecycle()
+    val dateMillis by viewModel.dateMillis.collectAsStateWithLifecycle()
+    val isSaving by viewModel.isSaving.collectAsStateWithLifecycle()
 
     val isEditing = editingExpenseId != null
     var initialLoadDone by remember { mutableStateOf(!isEditing) }
@@ -544,7 +545,7 @@ private fun ObsidianNoteField(
                             AppIconButton(
                                 onClick = { onRemarkChange("") },
                                 icon = Icons.Rounded.Cancel,
-                                contentDescription = null,
+                                contentDescription = stringResource(R.string.action_clear),
                                 modifier = Modifier.size(20.dp),
                                 tint = ObsidianTokens.slate().copy(alpha = 0.4f)
                             )
@@ -676,7 +677,7 @@ private fun ObsidianCategorySlider(
                     .smoothClickable { onAddCategory() },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Rounded.Add, null, tint = navigationInactiveColor())
+                Icon(Icons.Rounded.Add, stringResource(R.string.add_new_category), tint = navigationInactiveColor())
             }
         }
     }

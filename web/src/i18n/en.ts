@@ -187,6 +187,16 @@ export const en = {
   onboardingPage3Body: 'set a monthly cap and watch your progress on the record tab.',
   onboardingPage4Title: 'sync everywhere',
   onboardingPage4Body: 'sign in to keep your data in sync with the android app via firebase.',
+  catGroceries: 'Groceries',
+  catShopping: 'Shopping',
+  catDining: 'Dining',
+  catTransport: 'Transport',
+  catBills: 'Bills',
+  catSubscriptions: 'Subscriptions',
+  catSalary: 'Salary',
+  catFreelance: 'Freelance',
+  catRefunds: 'Refunds',
+  catTransfer: 'Transfer',
 } as const;
 
 export type TranslationKey = keyof typeof en;

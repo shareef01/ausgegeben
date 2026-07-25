@@ -1,7 +1,10 @@
 package com.aus.ausgegeben.data
 
 import android.content.Context
+import android.content.res.Configuration
+import android.os.LocaleList
 import android.util.Log
+import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.data.auth.AuthRepository
@@ -21,6 +24,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -34,6 +38,7 @@ import kotlin.math.round
 class AppRepository(
     private val appContext: Context,
     private val authRepository: AuthRepository,
+    private val preferenceManager: PreferenceManager,
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
 ) {
     companion object {
@@ -77,17 +82,18 @@ class AppRepository(
             val u = uid() ?: return
             val snap = catCol(u).get().await()
             if (snap.isEmpty) {
+                val strings = localizedContext()
                 val defaults = listOf(
-                    Category(name = "Groceries", iconName = "shopping_cart", colorInt = 0xffe86b5a.toInt(), transactionType = "expense", sortOrder = 0),
-                    Category(name = "Shopping", iconName = "shopping_bag", colorInt = 0xffe8a060.toInt(), transactionType = "expense", sortOrder = 1),
-                    Category(name = "Dining", iconName = "restaurant", colorInt = 0xffd4849a.toInt(), transactionType = "expense", sortOrder = 2),
-                    Category(name = "Transport", iconName = "car", colorInt = 0xff6a9fd4.toInt(), transactionType = "expense", sortOrder = 3),
-                    Category(name = "Bills", iconName = "bolt", colorInt = 0xff9a8fd4.toInt(), transactionType = "expense", sortOrder = 4),
-                    Category(name = "Subscriptions", iconName = "subscriptions", colorInt = 0xff5ab8aa.toInt(), transactionType = "expense", sortOrder = 5),
-                    Category(name = "Salary", iconName = "credit_card", colorInt = 0xff5cb88a.toInt(), transactionType = "income", sortOrder = 0),
-                    Category(name = "Freelance", iconName = "work", colorInt = 0xff6a9fd4.toInt(), transactionType = "income", sortOrder = 1),
-                    Category(name = "Refunds", iconName = "undo", colorInt = 0xffb8a060.toInt(), transactionType = "income", sortOrder = 2),
-                    Category(name = "Transfer", iconName = "swap_horiz", colorInt = 0xff8e8e96.toInt(), transactionType = "transfer", sortOrder = 0),
+                    Category(name = strings.getString(R.string.cat_groceries), iconName = "shopping_cart", colorInt = 0xffe86b5a.toInt(), transactionType = "expense", sortOrder = 0),
+                    Category(name = strings.getString(R.string.cat_shopping), iconName = "shopping_bag", colorInt = 0xffe8a060.toInt(), transactionType = "expense", sortOrder = 1),
+                    Category(name = strings.getString(R.string.cat_dining), iconName = "restaurant", colorInt = 0xffd4849a.toInt(), transactionType = "expense", sortOrder = 2),
+                    Category(name = strings.getString(R.string.cat_transport), iconName = "car", colorInt = 0xff6a9fd4.toInt(), transactionType = "expense", sortOrder = 3),
+                    Category(name = strings.getString(R.string.cat_bills), iconName = "bolt", colorInt = 0xff9a8fd4.toInt(), transactionType = "expense", sortOrder = 4),
+                    Category(name = strings.getString(R.string.cat_subscriptions), iconName = "subscriptions", colorInt = 0xff5ab8aa.toInt(), transactionType = "expense", sortOrder = 5),
+                    Category(name = strings.getString(R.string.cat_salary), iconName = "credit_card", colorInt = 0xff5cb88a.toInt(), transactionType = "income", sortOrder = 0),
+                    Category(name = strings.getString(R.string.cat_freelance), iconName = "work", colorInt = 0xff6a9fd4.toInt(), transactionType = "income", sortOrder = 1),
+                    Category(name = strings.getString(R.string.cat_refunds), iconName = "undo", colorInt = 0xffb8a060.toInt(), transactionType = "income", sortOrder = 2),
+                    Category(name = strings.getString(R.string.cat_transfer), iconName = "swap_horiz", colorInt = 0xff8e8e96.toInt(), transactionType = "transfer", sortOrder = 0),
                 )
                 firestore.runBatch { batch ->
                     defaults.forEach { c ->
@@ -101,19 +107,23 @@ class AppRepository(
                 // marker entirely since they call the function directly, not through ensureSeeded().
                 val markerSnap = dedupeMarkerDoc(u).get().await()
                 if (markerSnap.getBoolean("categoriesDeduped") != true) {
-                    deduplicateCategories()
-                    dedupeMarkerDoc(u).set(
-                        mapOf("categoriesDeduped" to true, "ranAt" to System.currentTimeMillis()),
-                        SetOptions.merge()
-                    ).await()
+                    val dedupeResult = deduplicateCategories()
+                    if (dedupeResult.isSuccess) {
+                        dedupeMarkerDoc(u).set(
+                            mapOf("categoriesDeduped" to true, "ranAt" to System.currentTimeMillis()),
+                            SetOptions.merge()
+                        ).await()
+                    } else {
+                        Log.w(TAG, "dedupe skipped marker", dedupeResult.exceptionOrNull())
+                    }
                 }
             }
             ensureUncategorizedCategory(u)
         }
     }
 
-    suspend fun deduplicateCategories() {
-        val u = uid() ?: return
+    suspend fun deduplicateCategories(): Result<Unit> = runCatching {
+        val u = uid() ?: throw IllegalStateException("Not signed in")
         
         // SECURE: Fetch ALL categories directly (no orderBy) to catch docs missing sortOrder
         val allSnap = catCol(u).get().await()
@@ -155,22 +165,22 @@ class AppRepository(
         }
     }
 
-    suspend fun insertCategory(category: Category): String {
+    suspend fun insertCategory(category: Category): Result<String> = runCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
         val id = UUID.randomUUID().toString()
         val c = category.copy(id = id)
         catDoc(u, id).set(categoryPayload(c)).await()
-        return id
+        id
     }
 
-    suspend fun updateCategory(category: Category) {
-        val u = uid() ?: return
+    suspend fun updateCategory(category: Category): Result<Unit> = runCatching {
+        val u = uid() ?: throw IllegalStateException("Not signed in")
         catDoc(u, category.id).set(categoryPayload(category), SetOptions.merge()).await()
     }
 
-    suspend fun deleteCategory(category: Category) {
-        val u = uid() ?: return
-        if (category.id == UNCATEGORIZED_ID) return
+    suspend fun deleteCategory(category: Category): Result<Unit> = runCatching {
+        val u = uid() ?: throw IllegalStateException("Not signed in")
+        if (category.id == UNCATEGORIZED_ID) return@runCatching
         // SECURE: Move orphaned expenses to "Uncategorized" (match string + legacy numeric ids)
         ensureUncategorizedCategory(u)
         reassignCategoryExpenses(u, fromCategoryId = category.id, toCategoryId = UNCATEGORIZED_ID)
@@ -196,27 +206,27 @@ class AppRepository(
             }
         }
 
-    suspend fun insertExpense(expense: Expense): String {
+    suspend fun insertExpense(expense: Expense): Result<String> = runCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
         val id = if (expense.id.isBlank()) UUID.randomUUID().toString() else expense.id
         val e = expense.copy(id = id, amount = roundAmount(expense.amount))
         expDoc(u, id).set(expensePayload(e)).await()
-        return id
+        id
     }
 
-    suspend fun updateExpense(expense: Expense) {
-        val u = uid() ?: return
+    suspend fun updateExpense(expense: Expense): Result<Unit> = runCatching {
+        val u = uid() ?: throw IllegalStateException("Not signed in")
         val e = expense.copy(amount = roundAmount(expense.amount))
         expDoc(u, expense.id).set(expensePayload(e), SetOptions.merge()).await()
     }
 
-    suspend fun deleteExpense(expense: Expense) {
-        val u = uid() ?: return
+    suspend fun deleteExpense(expense: Expense): Result<Unit> = runCatching {
+        val u = uid() ?: throw IllegalStateException("Not signed in")
         expDoc(u, expense.id).delete().await()
     }
 
-    suspend fun duplicateExpense(expense: Expense) {
-        insertExpense(expense.copy(id = "", dateMillis = System.currentTimeMillis()))
+    suspend fun duplicateExpense(expense: Expense): Result<Unit> {
+        return insertExpense(expense.copy(id = "", dateMillis = System.currentTimeMillis())).map { Unit }
     }
 
     suspend fun sumMonthExpenses(excludeExpenseId: String = ""): Double {
@@ -265,17 +275,18 @@ class AppRepository(
         return expenseDocsForCategory(u, categoryId).size
     }
 
-    suspend fun updateExpenseTypesForCategory(categoryId: String, transactionType: String) {
-        val u = uid() ?: return
-        val docs = expenseDocsForCategory(u, categoryId)
-        docs.chunked(450).forEach { chunk ->
-            firestore.runBatch { batch ->
-                chunk.forEach { doc ->
-                    batch.update(doc.reference, "transactionType", transactionType)
-                }
-            }.await()
+    suspend fun updateExpenseTypesForCategory(categoryId: String, transactionType: String): Result<Unit> =
+        runCatching {
+            val u = uid() ?: throw IllegalStateException("Not signed in")
+            val docs = expenseDocsForCategory(u, categoryId)
+            docs.chunked(450).forEach { chunk ->
+                firestore.runBatch { batch ->
+                    chunk.forEach { doc ->
+                        batch.update(doc.reference, "transactionType", transactionType)
+                    }
+                }.await()
+            }
         }
-    }
 
     fun queryExpenses(params: ExpenseQueryParams): Flow<List<Expense>> =
         perUserFlow(emptyList()) { u ->
@@ -300,6 +311,14 @@ class AppRepository(
         }
 
     // ── Helpers ──
+
+    /** Resolve strings against the user's saved app language (not system / stale context). */
+    private suspend fun localizedContext(): Context {
+        val lang = preferenceManager.languageFlow.first()
+        val config = Configuration(appContext.resources.configuration)
+        config.setLocales(LocaleList.forLanguageTags(lang))
+        return appContext.createConfigurationContext(config)
+    }
 
     private fun roundAmount(amount: Double): Double = round(amount * 100.0) / 100.0
 
@@ -333,7 +352,7 @@ class AppRepository(
         if (ref.get().await().exists()) return
         val uncategorized = Category(
             id = UNCATEGORIZED_ID,
-            name = "Uncategorized",
+            name = localizedContext().getString(R.string.record_unknown_category),
             iconName = "help_outline",
             colorInt = 0xff8e8e96.toInt(),
             transactionType = "expense",

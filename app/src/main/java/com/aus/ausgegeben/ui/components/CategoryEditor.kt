@@ -454,7 +454,7 @@ fun CategoryManageSheet(
                     ) {
                         Icon(
                             Icons.Rounded.CleaningServices,
-                            contentDescription = "Merge Duplicates",
+                            contentDescription = stringResource(R.string.settings_deduplicate_label),
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
