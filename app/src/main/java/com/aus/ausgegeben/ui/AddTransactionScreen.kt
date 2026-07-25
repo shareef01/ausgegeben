@@ -730,7 +730,7 @@ private fun ObsidianNumpadContainer(
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .height(32.dp)
+                        .height(48.dp)
                         .appGlassCard(RoundedCornerShape(AppRadius.sm))
                         .semantics { contentDescription = label }
                         .smoothClickable { 
@@ -853,7 +853,7 @@ private fun ObsidianKey(
     
     Box(
         modifier = modifier
-            .height(46.dp)
+            .height(48.dp)
             .appGlassCard(RoundedCornerShape(AppRadius.interactive))
             .glassShine()
             .combinedClickable(
