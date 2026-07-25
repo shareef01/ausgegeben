@@ -379,12 +379,12 @@
 }
 
 .bottom-nav-pill__label {
-  font-size: 0.5625rem;
+  font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.02em;
-  line-height: 1;
+  line-height: 1.1;
   text-transform: lowercase;
-  max-width: 4.5rem;
+  max-width: 5.25rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
