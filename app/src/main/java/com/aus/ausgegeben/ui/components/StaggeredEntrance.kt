@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.aus.ausgegeben.ui.theme.rememberReduceMotion
 
 /**
  * Staggered fade + slide-in entrance animation shared by list/section items that should
@@ -22,6 +23,11 @@ fun StaggeredEntrance(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
+    val reduceMotion = rememberReduceMotion()
+    if (reduceMotion) {
+        content()
+        return
+    }
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
     val delayMillis = 40 + index.coerceAtMost(12) * 35

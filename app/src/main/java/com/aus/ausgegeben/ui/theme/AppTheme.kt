@@ -163,6 +163,19 @@ object AppAurora {
         radius: Float = 1400f,
         center: Offset = Offset(0f, 0f),
     ): Brush {
+        val reduceMotion = rememberReduceMotion()
+        if (reduceMotion) {
+            return Brush.radialGradient(
+                colors = listOf(
+                    color.copy(alpha = opacity),
+                    color.copy(alpha = opacity * 0.4f),
+                    Color.Transparent
+                ),
+                radius = radius,
+                center = center
+            )
+        }
+
         // Law 5: Motion Drift - Infinite subtle movement of background glows
         val transition = rememberInfiniteTransition(label = "auroraDrift")
         
