@@ -21,6 +21,7 @@ import type { ThemeMode } from '@/models/types';
 import { themePalettes } from '@/theme/tokens';
 import { expenseRepository } from '@/repositories/expenseRepository';
 import { exportCsv } from '@/utils/analytics';
+import { useToastStore } from '@/services/toastStore';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -66,16 +67,21 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
   const budgetInputRef = useRef<HTMLInputElement>(null);
 
   const exportData = async () => {
-    const expenses = await expenseRepository.getAllExpenses();
-    const categories = await expenseRepository.getAllCategories();
-    const csv = exportCsv(expenses, categories, t('recordUnknownCategory'));
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'ausgegeben-export.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const expenses = await expenseRepository.getAllExpenses();
+      const categories = await expenseRepository.getAllCategories();
+      const csv = exportCsv(expenses, categories, t('recordUnknownCategory'));
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ausgegeben-export.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+      useToastStore.getState().show(t('settingsExportOk'));
+    } catch {
+      useToastStore.getState().show(t('settingsExportFailed'));
+    }
   };
 
   const displayName = user?.displayName?.trim()
