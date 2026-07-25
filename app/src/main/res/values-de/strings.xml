@@ -6,7 +6,7 @@
     <!-- Auth -->
     <string name="auth_tagline">dein geld, deine regeln</string>
     <string name="auth_headline">willkommen zurück</string>
-    <string name="auth_subheadline">melde dich an, um geräteübergreifend zu synchronisieren, oder bleib offline.</string>
+    <string name="auth_subheadline">melde dich an, um deine daten geräteübergreifend zu synchronisieren.</string>
     <string name="auth_tab_sign_in">anmelden</string>
     <string name="auth_tab_sign_up">registrieren</string>
     <string name="auth_email_label">e-mail</string>
@@ -38,7 +38,7 @@
 
     <!-- Screen titles -->
     <string name="screen_record">erfassen</string>
-    <string name="screen_bills">rechnungen</string>
+    <string name="screen_bills">einblicke</string>
     <string name="screen_settings">einstellungen</string>
     <string name="settings_version_subtitle">ausgegeben · v%1$s</string>
 
@@ -111,16 +111,16 @@
     <string name="settings_budget_cleared">monatslimit gelöscht</string>
     <string name="settings_account_cloud">cloud-konto</string>
     <string name="settings_account_sync_enabled">cloud-backup aktiv</string>
-    <string name="settings_account_offline">offline-modus</string>
+    <string name="settings_account_offline">nicht angemeldet</string>
     <string name="settings_account_signed_in_as">angemeldet als %1$s</string>
     <string name="settings_account_cloud_subtitle">daten werden geräteübergreifend synchronisiert</string>
-    <string name="settings_account_offline_subtitle">daten bleiben nur auf diesem gerät</string>
+    <string name="settings_account_offline_subtitle">melde dich an, um daten zu sichern und zu synchronisieren</string>
     <string name="settings_sign_in">anmelden / konto erstellen</string>
     <string name="settings_sign_in_subtitle">gerätenah sichern und synchronisieren</string>
     <string name="settings_sign_out">abmelden</string>
-    <string name="settings_sign_out_subtitle">zurück zum offline-modus</string>
-    <string name="settings_sign_out_confirm">abmelden und offline-modus nutzen? lokale daten bleiben erhalten.</string>
-    <string name="settings_signed_out">abgemeldet. du bist nun im offline-modus.</string>
+    <string name="settings_sign_out_subtitle">sitzung auf diesem gerät beenden</string>
+    <string name="settings_sign_out_confirm">abmelden? du musst dich erneut anmelden, um auf deine cloud-daten zuzugreifen.</string>
+    <string name="settings_signed_out">abgemeldet</string>
     <string name="settings_sync_now">jetzt synchronisieren</string>
     <string name="settings_last_synced">zuletzt synchronisiert %1$s</string>
     <string name="settings_never_synced">noch nicht synchronisiert</string>
@@ -267,6 +267,7 @@
     <string name="bills_section_income">einnahmen</string>
     <string name="bills_total_income">gesamteinnahmen</string>
     <string name="bills_total_expense">gesamtausgaben</string>
+    <string name="bills_total_transfers">gesamttransfers</string>
     <string name="add_delete_category_fallback">verknüpfte transaktionen werden zu „nicht kategorisiert" verschoben.</string>
     <string name="add_delete_category_many">%1$d verknüpfte transaktionen werden zu „nicht kategorisiert" verschoben.</string>
     <string name="add_delete_category_none">keine transaktionen sind mit dieser kategorie verknüpft.</string>

@@ -402,25 +402,19 @@
   color: var(--color-expense);
 }
 
-/* Touch: no hover, so keep a compact always-visible delete affordance.
-   Edit = tap the row, duplicate = long-press; showing all three buttons
-   reserved 148px and crushed row content at phone widths. */
+/* Touch: keep edit + duplicate + delete visible (no hover on phones). */
 @media (pointer: coarse) {
   .swipeable-row__actions {
     display: flex !important;
   }
 
-  .swipeable-row__action:not(.swipeable-row__action--danger) {
-    display: none;
-  }
-
   .swipeable-row__action {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
   }
 
   .swipeable-row__content {
-    padding-right: 56px;
+    padding-right: 124px;
   }
 }
 

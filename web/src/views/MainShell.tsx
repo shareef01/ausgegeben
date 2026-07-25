@@ -94,7 +94,7 @@ export function MainShell() {
             <AppBrandWordmark className="app-header__wordmark" />
           </button>
 
-          <nav className="app-header__nav" aria-label={t('appName')}>
+          <nav className="app-header__nav" aria-label={t('navMain')}>
             {navItems.map(({ id, label, Icon }) => {
               const active = tab === id;
               return (
@@ -142,8 +142,15 @@ export function MainShell() {
                 key={tabId}
                 className={`tab-panel ${active ? 'tab-panel--active tab-panel--animate-in' : 'hidden'}`}
                 aria-hidden={!active}
+                {...(!active ? { inert: true } : {})}
               >
-                <Suspense fallback={<div className="tab-panel__loading" aria-hidden />}>
+                <Suspense
+                  fallback={
+                    <div className="tab-panel__loading" role="status" aria-busy="true" aria-live="polite">
+                      <span className="sr-only">{t('loading')}</span>
+                    </div>
+                  }
+                >
                   {tabContent[tabId]}
                 </Suspense>
               </div>
@@ -156,7 +163,7 @@ export function MainShell() {
       <div className="mobile-dock">
         <nav
           className="bottom-nav-pill flex items-center gap-0.5 rounded-full p-1"
-          aria-label={t('appName')}
+          aria-label={t('navMain')}
         >
           {navItems.map(({ id, label, Icon }) => {
             const active = tab === id;
@@ -196,7 +203,13 @@ export function MainShell() {
       </button>
 
       {txnOverlay ? (
-        <Suspense fallback={null}>
+        <Suspense
+          fallback={
+            <div className="overlay-loading" role="status" aria-busy="true" aria-live="polite">
+              <span className="sr-only">{t('loading')}</span>
+            </div>
+          }
+        >
           <AddTransactionView
             expenseId={txnOverlay.type === 'edit' ? txnOverlay.expenseId : undefined}
             suspended={categoriesOpen}
@@ -207,7 +220,13 @@ export function MainShell() {
         </Suspense>
       ) : null}
       {categoriesOpen ? (
-        <Suspense fallback={null}>
+        <Suspense
+          fallback={
+            <div className="overlay-loading" role="status" aria-busy="true" aria-live="polite">
+              <span className="sr-only">{t('loading')}</span>
+            </div>
+          }
+        >
           <CategoriesView onClose={() => setCategoriesOpen(false)} />
         </Suspense>
       ) : null}

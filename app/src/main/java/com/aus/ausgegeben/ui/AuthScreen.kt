@@ -224,6 +224,16 @@ fun AuthScreen(
                             )
                         }
 
+                        if (uiState.infoMessage != null) {
+                            Text(
+                                text = uiState.infoMessage!!,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
                         // Premium CTA Button
                         Button(
                             onClick = { viewModel.submit(onAuthenticated) },
