@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -55,10 +56,11 @@ class MainActivity : AppCompatActivity() {
                 AppRepository(
                     appContext = context.applicationContext,
                     authRepository = authRepository,
+                    preferenceManager = preferenceManager,
                 )
             }
             val syncScope = rememberCoroutineScope()
-            val currentUser by authRepository.authState.collectAsState(initial = authRepository.currentUser)
+            val currentUser by authRepository.authState.collectAsStateWithLifecycle(initialValue = authRepository.currentUser)
 
             LaunchedEffect(currentUser?.uid) {
                 val uid = currentUser?.uid
@@ -72,7 +74,7 @@ class MainActivity : AppCompatActivity() {
                 onDispose { preferencesCloudSync.stop() }
             }
 
-            val themeMode by preferenceManager.themeModeFlow.collectAsState(initial = ThemeMode.SYSTEM)
+            val themeMode by preferenceManager.themeModeFlow.collectAsStateWithLifecycle(initialValue = ThemeMode.SYSTEM)
 
             AusgegebenTheme(themeMode = themeMode) {
                 MainApp(
@@ -106,15 +108,16 @@ fun MainApp(
 ) {
     val context = LocalContext.current
     val activity = LocalActivity.current as? AppCompatActivity ?: return
-    val currentUser by authRepository.authState.collectAsState(initial = authRepository.currentUser)
-    val currency by preferenceManager.currencyFlow.collectAsState(initial = "EUR")
-    val dailyReminder by preferenceManager.dailyReminderFlow.collectAsState(initial = true)
-    val reminderHour by preferenceManager.reminderHourFlow.collectAsState(initial = 19)
-    val reminderMinute by preferenceManager.reminderMinuteFlow.collectAsState(initial = 0)
-    val onboardingComplete by preferenceManager.onboardingCompleteFlow.collectAsState(initial = false)
-    val isOnline by ConnectivityObserver.observe(context).collectAsState(initial = true)
-    val prefsSyncError by preferencesCloudSync.syncError.collectAsState(initial = null)
-    val listenerError by repository.listenerError.collectAsState(initial = null)
+    val currentUser by authRepository.authState.collectAsStateWithLifecycle(initialValue = authRepository.currentUser)
+    val currency by preferenceManager.currencyFlow.collectAsStateWithLifecycle(initialValue = "EUR")
+    val dailyReminder by preferenceManager.dailyReminderFlow.collectAsStateWithLifecycle(initialValue = true)
+    val reminderHour by preferenceManager.reminderHourFlow.collectAsStateWithLifecycle(initialValue = 19)
+    val reminderMinute by preferenceManager.reminderMinuteFlow.collectAsStateWithLifecycle(initialValue = 0)
+    val onboardingComplete by preferenceManager.onboardingCompleteFlow.collectAsStateWithLifecycle(initialValue = false)
+    val isOnline by ConnectivityObserver.observe(context).collectAsStateWithLifecycle(initialValue = true)
+    val prefsSyncError by preferencesCloudSync.syncError.collectAsStateWithLifecycle(initialValue = null)
+    val preferencesReady by preferencesCloudSync.preferencesReady.collectAsStateWithLifecycle(initialValue = false)
+    val listenerError by repository.listenerError.collectAsStateWithLifecycle(initialValue = null)
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var pendingOpenAdd by remember { mutableStateOf(openAddFromNotification) }
@@ -136,7 +139,7 @@ fun MainApp(
         DashboardViewModel(repository, preferenceManager)
     }
     val authViewModel: AuthViewModel = viewModel(activity) {
-        AuthViewModel(activity.application, authRepository, repository)
+        AuthViewModel(activity.application, authRepository)
     }
 
     val overlay = rememberAppOverlayState(addViewModel, expenseViewModel)
@@ -175,6 +178,14 @@ fun MainApp(
 
     LaunchedEffect(listenerError) {
         if (listenerError != null) showSnackbar(dataListenerErrorMessage)
+    }
+
+    // Seed once signed-in prefs (incl. locale) are ready — independent of onboarding/auth UI gates.
+    LaunchedEffect(currentUser?.uid, preferencesReady) {
+        if (currentUser == null || !preferencesReady) return@LaunchedEffect
+        withContext(Dispatchers.IO) {
+            repository.ensureSeeded()
+        }
     }
 
     LaunchedEffect(pendingOpenAdd) {
@@ -217,12 +228,6 @@ fun MainApp(
             },
         )
         return
-    }
-
-    LaunchedEffect(repository) {
-        withContext(Dispatchers.IO) {
-            repository.ensureSeeded()
-        }
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current

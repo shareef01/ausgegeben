@@ -241,7 +241,7 @@ fun RecordScreen(
                                     ) {
                                         Icon(
                                             imageVector = Icons.Rounded.Insights,
-                                            contentDescription = null,
+                                            contentDescription = stringResource(R.string.nav_bills),
                                             tint = financeExpenseColor(),
                                             modifier = Modifier.size(14.dp),
                                         )
@@ -377,7 +377,8 @@ private fun RecordListToolbar(
     isFilterExpanded: Boolean,
     onFilterToggle: (Boolean) -> Unit,
 ) {
-    val typeFilterLabels = TransactionTypeFilter.entries.map { it.label }
+    val context = LocalContext.current
+    val typeFilterLabels = remember(context) { TransactionTypeFilter.entries.map { it.localizedLabel(context) } }
     val typeFilterIndex = TransactionTypeFilter.entries.indexOf(typeFilter).coerceAtLeast(0)
     val isMonthPeriod = listPeriod.startsWith("month:")
     var showMonthSheet by remember { mutableStateOf(false) }
@@ -450,7 +451,7 @@ private fun RecordListToolbar(
                             ) {
                                 Icon(
                                     Icons.Rounded.CalendarMonth,
-                                    contentDescription = null,
+                                    contentDescription = stringResource(R.string.record_pick_month),
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(16.dp),
                                 )
@@ -550,7 +551,7 @@ private fun RecordListToolbar(
                         ) {
                             Icon(
                                 Icons.Rounded.Search,
-                                null,
+                                stringResource(R.string.record_search),
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(18.dp),
                             )
@@ -586,7 +587,7 @@ private fun RecordListToolbar(
                                 ) {
                                     Icon(
                                         Icons.Rounded.Close,
-                                        null,
+                                        stringResource(R.string.record_clear_search),
                                         tint = navigationInactiveColor(),
                                         modifier = Modifier.size(16.dp),
                                     )

@@ -5,10 +5,10 @@ import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 
-enum class TransactionType(val storageKey: String, val label: String) {
-    EXPENSE("expense", "expense"),
-    INCOME("income", "income"),
-    TRANSFER("transfer", "transfer");
+enum class TransactionType(val storageKey: String) {
+    EXPENSE("expense"),
+    INCOME("income"),
+    TRANSFER("transfer");
 
     companion object {
         fun fromKey(key: String): TransactionType =

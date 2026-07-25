@@ -4,6 +4,7 @@
 } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
+import { t } from '@/i18n';
 import type { Category, Expense, TransactionTypeFilter } from '@/models/types';
 
 function uid(): string | null { return useAuthStore.getState().user?.uid ?? null; }
@@ -24,17 +25,17 @@ function argb(hex: number): number {
 }
 
 /** Same defaults as AppRepository.ensureSeeded() on Android. */
-const DEFAULT_CATEGORIES: Omit<Category, 'id'>[] = [
-  { name: 'Groceries', iconName: 'shopping_cart', colorInt: argb(0xffe86b5a), transactionType: 'expense', sortOrder: 0 },
-  { name: 'Shopping', iconName: 'shopping_bag', colorInt: argb(0xffe8a060), transactionType: 'expense', sortOrder: 1 },
-  { name: 'Dining', iconName: 'restaurant', colorInt: argb(0xffd4849a), transactionType: 'expense', sortOrder: 2 },
-  { name: 'Transport', iconName: 'car', colorInt: argb(0xff6a9fd4), transactionType: 'expense', sortOrder: 3 },
-  { name: 'Bills', iconName: 'bolt', colorInt: argb(0xff9a8fd4), transactionType: 'expense', sortOrder: 4 },
-  { name: 'Subscriptions', iconName: 'subscriptions', colorInt: argb(0xff5ab8aa), transactionType: 'expense', sortOrder: 5 },
-  { name: 'Salary', iconName: 'credit_card', colorInt: argb(0xff5cb88a), transactionType: 'income', sortOrder: 0 },
-  { name: 'Freelance', iconName: 'work', colorInt: argb(0xff6a9fd4), transactionType: 'income', sortOrder: 1 },
-  { name: 'Refunds', iconName: 'undo', colorInt: argb(0xffb8a060), transactionType: 'income', sortOrder: 2 },
-  { name: 'Transfer', iconName: 'swap_horiz', colorInt: argb(0xff8e8e96), transactionType: 'transfer', sortOrder: 0 },
+const DEFAULT_CATEGORIES: (t: (k: any) => string) => Omit<Category, 'id'>[] = (t) => [
+  { name: t('catGroceries'), iconName: 'shopping_cart', colorInt: argb(0xffe86b5a), transactionType: 'expense', sortOrder: 0 },
+  { name: t('catShopping'), iconName: 'shopping_bag', colorInt: argb(0xffe8a060), transactionType: 'expense', sortOrder: 1 },
+  { name: t('catDining'), iconName: 'restaurant', colorInt: argb(0xffd4849a), transactionType: 'expense', sortOrder: 2 },
+  { name: t('catTransport'), iconName: 'car', colorInt: argb(0xff6a9fd4), transactionType: 'expense', sortOrder: 3 },
+  { name: t('catBills'), iconName: 'bolt', colorInt: argb(0xff9a8fd4), transactionType: 'expense', sortOrder: 4 },
+  { name: t('catSubscriptions'), iconName: 'subscriptions', colorInt: argb(0xff5ab8aa), transactionType: 'expense', sortOrder: 5 },
+  { name: t('catSalary'), iconName: 'credit_card', colorInt: argb(0xff5cb88a), transactionType: 'income', sortOrder: 0 },
+  { name: t('catFreelance'), iconName: 'work', colorInt: argb(0xff6a9fd4), transactionType: 'income', sortOrder: 1 },
+  { name: t('catRefunds'), iconName: 'undo', colorInt: argb(0xffb8a060), transactionType: 'income', sortOrder: 2 },
+  { name: t('catTransfer'), iconName: 'swap_horiz', colorInt: argb(0xff8e8e96), transactionType: 'transfer', sortOrder: 0 },
 ];
 
 let ensureSeededInFlight: Promise<void> | null = null;
@@ -60,7 +61,7 @@ async function ensureUncategorizedCategory(userId: string): Promise<void> {
   if (snap.exists()) return;
   await setDoc(ref, {
     id: UNCATEGORIZED_ID,
-    name: 'Uncategorized',
+    name: t('recordUnknownCategory'),
     iconName: 'help_outline',
     colorInt: argb(0xff8e8e96),
     transactionType: 'expense',
@@ -127,7 +128,7 @@ export const expenseRepository = {
         if (snap.empty) {
           const ts = now();
           await Promise.all(
-            DEFAULT_CATEGORIES.map(async (cat) => {
+            DEFAULT_CATEGORIES(t).map(async (cat) => {
               const id = crypto.randomUUID();
               await setDoc(catDoc(userId, id), { ...cat, id, updatedAt: ts });
             }),

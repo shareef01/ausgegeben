@@ -110,6 +110,7 @@ describe('analytics', () => {
         }),
       ],
       categories,
+      'Unknown'
     );
     expect(csv).toContain('"Coffee, pastry"');
     expect(csv.split('\n')).toHaveLength(2);
@@ -129,6 +130,7 @@ describe('analytics', () => {
         }),
       ],
       categories,
+      'Unknown'
     );
     const [header, row] = csv.split('\n');
     expect(header).toBe('date,time,type,category,note,amount');
@@ -148,6 +150,7 @@ describe('analytics', () => {
         }),
       ],
       categories,
+      'Unknown'
     );
     expect(csv).toContain("'=SUM(A1:A9)");
     expect(csv).toContain('"Food, drink"');
