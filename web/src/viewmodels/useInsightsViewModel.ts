@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Category, DashboardUiState, Expense } from '@/models/types';
+import type { Category, InsightsUiState, Expense } from '@/models/types';
 import { expenseRepository } from '@/repositories/expenseRepository';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { computeCashFlowTrend, groupByCategory } from '@/utils/analytics';
@@ -7,7 +7,7 @@ import { analyticsDateRangeMillis, analyticsPeriodOptions, normalizeAnalyticsPer
 
 const DATA_CHANGED_EVENT = 'ausgegeben:data-changed';
 
-export function useDashboardViewModel() {
+export function useInsightsViewModel() {
   // Normalized so legacy keys like 'this_month' resolve to a concrete month
   // option — otherwise the picker falls back to (and displays) "all time".
   const storedPeriodKey = usePreferencesStore((s) => s.analyticsPeriod);
@@ -65,7 +65,7 @@ export function useDashboardViewModel() {
           expsReady = true;
           tryReady();
         }).catch((err) => {
-          console.error('[useDashboardViewModel] getAllExpenses failed', err);
+          console.error('[useInsightsViewModel] getAllExpenses failed', err);
           setExpenses([]);
           setLoadError(true);
           expsReady = true;
@@ -95,7 +95,7 @@ export function useDashboardViewModel() {
       setCategories(cats);
       setExpenses(items);
     } catch (err) {
-      console.error('[useDashboardViewModel] reload failed', err);
+      console.error('[useInsightsViewModel] reload failed', err);
       setLoadError(true);
     } finally {
       setLoading(false);
@@ -103,7 +103,7 @@ export function useDashboardViewModel() {
     }
   }, [range]);
 
-  const uiState: DashboardUiState = useMemo(() => {
+  const uiState: InsightsUiState = useMemo(() => {
     const expensesByCategory = groupByCategory(expenses, 'expense');
     const incomeByCategory = groupByCategory(expenses, 'income');
     const transfersByCategory = groupByCategory(expenses, 'transfer');
