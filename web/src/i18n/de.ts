@@ -181,6 +181,8 @@ export const de: Record<TranslationKey, string> = {
   settingsManagement: 'verwaltung',
   settingsCategoriesSub: 'kategorien hinzufügen oder entfernen',
   settingsExportSub: 'tabelle herunterladen',
+  settingsExportOk: 'export bereit',
+  settingsExportFailed: 'export fehlgeschlagen',
   settingsChooseTheme: 'design wählen',
   settingsChooseCurrency: 'währung wählen',
   onboardingPage1Title: 'jede ausgabe erfassen',
