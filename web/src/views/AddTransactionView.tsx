@@ -33,6 +33,7 @@ export function AddTransactionView({
   const haptics = useHaptics();
   const amountInputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const catsRailRef = useRef<HTMLDivElement>(null);
   const handleEscape = useCallback(() => {
     if (!suspended) onClose();
   }, [onClose, suspended]);
@@ -42,6 +43,12 @@ export function AddTransactionView({
   useEffect(() => {
     if (vm.ready && !suspended) amountInputRef.current?.focus();
   }, [vm.ready, suspended]);
+
+  useEffect(() => {
+    if (!vm.ready || suspended || !vm.form.categoryId) return;
+    const selected = catsRailRef.current?.querySelector<HTMLElement>('.add-txn__cat--selected');
+    selected?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  }, [vm.ready, suspended, vm.form.categoryId, vm.categories]);
 
   const wasSuspended = useRef(false);
   useEffect(() => {
@@ -135,7 +142,12 @@ export function AddTransactionView({
 
           <div className="field">
             <div className="field__label" id="txn-category-label">{t('addCategoryLabel')}</div>
-            <div className="add-txn__cats" role="group" aria-labelledby="txn-category-label">
+            <div
+              ref={catsRailRef}
+              className="add-txn__cats"
+              role="group"
+              aria-labelledby="txn-category-label"
+            >
               {vm.categories.length === 0 ? (
                 <div className="categories-empty add-txn__cats-empty">
                   <p className="categories-empty__text">{t('categoriesEmptyHint')}</p>
@@ -160,7 +172,7 @@ export function AddTransactionView({
                         className="add-txn__cat-icon"
                         style={{ color: colorIntToHex(cat.colorInt) }}
                       >
-                        <CategoryLucideIcon iconName={cat.iconName} size={20} />
+                        <CategoryLucideIcon iconName={cat.iconName} size={22} />
                       </span>
                       <span className="add-txn__cat-name">{cat.name}</span>
                     </button>
