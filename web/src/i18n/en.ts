@@ -179,6 +179,8 @@ export const en = {
   settingsManagement: 'management',
   settingsCategoriesSub: 'add or remove categories',
   settingsExportSub: 'download spreadsheet',
+  settingsExportOk: 'export ready',
+  settingsExportFailed: 'export failed',
   settingsChooseTheme: 'choose theme',
   settingsChooseCurrency: 'choose currency',
   onboardingPage1Title: 'track every expense',

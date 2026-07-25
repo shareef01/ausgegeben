@@ -240,6 +240,16 @@ fun EmptyStateMessage(
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 24.dp),
         )
+        if (!hint.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = hint,
+                style = MaterialTheme.typography.labelMedium,
+                color = AuroraTokens.slate().copy(alpha = 0.75f),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 24.dp),
+            )
+        }
         if (actionLabel != null && onAction != null) {
             Spacer(modifier = Modifier.height(32.dp))
             AppButton(
