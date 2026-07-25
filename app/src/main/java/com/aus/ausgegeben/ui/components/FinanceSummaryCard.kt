@@ -70,6 +70,13 @@ fun FinanceSummaryCard(
     animateChanges: Boolean = true,
     modifier: Modifier = Modifier
 ) {
+    val summaryDescription = stringResource(
+        R.string.desc_finance_summary,
+        periodLabel,
+        CurrencyUtils.formatAmount(net, currencyCode),
+        CurrencyUtils.formatAmount(incomeTotal, currencyCode),
+        CurrencyUtils.formatAmount(expenseTotal, currencyCode),
+    )
     // Pillar 2: True Glassmorphism Container with "Hyper-Obsidian" Specular Depth
     Box(
         modifier = modifier
@@ -77,6 +84,7 @@ fun FinanceSummaryCard(
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .appGlassCard(shape = RoundedCornerShape(24.dp))
             .glassShine()
+            .semantics { contentDescription = summaryDescription }
             .padding(vertical = 32.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -289,35 +297,12 @@ fun EmptyStateMessage(
         }
         if (actionLabel != null && onAction != null) {
             Spacer(modifier = Modifier.height(32.dp))
-            AppButton(
-                onClick = onAction,
-                text = actionLabel.uppercase(),
-            )
+            AppButton(onClick = onAction) {
+                Text(
+                    text = actionLabel.uppercase(),
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                )
+            }
         }
-    }
-}
-
-@Composable
-private fun AppButton(
-    onClick: () -> Unit,
-    text: String,
-) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.onBackground)
-            .premiumClickable(onClick = onClick)
-            .padding(horizontal = 24.dp, vertical = 12.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = text,
-            style = TextStyle(
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp,
-                color = MaterialTheme.colorScheme.background
-            )
-        )
     }
 }
