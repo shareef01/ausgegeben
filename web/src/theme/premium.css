@@ -53,13 +53,11 @@
   overflow: visible;
 }
 
-/* Active nav: raised segment + accent ink */
+/* Active nav: same size as siblings, accent ink only */
 .app-header__nav-item--active {
   color: var(--color-income);
-  background: color-mix(in srgb, var(--color-surface) 82%, var(--color-on-surface));
-  box-shadow:
-    0 1px 2px color-mix(in srgb, var(--color-on-background) 28%, transparent),
-    inset 0 0 0 1px color-mix(in srgb, var(--color-outline) 45%, transparent);
+  background: color-mix(in srgb, var(--color-on-surface) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-income) 28%, transparent);
   transform: none;
 }
 

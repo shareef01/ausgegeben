@@ -237,13 +237,15 @@ input[type='number'] {
   width: auto;
   max-width: none;
   margin-left: auto;
-  gap: 0.2rem;
-  padding: 0.25rem;
+  gap: 2px;
+  padding: 3px;
+  height: 36px;
   min-width: 0;
-  border-radius: 12px;
+  box-sizing: border-box;
+  border-radius: 10px;
   background: color-mix(in srgb, var(--color-surface-variant) 70%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-outline) 40%, transparent);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-on-surface) 5%, transparent);
+  box-shadow: none;
   backdrop-filter: blur(16px) saturate(1.15);
   -webkit-backdrop-filter: blur(16px) saturate(1.15);
 }
@@ -257,17 +259,20 @@ input[type='number'] {
 .app-header__nav-item {
   position: relative;
   flex: 0 0 auto;
-  width: 2.5rem;
-  height: 2.5rem;
-  min-width: 2.5rem;
-  min-height: 2.5rem;
+  box-sizing: border-box;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  min-height: 30px;
   padding: 0;
-  border-radius: 9px;
+  margin: 0;
+  border-radius: 7px;
   display: inline-flex;
   flex-direction: row;
   align-items: center;
   justify-content: center;
   gap: 0;
+  line-height: 0;
   color: color-mix(in srgb, var(--color-on-surface) 82%, var(--color-on-surface-variant));
   background: transparent;
   border: none;
@@ -282,8 +287,8 @@ input[type='number'] {
 .app-header__nav-icon,
 .app-header__nav-item svg {
   display: block;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   opacity: 0.95;
   flex-shrink: 0;
   transition: opacity 0.16s ease, color 0.16s ease;
@@ -312,11 +317,16 @@ input[type='number'] {
 }
 
 @media (max-width: 767px) {
-  .app-header__nav-item {
-    width: 44px;
+  .app-header__nav {
     height: 44px;
-    min-width: 44px;
-    min-height: 44px;
+    padding: 4px;
+  }
+
+  .app-header__nav-item {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
   }
 }
 
@@ -325,13 +335,11 @@ input[type='number'] {
   outline-offset: 2px;
 }
 
-/* Selected: raised icon chip */
+/* Selected: same footprint as siblings — color only */
 .app-header__nav-item--active {
   color: var(--color-income);
-  background: color-mix(in srgb, var(--color-surface) 88%, var(--color-on-surface));
-  box-shadow:
-    0 1px 2px color-mix(in srgb, var(--color-on-background) 30%, transparent),
-    inset 0 0 0 1px color-mix(in srgb, var(--color-outline) 42%, transparent);
+  background: color-mix(in srgb, var(--color-on-surface) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-income) 28%, transparent);
 }
 
 .app-header__nav-item--active .app-header__nav-icon,
@@ -345,7 +353,7 @@ input[type='number'] {
 
 .app-header__nav-item--active:hover {
   color: var(--color-income);
-  background: color-mix(in srgb, var(--color-surface) 78%, var(--color-on-surface));
+  background: color-mix(in srgb, var(--color-on-surface) 16%, transparent);
 }
 
 [data-theme='light'] .app-header {
@@ -364,10 +372,8 @@ input[type='number'] {
 
 [data-theme='light'] .app-header__nav-item--active {
   color: var(--color-income);
-  background: var(--color-surface);
-  box-shadow:
-    0 1px 3px color-mix(in srgb, var(--color-on-background) 10%, transparent),
-    inset 0 0 0 1px color-mix(in srgb, var(--color-outline) 65%, transparent);
+  background: color-mix(in srgb, var(--color-income) 10%, var(--color-surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-income) 22%, transparent);
 }
 
 .bottom-bar {
