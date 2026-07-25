@@ -2,6 +2,7 @@ import type { LucideProps } from 'lucide-react';
 import {
   ArrowUp,
   ArrowDown,
+  ArrowLeftRight,
   BarChart3,
   Calendar,
   Check,
@@ -112,6 +113,10 @@ export function IconArrowUp(props: IconProps) {
 
 export function IconArrowDown(props: IconProps) {
   return <ArrowDown strokeWidth={STROKE} {...props} />;
+}
+
+export function IconTransfer(props: IconProps) {
+  return <ArrowLeftRight strokeWidth={STROKE} {...props} />;
 }
 
 export function IconDelete(props: IconProps) {

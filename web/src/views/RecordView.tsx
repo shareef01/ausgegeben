@@ -1,6 +1,6 @@
 import { useMemo, useState, memo, useCallback } from 'react';
 import { EmptyState, LoadingListSkeleton, SignatureText, CategoryIconTile } from '@/components/ui';
-import { IconSearch, IconClose, IconArrowUp, IconArrowDown } from '@/components/Icons';
+import { IconSearch, IconClose, IconArrowUp, IconArrowDown, IconTransfer, IconRecord } from '@/components/Icons';
 import { IosSegmentedControl } from '@/components/IosSegmentedControl';
 import { FinanceSummaryCard } from '@/components/FinanceSummaryCard';
 import { BudgetProgressBar } from '@/components/BudgetProgressBar';
@@ -156,9 +156,14 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
             <IosSegmentedControl
               className="record-type-segmented w-full"
               aria-label={t('recordTypeFilter')}
-              options={(['all', 'expense', 'income', 'transfer'] as TransactionTypeFilter[]).map((f) => ({
-                value: f,
-                label: filterLabel(f, t),
+              options={([
+                { value: 'all' as const, icon: <IconRecord width={18} height={18} aria-hidden /> },
+                { value: 'expense' as const, icon: <IconArrowDown width={18} height={18} strokeWidth={2.5} aria-hidden /> },
+                { value: 'income' as const, icon: <IconArrowUp width={18} height={18} strokeWidth={2.5} aria-hidden /> },
+                { value: 'transfer' as const, icon: <IconTransfer width={18} height={18} aria-hidden /> },
+              ]).map((opt) => ({
+                ...opt,
+                label: filterLabel(opt.value, t),
               }))}
               value={uiState.typeFilter}
               onChange={setTypeFilter}
