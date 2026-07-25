@@ -170,14 +170,8 @@ fun MainApp(
     val deleteFailedMessage = stringResource(R.string.snackbar_transaction_delete_failed)
     val duplicateFailedMessage = stringResource(R.string.snackbar_transaction_duplicate_failed)
     val restoreFailedMessage = stringResource(R.string.snackbar_transaction_restore_failed)
-    val dataListenerErrorMessage = stringResource(R.string.snackbar_data_listener_error)
-
     fun showSnackbar(message: String) {
         scope.launch { snackbarHostState.showSnackbar(message) }
-    }
-
-    LaunchedEffect(listenerError) {
-        if (listenerError != null) showSnackbar(dataListenerErrorMessage)
     }
 
     // Seed once signed-in prefs (incl. locale) are ready — independent of onboarding/auth UI gates.
@@ -317,6 +311,8 @@ fun MainApp(
                         RecordScreen(
                             viewModel = expenseViewModel,
                             currencyCode = currency,
+                            dataError = listenerError,
+                            onRetryDataError = { repository.clearListenerError() },
                             onAddTransaction = overlay::openAddFlow,
                             onExpenseClick = overlay::openEditFlow,
                             onExpenseDeleted = { expense ->
@@ -350,6 +346,8 @@ fun MainApp(
                         BillsScreen(
                             viewModel = insightsViewModel,
                             currencyCode = currency,
+                            dataError = listenerError,
+                            onRetryDataError = { repository.clearListenerError() },
                             onAddTransaction = overlay::openAddFlow,
                         )
                     },

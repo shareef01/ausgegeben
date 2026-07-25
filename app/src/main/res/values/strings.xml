@@ -46,13 +46,10 @@
     <string name="record_no_matches_subtitle">Try a different search or filter</string>
     <string name="record_empty_title">No transactions yet</string>
     <string name="record_empty_subtitle">Tap the + button to add your first expense or income</string>
-    <string name="record_empty_hint">Long-press a transaction to duplicate it</string>
     <string name="record_empty_action">Add transaction</string>
     <string name="record_error_title">Couldn\'t load transactions</string>
     <string name="record_error_retry">Try again</string>
     <string name="record_search">Search</string>
-    <string name="gesture_swipe_delete">Swipe to delete</string>
-    <string name="gesture_long_press_duplicate">Long-press to duplicate</string>
     <string name="record_period_this_month">This month</string>
     <string name="record_period_all_time">All time</string>
     <string name="record_delete_title">Delete transaction?</string>
@@ -212,6 +209,7 @@
     <string name="onboarding_body_reminders">Optional evening reminders nudge you to log the day. You can change this anytime in Settings.</string>
     <string name="onboarding_next">Next</string>
     <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_page_indicator">Page %1$d of %2$d</string>
     <string name="onboarding_get_started">Get started</string>
     <string name="onboarding_enable_reminders">Enable reminders &amp; continue</string>
     <string name="onboarding_title_gestures">Quick gestures</string>

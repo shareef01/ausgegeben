@@ -154,7 +154,7 @@ fun AddTransactionScreen(
     val hasCategory = selectedCategory != null
     val canSave = hasCategory && hasAmount
     val hasCategories = categories.isNotEmpty()
-    val hasUnsavedChanges = remarkText.isNotBlank() || hasAmount
+    val hasUnsavedChanges = remarkText.isNotBlank() || hasAmount || hasCategory || selectedTab != 0
 
     BackHandler {
         if (hasUnsavedChanges && !isEditing) {

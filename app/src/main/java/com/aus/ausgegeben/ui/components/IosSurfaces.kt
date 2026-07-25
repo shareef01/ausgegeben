@@ -87,7 +87,8 @@ fun Modifier.appCard(
  */
 @Composable
 fun Modifier.glassShine(enabled: Boolean = true): Modifier {
-    if (!enabled) return this
+    val reduceMotion = rememberReduceMotion()
+    if (!enabled || reduceMotion) return this
     val infiniteTransition = rememberInfiniteTransition(label = "shine")
     val shineProgress by infiniteTransition.animateFloat(
         initialValue = -1f,
@@ -315,6 +316,7 @@ fun Modifier.smoothClickable(
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val haptic = LocalHapticFeedback.current
+    val reduceMotion = rememberReduceMotion()
 
     LaunchedEffect(pressed) {
         if (pressed && enabled) {
@@ -323,7 +325,7 @@ fun Modifier.smoothClickable(
     }
 
     val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.98f else 1f,
+        targetValue = if (pressed && !reduceMotion) 0.98f else 1f,
         animationSpec = AppSpringSnappy,
         label = "pressScale",
     )
@@ -331,7 +333,7 @@ fun Modifier.smoothClickable(
         .scale(scale)
         .clickable(
             interactionSource = interactionSource,
-            indication = null,
+            indication = ripple(),
             enabled = enabled,
             onClick = onClick,
         )
