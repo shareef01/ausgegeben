@@ -78,11 +78,13 @@
   overflow: visible;
 }
 
-/* Active nav: hairline ring, no float — keeps the segmented track calm */
+/* Active nav: raised segment + accent ink */
 .app-header__nav-item--active {
   color: var(--color-income);
-  background: color-mix(in srgb, var(--color-income) 12%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-income) 32%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 82%, var(--color-on-surface));
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--color-on-background) 28%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--color-outline) 45%, transparent);
   transform: none;
 }
 
@@ -93,8 +95,6 @@
 :root[data-theme-name='lavender'] .app-header__nav-item--active,
 :root[data-theme-name='soft_light'] .app-header__nav-item--active {
   color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 28%, transparent);
 }
 
 :root[data-theme-name='lavender'] .fab-add,
