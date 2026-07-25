@@ -56,9 +56,14 @@ class AppRepository(
      * Non-null when a Firestore realtime listener (currently `allExpenses` / `queryExpenses`,
      * the most user-visible ones) most recently failed, so callers can tell "genuinely empty"
      * apart from "listener broke" — cleared as soon as a listener emits data successfully again.
-     * Surfaced as a snackbar in MainActivity.kt.
+     * Surfaced as an in-tab error empty state on Record / Insights.
      */
     val listenerError: StateFlow<String?> = _listenerError.asStateFlow()
+
+    /** Clears a surfaced listener failure so the UI can retry / leave the error empty state. */
+    fun clearListenerError() {
+        _listenerError.value = null
+    }
 
     private fun uid(): String? = authRepository.currentUserId
 
