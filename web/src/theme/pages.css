@@ -254,9 +254,9 @@
 }
 
 .theme-picker__option--selected {
-  border-color: color-mix(in srgb, var(--color-income) 50%, transparent);
-  background: color-mix(in srgb, var(--color-income) 9%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-income) 22%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 22%, transparent);
 }
 
 .theme-picker__meta {
@@ -758,7 +758,7 @@
 }
 
 .segmented__item--active.segmented__item--expense {
-  color: #ffffff;
+  color: var(--color-on-expense, #09090B);
   background: var(--color-expense);
   box-shadow:
     0 1px 0 color-mix(in srgb, #ffffff 16%, transparent) inset,
@@ -1395,7 +1395,7 @@
   font-weight: 700;
   text-transform: lowercase;
   background: var(--color-accent);
-  color: #000;
+  color: var(--color-on-accent);
   white-space: nowrap;
   cursor: pointer;
   transition: filter 0.15s ease;
@@ -2462,7 +2462,7 @@
   color: var(--color-on-surface);
 }
 
-[data-theme='light'] [data-theme='light'] .field__label {
+[data-theme='light'] .field__label {
   color: color-mix(in srgb, var(--color-on-surface) 72%, var(--color-on-surface-variant));
 }
 
@@ -3026,13 +3026,13 @@
 .btn-primary.bg-expense,
 .btn-primary.bg-expense:hover {
   background: var(--color-expense);
-  color: #ffffff;
+  color: var(--color-on-expense, #09090B);
   filter: none;
 }
 
 .btn-destructive {
   background: var(--color-expense);
-  color: #ffffff;
+  color: var(--color-on-expense, #09090B);
   border-radius: 12px;
 }
 
