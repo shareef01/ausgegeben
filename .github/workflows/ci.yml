@@ -47,3 +47,27 @@ jobs:
 
       - run: npm run build
         working-directory: web
+
+  # Legacy commit-status API stays "pending" with zero statuses when only
+  # check-runs exist — some clients (incl. Cursor) treat that as failing CI.
+  status:
+    needs: [android, web]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+      contents: read
+    steps:
+      - name: Report combined commit status
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          state=success
+          if [ "${{ needs.android.result }}" != "success" ] || [ "${{ needs.web.result }}" != "success" ]; then
+            state=failure
+          fi
+          gh api "repos/${{ github.repository }}/statuses/${{ github.sha }}" \
+            -f state="$state" \
+            -f context="CI" \
+            -f description="android=${{ needs.android.result }}; web=${{ needs.web.result }}" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
