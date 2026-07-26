@@ -6,7 +6,7 @@ const OnboardingView = lazy(() => import('@/views/OnboardingView').then((m) => (
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
-import { applyTheme, resolveTheme } from '@/theme/tokens';
+import { applyTheme, resolveTheme, resolvedThemeName, writeStoredThemeMode } from '@/theme/tokens';
 import { t as translate } from '@/i18n';
 import { preferencesSync } from '@/services/preferencesSync';
 import { expenseRepository } from '@/repositories/expenseRepository';
@@ -39,10 +39,8 @@ export function App(): JSX.Element {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     const update = () => {
       applyTheme(resolveTheme(themeMode, mq.matches));
-      // Expose the resolved palette name so per-theme CSS (e.g. accent-forward
-      // light themes) can target it; 'system' collapses to dark/light.
-      const name = themeMode === 'system' ? (mq.matches ? 'dark' : 'light') : themeMode;
-      document.documentElement.dataset.themeName = name;
+      document.documentElement.dataset.themeName = resolvedThemeName(themeMode, mq.matches);
+      writeStoredThemeMode(themeMode);
     };
     update();
     mq.addEventListener('change', update);

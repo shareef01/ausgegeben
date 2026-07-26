@@ -161,7 +161,15 @@ function CategoryCard({ title, map, categories, currency, accent }: CategoryCard
       };
     });
     if (restTotal > 0) {
-      rows.push({ key: '__other__', name: t('categoryOther'), value: Math.round(restTotal * 100) / 100, color: '#8B8B96' });
+      rows.push({
+        key: '__other__',
+        name: t('categoryOther'),
+        value: Math.round(restTotal * 100) / 100,
+        color:
+          getComputedStyle(document.documentElement)
+            .getPropertyValue('--color-on-surface-variant')
+            .trim() || '#8B8B96',
+      });
     }
     return rows;
   }, [entries, categories, t]);
