@@ -127,12 +127,21 @@ fun appTextFieldColors(accent: Color = MaterialTheme.colorScheme.primary): TextF
 
 /**
  * Readable foreground on arbitrary filled button/chip backgrounds.
- * Chosen purely from the fill's luminance so it stays correct regardless of theme
+ * Picks dark or white by WCAG contrast (not a luminance gate — mid pinks
+ * like expense rose fail with white ink).
  */
-@Composable
-fun contrastColorOn(fill: Color): Color =
-    if (fill.luminance() > 0.55f) Color(0xFF09090B) else Color.White
+fun contrastRatio(a: Color, b: Color): Float {
+    val lighter = maxOf(a.luminance(), b.luminance())
+    val darker = minOf(a.luminance(), b.luminance())
+    return (lighter + 0.05f) / (darker + 0.05f)
+}
 
+@Composable
+fun contrastColorOn(fill: Color): Color {
+    val dark = Color(0xFF09090B)
+    val light = Color.White
+    return if (contrastRatio(dark, fill) >= contrastRatio(light, fill)) dark else light
+}
 /** Specular edge highlight for glass cards */
 @Composable
 fun appSpecularBorder(): Brush = if (isAppDarkTheme()) {

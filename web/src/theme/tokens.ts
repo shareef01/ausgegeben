@@ -61,9 +61,23 @@ export function relativeLuminance(hex: string): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-/** Matches Android contrastColorOn — text on filled chips/buttons */
+/** WCAG contrast ratio between two #RRGGBB colors */
+export function contrastRatio(a: string, b: string): number {
+  const l1 = relativeLuminance(a);
+  const l2 = relativeLuminance(b);
+  const lighter = Math.max(l1, l2);
+  const darker = Math.min(l1, l2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+/**
+ * Ink on filled chips/buttons — pick dark or white by actual contrast,
+ * not a luminance gate (mid pinks like #FB7185 fail with white).
+ */
 export function contrastOn(fill: string): string {
-  return relativeLuminance(fill) > 0.55 ? '#09090B' : '#FFFFFF';
+  const dark = '#09090B';
+  const light = '#FFFFFF';
+  return contrastRatio(dark, fill) >= contrastRatio(light, fill) ? dark : light;
 }
 
 /**
@@ -115,7 +129,7 @@ const baseLight = (overrides: Partial<ThemePalette> = {}): ThemePalette => {
     onSurface: '#09090B',
     surfaceVariant: '#F8F8FA',
     onSurfaceVariant: '#52525B',
-    outline: '#E4E4E7',
+    outline: '#D4D4D8',
     error: EXPENSE,
     income: INCOME_LIGHT,
     incomeLight: INCOME_LIGHT,
@@ -229,6 +243,7 @@ export function applyTheme(palette: ThemePalette): void {
   const root = document.documentElement;
   const accent = brandAccent(palette);
   const onIncome = contrastOn(palette.income);
+  const onExpense = contrastOn(palette.expense);
   const onTransfer = contrastOn(palette.transfer);
   const onAccent = contrastOn(accent);
 
@@ -250,12 +265,12 @@ export function applyTheme(palette: ThemePalette): void {
   root.style.setProperty('--color-on-accent', onAccent);
   root.style.setProperty('--color-focus', palette.focusRing);
 
-  root.style.setProperty('--glass-bg', palette.isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)');
-  root.style.setProperty('--glass-border', palette.isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.08)');
+  root.style.setProperty('--glass-bg', palette.isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.04)');
+  root.style.setProperty('--glass-border', palette.isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.11)');
   root.style.setProperty('--glass-bg-elevated', palette.isDark ? 'rgba(9, 9, 11, 0.94)' : 'rgba(255, 255, 255, 0.96)');
-  root.style.setProperty('--surface-border', palette.isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.08)');
-  root.style.setProperty('--hairline-border', palette.isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.09)');
-  root.style.setProperty('--hairline-divider', palette.isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.07)');
+  root.style.setProperty('--surface-border', palette.isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.11)');
+  root.style.setProperty('--hairline-border', palette.isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.12)');
+  root.style.setProperty('--hairline-divider', palette.isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.09)');
 
   root.style.setProperty('--color-label-muted', palette.onSurfaceVariant);
   root.style.setProperty('--color-placeholder', palette.onSurfaceVariant);
@@ -263,6 +278,7 @@ export function applyTheme(palette: ThemePalette): void {
   root.style.setProperty('--color-balance-negative', palette.expense);
   root.style.setProperty('--color-stat-value', palette.onBackground);
   root.style.setProperty('--color-on-income', onIncome);
+  root.style.setProperty('--color-on-expense', onExpense);
   root.style.setProperty('--color-on-transfer', onTransfer);
 
   root.style.setProperty('--gradient-income', `linear-gradient(180deg, color-mix(in srgb, ${palette.income} 40%, white) 0%, ${palette.income} 100%)`);
