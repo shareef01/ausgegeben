@@ -429,6 +429,28 @@
   background: var(--color-surface) !important;
 }
 
+[data-theme='light'] .card--pro,
+[data-theme='light'] .card--elevated,
+[data-theme='light'] .record-filters,
+[data-theme='light'] .insights-category-card,
+[data-theme='light'] .insights-period-card,
+[data-theme='light'] .insights-summary-dock,
+[data-theme='light'] .insights-cashflow-card,
+[data-theme='light'] .finance-summary-card,
+[data-theme='light'] .confirm-dialog,
+[data-theme='light'] .sheet,
+[data-theme='light'] .settings-account,
+[data-theme='light'] .add-txn,
+[data-theme='light'] .period-select__menu {
+  background: var(--color-surface);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+[data-theme='light'] .sheet {
+  background: var(--color-surface-variant);
+}
+
 [data-theme='light'] .field__input {
   background: var(--color-surface-variant);
   border-color: var(--color-outline);
