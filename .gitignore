@@ -56,7 +56,3 @@ web/*.tsbuildinfo
 # Agent / editor
 .agent/
 .cursor/
-
-# Local commit-message helpers (not part of the product)
-scripts/_strip_coauthor.py
-scripts/strip-commit-trailers.py
