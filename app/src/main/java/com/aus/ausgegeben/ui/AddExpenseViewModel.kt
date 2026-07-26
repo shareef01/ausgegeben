@@ -139,10 +139,22 @@ class AddExpenseViewModel(
                         resetForm()
                         onSuccess()
                     }.onFailure { e ->
-                        onError(e.localizedMessage ?: app.getString(R.string.auth_error_generic))
+                        onError(
+                            if (e.message == "EMAIL_NOT_VERIFIED") {
+                                app.getString(R.string.auth_verify_required)
+                            } else {
+                                e.localizedMessage ?: app.getString(R.string.auth_error_generic)
+                            },
+                        )
                     }
                 } catch (e: Exception) {
-                    onError(e.localizedMessage ?: app.getString(R.string.auth_error_generic))
+                    onError(
+                        if (e.message == "EMAIL_NOT_VERIFIED") {
+                            app.getString(R.string.auth_verify_required)
+                        } else {
+                            e.localizedMessage ?: app.getString(R.string.auth_error_generic)
+                        },
+                    )
                 } finally {
                     _isSaving.value = false
                 }
