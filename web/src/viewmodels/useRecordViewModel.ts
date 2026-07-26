@@ -3,7 +3,7 @@ import type { Category, Expense, RecordListPeriod, RecordUiState, TransactionTyp
 import { expenseRepository } from '@/repositories/expenseRepository';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useToastStore } from '@/services/toastStore';
-import { useTranslation } from '@/i18n';
+import { useTranslation, getLocale, localeTag } from '@/i18n';
 import { thisMonthRange, analyticsDateRangeMillis } from '@/utils/periodUtils';
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -72,7 +72,7 @@ export function useRecordViewModel() {
     } else {
       // all_time: one-shot fetch (no perpetual full-collection listener)
       const loadAll = () => {
-        void expenseRepository.getAllExpenses().then((exps) => {
+        void expenseRepository.getAllExpensesCapped(5_000).then(({ items: exps }) => {
           setPeriodExpenses(exps);
           setLoadError(false);
           listReady = true;
@@ -88,7 +88,7 @@ export function useRecordViewModel() {
       loadAll();
 
       const onDataChanged = () => {
-        void expenseRepository.getAllExpenses().then((exps) => {
+        void expenseRepository.getAllExpensesCapped(5_000).then(({ items: exps }) => {
           setPeriodExpenses(exps);
           setLoadError(false);
         }).catch((err) => {
@@ -128,7 +128,7 @@ export function useRecordViewModel() {
         setPeriodExpenses(exps);
         if (viewingCurrentMonth) setMonthBudgetExpenses(exps);
       } else {
-        setPeriodExpenses(await expenseRepository.getAllExpenses());
+        setPeriodExpenses((await expenseRepository.getAllExpensesCapped(5_000)).items);
       }
       if (!viewingCurrentMonth) {
         const [start, end] = thisMonthRange();
@@ -159,14 +159,15 @@ export function useRecordViewModel() {
       list = list.filter(e => e.transactionType === typeFilter);
     }
 
-    const sq = debouncedSearch.trim().toLocaleLowerCase('en');
+    const tag = localeTag(getLocale());
+    const sq = debouncedSearch.trim().toLocaleLowerCase(tag);
     if (sq) {
       const catMap = new Map(categories.map(c => [c.id, c]));
       list = list.filter(e => {
         const cat = catMap.get(e.categoryId);
-        return e.note.toLocaleLowerCase('en').includes(sq) ||
+        return e.note.toLocaleLowerCase(tag).includes(sq) ||
           String(e.amount).includes(sq) ||
-          (cat?.name.toLocaleLowerCase('en').includes(sq) ?? false);
+          (cat?.name.toLocaleLowerCase(tag).includes(sq) ?? false);
       });
     }
 

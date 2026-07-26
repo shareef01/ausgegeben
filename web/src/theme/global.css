@@ -151,7 +151,7 @@ a {
 
 .app-shell__main {
   padding-top: 8px;
-  padding-bottom: calc(10rem + var(--safe-bottom, 0px));
+  padding-bottom: calc(10rem + var(--safe-bottom-pad, var(--safe-bottom, 0px)));
 }
 
 @media (min-width: 400px) {
@@ -170,7 +170,6 @@ a {
 /* Tab panel transitions — a soft rise + settle when a view becomes active */
 .tab-panel--animate-in {
   animation: tab-in var(--dur-slow, 0.42s) var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)) both;
-  will-change: opacity, transform;
 }
 
 @keyframes tab-in {
@@ -182,6 +181,35 @@ a {
     opacity: 1;
     transform: translate3d(0, 0, 0) scale(1);
   }
+}
+
+.skip-link {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 300;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--color-income);
+  color: var(--color-on-income, #000);
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: none;
+  transform: translateY(-160%);
+  transition: transform 0.16s ease;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.settings-about-note {
+  margin: 8px 4px 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--color-on-surface-variant);
 }
 
 /* Tabular numerals for all financial data */
@@ -233,86 +261,149 @@ input[type='number'] {
 }
 
 .app-header__nav {
-  display: none;
+  --nav-item: 40px;
+  --nav-gap: 2px;
+  --nav-pad: 3px;
+  --nav-radius: 999px;
+  --nav-icon: 20px;
+  --nav-i: 0;
+  position: relative;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
   width: auto;
   max-width: none;
   margin-left: auto;
-  gap: 4px;
-  padding: 4px;
-  height: 48px;
+  gap: var(--nav-gap);
+  padding: var(--nav-pad);
+  height: calc(var(--nav-item) + var(--nav-pad) * 2);
   min-width: 0;
   box-sizing: border-box;
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--color-surface-variant) 70%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-outline) 40%, transparent);
-  box-shadow: none;
-  backdrop-filter: blur(16px) saturate(1.15);
-  -webkit-backdrop-filter: blur(16px) saturate(1.15);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-surface) 28%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-outline) 32%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #ffffff 8%, transparent),
+    0 1px 2px color-mix(in srgb, var(--color-on-background) 6%, transparent);
+  backdrop-filter: blur(20px) saturate(1.35);
+  -webkit-backdrop-filter: blur(20px) saturate(1.35);
+}
+
+.app-header__nav-thumb {
+  position: absolute;
+  z-index: 0;
+  top: var(--nav-pad);
+  left: var(--nav-pad);
+  width: var(--nav-item);
+  height: var(--nav-item);
+  border-radius: var(--nav-radius);
+  pointer-events: none;
+  background: var(--color-income);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, #ffffff 28%, transparent) inset,
+    0 4px 16px color-mix(in srgb, var(--color-income) 36%, transparent);
+  transform: translateX(calc(var(--nav-i) * (var(--nav-item) + var(--nav-gap))));
+  transition:
+    transform var(--dur-base, 0.28s) var(--ease-spring, cubic-bezier(0.22, 1, 0.36, 1)),
+    background-color var(--dur-base, 0.2s) ease,
+    box-shadow var(--dur-base, 0.2s) ease;
 }
 
 @media (min-width: 768px) {
   .app-header__nav {
-    display: inline-flex;
+    --nav-item: 46px;
+    --nav-gap: 4px;
+    --nav-pad: 5px;
+    --nav-icon: 22px;
+  }
+
+  .app-header {
+    min-height: 3.35rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-header__nav {
+    --nav-item: 52px;
+    --nav-gap: 5px;
+    --nav-pad: 5px;
+    --nav-icon: 24px;
+  }
+
+  .app-header {
+    min-height: 3.75rem;
+    gap: 1.25rem;
+    padding-bottom: 0.45rem;
+  }
+
+  .app-header__logo-mark {
+    width: 32px !important;
+    height: 32px !important;
+  }
+}
+
+@media (min-width: 1280px) {
+  .app-header__nav {
+    --nav-item: 56px;
+    --nav-gap: 6px;
+    --nav-pad: 6px;
+    --nav-icon: 26px;
   }
 }
 
 .app-header__nav-item {
   position: relative;
+  z-index: 1;
   flex: 0 0 auto;
   box-sizing: border-box;
-  width: 40px;
-  height: 40px;
-  min-width: 40px;
-  min-height: 40px;
+  width: var(--nav-item);
+  height: var(--nav-item);
+  min-width: var(--nav-item);
+  min-height: var(--nav-item);
   padding: 0;
   margin: 0;
-  border-radius: 10px;
+  border-radius: var(--nav-radius);
   display: inline-flex;
   flex-direction: row;
   align-items: center;
   justify-content: center;
   gap: 0;
   line-height: 0;
-  color: color-mix(in srgb, var(--color-on-surface) 82%, var(--color-on-surface-variant));
+  color: color-mix(in srgb, var(--color-on-surface) 48%, var(--color-on-surface-variant));
   background: transparent;
   border: none;
   cursor: pointer;
   transition:
-    color 0.16s ease,
-    background-color 0.16s ease,
-    box-shadow 0.16s ease,
+    color 0.18s ease,
     transform 0.14s ease;
 }
 
 .app-header__nav-icon,
 .app-header__nav-item svg {
   display: block;
-  width: 22px;
-  height: 22px;
-  opacity: 0.95;
+  width: var(--nav-icon);
+  height: var(--nav-icon);
+  opacity: 1;
   flex-shrink: 0;
-  transition: opacity 0.16s ease, color 0.16s ease;
-}
-
-.app-header__nav-label {
-  display: none;
+  stroke-width: 1.85;
+  transition:
+    color 0.18s ease,
+    stroke-width 0.18s ease,
+    transform 0.18s var(--ease-spring, cubic-bezier(0.22, 1, 0.36, 1));
 }
 
 .app-header__nav-item:hover {
   color: var(--color-on-background);
-  background: color-mix(in srgb, var(--color-on-surface) 8%, transparent);
 }
 
 .app-header__nav-item:hover .app-header__nav-icon,
 .app-header__nav-item:hover svg {
-  opacity: 1;
+  transform: scale(1.04);
 }
 
 .app-header__nav-item:active {
-  transform: scale(0.96);
+  transform: scale(0.94);
 }
 
 .app-header__nav-item--active:active {
@@ -321,15 +412,7 @@ input[type='number'] {
 
 @media (max-width: 767px) {
   .app-header__nav {
-    height: 52px;
-    padding: 4px;
-  }
-
-  .app-header__nav-item {
-    width: 44px;
-    height: 44px;
-    min-width: 44px;
-    min-height: 44px;
+    --nav-item: 44px;
   }
 }
 
@@ -338,25 +421,20 @@ input[type='number'] {
   outline-offset: 2px;
 }
 
-/* Selected: same footprint as siblings — color only */
 .app-header__nav-item--active {
-  color: var(--color-income);
-  background: color-mix(in srgb, var(--color-on-surface) 12%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-income) 28%, transparent);
+  color: var(--color-on-income, #000000);
+  background: transparent;
+  box-shadow: none;
 }
 
 .app-header__nav-item--active .app-header__nav-icon,
 .app-header__nav-item--active svg {
-  opacity: 1;
-}
-
-.app-header__nav-item--active .app-header__nav-label {
-  font-weight: 700;
+  stroke-width: 2.35;
 }
 
 .app-header__nav-item--active:hover {
-  color: var(--color-income);
-  background: color-mix(in srgb, var(--color-on-surface) 16%, transparent);
+  color: var(--color-on-income, #000000);
+  background: transparent;
 }
 
 [data-theme='light'] .app-header {
@@ -364,27 +442,28 @@ input[type='number'] {
 }
 
 [data-theme='light'] .app-header__nav {
-  background: color-mix(in srgb, var(--color-surface-variant) 92%, transparent);
-  border-color: color-mix(in srgb, var(--color-outline) 75%, transparent);
-  box-shadow: none;
+  background: color-mix(in srgb, var(--color-surface) 42%, transparent);
+  border-color: color-mix(in srgb, var(--color-outline) 45%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #ffffff 55%, transparent),
+    0 1px 2px color-mix(in srgb, var(--color-on-background) 5%, transparent);
+}
+
+[data-theme='light'] .app-header__nav-thumb {
+  background: var(--color-income);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, #ffffff 40%, transparent) inset,
+    0 4px 14px color-mix(in srgb, var(--color-income) 28%, transparent);
 }
 
 [data-theme='light'] .app-header__nav-item {
-  color: color-mix(in srgb, var(--color-on-surface) 76%, var(--color-on-surface-variant));
+  color: color-mix(in srgb, var(--color-on-surface) 58%, var(--color-on-surface-variant));
 }
 
 [data-theme='light'] .app-header__nav-item--active {
-  color: var(--color-income);
-  background: color-mix(in srgb, var(--color-income) 10%, var(--color-surface));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-income) 22%, transparent);
-}
-
-.bottom-bar {
-  display: none;
-}
-
-@media (max-width: 767px) {
-  .bottom-bar { display: flex; }
+  color: var(--color-on-income, #000000);
+  background: transparent;
+  box-shadow: none;
 }
 
 /* Scrollbar refinement — Stealth Mode */

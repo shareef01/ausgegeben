@@ -1,11 +1,13 @@
 import { CategoryLucideIcon } from '@/components/CategoryLucideIcon';
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactNode } from 'react';
+import type { LucideProps } from 'lucide-react';
 import { useTranslation } from '@/i18n';
 import { formatAmount } from '@/utils/currency';
 
 /**
  * Brand-aligned title word — first letter in income green (like “aus”),
- * remainder in foreground. Always lowercase.
+ * remainder in foreground. Always lowercase. Rendered as one text node so
+ * letter-spacing / kerning stay continuous (no “r ecord” gap).
  */
 export function SignatureText({
   text,
@@ -17,14 +19,32 @@ export function SignatureText({
   className?: string;
 }) {
   if (!text) return null;
-  const lowercaseText = text.toLowerCase();
   return (
     <Tag className={`signature-text ${className}`.trim()}>
-      <span className="signature-text__accent" aria-hidden={false}>
-        {lowercaseText[0]}
-      </span>
-      <span className="signature-text__rest">{lowercaseText.slice(1)}</span>
+      {text.toLowerCase()}
     </Tag>
+  );
+}
+
+/** Screen heading with nav-matching icon + signature wordmark. */
+export function PageTitle({
+  text,
+  icon: Icon,
+  className = '',
+}: {
+  text: string;
+  icon: ComponentType<LucideProps>;
+  className?: string;
+}) {
+  return (
+    <div className={`page-title ${className}`.trim()}>
+      <h1 className="page-title__text">
+        <span className="page-title__icon" aria-hidden>
+          <Icon width={22} height={22} strokeWidth={2.25} />
+        </span>
+        <SignatureText text={text} />
+      </h1>
+    </div>
   );
 }
 

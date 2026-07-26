@@ -1,14 +1,15 @@
 import { useMemo } from 'react';
-import { EmptyState, LoadingListSkeleton, SignatureText } from '@/components/ui';
+import { EmptyState, LoadingListSkeleton, PageTitle } from '@/components/ui';
 import { DonutChart, segmentColor } from '@/components/DonutChart';
 import { CashFlowChart, CashFlowLegend } from '@/components/CashFlowChart';
 import { AnalyticsPeriodPicker } from '@/components/PeriodSelector';
 import { useInsightsViewModel } from '@/viewmodels/useInsightsViewModel';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useTranslation } from '@/i18n';
-import { formatAmount } from '@/utils/currency';
+import { formatAmount, formatCompactAmount } from '@/utils/currency';
 import type { Category } from '@/models/types';
 import { useHaptics } from '@/hooks/useHaptics';
+import { IconInsights } from '@/components/Icons';
 
 export function InsightsView({ onAdd }: { onAdd?: () => void }) {
   const { t } = useTranslation();
@@ -31,11 +32,7 @@ export function InsightsView({ onAdd }: { onAdd?: () => void }) {
 
   return (
     <>
-      <div className="page-title">
-        <h1 className="page-title__text">
-          <SignatureText text={t('screenInsights')} />
-        </h1>
-      </div>
+      <PageTitle text={t('screenInsights')} icon={IconInsights} />
 
       <div className="sidebar-layout">
 
@@ -88,9 +85,15 @@ export function InsightsView({ onAdd }: { onAdd?: () => void }) {
           ) : (
             <div className="insights-main">
               <div className="insights-breakdown">
-                <CategoryCard title={t('filterExpense')} map={uiState.expensesByCategory} categories={categories} currency={currency} accent="var(--color-expense)" />
-                <CategoryCard title={t('filterIncome')} map={uiState.incomeByCategory} categories={categories} currency={currency} accent="var(--color-income)" />
-                <CategoryCard title={t('filterTransfer')} map={uiState.transfersByCategory} categories={categories} currency={currency} accent="var(--color-transfer, var(--color-outline))" />
+                {uiState.expensesByCategory.size > 0 ? (
+                  <CategoryCard title={t('filterExpense')} map={uiState.expensesByCategory} categories={categories} currency={currency} accent="var(--color-expense)" />
+                ) : null}
+                {uiState.incomeByCategory.size > 0 ? (
+                  <CategoryCard title={t('filterIncome')} map={uiState.incomeByCategory} categories={categories} currency={currency} accent="var(--color-income)" />
+                ) : null}
+                {uiState.transfersByCategory.size > 0 ? (
+                  <CategoryCard title={t('filterTransfer')} map={uiState.transfersByCategory} categories={categories} currency={currency} accent="var(--color-transfer, var(--color-outline))" />
+                ) : null}
               </div>
 
               {uiState.cashFlowTrend.length > 0 ? (
@@ -154,11 +157,11 @@ function CategoryCard({ title, map, categories, currency, accent }: CategoryCard
         key: catId,
         name: cat?.name ?? '?',
         value,
-        color: cat ? segmentColor(cat.colorInt) : `hsl(${i * 40}, 60%, 55%)`,
+        color: cat ? segmentColor(cat.colorInt, i) : segmentColor(0xff7eb0e8, i),
       };
     });
     if (restTotal > 0) {
-      rows.push({ key: '__other__', name: t('categoryOther'), value: Math.round(restTotal * 100) / 100, color: 'var(--color-outline)' });
+      rows.push({ key: '__other__', name: t('categoryOther'), value: Math.round(restTotal * 100) / 100, color: '#8B8B96' });
     }
     return rows;
   }, [entries, categories, t]);
@@ -168,20 +171,13 @@ function CategoryCard({ title, map, categories, currency, accent }: CategoryCard
     return displayEntries.map(({ name, value, color }) => ({ label: name, value, color }));
   }, [displayEntries, total]);
 
-  if (total <= 0) {
-      return (
-          <div className="insights-category-card card">
-            <div className="insights-category-card__title" style={{ color: accent }}>{title}</div>
-            <p className="insights-category-card__empty">{t('noDataForPeriod')}</p>
-          </div>
-      );
-  }
+  if (total <= 0) return null;
 
   return (
     <div className="insights-category-card card">
       <h2 className="insights-category-card__title" style={{ color: accent }}>{title}</h2>
       <div className="insights-category-card__chart">
-        <DonutChart segments={segments} size={148} center={{ value: formatAmount(total, currency) }} />
+        <DonutChart segments={segments} size={148} center={{ value: formatCompactAmount(total, currency) }} />
       </div>
       <ul className="insights-category-card__list">
         {displayEntries.map(({ key, name, value, color }) => {
@@ -206,11 +202,11 @@ function CashFlowCard({ trend, currency }: { trend: { label: string; income: num
   const totalExpense = useMemo(() => trend.reduce((s, p) => s + p.expense, 0), [trend]);
 
   return (
-    <div className="insights-cashflow-card card p-10 bg-glass border border-surface-border rounded-[2.5rem] shadow-2xl">
-      <div className="insights-cashflow-card__header flex items-start justify-between gap-6 mb-10">
+    <div className="insights-cashflow-card card">
+      <div className="insights-cashflow-card__header">
         <div>
-          <div className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-2">{t('billsCashFlow')}</div>
-          <div className="text-sm font-bold opacity-80 tabular-nums">
+          <div className="insights-cashflow-card__label">{t('billsCashFlow')}</div>
+          <div className="insights-cashflow-card__subtitle tabular-nums">
             {t('billsCashFlowSubtitle', {
               income: formatAmount(totalIncome, currency),
               expense: formatAmount(totalExpense, currency),

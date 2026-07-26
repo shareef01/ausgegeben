@@ -279,5 +279,7 @@ export function applyTheme(palette: ThemePalette): void {
     : '0 0 0 1px rgba(0, 0, 0, 0.06), 0 8px 28px rgba(0, 0, 0, 0.10)');
 
   root.dataset.theme = palette.isDark ? 'dark' : 'light';
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', palette.background);
+  document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
+    meta.setAttribute('content', palette.background);
+  });
 }

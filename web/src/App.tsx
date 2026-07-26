@@ -7,6 +7,7 @@ import { usePreferencesStore } from '@/services/preferencesStore';
 import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
 import { applyTheme, resolveTheme } from '@/theme/tokens';
+import { t as translate } from '@/i18n';
 import { preferencesSync } from '@/services/preferencesSync';
 import { expenseRepository } from '@/repositories/expenseRepository';
 
@@ -75,7 +76,7 @@ export function App(): JSX.Element {
         aria-live="polite"
         style={{ height: '100dvh', display: 'grid', placeItems: 'center', background: 'var(--color-background)', color: 'var(--color-accent)' }}
       >
-        <span className="sr-only">loading…</span>
+        <span className="sr-only">{translate('loading')}</span>
         <div className="btn__spinner" aria-hidden><span className="spin-dot" /><span className="spin-dot" /><span className="spin-dot" /></div>
       </div>
     );
@@ -96,7 +97,7 @@ export function App(): JSX.Element {
         aria-live="polite"
         style={{ height: '100dvh', display: 'grid', placeItems: 'center', background: 'var(--color-background)', color: 'var(--color-accent)' }}
       >
-        <span className="sr-only">loading…</span>
+        <span className="sr-only">{translate('loading')}</span>
         <div className="btn__spinner" aria-hidden><span className="spin-dot" /><span className="spin-dot" /><span className="spin-dot" /></div>
       </div>
     );

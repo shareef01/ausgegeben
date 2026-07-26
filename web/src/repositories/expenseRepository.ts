@@ -1,10 +1,10 @@
 ﻿import {
-  collection, doc, setDoc, deleteDoc, getDoc, getDocs, query, where, orderBy,
+  collection, doc, setDoc, deleteDoc, getDoc, getDocs, query, where, orderBy, limit,
   onSnapshot, type Unsubscribe, writeBatch,
 } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
-import { t } from '@/i18n';
+import { t, getLocale, localeTag } from '@/i18n';
 import type { Category, Expense, TransactionTypeFilter } from '@/models/types';
 
 function uid(): string | null { return useAuthStore.getState().user?.uid ?? null; }
@@ -73,33 +73,28 @@ async function ensureUncategorizedCategory(userId: string): Promise<void> {
 export const expenseRepository = {
 
   /**
-   * @deprecated Prefer onExpensesInRange — full-collection listeners burn Spark read quota.
-   * Kept for rare one-shot / export paths via getAllExpenses.
+   * One-shot full (or capped) expense fetch for Insights all-time / CSV export.
+   * Prefer onExpensesInRange for live UI — unbounded listeners burn Spark quota.
    */
-  onExpensesChanged(cb: (exps: Expense[]) => void): Unsubscribe {
-    console.warn('[expenseRepository] onExpensesChanged is unbounded; prefer onExpensesInRange');
-    const u = uid();
-    if (!u) {
-      cb([]);
-      return () => {};
-    }
-    return onSnapshot(
-      query(expCol(u), orderBy('dateMillis', 'desc')),
-      (snap) => {
-        cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Expense)));
-      },
-      (err) => {
-        console.error('[onExpensesChanged]', err);
-        cb([]);
-      },
-    );
+  async getAllExpenses(opts?: { max?: number }): Promise<Expense[]> {
+    const result = await expenseRepository.getAllExpensesCapped(opts?.max ?? 5_000);
+    return result.items;
   },
 
-  async getAllExpenses(): Promise<Expense[]> {
+  /** Soft-capped fetch; `truncated` when more docs exist beyond `max`. */
+  async getAllExpensesCapped(max = 5_000): Promise<{ items: Expense[]; truncated: boolean }> {
     const u = uid();
-    if (!u) return [];
-    const s = await getDocs(query(expCol(u), orderBy('dateMillis', 'desc')));
-    return s.docs.map(d => ({ id: d.id, ...d.data() } as Expense));
+    if (!u) return { items: [], truncated: false };
+    const snap = await getDocs(query(expCol(u), orderBy('dateMillis', 'desc'), limit(max + 1)));
+    const truncated = snap.docs.length > max;
+    const docs = truncated ? snap.docs.slice(0, max) : snap.docs;
+    if (truncated) {
+      console.warn(`[expenseRepository] getAllExpenses capped at ${max} rows`);
+    }
+    return {
+      items: docs.map((d) => ({ id: d.id, ...d.data() } as Expense)),
+      truncated,
+    };
   },
 
   async getCategoriesByType(type: string): Promise<Category[]> { const u = uid(); if (!u) return []; const s = await getDocs(query(catCol(u), where('transactionType', '==', type), orderBy('sortOrder'))); return s.docs.map(d => ({ id: d.id, ...d.data() } as Category)); },
@@ -253,13 +248,14 @@ export const expenseRepository = {
     const snap = await getDocs(q);
     let items = snap.docs.map(d => ({ id: d.id, ...d.data() } as Expense));
     if (params.typeFilter !== 'all') items = items.filter(e => e.transactionType === params.typeFilter);
-    const sq = params.searchQuery.trim().toLocaleLowerCase('en');
+    const tag = localeTag(getLocale());
+    const sq = params.searchQuery.trim().toLocaleLowerCase(tag);
     if (sq) {
       const cats = await this.getAllCategories();
       const catMap = new Map(cats.map(c => [c.id, c]));
       items = items.filter(e => {
         const cat = catMap.get(e.categoryId);
-        return e.note.toLocaleLowerCase('en').includes(sq) || String(e.amount).includes(sq) || (cat?.name.toLocaleLowerCase('en').includes(sq) ?? false);
+        return e.note.toLocaleLowerCase(tag).includes(sq) || String(e.amount).includes(sq) || (cat?.name.toLocaleLowerCase(tag).includes(sq) ?? false);
       });
     }
     return items;
@@ -359,7 +355,8 @@ export const expenseRepository = {
 
     const groups: Record<string, Category[]> = {};
     categories.forEach(cat => {
-      const key = `${cat.name.toLocaleLowerCase('en').trim()}_${cat.transactionType}`;
+      const tag = localeTag(getLocale());
+      const key = `${cat.name.toLocaleLowerCase(tag).trim()}_${cat.transactionType}`;
       if (!groups[key]) groups[key] = [];
       groups[key].push(cat);
     });
