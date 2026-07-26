@@ -56,3 +56,6 @@ web/*.tsbuildinfo
 # Agent / editor
 .agent/
 .cursor/
+
+# Obsolete local helper (replaced by scripts/strip-commit-trailers.py)
+scripts/_strip_coauthor.py
