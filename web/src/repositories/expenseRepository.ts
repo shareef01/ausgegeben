@@ -16,6 +16,20 @@ function catDoc(u: string, id: string) { return doc(fs()!, 'users', u, 'categori
 function expDoc(u: string, id: string) { return doc(fs()!, 'users', u, 'expenses', id); }
 function metaDoc(u: string, id: string) { return doc(fs()!, 'users', u, 'meta', id); }
 
+/** Thrown when Firestore rules would reject expense writes for unverified accounts. */
+export class EmailNotVerifiedError extends Error {
+  constructor() {
+    super('EMAIL_NOT_VERIFIED');
+    this.name = 'EmailNotVerifiedError';
+  }
+}
+
+function requireVerifiedEmail(): void {
+  const user = useAuthStore.getState().user;
+  if (!user) throw new Error('Not signed in');
+  if (!user.emailVerified) throw new EmailNotVerifiedError();
+}
+
 export const UNCATEGORIZED_ID = '0';
 const DATA_CHANGED_EVENT = 'ausgegeben:data-changed';
 
@@ -300,6 +314,7 @@ export const expenseRepository = {
   // SECURE: UUID and Math.round for integrity
   async insertExpense(expense: Omit<Expense, 'id'>, idempotencyKey?: string): Promise<string> {
     const userId = uid(); if (!userId) throw new Error('Not signed in');
+    requireVerifiedEmail();
     if (idempotencyKey) {
       const dupSnap = await getDocs(query(expCol(userId), where('idempotencyKey', '==', idempotencyKey)));
       if (!dupSnap.empty) return dupSnap.docs[0].id;
@@ -319,12 +334,14 @@ export const expenseRepository = {
 
   async updateExpense(expense: Expense): Promise<void> {
     const userId = uid(); if (!userId || !expense.id) return;
+    requireVerifiedEmail();
     await setDoc(expDoc(userId, expense.id), { ...expense, amount: roundAmount(expense.amount), updatedAt: now() }, { merge: true });
     emitDataChanged();
   },
 
   async deleteExpense(id: string): Promise<Expense | null> {
     const userId = uid(); if (!userId) return null;
+    requireVerifiedEmail();
     const exp = await this.getExpenseById(id);
     if (!exp) return null;
     await deleteDoc(expDoc(userId, id));

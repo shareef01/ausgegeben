@@ -100,6 +100,7 @@ export const en = {
   authErrorGeneric: 'sign-in failed. please try again.',
   authVerifyEmailSent: 'verification email sent. check your inbox to complete sign-up.',
   authVerifyBanner: 'verify your email to keep account recovery options available.',
+  authVerifyRequired: 'verify your email to add or edit transactions.',
   authVerifyResend: 'resend email',
   authVerifyRefresh: 'i verified',
   authVerifyDismiss: 'dismiss',

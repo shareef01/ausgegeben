@@ -247,9 +247,11 @@ fun IosSegmentedControl(
     selectedIndex: Int,
     onSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    icons: List<ImageVector>? = null,
 ) {
     val safeIndex = selectedIndex.coerceIn(0, (options.size - 1).coerceAtLeast(0))
     val containerShape = RoundedCornerShape(AppRadius.pill)
+    val iconOnly = icons != null && icons.size == options.size
 
     Box(
         modifier = modifier
@@ -290,18 +292,31 @@ fun IosSegmentedControl(
                     modifier = Modifier
                         .weight(1f)
                         .clip(containerShape)
+                        .semantics {
+                            contentDescription = label
+                            this.selected = selected
+                        }
                         .smoothClickable { onSelected(index) }
-                        .padding(vertical = 10.dp),
+                        .padding(vertical = if (iconOnly) 12.dp else 10.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        text = label.lowercase(),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                        color = if (selected) MaterialTheme.colorScheme.onSurface else readableSecondaryColor(),
-                        maxLines = 1,
-                        textAlign = TextAlign.Center,
-                    )
+                    if (iconOnly) {
+                        Icon(
+                            imageVector = icons!![index],
+                            contentDescription = null,
+                            tint = if (selected) MaterialTheme.colorScheme.onSurface else readableSecondaryColor(),
+                            modifier = Modifier.size(20.dp),
+                        )
+                    } else {
+                        Text(
+                            text = label.lowercase(),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                            color = if (selected) MaterialTheme.colorScheme.onSurface else readableSecondaryColor(),
+                            maxLines = 1,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
                 }
             }
         }
