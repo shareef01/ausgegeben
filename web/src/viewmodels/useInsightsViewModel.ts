@@ -59,7 +59,7 @@ export function useInsightsViewModel() {
       });
     } else {
       const loadAll = () => {
-        void expenseRepository.getAllExpenses().then((items) => {
+        void expenseRepository.getAllExpensesCapped(5_000).then(({ items }) => {
           setExpenses(items);
           setLoadError(false);
           expsReady = true;
@@ -91,7 +91,7 @@ export function useInsightsViewModel() {
       const cats = await expenseRepository.getAllCategories();
       const items = range
         ? await expenseRepository.getExpensesInRange(range[0], range[1])
-        : await expenseRepository.getAllExpenses();
+        : (await expenseRepository.getAllExpensesCapped(5_000)).items;
       setCategories(cats);
       setExpenses(items);
     } catch (err) {
