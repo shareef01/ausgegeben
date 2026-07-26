@@ -125,8 +125,7 @@ class ExpenseViewModel(
     private val queriedExpensesFlow: Flow<List<Expense>> = combine(
         _listPeriod,
         _typeFilter,
-        repository.expensesRevision,
-    ) { period, filter, _ ->
+    ) { period, filter ->
         val (start, end) = recordListDateRangeMillis(period) ?: (0L to Long.MAX_VALUE)
         Pair(start, end) to filter
     }.flatMapLatest { (range, filter) ->
