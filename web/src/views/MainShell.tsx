@@ -85,6 +85,7 @@ export function MainShell() {
       </a>
 
       {/* SINGLE MASTER CONTAINER */}
+      <div className="app-shell">
       <div className="app-frame">
 
         {/* Header — mark + icon nav (desktop) */}
@@ -245,6 +246,7 @@ export function MainShell() {
       ) : null}
 
       <ToastHost />
+      </div>
     </>
   );
 }

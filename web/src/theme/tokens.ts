@@ -230,6 +230,45 @@ export function resolveTheme(mode: string, systemDark: boolean): ThemePalette {
   return themePalettes[mode] ?? themePalettes.dark;
 }
 
+/** Last chosen theme mode — applied before React mounts so light UI doesn’t FOUC dark. */
+export const THEME_STORAGE_KEY = 'ausgegeben-theme-mode';
+
+const VALID_STORED_THEMES = new Set([
+  'system',
+  ...Object.keys(themePalettes),
+]);
+
+export function readStoredThemeMode(): string {
+  try {
+    const v = localStorage.getItem(THEME_STORAGE_KEY);
+    if (v && VALID_STORED_THEMES.has(v)) return v;
+  } catch {
+    // Ignore quota / private-mode failures
+  }
+  return 'system';
+}
+
+export function writeStoredThemeMode(mode: string): void {
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, mode);
+  } catch {
+    // Ignore quota / private-mode failures
+  }
+}
+
+export function resolvedThemeName(mode: string, systemDark: boolean): string {
+  if (mode === 'system') return systemDark ? 'dark' : 'light';
+  return mode;
+}
+
+/** Call once from main.tsx before createRoot. */
+export function bootstrapTheme(): void {
+  const mode = readStoredThemeMode();
+  const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  applyTheme(resolveTheme(mode, systemDark));
+  document.documentElement.dataset.themeName = resolvedThemeName(mode, systemDark);
+}
+
 /** Theme chrome accent = Material primary (Android) */
 export function brandAccent(palette: ThemePalette): string {
   return palette.primary;
@@ -265,13 +304,6 @@ export function applyTheme(palette: ThemePalette): void {
   root.style.setProperty('--color-on-accent', onAccent);
   root.style.setProperty('--color-focus', palette.focusRing);
 
-  root.style.setProperty('--glass-bg', palette.isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.04)');
-  root.style.setProperty('--glass-border', palette.isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.11)');
-  root.style.setProperty('--glass-bg-elevated', palette.isDark ? 'rgba(9, 9, 11, 0.94)' : 'rgba(255, 255, 255, 0.96)');
-  root.style.setProperty('--surface-border', palette.isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.11)');
-  root.style.setProperty('--hairline-border', palette.isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.12)');
-  root.style.setProperty('--hairline-divider', palette.isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.09)');
-
   root.style.setProperty('--color-label-muted', palette.onSurfaceVariant);
   root.style.setProperty('--color-placeholder', palette.onSurfaceVariant);
   root.style.setProperty('--color-balance-positive', palette.income);
@@ -281,20 +313,50 @@ export function applyTheme(palette: ThemePalette): void {
   root.style.setProperty('--color-on-expense', onExpense);
   root.style.setProperty('--color-on-transfer', onTransfer);
 
+  if (palette.isDark) {
+    root.style.setProperty('--glass-bg', 'rgba(255, 255, 255, 0.03)');
+    root.style.setProperty('--glass-border', 'rgba(255, 255, 255, 0.07)');
+    root.style.setProperty('--glass-bg-elevated', 'rgba(9, 9, 11, 0.94)');
+    root.style.setProperty('--surface-border', 'rgba(255, 255, 255, 0.07)');
+    root.style.setProperty('--hairline-border', 'rgba(255, 255, 255, 0.07)');
+    root.style.setProperty('--hairline-divider', 'rgba(255, 255, 255, 0.06)');
+    root.style.setProperty('--overlay-scrim', 'rgba(0, 0, 0, 0.72)');
+    root.style.setProperty('--shadow-elevated', '0 10px 40px rgba(0, 0, 0, 0.45)');
+    root.style.setProperty('--shadow-nav-pill', '0 0 0 1px rgba(255, 255, 255, 0.04), 0 8px 32px rgba(0, 0, 0, 0.45)');
+  } else {
+    // Solid fills — translucent black wash left light UIs looking half-themed
+    root.style.setProperty('--glass-bg', palette.surface);
+    root.style.setProperty('--glass-border', 'rgba(0, 0, 0, 0.11)');
+    root.style.setProperty('--glass-bg-elevated', palette.surface);
+    root.style.setProperty('--surface-border', 'rgba(0, 0, 0, 0.11)');
+    root.style.setProperty('--hairline-border', 'rgba(0, 0, 0, 0.12)');
+    root.style.setProperty('--hairline-divider', 'rgba(0, 0, 0, 0.09)');
+    root.style.setProperty('--overlay-scrim', 'rgba(15, 15, 20, 0.36)');
+    root.style.setProperty(
+      '--shadow-elevated',
+      '0 8px 28px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04)',
+    );
+    root.style.setProperty(
+      '--shadow-nav-pill',
+      '0 0 0 1px rgba(0, 0, 0, 0.06), 0 8px 28px rgba(0, 0, 0, 0.10)',
+    );
+  }
+
   root.style.setProperty('--gradient-income', `linear-gradient(180deg, color-mix(in srgb, ${palette.income} 40%, white) 0%, ${palette.income} 100%)`);
   root.style.setProperty('--gradient-expense', `linear-gradient(180deg, color-mix(in srgb, ${palette.expense} 40%, white) 0%, ${palette.expense} 100%)`);
   root.style.setProperty('--hero-balance-gradient', `linear-gradient(180deg, ${palette.onBackground} 0%, color-mix(in srgb, ${palette.onBackground} 78%, ${palette.onSurfaceVariant}) 100%)`);
   root.style.setProperty('--hero-balance-glow', `color-mix(in srgb, ${palette.onBackground} 12%, transparent)`);
 
   root.style.setProperty('--shadow-accent-glow', `0 12px 40px color-mix(in srgb, ${accent} 28%, transparent)`);
-  root.style.setProperty('--shadow-elevated', palette.isDark
-    ? '0 10px 40px rgba(0, 0, 0, 0.45)'
-    : '0 8px 28px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04)');
-  root.style.setProperty('--shadow-nav-pill', palette.isDark
-    ? '0 0 0 1px rgba(255, 255, 255, 0.04), 0 8px 32px rgba(0, 0, 0, 0.45)'
-    : '0 0 0 1px rgba(0, 0, 0, 0.06), 0 8px 28px rgba(0, 0, 0, 0.10)');
 
   root.dataset.theme = palette.isDark ? 'dark' : 'light';
+  // Paint html/#root/body — cold-start CSS can leave #root black when OS is dark
+  // even after the user picks a light theme.
+  root.style.backgroundColor = palette.background;
+  root.style.colorScheme = palette.isDark ? 'dark' : 'light';
+  if (document.body) document.body.style.backgroundColor = palette.background;
+  const appRoot = document.getElementById('root');
+  if (appRoot) appRoot.style.backgroundColor = palette.background;
   document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
     meta.setAttribute('content', palette.background);
   });

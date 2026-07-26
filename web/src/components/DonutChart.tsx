@@ -196,8 +196,8 @@ function hslToHex(h: number, s: number, l: number): string {
 }
 
 /**
- * Category color tuned for dark-UI charts: lift muddy pastels, keep hue,
- * avoid near-black / near-white collapses.
+ * Category color tuned for chart surfaces: lift muddy pastels on dark UI;
+ * keep deeper, less neon strokes on light UI.
  */
 export function segmentColor(colorInt: number, fallbackIndex = 0): string {
   const hex = colorIntToHex(colorInt);
@@ -210,6 +210,13 @@ export function segmentColor(colorInt: number, fallbackIndex = 0): string {
   if (lum < 0.08) return CHART_FALLBACK[fallbackIndex % CHART_FALLBACK.length];
 
   const { h, s, l } = rgbToHsl(r, g, b);
+  const isLight =
+    typeof document !== 'undefined' && document.documentElement.dataset.theme === 'light';
+  if (isLight) {
+    const s2 = Math.min(0.7, Math.max(0.36, s * 1.12));
+    const l2 = Math.min(0.5, Math.max(0.3, l < 0.42 ? l + 0.04 : l * 0.86));
+    return hslToHex(h, s2, l2);
+  }
   // Pastel category swatches → richer chart strokes on OLED/dark surfaces
   const s2 = Math.min(0.78, Math.max(0.42, s * 1.45 + 0.12));
   const l2 = Math.min(0.64, Math.max(0.44, l < 0.45 ? l + 0.12 : l * 0.92 + 0.04));

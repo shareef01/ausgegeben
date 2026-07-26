@@ -60,3 +60,12 @@
   -webkit-text-fill-color: var(--color-on-background);
   transition: background-color 5000s ease-in-out 0s;
 }
+
+[data-theme='light'] input:-webkit-autofill,
+[data-theme='light'] input:-webkit-autofill:hover,
+[data-theme='light'] input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0px 1000px var(--color-surface-variant) inset;
+  -webkit-text-fill-color: var(--color-on-background);
+  caret-color: var(--color-on-background);
+  transition: background-color 5000s ease-in-out 0s;
+}
