@@ -1,0 +1,13 @@
+#!/bin/sh
+# Also strip during prepare-commit-msg in case trailers are injected early.
+ROOT="$(git rev-parse --show-toplevel)"
+MSG_FILE="$1"
+# Only act on message files (ignore merge/squash templates without a path)
+[ -n "$MSG_FILE" ] && [ -f "$MSG_FILE" ] || exit 0
+
+if command -v python >/dev/null 2>&1; then
+  python "$ROOT/scripts/strip-commit-trailers.py" "$MSG_FILE"
+elif command -v python3 >/dev/null 2>&1; then
+  python3 "$ROOT/scripts/strip-commit-trailers.py" "$MSG_FILE"
+fi
+exit 0

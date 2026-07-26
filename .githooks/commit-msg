@@ -1,0 +1,18 @@
+#!/bin/sh
+# Strip Cursor/AI co-author trailers so shareef01 stays sole commit author.
+# Runs as the last commit-msg hook (after Cursor may inject Co-authored-by).
+set -e
+ROOT="$(git rev-parse --show-toplevel)"
+MSG_FILE="$1"
+
+if command -v python >/dev/null 2>&1; then
+  python "$ROOT/scripts/strip-commit-trailers.py" "$MSG_FILE"
+elif command -v python3 >/dev/null 2>&1; then
+  python3 "$ROOT/scripts/strip-commit-trailers.py" "$MSG_FILE"
+else
+  # Fallback without Python: drop Co-authored-by / Made-with: Cursor lines
+  tmp="${MSG_FILE}.stripped"
+  grep -v -E -i '^(Co-authored-by:[[:space:]].+<[^>]+>|Made-with:[[:space:]]*Cursor)[[:space:]]*$' \
+    "$MSG_FILE" > "$tmp" || true
+  mv "$tmp" "$MSG_FILE"
+fi
