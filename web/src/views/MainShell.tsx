@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense, type JSX } from 'react';
+import { useState, lazy, Suspense, type CSSProperties, type JSX } from 'react';
 import { RecordView } from '@/views/RecordView';
 // Lazy-loaded so their code (and the charts Insights pulls in) is split into
 // on-demand chunks instead of the initial bundle — Record is the first view.
@@ -12,6 +12,7 @@ import { AppBrandIcon } from '@/components/AppBrandIcon';
 import { useTranslation } from '@/i18n';
 import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 type Tab = 'record' | 'insights' | 'settings';
 type TxnOverlay = null | { type: 'add' } | { type: 'edit'; expenseId: string };
@@ -19,6 +20,7 @@ type TxnOverlay = null | { type: 'add' } | { type: 'edit'; expenseId: string };
 export function MainShell() {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
+  const isDesktop = useMediaQuery('(min-width: 768px)');
   const [tab, setTab] = useState<Tab>('record');
   const [txnOverlay, setTxnOverlay] = useState<TxnOverlay>(null);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
@@ -78,10 +80,14 @@ export function MainShell() {
 
   return (
     <>
+      <a href="#app-main" className="skip-link">
+        {t('actionSkipToContent')}
+      </a>
+
       {/* SINGLE MASTER CONTAINER */}
       <div className="app-frame">
 
-        {/* Header — mark + icon nav */}
+        {/* Header — mark + icon nav (desktop) */}
         <header className="app-header">
           <button
             type="button"
@@ -93,24 +99,31 @@ export function MainShell() {
             <AppBrandIcon size={28} className="app-header__logo-mark" />
           </button>
 
-          <nav className="app-header__nav" aria-label={t('navMain')}>
-            {navItems.map(({ id, label, Icon }) => {
-              const active = tab === id;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => selectTab(id)}
-                  aria-current={active ? 'page' : undefined}
-                  aria-label={label}
-                  title={label}
-                  className={`app-header__nav-item${active ? ' app-header__nav-item--active' : ''}`}
-                >
-                  <Icon width={22} height={22} className="app-header__nav-icon" aria-hidden />
-                </button>
-              );
-            })}
-          </nav>
+          {isDesktop ? (
+            <nav
+              className="app-header__nav"
+              aria-label={t('navMain')}
+              style={{ '--nav-i': Math.max(0, navItems.findIndex((item) => item.id === tab)) } as CSSProperties}
+            >
+              <span className="app-header__nav-thumb" aria-hidden />
+              {navItems.map(({ id, label, Icon }) => {
+                const active = tab === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => selectTab(id)}
+                    aria-current={active ? 'page' : undefined}
+                    aria-label={label}
+                    title={label}
+                    className={`app-header__nav-item${active ? ' app-header__nav-item--active' : ''}`}
+                  >
+                    <Icon width={20} height={20} className="app-header__nav-icon" aria-hidden />
+                  </button>
+                );
+              })}
+            </nav>
+          ) : null}
         </header>
 
         {showVerifyBanner ? (
@@ -132,7 +145,7 @@ export function MainShell() {
         ) : null}
 
         {/* Main content */}
-        <main className="app-shell__main">
+        <main id="app-main" className="app-shell__main" tabIndex={-1}>
           {(['record', 'insights', 'settings'] as Tab[]).map((tabId) => {
             const active = tab === tabId;
             if (!visitedTabs.has(tabId) && !active) return null;
@@ -158,48 +171,49 @@ export function MainShell() {
         </main>
       </div>
 
-      {/* Bottom nav — premium floating pill + elevated add button */}
-      <div className="mobile-dock">
-        <nav
-          className="bottom-nav-pill flex items-center gap-0.5 rounded-full p-1"
-          aria-label={t('navMain')}
-        >
-          {navItems.map(({ id, label, Icon }) => {
-            const active = tab === id;
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => selectTab(id)}
-                aria-current={active ? 'page' : undefined}
-                aria-label={label}
-                className={`bottom-nav-pill__item${active ? ' bottom-nav-pill__item--active' : ''}`}
-              >
-                <Icon width={20} height={20} strokeWidth={active ? 2.25 : 1.75} aria-hidden />
-                <span className="bottom-nav-pill__label">{label}</span>
-              </button>
-            );
-          })}
-        </nav>
+      {/* Bottom nav — mobile only (not mounted on desktop → not in tab order) */}
+      {!isDesktop ? (
+        <div className="mobile-dock">
+          <nav
+            className="bottom-nav-pill flex items-center gap-0.5 rounded-full p-1"
+            aria-label={t('navMain')}
+          >
+            {navItems.map(({ id, label, Icon }) => {
+              const active = tab === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => selectTab(id)}
+                  aria-current={active ? 'page' : undefined}
+                  aria-label={label}
+                  title={label}
+                  className={`bottom-nav-pill__item${active ? ' bottom-nav-pill__item--active' : ''}`}
+                >
+                  <Icon width={22} height={22} strokeWidth={active ? 2.25 : 1.85} aria-hidden />
+                </button>
+              );
+            })}
+          </nav>
+          <button
+            type="button"
+            className="fab-add flex items-center justify-center w-12 h-12 rounded-full transition-all duration-200 active:scale-90 hover:brightness-110 hover:-translate-y-0.5"
+            aria-label={t('navAdd')}
+            onClick={() => setTxnOverlay({ type: 'add' })}
+          >
+            <IconAdd width={22} height={22} strokeWidth={2.5} aria-hidden />
+          </button>
+        </div>
+      ) : (
         <button
           type="button"
-          className="fab-add flex items-center justify-center w-12 h-12 rounded-full transition-all duration-200 active:scale-90 hover:brightness-110 hover:-translate-y-0.5"
+          className="fab-add fab-add--desktop"
           aria-label={t('navAdd')}
           onClick={() => setTxnOverlay({ type: 'add' })}
         >
-          <IconAdd width={22} height={22} strokeWidth={2.5} aria-hidden />
+          <IconAdd width={24} height={24} strokeWidth={2.5} aria-hidden />
         </button>
-      </div>
-
-      {/* Desktop FAB — sits on the content column’s right edge, not the viewport */}
-      <button
-        type="button"
-        className="fab-add fab-add--desktop"
-        aria-label={t('navAdd')}
-        onClick={() => setTxnOverlay({ type: 'add' })}
-      >
-        <IconAdd width={24} height={24} strokeWidth={2.5} aria-hidden />
-      </button>
+      )}
 
       {txnOverlay ? (
         <Suspense

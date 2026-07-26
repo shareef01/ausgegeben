@@ -77,7 +77,3 @@ export const usePreferencesStore = create<PreferencesStore>()((set) => ({
   markPreferencesReady: () => set({ preferencesReady: true }),
   resetPreferences: () => set({ ...DEFAULT_PREFERENCES, preferencesReady: false }),
 }));
-
-export function useListPeriod(): string {
-  return 'this_month';
-}

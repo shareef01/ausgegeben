@@ -3,6 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#FAF7F2" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#000000" />
     <meta name="description" content="Ausgegeben — track spending, income, and insights across devices." />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -21,10 +24,19 @@
     <link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/icons/splash-1179x2556.png" />
     <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/icons/splash-1284x2778.png" />
     <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/icons/splash-1290x2796.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <title>Ausgegeben</title>
+    <style>
+      /* Instant shell so Pixel Chrome / Android PWA cold-start isn't a white flash */
+      html, body, #root {
+        margin: 0;
+        min-height: 100%;
+        background: #000000;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      }
+      @media (prefers-color-scheme: light) {
+        html, body, #root { background: #FAF7F2; }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

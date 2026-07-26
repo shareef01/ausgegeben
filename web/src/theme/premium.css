@@ -24,6 +24,8 @@
   background: transparent !important;
   border: none !important;
   padding: 4px !important;
+  min-width: 44px;
+  min-height: 44px;
   border-radius: 10px;
   cursor: pointer;
   color: inherit;
@@ -38,10 +40,6 @@
   outline-offset: 3px;
 }
 
-.app-header__wordmark {
-  display: none !important;
-}
-
 .app-header__logo-mark {
   width: 28px !important;
   height: 28px !important;
@@ -53,11 +51,11 @@
   overflow: visible;
 }
 
-/* Active nav: same size as siblings, accent ink only */
+/* Active nav: solid accent thumb; ink uses on-accent contrast */
 .app-header__nav-item--active {
-  color: var(--color-income);
-  background: color-mix(in srgb, var(--color-on-surface) 12%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-income) 28%, transparent);
+  color: var(--color-on-income, #000000);
+  background: transparent;
+  box-shadow: none;
   transform: none;
 }
 
@@ -67,7 +65,15 @@
    Dark themes already express accent via --color-income, so they're untouched. */
 :root[data-theme-name='lavender'] .app-header__nav-item--active,
 :root[data-theme-name='soft_light'] .app-header__nav-item--active {
-  color: var(--color-accent);
+  color: var(--color-on-accent, #ffffff);
+}
+
+:root[data-theme-name='lavender'] .app-header__nav-thumb,
+:root[data-theme-name='soft_light'] .app-header__nav-thumb {
+  background: var(--color-accent);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, #ffffff 28%, transparent) inset,
+    0 4px 16px color-mix(in srgb, var(--color-accent) 34%, transparent);
 }
 
 :root[data-theme-name='lavender'] .fab-add,
@@ -205,7 +211,7 @@
 }
 
 .finance-stat-chip__label {
-  font-size: 9px !important;
+  font-size: 11px !important;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -269,26 +275,5 @@
   border-bottom: none !important;
   padding: 18px 24px !important;
   background: transparent !important;
-}
-
-/* ── iOS Segmented Perfection ── */
-.ios-segmented {
-  background: color-mix(in srgb, var(--color-on-surface) 6%, transparent) !important;
-  border-radius: 12px !important;
-  padding: 3px !important;
-  display: flex !important;
-}
-
-.ios-segmented__item {
-  padding: 10px 4px !important;
-  font-size: 0.875rem !important;
-  font-weight: 600 !important;
-  text-transform: lowercase !important;
-  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1) !important;
-}
-
-.ios-segmented__item:active {
-  transform: scale(0.97) !important;
-  opacity: 0.8 !important;
 }
 

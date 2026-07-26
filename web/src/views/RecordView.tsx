@@ -1,5 +1,5 @@
 import { useMemo, useState, memo, useCallback } from 'react';
-import { EmptyState, LoadingListSkeleton, SignatureText, CategoryIconTile } from '@/components/ui';
+import { EmptyState, LoadingListSkeleton, PageTitle, CategoryIconTile } from '@/components/ui';
 import { IconSearch, IconClose, IconArrowUp, IconArrowDown, IconTransfer, IconRecord } from '@/components/Icons';
 import { IosSegmentedControl } from '@/components/IosSegmentedControl';
 import { FinanceSummaryCard } from '@/components/FinanceSummaryCard';
@@ -94,11 +94,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
 
   return (
     <>
-      <div className="page-title">
-        <h1 className="page-title__text">
-          <SignatureText text={t('screenRecord')} />
-        </h1>
-      </div>
+      <PageTitle text={t('screenRecord')} icon={IconRecord} />
 
       <div className="sidebar-layout">
 
