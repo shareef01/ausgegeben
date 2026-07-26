@@ -102,6 +102,7 @@ export const de: Record<TranslationKey, string> = {
   authErrorGeneric: 'anmeldung fehlgeschlagen. bitte erneut versuchen.',
   authVerifyEmailSent: 'bestätigungsmail gesendet. bitte posteingang prüfen, um registrierung abzuschließen.',
   authVerifyBanner: 'bestätige deine e-mail, damit konto-wiederherstellung verfügbar bleibt.',
+  authVerifyRequired: 'bestätige deine e-mail, um transaktionen zu speichern.',
   authVerifyResend: 'e-mail erneut senden',
   authVerifyRefresh: 'ich habe bestätigt',
   authVerifyDismiss: 'schließen',
