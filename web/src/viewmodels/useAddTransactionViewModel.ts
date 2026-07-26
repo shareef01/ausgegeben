@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Category, Expense, TransactionType } from '@/models/types';
-import { expenseRepository, UNCATEGORIZED_ID } from '@/repositories/expenseRepository';
+import { expenseRepository, EmailNotVerifiedError, UNCATEGORIZED_ID } from '@/repositories/expenseRepository';
 import { formatAmountForInput, parseAmount } from '@/utils/currency';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useTranslation } from '@/i18n';
@@ -124,7 +124,7 @@ export function useAddTransactionViewModel(expenseId?: string) {
       return true;
     } catch (err) {
       console.error('[useAddTransactionViewModel] save failed', err);
-      setError(t('errorSaveFailed'));
+      setError(err instanceof EmailNotVerifiedError ? t('authVerifyRequired') : t('errorSaveFailed'));
       return false;
     } finally {
       setSaving(false);

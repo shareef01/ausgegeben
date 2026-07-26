@@ -26,6 +26,7 @@
     <string name="auth_loading_sign_up">konto wird erstellt…</string>
     <string name="auth_error_timeout">zeitüberschreitung. prüfe internet und firebase-setup.</string>
     <string name="auth_error_weak_password">passwort ist zu schwach. verwende mindestens 6 zeichen mit buchstaben und zahlen.</string>
+    <string name="auth_verify_required">bestätige deine e-mail, um transaktionen zu speichern.</string>
 
     <!-- Navigation -->
     <string name="nav_record">erfassen</string>

@@ -156,21 +156,21 @@ class ExpenseViewModel(
         _listPeriod.value = period
     }
 
-    fun duplicateExpense(expense: Expense, onResult: (Boolean) -> Unit = {}) {
+    fun duplicateExpense(expense: Expense, onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
         viewModelScope.launch {
             val result = repository.duplicateExpense(expense)
-            onResult(result.isSuccess)
+            onResult(result.isSuccess, result.exceptionOrNull()?.message)
         }
     }
 
-    fun deleteExpense(expense: Expense, onResult: (Boolean) -> Unit = {}) {
+    fun deleteExpense(expense: Expense, onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
         if (expense.id.isBlank()) {
-            onResult(false)
+            onResult(false, null)
             return
         }
         viewModelScope.launch {
             val result = repository.deleteExpense(expense)
-            onResult(result.isSuccess)
+            onResult(result.isSuccess, result.exceptionOrNull()?.message)
         }
     }
 

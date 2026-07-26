@@ -7,7 +7,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,7 +19,6 @@ import androidx.compose.material.icons.rounded.Analytics
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,10 +34,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.Route
 import com.aus.ausgegeben.ui.theme.AppColorSpring
@@ -48,7 +43,7 @@ import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.navigationInactiveColor
 
-val MainBottomBarHeight = 72.dp
+val MainBottomBarHeight = 64.dp
 
 private data class NavDestination(
     val route: Route,
@@ -125,15 +120,15 @@ private fun MainBottomBarItem(
         label = "navItemTint",
     )
     val iconSize by animateDpAsState(
-        targetValue = if (selected) 24.dp else 22.dp,
+        targetValue = if (selected) 26.dp else 24.dp,
         animationSpec = AppDpSpring,
         label = "navIconSize",
     )
     val interactionSource = remember { MutableInteractionSource() }
 
-    Column(
+    Box(
         modifier = modifier
-            .height(60.dp)
+            .height(52.dp)
             .clip(RoundedCornerShape(AppRadius.pill))
             .background(containerColor)
             .semantics {
@@ -145,24 +140,14 @@ private fun MainBottomBarItem(
                 interactionSource = interactionSource,
                 indication = ripple(bounded = true),
                 onClick = onClick,
-            )
-            .padding(horizontal = 4.dp, vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+            ),
+        contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = destination.icon,
             contentDescription = null,
             tint = contentColor,
             modifier = Modifier.size(iconSize),
-        )
-        Text(
-            text = destination.label.lowercase(),
-            color = contentColor,
-            fontSize = 11.sp,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
         )
     }
 }

@@ -72,10 +72,10 @@ fun RecordScreen(
     dataError: String? = null,
     onRetryDataError: () -> Unit = {},
     onExpenseDeleted: (Expense) -> Unit = {},
-    onExpenseDeleteFailed: () -> Unit = {},
+    onExpenseDeleteFailed: (String?) -> Unit = {},
     onExpenseClick: (Expense) -> Unit = {},
     onExpenseDuplicated: () -> Unit = {},
-    onExpenseDuplicateFailed: () -> Unit = {},
+    onExpenseDuplicateFailed: (String?) -> Unit = {},
     onAddTransaction: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -121,7 +121,6 @@ fun RecordScreen(
     val isWide = isWideScreen()
     
     var isSearchExpanded by remember { mutableStateOf(false) }
-    var isFilterExpanded by remember { mutableStateOf(false) }
 
     // Pillar 1: Ambient Aurora Wrap
     Box(modifier = modifier.fillMaxSize().background(AppAurora.background())) {
@@ -210,8 +209,6 @@ fun RecordScreen(
                             onSearchChange = viewModel::setSearchQuery,
                             isSearchExpanded = isSearchExpanded,
                             onSearchToggle = { isSearchExpanded = it },
-                            isFilterExpanded = isFilterExpanded,
-                            onFilterToggle = { isFilterExpanded = it }
                         )
                         HorizontalDivider(
                             thickness = 0.5.dp,
@@ -328,8 +325,8 @@ fun RecordScreen(
                                             currencyCode = currencyCode,
                                             onClick = { onExpenseClick(expense) },
                                             onLongClick = {
-                                                viewModel.duplicateExpense(expense) { success ->
-                                                    if (success) onExpenseDuplicated() else onExpenseDuplicateFailed()
+                                                viewModel.duplicateExpense(expense) { success, error ->
+                                                    if (success) onExpenseDuplicated() else onExpenseDuplicateFailed(error)
                                                 }
                                             },
                                             onDeleteRequest = { expensePendingDelete = expense },
@@ -403,8 +400,8 @@ fun RecordScreen(
             dismissLabel = stringResource(R.string.record_delete_cancel),
             onConfirm = {
                 expensePendingDelete?.let {
-                    viewModel.deleteExpense(it) { success ->
-                        if (success) onExpenseDeleted(it) else onExpenseDeleteFailed()
+                    viewModel.deleteExpense(it) { success, error ->
+                        if (success) onExpenseDeleted(it) else onExpenseDeleteFailed(error)
                     }
                 }
                 expensePendingDelete = null
@@ -424,11 +421,17 @@ private fun RecordListToolbar(
     onSearchChange: (String) -> Unit,
     isSearchExpanded: Boolean,
     onSearchToggle: (Boolean) -> Unit,
-    isFilterExpanded: Boolean,
-    onFilterToggle: (Boolean) -> Unit,
 ) {
     val context = LocalContext.current
     val typeFilterLabels = remember(context) { TransactionTypeFilter.entries.map { it.localizedLabel(context) } }
+    val typeFilterIcons = remember {
+        listOf(
+            Icons.AutoMirrored.Rounded.List,
+            Icons.Rounded.ArrowDownward,
+            Icons.Rounded.ArrowUpward,
+            Icons.Rounded.SwapHoriz,
+        )
+    }
     val typeFilterIndex = TransactionTypeFilter.entries.indexOf(typeFilter).coerceAtLeast(0)
     val isMonthPeriod = listPeriod.startsWith("month:")
     var showMonthSheet by remember { mutableStateOf(false) }
@@ -569,21 +572,6 @@ private fun RecordListToolbar(
                                 modifier = Modifier.size(20.dp)
                             )
                         }
-
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .appGlassCard(CircleShape)
-                                .smoothClickable { onFilterToggle(!isFilterExpanded) },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Rounded.FilterList,
-                                contentDescription = stringResource(R.string.record_filter),
-                                tint = if (typeFilter != TransactionTypeFilter.ALL) MaterialTheme.colorScheme.primary else navigationInactiveColor(),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
                     }
                 } else {
                     Row(
@@ -658,15 +646,14 @@ private fun RecordListToolbar(
             }
         }
 
-        if (isFilterExpanded || typeFilter != TransactionTypeFilter.ALL) {
-            IosSegmentedControl(
-                options = typeFilterLabels,
-                selectedIndex = typeFilterIndex,
-                onSelected = { index ->
-                    TransactionTypeFilter.entries.getOrNull(index)?.let(onTypeFilter)
-                },
-            )
-        }
+        IosSegmentedControl(
+            options = typeFilterLabels,
+            selectedIndex = typeFilterIndex,
+            onSelected = { index ->
+                TransactionTypeFilter.entries.getOrNull(index)?.let(onTypeFilter)
+            },
+            icons = typeFilterIcons,
+        )
     }
 }
 
