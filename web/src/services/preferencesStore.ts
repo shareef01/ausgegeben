@@ -1,11 +1,14 @@
 ﻿import { create } from 'zustand';
 import type { AppPreferences, ThemeMode, SyncedPreferences } from '@/models/types';
 import type { Locale } from '@/i18n';
+import { readStoredThemeMode, writeStoredThemeMode } from '@/theme/tokens';
+
+const storedTheme = readStoredThemeMode();
 
 const DEFAULT_PREFERENCES: AppPreferences = {
   currency: 'EUR',
   locale: 'en',
-  themeMode: 'system',
+  themeMode: (storedTheme as ThemeMode) || 'system',
   onboardingComplete: false,
   dailyReminder: true,
   reminderHour: 19,
@@ -45,6 +48,7 @@ export const usePreferencesStore = create<PreferencesStore>()((set) => ({
     set({ locale, preferencesUpdatedAt: touchPrefs() });
   },
   setThemeMode: (themeMode) => {
+    writeStoredThemeMode(themeMode);
     set({ themeMode, preferencesUpdatedAt: touchPrefs() });
   },
   completeOnboarding: () =>
@@ -61,7 +65,8 @@ export const usePreferencesStore = create<PreferencesStore>()((set) => ({
   setMonthlyBudget: (monthlyBudget) => {
     set({ monthlyBudget, preferencesUpdatedAt: touchPrefs() });
   },
-  applySyncedPreferences: (prefs) =>
+  applySyncedPreferences: (prefs) => {
+    writeStoredThemeMode(prefs.themeMode);
     set({
       currency: prefs.currency,
       locale: prefs.locale,
@@ -73,7 +78,13 @@ export const usePreferencesStore = create<PreferencesStore>()((set) => ({
       analyticsPeriod: prefs.analyticsPeriod,
       monthlyBudget: prefs.monthlyBudget,
       preferencesUpdatedAt: prefs.updatedAt,
-    }),
+    });
+  },
   markPreferencesReady: () => set({ preferencesReady: true }),
-  resetPreferences: () => set({ ...DEFAULT_PREFERENCES, preferencesReady: false }),
+  resetPreferences: () =>
+    set({
+      ...DEFAULT_PREFERENCES,
+      themeMode: readStoredThemeMode() as ThemeMode,
+      preferencesReady: false,
+    }),
 }));
