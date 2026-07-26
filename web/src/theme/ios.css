@@ -1,5 +1,5 @@
 /**
- * iOS / iPhone Specific Flagship Optimizations - SCROLL FIX
+ * Mobile / PWA layout — iPhone + Pixel / Android Chrome
  */
 
 :root {
@@ -11,30 +11,40 @@
 
 /* ── Force Body Scroll ── */
 
-html {
-  height: -webkit-fill-available;
-}
-
 body {
   /* Restore absolute standard scrolling */
   position: relative !important;
   height: auto !important;
   min-height: 100vh;
-  min-height: -webkit-fill-available;
+  min-height: 100dvh;
   overflow-y: auto !important;
   overflow-x: hidden !important;
-  -webkit-overflow-scrolling: touch;
 
   /* Visual tweaks */
   -webkit-tap-highlight-color: transparent;
   background-color: var(--color-background);
 }
 
+/* iOS Safari: fill-available avoids address-bar bounce; leave Android on dvh. */
+@supports (-webkit-touch-callout: none) {
+  html {
+    height: -webkit-fill-available;
+  }
+
+  body {
+    min-height: -webkit-fill-available;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .app-shell {
+    min-height: -webkit-fill-available;
+  }
+}
+
 /* ── UI Anchor Stability ── */
 
 .app-shell {
   min-height: 100vh;
-  min-height: -webkit-fill-available;
   min-height: 100dvh;
 }
 
@@ -43,7 +53,7 @@ body {
 .sheet--transaction {
   max-height: 94vh;
   max-height: 94dvh;
-  padding-bottom: calc(40px + var(--safe-bottom));
+  padding-bottom: calc(40px + var(--safe-bottom-pad, var(--safe-bottom)));
 }
 
 /* ── Touch Interaction ── */
@@ -55,17 +65,12 @@ body {
   touch-action: pan-y pinch-zoom;
   /* Prevent selection */
   -webkit-user-select: none;
-}
-
-/* ── FAB safe area ── */
-.fab--anchored {
-  bottom: calc(32px + var(--safe-bottom)) !important;
+  user-select: none;
 }
 
 /* ── Mobile input zoom guard ──
-   iOS Safari auto-zooms the page when a focused input's font-size is
-   below 16px. Enforce 16px on touch devices; desktop keeps the
-   compact sizing. */
+   iOS Safari (and some Android WebViews) auto-zoom when focused inputs are
+   below 16px. Enforce 16px on touch devices; desktop keeps compact sizing. */
 @media (pointer: coarse) {
   .field__input,
   .record-search__input,
@@ -84,10 +89,10 @@ body {
 }
 
 /* ── Full-screen overlays / centered modals ──
-   Categories + Add Transaction: pad for notch + home bar. */
+   Categories + Add Transaction: pad for notch + home / gesture bar. */
 .safe-overlay {
   padding-top: max(1rem, var(--safe-top, 0px)) !important;
-  padding-bottom: max(1rem, var(--safe-bottom, 0px)) !important;
+  padding-bottom: max(1rem, var(--safe-bottom-pad, var(--safe-bottom, 0px))) !important;
   padding-left: max(1rem, var(--safe-left, 0px)) !important;
   padding-right: max(1rem, var(--safe-right, 0px)) !important;
   box-sizing: border-box;
@@ -95,7 +100,7 @@ body {
 
 .overlay {
   padding-top: max(16px, var(--safe-top, 0px));
-  padding-bottom: max(16px, var(--safe-bottom, 0px));
+  padding-bottom: max(16px, var(--safe-bottom-pad, var(--safe-bottom, 0px)));
   padding-left: max(16px, var(--safe-left, 0px));
   padding-right: max(16px, var(--safe-right, 0px));
   box-sizing: border-box;
@@ -105,24 +110,21 @@ body {
 @media (max-width: 767px) {
   .safe-overlay .card--pro,
   .safe-overlay .add-txn {
-    max-height: min(90dvh, calc(100dvh - var(--safe-top, 0px) - var(--safe-bottom, 0px) - 2rem));
+    max-height: min(90dvh, calc(100dvh - var(--safe-top, 0px) - var(--safe-bottom-pad, var(--safe-bottom, 0px)) - 2rem));
   }
 }
 
 /* Narrow phones (SE / mini): keep the dock from overflowing */
 @media (max-width: 379px) {
   .bottom-nav-pill__item {
-    min-width: 3.5rem;
-    padding-inline: 0.35rem;
-  }
-
-  .bottom-nav-pill__label {
-    font-size: 0.625rem;
-    max-width: 3.75rem;
+    width: 2.75rem;
+    height: 2.75rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
   }
 
   .mobile-dock {
     gap: 0.35rem;
-    bottom: calc(0.85rem + var(--safe-bottom, 0px));
+    bottom: calc(0.85rem + var(--safe-bottom-pad, var(--safe-bottom, 0px)));
   }
 }

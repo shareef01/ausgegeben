@@ -13,13 +13,8 @@
   margin-bottom: 4px;
 }
 
-.settings-page__title {
-  margin: 0;
-  font-size: clamp(1.75rem, 4vw, 2.25rem);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  color: var(--color-on-background);
-  line-height: 1.1;
+.settings-page__header .page-title {
+  margin-bottom: 0;
 }
 
 .settings-page__version {
@@ -217,42 +212,40 @@
   padding-right: 2px;
 }
 
-/* ── Theme picker ── */
+/* ── Theme picker — compact visual tiles ── */
 .theme-picker {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-}
-
-@media (min-width: 480px) {
-  .theme-picker {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-  }
 }
 
 .theme-picker__option {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 56px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--color-outline) 70%, transparent);
-  background: color-mix(in srgb, var(--color-on-surface) 3%, transparent);
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--color-outline) 55%, transparent);
+  background: color-mix(in srgb, var(--color-on-surface) 3.5%, transparent);
   color: var(--color-on-background);
   text-align: left;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.12s ease;
 }
 
 .theme-picker__option:hover {
   background: color-mix(in srgb, var(--color-on-surface) 7%, transparent);
-  border-color: color-mix(in srgb, var(--color-on-surface) 22%, transparent);
+  border-color: color-mix(in srgb, var(--color-on-surface) 20%, transparent);
 }
 
 .theme-picker__option:active {
-  transform: scale(0.98);
+  transform: scale(0.985);
 }
 
 .theme-picker__option:focus-visible {
@@ -261,46 +254,58 @@
 }
 
 .theme-picker__option--selected {
-  border-color: color-mix(in srgb, var(--color-income) 55%, transparent);
-  background: color-mix(in srgb, var(--color-income) 10%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-income) 25%, transparent);
+  border-color: color-mix(in srgb, var(--color-income) 50%, transparent);
+  background: color-mix(in srgb, var(--color-income) 9%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-income) 22%, transparent);
+}
+
+.theme-picker__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding: 0 2px;
 }
 
 .theme-picker__label {
-  flex: 1;
   min-width: 0;
-  font-size: 0.9375rem;
+  font-size: 0.8125rem;
   font-weight: 650;
   letter-spacing: -0.01em;
   text-transform: lowercase;
+  color: var(--color-on-background);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .theme-picker__check {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  color: var(--color-on-income, #09090B);
-  background: var(--color-income);
   flex-shrink: 0;
+  color: var(--color-income);
 }
 
 .theme-swatch {
-  display: flex;
-  align-items: center;
-  gap: 5px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  width: 100%;
+  height: 40px;
+  border-radius: 11px;
+  overflow: hidden;
   flex-shrink: 0;
-  width: 40px;
-  justify-content: center;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-on-surface) 12%, transparent);
 }
 
-.theme-swatch__dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  flex-shrink: 0;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-on-surface) 18%, transparent);
+.theme-swatch__band {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+@media (max-width: 379px) {
+  .theme-picker {
+    grid-template-columns: 1fr;
+  }
 }
 
 .sheet--settings__header {
@@ -410,12 +415,12 @@
   }
 
   .swipeable-row__action {
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
   }
 
   .swipeable-row__content {
-    padding-right: 124px;
+    padding-right: 148px;
   }
 }
 
@@ -832,29 +837,35 @@
   overflow: visible;
 }
 
-/* Segments draw in as a continuous "pen" sweep around the ring on first paint.
-   Per-segment delay/duration (set inline) are proportional to each arc, so the
-   handoff is seamless. The final dash length tracks --seg-len, so live data
-   updates re-resolve the filled state without replaying the sweep. */
+.donut__track {
+  stroke-linecap: round;
+}
+
 .donut__ring {
-  filter: drop-shadow(0 3px 7px color-mix(in srgb, var(--color-on-background) 10%, transparent));
+  filter: none;
 }
 
 .donut__seg {
   animation-name: donut-draw;
   animation-timing-function: linear;
   animation-fill-mode: both;
-  transition: opacity var(--dur-base, 0.26s) var(--ease-out, ease),
-    filter var(--dur-base, 0.26s) var(--ease-out, ease);
+  transition:
+    opacity var(--dur-base, 0.26s) var(--ease-out, ease),
+    filter var(--dur-base, 0.26s) var(--ease-out, ease),
+    stroke-width var(--dur-fast, 0.16s) var(--ease-out, ease);
 }
 
-/* Hover focus — the pointed-at slice stays vivid while the rest recede */
-.donut-wrap:hover .donut__seg:not(:hover) {
-  opacity: 0.4;
-}
+/* Hover focus — fine pointers only (sticky hover washes out donuts on Pixel) */
+@media (hover: hover) and (pointer: fine) {
+  .donut-wrap:hover .donut__seg:not(:hover) {
+    opacity: 0.38;
+    filter: saturate(0.85);
+  }
 
-.donut__seg:hover {
-  filter: brightness(1.14) saturate(1.08);
+  .donut__seg:hover {
+    filter: brightness(1.12) saturate(1.12);
+    stroke-width: 17.5;
+  }
 }
 
 @keyframes donut-draw {
@@ -891,7 +902,7 @@
 
 .donut-center__label {
   font-size: 10px;
-  font-weight: 900;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--color-on-surface-variant);
@@ -899,17 +910,28 @@
 }
 
 .donut-center__value {
-  font-size: clamp(0.85rem, 3.2vw, 1.35rem);
+  font-size: clamp(0.8rem, 2.8vw, 1.25rem);
   font-weight: 900;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.035em;
   font-variant-numeric: tabular-nums;
   color: var(--color-on-background);
-  max-width: 72%;
+  max-width: 78%;
   text-align: center;
   line-height: 1.15;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-shadow: 0 1px 12px color-mix(in srgb, var(--color-background) 55%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .donut__seg {
+    animation: none !important;
+  }
+
+  .donut-center {
+    animation: none !important;
+  }
 }
 
 /* ── Insights main column + category breakdown ── */
@@ -961,14 +983,6 @@
   padding: 4px 0 2px;
 }
 
-.insights-category-card__empty {
-  margin: auto 0;
-  padding: 28px 8px;
-  text-align: center;
-  font-size: 0.8125rem;
-  color: var(--color-on-surface-variant);
-}
-
 .insights-category-card__list {
   list-style: none;
   margin: 0;
@@ -1006,10 +1020,11 @@
 }
 
 .insights-category-card__dot {
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: 999px;
   flex-shrink: 0;
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--color-on-surface) 14%, transparent);
 }
 
 .insights-category-card__name {
@@ -1037,12 +1052,34 @@
   text-align: right;
 }
 
-.insights-category-card__value {
-  flex-shrink: 0;
+.insights-cashflow-card {
+  padding: 22px 22px 18px;
+  border-radius: 1.5rem;
+  background: var(--glass-bg-elevated);
+  border: 1px solid var(--surface-border);
+}
+
+.insights-cashflow-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.insights-cashflow-card__label {
+  margin-bottom: 0.35rem;
+  font-size: 0.625rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-on-surface-variant);
+}
+
+.insights-cashflow-card__subtitle {
   font-size: 0.875rem;
   font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
+  color: color-mix(in srgb, var(--color-on-background) 82%, transparent);
 }
 
 @media (min-width: 768px) {
@@ -1055,25 +1092,19 @@
  *  SIGNATURE TEXT (brand first-letter accent)
  *  ═══════════════════════════════════════════════════ */
 
-.signature-text__accent {
+.signature-text::first-letter {
   color: var(--color-income);
 }
 
-.signature-text__rest {
-  color: var(--color-on-background);
-}
-
 .modal-title,
-.sheet--settings__title,
-.settings-page__title {
+.sheet--settings__title {
   width: fit-content;
   max-width: calc(100% - 3rem);
   color: var(--color-on-background);
 }
 
 .modal-title .signature-text,
-.sheet--settings__title .signature-text,
-.settings-page__title .signature-text {
+.sheet--settings__title .signature-text {
   font-size: inherit;
   font-weight: inherit;
   letter-spacing: inherit;
@@ -1089,7 +1120,7 @@
     border-radius: 24px 24px 0 0;
     max-height: 94vh;
     max-height: 94dvh;
-    padding-bottom: calc(28px + var(--safe-bottom));
+    padding-bottom: calc(28px + var(--safe-bottom-pad, var(--safe-bottom)));
   }
 }
 
@@ -1324,7 +1355,7 @@
 
 .toast-host {
   position: fixed;
-  bottom: calc(100px + var(--safe-bottom));
+  bottom: calc(100px + var(--safe-bottom-pad, var(--safe-bottom)));
   left: 50%;
   transform: translateX(-50%);
   z-index: 190;
@@ -2192,7 +2223,8 @@
 
 .add-txn__footer {
   flex-shrink: 0;
-  padding: 0.75rem 1.25rem calc(1rem + env(safe-area-inset-bottom, 0px));
+  /* Safe-area is applied by .safe-overlay — avoid double inset on Pixel PWAs. */
+  padding: 0.75rem 1.25rem 1rem;
   border-top: 1px solid color-mix(in srgb, var(--color-outline) 70%, transparent);
   background: color-mix(in srgb, var(--color-surface) 88%, transparent);
   backdrop-filter: blur(12px);

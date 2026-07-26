@@ -20,6 +20,25 @@ export function formatAmount(
   return new Intl.NumberFormat(tag, { style: 'currency', currency }).format(amount);
 }
 
+/** Compact currency for tight UI (donut centers). Uses compact notation above 10k. */
+export function formatCompactAmount(
+  amount: number,
+  currency = 'EUR',
+  locale?: Locale,
+): string {
+  const tag = localeTag(locale ?? getLocale());
+  const abs = Math.abs(amount);
+  if (abs < 10_000) {
+    return formatAmount(amount, currency, true, locale);
+  }
+  return new Intl.NumberFormat(tag, {
+    style: 'currency',
+    currency,
+    notation: 'compact',
+    maximumFractionDigits: abs >= 1_000_000 ? 1 : 0,
+  }).format(amount);
+}
+
 /** Currency's decimal separator — mirrors Android CurrencyUtils (EUR uses comma; USD/GBP/CHF use dot). */
 export function decimalSeparatorFor(currency: string): ',' | '.' {
   return currency === 'EUR' ? ',' : '.';
