@@ -67,6 +67,12 @@ class AppRepository(
 
     private fun uid(): String? = authRepository.currentUserId
 
+    private fun requireVerifiedEmail() {
+        val user = authRepository.currentUser ?: throw IllegalStateException("Not signed in")
+        if (!user.isEmailVerified) {
+            throw IllegalStateException("EMAIL_NOT_VERIFIED")
+        }
+    }
     /** Restarts the given listener flow whenever the signed-in user changes. */
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun <T> perUserFlow(signedOutValue: T, build: (String) -> Flow<T>): Flow<T> =
@@ -221,6 +227,7 @@ class AppRepository(
 
     suspend fun insertExpense(expense: Expense): Result<String> = runCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
+        requireVerifiedEmail()
         val id = if (expense.id.isBlank()) UUID.randomUUID().toString() else expense.id
         val e = expense.copy(id = id, amount = roundAmount(expense.amount))
         expDoc(u, id).set(expensePayload(e)).await()
@@ -229,12 +236,14 @@ class AppRepository(
 
     suspend fun updateExpense(expense: Expense): Result<Unit> = runCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
+        requireVerifiedEmail()
         val e = expense.copy(amount = roundAmount(expense.amount))
         expDoc(u, expense.id).set(expensePayload(e), SetOptions.merge()).await()
     }
 
     suspend fun deleteExpense(expense: Expense): Result<Unit> = runCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
+        requireVerifiedEmail()
         expDoc(u, expense.id).delete().await()
     }
 
@@ -290,6 +299,7 @@ class AppRepository(
 
     suspend fun updateExpenseTypesForCategory(categoryId: String, transactionType: String): Result<Unit> =
         runCatching {
+            requireVerifiedEmail()
             val u = uid() ?: throw IllegalStateException("Not signed in")
             val docs = expenseDocsForCategory(u, categoryId)
             docs.chunked(450).forEach { chunk ->

@@ -170,9 +170,13 @@ fun MainApp(
     val deleteFailedMessage = stringResource(R.string.snackbar_transaction_delete_failed)
     val duplicateFailedMessage = stringResource(R.string.snackbar_transaction_duplicate_failed)
     val restoreFailedMessage = stringResource(R.string.snackbar_transaction_restore_failed)
+    val verifyRequiredMessage = stringResource(R.string.auth_verify_required)
     fun showSnackbar(message: String) {
         scope.launch { snackbarHostState.showSnackbar(message) }
     }
+    fun failureMessage(fallback: String, error: String?): String =
+        if (error == "EMAIL_NOT_VERIFIED") verifyRequiredMessage else fallback
+
 
     // Seed once signed-in prefs (incl. locale) are ready — independent of onboarding/auth UI gates.
     LaunchedEffect(currentUser?.uid, preferencesReady) {
@@ -331,14 +335,14 @@ fun MainApp(
                                     }
                                 }
                             },
-                            onExpenseDeleteFailed = {
-                                showSnackbar(deleteFailedMessage)
+                            onExpenseDeleteFailed = { error ->
+                                showSnackbar(failureMessage(deleteFailedMessage, error))
                             },
                             onExpenseDuplicated = {
                                 showSnackbar(duplicatedMessage)
                             },
-                            onExpenseDuplicateFailed = {
-                                showSnackbar(duplicateFailedMessage)
+                            onExpenseDuplicateFailed = { error ->
+                                showSnackbar(failureMessage(duplicateFailedMessage, error))
                             }
                         )
                     },

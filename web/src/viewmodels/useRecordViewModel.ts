@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Category, Expense, RecordListPeriod, RecordUiState, TransactionTypeFilter } from '@/models/types';
-import { expenseRepository } from '@/repositories/expenseRepository';
+import { expenseRepository, EmailNotVerifiedError } from '@/repositories/expenseRepository';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useToastStore } from '@/services/toastStore';
 import { useTranslation, getLocale, localeTag } from '@/i18n';
@@ -197,7 +197,7 @@ export function useRecordViewModel() {
       });
     } catch (err) {
       console.error('[useRecordViewModel] delete failed', err);
-      showToast(t('errorDeleteFailed'));
+      showToast(err instanceof EmailNotVerifiedError ? t('authVerifyRequired') : t('errorDeleteFailed'));
     }
   }, [showToast, t]);
 
@@ -211,7 +211,7 @@ export function useRecordViewModel() {
       showToast(t('recordDuplicated'));
     } catch (err) {
       console.error('[useRecordViewModel] duplicate failed', err);
-      showToast(t('errorDuplicateFailed'));
+      showToast(err instanceof EmailNotVerifiedError ? t('authVerifyRequired') : t('errorDuplicateFailed'));
     }
   }, [showToast, t]);
 
