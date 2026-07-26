@@ -92,8 +92,8 @@ class AppRepository(
         ensureSeededMutex.withLock {
             val u = uid() ?: return
             val snap = catCol(u).get().await()
+            val strings = localizedContext()
             if (snap.isEmpty) {
-                val strings = localizedContext()
                 val defaults = listOf(
                     Category(name = strings.getString(R.string.cat_groceries), iconName = "shopping_cart", colorInt = 0xffe86b5a.toInt(), transactionType = "expense", sortOrder = 0),
                     Category(name = strings.getString(R.string.cat_shopping), iconName = "shopping_bag", colorInt = 0xffe8a060.toInt(), transactionType = "expense", sortOrder = 1),
@@ -182,14 +182,18 @@ class AppRepository(
     suspend fun insertCategory(category: Category): Result<String> = runCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
         val id = UUID.randomUUID().toString()
-        val c = category.copy(id = id)
+        val c = category.copy(
+            id = id,
+            name = category.name.trim().take(80)
+        )
         catDoc(u, id).set(categoryPayload(c)).await()
         id
     }
 
     suspend fun updateCategory(category: Category): Result<Unit> = runCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
-        catDoc(u, category.id).set(categoryPayload(category), SetOptions.merge()).await()
+        val c = category.copy(name = category.name.trim().take(80))
+        catDoc(u, category.id).set(categoryPayload(c), SetOptions.merge()).await()
     }
 
     suspend fun deleteCategory(category: Category): Result<Unit> = runCatching {
@@ -229,7 +233,11 @@ class AppRepository(
         val u = uid() ?: throw IllegalStateException("Not signed in")
         requireVerifiedEmail()
         val id = if (expense.id.isBlank()) UUID.randomUUID().toString() else expense.id
-        val e = expense.copy(id = id, amount = roundAmount(expense.amount))
+        val e = expense.copy(
+            id = id,
+            amount = roundAmount(expense.amount),
+            note = expense.note.trim().take(2000)
+        )
         expDoc(u, id).set(expensePayload(e)).await()
         id
     }
@@ -237,7 +245,10 @@ class AppRepository(
     suspend fun updateExpense(expense: Expense): Result<Unit> = runCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
         requireVerifiedEmail()
-        val e = expense.copy(amount = roundAmount(expense.amount))
+        val e = expense.copy(
+            amount = roundAmount(expense.amount),
+            note = expense.note.trim().take(2000)
+        )
         expDoc(u, expense.id).set(expensePayload(e), SetOptions.merge()).await()
     }
 

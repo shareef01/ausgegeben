@@ -193,13 +193,24 @@ export const expenseRepository = {
   async insertCategory(cat: Omit<Category, 'id'>): Promise<string> {
     const userId = uid(); if (!userId) throw new Error('Not signed in');
     const id = crypto.randomUUID();
-    await setDoc(catDoc(userId, id), { ...cat, id, updatedAt: now() });
+    const payload = {
+      ...cat,
+      id,
+      name: cat.name.trim().slice(0, 80),
+      updatedAt: now()
+    };
+    await setDoc(catDoc(userId, id), payload);
     return id;
   },
 
   async updateCategory(cat: Category): Promise<void> {
     const userId = uid(); if (!userId || !cat.id) return;
-    await setDoc(catDoc(userId, cat.id), { ...cat, updatedAt: now() }, { merge: true });
+    const payload = {
+      ...cat,
+      name: cat.name.trim().slice(0, 80),
+      updatedAt: now()
+    };
+    await setDoc(catDoc(userId, cat.id), payload, { merge: true });
   },
 
   // SECURE: Safety-first deletion (move orphaned to uncategorized — except when
@@ -324,6 +335,7 @@ export const expenseRepository = {
         ...expense,
         id,
         amount: roundAmount(expense.amount),
+        note: expense.note.trim().slice(0, 2000),
         updatedAt: now()
     } as any;
     if (idempotencyKey) payload.idempotencyKey = idempotencyKey;
@@ -335,7 +347,13 @@ export const expenseRepository = {
   async updateExpense(expense: Expense): Promise<void> {
     const userId = uid(); if (!userId || !expense.id) return;
     requireVerifiedEmail();
-    await setDoc(expDoc(userId, expense.id), { ...expense, amount: roundAmount(expense.amount), updatedAt: now() }, { merge: true });
+    const payload = {
+      ...expense,
+      amount: roundAmount(expense.amount),
+      note: expense.note.trim().slice(0, 2000),
+      updatedAt: now()
+    };
+    await setDoc(expDoc(userId, expense.id), payload, { merge: true });
     emitDataChanged();
   },
 
