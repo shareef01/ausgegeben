@@ -1,5 +1,5 @@
 import { useState, type ReactNode, type ComponentType, useRef, useCallback } from 'react';
-import { SignatureText } from '@/components/ui';
+import { PageTitle } from '@/components/ui';
 import {
   IconChevronRight,
   IconMoon,
@@ -68,7 +68,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
 
   const exportData = async () => {
     try {
-      const expenses = await expenseRepository.getAllExpenses();
+      const { items: expenses, truncated } = await expenseRepository.getAllExpensesCapped(5_000);
       const categories = await expenseRepository.getAllCategories();
       const csv = exportCsv(expenses, categories, t('recordUnknownCategory'));
       const blob = new Blob([csv], { type: 'text/csv' });
@@ -78,7 +78,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
       a.download = 'ausgegeben-export.csv';
       a.click();
       URL.revokeObjectURL(url);
-      useToastStore.getState().show(t('settingsExportOk'));
+      useToastStore.getState().show(truncated ? t('settingsExportTruncated') : t('settingsExportOk'));
     } catch {
       useToastStore.getState().show(t('settingsExportFailed'));
     }
@@ -93,9 +93,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
     <>
       <div className="settings-page">
         <header className="settings-page__header">
-          <h1 className="settings-page__title">
-            <SignatureText text={t('screenSettings')} />
-          </h1>
+          <PageTitle text={t('screenSettings')} icon={IconSettings} />
         </header>
 
         {user ? (
@@ -178,6 +176,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
               title={t('settingsVersion')}
               subtitle={t('settingsVersionSubtitle', { version: packageJson.version })}
             />
+            <p className="settings-about-note">{t('settingsRemindersPhoneOnly')}</p>
           </Section>
         </div>
       </div>
@@ -225,17 +224,17 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
                   aria-checked={selected}
                   className={`theme-picker__option${selected ? ' theme-picker__option--selected' : ''}`}
                   onClick={() => {
-                    setShowTheme(false);
-                    requestAnimationFrame(() => setThemeMode(opt.key));
+                    setThemeMode(opt.key);
+                    requestAnimationFrame(() => setShowTheme(false));
                   }}
                 >
                   <ThemeSwatch mode={opt.key} />
-                  <span className="theme-picker__label">{t(opt.labelKey)}</span>
-                  {selected ? (
-                    <span className="theme-picker__check" aria-hidden>
-                      <IconCheck width={18} height={18} strokeWidth={2.5} />
-                    </span>
-                  ) : null}
+                  <span className="theme-picker__meta">
+                    <span className="theme-picker__label">{t(opt.labelKey)}</span>
+                    {selected ? (
+                      <IconCheck className="theme-picker__check" width={16} height={16} strokeWidth={2.5} aria-hidden />
+                    ) : null}
+                  </span>
                 </button>
               );
             })}
@@ -363,13 +362,13 @@ function ThemeSwatch({ mode }: { mode: ThemeMode }) {
       ? [themePalettes.light.background, themePalettes.dark.background, themePalettes.dark.income]
       : (() => {
           const palette = themePalettes[mode] ?? themePalettes.dark;
-          return [palette.primary, palette.income, palette.expense];
+          return [palette.background, palette.income, palette.expense];
         })();
 
   return (
     <span className="theme-swatch" aria-hidden>
       {colors.map((color, i) => (
-        <span key={i} className="theme-swatch__dot" style={{ background: color }} />
+        <span key={i} className="theme-swatch__band" style={{ background: color }} />
       ))}
     </span>
   );
