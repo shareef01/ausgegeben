@@ -8,6 +8,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -273,77 +274,86 @@ fun RecordScreen(
                         }
                     }
 
-                    sortedDays.forEachIndexed { dayIdx, dayStart ->
+                    sortedDays.forEach { dayStart ->
                         val dayExpenses = grouped[dayStart] ?: emptyList()
                         val dateLabel = dateFormat.format(Date(dayStart))
                         
-                        item(key = "day-$dayStart") {
-                            val reduceMotion = rememberReduceMotion()
-                            val revealAlpha = remember(entranceKey, dayIdx) { Animatable(if (reduceMotion) 1f else 0f) }
-                            val revealOffset = remember(entranceKey, dayIdx) { Animatable(if (reduceMotion) 0f else 32f) }
+                        stickyHeader(key = "header-$dayStart") {
+                            Box(modifier = Modifier.fillMaxWidth().background(AppAurora.background())) {
+                                DateSectionHeader(
+                                    dateLabel,
+                                    dayTotalsByDay[dayStart] ?: (0.0 to 0.0),
+                                    currencyCode,
+                                )
+                            }
+                        }
+
+                        items(dayExpenses, key = { it.id }) { expense ->
+                            val revealAlpha = remember(entranceKey) { Animatable(0f) }
+                            val revealOffset = remember(entranceKey) { Animatable(32f) }
                             
-                            LaunchedEffect(entranceKey, reduceMotion) {
-                                if (reduceMotion) {
-                                    revealAlpha.snapTo(1f)
-                                    revealOffset.snapTo(0f)
-                                    return@LaunchedEffect
-                                }
-                                val delay = dayIdx.coerceAtMost(8) * 45
+                            LaunchedEffect(entranceKey) {
+                                // Find global index for stagger
+                                val globalIdx = allExpenses.indexOf(expense).coerceAtLeast(0)
+                                val delay = globalIdx.coerceAtMost(12) * 35
                                 launch {
-                                    revealAlpha.animateTo(1f, tween(500, delayMillis = delay))
+                                    revealAlpha.animateTo(1f, tween(400, delayMillis = delay))
                                 }
                                 launch {
                                     revealOffset.animateTo(0f, spring(Spring.DampingRatioLowBouncy, Spring.StiffnessMediumLow))
                                 }
                             }
                             
-                            Column(
+                            Box(
                                 modifier = Modifier
+                                    .padding(horizontal = 16.dp)
                                     .graphicsLayer { 
                                         alpha = revealAlpha.value
                                         translationY = revealOffset.value
                                     }
                             ) {
-                                DateSectionHeader(
-                                    dateLabel,
-                                    dayTotalsByDay[dayStart] ?: (0.0 to 0.0),
-                                    currencyCode,
-                                )
+                                // Draw card background only around the items
+                                val isFirst = expense == dayExpenses.first()
+                                val isLast = expense == dayExpenses.last()
+                                val shape = when {
+                                    isFirst && isLast -> RoundedCornerShape(AppRadius.card)
+                                    isFirst -> RoundedCornerShape(topStart = AppRadius.card, topEnd = AppRadius.card)
+                                    isLast -> RoundedCornerShape(bottomStart = AppRadius.card, bottomEnd = AppRadius.card)
+                                    else -> androidx.compose.ui.graphics.RectangleShape
+                                }
+
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 16.dp)
-                                        .appGlassCard(shape = RoundedCornerShape(AppRadius.card)),
+                                        .appGlassCard(shape = shape)
                                 ) {
-                                    dayExpenses.forEachIndexed { rowIndex, expense ->
-                                        val category = categoryById[expense.categoryId]
-                                        SwipeableTransactionRow(
-                                            expense = expense,
-                                            categoryName = category?.name ?: stringResource(R.string.record_unknown_category),
-                                            categoryColor = category?.colorInt,
-                                            icon = iconForCategory(category?.iconName, category?.name),
-                                            currencyCode = currencyCode,
-                                            onClick = { onExpenseClick(expense) },
-                                            onLongClick = {
-                                                viewModel.duplicateExpense(expense) { success, error ->
-                                                    if (success) onExpenseDuplicated() else onExpenseDuplicateFailed(error)
-                                                }
-                                            },
-                                            onDeleteRequest = { expensePendingDelete = expense },
-
+                                    val category = categoryById[expense.categoryId]
+                                    SwipeableTransactionRow(
+                                        expense = expense,
+                                        categoryName = category?.name ?: stringResource(R.string.record_unknown_category),
+                                        categoryColor = category?.colorInt,
+                                        icon = iconForCategory(category?.iconName, category?.name),
+                                        currencyCode = currencyCode,
+                                        onClick = { onExpenseClick(expense) },
+                                        onLongClick = {
+                                            viewModel.duplicateExpense(expense) { success, error ->
+                                                if (success) onExpenseDuplicated() else onExpenseDuplicateFailed(error)
+                                            }
+                                        },
+                                        onDeleteRequest = { expensePendingDelete = expense },
+                                    )
+                                    if (!isLast) {
+                                        HorizontalDivider(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            thickness = 0.5.dp,
+                                            color = RecordAuroraTokens.hairline(),
                                         )
-                                        if (rowIndex < dayExpenses.lastIndex) {
-                                            HorizontalDivider(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                thickness = 0.5.dp,
-                                                color = RecordAuroraTokens.hairline(),
-                                            )
-                                        }
                                     }
                                 }
-                                Spacer(Modifier.height(8.dp))
                             }
                         }
+                        
+                        item { Spacer(Modifier.height(8.dp)) }
                     }
                     }
                     else -> {
