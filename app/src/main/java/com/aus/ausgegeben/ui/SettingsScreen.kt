@@ -43,6 +43,7 @@ import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.PreferenceManager
+import com.aus.ausgegeben.data.PreferencesCloudSync
 import com.aus.ausgegeben.data.AppRepository
 import com.aus.ausgegeben.data.auth.AuthRepository
 import com.aus.ausgegeben.ui.components.*
@@ -349,7 +350,10 @@ fun SettingsScreen(
                         icon = Icons.Rounded.Info,
                         tint = settingsIconTintMuted(),
                         title = stringResource(R.string.app_name),
-                        subtitle = stringResource(R.string.settings_version_subtitle, "1.0.0"),
+                        subtitle = stringResource(
+                            R.string.settings_version_subtitle,
+                            com.aus.ausgegeben.BuildConfig.VERSION_NAME,
+                        ),
                     )
                 }
             }
@@ -376,8 +380,15 @@ fun SettingsScreen(
 
                 if (syncError != null) {
                     item {
+                        val syncErrorText = when (syncError) {
+                            PreferencesCloudSync.SYNC_ERROR_PERMISSION ->
+                                stringResource(R.string.settings_sync_error_permission)
+                            PreferencesCloudSync.SYNC_ERROR_NETWORK ->
+                                stringResource(R.string.settings_sync_error_network)
+                            else -> stringResource(R.string.settings_sync_error_firestore_missing)
+                        }
                         SyncErrorBanner(
-                            error = syncError,
+                            error = syncErrorText,
                             onRetry = onRetrySync,
                             modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs),
                         )

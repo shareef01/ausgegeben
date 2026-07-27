@@ -4,18 +4,20 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.aus.ausgegeben.R
-import com.aus.ausgegeben.data.auth.AuthRepository
+import com.aus.ausgegeben.data.auth.AuthActions
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.TimeoutCancellationException
+import javax.inject.Inject
 
 enum class AuthTab {
     SIGN_IN,
@@ -34,9 +36,10 @@ data class AuthUiState(
     val passwordVisible: Boolean = false,
 )
 
-class AuthViewModel(
+@HiltViewModel
+class AuthViewModel @Inject constructor(
     application: Application,
-    private val authRepository: AuthRepository,
+    private val authRepository: AuthActions,
 ) : AndroidViewModel(application) {
 
     companion object {
@@ -80,27 +83,27 @@ class AuthViewModel(
 
         if (email.isBlank()) {
             _uiState.update {
-                it.copy(errorMessage = appString(com.aus.ausgegeben.R.string.auth_error_email_required))
+                it.copy(errorMessage = appString(R.string.auth_error_email_required))
             }
             return
         }
         if (password.length < 6) {
             _uiState.update {
-                it.copy(errorMessage = appString(com.aus.ausgegeben.R.string.auth_error_password_short))
+                it.copy(errorMessage = appString(R.string.auth_error_password_short))
             }
             return
         }
         if (state.selectedTab == AuthTab.SIGN_UP && password != state.confirmPassword) {
             _uiState.update {
-                it.copy(errorMessage = appString(com.aus.ausgegeben.R.string.auth_error_password_mismatch))
+                it.copy(errorMessage = appString(R.string.auth_error_password_mismatch))
             }
             return
         }
 
         viewModelScope.launch {
             val loadingMessage = when (state.selectedTab) {
-                AuthTab.SIGN_IN -> appString(com.aus.ausgegeben.R.string.auth_loading_sign_in)
-                AuthTab.SIGN_UP -> appString(com.aus.ausgegeben.R.string.auth_loading_sign_up)
+                AuthTab.SIGN_IN -> appString(R.string.auth_loading_sign_in)
+                AuthTab.SIGN_UP -> appString(R.string.auth_loading_sign_up)
             }
             _uiState.update {
                 it.copy(isLoading = true, loadingMessage = loadingMessage, errorMessage = null, infoMessage = null)
@@ -121,7 +124,7 @@ class AuthViewModel(
         val email = _uiState.value.email.trim()
         if (email.isBlank()) {
             _uiState.update {
-                it.copy(errorMessage = appString(com.aus.ausgegeben.R.string.auth_error_email_required))
+                it.copy(errorMessage = appString(R.string.auth_error_email_required))
             }
             return
         }
@@ -132,16 +135,15 @@ class AuthViewModel(
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            infoMessage = appString(com.aus.ausgegeben.R.string.auth_reset_email_sent),
+                            infoMessage = appString(R.string.auth_reset_email_sent),
                         )
                     }
                 },
-                onFailure = { error ->
+                onFailure = { _ ->
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            errorMessage = error.localizedMessage
-                                ?: appString(com.aus.ausgegeben.R.string.auth_error_generic),
+                            errorMessage = appString(R.string.auth_error_generic),
                         )
                     }
                 },
@@ -164,8 +166,6 @@ class AuthViewModel(
         result.fold(
             onSuccess = {
                 _uiState.update { it.copy(isLoading = false, loadingMessage = null) }
-                // Category seeding runs from MainApp after preferencesReady so default
-                // category names match the synced app locale (not a race with prefs pull).
                 onSuccess()
             },
             onFailure = { error ->
@@ -187,7 +187,7 @@ class AuthViewModel(
             error is FirebaseAuthInvalidUserException -> appString(R.string.auth_error_user_not_found)
             error is FirebaseAuthUserCollisionException -> appString(R.string.auth_error_email_in_use)
             error is FirebaseAuthWeakPasswordException -> appString(R.string.auth_error_weak_password)
-            else -> error.localizedMessage ?: appString(R.string.auth_error_generic)
+            else -> appString(R.string.auth_error_generic)
         }
     }
 }

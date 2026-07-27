@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -34,16 +35,23 @@ import kotlinx.coroutines.tasks.await
 import java.util.UUID
 import java.util.Locale
 import kotlin.math.round
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class AppRepository(
-    private val appContext: Context,
+@Singleton
+class AppRepository @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     private val authRepository: AuthRepository,
     private val preferenceManager: PreferenceManager,
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
+    private val firestore: FirebaseFirestore,
 ) {
     companion object {
         const val UNCATEGORIZED_ID = "0"
         private const val TAG = "AppRepository"
+        /** Soft cap matching web getAllExpensesCapped — unbounded listeners burn quota. */
+        private const val ALL_EXPENSES_CAP = 5_000L
+        private const val LISTENER_ERROR = "LISTENER_ERROR"
     }
 
     // Guards ensureSeeded() so two concurrent callers (e.g. AuthViewModel right after
@@ -60,9 +68,13 @@ class AppRepository(
      */
     val listenerError: StateFlow<String?> = _listenerError.asStateFlow()
 
-    /** Clears a surfaced listener failure so the UI can retry / leave the error empty state. */
-    fun clearListenerError() {
+    /** Bumped by [retryListeners] so snapshot flows tear down and re-subscribe. */
+    private val _listenerEpoch = MutableStateFlow(0)
+
+    /** Clears a surfaced listener failure and forces expense listeners to re-attach. */
+    fun retryListeners() {
         _listenerError.value = null
+        _listenerEpoch.value += 1
     }
 
     private fun uid(): String? = authRepository.currentUserId
@@ -73,12 +85,13 @@ class AppRepository(
             throw IllegalStateException("EMAIL_NOT_VERIFIED")
         }
     }
-    /** Restarts the given listener flow whenever the signed-in user changes. */
+    /** Restarts the given listener flow whenever the signed-in user or retry epoch changes. */
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun <T> perUserFlow(signedOutValue: T, build: (String) -> Flow<T>): Flow<T> =
-        authRepository.authState
-            .map { it?.uid }
-            .distinctUntilChanged()
+        combine(
+            authRepository.authState.map { it?.uid }.distinctUntilChanged(),
+            _listenerEpoch,
+        ) { u, _ -> u }
             .flatMapLatest { u -> if (u == null) flowOf(signedOutValue) else build(u) }
 
     private fun catCol(uid: String) = firestore.collection("users").document(uid).collection("categories")
@@ -90,6 +103,7 @@ class AppRepository(
 
     suspend fun ensureSeeded() {
         ensureSeededMutex.withLock {
+            requireVerifiedEmail()
             val u = uid() ?: return
             val snap = catCol(u).get().await()
             val strings = localizedContext()
@@ -137,6 +151,7 @@ class AppRepository(
     }
 
     suspend fun deduplicateCategories(): Result<Unit> = runCatching {
+        requireVerifiedEmail()
         val u = uid() ?: throw IllegalStateException("Not signed in")
         
         // SECURE: Fetch ALL categories directly (no orderBy) to catch docs missing sortOrder
@@ -180,6 +195,7 @@ class AppRepository(
     }
 
     suspend fun insertCategory(category: Category): Result<String> = runCatching {
+        requireVerifiedEmail()
         val u = uid() ?: throw IllegalStateException("Not signed in")
         val id = UUID.randomUUID().toString()
         val c = category.copy(
@@ -191,12 +207,14 @@ class AppRepository(
     }
 
     suspend fun updateCategory(category: Category): Result<Unit> = runCatching {
+        requireVerifiedEmail()
         val u = uid() ?: throw IllegalStateException("Not signed in")
         val c = category.copy(name = category.name.trim().take(80))
         catDoc(u, category.id).set(categoryPayload(c), SetOptions.merge()).await()
     }
 
     suspend fun deleteCategory(category: Category): Result<Unit> = runCatching {
+        requireVerifiedEmail()
         val u = uid() ?: throw IllegalStateException("Not signed in")
         // Deleting the uncategorized sentinel is allowed; linked expenses keep
         // categoryId "0" and the UI falls back to the unknown label.
@@ -220,8 +238,12 @@ class AppRepository(
                     .whereLessThan("dateMillis", endMillis)
                     .orderBy("dateMillis", Query.Direction.DESCENDING)
                 val sub = q.addSnapshotListener { snap, error ->
-                    if (error != null) Log.w(TAG, "expenses-in-range listener error", error)
+                    if (error != null) {
+                        Log.w(TAG, "expenses-in-range listener error", error)
+                        _listenerError.value = LISTENER_ERROR
+                    }
                     if (snap != null) {
+                        _listenerError.value = null
                         trySend(snap.documents.mapNotNull { doc -> expenseFromDoc(doc) })
                     }
                 }
@@ -278,27 +300,19 @@ class AppRepository(
 
     val allExpenses: Flow<List<Expense>> = perUserFlow(emptyList()) { u ->
         callbackFlow {
-            val sub = expCol(u).orderBy("dateMillis", Query.Direction.DESCENDING)
+            val sub = expCol(u)
+                .orderBy("dateMillis", Query.Direction.DESCENDING)
+                .limit(ALL_EXPENSES_CAP)
                 .addSnapshotListener { snap, error ->
                     if (error != null) {
                         Log.w(TAG, "expenses listener error", error)
-                        _listenerError.value = error.message ?: "expenses listener error"
+                        _listenerError.value = LISTENER_ERROR
                     }
                     if (snap != null) {
                         _listenerError.value = null
                         trySend(snap.documents.mapNotNull { expenseFromDoc(it) })
                     }
                 }
-            awaitClose { sub.remove() }
-        }
-    }
-
-    val expensesRevision: Flow<Unit> = perUserFlow(Unit) { u ->
-        callbackFlow {
-            val sub = expCol(u).addSnapshotListener { _, error ->
-                if (error != null) Log.w(TAG, "expenses revision listener error", error)
-                trySend(Unit)
-            }
             awaitClose { sub.remove() }
         }
     }
@@ -333,7 +347,7 @@ class AppRepository(
                 val sub = q.addSnapshotListener { snap, error ->
                     if (error != null) {
                         Log.w(TAG, "query listener error", error)
-                        _listenerError.value = error.message ?: "query listener error"
+                        _listenerError.value = LISTENER_ERROR
                     }
                     if (snap != null) {
                         _listenerError.value = null

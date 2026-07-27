@@ -2,6 +2,8 @@ package com.aus.ausgegeben
 
 import android.app.Application
 import android.util.Log
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
 import com.google.firebase.FirebaseApp
 import com.google.firebase.appcheck.AppCheckProviderFactory
 import com.google.firebase.appcheck.FirebaseAppCheck
@@ -9,8 +11,18 @@ import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderF
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
+import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
 
-class AusgegebenApplication : Application() {
+@HiltAndroidApp
+class AusgegebenApplication : Application(), Configuration.Provider {
+    @Inject lateinit var workerFactory: HiltWorkerFactory
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setWorkerFactory(workerFactory)
+            .build()
+
     override fun onCreate() {
         super.onCreate()
         if (FirebaseApp.getApps(this).isEmpty()) {
@@ -23,7 +35,8 @@ class AusgegebenApplication : Application() {
         // Spark-compatible: cache Firestore locally for offline / faster reloads
         FirebaseFirestore.getInstance().firestoreSettings = FirebaseFirestoreSettings.Builder()
             .setPersistenceEnabled(true)
-            .setCacheSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
+            // Cap offline cache (~100 MiB) so financial history cannot grow unbounded on disk.
+            .setCacheSizeBytes(100L * 1024L * 1024L)
             .build()
     }
 

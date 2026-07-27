@@ -12,6 +12,7 @@ export function AuthView() {
   const [tab, setTab] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,11 +20,26 @@ export function AuthView() {
   const firebaseReady = authService.isAvailable();
   const passwordTooShort = tab === 'signup' && password.length > 0 && password.length < 6;
 
+  const switchTab = (next: 'signin' | 'signup') => {
+    setTab(next);
+    setError(null);
+    setInfo(null);
+    setConfirmPassword('');
+  };
+
   const handleSubmit = async () => {
     setError(null);
     setInfo(null);
+    if (!email.trim()) {
+      setError(t('authErrorEmailRequired'));
+      return;
+    }
     if (tab === 'signup' && password.length < 6) {
       setError(t('authErrorWeakPassword'));
+      return;
+    }
+    if (tab === 'signup' && password !== confirmPassword) {
+      setError(t('authErrorPasswordMismatch'));
       return;
     }
     setBusy(true);
@@ -41,6 +57,33 @@ export function AuthView() {
       setBusy(false);
     }
   };
+
+  const handleForgotPassword = async () => {
+    setError(null);
+    setInfo(null);
+    if (!email.trim()) {
+      setError(t('authErrorEmailRequired'));
+      return;
+    }
+    setBusy(true);
+    try {
+      await authService.sendPasswordResetEmail(email);
+      setInfo(t('authResetEmailSent'));
+    } catch (e) {
+      const code = (e as { code?: string }).code ?? (e instanceof Error ? e.message : 'auth_error');
+      setError(mapAuthError(code, t));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitDisabled =
+    !firebaseReady ||
+    busy ||
+    !email ||
+    !password ||
+    passwordTooShort ||
+    (tab === 'signup' && !confirmPassword);
 
   return (
     <div className="app-shell auth-page">
@@ -65,7 +108,7 @@ export function AuthView() {
             { value: 'signup' as const, label: t('authSignUp') },
           ]}
           value={tab}
-          onChange={setTab}
+          onChange={switchTab}
         />
 
         <form onSubmit={(e) => { e.preventDefault(); void handleSubmit(); }} className="auth-page__form space-y-4">
@@ -113,6 +156,22 @@ export function AuthView() {
             ) : null}
           </div>
 
+          {tab === 'signup' ? (
+            <div>
+              <label htmlFor="auth-confirm-password" className="field__label">{t('authConfirmPassword')}</label>
+              <input
+                id="auth-confirm-password"
+                className="field__input"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                disabled={!firebaseReady || busy}
+              />
+            </div>
+          ) : null}
+
           {error ? <p className="auth-page__error" role="alert">{error}</p> : null}
           {info ? <p className="auth-page__info" role="status" aria-live="polite">{info}</p> : null}
           {syncing ? <p className="auth-page__sync" role="status" aria-live="polite">{t('syncInProgress')}</p> : null}
@@ -120,12 +179,23 @@ export function AuthView() {
           <button
             type="submit"
             className="btn btn-primary w-full py-3.5 rounded-xl text-sm hover:brightness-110 active:scale-[0.98] transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
-            disabled={!firebaseReady || busy || !email || !password || passwordTooShort}
+            disabled={submitDisabled}
           >
             <span key={busy ? 'busy' : tab} className="auth-page__submit-label">
               {busy ? t('loading') : tab === 'signin' ? t('authSignIn') : t('authSignUp')}
             </span>
           </button>
+
+          {tab === 'signin' ? (
+            <button
+              type="button"
+              className="auth-page__forgot"
+              onClick={() => void handleForgotPassword()}
+              disabled={!firebaseReady || busy}
+            >
+              {t('authForgotPassword')}
+            </button>
+          ) : null}
         </form>
 
         <p className="auth-page__hint text-center text-xs mt-6">{t('authOfflineHint')}</p>
@@ -136,6 +206,7 @@ export function AuthView() {
 
 function mapAuthError(code: string, t: (key: import('@/i18n').TranslationKey) => string): string {
   if (code.startsWith('auth/invalid-credential') || code.startsWith('auth/wrong-password')) return t('authErrorInvalid');
+  if (code.startsWith('auth/user-not-found')) return t('authErrorInvalid');
   if (code.startsWith('auth/email-already-in-use')) return t('authErrorEmailInUse');
   if (code.startsWith('auth/weak-password')) return t('authErrorWeakPassword');
   if (code.startsWith('auth/unauthorized-domain')) return t('authErrorUnauthorizedDomain');

@@ -23,6 +23,8 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 
 data class InsightsUiState(
     val periodKey: String = AnalyticsPeriod.THIS_MONTH.storageKey,
@@ -38,9 +40,10 @@ data class InsightsUiState(
     val isLoading: Boolean = true,
 )
 
-class InsightsViewModel(
+@HiltViewModel
+class InsightsViewModel @Inject constructor(
     private val repository: AppRepository,
-    private val preferenceManager: PreferenceManager
+    private val preferenceManager: PreferenceManager,
 ) : ViewModel() {
 
     private val _periodKey = MutableStateFlow(AnalyticsPeriod.THIS_MONTH.storageKey)

@@ -123,7 +123,7 @@ flowchart TB
 
 **Web** — React 19 + TypeScript (Vite). Zustand stores fed by the same Firestore documents and rules as Android, including matching starter categories. Installable PWA with a precached shell.
 
-**Backend** — Email/password Firebase Auth (App Check: Play Integrity on Android, reCAPTCHA Enterprise on web when configured). Queries are range-scoped where possible to keep Firestore reads modest.
+**Backend** — Email/password Firebase Auth (App Check: Play Integrity on Android; reCAPTCHA Enterprise required for web production). Queries are range-scoped where possible to keep Firestore reads modest.
 
 ---
 
@@ -158,7 +158,7 @@ More detail in [web/README.md](web/README.md).
 
 ## Quality
 
-- **CI** ([workflow](.github/workflows/ci.yml)): every push and PR runs Android unit tests + debug build, and web type-check, tests, `npm audit`, and production build.
+- **CI** ([workflow](.github/workflows/ci.yml)): every push and PR runs Android unit tests + debug build, web type-check/tests/`npm audit`/production build, and Firestore security-rules tests against the emulator.
 - **Static safety:** strict TypeScript, schema-validating Firestore rules, R8-minified Android releases.
 - **Hosting hardening:** CSP, HSTS, frame-ancestors denial, restrictive Permissions-Policy ([firebase.json](firebase.json)).
 - **Privacy:** no third-party analytics or trackers.

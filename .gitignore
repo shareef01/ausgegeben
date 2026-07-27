@@ -32,6 +32,7 @@ android-sdk/
 .firebase/
 firebase-debug.log
 firestore-debug.log
+# Optional local override; see firebase.emulator.json.example
 firebase.emulator.json
 
 # Local audit harness (Playwright feature audit — local only, never committed)
