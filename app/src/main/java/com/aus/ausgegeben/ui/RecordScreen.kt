@@ -410,8 +410,10 @@ fun RecordScreen(
             dismissLabel = stringResource(R.string.record_delete_cancel),
             onConfirm = {
                 expensePendingDelete?.let {
-                    viewModel.deleteExpense(it) { success, error ->
-                        if (success) onExpenseDeleted(it) else onExpenseDeleteFailed(error)
+                    if (viewModel.softDelete(it)) {
+                        onExpenseDeleted(it)
+                    } else {
+                        onExpenseDeleteFailed(null)
                     }
                 }
                 expensePendingDelete = null

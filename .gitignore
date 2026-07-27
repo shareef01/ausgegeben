@@ -18,6 +18,11 @@ captures/
 *.hprof
 app/google-services.json
 
+# Release signing (see keystore.properties.example)
+keystore.properties
+*.jks
+*.keystore
+
 # Android SDK (local dev only — never commit)
 android-sdk/
 

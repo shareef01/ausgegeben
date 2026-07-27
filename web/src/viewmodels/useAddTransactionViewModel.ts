@@ -114,7 +114,7 @@ export function useAddTransactionViewModel(expenseId?: string) {
       dateMillis: form.dateMillis,
       transactionType: form.transactionType,
     };
-    const idempotencyKey = `${payload.dateMillis}-${payload.categoryId}-${payload.amount.toFixed(2)}`;
+    const idempotencyKey = crypto.randomUUID();
     try {
       if (expenseId) {
         await expenseRepository.updateExpense({ ...payload, id: expenseId });

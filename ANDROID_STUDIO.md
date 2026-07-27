@@ -35,6 +35,10 @@ Without a real `google-services.json`, debug may compile from the example placeh
 
 Sign-in is mandatory. Data lives in Firestore under `users/{uid}/…` with offline persistence — there is no local-only mode.
 
+### Release signing (optional)
+
+Copy `keystore.properties.example` → `keystore.properties` (gitignored) and fill in store/key values, **or** set CI env vars `AUSGEGEBEN_STOREFILE`, `AUSGEGEBEN_STOREPASSWORD`, `AUSGEGEBEN_KEYALIAS`, `AUSGEGEBEN_KEYPASSWORD`. When present, `assembleRelease` / `bundleRelease` use that signing config.
+
 ## Build from terminal
 
 ```powershell
