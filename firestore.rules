@@ -10,18 +10,29 @@ service cloud.firestore {
     }
 
     // Email/password sign-up starts unverified. Prefer reads + prefs; require
-    // verification before mutating transaction documents.
+    // verification before mutating transaction / category documents.
     function isEmailVerified() {
       return request.auth.token.email_verified == true;
     }
 
+    // 2000-01-01 .. 2100-01-01 UTC (exclusive end)
+    function validDateMillis(ms) {
+      return ms is number
+        && ms >= 946684800000
+        && ms < 4102444800000;
+    }
+
     function validExpense() {
       let d = request.resource.data;
-      return d.keys().hasAll(['amount', 'dateMillis', 'categoryId', 'note', 'transactionType'])
+      return d.keys().hasOnly([
+          'amount', 'dateMillis', 'categoryId', 'note', 'transactionType',
+          'updatedAt', 'idempotencyKey', 'id'
+        ])
+        && d.keys().hasAll(['amount', 'dateMillis', 'categoryId', 'note', 'transactionType'])
         && d.amount is number
         && d.amount >= 0
         && d.amount < 1000000000
-        && d.dateMillis is number
+        && validDateMillis(d.dateMillis)
         && d.categoryId is string
         && d.categoryId.size() > 0
         && d.categoryId.size() < 64
@@ -36,7 +47,11 @@ service cloud.firestore {
 
     function validCategory() {
       let d = request.resource.data;
-      return d.keys().hasAll(['name', 'iconName', 'colorInt', 'transactionType', 'sortOrder'])
+      return d.keys().hasOnly([
+          'name', 'iconName', 'colorInt', 'transactionType', 'sortOrder',
+          'updatedAt', 'id'
+        ])
+        && d.keys().hasAll(['name', 'iconName', 'colorInt', 'transactionType', 'sortOrder'])
         && d.name is string
         && d.name.size() > 0
         && d.name.size() < 80
@@ -54,14 +69,27 @@ service cloud.firestore {
 
     function validDedupeMarker() {
       let d = request.resource.data;
-      return d.keys().hasAll(['categoriesDeduped'])
+      return d.keys().hasOnly(['categoriesDeduped', 'ranAt'])
+        && d.keys().hasAll(['categoriesDeduped'])
         && d.categoriesDeduped is bool
         && (!('ranAt' in d) || d.ranAt is number);
     }
 
+    function validThemeMode(mode) {
+      return mode in [
+        'light', 'dark', 'system', 'amoled', 'midnight',
+        'ocean', 'forest', 'sunset', 'lavender', 'soft_light'
+      ];
+    }
+
     function validPreferences() {
       let d = request.resource.data;
-      return d.keys().hasAll([
+      return d.keys().hasOnly([
+          'currency', 'locale', 'themeMode', 'dailyReminder',
+          'reminderHour', 'reminderMinute', 'analyticsPeriod', 'updatedAt',
+          'monthlyBudget', 'onboardingComplete'
+        ])
+        && d.keys().hasAll([
           'currency', 'locale', 'themeMode', 'dailyReminder',
           'reminderHour', 'reminderMinute', 'analyticsPeriod', 'updatedAt'
         ])
@@ -70,8 +98,7 @@ service cloud.firestore {
         && d.currency.size() <= 4
         && d.locale in ['en', 'de']
         && d.themeMode is string
-        && d.themeMode.size() > 0
-        && d.themeMode.size() < 32
+        && validThemeMode(d.themeMode)
         && d.dailyReminder is bool
         && d.reminderHour is number
         && d.reminderHour >= 0
@@ -94,8 +121,10 @@ service cloud.firestore {
 
       match /categories/{categoryId} {
         allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId) && validCategory();
-        allow delete: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && isEmailVerified()
+          && validCategory();
+        allow delete: if isOwner(userId) && isEmailVerified();
       }
 
       match /expenses/{expenseId} {
@@ -104,6 +133,8 @@ service cloud.firestore {
         allow delete: if isOwner(userId) && isEmailVerified();
       }
 
+      // Prefs stay writable without verification so LWW bootstrap / theme sync
+      // works before the user confirms email. Financial docs above stay gated.
       match /settings/{docId} {
         allow read: if isOwner(userId);
         allow create, update: if isOwner(userId)
@@ -114,7 +145,10 @@ service cloud.firestore {
 
       match /meta/{docId} {
         allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId) && docId == 'dedupe' && validDedupeMarker();
+        allow create, update: if isOwner(userId)
+          && isEmailVerified()
+          && docId == 'dedupe'
+          && validDedupeMarker();
       }
     }
   }

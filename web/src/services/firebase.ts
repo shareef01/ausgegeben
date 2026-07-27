@@ -41,12 +41,26 @@ export function getFirebaseApp(): FirebaseApp | null {
       projectId: firebaseConfig.projectId,
       appId: firebaseConfig.appId,
     });
-    const appCheckKey = import.meta.env.VITE_FIREBASE_APP_CHECK_KEY;
-    if (appCheckKey && !appCheck) {
-      appCheck = initializeAppCheck(app, {
-        provider: new ReCaptchaEnterpriseProvider(appCheckKey),
-        isTokenAutoRefreshEnabled: true,
-      });
+    const appCheckKey = import.meta.env.VITE_FIREBASE_APP_CHECK_KEY?.trim();
+    if (appCheckKey) {
+      if (!appCheck) {
+        appCheck = initializeAppCheck(app, {
+          provider: new ReCaptchaEnterpriseProvider(appCheckKey),
+          isTokenAutoRefreshEnabled: true,
+        });
+      }
+    } else if (import.meta.env.PROD && !useEmulators) {
+      // Fail closed in production so a missing App Check key cannot ship unnoticed.
+      // Set VITE_FIREBASE_APP_CHECK_KEY (reCAPTCHA Enterprise) and enforce App Check
+      // for Auth + Firestore in the Firebase Console.
+      throw new Error(
+        'VITE_FIREBASE_APP_CHECK_KEY is required for production builds. ' +
+          'Add the reCAPTCHA Enterprise site key and enforce App Check in Firebase Console.',
+      );
+    } else {
+      console.warn(
+        '[firebase] App Check skipped (no VITE_FIREBASE_APP_CHECK_KEY). OK for local/dev only.',
+      );
     }
   }
   return app;

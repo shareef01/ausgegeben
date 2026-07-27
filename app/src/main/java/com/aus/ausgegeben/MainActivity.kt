@@ -28,7 +28,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.*
 import com.aus.ausgegeben.data.auth.AuthRepository
@@ -42,23 +42,20 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.coroutines.withContext
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
+    @Inject lateinit var preferenceManager: PreferenceManager
+    @Inject lateinit var authRepository: AuthRepository
+    @Inject lateinit var preferencesCloudSync: PreferencesCloudSync
+    @Inject lateinit var repository: AppRepository
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            val context = LocalContext.current
-            val preferenceManager = remember { PreferenceManager(context) }
-            val authRepository = remember { AuthRepository(context.applicationContext) }
-            val preferencesCloudSync = remember { PreferencesCloudSync(preferenceManager) }
-            val repository = remember {
-                AppRepository(
-                    appContext = context.applicationContext,
-                    authRepository = authRepository,
-                    preferenceManager = preferenceManager,
-                )
-            }
             val syncScope = rememberCoroutineScope()
             val currentUser by authRepository.authState.collectAsStateWithLifecycle(initialValue = authRepository.currentUser)
 
@@ -122,25 +119,25 @@ fun MainApp(
     val scope = rememberCoroutineScope()
     var pendingOpenAdd by remember { mutableStateOf(openAddFromNotification) }
     var showAuthFromSettings by remember { mutableStateOf(false) }
+    var verifyDismissed by remember { mutableStateOf(false) }
+    var verifyBusy by remember { mutableStateOf(false) }
+    var verifyInfo by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(currentUser?.uid) {
+        verifyDismissed = false
+        verifyInfo = null
+    }
+    val showVerifyBanner = currentUser != null && currentUser?.isEmailVerified == false && !verifyDismissed
+    val verifyEmailSentMessage = stringResource(R.string.auth_verify_email_sent)
+    val authErrorGenericMessage = stringResource(R.string.auth_error_generic)
 
     val notificationPermission = rememberPermissionState(Manifest.permission.POST_NOTIFICATIONS)
 
     // ── ViewModels ──────────────────────────────────────────────
-    val addViewModel: AddExpenseViewModel = viewModel(activity) {
-        AddExpenseViewModel(activity.application, repository, preferenceManager)
-    }
-    val categoryViewModel: CategoryViewModel = viewModel(activity) {
-        CategoryViewModel(activity.application, repository)
-    }
-    val expenseViewModel: ExpenseViewModel = viewModel(activity) {
-        ExpenseViewModel(repository, preferenceManager)
-    }
-    val insightsViewModel: InsightsViewModel = viewModel(activity) {
-        InsightsViewModel(repository, preferenceManager)
-    }
-    val authViewModel: AuthViewModel = viewModel(activity) {
-        AuthViewModel(activity.application, authRepository)
-    }
+    val addViewModel: AddExpenseViewModel = hiltViewModel(activity)
+    val categoryViewModel: CategoryViewModel = hiltViewModel(activity)
+    val expenseViewModel: ExpenseViewModel = hiltViewModel(activity)
+    val insightsViewModel: InsightsViewModel = hiltViewModel(activity)
+    val authViewModel: AuthViewModel = hiltViewModel(activity)
 
     val overlay = rememberAppOverlayState(addViewModel, expenseViewModel)
 
@@ -178,11 +175,14 @@ fun MainApp(
         if (error == "EMAIL_NOT_VERIFIED") verifyRequiredMessage else fallback
 
 
-    // Seed once signed-in prefs (incl. locale) are ready — independent of onboarding/auth UI gates.
-    LaunchedEffect(currentUser?.uid, preferencesReady) {
-        if (currentUser == null || !preferencesReady) return@LaunchedEffect
+    // Seed once signed-in prefs (incl. locale) are ready — only after email verification
+    // so Firestore category writes match security rules.
+    LaunchedEffect(currentUser?.uid, currentUser?.isEmailVerified, preferencesReady) {
+        if (currentUser == null || !preferencesReady || currentUser?.isEmailVerified != true) {
+            return@LaunchedEffect
+        }
         withContext(Dispatchers.IO) {
-            repository.ensureSeeded()
+            runCatching { repository.ensureSeeded() }
         }
     }
 
@@ -303,6 +303,33 @@ fun MainApp(
                         modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm),
                     )
                 }
+                AnimatedVisibility(visible = isOnline && showVerifyBanner) {
+                    EmailVerifyBanner(
+                        infoMessage = verifyInfo,
+                        busy = verifyBusy,
+                        onResend = {
+                            scope.launch {
+                                verifyBusy = true
+                                verifyInfo = null
+                                authRepository.sendEmailVerification()
+                                    .onSuccess { verifyInfo = verifyEmailSentMessage }
+                                    .onFailure { verifyInfo = authErrorGenericMessage }
+                                verifyBusy = false
+                            }
+                        },
+                        onRefresh = {
+                            scope.launch {
+                                verifyBusy = true
+                                verifyInfo = null
+                                authRepository.reloadCurrentUser()
+                                    .onFailure { verifyInfo = authErrorGenericMessage }
+                                verifyBusy = false
+                            }
+                        },
+                        onDismiss = { verifyDismissed = true },
+                        modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm),
+                    )
+                }
                 Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 MainTabPager(
                     currentRoute = overlay.selectedTab,
@@ -316,7 +343,7 @@ fun MainApp(
                             viewModel = expenseViewModel,
                             currencyCode = currency,
                             dataError = listenerError,
-                            onRetryDataError = { repository.clearListenerError() },
+                            onRetryDataError = { repository.retryListeners() },
                             onAddTransaction = overlay::openAddFlow,
                             onExpenseClick = overlay::openEditFlow,
                             onExpenseDeleted = { expense ->
@@ -330,8 +357,6 @@ fun MainApp(
                                         expenseViewModel.restoreExpense(expense) { success ->
                                             if (!success) showSnackbar(restoreFailedMessage)
                                         }
-                                    } else {
-                                        expenseViewModel.finalizeDeletedExpense(expense)
                                     }
                                 }
                             },
@@ -351,7 +376,7 @@ fun MainApp(
                             viewModel = insightsViewModel,
                             currencyCode = currency,
                             dataError = listenerError,
-                            onRetryDataError = { repository.clearListenerError() },
+                            onRetryDataError = { repository.retryListeners() },
                             onAddTransaction = overlay::openAddFlow,
                         )
                     },

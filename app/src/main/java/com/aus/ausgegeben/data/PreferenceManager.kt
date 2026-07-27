@@ -18,10 +18,18 @@ import kotlinx.coroutines.flow.map
 import java.io.IOException
 import com.aus.ausgegeben.ui.theme.ThemeMode
 import com.aus.ausgegeben.util.AnalyticsPeriod
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
-class PreferenceManager(private val context: Context) {
+@Singleton
+class PreferenceManager @Inject constructor(
+    @ApplicationContext context: Context,
+) {
+    // Always pin DataStore to the application context — callers often pass an Activity.
+    private val context = context.applicationContext
 
     private object PreferencesKeys {
         val CURRENCY = stringPreferencesKey("currency")
@@ -55,18 +63,6 @@ class PreferenceManager(private val context: Context) {
         }
         .map { preferences ->
             preferences[PreferencesKeys.CURRENCY] ?: "EUR"
-        }
-
-    val darkModeFlow: Flow<Boolean?> = context.dataStore.data
-        .catch { exception ->
-            if (exception is IOException) {
-                emit(emptyPreferences())
-            } else {
-                throw exception
-            }
-        }
-        .map { preferences ->
-            preferences[PreferencesKeys.DARK_MODE]
         }
 
     val themeModeFlow: Flow<ThemeMode> = context.dataStore.data
@@ -219,14 +215,6 @@ class PreferenceManager(private val context: Context) {
         touchEdit { this[PreferencesKeys.CURRENCY] = currency }
     }
 
-    suspend fun updateDarkMode(isDarkMode: Boolean) {
-        touchEdit {
-            this[PreferencesKeys.DARK_MODE] = isDarkMode
-            this[PreferencesKeys.THEME_MODE] =
-                if (isDarkMode) ThemeMode.DARK.storageKey else ThemeMode.LIGHT.storageKey
-        }
-    }
-
     suspend fun updateThemeMode(mode: ThemeMode) {
         touchEdit {
             this[PreferencesKeys.THEME_MODE] = mode.storageKey
@@ -276,12 +264,6 @@ class PreferenceManager(private val context: Context) {
     suspend fun setLastCloudSyncAt(millis: Long) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.LAST_CLOUD_SYNC_AT] = millis.toString()
-        }
-    }
-
-    suspend fun clearSyncTimestamp() {
-        context.dataStore.edit { preferences ->
-            preferences.remove(PreferencesKeys.LAST_CLOUD_SYNC_AT)
         }
     }
 
