@@ -56,8 +56,10 @@ class AuthViewModelTest {
 
     @Test
     fun submit_shortPassword_setsShortError() {
+        viewModel.onTabSelected(AuthTab.SIGN_UP)
         viewModel.onEmailChange("a@b.com")
-        viewModel.onPasswordChange("123")
+        viewModel.onPasswordChange("1234567")
+        viewModel.onConfirmPasswordChange("1234567")
         viewModel.submit {}
         assertEquals(
             appString(R.string.auth_error_password_short),

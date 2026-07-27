@@ -21,9 +21,9 @@ Release builds **fail** if `google-services.json` still contains placeholder `YO
 
 1. Add a **Web** app in the same Firebase project
 2. Copy config to `web/.env.local` (see `web/.env.example`)
-3. Optionally set **`VITE_FIREBASE_APP_CHECK_KEY`** (reCAPTCHA Enterprise site key) before enforcing App Check in the Console — the web client skips App Check with a console warning if unset
-4. In Firebase Console → **App Check**: register the web app, then enforce App Check for **Authentication** and **Cloud Firestore**
-5. Restrict the Web API key by HTTP referrer in Google Cloud Console
+3. Set **`VITE_FIREBASE_APP_CHECK_KEY`** (reCAPTCHA Enterprise site key) — **required for production builds** when Firebase is configured
+4. In Firebase Console → **App Check**: register the web app, then **enforce** App Check for **Authentication** and **Cloud Firestore**
+5. Restrict the Web API key by HTTP referrer in Google Cloud Console (and rotate if it ever leaked via git history)
 6. Build and deploy from `web/`:
 
 ```bash
@@ -40,14 +40,23 @@ This builds the PWA and deploys hosting (`aus01`) + Firestore rules from the rep
 - Use the **same email/password** on Android and the PWA
 - Sign-in is **required** on both clients
 - Both clients use Firestore offline persistence (Android disk cache; web IndexedDB)
-- Expense and category writes require a **verified email**; preferences may sync before verification
+- Expense, category, and preferences writes require a **verified email** (local prefs still work before verification)
 
 ## App Check
 
 | Client | Provider |
 |--------|----------|
 | Android | Play Integrity (debug provider in debug builds) |
-| Web | reCAPTCHA Enterprise via `VITE_FIREBASE_APP_CHECK_KEY` (optional until Console enforcement) |
+| Web | reCAPTCHA Enterprise via `VITE_FIREBASE_APP_CHECK_KEY` (**required in production**) |
+
+## API key hygiene
+
+Firebase web/Android API keys are client-visible by design, but still restrict them:
+
+1. Google Cloud Console → APIs & Services → Credentials
+2. Web key: HTTP referrers → `aus01.web.app/*`, `https://aus01.firebaseapp.com/*` (plus localhost for dev if needed)
+3. Android key: package `com.aus.ausgegeben` + release/debug SHA-1/256
+4. If a key was committed historically, restrict it immediately; rotate if unrestricted abuse appears
 
 ## Config files
 

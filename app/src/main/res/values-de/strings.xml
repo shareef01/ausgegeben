@@ -16,7 +16,7 @@
     <string name="auth_reset_email_sent">passwort-reset-e-mail gesendet. prüfe deinen posteingang.</string>
     <string name="auth_offline_hint">transaktionen synchronisieren über die cloud und funktionieren nach der anmeldung auch offline.</string>
     <string name="auth_error_email_required">gib deine e-mail-adresse ein</string>
-    <string name="auth_error_password_short">passwort muss mindestens 6 zeichen lang sein</string>
+    <string name="auth_error_password_short">passwort muss mindestens 8 zeichen lang sein</string>
     <string name="auth_error_password_mismatch">passwörter stimmen nicht überein</string>
     <string name="auth_error_user_not_found">kein konto für diese e-mail gefunden</string>
     <string name="auth_error_invalid_credentials">falsche e-mail oder passwort</string>
@@ -25,7 +25,7 @@
     <string name="auth_loading_sign_in">anmeldung…</string>
     <string name="auth_loading_sign_up">konto wird erstellt…</string>
     <string name="auth_error_timeout">zeitüberschreitung. prüfe internet und firebase-setup.</string>
-    <string name="auth_error_weak_password">passwort ist zu schwach. verwende mindestens 6 zeichen mit buchstaben und zahlen.</string>
+    <string name="auth_error_weak_password">passwort ist zu schwach. verwende mindestens 8 zeichen mit buchstaben und zahlen.</string>
     <string name="auth_verify_required">bestätige deine e-mail, um transaktionen zu speichern.</string>
     <string name="auth_verify_banner">bestätige deine e-mail, um transaktionen und kategorien freizuschalten.</string>
     <string name="auth_verify_resend">erneut senden</string>

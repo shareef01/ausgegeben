@@ -3,6 +3,7 @@ package com.aus.ausgegeben.data
 import android.util.Log
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
@@ -27,6 +28,7 @@ import javax.inject.Singleton
 class PreferencesCloudSync @Inject constructor(
     private val preferenceManager: PreferenceManager,
     private val firestore: FirebaseFirestore,
+    private val firebaseAuth: FirebaseAuth,
 ) {
     private var registration: ListenerRegistration? = null
     private var pushJob: Job? = null
@@ -146,6 +148,8 @@ class PreferencesCloudSync @Inject constructor(
     }
 
     private suspend fun writeRemote(uid: String, prefs: SyncedPreferences) {
+        // Rules require email_verified — keep local-only until the user confirms.
+        if (firebaseAuth.currentUser?.isEmailVerified != true) return
         var payload = prefs
         if (payload.updatedAt <= 0L) {
             val stamped = preferenceManager.ensurePreferencesTimestamp()
