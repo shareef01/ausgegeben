@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Category, Expense, RecordListPeriod, RecordUiState, TransactionTypeFilter } from '@/models/types';
 import { expenseRepository, EmailNotVerifiedError } from '@/repositories/expenseRepository';
 import { usePreferencesStore } from '@/services/preferencesStore';
@@ -25,6 +25,10 @@ export function useRecordViewModel() {
   const [monthBudgetExpenses, setMonthBudgetExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  /** Ids hidden pending snackbar undo — Firestore delete runs only on dismiss/timeout. */
+  const [softDeletedIds, setSoftDeletedIds] = useState<Set<string>>(() => new Set());
+  const softDeletedIdsRef = useRef(softDeletedIds);
+  softDeletedIdsRef.current = softDeletedIds;
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(searchQuery), SEARCH_DEBOUNCE_MS);
@@ -142,7 +146,10 @@ export function useRecordViewModel() {
     }
   }, [listRange, viewingCurrentMonth]);
 
-  const monthExpenses = monthBudgetExpenses;
+  const monthExpenses = useMemo(
+    () => monthBudgetExpenses.filter((e) => !softDeletedIds.has(e.id)),
+    [monthBudgetExpenses, softDeletedIds],
+  );
 
   const monthSpent = useMemo(
     () => {
@@ -153,7 +160,7 @@ export function useRecordViewModel() {
   );
 
   const filteredExpenses = useMemo(() => {
-    let list = periodExpenses;
+    let list = periodExpenses.filter((e) => !softDeletedIds.has(e.id));
 
     if (typeFilter !== 'all') {
       list = list.filter(e => e.transactionType === typeFilter);
@@ -172,7 +179,7 @@ export function useRecordViewModel() {
     }
 
     return list;
-  }, [periodExpenses, typeFilter, debouncedSearch, categories]);
+  }, [periodExpenses, softDeletedIds, typeFilter, debouncedSearch, categories]);
 
   const uiState: RecordUiState = useMemo(() => ({
     expenses: filteredExpenses,
@@ -189,16 +196,40 @@ export function useRecordViewModel() {
   }), [filteredExpenses, categories, searchQuery, typeFilter, listPeriod, monthlyBudget, monthExpenses, loading, loadError]);
 
   const requestDelete = useCallback(async (id: string) => {
-    try {
-      const deleted = await expenseRepository.deleteExpense(id);
-      if (!deleted) return;
-      showToast(t('recordDeleted'), t('actionUndo'), async () => {
-        await expenseRepository.restoreExpense(deleted);
-      });
-    } catch (err) {
-      console.error('[useRecordViewModel] delete failed', err);
-      showToast(err instanceof EmailNotVerifiedError ? t('authVerifyRequired') : t('errorDeleteFailed'));
-    }
+    if (!id || softDeletedIdsRef.current.has(id)) return;
+    // Soft-hide immediately; commit to Firestore only if the toast is not undone.
+    setSoftDeletedIds((prev) => new Set(prev).add(id));
+    showToast(
+      t('recordDeleted'),
+      t('actionUndo'),
+      () => {
+        setSoftDeletedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      },
+      () => {
+        void expenseRepository.deleteExpense(id).then((deleted) => {
+          setSoftDeletedIds((prev) => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
+          if (!deleted) {
+            showToast(t('errorDeleteFailed'));
+          }
+        }).catch((err) => {
+          console.error('[useRecordViewModel] delete commit failed', err);
+          setSoftDeletedIds((prev) => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
+          showToast(err instanceof EmailNotVerifiedError ? t('authVerifyRequired') : t('errorDeleteFailed'));
+        });
+      },
+    );
   }, [showToast, t]);
 
   const duplicateExpense = useCallback(async (expense: Expense) => {
