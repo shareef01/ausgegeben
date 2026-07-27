@@ -56,4 +56,10 @@ class AuthRepository @Inject constructor(
     override suspend fun signOut() {
         firebaseAuth.signOut()
     }
+
+    /** Deletes the Firebase Auth user. Caller should wipe Firestore data first. */
+    suspend fun deleteAccount(): Result<Unit> = runCatching {
+        val user = firebaseAuth.currentUser ?: error("Not signed in")
+        user.delete().await()
+    }
 }
