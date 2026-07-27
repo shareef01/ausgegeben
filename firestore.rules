@@ -9,8 +9,8 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Email/password sign-up starts unverified. Prefer reads + prefs; require
-    // verification before mutating transaction / category documents.
+    // Email/password sign-up starts unverified. Prefer reads; require
+    // verification before mutating preferences, transactions, or categories.
     function isEmailVerified() {
       return request.auth.token.email_verified == true;
     }
@@ -133,14 +133,17 @@ service cloud.firestore {
         allow delete: if isOwner(userId) && isEmailVerified();
       }
 
-      // Prefs stay writable without verification so LWW bootstrap / theme sync
-      // works before the user confirms email. Financial docs above stay gated.
+      // Prefs require verification like other mutations — blocks unverified
+      // quota spam while still allowing local-only theme/locale until confirm.
       match /settings/{docId} {
         allow read: if isOwner(userId);
         allow create, update: if isOwner(userId)
+          && isEmailVerified()
           && docId == 'preferences'
           && validPreferences();
-        allow delete: if isOwner(userId) && docId == 'preferences';
+        allow delete: if isOwner(userId)
+          && isEmailVerified()
+          && docId == 'preferences';
       }
 
       match /meta/{docId} {
