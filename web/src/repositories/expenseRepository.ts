@@ -1,6 +1,6 @@
 ﻿import {
   collection, doc, setDoc, deleteDoc, getDoc, getDocs, query, where, orderBy, limit,
-  onSnapshot, type Unsubscribe, writeBatch,
+  onSnapshot, type Unsubscribe, writeBatch, type CollectionReference,
 } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
@@ -475,7 +475,32 @@ export const expenseRepository = {
         }
     });
   },
+
+  /** Wipe all cloud docs for the signed-in user (account deletion). */
+  async deleteAllUserData(): Promise<void> {
+    const userId = uid();
+    if (!userId) throw new Error('Not signed in');
+    await deleteCollectionBatched(expCol(userId));
+    await deleteCollectionBatched(catCol(userId));
+    try {
+      await deleteDoc(doc(fs()!, 'users', userId, 'settings', 'preferences'));
+    } catch { /* missing prefs is fine */ }
+    try {
+      await deleteDoc(metaDoc(userId, 'dedupe'));
+    } catch { /* missing marker is fine */ }
+    emitDataChanged();
+  },
 };
+
+async function deleteCollectionBatched(colRef: CollectionReference): Promise<void> {
+  for (;;) {
+    const snap = await getDocs(query(colRef, limit(400)));
+    if (snap.empty) break;
+    const batch = writeBatch(fs()!);
+    snap.docs.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  }
+}
 
 export interface ExpenseQueryParams {
   startMillis: number; endMillis: number; typeFilter: TransactionTypeFilter; searchQuery: string;

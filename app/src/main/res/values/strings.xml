@@ -122,6 +122,11 @@
     <string name="settings_sign_out">Sign out</string>
     <string name="settings_sign_out_subtitle">End this session on this device</string>
     <string name="settings_sign_out_confirm">Sign out? You\'ll need to sign in again to access your cloud data.</string>
+    <string name="settings_delete_account">Delete account</string>
+    <string name="settings_delete_account_confirm">Permanently delete your account and all cloud data? This cannot be undone.</string>
+    <string name="settings_delete_account_ok">Account deleted</string>
+    <string name="settings_delete_account_failed">Could not delete account</string>
+    <string name="settings_delete_account_needs_reauth">Sign in again, then delete your account</string>
     <string name="settings_signed_out">Signed out</string>
     <string name="settings_sync_now">Sync now</string>
     <string name="settings_last_synced">Last synced %1$s</string>
