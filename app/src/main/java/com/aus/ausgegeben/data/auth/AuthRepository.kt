@@ -1,5 +1,6 @@
 package com.aus.ausgegeben.data.auth
 
+import com.aus.ausgegeben.data.PreferenceManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,6 +13,7 @@ import javax.inject.Singleton
 @Singleton
 class AuthRepository @Inject constructor(
     private val firebaseAuth: FirebaseAuth,
+    private val preferenceManager: PreferenceManager,
 ) : AuthActions {
     private val _authUser = MutableStateFlow(firebaseAuth.currentUser)
     val authState: StateFlow<FirebaseUser?> = _authUser.asStateFlow()
@@ -55,11 +57,13 @@ class AuthRepository @Inject constructor(
 
     override suspend fun signOut() {
         firebaseAuth.signOut()
+        preferenceManager.clearAccountLocalState()
     }
 
     /** Deletes the Firebase Auth user. Caller should wipe Firestore data first. */
     suspend fun deleteAccount(): Result<Unit> = runCatching {
         val user = firebaseAuth.currentUser ?: error("Not signed in")
         user.delete().await()
+        preferenceManager.clearAccountLocalState()
     }
 }
