@@ -123,7 +123,7 @@ flowchart TB
 
 **Web** — React 19 + TypeScript (Vite). Zustand stores fed by the same Firestore documents and rules as Android, including matching starter categories. Installable PWA with a precached shell.
 
-**Backend** — Email/password Firebase Auth (App Check: Play Integrity on Android; reCAPTCHA Enterprise required for web production). Queries are range-scoped where possible to keep Firestore reads modest.
+**Backend** — Email/password Firebase Auth (App Check: Play Integrity on Android; reCAPTCHA Enterprise optional on web until Console enforcement). Queries are range-scoped where possible to keep Firestore reads modest.
 
 ---
 
