@@ -2,6 +2,7 @@ import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
   sendEmailVerification,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
@@ -66,6 +67,12 @@ export const authService = {
     if (!auth) throw new Error('firebase_not_configured');
     const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
     await sendEmailVerification(cred.user);
+  },
+
+  async sendPasswordResetEmail(email: string): Promise<void> {
+    const auth = getFirebaseAuth();
+    if (!auth) throw new Error('firebase_not_configured');
+    await sendPasswordResetEmail(auth, email.trim());
   },
 
   async resendVerificationEmail(): Promise<void> {

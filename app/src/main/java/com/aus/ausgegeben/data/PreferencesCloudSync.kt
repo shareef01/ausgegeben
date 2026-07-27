@@ -16,14 +16,17 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Last-write-wins sync for settings prefs — same doc as web:
  * `users/{uid}/settings/preferences`
  */
-class PreferencesCloudSync(
+@Singleton
+class PreferencesCloudSync @Inject constructor(
     private val preferenceManager: PreferenceManager,
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
+    private val firestore: FirebaseFirestore,
 ) {
     private var registration: ListenerRegistration? = null
     private var pushJob: Job? = null
@@ -58,7 +61,7 @@ class PreferencesCloudSync(
         registration = ref.addSnapshotListener { snap, error ->
             if (error != null) {
                 Log.w(TAG, "preferences listener error", error)
-                _syncError.value = error.message ?: "listener error"
+                _syncError.value = mapSyncFailure(error)
                 _preferencesReady.value = true
                 return@addSnapshotListener
             }
@@ -103,13 +106,25 @@ class PreferencesCloudSync(
         _preferencesReady.value = false
     }
 
-    /** Re-attempt the last push after a failure (e.g. user tapped retry on the sync error banner). */
     fun retry() {
         val uid = activeUid ?: return
         val scope = activeScope ?: return
         scope.launch(Dispatchers.IO) {
             lastWrittenAt = 0L
             writeRemote(uid, preferenceManager.snapshotSyncedPreferences())
+        }
+    }
+
+    private fun mapSyncFailure(error: Exception): String {
+        return when {
+            error is com.google.firebase.firestore.FirebaseFirestoreException &&
+                error.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED ->
+                SYNC_ERROR_PERMISSION
+            error is com.google.firebase.firestore.FirebaseFirestoreException &&
+                (error.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.UNAVAILABLE ||
+                    error.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.DEADLINE_EXCEEDED) ->
+                SYNC_ERROR_NETWORK
+            else -> SYNC_ERROR_GENERIC
         }
     }
 
@@ -150,12 +165,15 @@ class PreferencesCloudSync(
             _syncError.value = null
         } catch (e: Exception) {
             Log.w(TAG, "failed to write preferences", e)
-            _syncError.value = e.message ?: "write failed"
+            _syncError.value = mapSyncFailure(e)
         }
     }
 
     companion object {
         private const val TAG = "PreferencesCloudSync"
+        const val SYNC_ERROR_PERMISSION = "permission"
+        const val SYNC_ERROR_NETWORK = "network"
+        const val SYNC_ERROR_GENERIC = "generic"
         private val VALID_LOCALES = setOf("en", "de")
 
         // Same set as web preferencesSync.VALID_THEMES

@@ -17,11 +17,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 
-class AddExpenseViewModel(
+@HiltViewModel
+class AddExpenseViewModel @Inject constructor(
     application: Application,
     private val repository: AppRepository,
-    private val preferenceManager: PreferenceManager
+    private val preferenceManager: PreferenceManager,
 ) : AndroidViewModel(application) {
 
     private val _amount = MutableStateFlow("0")
@@ -143,7 +146,7 @@ class AddExpenseViewModel(
                             if (e.message == "EMAIL_NOT_VERIFIED") {
                                 app.getString(R.string.auth_verify_required)
                             } else {
-                                e.localizedMessage ?: app.getString(R.string.auth_error_generic)
+                                app.getString(R.string.auth_error_generic)
                             },
                         )
                     }
@@ -152,7 +155,7 @@ class AddExpenseViewModel(
                         if (e.message == "EMAIL_NOT_VERIFIED") {
                             app.getString(R.string.auth_verify_required)
                         } else {
-                            e.localizedMessage ?: app.getString(R.string.auth_error_generic)
+                            app.getString(R.string.auth_error_generic)
                         },
                     )
                 } finally {

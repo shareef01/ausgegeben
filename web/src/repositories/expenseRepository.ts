@@ -126,6 +126,11 @@ export const expenseRepository = {
   async ensureSeeded(): Promise<void> {
     const userId = uid();
     if (!userId || !fs()) return;
+    try {
+      requireVerifiedEmail();
+    } catch {
+      return;
+    }
     if (ensureSeededInFlight && ensureSeededForUid === userId) {
       await ensureSeededInFlight;
       return;
@@ -191,6 +196,7 @@ export const expenseRepository = {
 
   // SECURE: client UUID so creates are idempotent under retries
   async insertCategory(cat: Omit<Category, 'id'>): Promise<string> {
+    requireVerifiedEmail();
     const userId = uid(); if (!userId) throw new Error('Not signed in');
     const id = crypto.randomUUID();
     const payload = {
@@ -204,6 +210,7 @@ export const expenseRepository = {
   },
 
   async updateCategory(cat: Category): Promise<void> {
+    requireVerifiedEmail();
     const userId = uid(); if (!userId || !cat.id) return;
     const payload = {
       ...cat,
@@ -217,6 +224,7 @@ export const expenseRepository = {
   // deleting the uncategorized sentinel itself, which is allowed and leaves
   // linked expenses with categoryId '0'; the UI already falls back to "unknown").
   async deleteCategory(id: string): Promise<void> {
+    requireVerifiedEmail();
     const userId = uid(); if (!userId) return;
     if (id === UNCATEGORIZED_ID) {
       await deleteDoc(catDoc(userId, id));
@@ -379,6 +387,7 @@ export const expenseRepository = {
   },
 
   async deduplicateCategories(): Promise<void> {
+    requireVerifiedEmail();
     const userId = uid(); if (!userId) return;
 
     // SECURE: Raw fetch to catch documents missing 'sortOrder'

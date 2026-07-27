@@ -1,41 +1,55 @@
 package com.aus.ausgegeben.notification
 
 import android.content.Context
+import android.util.Log
+import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.data.auth.AuthRepository
 import com.aus.ausgegeben.util.localDayStartMillis
 import com.google.firebase.firestore.FirebaseFirestore
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedInject
 import kotlinx.coroutines.tasks.await
 
-class DailyReminderWorker(
-    appContext: Context,
-    params: WorkerParameters
+@HiltWorker
+class DailyReminderWorker @AssistedInject constructor(
+    @Assisted appContext: Context,
+    @Assisted params: WorkerParameters,
+    private val preferenceManager: PreferenceManager,
+    private val authRepository: AuthRepository,
+    private val firestore: FirebaseFirestore,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
-        val preferenceManager = PreferenceManager(applicationContext)
-        if (!preferenceManager.isDailyReminderEnabled()) {
-            return Result.success()
+        return try {
+            if (!preferenceManager.isDailyReminderEnabled()) {
+                return Result.success()
+            }
+
+            val uid = authRepository.currentUserId ?: return Result.success()
+            val dayStart = localDayStartMillis(System.currentTimeMillis())
+            val dayEnd = dayStart + 24 * 60 * 60 * 1000L
+            val loggedToday = firestore.collection("users").document(uid)
+                .collection("expenses")
+                .whereGreaterThanOrEqualTo("dateMillis", dayStart)
+                .whereLessThan("dateMillis", dayEnd)
+                .get().await().documents.isNotEmpty()
+
+            if (!loggedToday) {
+                NotificationHelper.showDailyReminder(applicationContext)
+            }
+
+            ReminderScheduler.scheduleNext(applicationContext)
+            Result.success()
+        } catch (e: Exception) {
+            Log.w(TAG, "daily reminder failed", e)
+            Result.retry()
         }
+    }
 
-        val auth = AuthRepository(applicationContext)
-        val uid = auth.currentUserId ?: return Result.success()
-        val dayStart = localDayStartMillis(System.currentTimeMillis())
-        val dayEnd = dayStart + 24 * 60 * 60 * 1000L
-        val firestore = FirebaseFirestore.getInstance()
-        val loggedToday = firestore.collection("users").document(uid)
-            .collection("expenses")
-            .whereGreaterThanOrEqualTo("dateMillis", dayStart)
-            .whereLessThan("dateMillis", dayEnd)
-            .get().await().documents.isNotEmpty()
-
-        if (!loggedToday) {
-            NotificationHelper.showDailyReminder(applicationContext)
-        }
-
-        ReminderScheduler.scheduleNext(applicationContext)
-        return Result.success()
+    companion object {
+        private const val TAG = "DailyReminderWorker"
     }
 }

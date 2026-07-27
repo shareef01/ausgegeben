@@ -11,11 +11,21 @@ if (!googleServicesFile.exists()) {
     )
 }
 
+fun isPlaceholderGoogleServices(file: java.io.File): Boolean {
+    if (!file.exists()) return true
+    val text = file.readText()
+    return text.contains("YOUR_API_KEY") ||
+        text.contains("YOUR_PROJECT_ID") ||
+        text.contains("YOUR_MOBILE_SDK_APP_ID") ||
+        text.contains("YOUR_PROJECT_NUMBER")
+}
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.jetbrains.kotlin.plugin.serialization)
     alias(libs.plugins.google.services)
+    alias(libs.plugins.hilt.android)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -42,6 +52,19 @@ android {
             )
         }
     }
+
+    // Fail release early if google-services.json is still the placeholder example.
+    afterEvaluate {
+        listOf("assembleRelease", "bundleRelease", "minifyReleaseWithR8").forEach { taskName ->
+            tasks.findByName(taskName)?.doFirst {
+                check(!isPlaceholderGoogleServices(googleServicesFile)) {
+                    "Release builds require a real app/google-services.json from Firebase Console " +
+                        "(placeholder YOUR_* values are only allowed for debug)."
+                }
+            }
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -49,6 +72,11 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
     }
 }
 
@@ -69,22 +97,24 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.androidx.navigation3.runtime)
-    implementation(libs.androidx.navigation3.ui)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.play.services)
-    implementation(libs.kotlinx.serialization.core)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.appcheck.playintegrity)
     debugImplementation(libs.firebase.appcheck.debug)
-    implementation(libs.play.services.auth)
+    implementation(libs.hilt.android)
+    implementation(libs.androidx.hilt.navigation.compose)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.hilt.compiler)
+    ksp(libs.androidx.hilt.compiler)
     testImplementation(libs.androidx.core)
     testImplementation(libs.androidx.junit)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation("org.robolectric:robolectric:4.14.1")
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
