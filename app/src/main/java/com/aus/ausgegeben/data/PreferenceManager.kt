@@ -271,6 +271,23 @@ class PreferenceManager @Inject constructor(
         touchEdit { this[PreferencesKeys.LANGUAGE] = languageCode }
     }
 
+    /**
+     * Drop account-scoped local prefs on sign-out / account deletion so the next
+     * user on a shared device does not see budget or sync metadata. Theme and
+     * language stay as device chrome. Firestore disk cache still needs Clear
+     * storage / uninstall (documented in FIREBASE_SETUP.md).
+     */
+    suspend fun clearAccountLocalState() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(PreferencesKeys.MONTHLY_BUDGET)
+            preferences.remove(PreferencesKeys.LAST_CLOUD_SYNC_AT)
+            preferences.remove(PreferencesKeys.PREFERENCES_UPDATED_AT)
+            preferences.remove(PreferencesKeys.CURRENCY)
+            preferences.remove(PreferencesKeys.ANALYTICS_PERIOD)
+            preferences.remove(PreferencesKeys.ONBOARDING_COMPLETE)
+        }
+    }
+
     /** Ensure local LWW clock is non-zero before first cloud seed. */
     suspend fun ensurePreferencesTimestamp(): Long {
         val current = preferencesUpdatedAt()
