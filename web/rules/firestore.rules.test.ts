@@ -86,7 +86,13 @@ describe('firestore.rules', () => {
 
   it('allows verified owner to create a valid expense', async () => {
     const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'cat-1')), validCategory));
     await assertSucceeds(setDoc(doc(db, expensePath('alice')), validExpense));
+  });
+
+  it('denies expense with unknown categoryId', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertFails(setDoc(doc(db, expensePath('alice')), validExpense));
   });
 
   it('denies unverified owner expense writes', async () => {
@@ -96,6 +102,7 @@ describe('firestore.rules', () => {
 
   it('denies other users from reading owner expenses', async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), categoryPath('alice', 'cat-1')), validCategory);
       await setDoc(doc(ctx.firestore(), expensePath('alice')), validExpense);
     });
     const bob = testEnv.authenticatedContext('bob', { email_verified: true }).firestore();
@@ -104,6 +111,7 @@ describe('firestore.rules', () => {
 
   it('rejects expense docs with extra fields (hasOnly)', async () => {
     const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'cat-1')), validCategory));
     await assertFails(
       setDoc(doc(db, expensePath('alice')), { ...validExpense, sneaky: true }),
     );
@@ -111,6 +119,7 @@ describe('firestore.rules', () => {
 
   it('rejects expense dateMillis outside allowed range', async () => {
     const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'cat-1')), validCategory));
     await assertFails(
       setDoc(doc(db, expensePath('alice')), {
         ...validExpense,
@@ -126,6 +135,23 @@ describe('firestore.rules', () => {
 
     const unverified = testEnv.authenticatedContext('alice', { email_verified: false }).firestore();
     await assertFails(setDoc(doc(unverified, categoryPath('alice', 'c2')), validCategory));
+  });
+
+  it('allows owner to delete data without email verification', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), categoryPath('alice', 'cat-1')), validCategory);
+      await setDoc(doc(ctx.firestore(), expensePath('alice')), validExpense);
+      await setDoc(doc(ctx.firestore(), prefsPath('alice')), validPreferences);
+      await setDoc(doc(ctx.firestore(), 'users/alice/meta/dedupe'), {
+        categoriesDeduped: true,
+        ranAt: Date.UTC(2024, 5, 15),
+      });
+    });
+    const unverified = testEnv.authenticatedContext('alice', { email_verified: false }).firestore();
+    await assertSucceeds(deleteDoc(doc(unverified, expensePath('alice'))));
+    await assertSucceeds(deleteDoc(doc(unverified, categoryPath('alice', 'cat-1'))));
+    await assertSucceeds(deleteDoc(doc(unverified, prefsPath('alice'))));
+    await assertSucceeds(deleteDoc(doc(unverified, 'users/alice/meta/dedupe')));
   });
 
   it('denies unverified owner preferences writes', async () => {

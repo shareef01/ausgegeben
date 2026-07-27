@@ -1,5 +1,6 @@
 import {
   createUserWithEmailAndPassword,
+  deleteUser,
   onAuthStateChanged,
   sendEmailVerification,
   sendPasswordResetEmail,
@@ -8,6 +9,7 @@ import {
 } from 'firebase/auth';
 import { getFirebaseAuth, isFirebaseConfigured } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
+import { expenseRepository } from '@/repositories/expenseRepository';
 
 let unsubscribe: (() => void) | null = null;
 let readyFallbackTimer: ReturnType<typeof setTimeout> | null = null;
@@ -93,6 +95,24 @@ export const authService = {
   async signOut(): Promise<void> {
     const auth = getFirebaseAuth();
     if (auth) await signOut(auth);
+    useAuthStore.getState().setUser(null);
+  },
+
+  /** Deletes cloud data then the Firebase Auth user. May throw `requires_recent_login`. */
+  async deleteAccount(): Promise<void> {
+    const auth = getFirebaseAuth();
+    const user = auth?.currentUser;
+    if (!user) throw new Error('not_signed_in');
+    await expenseRepository.deleteAllUserData();
+    try {
+      await deleteUser(user);
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      if (code === 'auth/requires-recent-login') {
+        throw new Error('requires_recent_login');
+      }
+      throw err;
+    }
     useAuthStore.getState().setUser(null);
   },
 

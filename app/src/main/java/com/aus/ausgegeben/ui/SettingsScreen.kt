@@ -94,6 +94,8 @@ fun SettingsScreen(
     var showBudgetDialog by remember { mutableStateOf(false) }
     var showReminderTimeDialog by remember { mutableStateOf(false) }
     var showSignOutConfirm by remember { mutableStateOf(false) }
+    var showDeleteAccountConfirm by remember { mutableStateOf(false) }
+    var deletingAccount by remember { mutableStateOf(false) }
 
     val reminderTimeLabel = remember(reminderHour, reminderMinute) {
         "%02d:%02d".format(reminderHour, reminderMinute)
@@ -444,23 +446,44 @@ fun SettingsScreen(
                                     .appGlassCard(RoundedCornerShape(AppRadius.card))
                                     .padding(12.dp),
                             ) {
-                                AppOutlinedButton(
-                                    onClick = {
-                                        haptics.light()
-                                        showSignOutConfirm = true
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    contentColor = signOutColor,
-                                    borderColor = signOutColor.copy(alpha = 0.35f),
-                                ) {
-                                    Text(
-                                        text = stringResource(R.string.settings_sign_out).lowercase(),
-                                        style = TextStyle(
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 15.sp,
-                                            letterSpacing = 0.5.sp,
-                                        ),
-                                    )
+                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    AppOutlinedButton(
+                                        onClick = {
+                                            haptics.light()
+                                            showSignOutConfirm = true
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        contentColor = signOutColor,
+                                        borderColor = signOutColor.copy(alpha = 0.35f),
+                                    ) {
+                                        Text(
+                                            text = stringResource(R.string.settings_sign_out).lowercase(),
+                                            style = TextStyle(
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 15.sp,
+                                                letterSpacing = 0.5.sp,
+                                            ),
+                                        )
+                                    }
+                                    AppOutlinedButton(
+                                        onClick = {
+                                            haptics.light()
+                                            showDeleteAccountConfirm = true
+                                        },
+                                        enabled = !deletingAccount,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        contentColor = signOutColor,
+                                        borderColor = signOutColor.copy(alpha = 0.55f),
+                                    ) {
+                                        Text(
+                                            text = stringResource(R.string.settings_delete_account).lowercase(),
+                                            style = TextStyle(
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 15.sp,
+                                                letterSpacing = 0.5.sp,
+                                            ),
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -565,6 +588,44 @@ fun SettingsScreen(
             },
             text = {
                 AppDialogBodyText(stringResource(R.string.settings_sign_out_confirm))
+            },
+        )
+    }
+
+    if (showDeleteAccountConfirm) {
+        AppDestructiveConfirmDialog(
+            onDismissRequest = { if (!deletingAccount) showDeleteAccountConfirm = false },
+            confirmLabel = stringResource(R.string.settings_delete_account),
+            onConfirm = {
+                showDeleteAccountConfirm = false
+                deletingAccount = true
+                scope.launch {
+                    val wipe = repository.deleteAllUserData()
+                    val deleted = if (wipe.isSuccess) authRepository.deleteAccount() else wipe
+                    deletingAccount = false
+                    deleted.fold(
+                        onSuccess = {
+                            onShowMessage(context.getString(R.string.settings_delete_account_ok))
+                        },
+                        onFailure = { error ->
+                            val msg = when (error) {
+                                is com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException ->
+                                    R.string.settings_delete_account_needs_reauth
+                                else -> R.string.settings_delete_account_failed
+                            }
+                            onShowMessage(context.getString(msg))
+                        },
+                    )
+                }
+            },
+            title = {
+                Text(
+                    text = stringResource(R.string.settings_delete_account).lowercase(),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            },
+            text = {
+                AppDialogBodyText(stringResource(R.string.settings_delete_account_confirm))
             },
         )
     }

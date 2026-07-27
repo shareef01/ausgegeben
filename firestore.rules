@@ -124,13 +124,18 @@ service cloud.firestore {
         allow create, update: if isOwner(userId)
           && isEmailVerified()
           && validCategory();
-        allow delete: if isOwner(userId) && isEmailVerified();
+        // Deletes stay owner-only (no verification) so account wipe works
+        // for unverified sign-ups before they confirm email.
+        allow delete: if isOwner(userId);
       }
 
       match /expenses/{expenseId} {
         allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId) && isEmailVerified() && validExpense();
-        allow delete: if isOwner(userId) && isEmailVerified();
+        allow create, update: if isOwner(userId)
+          && isEmailVerified()
+          && validExpense()
+          && exists(/databases/$(database)/documents/users/$(userId)/categories/$(request.resource.data.categoryId));
+        allow delete: if isOwner(userId);
       }
 
       // Prefs require verification like other mutations — blocks unverified
@@ -141,9 +146,7 @@ service cloud.firestore {
           && isEmailVerified()
           && docId == 'preferences'
           && validPreferences();
-        allow delete: if isOwner(userId)
-          && isEmailVerified()
-          && docId == 'preferences';
+        allow delete: if isOwner(userId) && docId == 'preferences';
       }
 
       match /meta/{docId} {
@@ -152,6 +155,7 @@ service cloud.firestore {
           && isEmailVerified()
           && docId == 'dedupe'
           && validDedupeMarker();
+        allow delete: if isOwner(userId) && docId == 'dedupe';
       }
     }
   }
