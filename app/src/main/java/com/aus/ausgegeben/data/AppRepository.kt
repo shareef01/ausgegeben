@@ -97,6 +97,8 @@ class AppRepository @Inject constructor(
     private fun catCol(uid: String) = firestore.collection("users").document(uid).collection("categories")
     private fun expCol(uid: String) = firestore.collection("users").document(uid).collection("expenses")
     private fun metaCol(uid: String) = firestore.collection("users").document(uid).collection("meta")
+    private fun settingsPrefsDoc(uid: String) =
+        firestore.collection("users").document(uid).collection("settings").document("preferences")
     private fun catDoc(uid: String, id: String) = catCol(uid).document(id)
     private fun expDoc(uid: String, id: String) = expCol(uid).document(id)
     private fun dedupeMarkerDoc(uid: String) = metaCol(uid).document("dedupe")
@@ -282,6 +284,27 @@ class AppRepository @Inject constructor(
 
     suspend fun duplicateExpense(expense: Expense): Result<Unit> {
         return insertExpense(expense.copy(id = "", dateMillis = System.currentTimeMillis())).map { Unit }
+    }
+
+    /** Wipe all cloud docs for the signed-in user (account deletion). */
+    suspend fun deleteAllUserData(): Result<Unit> = runCatching {
+        val u = uid() ?: throw IllegalStateException("Not signed in")
+        deleteCollectionBatched(expCol(u))
+        deleteCollectionBatched(catCol(u))
+        runCatching { settingsPrefsDoc(u).delete().await() }
+        runCatching { dedupeMarkerDoc(u).delete().await() }
+    }
+
+    private suspend fun deleteCollectionBatched(
+        col: com.google.firebase.firestore.CollectionReference,
+    ) {
+        while (true) {
+            val snap = col.limit(400).get().await()
+            if (snap.isEmpty) break
+            val batch = firestore.batch()
+            snap.documents.forEach { batch.delete(it.reference) }
+            batch.commit().await()
+        }
     }
 
     suspend fun sumMonthExpenses(excludeExpenseId: String = ""): Double {

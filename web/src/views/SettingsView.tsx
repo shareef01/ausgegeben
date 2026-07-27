@@ -62,6 +62,8 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
   const [showCurrency, setShowCurrency] = useState(false);
   const [showLanguage, setShowLanguage] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [editBudget, setEditBudget] = useState(false);
   const [budgetInput, setBudgetInput] = useState('');
   const budgetInputRef = useRef<HTMLInputElement>(null);
@@ -104,13 +106,23 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
               {user.email ? <div className="settings-account__email">{user.email}</div> : null}
               <div className="settings-account__badge">{t('settingsAccountSyncEnabled')}</div>
             </div>
-            <button
-              type="button"
-              className="settings-signout-btn"
-              onClick={() => setShowSignOutConfirm(true)}
-            >
-              {t('settingsSignOut')}
-            </button>
+            <div className="settings-account__actions">
+              <button
+                type="button"
+                className="settings-signout-btn"
+                onClick={() => setShowSignOutConfirm(true)}
+              >
+                {t('settingsSignOut')}
+              </button>
+              <button
+                type="button"
+                className="settings-signout-btn settings-delete-account-btn"
+                disabled={deletingAccount}
+                onClick={() => setShowDeleteAccountConfirm(true)}
+              >
+                {t('settingsDeleteAccount')}
+              </button>
+            </div>
           </section>
         ) : null}
 
@@ -192,6 +204,30 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
           void authService.signOut();
         }}
         onCancel={() => setShowSignOutConfirm(false)}
+      />
+
+      <ConfirmDialog
+        open={showDeleteAccountConfirm}
+        title={t('settingsDeleteAccount')}
+        message={t('settingsDeleteAccountConfirm')}
+        confirmLabel={t('settingsDeleteAccount')}
+        cancelLabel={t('actionCancel')}
+        onConfirm={() => {
+          setShowDeleteAccountConfirm(false);
+          setDeletingAccount(true);
+          void authService.deleteAccount()
+            .then(() => {
+              useToastStore.getState().show(t('settingsDeleteAccountOk'));
+            })
+            .catch((err: unknown) => {
+              const msg = err instanceof Error && err.message === 'requires_recent_login'
+                ? t('settingsDeleteAccountNeedsReauth')
+                : t('settingsDeleteAccountFailed');
+              useToastStore.getState().show(msg);
+            })
+            .finally(() => setDeletingAccount(false));
+        }}
+        onCancel={() => setShowDeleteAccountConfirm(false)}
       />
 
       {showLanguage ? (

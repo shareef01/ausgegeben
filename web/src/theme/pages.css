@@ -81,6 +81,15 @@
   color: var(--color-income);
 }
 
+.settings-account__actions {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+
 .settings-section {
   display: flex;
   flex-direction: column;
@@ -3158,7 +3167,7 @@
 }
 
 .settings-signout-btn {
-  margin-left: auto;
+  margin-left: 0;
   min-height: 44px;
   padding: 10px 18px;
   border-radius: 9999px;
@@ -3176,9 +3185,23 @@
   border-color: color-mix(in srgb, var(--color-expense) 40%, transparent);
 }
 
+.settings-signout-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.settings-delete-account-btn {
+  color: var(--color-expense);
+  border-color: color-mix(in srgb, var(--color-expense) 35%, transparent);
+}
+
 @media (max-width: 520px) {
-  .settings-signout-btn {
+  .settings-account__actions {
     margin-left: 0;
+    width: 100%;
+  }
+
+  .settings-signout-btn {
     width: 100%;
   }
 }
