@@ -87,7 +87,13 @@ class AuthViewModel @Inject constructor(
             }
             return
         }
-        if (password.length < 6) {
+        if (state.selectedTab == AuthTab.SIGN_UP && password.length < 8) {
+            _uiState.update {
+                it.copy(errorMessage = appString(R.string.auth_error_password_short))
+            }
+            return
+        }
+        if (state.selectedTab == AuthTab.SIGN_IN && password.isEmpty()) {
             _uiState.update {
                 it.copy(errorMessage = appString(R.string.auth_error_password_short))
             }
