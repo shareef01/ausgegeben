@@ -5,7 +5,7 @@ Open the **Ausgegeben** Android app from this repository in Android Studio.
 ## Quick start (Windows)
 
 ```powershell
-cd C:\Users\shareef01\AndroidStudioProjects\ausgegeben
+cd C:\Users\LENOVO\AndroidStudioProjects\ausgegeben
 
 # Keep your Firebase config if you already have one
 Copy-Item app\google-services.json google-services.json.backup -ErrorAction SilentlyContinue
@@ -29,24 +29,27 @@ Copy-Item google-services.json.backup app\google-services.json -ErrorAction Sile
 2. Android app package: `com.aus.ausgegeben`
 3. Download **`google-services.json`** → save as **`app/google-services.json`**
 4. Enable **Authentication → Email/Password**
+5. Deploy `firestore.rules` (see [FIREBASE_SETUP.md](FIREBASE_SETUP.md))
 
-Without a real `google-services.json`, the build may succeed using the example placeholder, but auth and sync will not work.
+Without a real `google-services.json`, debug may compile from the example placeholder, but auth and sync will not work. **Release builds reject placeholders.**
+
+Sign-in is mandatory. Data lives in Firestore under `users/{uid}/…` with offline persistence — there is no local-only mode.
 
 ## Build from terminal
 
 ```powershell
-.\gradlew :app:assembleDebug
+$env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
+.\gradlew.bat :app:assembleDebug
 ```
 
 APK: `app\build\outputs\apk\debug\app-debug.apk`
 
 ## What you get on `main`
 
-- Polished FinTech UI (vibrant income/expense colors, glass-style cards)
-- 10 theme modes
+- Jetpack Compose UI with multiple theme modes (incl. AMOLED)
 - Email/password auth and Firestore sync with the PWA at [aus01.web.app](https://aus01.web.app)
-- Smooth tab navigation, performance-tuned lists and sync
-- Offline-first: skip sign-in on first launch if you prefer local-only storage
+- Record / Insights / Settings tabs, categories, CSV export, daily reminders
+- Offline cache after sign-in; email verification required for transactions and categories
 
 ## Troubleshooting
 
@@ -55,6 +58,7 @@ APK: `app\build\outputs\apk\debug\app-debug.apk`
 | Gradle sync failed | JDK 17, SDK 37, **File → Invalidate Caches → Restart** |
 | Auth / sync errors | Real `app/google-services.json`, Email/Password enabled in Firebase |
 | Web data not on phone | Same email/password as the PWA; **Settings → Sync now** |
-| Old muted UI | `git pull origin main` and rebuild |
+| Release build fails on google-services | Replace placeholder `YOUR_*` values with a Console download |
+| Cannot add transactions | Verify email (banner in-app) then tap **I verified** |
 
 See also [FIREBASE_SETUP.md](FIREBASE_SETUP.md).

@@ -58,9 +58,10 @@ export function App(): JSX.Element {
     return () => preferencesSync.stop();
   }, [user]);
 
-  // Seed after prefs (locale) are ready so DEFAULT_CATEGORIES(t) uses the synced language
+  // Seed after prefs (locale) are ready and email is verified — category writes
+  // require email_verified in Firestore rules.
   useEffect(() => {
-    if (!user || !preferencesReady) return;
+    if (!user || !preferencesReady || !user.emailVerified) return;
     void expenseRepository.ensureSeeded();
   }, [user, preferencesReady]);
 

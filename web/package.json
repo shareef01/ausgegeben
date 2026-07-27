@@ -10,6 +10,7 @@
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:rules": "npx firebase emulators:exec --only firestore --project demo-ausgegeben-rules \"vitest run --config vitest.rules.config.ts\"",
     "icons": "node scripts/generate-icons.mjs",
     "prebuild": "npm run icons",
     "prepare": "node ../scripts/install-git-hooks.mjs",
@@ -25,6 +26,7 @@
     "zustand": "^5.0.5"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^6.0.3",

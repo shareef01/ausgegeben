@@ -32,6 +32,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 
 data class RecordUiState(
     val data: RecordData = RecordData(),
@@ -56,9 +58,10 @@ data class RecordToolbarState(
 )
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
-class ExpenseViewModel(
+@HiltViewModel
+class ExpenseViewModel @Inject constructor(
     private val repository: AppRepository,
-    private val preferenceManager: PreferenceManager
+    private val preferenceManager: PreferenceManager,
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
@@ -158,7 +161,7 @@ class ExpenseViewModel(
     fun duplicateExpense(expense: Expense, onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
         viewModelScope.launch {
             val result = repository.duplicateExpense(expense)
-            onResult(result.isSuccess, result.exceptionOrNull()?.message)
+            onResult(result.isSuccess, result.exceptionOrNull()?.message?.takeIf { it == "EMAIL_NOT_VERIFIED" })
         }
     }
 
@@ -169,7 +172,7 @@ class ExpenseViewModel(
         }
         viewModelScope.launch {
             val result = repository.deleteExpense(expense)
-            onResult(result.isSuccess, result.exceptionOrNull()?.message)
+            onResult(result.isSuccess, result.exceptionOrNull()?.message?.takeIf { it == "EMAIL_NOT_VERIFIED" })
         }
     }
 
@@ -178,10 +181,6 @@ class ExpenseViewModel(
             val result = repository.insertExpense(expense)
             onResult(result.isSuccess)
         }
-    }
-
-    fun finalizeDeletedExpense(expense: Expense) {
-        // no-op retained for call-site compatibility
     }
 }
 private fun TransactionTypeFilter.toFilterKey(): TransactionTypeFilterKey = when (this) {

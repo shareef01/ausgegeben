@@ -14,10 +14,13 @@ import kotlinx.coroutines.flow.first
 import com.aus.ausgegeben.util.normalizeArgbInt
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 
-class CategoryViewModel(
+@HiltViewModel
+class CategoryViewModel @Inject constructor(
     application: Application,
-    private val repository: AppRepository
+    private val repository: AppRepository,
 ) : AndroidViewModel(application) {
 
     val categories: StateFlow<List<Category>> = repository.allCategories

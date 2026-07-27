@@ -34,8 +34,8 @@ export default defineConfig({
       },
     }),
   ],
-  server: { port: 5173, host: true },
-  preview: { port: 4173, host: true },
+  server: { port: 5173, host: 'localhost' },
+  preview: { port: 4173, host: 'localhost' },
   build: {
     rollupOptions: {
       output: {

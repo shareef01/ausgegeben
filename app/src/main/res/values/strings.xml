@@ -26,6 +26,11 @@
     <string name="auth_error_timeout">Request timed out. Check your internet and Firebase setup.</string>
     <string name="auth_error_weak_password">Password is too weak. Use at least 6 characters with letters and numbers.</string>
     <string name="auth_verify_required">Verify your email to add or edit transactions.</string>
+    <string name="auth_verify_banner">Verify your email to unlock transactions and categories.</string>
+    <string name="auth_verify_resend">Resend</string>
+    <string name="auth_verify_refresh">I verified</string>
+    <string name="auth_verify_dismiss">Dismiss</string>
+    <string name="auth_verify_email_sent">Verification email sent. Check your inbox.</string>
 
     <!-- Navigation -->
     <string name="nav_record">Record</string>
