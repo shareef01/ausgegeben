@@ -15,7 +15,7 @@
     <string name="auth_reset_email_sent">Password reset email sent. Check your inbox.</string>
     <string name="auth_offline_hint">Transactions sync via the cloud and keep working offline once you\'re signed in.</string>
     <string name="auth_error_email_required">Enter your email address</string>
-    <string name="auth_error_password_short">Password must be at least 6 characters</string>
+    <string name="auth_error_password_short">Password must be at least 8 characters</string>
     <string name="auth_error_password_mismatch">Passwords do not match</string>
     <string name="auth_error_user_not_found">No account found for this email</string>
     <string name="auth_error_invalid_credentials">Incorrect email or password</string>
@@ -24,7 +24,7 @@
     <string name="auth_loading_sign_in">Signing in…</string>
     <string name="auth_loading_sign_up">Creating account…</string>
     <string name="auth_error_timeout">Request timed out. Check your internet and Firebase setup.</string>
-    <string name="auth_error_weak_password">Password is too weak. Use at least 6 characters with letters and numbers.</string>
+    <string name="auth_error_weak_password">Password is too weak. Use at least 8 characters with letters and numbers.</string>
     <string name="auth_verify_required">Verify your email to add or edit transactions.</string>
     <string name="auth_verify_banner">Verify your email to unlock transactions and categories.</string>
     <string name="auth_verify_resend">Resend</string>

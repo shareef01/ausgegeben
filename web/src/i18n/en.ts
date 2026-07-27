@@ -99,7 +99,7 @@ export const en = {
   authErrorUnauthorizedDomain: 'this website is not authorized in firebase. add its domain under authentication → settings → authorized domains.',
   authErrorInvalid: 'invalid email or password.',
   authErrorEmailInUse: 'this email is already registered.',
-  authErrorWeakPassword: 'password must be at least 6 characters.',
+  authErrorWeakPassword: 'password must be at least 8 characters.',
   authShowPassword: 'show password',
   authHidePassword: 'hide password',
   authErrorGeneric: 'sign-in failed. please try again.',

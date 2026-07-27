@@ -1,5 +1,5 @@
 import { doc, onSnapshot, setDoc, type Unsubscribe } from 'firebase/firestore';
-import { getFirebaseFirestore } from '@/services/firebase';
+import { getFirebaseAuth, getFirebaseFirestore } from '@/services/firebase';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import type { AppPreferences, SyncedPreferences, ThemeMode } from '@/models/types';
 
@@ -29,6 +29,10 @@ let pushInFlight: Promise<void> | null = null;
 
 function prefsRef(uid: string) {
   return doc(getFirebaseFirestore()!, 'users', uid, PREFS_COLLECTION, PREFS_DOC);
+}
+
+function canWritePreferences(): boolean {
+  return getFirebaseAuth()?.currentUser?.emailVerified === true;
 }
 
 export function toSyncedPreferences(state: AppPreferences): SyncedPreferences {
@@ -77,6 +81,8 @@ function parseRemote(raw: Record<string, unknown>): SyncedPreferences | null {
 async function writeRemote(uid: string, prefs: SyncedPreferences): Promise<void> {
   const fs = getFirebaseFirestore();
   if (!fs) return;
+  // Rules require email_verified — keep local-only until the user confirms.
+  if (!canWritePreferences()) return;
 
   let payload = prefs;
   if (!payload.updatedAt) {
