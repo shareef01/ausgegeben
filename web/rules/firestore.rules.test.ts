@@ -128,8 +128,13 @@ describe('firestore.rules', () => {
     await assertFails(setDoc(doc(unverified, categoryPath('alice', 'c2')), validCategory));
   });
 
-  it('allows preferences write without email verification', async () => {
+  it('denies unverified owner preferences writes', async () => {
     const db = testEnv.authenticatedContext('alice', { email_verified: false }).firestore();
+    await assertFails(setDoc(doc(db, prefsPath('alice')), validPreferences));
+  });
+
+  it('allows verified owner preferences writes', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
     await assertSucceeds(setDoc(doc(db, prefsPath('alice')), validPreferences));
   });
 

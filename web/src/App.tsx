@@ -58,8 +58,8 @@ export function App(): JSX.Element {
     return () => preferencesSync.stop();
   }, [user]);
 
-  // Seed after prefs (locale) are ready and email is verified — category writes
-  // require email_verified in Firestore rules.
+  // Seed after prefs (locale) are ready and email is verified — category and
+  // preferences writes require email_verified in Firestore rules.
   useEffect(() => {
     if (!user || !preferencesReady || !user.emailVerified) return;
     void expenseRepository.ensureSeeded();

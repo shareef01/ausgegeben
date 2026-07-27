@@ -18,7 +18,7 @@ export function AuthView() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const firebaseReady = authService.isAvailable();
-  const passwordTooShort = tab === 'signup' && password.length > 0 && password.length < 6;
+  const passwordTooShort = tab === 'signup' && password.length > 0 && password.length < 8;
 
   const switchTab = (next: 'signin' | 'signup') => {
     setTab(next);
@@ -34,7 +34,7 @@ export function AuthView() {
       setError(t('authErrorEmailRequired'));
       return;
     }
-    if (tab === 'signup' && password.length < 6) {
+    if (tab === 'signup' && password.length < 8) {
       setError(t('authErrorWeakPassword'));
       return;
     }

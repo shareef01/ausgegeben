@@ -101,7 +101,7 @@ export const de: Record<TranslationKey, string> = {
   authErrorUnauthorizedDomain: 'diese website ist in firebase nicht autorisiert. domain unter authentication → einstellungen → autorisierte domains hinzufügen.',
   authErrorInvalid: 'ungültige e-mail oder passwort.',
   authErrorEmailInUse: 'diese e-mail ist bereits registriert.',
-  authErrorWeakPassword: 'passwort muss mindestens 6 zeichen haben.',
+  authErrorWeakPassword: 'passwort muss mindestens 8 zeichen haben.',
   authShowPassword: 'passwort anzeigen',
   authHidePassword: 'passwort verbergen',
   authErrorGeneric: 'anmeldung fehlgeschlagen. bitte erneut versuchen.',
