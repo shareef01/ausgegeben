@@ -166,7 +166,6 @@ fun MainApp(
     val updatedMessage = stringResource(R.string.snackbar_transaction_updated)
     val deleteFailedMessage = stringResource(R.string.snackbar_transaction_delete_failed)
     val duplicateFailedMessage = stringResource(R.string.snackbar_transaction_duplicate_failed)
-    val restoreFailedMessage = stringResource(R.string.snackbar_transaction_restore_failed)
     val verifyRequiredMessage = stringResource(R.string.auth_verify_required)
     fun showSnackbar(message: String) {
         scope.launch { snackbarHostState.showSnackbar(message) }
@@ -354,8 +353,12 @@ fun MainApp(
                                         duration = SnackbarDuration.Short
                                     )
                                     if (result == SnackbarResult.ActionPerformed) {
-                                        expenseViewModel.restoreExpense(expense) { success ->
-                                            if (!success) showSnackbar(restoreFailedMessage)
+                                        expenseViewModel.undoSoftDelete(expense)
+                                    } else {
+                                        expenseViewModel.commitSoftDelete(expense) { success, error ->
+                                            if (!success) {
+                                                showSnackbar(failureMessage(deleteFailedMessage, error))
+                                            }
                                         }
                                     }
                                 }

@@ -376,8 +376,20 @@ export const expenseRepository = {
   },
 
   async restoreExpense(expense: Expense): Promise<string> {
-    const { id: _id, ...rest } = expense;
-    return this.insertExpense(rest);
+    const userId = uid(); if (!userId) throw new Error('Not signed in');
+    requireVerifiedEmail();
+    // Preserve id so undo after a committed delete restores the same document.
+    const id = expense.id || crypto.randomUUID();
+    const payload = {
+      ...expense,
+      id,
+      amount: roundAmount(expense.amount),
+      note: expense.note.trim().slice(0, 2000),
+      updatedAt: now(),
+    };
+    await setDoc(expDoc(userId, id), payload);
+    emitDataChanged();
+    return id;
   },
 
   async sumMonthExpenses(start: number, end: number): Promise<number> {
