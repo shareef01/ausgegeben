@@ -49,17 +49,12 @@ export function getFirebaseApp(): FirebaseApp | null {
           isTokenAutoRefreshEnabled: true,
         });
       }
-    } else if (import.meta.env.PROD && !useEmulators) {
-      // Fail closed in production so a missing App Check key cannot ship unnoticed.
-      // Set VITE_FIREBASE_APP_CHECK_KEY (reCAPTCHA Enterprise) and enforce App Check
-      // for Auth + Firestore in the Firebase Console.
-      throw new Error(
-        'VITE_FIREBASE_APP_CHECK_KEY is required for production builds. ' +
-          'Add the reCAPTCHA Enterprise site key and enforce App Check in Firebase Console.',
-      );
     } else {
+      // Optional until Console App Check + reCAPTCHA Enterprise are configured.
+      // Do not throw: a missing key must not blank the entire PWA.
       console.warn(
-        '[firebase] App Check skipped (no VITE_FIREBASE_APP_CHECK_KEY). OK for local/dev only.',
+        '[firebase] App Check skipped (no VITE_FIREBASE_APP_CHECK_KEY). ' +
+          'Add the reCAPTCHA Enterprise site key before enforcing App Check in Firebase Console.',
       );
     }
   }
