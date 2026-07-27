@@ -1,10 +1,12 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app';
 import { connectAuthEmulator, getAuth, type Auth } from 'firebase/auth';
 import {
+  clearIndexedDbPersistence,
   connectFirestoreEmulator,
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager,
+  terminate,
   type Firestore,
 } from 'firebase/firestore';
 import { initializeAppCheck, ReCaptchaEnterpriseProvider, type AppCheck } from 'firebase/app-check';
@@ -95,4 +97,21 @@ export function getFirebaseFirestore(): Firestore | null {
     }
   }
   return firestore;
+}
+
+/**
+ * Drop the IndexedDB offline cache after sign-out / account deletion so the
+ * next person on a shared browser does not see prior expenses from disk.
+ * Fails quietly if another tab still holds Firestore open.
+ */
+export async function clearLocalFirestoreCache(): Promise<void> {
+  if (!firestore) return;
+  const db = firestore;
+  firestore = null;
+  try {
+    await terminate(db);
+    await clearIndexedDbPersistence(db);
+  } catch (err) {
+    console.warn('[firebase] could not clear local Firestore cache', err);
+  }
 }
