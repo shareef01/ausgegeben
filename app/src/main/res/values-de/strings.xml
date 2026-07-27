@@ -121,6 +121,11 @@
     <string name="settings_sign_out">abmelden</string>
     <string name="settings_sign_out_subtitle">sitzung auf diesem gerät beenden</string>
     <string name="settings_sign_out_confirm">abmelden? du musst dich erneut anmelden, um auf deine cloud-daten zuzugreifen.</string>
+    <string name="settings_delete_account">konto löschen</string>
+    <string name="settings_delete_account_confirm">konto und alle cloud-daten dauerhaft löschen? das kann nicht rückgängig gemacht werden.</string>
+    <string name="settings_delete_account_ok">konto gelöscht</string>
+    <string name="settings_delete_account_failed">konto konnte nicht gelöscht werden</string>
+    <string name="settings_delete_account_needs_reauth">melde dich erneut an und lösche dann dein konto</string>
     <string name="settings_signed_out">abgemeldet</string>
     <string name="settings_sync_now">jetzt synchronisieren</string>
     <string name="settings_last_synced">zuletzt synchronisiert %1$s</string>
