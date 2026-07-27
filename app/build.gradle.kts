@@ -1,3 +1,5 @@
+import java.util.Properties
+
 val googleServicesFile = file("google-services.json")
 if (!googleServicesFile.exists()) {
     val example = file("google-services.json.example")
@@ -19,6 +21,16 @@ fun isPlaceholderGoogleServices(file: java.io.File): Boolean {
         text.contains("YOUR_MOBILE_SDK_APP_ID") ||
         text.contains("YOUR_PROJECT_NUMBER")
 }
+
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { load(it) }
+    }
+}
+fun keystoreProp(name: String): String? =
+    keystoreProperties.getProperty(name)?.takeIf { it.isNotBlank() }
+        ?: System.getenv("AUSGEGEBEN_${name.uppercase()}")?.takeIf { it.isNotBlank() }
 
 plugins {
     alias(libs.plugins.android.application)
@@ -42,6 +54,25 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    val releaseStoreFile = keystoreProp("storeFile")
+    val releaseStorePassword = keystoreProp("storePassword")
+    val releaseKeyAlias = keystoreProp("keyAlias")
+    val releaseKeyPassword = keystoreProp("keyPassword")
+    val hasReleaseKeystore = listOf(
+        releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword,
+    ).all { !it.isNullOrBlank() }
+
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                storeFile = rootProject.file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -50,6 +81,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            if (hasReleaseKeystore) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
