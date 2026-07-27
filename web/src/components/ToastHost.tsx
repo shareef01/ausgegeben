@@ -14,11 +14,23 @@ export function ToastHost() {
     <div className="toast-host" role="status" aria-live="polite">
       <span>{message}</span>
       {actionLabel && onAction ? (
-        <button type="button" className="toast-host__action" onClick={() => { onAction(); dismiss(); }}>
+        <button
+          type="button"
+          className="toast-host__action"
+          onClick={() => {
+            onAction();
+            dismiss({ skipDismissCallback: true });
+          }}
+        >
           {actionLabel}
         </button>
       ) : null}
-      <button type="button" className="toast-host__dismiss" aria-label={t('actionDismiss')} onClick={dismiss}>
+      <button
+        type="button"
+        className="toast-host__dismiss"
+        aria-label={t('actionDismiss')}
+        onClick={() => dismiss()}
+      >
         &times;
       </button>
     </div>

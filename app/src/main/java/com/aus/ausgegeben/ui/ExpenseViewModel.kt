@@ -68,27 +68,34 @@ class ExpenseViewModel @Inject constructor(
     private val _debouncedSearch = _searchQuery.debounce(250)
     private val _typeFilter = MutableStateFlow(TransactionTypeFilter.ALL)
     private val _listPeriod = MutableStateFlow(RecordListPeriod.THIS_MONTH.key)
+    /** Hidden until snackbar undo expires — Firestore delete runs in [commitSoftDelete]. */
+    private val _softDeletedIds = MutableStateFlow<Set<String>>(emptySet())
 
     // 1. Base data flows
     private val currencyFlow = preferenceManager.currencyFlow.distinctUntilChanged()
     private val budgetFlow = preferenceManager.monthlyBudgetFlow.distinctUntilChanged()
     private val categoriesFlow = repository.allCategories.distinctUntilChanged()
 
+    private fun Flow<List<Expense>>.excludingSoftDeleted(): Flow<List<Expense>> =
+        combine(this, _softDeletedIds) { expenses, hidden ->
+            if (hidden.isEmpty()) expenses else expenses.filter { it.id !in hidden }
+        }
+
     // 2. Filtered expense flows
     private val monthExpensesFlow = flowOf(AnalyticsPeriod.THIS_MONTH.dateRangeMillis())
         .flatMapLatest { range ->
             if (range == null) repository.allExpenses else repository.getExpensesInRange(range.first, range.second)
-        }.distinctUntilChanged()
+        }.excludingSoftDeleted().distinctUntilChanged()
 
     private val weekExpensesFlow = flowOf(recentWeekRangeMillis())
         .flatMapLatest { (start, end) ->
             repository.getExpensesInRange(start, end)
-        }.distinctUntilChanged()
+        }.excludingSoftDeleted().distinctUntilChanged()
 
     private val listExpensesFlow = _listPeriod.flatMapLatest { periodKey ->
         val range = recordListDateRangeMillis(periodKey)
         if (range == null) repository.allExpenses else repository.getExpensesInRange(range.first, range.second)
-    }.distinctUntilChanged()
+    }.excludingSoftDeleted().distinctUntilChanged()
 
     // 3. Derived Insights and UI State components
     private val insightsFlow = combine(
@@ -138,7 +145,7 @@ class ExpenseViewModel @Inject constructor(
     // Firestore query is scoped to period + type only; search matches client-side
     // (note, amount, transaction type, category name), same fields the web client filters on.
     val pagedExpenses: Flow<List<Expense>> = combine(
-        queriedExpensesFlow,
+        queriedExpensesFlow.excludingSoftDeleted(),
         _debouncedSearch,
         categoriesFlow,
     ) { expenses, query, categories ->
@@ -165,21 +172,28 @@ class ExpenseViewModel @Inject constructor(
         }
     }
 
-    fun deleteExpense(expense: Expense, onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
+    /** Hide locally; call [commitSoftDelete] after the undo window closes. */
+    fun softDelete(expense: Expense): Boolean {
+        if (expense.id.isBlank()) return false
+        _softDeletedIds.value = _softDeletedIds.value + expense.id
+        return true
+    }
+
+    fun undoSoftDelete(expense: Expense) {
+        if (expense.id.isBlank()) return
+        _softDeletedIds.value = _softDeletedIds.value - expense.id
+    }
+
+    fun commitSoftDelete(expense: Expense, onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
         if (expense.id.isBlank()) {
             onResult(false, null)
             return
         }
         viewModelScope.launch {
             val result = repository.deleteExpense(expense)
+            // Always unhide: success means gone from Firestore; failure shows the row again.
+            _softDeletedIds.value = _softDeletedIds.value - expense.id
             onResult(result.isSuccess, result.exceptionOrNull()?.message?.takeIf { it == "EMAIL_NOT_VERIFIED" })
-        }
-    }
-
-    fun restoreExpense(expense: Expense, onResult: (Boolean) -> Unit = {}) {
-        viewModelScope.launch {
-            val result = repository.insertExpense(expense)
-            onResult(result.isSuccess)
         }
     }
 }
