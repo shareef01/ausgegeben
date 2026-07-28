@@ -26,6 +26,7 @@ import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import packageJson from '../../package.json';
+import { useCssProps } from '@/utils/cssVars';
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 type IconTint = 'accent' | 'income' | 'expense' | 'neutral';
@@ -404,10 +405,15 @@ function ThemeSwatch({ mode }: { mode: ThemeMode }) {
   return (
     <span className="theme-swatch" aria-hidden>
       {colors.map((color, i) => (
-        <span key={i} className="theme-swatch__band" style={{ background: color }} />
+        <SwatchBand key={i} color={color} />
       ))}
     </span>
   );
+}
+
+function SwatchBand({ color }: { color: string }) {
+  const ref = useCssProps<HTMLSpanElement>({ '--swatch-color': color });
+  return <span ref={ref} className="theme-swatch__band" />;
 }
 
 function Modal({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {

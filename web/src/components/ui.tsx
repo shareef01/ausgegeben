@@ -3,6 +3,7 @@ import type { ComponentType, ReactNode } from 'react';
 import type { LucideProps } from 'lucide-react';
 import { useTranslation } from '@/i18n';
 import { formatAmount } from '@/utils/currency';
+import { useCssProps } from '@/utils/cssVars';
 
 /**
  * Brand-aligned title word — first letter in income green (like “aus”),
@@ -48,10 +49,10 @@ export function PageTitle({
   );
 }
 
-export function MoneyText({ amount, currency, className = 'money--body', color, style }: { amount: number; currency: string; className?: string; color?: string; style?: import('react').CSSProperties }) {
+export function MoneyText({ amount, currency, className = 'money--body' }: { amount: number; currency: string; className?: string }) {
   const { locale } = useTranslation();
   const formatted = formatAmount(amount, currency, true, locale);
-  return <span className={`money tabular-nums ${className}`} style={{ ...style, ...(color ? { color } : {}) }}>{formatted}</span>;
+  return <span className={`money tabular-nums ${className}`}>{formatted}</span>;
 }
 
 export function EmptyState({ title, subtitle, hint, action }: { title: string; subtitle: string; hint?: string; action?: ReactNode }) {
@@ -96,20 +97,14 @@ export function LoadingListSkeleton({ rows = 5 }: { rows?: number }) {
 }
 
 export function CategoryIconTile({ iconName, color, size = 36 }: { iconName: string; color: string; size?: number }) {
+  const ref = useCssProps<HTMLDivElement>({
+    '--tile-size': `${size}px`,
+    '--tile-color': color,
+  });
   return (
     <div
+      ref={ref}
       className="category-icon-tile transition-all duration-200 active:scale-90 hover:brightness-110"
-      style={{
-        width: size,
-        height: size,
-        borderRadius: '50%',
-        display: 'grid',
-        placeItems: 'center',
-        background: `color-mix(in srgb, ${color} 14%, transparent)`,
-        border: `1px solid color-mix(in srgb, ${color} 24%, transparent)`,
-        color: color,
-        boxShadow: `0 4px 12px color-mix(in srgb, ${color} 8%, transparent)`
-      }}
     >
       <CategoryLucideIcon iconName={iconName} width={size * 0.55} height={size * 0.55} />
     </div>

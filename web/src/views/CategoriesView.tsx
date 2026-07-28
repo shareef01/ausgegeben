@@ -12,6 +12,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { IosSegmentedControl } from '@/components/IosSegmentedControl';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { useCssProps } from '@/utils/cssVars';
 
 interface EditorState {
   /** null id = creating a new category */
@@ -188,17 +189,15 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
                 {CATEGORY_ICON_KEYS.map((key) => {
                   const selected = editor.iconName === key;
                   return (
-                    <button
+                    <EditorIconButton
                       key={key}
-                      type="button"
-                      className={`category-editor__icon${selected ? ' category-editor__icon--selected' : ''}`}
-                      style={selected ? { color: colorIntToHex(editor.colorInt), borderColor: colorIntToHex(editor.colorInt) } : undefined}
+                      selected={selected}
+                      colorInt={editor.colorInt}
                       onClick={() => setEditor({ ...editor, iconName: key })}
-                      aria-pressed={selected}
-                      aria-label={categoryIconLabel(key, t)}
+                      label={categoryIconLabel(key, t)}
                     >
                       <CategoryLucideIcon iconName={key} size={19} />
-                    </button>
+                    </EditorIconButton>
                   );
                 })}
               </div>
@@ -209,19 +208,14 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
               <div className="category-editor__colors" role="group" aria-labelledby="category-color-label">
                 {CATEGORY_COLOR_INTS.map((colorInt, i) => {
                   const selected = colorIntsMatch(editor.colorInt, colorInt);
-                  const hex = colorIntToHex(colorInt);
                   return (
-                    <button
+                    <ColorSwatch
                       key={colorInt}
-                      type="button"
-                      className={`category-editor__swatch${selected ? ' category-editor__swatch--selected' : ''}`}
-                      style={{ background: hex }}
+                      color={colorIntToHex(colorInt)}
+                      selected={selected}
+                      label={`${t('categoryColorLabel')} ${i + 1}`}
                       onClick={() => setEditor({ ...editor, colorInt })}
-                      aria-pressed={selected}
-                      aria-label={`${t('categoryColorLabel')} ${i + 1}`}
-                    >
-                      {selected ? <IconCheck width={14} height={14} strokeWidth={3} aria-hidden /> : null}
-                    </button>
+                    />
                   );
                 })}
               </div>
@@ -325,5 +319,61 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
         onCancel={() => setShowDedupeConfirm(false)}
       />
     </div>
+  );
+}
+
+function EditorIconButton({
+  selected,
+  colorInt,
+  onClick,
+  label,
+  children,
+}: {
+  selected: boolean;
+  colorInt: number;
+  onClick: () => void;
+  label: string;
+  children: React.ReactNode;
+}) {
+  const ref = useCssProps<HTMLButtonElement>(
+    selected ? { '--editor-accent': colorIntToHex(colorInt) } : {},
+  );
+  return (
+    <button
+      ref={ref}
+      type="button"
+      className={`category-editor__icon${selected ? ' category-editor__icon--selected' : ''}`}
+      onClick={onClick}
+      aria-pressed={selected}
+      aria-label={label}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ColorSwatch({
+  color,
+  selected,
+  label,
+  onClick,
+}: {
+  color: string;
+  selected: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  const ref = useCssProps<HTMLButtonElement>({ '--swatch-color': color });
+  return (
+    <button
+      ref={ref}
+      type="button"
+      className={`category-editor__swatch${selected ? ' category-editor__swatch--selected' : ''}`}
+      onClick={onClick}
+      aria-pressed={selected}
+      aria-label={label}
+    >
+      {selected ? <IconCheck width={14} height={14} strokeWidth={3} aria-hidden /> : null}
+    </button>
   );
 }

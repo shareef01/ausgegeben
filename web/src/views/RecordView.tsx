@@ -271,11 +271,11 @@ const TransactionRow = memo(({ expense, category, currency }: {
   const isIncome = expense.transactionType === 'income';
   const isTransfer = expense.transactionType === 'transfer';
 
-  const amountColor = isIncome
-    ? 'var(--color-income)'
+  const amountMod = isIncome
+    ? 'transaction-row__amount--income'
     : isTransfer
-      ? 'var(--color-transfer)'
-      : 'var(--color-on-background)';
+      ? 'transaction-row__amount--transfer'
+      : 'transaction-row__amount--expense';
   const prefix = isIncome ? '+' : expense.transactionType === 'expense' ? '-' : '';
 
   const note = expense.note?.trim();
@@ -287,12 +287,8 @@ const TransactionRow = memo(({ expense, category, currency }: {
         {category ? (
           <CategoryIconTile iconName={category.iconName} color={colorIntToHex(category.colorInt)} size={40} />
         ) : (
-          <span
-            className="flex items-center justify-center w-10 h-10 rounded-full"
-            style={{ background: 'color-mix(in srgb, var(--color-on-surface) 8%, transparent)' }}
-            aria-hidden
-          >
-            <span className="w-5 h-5 rounded-full" style={{ background: 'color-mix(in srgb, var(--color-on-surface) 20%, transparent)' }} />
+          <span className="transaction-row__icon-fallback" aria-hidden>
+            <span className="transaction-row__icon-fallback-dot" />
           </span>
         )}
         {!isTransfer && (
@@ -314,7 +310,7 @@ const TransactionRow = memo(({ expense, category, currency }: {
         {note && <div className="transaction-row__sub">{note}</div>}
       </div>
 
-      <div className="transaction-row__amount" style={{ color: amountColor }}>
+      <div className={`transaction-row__amount ${amountMod}`}>
         {prefix}{formatAmount(expense.amount, currency)}
       </div>
     </div>
