@@ -5,6 +5,7 @@ import { usePreferencesStore } from '@/services/preferencesStore';
 import { useToastStore } from '@/services/toastStore';
 import { useTranslation, getLocale, localeTag } from '@/i18n';
 import { thisMonthRange, analyticsDateRangeMillis } from '@/utils/periodUtils';
+import { computeDayTotals } from '@/utils/analytics';
 
 const SEARCH_DEBOUNCE_MS = 300;
 const DATA_CHANGED_EVENT = 'ausgegeben:data-changed';
@@ -189,8 +190,13 @@ export function useRecordViewModel() {
     [monthExpenses],
   );
 
+  const summaryExpenses = useMemo(
+    () => periodExpenses.filter((e) => !softDeletedIds.has(e.id)),
+    [periodExpenses, softDeletedIds],
+  );
+
   const filteredExpenses = useMemo(() => {
-    let list = periodExpenses.filter((e) => !softDeletedIds.has(e.id));
+    let list = summaryExpenses;
 
     if (typeFilter !== 'all') {
       list = list.filter(e => e.transactionType === typeFilter);
@@ -209,10 +215,23 @@ export function useRecordViewModel() {
     }
 
     return list;
-  }, [periodExpenses, softDeletedIds, typeFilter, debouncedSearch, categories]);
+  }, [summaryExpenses, typeFilter, debouncedSearch, categories]);
+
+  const dayTotalsByLabel = useMemo(() => {
+    const totals = computeDayTotals(summaryExpenses);
+    const out: Record<string, [number, number]> = {};
+    for (const [key, value] of Object.entries(totals)) {
+      out[key] = [
+        Math.round(value.income * 100) / 100,
+        Math.round(value.expense * 100) / 100,
+      ];
+    }
+    return out;
+  }, [summaryExpenses]);
 
   const uiState: RecordUiState = useMemo(() => ({
     expenses: filteredExpenses,
+    summaryExpenses,
     categories,
     searchQuery,
     typeFilter,
@@ -220,11 +239,11 @@ export function useRecordViewModel() {
     insights: {},
     monthlyBudget,
     monthExpenses,
-    dayTotalsByLabel: {},
+    dayTotalsByLabel,
     loading,
     loadError,
     dataTruncated,
-  }), [filteredExpenses, categories, searchQuery, typeFilter, listPeriod, monthlyBudget, monthExpenses, loading, loadError, dataTruncated]);
+  }), [filteredExpenses, summaryExpenses, categories, searchQuery, typeFilter, listPeriod, monthlyBudget, monthExpenses, dayTotalsByLabel, loading, loadError, dataTruncated]);
 
   const requestDelete = useCallback(async (id: string) => {
     if (!id || softDeletedIdsRef.current.has(id)) return;

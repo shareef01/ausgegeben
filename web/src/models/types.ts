@@ -37,7 +37,10 @@ export interface CashFlowPoint {
 }
 
 export interface RecordUiState {
+  /** Search/type-filtered rows for the transaction list. */
   expenses: Expense[];
+  /** Period-scoped expenses (soft-deletes excluded) for balance / period summary. */
+  summaryExpenses: Expense[];
   categories: Category[];
   searchQuery: string;
   typeFilter: TransactionTypeFilter;
@@ -45,6 +48,7 @@ export interface RecordUiState {
   insights: Record<string, never>;
   monthlyBudget: number | null;
   monthExpenses: Expense[];
+  /** Day-key → [income, expense] from the full period (not search/type-filtered). */
   dayTotalsByLabel: Record<string, [number, number]>;
   loading: boolean;
   loadError?: boolean;
