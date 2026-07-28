@@ -14,6 +14,8 @@ import { useTranslation } from '@/i18n';
 import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { preferencesSync } from '@/services/preferencesSync';
 
 type Tab = 'record' | 'insights' | 'settings';
 type TxnOverlay = null | { type: 'add' } | { type: 'edit'; expenseId: string };
@@ -22,6 +24,7 @@ export function MainShell() {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const isDesktop = useMediaQuery('(min-width: 768px)');
+  const isOnline = useOnlineStatus();
   const [tab, setTab] = useState<Tab>('record');
   const [txnOverlay, setTxnOverlay] = useState<TxnOverlay>(null);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
@@ -30,7 +33,7 @@ export function MainShell() {
   const [verifyBusy, setVerifyBusy] = useState(false);
   const [verifyInfo, setVerifyInfo] = useState<string | null>(null);
 
-  const showVerifyBanner = Boolean(user && !user.emailVerified && !verifyDismissed);
+  const showVerifyBanner = Boolean(isOnline && user && !user.emailVerified && !verifyDismissed);
 
   const selectTab = (next: Tab) => {
     setVisitedTabs((prev) => new Set(prev).add(next));
@@ -105,6 +108,19 @@ export function MainShell() {
             <DesktopHeaderNav tab={tab} navItems={navItems} onSelect={selectTab} label={t('navMain')} />
           ) : null}
         </header>
+
+        {!isOnline ? (
+          <div className="offline-banner" role="status" aria-live="polite">
+            <p className="offline-banner__text">{t('settingsSyncErrorNetwork')}</p>
+            <button
+              type="button"
+              className="offline-banner__retry"
+              onClick={() => preferencesSync.retry()}
+            >
+              {t('settingsSyncRetry')}
+            </button>
+          </div>
+        ) : null}
 
         {showVerifyBanner ? (
           <div className="verify-banner" role="status" aria-live="polite">
