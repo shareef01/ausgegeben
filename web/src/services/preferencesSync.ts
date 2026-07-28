@@ -1,7 +1,12 @@
 import { doc, onSnapshot, setDoc, type Unsubscribe } from 'firebase/firestore';
 import { getFirebaseAuth, getFirebaseFirestore } from '@/services/firebase';
 import { usePreferencesStore } from '@/services/preferencesStore';
+import { useAuthStore } from '@/services/authStore';
 import type { AppPreferences, SyncedPreferences, ThemeMode } from '@/models/types';
+
+export const PREFS_SYNC_ERROR_PERMISSION = 'permission';
+export const PREFS_SYNC_ERROR_NETWORK = 'network';
+export const PREFS_SYNC_ERROR_GENERIC = 'generic';
 
 const PREFS_COLLECTION = 'settings';
 const PREFS_DOC = 'preferences';
@@ -100,8 +105,12 @@ async function writeRemote(uid: string, prefs: SyncedPreferences): Promise<void>
 
   lastWrittenAt = payload.updatedAt;
   pushInFlight = setDoc(prefsRef(uid), payload, { merge: true })
+    .then(() => {
+      useAuthStore.getState().setSyncError(null);
+    })
     .catch((err: unknown) => {
       console.warn('[prefs] failed to write preferences', err);
+      useAuthStore.getState().setSyncError(classifyPrefsError(err));
     })
     .finally(() => {
       pushInFlight = null;
@@ -116,11 +125,19 @@ function applyRemote(remote: SyncedPreferences): void {
   suppressPush = false;
 }
 
+function classifyPrefsError(err: unknown): string {
+  const code = (err as { code?: string })?.code ?? '';
+  if (code === 'permission-denied') return PREFS_SYNC_ERROR_PERMISSION;
+  if (code === 'unavailable' || code === 'deadline-exceeded') return PREFS_SYNC_ERROR_NETWORK;
+  return PREFS_SYNC_ERROR_GENERIC;
+}
+
 export const preferencesSync = {
   start(uid: string): void {
     if (activeUid === uid && snapUnsub) return;
     this.stop();
     activeUid = uid;
+    useAuthStore.getState().setSyncError(null);
     usePreferencesStore.setState({ preferencesReady: false });
     if (!getFirebaseFirestore()) {
       usePreferencesStore.getState().markPreferencesReady();
@@ -130,6 +147,7 @@ export const preferencesSync = {
     snapUnsub = onSnapshot(
       prefsRef(uid),
       (snap) => {
+        useAuthStore.getState().setSyncError(null);
         const local = usePreferencesStore.getState();
         const localAt = local.preferencesUpdatedAt;
 
@@ -159,6 +177,7 @@ export const preferencesSync = {
       },
       (err) => {
         console.warn('[prefs] sync listener error', err);
+        useAuthStore.getState().setSyncError(classifyPrefsError(err));
         usePreferencesStore.getState().markPreferencesReady();
       },
     );
@@ -169,6 +188,14 @@ export const preferencesSync = {
       if (state.preferencesUpdatedAt <= lastWrittenAt) return;
       void writeRemote(activeUid, toSyncedPreferences(state));
     });
+  },
+
+  retry(): void {
+    const uid = activeUid ?? useAuthStore.getState().user?.uid;
+    if (!uid) return;
+    useAuthStore.getState().setSyncError(null);
+    this.stop();
+    this.start(uid);
   },
 
   stop(): void {
