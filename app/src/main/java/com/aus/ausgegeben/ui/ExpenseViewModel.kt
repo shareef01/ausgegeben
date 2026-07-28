@@ -41,6 +41,8 @@ data class RecordUiState(
     val insights: SpendingInsights = SpendingInsights(),
     val dayTotalsByDay: Map<Long, Pair<Double, Double>> = emptyMap(),
     val isLoading: Boolean = true,
+    /** True when all-time list hit the soft row cap (latest N only). */
+    val dataTruncated: Boolean = false,
 )
 
 data class RecordData(
@@ -124,7 +126,9 @@ class ExpenseViewModel @Inject constructor(
         insightsFlow,
         dayTotalsFlow
     ) { data, toolbar, insights, totals ->
-        RecordUiState(data, toolbar, insights, totals, isLoading = false)
+        val truncated = toolbar.listPeriod == RecordListPeriod.ALL_TIME.key &&
+            data.headerExpenses.size >= AppRepository.ALL_EXPENSES_SOFT_CAP.toInt()
+        RecordUiState(data, toolbar, insights, totals, isLoading = false, dataTruncated = truncated)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),

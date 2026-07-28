@@ -180,7 +180,14 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
                 </button>
               }
             />
-          ) : uiState.expenses.length === 0 ? (
+          ) : (
+            <>
+              {uiState.dataTruncated ? (
+                <p className="data-truncated-notice" role="status">
+                  {t('dataTruncatedNotice')}
+                </p>
+              ) : null}
+              {uiState.expenses.length === 0 ? (
             filtersActive ? (
               <EmptyState
                 title={t('recordNoMatchesTitle')}
@@ -244,6 +251,8 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
                 </section>
               ))}
             </div>
+          )}
+            </>
           )}
         </div>
 

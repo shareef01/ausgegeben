@@ -96,7 +96,9 @@
     <string name="settings_export_csv">Export to CSV</string>
     <string name="settings_export_subtitle">Share spreadsheet</string>
     <string name="settings_export_ok">CSV ready to share</string>
+    <string name="settings_export_truncated">CSV ready (latest 5000 rows)</string>
     <string name="settings_export_failed">Export failed</string>
+    <string name="data_truncated_notice">Showing the latest 5,000 transactions — older rows are hidden</string>
     <string name="settings_version">Version</string>
     <string name="settings_support">Contact Support</string>
     <string name="settings_no_email_app">No email app found</string>

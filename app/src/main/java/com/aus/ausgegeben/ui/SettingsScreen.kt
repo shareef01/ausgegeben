@@ -282,11 +282,15 @@ fun SettingsScreen(
                         subtitle = stringResource(R.string.settings_export_subtitle).lowercase(),
                         onClick = {
                             scope.launch {
-                                val ok = ExportUtils.exportCsv(context, repository)
-                                if (ok) haptics.success() else haptics.light()
+                                val result = ExportUtils.exportCsv(context, repository)
+                                if (result.success) haptics.success() else haptics.light()
                                 onShowMessage(
                                     context.getString(
-                                        if (ok) R.string.settings_export_ok else R.string.settings_export_failed,
+                                        when {
+                                            !result.success -> R.string.settings_export_failed
+                                            result.truncated -> R.string.settings_export_truncated
+                                            else -> R.string.settings_export_ok
+                                        },
                                     ),
                                 )
                             }
