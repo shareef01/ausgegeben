@@ -5,13 +5,13 @@ import android.content.res.Configuration
 import android.os.LocaleList
 import android.util.Log
 import com.aus.ausgegeben.R
+import com.aus.ausgegeben.data.FirestoreClient
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.data.auth.AuthRepository
 import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.util.dateRangeMillis
 import com.google.firebase.firestore.DocumentSnapshot
-import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -44,8 +44,9 @@ class AppRepository @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val authRepository: AuthRepository,
     private val preferenceManager: PreferenceManager,
-    private val firestore: FirebaseFirestore,
+    private val firestoreClient: FirestoreClient,
 ) {
+    private val firestore get() = firestoreClient.get()
     companion object {
         const val UNCATEGORIZED_ID = "0"
         private const val TAG = "AppRepository"

@@ -41,7 +41,7 @@ This builds the PWA and deploys hosting (`aus01`) + Firestore rules from the rep
 - Sign-in is **required** on both clients
 - Both clients use Firestore offline persistence (Android disk cache; web IndexedDB)
 - Expense, category, and preferences writes require a **verified email** (local prefs still work before verification)
-- **Shared devices:** web sign-out / account deletion clears the IndexedDB Firestore cache (best-effort; close other tabs first). Android clears account-scoped DataStore prefs (budget, currency, sync markers) on sign-out/delete; the Firestore disk cache still requires **Settings → Apps → ausgegeben → Clear storage** (or uninstall) before handing the phone to someone else.
+- **Shared devices:** web sign-out / account deletion clears the IndexedDB Firestore cache (best-effort; close other tabs first). Android clears account-scoped DataStore prefs **and** the Firestore offline disk cache on sign-out/delete.
 
 ## App Check
 
