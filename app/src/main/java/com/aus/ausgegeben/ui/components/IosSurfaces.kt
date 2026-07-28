@@ -364,7 +364,38 @@ fun AppDatePickerSheet(
     onDismiss: () -> Unit,
     onConfirm: (Long) -> Unit,
 ) {
-    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialSelectedDateMillis)
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = initialSelectedDateMillis,
+        yearRange = IntRange(2015, 2100),
+    )
+    val scheme = MaterialTheme.colorScheme
+    val onSelected = contrastColorOn(scheme.primary)
+    val pickerColors = DatePickerDefaults.colors(
+        containerColor = Color.Transparent,
+        titleContentColor = scheme.onSurface,
+        headlineContentColor = scheme.onSurface,
+        weekdayContentColor = readableSecondaryColor(),
+        subheadContentColor = readableSecondaryColor(),
+        navigationContentColor = scheme.onSurface,
+        yearContentColor = scheme.onSurface,
+        disabledYearContentColor = scheme.onSurface.copy(alpha = 0.38f),
+        currentYearContentColor = scheme.primary,
+        selectedYearContentColor = onSelected,
+        disabledSelectedYearContentColor = onSelected.copy(alpha = 0.38f),
+        selectedYearContainerColor = scheme.primary,
+        disabledSelectedYearContainerColor = scheme.onSurface.copy(alpha = 0.12f),
+        dayContentColor = scheme.onSurface,
+        disabledDayContentColor = scheme.onSurface.copy(alpha = 0.38f),
+        selectedDayContentColor = onSelected,
+        disabledSelectedDayContentColor = onSelected.copy(alpha = 0.38f),
+        selectedDayContainerColor = scheme.primary,
+        disabledSelectedDayContainerColor = scheme.onSurface.copy(alpha = 0.12f),
+        todayContentColor = scheme.primary,
+        todayDateBorderColor = scheme.primary,
+        dayInSelectionRangeContainerColor = scheme.primary.copy(alpha = 0.16f),
+        dayInSelectionRangeContentColor = scheme.onSurface,
+        dividerColor = appDividerColor(),
+    )
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -377,35 +408,47 @@ fun AppDatePickerSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(horizontal = 24.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
                 .padding(bottom = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             SheetHeader(
                 title = title,
-                bottomSpacing = 8.dp,
+                bottomSpacing = 12.dp,
             )
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(300.dp)
                     .clip(RoundedCornerShape(AppRadius.card))
-                    .background(MaterialTheme.colorScheme.surface)
+                    .background(appElevatedSurface())
+                    .border(0.5.dp, appBorderColor().copy(alpha = 0.55f), RoundedCornerShape(AppRadius.card))
+                    .padding(bottom = 8.dp),
             ) {
                 DatePicker(
                     state = datePickerState,
-                    showModeToggle = false,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = pickerColors,
+                    showModeToggle = true,
                     title = null,
-                    headline = null,
+                    headline = {
+                        DatePickerDefaults.DatePickerHeadline(
+                            selectedDateMillis = datePickerState.selectedDateMillis,
+                            displayMode = datePickerState.displayMode,
+                            dateFormatter = remember { DatePickerDefaults.dateFormatter() },
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                        )
+                    },
                 )
             }
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
             SheetConfirmActions(
                 onDismiss = onDismiss,
                 onConfirm = {
                     datePickerState.selectedDateMillis?.let { onConfirm(it) }
                 },
                 confirmLabel = stringResource(R.string.action_ok),
+                confirmEnabled = datePickerState.selectedDateMillis != null,
             )
         }
     }

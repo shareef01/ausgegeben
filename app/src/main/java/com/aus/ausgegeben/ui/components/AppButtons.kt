@@ -30,7 +30,7 @@ fun AppButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     containerColor: Color = MaterialTheme.colorScheme.onBackground,
-    contentColor: Color = MaterialTheme.colorScheme.background,
+    contentColor: Color = contrastColorOn(containerColor),
     content: @Composable RowScope.() -> Unit
 ) {
     val backgroundColor = if (enabled) containerColor else MaterialTheme.colorScheme.surfaceVariant
