@@ -44,6 +44,8 @@ export const en = {
   recordDeleted: 'transaction deleted',
   recordDuplicated: 'duplicated for today',
   recordDeleteConfirm: 'delete this transaction?',
+  transactionSaved: 'transaction saved',
+  transactionUpdated: 'transaction updated',
   errorDeleteFailed: 'Failed to delete transaction. Please try again.',
   errorDuplicateFailed: 'Failed to duplicate transaction.',
   categoryDeleteLinked: 'This category has {count} linked transaction(s). Deleting it will move them to Uncategorized. Delete anyway?',

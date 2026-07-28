@@ -46,6 +46,8 @@ export const de: Record<TranslationKey, string> = {
   recordDeleted: 'transaktion gelöscht',
   recordDuplicated: 'für heute dupliziert',
   recordDeleteConfirm: 'diese Transaktion löschen?',
+  transactionSaved: 'transaktion gespeichert',
+  transactionUpdated: 'transaktion aktualisiert',
   errorDeleteFailed: 'Transaktion konnte nicht gelöscht werden. Bitte versuche es erneut.',
   errorDuplicateFailed: 'Transaktion konnte nicht dupliziert werden.',
   categoryDeleteLinked: 'Diese Kategorie hat {count} verknüpfte Transaktion(en). Beim Löschen werden sie nach „Unkategorisiert" verschoben. Trotzdem löschen?',
