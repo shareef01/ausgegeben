@@ -25,6 +25,7 @@ export function useRecordViewModel() {
   const [monthBudgetExpenses, setMonthBudgetExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [dataTruncated, setDataTruncated] = useState(false);
   /** Ids hidden pending snackbar undo — Firestore delete runs only on dismiss/timeout. */
   const [softDeletedIds, setSoftDeletedIds] = useState<Set<string>>(() => new Set());
   const softDeletedIdsRef = useRef(softDeletedIds);
@@ -49,6 +50,7 @@ export function useRecordViewModel() {
   useEffect(() => {
     setLoading(true);
     setLoadError(false);
+    setDataTruncated(false);
     let catsReady = false;
     let listReady = false;
     let budgetReady = viewingCurrentMonth;
@@ -68,6 +70,7 @@ export function useRecordViewModel() {
     if (listRange) {
       unsubList = expenseRepository.onExpensesInRange(listRange[0], listRange[1], (exps, error) => {
         setPeriodExpenses(exps);
+        setDataTruncated(false);
         setLoadError(Boolean(error));
         if (viewingCurrentMonth) setMonthBudgetExpenses(exps);
         listReady = true;
@@ -76,14 +79,16 @@ export function useRecordViewModel() {
     } else {
       // all_time: one-shot fetch (no perpetual full-collection listener)
       const loadAll = () => {
-        void expenseRepository.getAllExpensesCapped(5_000).then(({ items: exps }) => {
+        void expenseRepository.getAllExpensesCapped(5_000).then(({ items: exps, truncated }) => {
           setPeriodExpenses(exps);
+          setDataTruncated(truncated);
           setLoadError(false);
           listReady = true;
           tryReady();
         }).catch((err) => {
           console.error('[useRecordViewModel] getAllExpenses failed', err);
           setPeriodExpenses([]);
+          setDataTruncated(false);
           setLoadError(true);
           listReady = true;
           tryReady();
@@ -92,8 +97,9 @@ export function useRecordViewModel() {
       loadAll();
 
       const onDataChanged = () => {
-        void expenseRepository.getAllExpensesCapped(5_000).then(({ items: exps }) => {
+        void expenseRepository.getAllExpensesCapped(5_000).then(({ items: exps, truncated }) => {
           setPeriodExpenses(exps);
+          setDataTruncated(truncated);
           setLoadError(false);
         }).catch((err) => {
           console.error('[useRecordViewModel] getAllExpenses refresh failed', err);
@@ -130,9 +136,12 @@ export function useRecordViewModel() {
       if (listRange) {
         const exps = await expenseRepository.getExpensesInRange(listRange[0], listRange[1]);
         setPeriodExpenses(exps);
+        setDataTruncated(false);
         if (viewingCurrentMonth) setMonthBudgetExpenses(exps);
       } else {
-        setPeriodExpenses((await expenseRepository.getAllExpensesCapped(5_000)).items);
+        const { items, truncated } = await expenseRepository.getAllExpensesCapped(5_000);
+        setPeriodExpenses(items);
+        setDataTruncated(truncated);
       }
       if (!viewingCurrentMonth) {
         const [start, end] = thisMonthRange();
@@ -193,7 +202,8 @@ export function useRecordViewModel() {
     dayTotalsByLabel: {},
     loading,
     loadError,
-  }), [filteredExpenses, categories, searchQuery, typeFilter, listPeriod, monthlyBudget, monthExpenses, loading, loadError]);
+    dataTruncated,
+  }), [filteredExpenses, categories, searchQuery, typeFilter, listPeriod, monthlyBudget, monthExpenses, loading, loadError, dataTruncated]);
 
   const requestDelete = useCallback(async (id: string) => {
     if (!id || softDeletedIdsRef.current.has(id)) return;
