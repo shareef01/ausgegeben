@@ -132,7 +132,7 @@ export function AddTransactionView({
           </button>
         </div>
 
-        <div className="add-txn__body">
+        <div className="add-txn__body" {...(vm.loadFailed ? { inert: true } : {})}>
           <IosSegmentedControl
             aria-label={t('addTransaction')}
             options={(['expense', 'income', 'transfer'] as TransactionType[]).map((type) => ({
@@ -155,6 +155,7 @@ export function AddTransactionView({
                 inputMode="decimal"
                 value={vm.form.amountInput}
                 onChange={(e) => vm.setAmountInput(e.target.value)}
+                disabled={vm.loadFailed}
               />
             </div>
           </div>
@@ -166,6 +167,7 @@ export function AddTransactionView({
               type="date"
               className="field__input"
               value={toDateInputValue(vm.form.dateMillis)}
+              disabled={vm.loadFailed}
               onChange={(e) => {
                 if (!e.target.value) return;
                 vm.setForm((f) => ({ ...f, dateMillis: fromDateInputValue(e.target.value) }));
@@ -229,19 +231,38 @@ export function AddTransactionView({
         </div>
 
         <div className="add-txn__footer">
-          <button
-            type="button"
-            className="btn btn-primary add-txn__save"
-            onClick={() => void handleSave()}
-            disabled={vm.saving}
-          >
-            {vm.saving ? (
-              <span className="add-txn__saving">
-                <span className="add-txn__spinner" aria-hidden />
-                <span>{t('actionSaving')}</span>
-              </span>
-            ) : t('actionSave').toLowerCase()}
-          </button>
+          {vm.loadFailed ? (
+            <>
+              <button
+                type="button"
+                className="btn btn-secondary add-txn__save"
+                onClick={() => void vm.reload()}
+              >
+                {t('actionRetry')}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary add-txn__save"
+                onClick={onClose}
+              >
+                {t('actionClose')}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-primary add-txn__save"
+              onClick={() => void handleSave()}
+              disabled={vm.saving}
+            >
+              {vm.saving ? (
+                <span className="add-txn__saving">
+                  <span className="add-txn__spinner" aria-hidden />
+                  <span>{t('actionSaving')}</span>
+                </span>
+              ) : t('actionSave').toLowerCase()}
+            </button>
+          )}
         </div>
       </div>
     </div>
