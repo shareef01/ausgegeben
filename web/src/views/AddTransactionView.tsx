@@ -7,7 +7,8 @@ import { IosSegmentedControl } from '@/components/IosSegmentedControl';
 import { IconClose } from '@/components/Icons';
 import { colorIntToHex } from '@/utils/currency';
 import { usePreferencesStore } from '@/services/preferencesStore';
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, type ReactNode } from 'react';
+import { useCssProps } from '@/utils/cssVars';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
@@ -76,10 +77,9 @@ export function AddTransactionView({
 
   return (
     <div
-      className="fixed inset-0 z-[200] safe-overlay bg-background/80 backdrop-blur-xl flex items-center justify-center"
+      className={`fixed inset-0 z-[200] safe-overlay bg-background/80 backdrop-blur-xl flex items-center justify-center${suspended ? ' safe-overlay--suspended' : ''}`}
       onClick={onClose}
       aria-hidden={suspended || undefined}
-      style={suspended ? { visibility: 'hidden', pointerEvents: 'none' } : undefined}
     >
       <div
         ref={dialogRef}
@@ -168,12 +168,9 @@ export function AddTransactionView({
                       onClick={() => vm.setForm((f) => ({ ...f, categoryId: cat.id! }))}
                       aria-pressed={selected}
                     >
-                      <span
-                        className="add-txn__cat-icon"
-                        style={{ color: colorIntToHex(cat.colorInt) }}
-                      >
+                      <CatIcon color={colorIntToHex(cat.colorInt)}>
                         <CategoryLucideIcon iconName={cat.iconName} size={22} />
-                      </span>
+                      </CatIcon>
                       <span className="add-txn__cat-name">{cat.name}</span>
                     </button>
                   );
@@ -215,6 +212,15 @@ export function AddTransactionView({
         </div>
       </div>
     </div>
+  );
+}
+
+function CatIcon({ color, children }: { color: string; children: ReactNode }) {
+  const ref = useCssProps<HTMLSpanElement>({ '--cat-color': color });
+  return (
+    <span ref={ref} className="add-txn__cat-icon">
+      {children}
+    </span>
   );
 }
 

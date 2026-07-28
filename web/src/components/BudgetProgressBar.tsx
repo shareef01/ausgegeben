@@ -1,6 +1,6 @@
-import type { CSSProperties } from 'react';
 import { formatAmount } from '@/utils/currency';
 import { useTranslation } from '@/i18n';
+import { useCssProps } from '@/utils/cssVars';
 
 interface BudgetProgressBarProps {
   spent: number;
@@ -10,10 +10,16 @@ interface BudgetProgressBarProps {
 
 export function BudgetProgressBar({ spent, budget, currency }: BudgetProgressBarProps) {
   const { t } = useTranslation();
+  const ratio = budget > 0 ? Math.min(spent / budget, 1) : 0;
+  const overBudget = budget > 0 && spent > budget;
+  const fillRef = useCssProps<HTMLDivElement>({
+    '--bar-width': `${ratio * 100}%`,
+    '--bar-gradient': overBudget ? 'var(--gradient-expense)' : 'var(--gradient-income)',
+    '--bar-glow': overBudget ? 'var(--color-expense)' : 'var(--color-income)',
+  });
+
   if (budget <= 0) return null;
 
-  const ratio = Math.min(spent / budget, 1);
-  const overBudget = spent > budget;
   const percent = Math.round(ratio * 100);
   const label = `${t('budgetMonthlyLabel')}: ${formatAmount(spent, currency)} / ${formatAmount(budget, currency)}`;
 
@@ -21,7 +27,7 @@ export function BudgetProgressBar({ spent, budget, currency }: BudgetProgressBar
     <div className="budget-bar px-1">
       <div className="budget-bar__labels flex justify-between items-end mb-3">
         <span className="field__label">{t('budgetMonthlyLabel')}</span>
-        <span className="text-xs font-bold tabular-nums" style={{ color: overBudget ? 'var(--color-expense)' : 'var(--color-on-surface-variant)' }}>
+        <span className={`text-xs font-bold tabular-nums budget-bar__spent${overBudget ? ' budget-bar__spent--over' : ''}`}>
           {formatAmount(spent, currency)} <span className="opacity-40 font-medium">/ {formatAmount(budget, currency)}</span>
         </span>
       </div>
@@ -34,14 +40,7 @@ export function BudgetProgressBar({ spent, budget, currency }: BudgetProgressBar
         aria-valuenow={percent}
         aria-valuetext={label}
       >
-        <div
-          className="budget-bar__fill"
-          style={{
-            width: `${ratio * 100}%`,
-            '--bar-gradient': overBudget ? 'var(--gradient-expense)' : 'var(--gradient-income)',
-            '--bar-glow': overBudget ? 'var(--color-expense)' : 'var(--color-income)',
-          } as CSSProperties}
-        />
+        <div ref={fillRef} className="budget-bar__fill" />
       </div>
       {overBudget ? (
         <p className="budget-bar__over tabular-nums">

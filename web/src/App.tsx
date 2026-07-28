@@ -73,7 +73,6 @@ export function App(): JSX.Element {
         role="status"
         aria-busy="true"
         aria-live="polite"
-        style={{ height: '100dvh', display: 'grid', placeItems: 'center', background: 'var(--color-background)', color: 'var(--color-accent)' }}
       >
         <span className="sr-only">{translate('loading')}</span>
         <div className="btn__spinner" aria-hidden><span className="spin-dot" /><span className="spin-dot" /><span className="spin-dot" /></div>
@@ -94,7 +93,6 @@ export function App(): JSX.Element {
         role="status"
         aria-busy="true"
         aria-live="polite"
-        style={{ height: '100dvh', display: 'grid', placeItems: 'center', background: 'var(--color-background)', color: 'var(--color-accent)' }}
       >
         <span className="sr-only">{translate('loading')}</span>
         <div className="btn__spinner" aria-hidden><span className="spin-dot" /><span className="spin-dot" /><span className="spin-dot" /></div>

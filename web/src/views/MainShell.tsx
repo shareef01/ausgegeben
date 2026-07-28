@@ -1,4 +1,5 @@
-import { useState, lazy, Suspense, type CSSProperties, type JSX } from 'react';
+import { useState, lazy, Suspense, type JSX } from 'react';
+import { useCssProps } from '@/utils/cssVars';
 import { RecordView } from '@/views/RecordView';
 // Lazy-loaded so their code (and the charts Insights pulls in) is split into
 // on-demand chunks instead of the initial bundle — Record is the first view.
@@ -101,29 +102,7 @@ export function MainShell() {
           </button>
 
           {isDesktop ? (
-            <nav
-              className="app-header__nav"
-              aria-label={t('navMain')}
-              style={{ '--nav-i': Math.max(0, navItems.findIndex((item) => item.id === tab)) } as CSSProperties}
-            >
-              <span className="app-header__nav-thumb" aria-hidden />
-              {navItems.map(({ id, label, Icon }) => {
-                const active = tab === id;
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => selectTab(id)}
-                    aria-current={active ? 'page' : undefined}
-                    aria-label={label}
-                    title={label}
-                    className={`app-header__nav-item${active ? ' app-header__nav-item--active' : ''}`}
-                  >
-                    <Icon width={20} height={20} className="app-header__nav-icon" aria-hidden />
-                  </button>
-                );
-              })}
-            </nav>
+            <DesktopHeaderNav tab={tab} navItems={navItems} onSelect={selectTab} label={t('navMain')} />
           ) : null}
         </header>
 
@@ -248,5 +227,43 @@ export function MainShell() {
       <ToastHost />
       </div>
     </>
+  );
+}
+
+function DesktopHeaderNav({
+  tab,
+  navItems,
+  onSelect,
+  label,
+}: {
+  tab: Tab;
+  navItems: { id: Tab; label: string; Icon: typeof IconRecord }[];
+  onSelect: (tab: Tab) => void;
+  label: string;
+}) {
+  const navRef = useCssProps<HTMLElement>({
+    '--nav-i': Math.max(0, navItems.findIndex((item) => item.id === tab)),
+  });
+
+  return (
+    <nav ref={navRef} className="app-header__nav" aria-label={label}>
+      <span className="app-header__nav-thumb" aria-hidden />
+      {navItems.map(({ id, label: itemLabel, Icon }) => {
+        const active = tab === id;
+        return (
+          <button
+            key={id}
+            type="button"
+            onClick={() => onSelect(id)}
+            aria-current={active ? 'page' : undefined}
+            aria-label={itemLabel}
+            title={itemLabel}
+            className={`app-header__nav-item${active ? ' app-header__nav-item--active' : ''}`}
+          >
+            <Icon width={20} height={20} className="app-header__nav-icon" aria-hidden />
+          </button>
+        );
+      })}
+    </nav>
   );
 }

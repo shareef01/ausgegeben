@@ -309,6 +309,7 @@
   display: block;
   width: 100%;
   height: 100%;
+  background: var(--swatch-color);
 }
 
 @media (max-width: 379px) {
@@ -803,8 +804,17 @@
   overflow: hidden;
 }
 
+.budget-bar__labels .budget-bar__spent {
+  color: var(--color-on-surface-variant);
+}
+
+.budget-bar__labels .budget-bar__spent--over {
+  color: var(--color-expense);
+}
+
 .budget-bar__fill {
   height: 100%;
+  width: var(--bar-width, 0%);
   border-radius: 9999px;
   background: var(--bar-gradient, linear-gradient(90deg, var(--color-income), var(--color-income)));
   box-shadow: 0 0 12px color-mix(in srgb, var(--bar-glow, var(--color-income)) 40%, transparent);
@@ -839,6 +849,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  width: var(--donut-size, 140px);
+  height: var(--donut-size, 140px);
 }
 
 .donut {
@@ -983,6 +995,7 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.12em;
+  color: var(--card-accent, var(--color-on-surface));
 }
 
 .insights-category-card__chart {
@@ -1033,6 +1046,7 @@
   height: 9px;
   border-radius: 999px;
   flex-shrink: 0;
+  background: var(--dot-color, var(--color-on-surface-variant));
   box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--color-on-surface) 14%, transparent);
 }
 
@@ -1468,6 +1482,27 @@
   margin-left: auto;
 }
 
+.transaction-row__amount--income { color: var(--color-income); }
+.transaction-row__amount--transfer { color: var(--color-transfer); }
+.transaction-row__amount--expense { color: var(--color-on-background); }
+
+.transaction-row__icon-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--color-on-surface) 8%, transparent);
+}
+
+.transaction-row__icon-fallback-dot {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--color-on-surface) 20%, transparent);
+}
+
 .transaction-row__type-badge {
   position: absolute;
   right: -4px;
@@ -1501,6 +1536,12 @@
   border-radius: 50%;
   flex-shrink: 0;
   transition: transform 0.2s ease;
+  width: var(--tile-size, 36px);
+  height: var(--tile-size, 36px);
+  color: var(--tile-color);
+  background: color-mix(in srgb, var(--tile-color) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tile-color) 24%, transparent);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--tile-color) 8%, transparent);
 }
 
 /* Category editor — icon + color pickers (parity with Android's editor) */
@@ -1528,6 +1569,8 @@
 
 .category-editor__icon--selected {
   border-width: 1.5px;
+  color: var(--editor-accent, var(--color-primary));
+  border-color: var(--editor-accent, var(--color-primary));
   background: color-mix(in srgb, currentColor 10%, transparent);
 }
 
@@ -1546,6 +1589,7 @@
   place-items: center;
   cursor: pointer;
   color: #1c1c22;
+  background: var(--swatch-color, var(--color-outline));
   transition: transform 0.1s ease, border-color 0.15s ease;
 }
 
@@ -1658,6 +1702,8 @@
 .cashflow-tooltip {
   position: absolute;
   top: 0;
+  left: var(--tooltip-left, 0%);
+  transform: var(--tooltip-transform, translateX(-50%));
   pointer-events: none;
   min-width: 148px;
   padding: 8px 10px;
@@ -2382,6 +2428,7 @@
   display: grid;
   place-items: center;
   flex-shrink: 0;
+  color: var(--cat-color, var(--color-on-surface));
   background: color-mix(in srgb, currentColor 16%, transparent);
   border: 1px solid color-mix(in srgb, currentColor 24%, transparent);
 }

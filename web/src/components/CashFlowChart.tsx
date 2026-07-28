@@ -1,6 +1,7 @@
 import { useId, useMemo, useRef, useState, type PointerEvent } from 'react';
 import { useTranslation } from '@/i18n';
 import { formatAmount } from '@/utils/currency';
+import { useCssProps } from '@/utils/cssVars';
 
 interface CashFlowPoint {
   label: string;
@@ -290,27 +291,61 @@ export function CashFlowChart({ trend, currency = 'EUR' }: CashFlowChartProps) {
       </svg>
 
       {hoverIdx !== null && trend[hoverIdx] ? (
-        <div
-          className="cashflow-tooltip"
-          role="status"
-          style={{
-            left: `${(incomePts[hoverIdx].x / CHART_WIDTH) * 100}%`,
-            transform: `translateX(${incomePts[hoverIdx].x > CHART_WIDTH * 0.62 ? '-100%' : incomePts[hoverIdx].x < CHART_WIDTH * 0.2 ? '0%' : '-50%'})`,
-          }}
-        >
-          <div className="cashflow-tooltip__label">{trend[hoverIdx].label}</div>
-          <div className="cashflow-tooltip__row">
-            <span className="cashflow-tooltip__dot cashflow-tooltip__dot--income" aria-hidden />
-            <span className="cashflow-tooltip__name">{t('filterIncome')}</span>
-            <span className="cashflow-tooltip__value">{formatAmount(trend[hoverIdx].income, currency)}</span>
-          </div>
-          <div className="cashflow-tooltip__row">
-            <span className="cashflow-tooltip__dot cashflow-tooltip__dot--expense" aria-hidden />
-            <span className="cashflow-tooltip__name">{t('filterExpense')}</span>
-            <span className="cashflow-tooltip__value">{formatAmount(trend[hoverIdx].expense, currency)}</span>
-          </div>
-        </div>
+        <CashFlowTooltip
+          left={(incomePts[hoverIdx].x / CHART_WIDTH) * 100}
+          transform={
+            incomePts[hoverIdx].x > CHART_WIDTH * 0.62
+              ? '-100%'
+              : incomePts[hoverIdx].x < CHART_WIDTH * 0.2
+                ? '0%'
+                : '-50%'
+          }
+          label={trend[hoverIdx].label}
+          income={formatAmount(trend[hoverIdx].income, currency)}
+          expense={formatAmount(trend[hoverIdx].expense, currency)}
+          incomeLabel={t('filterIncome')}
+          expenseLabel={t('filterExpense')}
+        />
       ) : null}
+    </div>
+  );
+}
+
+function CashFlowTooltip({
+  left,
+  transform,
+  label,
+  income,
+  expense,
+  incomeLabel,
+  expenseLabel,
+}: {
+  left: number;
+  transform: string;
+  label: string;
+  income: string;
+  expense: string;
+  incomeLabel: string;
+  expenseLabel: string;
+}) {
+  const ref = useCssProps<HTMLDivElement>({
+    '--tooltip-left': `${left}%`,
+    '--tooltip-transform': `translateX(${transform})`,
+  });
+
+  return (
+    <div ref={ref} className="cashflow-tooltip" role="status">
+      <div className="cashflow-tooltip__label">{label}</div>
+      <div className="cashflow-tooltip__row">
+        <span className="cashflow-tooltip__dot cashflow-tooltip__dot--income" aria-hidden />
+        <span className="cashflow-tooltip__name">{incomeLabel}</span>
+        <span className="cashflow-tooltip__value">{income}</span>
+      </div>
+      <div className="cashflow-tooltip__row">
+        <span className="cashflow-tooltip__dot cashflow-tooltip__dot--expense" aria-hidden />
+        <span className="cashflow-tooltip__name">{expenseLabel}</span>
+        <span className="cashflow-tooltip__value">{expense}</span>
+      </div>
     </div>
   );
 }
