@@ -10,6 +10,7 @@ import { formatAmount, formatCompactAmount } from '@/utils/currency';
 import type { Category } from '@/models/types';
 import { useHaptics } from '@/hooks/useHaptics';
 import { IconInsights } from '@/components/Icons';
+import { useCssProps } from '@/utils/cssVars';
 
 export function InsightsView({ onAdd }: { onAdd?: () => void }) {
   const { t } = useTranslation();
@@ -183,7 +184,7 @@ function CategoryCard({ title, map, categories, currency, accent }: CategoryCard
 
   return (
     <div className="insights-category-card card">
-      <h2 className="insights-category-card__title" style={{ color: accent }}>{title}</h2>
+      <AccentTitle accent={accent}>{title}</AccentTitle>
       <div className="insights-category-card__chart">
         <DonutChart segments={segments} size={148} center={{ value: formatCompactAmount(total, currency) }} />
       </div>
@@ -192,7 +193,7 @@ function CategoryCard({ title, map, categories, currency, accent }: CategoryCard
           const pct = Math.round((value / total) * 100);
           return (
             <li key={key} className="insights-category-card__row">
-              <span className="insights-category-card__dot" style={{ background: color }} aria-hidden />
+              <AccentDot color={color} />
               <span className="insights-category-card__name">{name}</span>
               <span className="insights-category-card__amount">{formatAmount(value, currency)}</span>
               <span className="insights-category-card__pct">{pct}%</span>
@@ -202,6 +203,20 @@ function CategoryCard({ title, map, categories, currency, accent }: CategoryCard
       </ul>
     </div>
   );
+}
+
+function AccentTitle({ accent, children }: { accent: string; children: string }) {
+  const ref = useCssProps<HTMLHeadingElement>({ '--card-accent': accent });
+  return (
+    <h2 ref={ref} className="insights-category-card__title">
+      {children}
+    </h2>
+  );
+}
+
+function AccentDot({ color }: { color: string }) {
+  const ref = useCssProps<HTMLSpanElement>({ '--dot-color': color });
+  return <span ref={ref} className="insights-category-card__dot" aria-hidden />;
 }
 
 function CashFlowCard({ trend, currency }: { trend: { label: string; income: number; expense: number }[]; currency: string }) {

@@ -1,6 +1,7 @@
-import { useMemo, useId, type CSSProperties } from 'react';
+import { useMemo, useId } from 'react';
 import { colorIntToHex } from '@/utils/currency';
 import { useTranslation } from '@/i18n';
+import { useCssProps } from '@/utils/cssVars';
 
 export interface DonutCenterSummary {
   /** Optional muted label above the value (e.g. "Total") */
@@ -34,9 +35,55 @@ function shadeHex(hex: string, amount: number): string {
   return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
 }
 
+function DonutSegCircle({
+  cx,
+  cy,
+  r,
+  stroke,
+  segLen,
+  segC,
+  offset,
+  title,
+}: {
+  cx: number;
+  cy: number;
+  r: number;
+  stroke: string;
+  segLen: number;
+  segC: number;
+  offset: number;
+  title: string;
+}) {
+  const ref = useCssProps<SVGCircleElement>({
+    '--seg-len': segLen,
+    '--seg-c': segC,
+    animationDelay: `${(offset / segC) * SWEEP}s`,
+    animationDuration: `${Math.max((segLen / segC) * SWEEP, 0.05)}s`,
+  });
+
+  return (
+    <circle
+      ref={ref}
+      className="donut__seg"
+      cx={cx}
+      cy={cy}
+      r={r}
+      fill="none"
+      stroke={stroke}
+      strokeWidth={STROKE}
+      strokeDasharray={`${segLen} ${segC}`}
+      strokeDashoffset={-offset}
+      strokeLinecap="butt"
+    >
+      <title>{title}</title>
+    </circle>
+  );
+}
+
 export function DonutChart({ segments, size = 140, center }: DonutChartProps) {
   const { t } = useTranslation();
   const uid = useId().replace(/:/g, '');
+  const wrapRef = useCssProps<HTMLDivElement>({ '--donut-size': `${size}px` });
   const { total, arcs, r, c, summary } = useMemo(() => {
     const total = segments.reduce((s, x) => s + x.value, 0);
     const r = (size - STROKE) / 2;
@@ -66,7 +113,7 @@ export function DonutChart({ segments, size = 140, center }: DonutChartProps) {
     : t('chartCategoryBreakdown');
 
   return (
-    <div className="donut-wrap" style={{ width: size, height: size }}>
+    <div ref={wrapRef} className="donut-wrap">
       <svg width={size} height={size} className="donut" role="img" aria-label={ariaLabel}>
         <defs>
           {arcs.map((p, i) => (
@@ -110,28 +157,17 @@ export function DonutChart({ segments, size = 140, center }: DonutChartProps) {
             />
             <g className="donut__ring" filter={`url(#dg-glow-${uid})`}>
               {arcs.map((p, i) => (
-                <circle
+                <DonutSegCircle
                   key={i}
-                  className="donut__seg"
                   cx={size / 2}
                   cy={size / 2}
                   r={r}
-                  fill="none"
                   stroke={`url(#dg-${uid}-${i})`}
-                  strokeWidth={STROKE}
-                  strokeDasharray={`${p.visible} ${c}`}
-                  strokeDashoffset={-p.offset}
-                  strokeLinecap="butt"
-                  style={{
-                    '--seg-len': p.visible,
-                    '--seg-c': c,
-                    '--seg-color': p.color,
-                    animationDelay: `${(p.offset / c) * SWEEP}s`,
-                    animationDuration: `${Math.max((p.visible / c) * SWEEP, 0.05)}s`,
-                  } as CSSProperties}
-                >
-                  <title>{`${segments[i].label}: ${Math.round((segments[i].value / Math.max(total, 1)) * 100)}%`}</title>
-                </circle>
+                  segLen={p.visible}
+                  segC={c}
+                  offset={p.offset}
+                  title={`${segments[i].label}: ${Math.round((segments[i].value / Math.max(total, 1)) * 100)}%`}
+                />
               ))}
             </g>
           </>
