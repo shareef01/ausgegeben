@@ -129,7 +129,7 @@ flowchart TB
 
 ## Getting Started
 
-**Prerequisites:** JDK 17 + Android Studio (Android) · Node.js 20+ (web) · a Firebase project — see **[FIREBASE_SETUP.md](FIREBASE_SETUP.md)**.
+**Prerequisites:** JDK 17 + Android Studio (Android) · Node.js 20+ (web; CI uses 22) · JDK 21+ for local Firestore rules tests · a Firebase project — see **[FIREBASE_SETUP.md](FIREBASE_SETUP.md)**.
 
 ### Android
 
