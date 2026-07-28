@@ -58,6 +58,7 @@ Firebase web/Android API keys are client-visible by design, but still restrict t
 2. Web key: HTTP referrers → `aus01.web.app/*`, `https://aus01.firebaseapp.com/*` (plus localhost for dev if needed)
 3. Android key: package `com.aus.ausgegeben` + release/debug SHA-1/256
 4. If a key was committed historically, restrict it immediately; rotate if unrestricted abuse appears
+5. Keep the Android key’s SHA-1 list in sync with Firebase → Project settings → Android app fingerprints (PC debug + device debug + release)
 
 ## Config files
 
