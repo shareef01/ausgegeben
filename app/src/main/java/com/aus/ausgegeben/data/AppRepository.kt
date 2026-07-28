@@ -275,6 +275,8 @@ class AppRepository @Inject constructor(
     suspend fun updateExpense(expense: Expense): Result<Unit> = runCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
         requireVerifiedEmail()
+        val snap = expDoc(u, expense.id).get().await()
+        if (!snap.exists()) throw IllegalStateException("EXPENSE_NOT_FOUND")
         val e = expense.copy(
             amount = roundAmount(expense.amount),
             note = expense.note.trim().take(2000)
