@@ -170,7 +170,13 @@
 
 .settings-budget-edit__actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
+}
+
+.settings-budget-edit__clear {
+  color: var(--color-expense);
+  border-color: color-mix(in srgb, var(--color-expense) 40%, transparent);
 }
 
 .settings-grid {
