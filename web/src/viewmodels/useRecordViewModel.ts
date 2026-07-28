@@ -54,12 +54,21 @@ export function useRecordViewModel() {
     let catsReady = false;
     let listReady = false;
     let budgetReady = viewingCurrentMonth;
+    let catsError = false;
+    let listError = false;
+    const syncLoadError = () => setLoadError(catsError || listError);
     const tryReady = () => {
       if (catsReady && listReady && budgetReady) setLoading(false);
     };
 
-    const unsubCats = expenseRepository.onCategoriesChanged((cats) => {
-      setCategories(cats);
+    const unsubCats = expenseRepository.onCategoriesChanged((cats, error) => {
+      if (error) {
+        catsError = true;
+      } else {
+        catsError = false;
+        setCategories(cats);
+      }
+      syncLoadError();
       catsReady = true;
       tryReady();
     });
@@ -69,10 +78,15 @@ export function useRecordViewModel() {
 
     if (listRange) {
       unsubList = expenseRepository.onExpensesInRange(listRange[0], listRange[1], (exps, error) => {
-        setPeriodExpenses(exps);
-        setDataTruncated(false);
-        setLoadError(Boolean(error));
-        if (viewingCurrentMonth) setMonthBudgetExpenses(exps);
+        if (error) {
+          listError = true;
+        } else {
+          listError = false;
+          setPeriodExpenses(exps);
+          setDataTruncated(false);
+          if (viewingCurrentMonth) setMonthBudgetExpenses(exps);
+        }
+        syncLoadError();
         listReady = true;
         tryReady();
       });
@@ -80,16 +94,18 @@ export function useRecordViewModel() {
       // all_time: one-shot fetch (no perpetual full-collection listener)
       const loadAll = () => {
         void expenseRepository.getAllExpensesCapped(5_000).then(({ items: exps, truncated }) => {
+          listError = false;
           setPeriodExpenses(exps);
           setDataTruncated(truncated);
-          setLoadError(false);
+          syncLoadError();
           listReady = true;
           tryReady();
         }).catch((err) => {
           console.error('[useRecordViewModel] getAllExpenses failed', err);
+          listError = true;
           setPeriodExpenses([]);
           setDataTruncated(false);
-          setLoadError(true);
+          syncLoadError();
           listReady = true;
           tryReady();
         });
@@ -98,12 +114,14 @@ export function useRecordViewModel() {
 
       const onDataChanged = () => {
         void expenseRepository.getAllExpensesCapped(5_000).then(({ items: exps, truncated }) => {
+          listError = false;
           setPeriodExpenses(exps);
           setDataTruncated(truncated);
-          setLoadError(false);
+          syncLoadError();
         }).catch((err) => {
           console.error('[useRecordViewModel] getAllExpenses refresh failed', err);
-          setLoadError(true);
+          listError = true;
+          syncLoadError();
         });
       };
       window.addEventListener(DATA_CHANGED_EVENT, onDataChanged);
@@ -113,8 +131,11 @@ export function useRecordViewModel() {
     if (!viewingCurrentMonth) {
       const [start, end] = thisMonthRange();
       unsubBudget = expenseRepository.onExpensesInRange(start, end, (exps, error) => {
-        setMonthBudgetExpenses(exps);
-        if (error) setLoadError(true);
+        if (!error) setMonthBudgetExpenses(exps);
+        if (error) {
+          listError = true;
+          syncLoadError();
+        }
         budgetReady = true;
         tryReady();
       });
