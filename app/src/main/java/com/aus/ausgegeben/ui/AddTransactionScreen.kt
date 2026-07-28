@@ -430,8 +430,7 @@ private fun ObsidianTopBar(
     onBack: () -> Unit,
     accentColor: Color
 ) {
-    val isDark = isAppDarkTheme()
-    val contentColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
+    val contentColor = MaterialTheme.colorScheme.onSurface
 
     Row(
         modifier = Modifier
@@ -493,7 +492,11 @@ private fun DatePickerRow(dateMillis: Long, accentColor: Color, onClick: () -> U
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(stringResource(R.string.add_date_label).uppercase(), style = ObsidianTokens.labelStyle())
-            Text(dateLabel, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold))
+            Text(
+                dateLabel,
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurface,
+            )
         }
         Icon(Icons.Rounded.ArrowDropDown, null, tint = ObsidianTokens.slate())
     }
@@ -817,6 +820,11 @@ private fun ObsidianNumpadContainer(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        val saveColor = when (transactionType) {
+            TransactionType.INCOME -> ObsidianTokens.income()
+            TransactionType.TRANSFER -> ObsidianTokens.transfer()
+            else -> ObsidianTokens.expense()
+        }
         AppButton(
             onClick = onSave,
             modifier = Modifier
@@ -825,11 +833,8 @@ private fun ObsidianNumpadContainer(
                 .padding(horizontal = 16.dp)
                 .glassShine(canSave),
             enabled = canSave,
-            containerColor = when (transactionType) {
-                TransactionType.INCOME -> ObsidianTokens.income()
-                TransactionType.TRANSFER -> ObsidianTokens.transfer()
-                else -> ObsidianTokens.expense()
-            }
+            containerColor = saveColor,
+            contentColor = contrastColorOn(saveColor),
         ) {
             Text(
                 text = if (isEditing) stringResource(R.string.add_save_changes).uppercase()
