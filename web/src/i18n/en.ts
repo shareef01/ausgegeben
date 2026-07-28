@@ -39,6 +39,7 @@ export const en = {
   recordDuplicate: 'duplicate',
   recordPeriodThisMonth: 'this month',
   recordPeriodAllTime: 'all time',
+  recordMostSpentOn: 'most spent on {name}',
   recordSwipeDelete: 'delete',
   editOrTap: 'edit',
   recordDeleted: 'transaction deleted',

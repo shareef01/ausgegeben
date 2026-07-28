@@ -9,6 +9,7 @@ import {
   isExpense,
   isIncome,
   isTransfer,
+  topExpenseCategoryName,
 } from '@/utils/analytics';
 
 function expense(partial: Partial<Expense> & Pick<Expense, 'amount' | 'transactionType'>): Expense {
@@ -52,6 +53,21 @@ describe('analytics', () => {
     );
     expect(map.get('1')).toBe(15);
     expect(map.has('2')).toBe(false);
+  });
+
+  it('topExpenseCategoryName picks the largest expense category', () => {
+    expect(
+      topExpenseCategoryName(
+        [
+          expense({ amount: 10, transactionType: 'expense', categoryId: 'a' }),
+          expense({ amount: 40, transactionType: 'expense', categoryId: 'b' }),
+          expense({ amount: 5, transactionType: 'expense', categoryId: 'a' }),
+          expense({ amount: 999, transactionType: 'income', categoryId: 'b' }),
+        ],
+        { a: 'Groceries', b: 'Rent' },
+      ),
+    ).toBe('Rent');
+    expect(topExpenseCategoryName([], { a: 'Groceries' })).toBeNull();
   });
 
   it('computeDayTotals ignores transfers', () => {

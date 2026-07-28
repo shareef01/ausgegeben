@@ -31,6 +31,29 @@ export function computeTotals(expenses: Expense[]) {
   };
 }
 
+/** Top expense category for the given set (Android computeSpendingInsights parity). */
+export function topExpenseCategoryName(
+  expenses: Expense[],
+  categoryNames: Map<string, string> | Record<string, string>,
+): string | null {
+  const totals = new Map<string, number>();
+  for (const e of expenses) {
+    if (!isExpense(e)) continue;
+    totals.set(e.categoryId, (totals.get(e.categoryId) ?? 0) + e.amount);
+  }
+  let bestId: string | null = null;
+  let bestAmount = 0;
+  for (const [id, amount] of totals) {
+    if (amount > bestAmount) {
+      bestId = id;
+      bestAmount = amount;
+    }
+  }
+  if (!bestId || bestAmount <= 0) return null;
+  const name = categoryNames instanceof Map ? categoryNames.get(bestId) : categoryNames[bestId];
+  return name?.trim() ? name : null;
+}
+
 export function groupByCategory(expenses: Expense[], type: Expense['transactionType']): Map<string, number> {
   const map = new Map<string, number>();
   for (const e of expenses) {

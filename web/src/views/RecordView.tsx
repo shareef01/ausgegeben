@@ -100,6 +100,12 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
             {uiState.monthlyBudget && viewingCurrentMonth ? (
               <BudgetProgressBar spent={monthSpent} budget={uiState.monthlyBudget} currency={currency} />
             ) : null}
+
+            {uiState.topExpenseCategoryName ? (
+              <p className="record-most-spent" role="status">
+                {t('recordMostSpentOn', { name: uiState.topExpenseCategoryName })}
+              </p>
+            ) : null}
           </div>
 
           <div className="card record-filters">

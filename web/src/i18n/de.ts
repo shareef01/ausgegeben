@@ -41,6 +41,7 @@ export const de: Record<TranslationKey, string> = {
   recordDuplicate: 'duplizieren',
   recordPeriodThisMonth: 'dieser monat',
   recordPeriodAllTime: 'gesamt',
+  recordMostSpentOn: 'am meisten ausgegeben für {name}',
   recordSwipeDelete: 'löschen',
   editOrTap: 'bearbeiten',
   recordDeleted: 'transaktion gelöscht',
