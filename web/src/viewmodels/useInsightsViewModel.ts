@@ -86,8 +86,7 @@ export function useInsightsViewModel() {
         }).catch((err) => {
           console.error('[useInsightsViewModel] getAllExpenses failed', err);
           expsError = true;
-          setExpenses([]);
-          setDataTruncated(false);
+          // Keep last good expenses (parity with Record all-time refresh).
           syncLoadError();
           expsReady = true;
           tryReady();
