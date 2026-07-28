@@ -141,7 +141,13 @@ export function useAddTransactionViewModel(expenseId?: string) {
       const savedId = expenseId
         ? (await expenseRepository.updateExpense({ ...payload, id: expenseId }), expenseId)
         : await expenseRepository.insertExpense(payload, idempotencyKey);
-      const budgetAlert = await checkBudgetAlert(form.transactionType, amount, savedId);
+      // Budget check is best-effort — a failed projection must not look like a failed save.
+      let budgetAlert: string | undefined;
+      try {
+        budgetAlert = await checkBudgetAlert(form.transactionType, amount, savedId);
+      } catch (err) {
+        console.error('[useAddTransactionViewModel] budget check failed', err);
+      }
       return { ok: true, budgetAlert };
     } catch (err) {
       console.error('[useAddTransactionViewModel] save failed', err);
