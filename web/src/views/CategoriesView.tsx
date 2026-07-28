@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Category, TransactionType } from '@/models/types';
-import { expenseRepository, UNCATEGORIZED_ID } from '@/repositories/expenseRepository';
+import { expenseRepository, EmailNotVerifiedError, UNCATEGORIZED_ID } from '@/repositories/expenseRepository';
 
-import { CategoryIconTile, SignatureText } from '@/components/ui';
+import { CategoryIconTile, EmptyState, LoadingListSkeleton, SignatureText } from '@/components/ui';
+import { useToastStore } from '@/services/toastStore';
 import { CategoryLucideIcon, CATEGORY_ICON_KEYS, categoryIconLabel } from '@/components/CategoryLucideIcon';
 import { IconBroom, IconDelete, IconCheck, IconClose } from '@/components/Icons';
 import { colorIntToHex } from '@/utils/currency';
 import { CATEGORY_COLOR_INTS, colorIntsMatch } from '@/utils/categoryStyle';
-import { useTranslation } from '@/i18n';
+import { useTranslation, type TranslationKey } from '@/i18n';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { IosSegmentedControl } from '@/components/IosSegmentedControl';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
@@ -24,8 +25,21 @@ interface EditorState {
 
 const DEFAULT_ICON = 'category';
 
+type CategoryAction = 'add' | 'update' | 'delete' | 'dedupe';
+
+function categoryErrorMessage(err: unknown, action: CategoryAction, t: (key: TranslationKey) => string): string {
+  if (err instanceof EmailNotVerifiedError) return t('authVerifyRequired');
+  switch (action) {
+    case 'add': return t('categoryErrorAddFailed');
+    case 'update': return t('categoryErrorUpdateFailed');
+    case 'delete': return t('categoryErrorDeleteFailed');
+    case 'dedupe': return t('categoryErrorDeduplicateFailed');
+  }
+}
+
 export function CategoriesView({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
+  const showToast = useToastStore((s) => s.show);
   const [categories, setCategories] = useState<Category[]>([]);
   const [filter, setFilter] = useState<TransactionType>('expense');
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
@@ -33,6 +47,8 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
   const [showDedupeConfirm, setShowDedupeConfirm] = useState(false);
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const handleEscape = useCallback(() => {
@@ -45,10 +61,17 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
   useFocusTrap(!(deleteTarget || showDedupeConfirm), dialogRef, handleEscape);
   useBodyScrollLock(true);
 
-  const reload = useCallback(async () => {
-    // Purge the legacy Uncategorized sentinel so it never sticks in the manage list.
-    await expenseRepository.deleteCategory(UNCATEGORIZED_ID);
-    setCategories(await expenseRepository.getAllCategories());
+  const reload = useCallback(async (opts?: { showSkeleton?: boolean }) => {
+    if (opts?.showSkeleton !== false) setLoading(true);
+    setLoadError(false);
+    try {
+      setCategories(await expenseRepository.getAllCategories());
+    } catch (err) {
+      console.error('[CategoriesView] load failed', err);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { void reload(); }, [reload]);
@@ -71,6 +94,7 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
     if (!editor || saving) return;
     const name = editor.name.trim();
     if (!name) return;
+    const isUpdate = Boolean(editor.id);
     setSaving(true);
     try {
       if (editor.id) {
@@ -93,31 +117,50 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
           sortOrder: maxOrder + 1,
         });
       }
-      await reload();
+      await reload({ showSkeleton: false });
       setEditor(null);
+    } catch (err) {
+      console.error('[CategoriesView] save failed', err);
+      showToast(categoryErrorMessage(err, isUpdate ? 'update' : 'add', t));
     } finally {
       setSaving(false);
     }
   };
 
   const deleteCategory = async (cat: Category) => {
-    const count = await expenseRepository.countExpensesForCategory(cat.id);
-    setDeleteLinkedCount(count);
-    setDeleteTarget(cat);
+    try {
+      const count = await expenseRepository.countExpensesForCategory(cat.id);
+      setDeleteLinkedCount(count);
+      setDeleteTarget(cat);
+    } catch (err) {
+      console.error('[CategoriesView] count linked expenses failed', err);
+      showToast(categoryErrorMessage(err, 'delete', t));
+    }
   };
 
   const confirmDeleteCategory = async () => {
     if (!deleteTarget) return;
-    await expenseRepository.deleteCategory(deleteTarget.id);
-    setDeleteTarget(null);
-    setDeleteLinkedCount(0);
-    await reload();
+    try {
+      await expenseRepository.deleteCategory(deleteTarget.id);
+      setDeleteTarget(null);
+      setDeleteLinkedCount(0);
+      await reload({ showSkeleton: false });
+    } catch (err) {
+      console.error('[CategoriesView] delete failed', err);
+      showToast(categoryErrorMessage(err, 'delete', t));
+    }
   };
 
   const confirmDeduplicate = async () => {
     setShowDedupeConfirm(false);
-    await expenseRepository.deduplicateCategories();
-    await reload();
+    try {
+      await expenseRepository.deduplicateCategories();
+      await reload({ showSkeleton: false });
+      showToast(t('categoryDeduplicateDone'));
+    } catch (err) {
+      console.error('[CategoriesView] deduplicate failed', err);
+      showToast(categoryErrorMessage(err, 'dedupe', t));
+    }
   };
 
   const typeLabel = (type: TransactionType) => {
@@ -254,7 +297,19 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
 
               <div className="flex flex-col gap-3">
                  <div className="field__label mb-3">{t('currentCategories')}</div>
-                 {filtered.length === 0 ? (
+                 {loading ? (
+                   <LoadingListSkeleton rows={6} />
+                 ) : loadError ? (
+                   <EmptyState
+                     title={t('errorLoadFailed')}
+                     subtitle={t('errorLoadFailedHint')}
+                     action={
+                       <button type="button" className="btn btn-primary" onClick={() => void reload()}>
+                         {t('actionRetry')}
+                       </button>
+                     }
+                   />
+                 ) : filtered.length === 0 ? (
                    <div className="categories-empty py-10">
                      <p className="categories-empty__text">{t('categoriesEmptyForType')}</p>
                    </div>
@@ -289,6 +344,7 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
                 type="button"
                 className="btn btn-secondary w-full py-4 font-semibold text-sm active:scale-[0.98] transition-all duration-150"
                 onClick={startCreate}
+                disabled={loading || loadError}
               >
                 {t('addCategory').toLowerCase()}
               </button>
