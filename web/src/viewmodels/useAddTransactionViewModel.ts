@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Category, Expense, TransactionType } from '@/models/types';
 import { expenseRepository, EmailNotVerifiedError, UNCATEGORIZED_ID } from '@/repositories/expenseRepository';
-import { formatAmountForInput, parseAmount } from '@/utils/currency';
+import { formatAmount, formatAmountForInput, parseAmount } from '@/utils/currency';
+import { thisMonthRange } from '@/utils/periodUtils';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useTranslation } from '@/i18n';
 
@@ -12,6 +13,8 @@ export interface AddTransactionForm {
   note: string;
   dateMillis: number;
 }
+
+export type SaveResult = { ok: false } | { ok: true; budgetAlert?: string };
 
 const defaultForm = (): AddTransactionForm => ({
   amountInput: '',
@@ -95,15 +98,34 @@ export function useAddTransactionViewModel(expenseId?: string) {
     setForm((f) => ({ ...f, amountInput: sanitized }));
   };
 
-  const save = async (): Promise<boolean> => {
+  const checkBudgetAlert = async (
+    type: TransactionType,
+    newAmount: number,
+    excludeExpenseId?: string,
+  ): Promise<string | undefined> => {
+    if (type !== 'expense') return undefined;
+    const { monthlyBudget, currency } = usePreferencesStore.getState();
+    if (!monthlyBudget || monthlyBudget <= 0) return undefined;
+    const [start, end] = thisMonthRange();
+    // Exclude the just-saved expense so we can project spent + newAmount without double-counting.
+    const spent = await expenseRepository.sumMonthExpenses(start, end, excludeExpenseId);
+    const projected = spent + newAmount;
+    if (projected <= monthlyBudget) return undefined;
+    return t('errorBudgetExceeded', {
+      spent: formatAmount(projected, currency),
+      budget: formatAmount(monthlyBudget, currency),
+    });
+  };
+
+  const save = async (): Promise<SaveResult> => {
     const amount = parseAmount(form.amountInput, usePreferencesStore.getState().currency);
     if (!amount || amount <= 0) {
       setError(t('errorValidAmount'));
-      return false;
+      return { ok: false };
     }
     if (!form.categoryId) {
       setError(t('errorChooseCategory'));
-      return false;
+      return { ok: false };
     }
     setSaving(true);
     setError(null);
@@ -116,16 +138,15 @@ export function useAddTransactionViewModel(expenseId?: string) {
     };
     const idempotencyKey = crypto.randomUUID();
     try {
-      if (expenseId) {
-        await expenseRepository.updateExpense({ ...payload, id: expenseId });
-      } else {
-        await expenseRepository.insertExpense(payload, idempotencyKey);
-      }
-      return true;
+      const savedId = expenseId
+        ? (await expenseRepository.updateExpense({ ...payload, id: expenseId }), expenseId)
+        : await expenseRepository.insertExpense(payload, idempotencyKey);
+      const budgetAlert = await checkBudgetAlert(form.transactionType, amount, savedId);
+      return { ok: true, budgetAlert };
     } catch (err) {
       console.error('[useAddTransactionViewModel] save failed', err);
       setError(err instanceof EmailNotVerifiedError ? t('authVerifyRequired') : t('errorSaveFailed'));
-      return false;
+      return { ok: false };
     } finally {
       setSaving(false);
     }
