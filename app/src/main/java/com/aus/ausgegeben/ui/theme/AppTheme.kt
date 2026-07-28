@@ -31,10 +31,10 @@ fun appBorderColor(): Color =
 fun appDividerColor(): Color =
     if (isAppDarkTheme()) AppColors.CardBorder else OutlineLight.copy(alpha = 0.6f)
 
-/** Secondary labels, timestamps — tuned per theme for readable contrast */
+/** Secondary labels, timestamps — use each palette's onSurfaceVariant */
 @Composable
 fun readableSecondaryColor(): Color =
-    if (isAppDarkTheme()) Color(0xFFA1A1AA) else Color(0xFF6B6B75)
+    MaterialTheme.colorScheme.onSurfaceVariant
 
 /** Bottom nav / tabs — inactive but still readable */
 @Composable
@@ -65,7 +65,7 @@ fun financeExpenseColor(): Color = MaterialTheme.colorScheme.error
 
 @Composable
 fun financeTransferColor(): Color =
-    if (isAppDarkTheme()) readableSecondaryColor() else TransferGrayLight
+    if (isAppDarkTheme()) TransferGray else TransferGrayLight
 
 @Composable
 fun inputFocusedBorderColor(): Color =
