@@ -172,6 +172,7 @@ export const de: Record<TranslationKey, string> = {
   errorChooseCategory: 'kategorie wählen',
   errorLoadFailed: 'laden fehlgeschlagen. bitte erneut versuchen.',
   errorLoadFailedHint: 'verbindung prüfen und erneut versuchen',
+  errorBudgetExceeded: 'monatsbudget überschritten: {spent} von {budget}',
   errorSaveFailed: 'speichern fehlgeschlagen. bitte erneut versuchen.',
   actionRetry: 'erneut versuchen',
   typeExpense: 'ausgabe',

@@ -7,6 +7,7 @@ import { IosSegmentedControl } from '@/components/IosSegmentedControl';
 import { IconClose } from '@/components/Icons';
 import { colorIntToHex } from '@/utils/currency';
 import { usePreferencesStore } from '@/services/preferencesStore';
+import { useToastStore } from '@/services/toastStore';
 import { useRef, useEffect, useCallback, type ReactNode } from 'react';
 import { useCssProps } from '@/utils/cssVars';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -58,9 +59,10 @@ export function AddTransactionView({
   }, [suspended, vm.reloadCategories]);
 
   const handleSave = async () => {
-    const ok = await vm.save();
-    if (ok) {
+    const result = await vm.save();
+    if (result.ok) {
       haptics.success();
+      if (result.budgetAlert) useToastStore.getState().show(result.budgetAlert);
       onSaved();
     }
   };
