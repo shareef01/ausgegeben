@@ -15,6 +15,7 @@ import type { SVGProps } from 'react';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
+import { preferencesSync, PREFS_SYNC_ERROR_NETWORK, PREFS_SYNC_ERROR_PERMISSION } from '@/services/preferencesSync';
 import { useTranslation, type Locale, type TranslationKey } from '@/i18n';
 import { currencyLabel, formatAmount, SUPPORTED_CURRENCIES } from '@/utils/currency';
 import type { ThemeMode } from '@/models/types';
@@ -55,6 +56,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
   const themeMode = usePreferencesStore((s) => s.themeMode);
   const monthlyBudget = usePreferencesStore((s) => s.monthlyBudget);
   const user = useAuthStore((s) => s.user);
+  const syncError = useAuthStore((s) => s.syncError);
   const setCurrency = usePreferencesStore((s) => s.setCurrency);
   const setLocale = usePreferencesStore((s) => s.setLocale);
   const setThemeMode = usePreferencesStore((s) => s.setThemeMode);
@@ -91,6 +93,13 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
     || user?.email?.split('@')[0]
     || t('settingsCloudAccount');
   const initial = displayName.charAt(0).toUpperCase();
+  const syncErrorText = syncError === PREFS_SYNC_ERROR_PERMISSION
+    ? t('settingsSyncErrorPermission')
+    : syncError === PREFS_SYNC_ERROR_NETWORK
+      ? t('settingsSyncErrorNetwork')
+      : syncError
+        ? t('settingsSyncErrorGeneric')
+        : null;
 
   return (
     <>
@@ -98,6 +107,19 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
         <header className="settings-page__header">
           <PageTitle text={t('screenSettings')} icon={IconSettings} />
         </header>
+
+        {syncErrorText ? (
+          <div className="settings-sync-error" role="alert">
+            <p className="settings-sync-error__text">{syncErrorText}</p>
+            <button
+              type="button"
+              className="settings-sync-error__retry"
+              onClick={() => preferencesSync.retry()}
+            >
+              {t('settingsSyncRetry')}
+            </button>
+          </div>
+        ) : null}
 
         {user ? (
           <section className="settings-account card card--elevated" aria-label={t('settingsCloudAccount')}>
