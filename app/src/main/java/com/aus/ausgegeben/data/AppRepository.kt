@@ -189,8 +189,12 @@ class AppRepository @Inject constructor(
     val allCategories: Flow<List<Category>> = perUserFlow(emptyList()) { u ->
         callbackFlow {
             val sub = catCol(u).orderBy("sortOrder").addSnapshotListener { snap, error ->
-                if (error != null) Log.w(TAG, "categories listener error", error)
+                if (error != null) {
+                    Log.w(TAG, "categories listener error", error)
+                    _listenerError.value = LISTENER_ERROR
+                }
                 if (snap != null) {
+                    _listenerError.value = null
                     trySend(snap.documents.mapNotNull { doc -> categoryFromDoc(doc) })
                 }
             }

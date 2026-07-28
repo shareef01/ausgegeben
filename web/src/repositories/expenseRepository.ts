@@ -176,7 +176,12 @@ export const expenseRepository = {
     await ensureSeededInFlight;
   },
 
-  onCategoriesChanged(cb: (cats: Category[]) => void): Unsubscribe {
+  /**
+   * `cb`'s second argument is `true` when the listener failed. Callers must not
+   * treat `[]` + error as “user has no categories” (that would relabel every
+   * expense as unknown). Prefer keeping the last good list on error.
+   */
+  onCategoriesChanged(cb: (cats: Category[], error?: boolean) => void): Unsubscribe {
     const userId = uid();
     if (!userId) {
       cb([]);
@@ -189,7 +194,7 @@ export const expenseRepository = {
       },
       (err) => {
         console.error('[onCategoriesChanged]', err);
-        cb([]);
+        cb([], true);
       },
     );
   },

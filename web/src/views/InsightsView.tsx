@@ -61,7 +61,7 @@ export function InsightsView({ onAdd }: { onAdd?: () => void }) {
         <div className="content-col">
           {loading ? (
             <LoadingListSkeleton rows={8} />
-          ) : uiState.loadError ? (
+          ) : !hasData && uiState.loadError ? (
             <EmptyState
               title={t('errorLoadFailed')}
               subtitle={t('errorLoadFailedHint')}
@@ -73,6 +73,18 @@ export function InsightsView({ onAdd }: { onAdd?: () => void }) {
             />
           ) : (
             <>
+              {uiState.loadError ? (
+                <div className="settings-sync-error" role="alert">
+                  <p className="settings-sync-error__text">{t('errorLoadFailed')}</p>
+                  <button
+                    type="button"
+                    className="settings-sync-error__retry"
+                    onClick={() => void reload(true)}
+                  >
+                    {t('actionRetry')}
+                  </button>
+                </div>
+              ) : null}
               {uiState.dataTruncated ? (
                 <p className="data-truncated-notice" role="status">
                   {t('dataTruncatedNotice')}

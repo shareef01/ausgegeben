@@ -170,7 +170,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
         <div className="content-col">
           {uiState.loading ? (
             <LoadingListSkeleton rows={12} />
-          ) : uiState.loadError ? (
+          ) : uiState.expenses.length === 0 && uiState.loadError ? (
             <EmptyState
               title={t('errorLoadFailed')}
               subtitle={t('errorLoadFailedHint')}
@@ -182,6 +182,18 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
             />
           ) : (
             <>
+              {uiState.loadError ? (
+                <div className="settings-sync-error" role="alert">
+                  <p className="settings-sync-error__text">{t('errorLoadFailed')}</p>
+                  <button
+                    type="button"
+                    className="settings-sync-error__retry"
+                    onClick={() => void reload()}
+                  >
+                    {t('actionRetry')}
+                  </button>
+                </div>
+              ) : null}
               {uiState.dataTruncated ? (
                 <p className="data-truncated-notice" role="status">
                   {t('dataTruncatedNotice')}
