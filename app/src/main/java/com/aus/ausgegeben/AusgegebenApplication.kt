@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.aus.ausgegeben.data.FirestoreClient
 import com.google.firebase.FirebaseApp
 import com.google.firebase.appcheck.AppCheckProviderFactory
 import com.google.firebase.appcheck.FirebaseAppCheck
@@ -36,7 +37,7 @@ class AusgegebenApplication : Application(), Configuration.Provider {
         FirebaseFirestore.getInstance().firestoreSettings = FirebaseFirestoreSettings.Builder()
             .setPersistenceEnabled(true)
             // Cap offline cache (~100 MiB) so financial history cannot grow unbounded on disk.
-            .setCacheSizeBytes(100L * 1024L * 1024L)
+            .setCacheSizeBytes(FirestoreClient.CACHE_SIZE_BYTES)
             .build()
     }
 

@@ -274,8 +274,8 @@ class PreferenceManager @Inject constructor(
     /**
      * Drop account-scoped local prefs on sign-out / account deletion so the next
      * user on a shared device does not see budget or sync metadata. Theme and
-     * language stay as device chrome. Firestore disk cache still needs Clear
-     * storage / uninstall (documented in FIREBASE_SETUP.md).
+     * language stay as device chrome. Firestore offline cache is cleared
+     * separately via [FirestoreClient.clearOfflineCache].
      */
     suspend fun clearAccountLocalState() {
         context.dataStore.edit { preferences ->

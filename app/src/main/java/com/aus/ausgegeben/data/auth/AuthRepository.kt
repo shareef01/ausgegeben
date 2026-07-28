@@ -1,5 +1,6 @@
 package com.aus.ausgegeben.data.auth
 
+import com.aus.ausgegeben.data.FirestoreClient
 import com.aus.ausgegeben.data.PreferenceManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
@@ -14,6 +15,7 @@ import javax.inject.Singleton
 class AuthRepository @Inject constructor(
     private val firebaseAuth: FirebaseAuth,
     private val preferenceManager: PreferenceManager,
+    private val firestoreClient: FirestoreClient,
 ) : AuthActions {
     private val _authUser = MutableStateFlow(firebaseAuth.currentUser)
     val authState: StateFlow<FirebaseUser?> = _authUser.asStateFlow()
@@ -58,6 +60,7 @@ class AuthRepository @Inject constructor(
     override suspend fun signOut() {
         firebaseAuth.signOut()
         preferenceManager.clearAccountLocalState()
+        firestoreClient.clearOfflineCache()
     }
 
     /** Deletes the Firebase Auth user. Caller should wipe Firestore data first. */
@@ -65,5 +68,6 @@ class AuthRepository @Inject constructor(
         val user = firebaseAuth.currentUser ?: error("Not signed in")
         user.delete().await()
         preferenceManager.clearAccountLocalState()
+        firestoreClient.clearOfflineCache()
     }
 }
