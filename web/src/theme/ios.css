@@ -98,6 +98,11 @@ body {
   box-sizing: border-box;
 }
 
+.safe-overlay--suspended {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .overlay {
   padding-top: max(16px, var(--safe-top, 0px));
   padding-bottom: max(16px, var(--safe-bottom-pad, var(--safe-bottom, 0px)));
