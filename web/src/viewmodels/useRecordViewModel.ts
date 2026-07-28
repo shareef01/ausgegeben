@@ -5,7 +5,7 @@ import { usePreferencesStore } from '@/services/preferencesStore';
 import { useToastStore } from '@/services/toastStore';
 import { useTranslation, getLocale, localeTag } from '@/i18n';
 import { thisMonthRange, analyticsDateRangeMillis } from '@/utils/periodUtils';
-import { computeDayTotals } from '@/utils/analytics';
+import { computeDayTotals, topExpenseCategoryName } from '@/utils/analytics';
 
 const SEARCH_DEBOUNCE_MS = 300;
 const DATA_CHANGED_EVENT = 'ausgegeben:data-changed';
@@ -229,6 +229,11 @@ export function useRecordViewModel() {
     return out;
   }, [summaryExpenses]);
 
+  const topExpenseCategory = useMemo(() => {
+    const names = new Map(categories.map((c) => [c.id, c.name]));
+    return topExpenseCategoryName(monthExpenses, names);
+  }, [monthExpenses, categories]);
+
   const uiState: RecordUiState = useMemo(() => ({
     expenses: filteredExpenses,
     summaryExpenses,
@@ -236,14 +241,14 @@ export function useRecordViewModel() {
     searchQuery,
     typeFilter,
     listPeriod,
-    insights: {},
+    topExpenseCategoryName: topExpenseCategory,
     monthlyBudget,
     monthExpenses,
     dayTotalsByLabel,
     loading,
     loadError,
     dataTruncated,
-  }), [filteredExpenses, summaryExpenses, categories, searchQuery, typeFilter, listPeriod, monthlyBudget, monthExpenses, dayTotalsByLabel, loading, loadError, dataTruncated]);
+  }), [filteredExpenses, summaryExpenses, categories, searchQuery, typeFilter, listPeriod, topExpenseCategory, monthlyBudget, monthExpenses, dayTotalsByLabel, loading, loadError, dataTruncated]);
 
   const requestDelete = useCallback(async (id: string) => {
     if (!id || softDeletedIdsRef.current.has(id)) return;

@@ -136,22 +136,31 @@ class AddExpenseViewModel @Inject constructor(
                         note = _note.value.trim(),
                         transactionType = type.storageKey
                     )
-                    val saveResult = if (editingId != null) {
-                        repository.updateExpense(expense)
+                    // After write, month sum already includes the saved doc — exclude its id
+                    // before adding newAmount (web parity). On insert, editingId is null so we
+                    // must use the id returned by insertExpense.
+                    val excludeIdForBudget: String
+                    val saveError: Throwable?
+                    if (editingId != null) {
+                        val result = repository.updateExpense(expense)
+                        excludeIdForBudget = editingId
+                        saveError = result.exceptionOrNull()
                     } else {
-                        repository.insertExpense(expense)
+                        val result = repository.insertExpense(expense)
+                        excludeIdForBudget = result.getOrNull().orEmpty()
+                        saveError = result.exceptionOrNull()
                     }
-                    
-                    saveResult.onSuccess {
+
+                    if (saveError == null) {
                         // Budget projection is best-effort — must not look like a failed save
                         // after the write already succeeded (web parity).
-                        runCatching { checkBudgetAlert(type, amt, editingId) }
+                        runCatching { checkBudgetAlert(type, amt, excludeIdForBudget) }
                             .onSuccess { alert -> alert?.let { onBudgetAlert?.invoke(it) } }
                             .onFailure { e -> Log.w(TAG, "budget check failed", e) }
                         resetForm()
                         onSuccess()
-                    }.onFailure { e ->
-                        onError(saveErrorMessage(app, e.message))
+                    } else {
+                        onError(saveErrorMessage(app, saveError.message))
                     }
                 } catch (e: Exception) {
                     onError(saveErrorMessage(app, e.message))
@@ -171,11 +180,11 @@ class AddExpenseViewModel @Inject constructor(
     private suspend fun checkBudgetAlert(
         type: TransactionType,
         newAmount: Double,
-        editingId: String?
+        excludeExpenseId: String,
     ): String? {
         if (type != TransactionType.EXPENSE) return null
         val budget = preferenceManager.monthlyBudgetFlow.first() ?: return null
-        val spent = repository.sumMonthExpenses(editingId ?: "")
+        val spent = repository.sumMonthExpenses(excludeExpenseId)
         val projected = spent + newAmount
         if (projected <= budget) return null
         val currency = preferenceManager.currencyFlow.first()
