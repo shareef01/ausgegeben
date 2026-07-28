@@ -190,6 +190,7 @@
     <string name="snackbar_transaction_duplicated">Transaction duplicated for today</string>
     <string name="snackbar_transaction_saved">Transaction saved</string>
     <string name="snackbar_transaction_updated">Transaction updated</string>
+    <string name="snackbar_transaction_not_found">This transaction no longer exists</string>
     <string name="snackbar_transaction_delete_failed">Couldn\'t delete transaction</string>
     <string name="snackbar_transaction_duplicate_failed">Couldn\'t duplicate transaction</string>
     <string name="snackbar_transaction_restore_failed">Couldn\'t restore transaction</string>
