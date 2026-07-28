@@ -200,6 +200,7 @@ export const en = {
   settingsExportSub: 'download spreadsheet',
   settingsExportOk: 'export ready',
   settingsExportTruncated: 'export ready (latest 5000 rows)',
+  dataTruncatedNotice: 'showing the latest 5,000 transactions — older rows are hidden',
   settingsExportFailed: 'export failed',
   settingsRemindersPhoneOnly: 'daily reminders are managed in the android app',
   settingsChooseTheme: 'choose theme',

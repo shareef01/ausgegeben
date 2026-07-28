@@ -220,6 +220,14 @@ fun RecordScreen(
 
                 item { Spacer(Modifier.height(24.dp)) }
 
+                if (uiState.dataTruncated && !uiState.isLoading) {
+                    item(key = "truncated") {
+                        DataTruncatedBanner(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                        )
+                    }
+                }
+
                 when {
                     uiState.isLoading -> {
                         item(key = "loading") {

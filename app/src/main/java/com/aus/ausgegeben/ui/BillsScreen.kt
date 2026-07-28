@@ -167,6 +167,13 @@ fun BillsScreen(
                         )
                     }
                 } else {
+                    if (uiState.dataTruncated) {
+                        item(key = "truncated") {
+                            DataTruncatedBanner(
+                                modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs),
+                            )
+                        }
+                    }
                     if (expenseTotal > 0 || incomeTotal > 0) {
                         item(key = "overview") {
                             val reduceMotion = rememberReduceMotion()

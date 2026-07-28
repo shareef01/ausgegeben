@@ -71,7 +71,14 @@ export function InsightsView({ onAdd }: { onAdd?: () => void }) {
                 </button>
               }
             />
-          ) : !hasData ? (
+          ) : (
+            <>
+              {uiState.dataTruncated ? (
+                <p className="data-truncated-notice" role="status">
+                  {t('dataTruncatedNotice')}
+                </p>
+              ) : null}
+              {!hasData ? (
             <EmptyState
               title={t('billsEmptyTitle')}
               subtitle={t('billsEmptySubtitle')}
@@ -101,6 +108,8 @@ export function InsightsView({ onAdd }: { onAdd?: () => void }) {
                 <CashFlowCard trend={uiState.cashFlowTrend} currency={currency} />
               ) : null}
             </div>
+          )}
+            </>
           )}
         </div>
 

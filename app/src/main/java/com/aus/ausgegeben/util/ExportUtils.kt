@@ -14,10 +14,13 @@ import java.util.Date
 import java.util.Locale
 
 object ExportUtils {
-    suspend fun exportCsv(context: Context, repository: AppRepository): Boolean {
+    data class Result(val success: Boolean, val truncated: Boolean = false)
+
+    suspend fun exportCsv(context: Context, repository: AppRepository): Result {
         return withContext(Dispatchers.IO) {
             try {
                 val expenses = repository.allExpenses.first()
+                val truncated = expenses.size >= AppRepository.ALL_EXPENSES_SOFT_CAP.toInt()
                 val categories = repository.allCategories.first()
                 val categoryById = categories.associateBy { it.id }
                 val dateFormat = SimpleDateFormat("yyyy-MM-dd,HH:mm", Locale.US)
@@ -53,9 +56,9 @@ object ExportUtils {
                 withContext(Dispatchers.Main) {
                     context.startActivity(Intent.createChooser(intent, "Export CSV"))
                 }
-                true
+                Result(success = true, truncated = truncated)
             } catch (_: Exception) {
-                false
+                Result(success = false)
             }
         }
     }

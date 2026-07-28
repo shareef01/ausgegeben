@@ -123,6 +123,17 @@
   cursor: pointer;
 }
 
+.data-truncated-notice {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--color-on-surface-variant, var(--color-on-background)) 22%, transparent);
+  background: color-mix(in srgb, var(--color-on-surface-variant, var(--color-on-background)) 8%, transparent);
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--color-on-background);
+}
+
 .settings-section {
   display: flex;
   flex-direction: column;
