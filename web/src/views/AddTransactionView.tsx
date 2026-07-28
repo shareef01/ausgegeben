@@ -5,14 +5,15 @@ import { SignatureText } from '@/components/ui';
 import { CategoryLucideIcon } from '@/components/CategoryLucideIcon';
 import { IosSegmentedControl } from '@/components/IosSegmentedControl';
 import { IconClose } from '@/components/Icons';
-import { colorIntToHex } from '@/utils/currency';
+import { colorIntToHex, parseAmount } from '@/utils/currency';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useToastStore } from '@/services/toastStore';
-import { useRef, useEffect, useCallback, type ReactNode } from 'react';
+import { useRef, useEffect, useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useCssProps } from '@/utils/cssVars';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 interface AddTransactionViewProps {
   expenseId?: string;
@@ -36,10 +37,34 @@ export function AddTransactionView({
   const amountInputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const catsRailRef = useRef<HTMLDivElement>(null);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+
+  // Match Android: prompt only for new transactions that have any draft signal
+  // (amount, note, category, or a non-expense type). Edits close immediately.
+  const hasUnsavedChanges = useMemo(() => {
+    const amount = parseAmount(vm.form.amountInput, currency) ?? 0;
+    return (
+      vm.form.note.trim().length > 0 ||
+      amount > 0 ||
+      Boolean(vm.form.categoryId) ||
+      vm.form.transactionType !== 'expense'
+    );
+  }, [vm.form, currency]);
+
+  const requestClose = useCallback(() => {
+    if (suspended) return;
+    if (!vm.isEditing && hasUnsavedChanges) {
+      haptics.light();
+      setShowDiscardConfirm(true);
+      return;
+    }
+    onClose();
+  }, [suspended, vm.isEditing, hasUnsavedChanges, haptics, onClose]);
+
   const handleEscape = useCallback(() => {
-    if (!suspended) onClose();
-  }, [onClose, suspended]);
-  useFocusTrap(!suspended && vm.ready, dialogRef, handleEscape);
+    requestClose();
+  }, [requestClose]);
+  useFocusTrap(!suspended && vm.ready && !showDiscardConfirm, dialogRef, handleEscape);
   useBodyScrollLock(!suspended);
 
   useEffect(() => {
@@ -78,9 +103,10 @@ export function AddTransactionView({
   }
 
   return (
+    <>
     <div
       className={`fixed inset-0 z-[200] safe-overlay bg-background/80 backdrop-blur-xl flex items-center justify-center${suspended ? ' safe-overlay--suspended' : ''}`}
-      onClick={onClose}
+      onClick={requestClose}
       aria-hidden={suspended || undefined}
     >
       <div
@@ -96,7 +122,7 @@ export function AddTransactionView({
           <h2 id="add-txn-title" className="modal-title add-txn__title">
             <SignatureText text={vm.isEditing ? t('editTransaction') : t('addTransaction')} />
           </h2>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label={t('actionClose')}>
+          <button type="button" className="icon-btn" onClick={requestClose} aria-label={t('actionClose')}>
             <IconClose width={20} height={20} aria-hidden />
           </button>
         </div>
@@ -214,6 +240,19 @@ export function AddTransactionView({
         </div>
       </div>
     </div>
+    <ConfirmDialog
+      open={showDiscardConfirm}
+      title={t('addUnsavedTitle')}
+      message={t('addUnsavedBody')}
+      confirmLabel={t('addDiscard')}
+      cancelLabel={t('actionCancel')}
+      onConfirm={() => {
+        setShowDiscardConfirm(false);
+        onClose();
+      }}
+      onCancel={() => setShowDiscardConfirm(false)}
+    />
+    </>
   );
 }
 
