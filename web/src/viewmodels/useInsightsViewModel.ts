@@ -18,6 +18,7 @@ export function useInsightsViewModel() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [dataTruncated, setDataTruncated] = useState(false);
   const initialLoadDone = useRef(false);
 
   const periodOptions = useMemo(() => analyticsPeriodOptions(14, Date.now(), locale), [locale]);
@@ -32,6 +33,7 @@ export function useInsightsViewModel() {
   useEffect(() => {
     if (!initialLoadDone.current) setLoading(true);
     setLoadError(false);
+    setDataTruncated(false);
 
     let catsReady = false;
     let expsReady = false;
@@ -53,20 +55,23 @@ export function useInsightsViewModel() {
     if (range) {
       unsubExps = expenseRepository.onExpensesInRange(range[0], range[1], (items, error) => {
         setExpenses(items);
+        setDataTruncated(false);
         setLoadError(Boolean(error));
         expsReady = true;
         tryReady();
       });
     } else {
       const loadAll = () => {
-        void expenseRepository.getAllExpensesCapped(5_000).then(({ items }) => {
+        void expenseRepository.getAllExpensesCapped(5_000).then(({ items, truncated }) => {
           setExpenses(items);
+          setDataTruncated(truncated);
           setLoadError(false);
           expsReady = true;
           tryReady();
         }).catch((err) => {
           console.error('[useInsightsViewModel] getAllExpenses failed', err);
           setExpenses([]);
+          setDataTruncated(false);
           setLoadError(true);
           expsReady = true;
           tryReady();
@@ -89,11 +94,16 @@ export function useInsightsViewModel() {
     setLoadError(false);
     try {
       const cats = await expenseRepository.getAllCategories();
-      const items = range
-        ? await expenseRepository.getExpensesInRange(range[0], range[1])
-        : (await expenseRepository.getAllExpensesCapped(5_000)).items;
+      if (range) {
+        const items = await expenseRepository.getExpensesInRange(range[0], range[1]);
+        setExpenses(items);
+        setDataTruncated(false);
+      } else {
+        const { items, truncated } = await expenseRepository.getAllExpensesCapped(5_000);
+        setExpenses(items);
+        setDataTruncated(truncated);
+      }
       setCategories(cats);
-      setExpenses(items);
     } catch (err) {
       console.error('[useInsightsViewModel] reload failed', err);
       setLoadError(true);
@@ -129,8 +139,9 @@ export function useInsightsViewModel() {
       cashFlowTrend: computeCashFlowTrend(expenses, periodKey),
       loading,
       loadError,
+      dataTruncated,
     };
-  }, [expenses, periodKey, selectedOption.label, loading, loadError]);
+  }, [expenses, periodKey, selectedOption.label, loading, loadError, dataTruncated]);
 
   return { uiState, categories, periodOptions, setAnalyticsPeriod, reload };
 }

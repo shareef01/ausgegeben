@@ -51,7 +51,8 @@ class AppRepository @Inject constructor(
         const val UNCATEGORIZED_ID = "0"
         private const val TAG = "AppRepository"
         /** Soft cap matching web getAllExpensesCapped — unbounded listeners burn quota. */
-        private const val ALL_EXPENSES_CAP = 5_000L
+        const val ALL_EXPENSES_SOFT_CAP = 5_000L
+        private const val ALL_EXPENSES_CAP = ALL_EXPENSES_SOFT_CAP
         private const val LISTENER_ERROR = "LISTENER_ERROR"
     }
 
@@ -326,7 +327,7 @@ class AppRepository @Inject constructor(
         callbackFlow {
             val sub = expCol(u)
                 .orderBy("dateMillis", Query.Direction.DESCENDING)
-                .limit(ALL_EXPENSES_CAP)
+                .limit(ALL_EXPENSES_CAP + 1)
                 .addSnapshotListener { snap, error ->
                     if (error != null) {
                         Log.w(TAG, "expenses listener error", error)
@@ -334,7 +335,13 @@ class AppRepository @Inject constructor(
                     }
                     if (snap != null) {
                         _listenerError.value = null
-                        trySend(snap.documents.mapNotNull { expenseFromDoc(it) })
+                        val docs = snap.documents
+                        val truncated = docs.size > ALL_EXPENSES_CAP.toInt()
+                        if (truncated) {
+                            Log.w(TAG, "allExpenses capped at $ALL_EXPENSES_CAP rows")
+                        }
+                        val limited = if (truncated) docs.take(ALL_EXPENSES_CAP.toInt()) else docs
+                        trySend(limited.mapNotNull { expenseFromDoc(it) })
                     }
                 }
             awaitClose { sub.remove() }
@@ -368,6 +375,8 @@ class AppRepository @Inject constructor(
                     .whereLessThan("dateMillis", params.endMillis)
                     .orderBy("dateMillis", Query.Direction.DESCENDING)
                 if (params.typeFilter.isNotEmpty()) q = q.whereEqualTo("transactionType", params.typeFilter)
+                // Soft-cap all-time (and pathological huge ranges) like web getAllExpensesCapped.
+                q = q.limit(ALL_EXPENSES_CAP + 1)
                 val sub = q.addSnapshotListener { snap, error ->
                     if (error != null) {
                         Log.w(TAG, "query listener error", error)
@@ -375,7 +384,13 @@ class AppRepository @Inject constructor(
                     }
                     if (snap != null) {
                         _listenerError.value = null
-                        trySend(snap.documents.mapNotNull { expenseFromDoc(it) })
+                        val docs = snap.documents
+                        val truncated = docs.size > ALL_EXPENSES_CAP.toInt()
+                        if (truncated) {
+                            Log.w(TAG, "queryExpenses capped at $ALL_EXPENSES_CAP rows")
+                        }
+                        val limited = if (truncated) docs.take(ALL_EXPENSES_CAP.toInt()) else docs
+                        trySend(limited.mapNotNull { expenseFromDoc(it) })
                     }
                 }
                 awaitClose { sub.remove() }
