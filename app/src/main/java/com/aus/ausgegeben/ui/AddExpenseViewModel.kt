@@ -151,27 +151,21 @@ class AddExpenseViewModel @Inject constructor(
                         resetForm()
                         onSuccess()
                     }.onFailure { e ->
-                        onError(
-                            if (e.message == "EMAIL_NOT_VERIFIED") {
-                                app.getString(R.string.auth_verify_required)
-                            } else {
-                                app.getString(R.string.auth_error_generic)
-                            },
-                        )
+                        onError(saveErrorMessage(app, e.message))
                     }
                 } catch (e: Exception) {
-                    onError(
-                        if (e.message == "EMAIL_NOT_VERIFIED") {
-                            app.getString(R.string.auth_verify_required)
-                        } else {
-                            app.getString(R.string.auth_error_generic)
-                        },
-                    )
+                    onError(saveErrorMessage(app, e.message))
                 } finally {
                     _isSaving.value = false
                 }
             }
         }
+    }
+
+    private fun saveErrorMessage(app: Application, message: String?): String = when (message) {
+        "EMAIL_NOT_VERIFIED" -> app.getString(R.string.auth_verify_required)
+        "EXPENSE_NOT_FOUND" -> app.getString(R.string.snackbar_transaction_not_found)
+        else -> app.getString(R.string.auth_error_generic)
     }
 
     private suspend fun checkBudgetAlert(
