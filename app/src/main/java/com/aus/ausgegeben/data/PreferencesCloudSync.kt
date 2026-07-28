@@ -4,7 +4,6 @@ import android.util.Log
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.CoroutineScope
@@ -27,9 +26,10 @@ import javax.inject.Singleton
 @Singleton
 class PreferencesCloudSync @Inject constructor(
     private val preferenceManager: PreferenceManager,
-    private val firestore: FirebaseFirestore,
+    private val firestoreClient: FirestoreClient,
     private val firebaseAuth: FirebaseAuth,
 ) {
+    private val firestore get() = firestoreClient.get()
     private var registration: ListenerRegistration? = null
     private var pushJob: Job? = null
     private var activeUid: String? = null
