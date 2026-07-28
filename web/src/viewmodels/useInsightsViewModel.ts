@@ -37,6 +37,9 @@ export function useInsightsViewModel() {
 
     let catsReady = false;
     let expsReady = false;
+    let catsError = false;
+    let expsError = false;
+    const syncLoadError = () => setLoadError(catsError || expsError);
     const tryReady = () => {
       if (catsReady && expsReady) {
         setLoading(false);
@@ -44,8 +47,14 @@ export function useInsightsViewModel() {
       }
     };
 
-    const unsubCats = expenseRepository.onCategoriesChanged((cats) => {
-      setCategories(cats);
+    const unsubCats = expenseRepository.onCategoriesChanged((cats, error) => {
+      if (error) {
+        catsError = true;
+      } else {
+        catsError = false;
+        setCategories(cats);
+      }
+      syncLoadError();
       catsReady = true;
       tryReady();
     });
@@ -54,25 +63,32 @@ export function useInsightsViewModel() {
 
     if (range) {
       unsubExps = expenseRepository.onExpensesInRange(range[0], range[1], (items, error) => {
-        setExpenses(items);
-        setDataTruncated(false);
-        setLoadError(Boolean(error));
+        if (error) {
+          expsError = true;
+        } else {
+          expsError = false;
+          setExpenses(items);
+          setDataTruncated(false);
+        }
+        syncLoadError();
         expsReady = true;
         tryReady();
       });
     } else {
       const loadAll = () => {
         void expenseRepository.getAllExpensesCapped(5_000).then(({ items, truncated }) => {
+          expsError = false;
           setExpenses(items);
           setDataTruncated(truncated);
-          setLoadError(false);
+          syncLoadError();
           expsReady = true;
           tryReady();
         }).catch((err) => {
           console.error('[useInsightsViewModel] getAllExpenses failed', err);
+          expsError = true;
           setExpenses([]);
           setDataTruncated(false);
-          setLoadError(true);
+          syncLoadError();
           expsReady = true;
           tryReady();
         });
