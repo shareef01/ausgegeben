@@ -56,6 +56,7 @@ web/dist/
 web/.env.local
 web/.env.production
 web/.env.emulator
+web/.browser-key-rotation.json
 web/.vite/
 web/*.tsbuildinfo
 
