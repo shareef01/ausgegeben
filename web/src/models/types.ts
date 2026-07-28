@@ -45,7 +45,8 @@ export interface RecordUiState {
   searchQuery: string;
   typeFilter: TransactionTypeFilter;
   listPeriod: RecordListPeriod;
-  insights: Record<string, never>;
+  /** Calendar-month top expense category name (Android Record chip parity). */
+  topExpenseCategoryName: string | null;
   monthlyBudget: number | null;
   monthExpenses: Expense[];
   /** Day-key → [income, expense] from the full period (not search/type-filtered). */
