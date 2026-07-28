@@ -97,7 +97,9 @@
     <string name="settings_export_csv">als csv exportieren</string>
     <string name="settings_export_subtitle">tabelle teilen</string>
     <string name="settings_export_ok">csv bereit zum teilen</string>
+    <string name="settings_export_truncated">csv bereit (neueste 5000 zeilen)</string>
     <string name="settings_export_failed">export fehlgeschlagen</string>
+    <string name="data_truncated_notice">zeige die neuesten 5.000 transaktionen — ältere einträge sind ausgeblendet</string>
     <string name="settings_version">version</string>
     <string name="settings_support">support kontaktieren</string>
     <string name="settings_no_email_app">keine e-mail-app gefunden</string>

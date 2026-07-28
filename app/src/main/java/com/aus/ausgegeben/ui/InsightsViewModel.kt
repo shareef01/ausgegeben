@@ -38,6 +38,8 @@ data class InsightsUiState(
     val transfersByCategory: Map<Category, Double> = emptyMap(),
     val cashFlowTrend: List<CashFlowPoint> = emptyList(),
     val isLoading: Boolean = true,
+    /** True when all-time analytics used a soft-capped expense fetch. */
+    val dataTruncated: Boolean = false,
 )
 
 @HiltViewModel
@@ -143,6 +145,8 @@ class InsightsViewModel @Inject constructor(
             transfersByCategory = mapTotals(transferTotals),
             cashFlowTrend = scoped.computeCashFlowTrend(periodKey),
             isLoading = false,
+            dataTruncated = periodKey == AnalyticsPeriod.ALL_TIME.storageKey &&
+                scoped.size >= AppRepository.ALL_EXPENSES_SOFT_CAP.toInt(),
         )
     }
 
@@ -153,6 +157,7 @@ class InsightsViewModel @Inject constructor(
             previous.totalExpenses != current.totalExpenses ||
             previous.totalIncome != current.totalIncome ||
             previous.totalTransfers != current.totalTransfers ||
+            previous.dataTruncated != current.dataTruncated ||
             previous.cashFlowTrend != current.cashFlowTrend
         ) {
             return false

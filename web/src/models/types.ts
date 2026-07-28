@@ -48,6 +48,8 @@ export interface RecordUiState {
   dayTotalsByLabel: Record<string, [number, number]>;
   loading: boolean;
   loadError?: boolean;
+  /** True when all-time list is capped at the latest 5,000 rows. */
+  dataTruncated?: boolean;
 }
 
 export interface InsightsUiState {
@@ -62,6 +64,8 @@ export interface InsightsUiState {
   cashFlowTrend: CashFlowPoint[];
   loading: boolean;
   loadError?: boolean;
+  /** True when all-time analytics used a capped expense fetch. */
+  dataTruncated?: boolean;
 }
 
 export interface AppPreferences {

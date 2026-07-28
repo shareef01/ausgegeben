@@ -202,6 +202,7 @@ export const de: Record<TranslationKey, string> = {
   settingsExportSub: 'tabelle herunterladen',
   settingsExportOk: 'export bereit',
   settingsExportTruncated: 'export bereit (neueste 5000 zeilen)',
+  dataTruncatedNotice: 'zeige die neuesten 5.000 transaktionen — ältere einträge sind ausgeblendet',
   settingsExportFailed: 'export fehlgeschlagen',
   settingsRemindersPhoneOnly: 'tägliche erinnerungen werden in der android-app verwaltet',
   settingsChooseTheme: 'design wählen',
