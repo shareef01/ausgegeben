@@ -1,6 +1,7 @@
 package com.aus.ausgegeben.ui
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.aus.ausgegeben.R
@@ -26,6 +27,10 @@ class AddExpenseViewModel @Inject constructor(
     private val repository: AppRepository,
     private val preferenceManager: PreferenceManager,
 ) : AndroidViewModel(application) {
+
+    companion object {
+        private const val TAG = "AddExpenseViewModel"
+    }
 
     private val _amount = MutableStateFlow("0")
     val amount = _amount.asStateFlow()
@@ -138,7 +143,11 @@ class AddExpenseViewModel @Inject constructor(
                     }
                     
                     saveResult.onSuccess {
-                        checkBudgetAlert(type, amt, editingId)?.let { onBudgetAlert?.invoke(it) }
+                        // Budget projection is best-effort — must not look like a failed save
+                        // after the write already succeeded (web parity).
+                        runCatching { checkBudgetAlert(type, amt, editingId) }
+                            .onSuccess { alert -> alert?.let { onBudgetAlert?.invoke(it) } }
+                            .onFailure { e -> Log.w(TAG, "budget check failed", e) }
                         resetForm()
                         onSuccess()
                     }.onFailure { e ->
