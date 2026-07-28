@@ -360,6 +360,10 @@ export const expenseRepository = {
   async updateExpense(expense: Expense): Promise<void> {
     const userId = uid(); if (!userId || !expense.id) return;
     requireVerifiedEmail();
+    const existing = await getDoc(expDoc(userId, expense.id));
+    if (!existing.exists()) {
+      throw new Error('EXPENSE_NOT_FOUND');
+    }
     const payload = {
       ...expense,
       amount: roundAmount(expense.amount),
