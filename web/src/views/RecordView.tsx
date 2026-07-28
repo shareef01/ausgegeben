@@ -49,22 +49,17 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(e);
     }
-    return [...map.entries()].map(([, items]) => {
-      const dayIncome = items
-        .filter((e) => e.transactionType === 'income')
-        .reduce((s, e) => s + e.amount, 0);
-      const dayExpense = items
-        .filter((e) => e.transactionType === 'expense')
-        .reduce((s, e) => s + e.amount, 0);
+    return [...map.entries()].map(([key, items]) => {
+      const [dayIncome, dayExpense] = uiState.dayTotalsByLabel[key] ?? [0, 0];
       return {
         label: formatDateLabel(items[0].dateMillis, locale),
         items,
-        dayIncome: Math.round(dayIncome * 100) / 100,
-        dayExpense: Math.round(dayExpense * 100) / 100,
+        dayIncome,
+        dayExpense,
       };
     });
-    // `locale` keeps day-header labels in the UI language after a language switch.
-  }, [uiState.expenses, locale]);
+    // Period day totals stay unfiltered (Android parity); list rows stay search/type-filtered.
+  }, [uiState.expenses, uiState.dayTotalsByLabel, locale]);
 
   const catMap = useMemo(() => new Map(uiState.categories.map((c) => [c.id, c])), [uiState.categories]);
 
@@ -100,7 +95,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
 
         <aside className="sidebar-panel">
           <div className="widget-stack">
-            <FinanceSummaryCard expenses={uiState.expenses} currency={currency} periodLabel={periodLabel} />
+            <FinanceSummaryCard expenses={uiState.summaryExpenses} currency={currency} periodLabel={periodLabel} />
 
             {uiState.monthlyBudget && viewingCurrentMonth ? (
               <BudgetProgressBar spent={monthSpent} budget={uiState.monthlyBudget} currency={currency} />
