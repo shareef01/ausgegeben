@@ -3,8 +3,6 @@ package com.aus.ausgegeben.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aus.ausgegeben.data.AppRepository
-import com.aus.ausgegeben.data.ExpenseQueryParams
-import com.aus.ausgegeben.data.TransactionTypeFilterKey
 import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
@@ -15,7 +13,6 @@ import com.aus.ausgegeben.util.SpendingInsights
 import com.aus.ausgegeben.util.computeDayTotals
 import com.aus.ausgegeben.util.computeSpendingInsights
 import com.aus.ausgegeben.util.dateRangeMillis
-import com.aus.ausgegeben.util.recentWeekRangeMillis
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -30,6 +27,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -83,48 +81,67 @@ class ExpenseViewModel @Inject constructor(
             if (hidden.isEmpty()) expenses else expenses.filter { it.id !in hidden }
         }
 
-    // 2. Filtered expense flows
-    private val monthExpensesFlow = flowOf(AnalyticsPeriod.THIS_MONTH.dateRangeMillis())
-        .flatMapLatest { range ->
-            if (range == null) repository.allExpenses else repository.getExpensesInRange(range.first, range.second)
-        }.excludingSoftDeleted().distinctUntilChanged()
+    /**
+     * Shared calendar-month listener — budget bar + "most spent" always need it.
+     * Reused as the list source when [RecordListPeriod.THIS_MONTH] is selected so we
+     * do not open a second identical month query.
+     */
+    private val monthExpensesShared: Flow<List<Expense>> =
+        flowOf(AnalyticsPeriod.THIS_MONTH.dateRangeMillis())
+            .flatMapLatest { range ->
+                if (range == null) repository.allExpenses
+                else repository.getExpensesInRange(range.first, range.second)
+            }
+            .excludingSoftDeleted()
+            .distinctUntilChanged()
+            .shareIn(viewModelScope, SharingStarted.WhileSubscribed(5000), replay = 1)
 
-    private val weekExpensesFlow = flowOf(recentWeekRangeMillis())
-        .flatMapLatest { (start, end) ->
-            repository.getExpensesInRange(start, end)
-        }.excludingSoftDeleted().distinctUntilChanged()
+    /**
+     * Period-scoped expenses for summary / day totals. One Firestore subscription
+     * (reuses [monthExpensesShared] for this month). Type/search filtering is client-side
+     * in [pagedExpenses] — avoids a parallel queryExpenses listener.
+     */
+    private val listExpensesShared: Flow<List<Expense>> = _listPeriod
+        .flatMapLatest { periodKey ->
+            if (periodKey == RecordListPeriod.THIS_MONTH.key) {
+                monthExpensesShared
+            } else {
+                val range = recordListDateRangeMillis(periodKey)
+                val base = if (range == null) {
+                    repository.allExpenses
+                } else {
+                    repository.getExpensesInRange(range.first, range.second)
+                }
+                base.excludingSoftDeleted()
+            }
+        }
+        .distinctUntilChanged()
+        .shareIn(viewModelScope, SharingStarted.WhileSubscribed(5000), replay = 1)
 
-    private val listExpensesFlow = _listPeriod.flatMapLatest { periodKey ->
-        val range = recordListDateRangeMillis(periodKey)
-        if (range == null) repository.allExpenses else repository.getExpensesInRange(range.first, range.second)
-    }.excludingSoftDeleted().distinctUntilChanged()
-
-    // 3. Derived Insights and UI State components
+    // Week listener dropped: daysLoggedThisWeek is unused in UI; top category uses month only.
     private val insightsFlow = combine(
-        monthExpensesFlow,
-        weekExpensesFlow,
-        categoriesFlow
-    ) { month, week, cats ->
+        monthExpensesShared,
+        categoriesFlow,
+    ) { month, cats ->
         val categoryNames = cats.associate { it.id to it.name }
-        computeSpendingInsights(month, week, categoryNames)
+        computeSpendingInsights(month, emptyList(), categoryNames)
     }.distinctUntilChanged()
-    .flowOn(Dispatchers.Default)
+        .flowOn(Dispatchers.Default)
 
-    private val dayTotalsFlow = listExpensesFlow
+    private val dayTotalsFlow = listExpensesShared
         .map { expenses -> computeDayTotals(expenses) }
         .distinctUntilChanged()
         .flowOn(Dispatchers.Default)
 
-    // 4. Final UI State assembly
     val uiState: StateFlow<RecordUiState> = combine(
-        combine(listExpensesFlow, categoriesFlow, monthExpensesFlow, budgetFlow, currencyFlow) { list, cats, month, budget, curr ->
+        combine(listExpensesShared, categoriesFlow, monthExpensesShared, budgetFlow, currencyFlow) { list, cats, month, budget, curr ->
             RecordData(list, cats, month, budget, curr)
         },
         combine(_searchQuery, _typeFilter, _listPeriod) { query, filter, period ->
             RecordToolbarState(query, filter, period)
         },
         insightsFlow,
-        dayTotalsFlow
+        dayTotalsFlow,
     ) { data, toolbar, insights, totals ->
         val truncated = toolbar.listPeriod == RecordListPeriod.ALL_TIME.key &&
             data.headerExpenses.size >= AppRepository.ALL_EXPENSES_SOFT_CAP.toInt()
@@ -132,29 +149,23 @@ class ExpenseViewModel @Inject constructor(
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = RecordUiState()
+        initialValue = RecordUiState(),
     )
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private val queriedExpensesFlow: Flow<List<Expense>> = combine(
-        _listPeriod,
-        _typeFilter,
-    ) { period, filter ->
-        val (start, end) = recordListDateRangeMillis(period) ?: (0L to Long.MAX_VALUE)
-        Pair(start, end) to filter
-    }.flatMapLatest { (range, filter) ->
-        repository.queryExpenses(ExpenseQueryParams.forPeriod(range.first, range.second, filter.toFilterKey()))
-    }.distinctUntilChanged()
-
-    // Firestore query is scoped to period + type only; search matches client-side
-    // (note, amount, transaction type, category name), same fields the web client filters on.
+    // Period data from [listExpensesShared]; type + search filtered here (web parity).
     val pagedExpenses: Flow<List<Expense>> = combine(
-        queriedExpensesFlow.excludingSoftDeleted(),
+        listExpensesShared,
+        _typeFilter,
         _debouncedSearch,
         categoriesFlow,
-    ) { expenses, query, categories ->
+    ) { expenses, filter, query, categories ->
+        val typed = if (filter == TransactionTypeFilter.ALL) {
+            expenses
+        } else {
+            expenses.filter { filter.matches(it) }
+        }
         val categoryNames = categories.associate { it.id to it.name }
-        expenses.filterByQuery(query, categoryNames)
+        typed.filterByQuery(query, categoryNames)
     }
 
     fun setSearchQuery(query: String) {
@@ -200,10 +211,4 @@ class ExpenseViewModel @Inject constructor(
             onResult(result.isSuccess, result.exceptionOrNull()?.message?.takeIf { it == "EMAIL_NOT_VERIFIED" })
         }
     }
-}
-private fun TransactionTypeFilter.toFilterKey(): TransactionTypeFilterKey = when (this) {
-    TransactionTypeFilter.ALL -> TransactionTypeFilterKey.ALL
-    TransactionTypeFilter.EXPENSE -> TransactionTypeFilterKey.EXPENSE
-    TransactionTypeFilter.INCOME -> TransactionTypeFilterKey.INCOME
-    TransactionTypeFilter.TRANSFER -> TransactionTypeFilterKey.TRANSFER
 }
