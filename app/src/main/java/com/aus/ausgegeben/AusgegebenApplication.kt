@@ -73,6 +73,22 @@ class AusgegebenApplication : Application(), Configuration.Provider {
         val factory = resolveAppCheckFactory() ?: return
         try {
             FirebaseAppCheck.getInstance().installAppCheckProviderFactory(factory)
+            if (BuildConfig.DEBUG) {
+                // Warm + register: exchange creates/loads the persisted secret.
+                FirebaseAppCheck.getInstance().getAppCheckToken(false)
+                    .addOnSuccessListener {
+                        Log.i(TAG, "App Check debug token ready")
+                        logStoredAppCheckDebugSecret()
+                    }
+                    .addOnFailureListener { e ->
+                        logStoredAppCheckDebugSecret()
+                        Log.e(
+                            TAG,
+                            "App Check debug token exchange failed — register the secret above in Firebase Console",
+                            e,
+                        )
+                    }
+            }
         } catch (e: Exception) {
             Log.w(TAG, "App Check provider install failed", e)
         }
@@ -93,6 +109,26 @@ class AusgegebenApplication : Application(), Configuration.Provider {
             }
         }
         return PlayIntegrityAppCheckProviderFactory.getInstance()
+    }
+
+    /** Firebase only Log.d's this; surface at INFO so sideload devices are easy to register. */
+    private fun logStoredAppCheckDebugSecret() {
+        try {
+            val dir = java.io.File(applicationInfo.dataDir, "shared_prefs")
+            dir.listFiles()
+                ?.filter { it.name.startsWith("com.google.firebase.appcheck.debug.store.") }
+                ?.forEach { file ->
+                    val match = Regex(
+                        """com\.google\.firebase\.appcheck\.debug\.DEBUG_SECRET["']?\s*>\s*([^<]+)""",
+                    ).find(file.readText())
+                    val found = match?.groupValues?.getOrNull(1)?.trim()
+                    if (!found.isNullOrBlank()) {
+                        Log.i(TAG, "App Check debug secret (register in Console): $found")
+                    }
+                }
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not read App Check debug secret", e)
+        }
     }
 
     companion object {
