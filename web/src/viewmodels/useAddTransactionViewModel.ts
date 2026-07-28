@@ -31,8 +31,11 @@ export function useAddTransactionViewModel(expenseId?: string) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  /** Edit load failed (missing doc / fetch error) — block Save so we never recreate the id. */
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const load = useCallback(async () => {
+    setLoadFailed(false);
     try {
       const CATEGORY_TIMEOUT_MS = 8000;
       const catsPromise = expenseRepository.getAllCategories();
@@ -59,6 +62,7 @@ export function useAddTransactionViewModel(expenseId?: string) {
           // bug. Surface the same load-failure copy used below so the user sees an error
           // instead of a deceptively empty "Edit Transaction" form.
           setError(t('errorLoadFailed'));
+          setLoadFailed(true);
         }
       } else {
         const first = cats.find((c) => c.transactionType === 'expense');
@@ -69,6 +73,7 @@ export function useAddTransactionViewModel(expenseId?: string) {
       console.error('[useAddTransactionViewModel] load failed', err);
       setReady(true);
       setError(t('errorLoadFailed'));
+      setLoadFailed(Boolean(expenseId));
     }
   }, [expenseId, t]);
 
@@ -118,6 +123,10 @@ export function useAddTransactionViewModel(expenseId?: string) {
   };
 
   const save = async (): Promise<SaveResult> => {
+    if (loadFailed) {
+      setError(t('errorLoadFailed'));
+      return { ok: false };
+    }
     const amount = parseAmount(form.amountInput, usePreferencesStore.getState().currency);
     if (!amount || amount <= 0) {
       setError(t('errorValidAmount'));
@@ -149,9 +158,14 @@ export function useAddTransactionViewModel(expenseId?: string) {
         console.error('[useAddTransactionViewModel] budget check failed', err);
       }
       return { ok: true, budgetAlert };
-    } catch (err) {
+      } catch (err) {
       console.error('[useAddTransactionViewModel] save failed', err);
-      setError(err instanceof EmailNotVerifiedError ? t('authVerifyRequired') : t('errorSaveFailed'));
+      if (err instanceof Error && err.message === 'EXPENSE_NOT_FOUND') {
+        setLoadFailed(true);
+        setError(t('errorLoadFailed'));
+      } else {
+        setError(err instanceof EmailNotVerifiedError ? t('authVerifyRequired') : t('errorSaveFailed'));
+      }
       return { ok: false };
     } finally {
       setSaving(false);
@@ -178,7 +192,9 @@ export function useAddTransactionViewModel(expenseId?: string) {
     save,
     saving,
     error,
+    loadFailed,
     isEditing: Boolean(expenseId),
     reloadCategories,
+    reload: load,
   };
 }
