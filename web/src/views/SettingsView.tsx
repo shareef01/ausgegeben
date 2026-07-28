@@ -17,7 +17,7 @@ import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
 import { preferencesSync, PREFS_SYNC_ERROR_NETWORK, PREFS_SYNC_ERROR_PERMISSION } from '@/services/preferencesSync';
 import { useTranslation, type Locale, type TranslationKey } from '@/i18n';
-import { currencyLabel, formatAmount, SUPPORTED_CURRENCIES } from '@/utils/currency';
+import { currencyLabel, formatAmount, formatAmountForInput, parseAmount, SUPPORTED_CURRENCIES } from '@/utils/currency';
 import type { ThemeMode } from '@/models/types';
 import { themePalettes } from '@/theme/tokens';
 import { expenseRepository } from '@/repositories/expenseRepository';
@@ -70,6 +70,21 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
   const [editBudget, setEditBudget] = useState(false);
   const [budgetInput, setBudgetInput] = useState('');
   const budgetInputRef = useRef<HTMLInputElement>(null);
+  const parsedBudget = parseAmount(budgetInput, currency);
+  const canSaveBudget = parsedBudget != null && parsedBudget > 0;
+
+  const saveBudget = useCallback(() => {
+    if (!canSaveBudget || parsedBudget == null) return;
+    setMonthlyBudget(parsedBudget);
+    setEditBudget(false);
+    useToastStore.getState().show(t('settingsBudgetSet'));
+  }, [canSaveBudget, parsedBudget, setMonthlyBudget, t]);
+
+  const clearBudget = useCallback(() => {
+    setMonthlyBudget(null);
+    setEditBudget(false);
+    useToastStore.getState().show(t('settingsBudgetCleared'));
+  }, [setMonthlyBudget, t]);
 
   const exportData = async () => {
     try {
@@ -159,17 +174,22 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
                 <input
                   ref={budgetInputRef}
                   className="field__input"
-                  type="number"
+                  type="text"
                   inputMode="decimal"
                   placeholder={t('budgetPlaceholder')}
                   aria-label={t('settingsMonthlyLimit')}
                   value={budgetInput}
-                  onChange={(e) => setBudgetInput(e.target.value)}
+                  onChange={(e) => {
+                    const input = e.target.value;
+                    const separators = (input.match(/[.,]/g) ?? []).length;
+                    if (input === '' || (/^[\d.,]*$/.test(input) && separators <= 1)) {
+                      setBudgetInput(input);
+                    }
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
-                      const n = Number.parseFloat(budgetInput.replace(',', '.'));
-                      setMonthlyBudget(Number.isFinite(n) && n > 0 ? n : null);
-                      setEditBudget(false);
+                      e.preventDefault();
+                      saveBudget();
                     } else if (e.key === 'Escape') {
                       setEditBudget(false);
                     }
@@ -177,12 +197,28 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
                   autoFocus
                 />
                 <div className="settings-budget-edit__actions">
-                  <button type="button" className="btn btn-primary flex-1 px-4 py-2.5 rounded-xl font-bold" onClick={() => {
-                    const n = Number.parseFloat(budgetInput.replace(',', '.'));
-                    setMonthlyBudget(Number.isFinite(n) && n > 0 ? n : null);
-                    setEditBudget(false);
-                  }}>{t('actionSave')}</button>
-                  <button type="button" className="btn btn-secondary flex-1 px-4 py-2.5 rounded-xl border border-surface-border" onClick={() => setEditBudget(false)}>{t('actionCancel')}</button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary flex-1 px-4 py-2.5 rounded-xl border border-surface-border settings-budget-edit__clear"
+                    onClick={clearBudget}
+                  >
+                    {t('actionClear')}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary flex-1 px-4 py-2.5 rounded-xl border border-surface-border"
+                    onClick={() => setEditBudget(false)}
+                  >
+                    {t('actionCancel')}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary flex-1 px-4 py-2.5 rounded-xl font-bold"
+                    disabled={!canSaveBudget}
+                    onClick={saveBudget}
+                  >
+                    {t('actionSave')}
+                  </button>
                 </div>
               </div>
             ) : (
@@ -192,7 +228,9 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
                 title={t('settingsMonthlyLimit')}
                 subtitle={monthlyBudget ? formatAmount(monthlyBudget, currency) : t('settingsMonthlyLimitNotSet')}
                 onClick={() => {
-                  setBudgetInput(monthlyBudget?.toString().replace('.', ',') ?? '');
+                  setBudgetInput(
+                    monthlyBudget != null ? formatAmountForInput(monthlyBudget, currency) : '',
+                  );
                   setEditBudget(true);
                 }}
               />
