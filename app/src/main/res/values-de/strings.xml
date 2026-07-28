@@ -179,6 +179,7 @@
     <string name="snackbar_transaction_duplicated">für heute dupliziert</string>
     <string name="snackbar_transaction_saved">transaktion gespeichert</string>
     <string name="snackbar_transaction_updated">transaktion aktualisiert</string>
+    <string name="snackbar_transaction_not_found">diese transaktion existiert nicht mehr</string>
 
     <!-- Analytics periods -->
     <string name="period_this_month">dieser monat</string>

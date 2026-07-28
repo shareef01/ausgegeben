@@ -1,6 +1,6 @@
 ﻿import {
   collection, doc, setDoc, deleteDoc, getDoc, getDocs, query, where, orderBy, limit,
-  onSnapshot, type Unsubscribe, writeBatch, type CollectionReference,
+  onSnapshot, type Unsubscribe, writeBatch, type CollectionReference, type QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
@@ -82,6 +82,31 @@ async function ensureUncategorizedCategory(userId: string): Promise<void> {
     sortOrder: 999,
     updatedAt: now(),
   });
+}
+
+/**
+ * Firestore equality is type-sensitive. Older Android builds stored categoryId as a
+ * number; UUID migration stores strings. Match both so delete/dedupe never miss
+ * legacy rows (Android AppRepository.expenseDocsForCategory parity).
+ */
+async function expenseDocsForCategory(
+  userId: string,
+  categoryId: string,
+): Promise<QueryDocumentSnapshot[]> {
+  const byString = await getDocs(query(expCol(userId), where('categoryId', '==', categoryId)));
+  const asNumber = Number(categoryId);
+  const byNumber =
+    Number.isFinite(asNumber) && String(asNumber) === categoryId
+      ? await getDocs(query(expCol(userId), where('categoryId', '==', asNumber)))
+      : null;
+  const seen = new Set<string>();
+  const out: QueryDocumentSnapshot[] = [];
+  for (const d of [...byString.docs, ...(byNumber?.docs ?? [])]) {
+    if (seen.has(d.id)) continue;
+    seen.add(d.id);
+    out.push(d);
+  }
+  return out;
 }
 
 export const expenseRepository = {
@@ -236,10 +261,10 @@ export const expenseRepository = {
       return;
     }
     await ensureUncategorizedCategory(userId);
-    const linked = await getDocs(query(expCol(userId), where('categoryId', '==', id)));
-    if (!linked.empty) {
+    const linked = await expenseDocsForCategory(userId, id);
+    if (linked.length > 0) {
         const batch = writeBatch(fs()!);
-        linked.docs.forEach(d => {
+        linked.forEach(d => {
             batch.update(d.ref, { categoryId: UNCATEGORIZED_ID });
         });
         await batch.commit();
@@ -255,10 +280,10 @@ export const expenseRepository = {
     // up newly linked. This shrinks the race window from "arbitrarily long" down to "the
     // network latency of one extra query round-trip" — a concurrent write landing in that
     // final gap can still orphan an expense; it just makes the window much narrower.
-    const recheck = await getDocs(query(expCol(userId), where('categoryId', '==', id)));
-    if (!recheck.empty) {
+    const recheck = await expenseDocsForCategory(userId, id);
+    if (recheck.length > 0) {
         const recheckBatch = writeBatch(fs()!);
-        recheck.docs.forEach(d => {
+        recheck.forEach(d => {
             recheckBatch.update(d.ref, { categoryId: UNCATEGORIZED_ID });
         });
         await recheckBatch.commit();
@@ -331,8 +356,7 @@ export const expenseRepository = {
 
   async countExpensesForCategory(id: string): Promise<number> {
     const u = uid(); if (!u) return 0;
-    const snap = await getDocs(query(expCol(u), where('categoryId', '==', id)));
-    return snap.size;
+    return (await expenseDocsForCategory(u, id)).length;
   },
 
   // SECURE: UUID and Math.round for integrity
@@ -433,12 +457,11 @@ export const expenseRepository = {
     // the batch commit must wait on that duplicate's own getDocs read before it can fire.
     const resolveGroup = async (master: Category, duplicates: Category[]) => {
       for (const dup of duplicates) {
-        const linked = await getDocs(query(expCol(userId), where('categoryId', '==', dup.id)));
-        if (!linked.empty) {
+        const linked = await expenseDocsForCategory(userId, dup.id);
+        if (linked.length > 0) {
           // Handle chunking for Firestore batch limit (500)
-          const docs = linked.docs;
-          for (let i = 0; i < docs.length; i += 450) {
-            const chunk = docs.slice(i, i + 450);
+          for (let i = 0; i < linked.length; i += 450) {
+            const chunk = linked.slice(i, i + 450);
             const batch = writeBatch(fs()!);
             chunk.forEach(d => {
               batch.update(d.ref, { categoryId: master.id });
@@ -456,11 +479,10 @@ export const expenseRepository = {
         // more immediately before deleting, and reassign anything newly linked. This
         // narrows the race window from "arbitrarily long" to "one extra query round-trip"
         // rather than closing it entirely.
-        const recheck = await getDocs(query(expCol(userId), where('categoryId', '==', dup.id)));
-        if (!recheck.empty) {
-          const recheckDocs = recheck.docs;
-          for (let i = 0; i < recheckDocs.length; i += 450) {
-            const chunk = recheckDocs.slice(i, i + 450);
+        const recheck = await expenseDocsForCategory(userId, dup.id);
+        if (recheck.length > 0) {
+          for (let i = 0; i < recheck.length; i += 450) {
+            const chunk = recheck.slice(i, i + 450);
             const recheckBatch = writeBatch(fs()!);
             chunk.forEach(d => {
               recheckBatch.update(d.ref, { categoryId: master.id });
