@@ -392,9 +392,11 @@ export const expenseRepository = {
     return id;
   },
 
-  async sumMonthExpenses(start: number, end: number): Promise<number> {
+  async sumMonthExpenses(start: number, end: number, excludeExpenseId?: string): Promise<number> {
     const items = await this.getExpensesInRange(start, end);
-    const raw = items.filter(e => e.transactionType === 'expense').reduce((s, e) => s + e.amount, 0);
+    const raw = items
+      .filter((e) => e.transactionType === 'expense' && e.id !== excludeExpenseId)
+      .reduce((s, e) => s + e.amount, 0);
     return roundAmount(raw);
   },
 

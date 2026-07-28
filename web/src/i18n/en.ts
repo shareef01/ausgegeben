@@ -170,6 +170,7 @@ export const en = {
   errorChooseCategory: 'choose a category',
   errorLoadFailed: 'failed to load. please try again.',
   errorLoadFailedHint: 'check your connection, then retry',
+  errorBudgetExceeded: 'monthly budget exceeded: {spent} of {budget}',
   errorSaveFailed: 'could not save. please try again.',
   actionRetry: 'retry',
   typeExpense: 'expense',
