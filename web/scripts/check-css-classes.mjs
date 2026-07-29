@@ -35,10 +35,17 @@ function collectUsedClasses() {
   for (const rel of files) {
     const src = readFileSync(join(root, rel), 'utf8');
     const chunks = [];
-    for (const m of src.matchAll(/className=\{?["'`]([^"'`]+)["'`]/g)) chunks.push(m[1]);
-    // Template literals: drop the ${...} holes, keep the static text around them
+    // Plain quotes only. Allowing a backtick here made this regex slice template
+    // literals at the first inner quote, which both emitted junk tokens (`===`, `?`)
+    // and meant the conditional class was never collected at all.
+    for (const m of src.matchAll(/className=\{?["']([^"']+)["']/g)) chunks.push(m[1]);
     for (const m of src.matchAll(/className=\{`([^`]*)`\}/g)) {
-      chunks.push(m[1].replace(/\$\{[^}]*\}/g, ' '));
+      const body = m[1];
+      // Classes inside the ${...} holes are real class names — collect them before
+      // stripping, or every conditional class escapes the check.
+      for (const q of body.matchAll(/['"]([^'"]*)['"]/g)) chunks.push(q[1]);
+      // Then the static text around the holes.
+      chunks.push(body.replace(/\$\{[^}]*\}/g, ' '));
     }
     for (const chunk of chunks) {
       for (const token of chunk.split(/\s+/)) {
