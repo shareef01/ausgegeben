@@ -82,7 +82,7 @@ fun SettingsScreen(
     val lastCloudSyncAt by preferenceManager.lastCloudSyncAtFlow.collectAsStateWithLifecycle(initialValue = null)
 
     // Reactive Auth State
-    val currentUser by authRepository.authState.collectAsStateWithLifecycle(initialValue = authRepository.currentUser)
+    val currentUser by authRepository.authState.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -604,6 +604,17 @@ fun SettingsScreen(
                 showDeleteAccountConfirm = false
                 deletingAccount = true
                 scope.launch {
+                    // Check session freshness BEFORE the wipe. deleteAllUserData() is
+                    // irreversible, so the old order destroyed every expense and category
+                    // and only then found out the session was too old to delete the
+                    // account — leaving the account alive with its history gone.
+                    if (!authRepository.hasRecentSignIn()) {
+                        deletingAccount = false
+                        onShowMessage(
+                            context.getString(R.string.settings_delete_account_needs_reauth),
+                        )
+                        return@launch
+                    }
                     val wipe = repository.deleteAllUserData()
                     val deleted = if (wipe.isSuccess) authRepository.deleteAccount() else wipe
                     deletingAccount = false

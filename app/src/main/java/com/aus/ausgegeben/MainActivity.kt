@@ -57,7 +57,7 @@ class MainActivity : AppCompatActivity() {
         enableEdgeToEdge()
         setContent {
             val syncScope = rememberCoroutineScope()
-            val currentUser by authRepository.authState.collectAsStateWithLifecycle(initialValue = authRepository.currentUser)
+            val currentUser by authRepository.authState.collectAsStateWithLifecycle()
 
             LaunchedEffect(currentUser?.uid) {
                 val uid = currentUser?.uid
@@ -105,7 +105,7 @@ fun MainApp(
 ) {
     val context = LocalContext.current
     val activity = LocalActivity.current as? AppCompatActivity ?: return
-    val currentUser by authRepository.authState.collectAsStateWithLifecycle(initialValue = authRepository.currentUser)
+    val currentUser by authRepository.authState.collectAsStateWithLifecycle()
     val currency by preferenceManager.currencyFlow.collectAsStateWithLifecycle(initialValue = "EUR")
     val dailyReminder by preferenceManager.dailyReminderFlow.collectAsStateWithLifecycle(initialValue = true)
     val reminderHour by preferenceManager.reminderHourFlow.collectAsStateWithLifecycle(initialValue = 19)
