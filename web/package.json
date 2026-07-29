@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
+    "lint:css": "node scripts/check-css-classes.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:rules": "npx firebase emulators:exec --only firestore --project demo-ausgegeben-rules \"vitest run --config vitest.rules.config.ts\"",
