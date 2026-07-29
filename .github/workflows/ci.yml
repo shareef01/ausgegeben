@@ -21,7 +21,10 @@ jobs:
 
       - run: chmod +x gradlew
 
-      - run: ./gradlew testDebugUnitTest assembleDebug --no-daemon
+      # lintDebug catches manifest/config errors (e.g. a stray WorkManager
+      # initializer silently dropping the Hilt worker factory) that compile fine
+      # but break at runtime — and that would otherwise only surface in release.
+      - run: ./gradlew testDebugUnitTest lintDebug assembleDebug --no-daemon
 
   web:
     runs-on: ubuntu-latest

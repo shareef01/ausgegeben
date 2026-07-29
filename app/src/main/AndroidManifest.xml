@@ -47,6 +47,23 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!--
+          AusgegebenApplication supplies WorkManager's Configuration (HiltWorkerFactory).
+          The default startup initializer would race ahead with the stock configuration and
+          drop that factory, leaving @HiltWorker classes like DailyReminderWorker
+          impossible to construct. Remove it so on-demand initialization wins.
+        -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
     </application>
 
 </manifest>
