@@ -76,20 +76,20 @@ export function LoadingListSkeleton({ rows = 5 }: { rows?: number }) {
   const { t } = useTranslation();
   return (
     <div
-      className="skeleton-list flex flex-col gap-0 rounded-2xl overflow-hidden border border-[color-mix(in_srgb,var(--color-outline)_55%,transparent)] bg-[color-mix(in_srgb,var(--color-surface)_80%,transparent)] backdrop-blur-sm"
+      className="skeleton-list flex flex-col gap-0 rounded-2xl overflow-hidden"
       role="status"
       aria-busy="true"
       aria-live="polite"
     >
       <span className="sr-only">{t('loading')}</span>
       {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="skeleton-row flex items-center gap-4 p-5 border-b border-[color-mix(in_srgb,var(--color-outline)_40%,transparent)] last:border-b-0" aria-hidden>
-          <div className="skeleton skeleton--circle w-10 h-10 rounded-full bg-[color-mix(in_srgb,var(--color-on-surface)_6%,transparent)] animate-pulse shrink-0" />
-          <div className="skeleton skeleton--lines flex-1 flex flex-col gap-2.5 min-w-0">
-            <div className="skeleton skeleton--line h-3.5 w-32 rounded-full bg-[color-mix(in_srgb,var(--color-on-surface)_8%,transparent)] animate-pulse" />
-            <div className="skeleton skeleton--line skeleton--line-short h-2.5 w-20 rounded-full bg-[color-mix(in_srgb,var(--color-on-surface)_6%,transparent)] animate-pulse" />
+        <div key={i} className="skeleton-row flex items-center gap-4 p-5" aria-hidden>
+          <div className="skeleton skeleton--circle w-10 h-10 rounded-full animate-pulse shrink-0" />
+          <div className="skeleton--lines flex-1 flex flex-col gap-2.5 min-w-0">
+            <div className="skeleton skeleton--line h-3.5 w-32 rounded-full animate-pulse" />
+            <div className="skeleton skeleton--line skeleton--line-short h-2.5 w-20 rounded-full animate-pulse" />
           </div>
-          <div className="skeleton skeleton--amount h-4 w-20 rounded-full bg-[color-mix(in_srgb,var(--color-on-surface)_8%,transparent)] animate-pulse shrink-0" />
+          <div className="skeleton skeleton--amount h-4 w-20 rounded-full animate-pulse shrink-0" />
         </div>
       ))}
     </div>
