@@ -91,6 +91,8 @@ fun AppDestructiveConfirmDialog(
     dismissLabel: String = stringResource(R.string.action_cancel),
     title: @Composable (() -> Unit)? = null,
     text: @Composable (() -> Unit)? = null,
+    /** Blocks confirm while a required input in [text] is incomplete. */
+    confirmEnabled: Boolean = true,
 ) {
     AppAlertDialog(
         onDismissRequest = onDismissRequest,
@@ -100,6 +102,7 @@ fun AppDestructiveConfirmDialog(
         confirmButton = {
             AppButton(
                 onClick = onConfirm,
+                enabled = confirmEnabled,
                 containerColor = MaterialTheme.colorScheme.error,
                 contentColor = Color.White
             ) {
