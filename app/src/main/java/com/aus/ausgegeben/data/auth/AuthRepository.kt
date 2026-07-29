@@ -11,18 +11,41 @@ import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Immutable projection of the fields the UI actually reads.
+ *
+ * Publishing the [FirebaseUser] itself was a bug: reload() updates that instance in
+ * place, so `_authUser.value = firebaseAuth.currentUser` re-assigned an identical
+ * reference. StateFlow conflates by equals and FirebaseUser has no equals override,
+ * so the emission was dropped — after a user confirmed their email and hit Refresh,
+ * the verify banner stayed up and the seeding effect never re-ran, leaving a freshly
+ * verified account with no categories until an app restart.
+ *
+ * As a data class, equals is value-based: a verification flip now emits, while a bare
+ * token refresh (which also fires the auth state listener) still conflates away.
+ */
+data class AuthUser(
+    val uid: String,
+    val email: String?,
+    val displayName: String?,
+    val isEmailVerified: Boolean,
+)
+
+private fun FirebaseUser.toAuthUser(): AuthUser =
+    AuthUser(uid = uid, email = email, displayName = displayName, isEmailVerified = isEmailVerified)
+
 @Singleton
 class AuthRepository @Inject constructor(
     private val firebaseAuth: FirebaseAuth,
     private val preferenceManager: PreferenceManager,
     private val firestoreClient: FirestoreClient,
 ) : AuthActions {
-    private val _authUser = MutableStateFlow(firebaseAuth.currentUser)
-    val authState: StateFlow<FirebaseUser?> = _authUser.asStateFlow()
+    private val _authUser = MutableStateFlow(firebaseAuth.currentUser?.toAuthUser())
+    val authState: StateFlow<AuthUser?> = _authUser.asStateFlow()
 
     init {
         firebaseAuth.addAuthStateListener { auth ->
-            _authUser.value = auth.currentUser
+            _authUser.value = auth.currentUser?.toAuthUser()
         }
     }
 
@@ -61,7 +84,7 @@ class AuthRepository @Inject constructor(
         val user = firebaseAuth.currentUser ?: error("Not signed in")
         user.reload().await()
         firebaseAuth.currentUser?.getIdToken(true)?.await()
-        _authUser.value = firebaseAuth.currentUser
+        _authUser.value = firebaseAuth.currentUser?.toAuthUser()
     }
 
     override suspend fun signOut() {
@@ -70,11 +93,29 @@ class AuthRepository @Inject constructor(
         firestoreClient.clearOfflineCache()
     }
 
+    /**
+     * True when the session is fresh enough for [deleteAccount] to succeed.
+     *
+     * FirebaseUser.delete() fails with FirebaseAuthRecentLoginRequiredException once the
+     * sign-in is more than roughly 5 minutes old. Callers MUST check this before wiping
+     * Firestore data: the wipe is irreversible, so discovering staleness afterwards
+     * destroys the user's history and leaves the account alive.
+     */
+    fun hasRecentSignIn(): Boolean {
+        val signedInAt = firebaseAuth.currentUser?.metadata?.lastSignInTimestamp ?: return false
+        return System.currentTimeMillis() - signedInAt < RECENT_SIGN_IN_WINDOW_MS
+    }
+
     /** Deletes the Firebase Auth user. Caller should wipe Firestore data first. */
     suspend fun deleteAccount(): Result<Unit> = runCatching {
         val user = firebaseAuth.currentUser ?: error("Not signed in")
         user.delete().await()
         preferenceManager.clearAccountLocalState()
         firestoreClient.clearOfflineCache()
+    }
+
+    companion object {
+        /** Kept well inside Firebase's ~5 minute recent-login requirement. */
+        private const val RECENT_SIGN_IN_WINDOW_MS = 2 * 60 * 1000L
     }
 }
