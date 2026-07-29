@@ -35,25 +35,33 @@ fun datePickerMillisToLocalDayStart(pickerUtcMillis: Long): Long {
         .toEpochMilli()
 }
 
-/** e.g. "Today, 14:32" · "Yesterday, 09:15" · "Mon, 14:32" */
+/**
+ * e.g. "Today, 14:32" · "Yesterday, 9:15 AM" · "Mon, 14:32"
+ *
+ * The time part goes through [android.text.format.DateFormat.getTimeFormat], which honours
+ * the device's 12/24-hour setting. The old hardcoded "HH:mm" pattern forced 24-hour output
+ * even for users who had chosen 12-hour, ignoring the system preference.
+ *
+ * Note this deliberately does NOT apply to CSV export — ExportUtils keeps a fixed
+ * "yyyy-MM-dd,HH:mm" in Locale.US so exported files stay machine-readable and byte-identical
+ * to the web export.
+ */
 fun formatRelativeTimestamp(context: Context, millis: Long, now: Long = System.currentTimeMillis()): String {
-    val timeFmt = SimpleDateFormat("HH:mm", Locale.getDefault())
-    val timeStr = timeFmt.format(Date(millis))
-    
+    val date = Date(millis)
+    val timeStr = android.text.format.DateFormat.getTimeFormat(context).format(date)
+
     val day = localDayStartMillis(millis)
     val today = localDayStartMillis(now)
-    
+
     if (day == today) return "${context.getString(R.string.time_today)}, $timeStr"
-    
+
     val yesterday = localDayStartMillis(now - 86_400_000L)
     if (day == yesterday) return "${context.getString(R.string.time_yesterday)}, $timeStr"
-    
+
     val weekAgo = now - 7 * 86_400_000L
     if (millis >= weekAgo) {
-        val weekdayFmt = SimpleDateFormat("EEE, HH:mm", Locale.getDefault())
-        return weekdayFmt.format(Date(millis))
+        return "${SimpleDateFormat("EEE", Locale.getDefault()).format(date)}, $timeStr"
     }
-    
-    val dateFmt = SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault())
-    return dateFmt.format(Date(millis))
+
+    return "${SimpleDateFormat("dd MMM", Locale.getDefault()).format(date)}, $timeStr"
 }
