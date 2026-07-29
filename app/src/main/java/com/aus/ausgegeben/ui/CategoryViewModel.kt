@@ -37,6 +37,19 @@ class CategoryViewModel @Inject constructor(
         _errorMessage.value = null
     }
 
+    /**
+     * Repository failures carry internal sentinels ("EMAIL_NOT_VERIFIED") or raw Firebase
+     * text ("PERMISSION_DENIED: Missing or insufficient permissions."). Both were being
+     * shown to users verbatim and untranslated; map them like AddExpenseViewModel does.
+     */
+    private fun errorText(error: Throwable, fallbackResId: Int): String {
+        val app = getApplication<Application>()
+        return when (error.message) {
+            "EMAIL_NOT_VERIFIED" -> app.getString(R.string.auth_verify_required)
+            else -> app.getString(fallbackResId)
+        }
+    }
+
     fun addCategory(
         name: String,
         iconName: String,
@@ -70,12 +83,10 @@ class CategoryViewModel @Inject constructor(
                         )
                     )
                 }.onFailure { e ->
-                    _errorMessage.value = e.localizedMessage
-                        ?: getApplication<Application>().getString(R.string.category_error_add_failed)
+                    _errorMessage.value = errorText(e, R.string.category_error_add_failed)
                 }
             } catch (e: Exception) {
-                _errorMessage.value = e.localizedMessage
-                    ?: getApplication<Application>().getString(R.string.category_error_add_failed)
+                _errorMessage.value = errorText(e, R.string.category_error_add_failed)
             }
         }
     }
@@ -90,13 +101,11 @@ class CategoryViewModel @Inject constructor(
                         normalized.id,
                         normalized.transactionType
                     ).onFailure { e ->
-                        _errorMessage.value = e.localizedMessage
-                            ?: getApplication<Application>().getString(R.string.category_error_update_failed)
+                        _errorMessage.value = errorText(e, R.string.category_error_update_failed)
                     }
                 }
             }.onFailure { e ->
-                _errorMessage.value = e.localizedMessage
-                    ?: getApplication<Application>().getString(R.string.category_error_update_failed)
+                _errorMessage.value = errorText(e, R.string.category_error_update_failed)
             }
         }
     }
@@ -104,8 +113,7 @@ class CategoryViewModel @Inject constructor(
     fun deleteCategory(category: Category) {
         viewModelScope.launch {
             repository.deleteCategory(category).onFailure { e ->
-                _errorMessage.value = e.localizedMessage
-                    ?: getApplication<Application>().getString(R.string.category_error_delete_failed)
+                _errorMessage.value = errorText(e, R.string.category_error_delete_failed)
             }
         }
     }
@@ -113,8 +121,7 @@ class CategoryViewModel @Inject constructor(
     fun deduplicateCategories() {
         viewModelScope.launch {
             repository.deduplicateCategories().onFailure { e ->
-                _errorMessage.value = e.localizedMessage
-                    ?: getApplication<Application>().getString(R.string.category_error_deduplicate_failed)
+                _errorMessage.value = errorText(e, R.string.category_error_deduplicate_failed)
             }
         }
     }
@@ -132,13 +139,13 @@ class CategoryViewModel @Inject constructor(
             val swap = sorted[targetIndex]
             val first = repository.updateCategory(current.copy(sortOrder = swap.sortOrder))
             if (first.isFailure) {
-                _errorMessage.value = first.exceptionOrNull()?.localizedMessage
+                _errorMessage.value = first.exceptionOrNull()
+                    ?.let { errorText(it, R.string.category_error_reorder_failed) }
                     ?: getApplication<Application>().getString(R.string.category_error_reorder_failed)
                 return@launch
             }
             repository.updateCategory(swap.copy(sortOrder = current.sortOrder)).onFailure { e ->
-                _errorMessage.value = e.localizedMessage
-                    ?: getApplication<Application>().getString(R.string.category_error_reorder_failed)
+                _errorMessage.value = errorText(e, R.string.category_error_reorder_failed)
             }
         }
     }
