@@ -138,6 +138,8 @@ export const en = {
   settingsDeleteAccountConfirm: 'permanently delete your account and all cloud data? this cannot be undone.',
   settingsDeleteAccountFailed: 'could not delete account',
   settingsDeleteAccountNeedsReauth: 'sign in again, then delete your account',
+  settingsDeleteAccountPassword: 'enter your password to confirm',
+  settingsDeleteAccountTooManyAttempts: 'too many attempts. try again later.',
   settingsDeleteAccountOk: 'account deleted',
   settingsVersionSubtitle: 'version {version}',
   settingsVersion: 'version',

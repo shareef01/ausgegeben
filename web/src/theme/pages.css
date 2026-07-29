@@ -709,6 +709,16 @@
   color: var(--color-on-surface-variant);
 }
 
+/* Inline validation inside a confirm dialog (e.g. wrong password on delete
+   account). Matches .add-txn__error so field errors read the same everywhere. */
+.confirm-dialog__error {
+  margin: 0;
+  padding: 0 4px;
+  font-size: 0.75rem;
+  font-weight: 650;
+  color: var(--color-expense);
+}
+
 .confirm-dialog__actions {
   display: flex;
   align-items: stretch;

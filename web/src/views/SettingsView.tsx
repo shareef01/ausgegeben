@@ -67,6 +67,8 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
   const [editBudget, setEditBudget] = useState(false);
   const [budgetInput, setBudgetInput] = useState('');
   const budgetInputRef = useRef<HTMLInputElement>(null);
@@ -270,25 +272,62 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
       <ConfirmDialog
         open={showDeleteAccountConfirm}
         title={t('settingsDeleteAccount')}
-        message={t('settingsDeleteAccountConfirm')}
+        // Stays open on a wrong password so the user can retry without losing context.
+        confirmDisabled={deletingAccount || deletePassword.length === 0}
+        message={
+          <>
+            <p className="confirm-dialog__message">{t('settingsDeleteAccountConfirm')}</p>
+            <label className="field">
+              <span className="field__label">{t('settingsDeleteAccountPassword')}</span>
+              <input
+                className="field__input"
+                type="password"
+                autoComplete="current-password"
+                value={deletePassword}
+                disabled={deletingAccount}
+                onChange={(e) => {
+                  setDeletePassword(e.target.value);
+                  setDeleteAccountError(null);
+                }}
+              />
+            </label>
+            {deleteAccountError ? (
+              <p className="confirm-dialog__error" role="alert">{deleteAccountError}</p>
+            ) : null}
+          </>
+        }
         confirmLabel={t('settingsDeleteAccount')}
         cancelLabel={t('actionCancel')}
         onConfirm={() => {
-          setShowDeleteAccountConfirm(false);
           setDeletingAccount(true);
-          void authService.deleteAccount()
+          setDeleteAccountError(null);
+          void authService.deleteAccount(deletePassword)
             .then(() => {
+              setShowDeleteAccountConfirm(false);
+              setDeletePassword('');
               useToastStore.getState().show(t('settingsDeleteAccountOk'));
             })
             .catch((err: unknown) => {
-              const msg = err instanceof Error && err.message === 'requires_recent_login'
-                ? t('settingsDeleteAccountNeedsReauth')
-                : t('settingsDeleteAccountFailed');
-              useToastStore.getState().show(msg);
+              const code = err instanceof Error ? err.message : '';
+              if (code === 'wrong_password') {
+                setDeleteAccountError(t('authErrorInvalid'));
+                return;
+              }
+              setShowDeleteAccountConfirm(false);
+              setDeletePassword('');
+              useToastStore.getState().show(
+                code === 'too_many_requests'
+                  ? t('settingsDeleteAccountTooManyAttempts')
+                  : t('settingsDeleteAccountFailed'),
+              );
             })
             .finally(() => setDeletingAccount(false));
         }}
-        onCancel={() => setShowDeleteAccountConfirm(false)}
+        onCancel={() => {
+          setShowDeleteAccountConfirm(false);
+          setDeletePassword('');
+          setDeleteAccountError(null);
+        }}
       />
 
       {showLanguage ? (

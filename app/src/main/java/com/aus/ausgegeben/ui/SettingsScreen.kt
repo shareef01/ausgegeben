@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aus.ausgegeben.R
@@ -96,6 +97,8 @@ fun SettingsScreen(
     var showSignOutConfirm by remember { mutableStateOf(false) }
     var showDeleteAccountConfirm by remember { mutableStateOf(false) }
     var deletingAccount by remember { mutableStateOf(false) }
+    var deletePassword by remember { mutableStateOf("") }
+    var deleteAccountError by remember { mutableStateOf<String?>(null) }
 
     val reminderTimeLabel = remember(reminderHour, reminderMinute) {
         "%02d:%02d".format(reminderHour, reminderMinute)
@@ -598,26 +601,53 @@ fun SettingsScreen(
 
     if (showDeleteAccountConfirm) {
         AppDestructiveConfirmDialog(
-            onDismissRequest = { if (!deletingAccount) showDeleteAccountConfirm = false },
+            onDismissRequest = {
+                if (!deletingAccount) {
+                    showDeleteAccountConfirm = false
+                    deletePassword = ""
+                    deleteAccountError = null
+                }
+            },
             confirmLabel = stringResource(R.string.settings_delete_account),
+            confirmEnabled = !deletingAccount && deletePassword.isNotEmpty(),
             onConfirm = {
-                showDeleteAccountConfirm = false
                 deletingAccount = true
+                deleteAccountError = null
                 scope.launch {
-                    // Check session freshness BEFORE the wipe. deleteAllUserData() is
-                    // irreversible, so the old order destroyed every expense and category
-                    // and only then found out the session was too old to delete the
-                    // account — leaving the account alive with its history gone.
-                    if (!authRepository.hasRecentSignIn()) {
+                    // Reauthenticate BEFORE the wipe. deleteAllUserData() is irreversible and
+                    // FirebaseUser.delete() rejects a session older than ~5 minutes, so the old
+                    // order destroyed every expense and category and only then discovered it
+                    // could not delete the account — leaving the account alive, history gone.
+                    val reauth = authRepository.reauthenticate(deletePassword)
+                    if (reauth.isFailure) {
                         deletingAccount = false
-                        onShowMessage(
-                            context.getString(R.string.settings_delete_account_needs_reauth),
-                        )
+                        when (reauth.exceptionOrNull()?.message) {
+                            // Wrong password: keep the dialog open so it can be retried.
+                            AuthRepository.WRONG_PASSWORD ->
+                                deleteAccountError =
+                                    context.getString(R.string.auth_error_invalid_credentials)
+                            AuthRepository.TOO_MANY_ATTEMPTS -> {
+                                showDeleteAccountConfirm = false
+                                deletePassword = ""
+                                onShowMessage(
+                                    context.getString(R.string.settings_delete_account_too_many_attempts),
+                                )
+                            }
+                            else -> {
+                                showDeleteAccountConfirm = false
+                                deletePassword = ""
+                                onShowMessage(
+                                    context.getString(R.string.settings_delete_account_failed),
+                                )
+                            }
+                        }
                         return@launch
                     }
                     val wipe = repository.deleteAllUserData()
                     val deleted = if (wipe.isSuccess) authRepository.deleteAccount() else wipe
                     deletingAccount = false
+                    showDeleteAccountConfirm = false
+                    deletePassword = ""
                     deleted.fold(
                         onSuccess = {
                             onShowMessage(context.getString(R.string.settings_delete_account_ok))
@@ -640,7 +670,30 @@ fun SettingsScreen(
                 )
             },
             text = {
-                AppDialogBodyText(stringResource(R.string.settings_delete_account_confirm))
+                Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.sm)) {
+                    AppDialogBodyText(stringResource(R.string.settings_delete_account_confirm))
+                    OutlinedTextField(
+                        value = deletePassword,
+                        onValueChange = {
+                            deletePassword = it
+                            deleteAccountError = null
+                        },
+                        enabled = !deletingAccount,
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        isError = deleteAccountError != null,
+                        label = { Text(stringResource(R.string.settings_delete_account_password)) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    deleteAccountError?.let { error ->
+                        Text(
+                            text = error,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
             },
         )
     }
