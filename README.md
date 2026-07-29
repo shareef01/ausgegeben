@@ -88,7 +88,7 @@ Every document lives under the signed-in user. The `users/{uid}` document itself
 ```mermaid
 flowchart LR
   U["users/{uid}"]
-  U --> E["expenses/{id}<br/>amount · date · categoryId<br/>note · transactionType"]
+  U --> E["expenses/{id}<br/>amount · dateMillis · categoryId<br/>note · transactionType"]
   U --> C["categories/{id}<br/>name · icon · color<br/>type · sortOrder"]
   U --> S["settings/preferences<br/>theme · locale · currency<br/>budget · reminders"]
   U --> M["meta/dedupe<br/>one-time category cleanup"]
