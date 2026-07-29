@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
+import androidx.work.ExistingWorkPolicy
 import androidx.work.WorkerParameters
 import com.aus.ausgegeben.data.FirestoreClient
 import com.aus.ausgegeben.data.PreferenceManager
@@ -41,7 +42,9 @@ class DailyReminderWorker @AssistedInject constructor(
                 NotificationHelper.showDailyReminder(applicationContext)
             }
 
-            ReminderScheduler.scheduleNext(applicationContext)
+            // APPEND_OR_REPLACE, not the default REPLACE: this call runs while this
+            // worker is still RUNNING, and REPLACE would cancel it mid-flight.
+            ReminderScheduler.scheduleNext(applicationContext, ExistingWorkPolicy.APPEND_OR_REPLACE)
             Result.success()
         } catch (e: Exception) {
             Log.w(TAG, "daily reminder failed", e)

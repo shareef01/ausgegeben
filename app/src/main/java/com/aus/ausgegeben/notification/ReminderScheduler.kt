@@ -14,7 +14,20 @@ object ReminderScheduler {
 
     private const val WORK_NAME = "daily_spending_reminder"
 
-    suspend fun scheduleNext(context: Context) {
+    /**
+     * Enqueues the next reminder, re-anchored to the configured hour:minute so
+     * the schedule self-corrects instead of drifting.
+     *
+     * [policy] exists because DailyReminderWorker reschedules from inside its own
+     * doWork(). REPLACE stops RUNNING work, so the worker would cancel itself —
+     * every run recorded CANCELLED with a WorkerStoppedException and Result.success()
+     * was never reached. The worker passes APPEND_OR_REPLACE to queue the next run
+     * behind itself; external callers keep REPLACE so a settings change wins outright.
+     */
+    suspend fun scheduleNext(
+        context: Context,
+        policy: ExistingWorkPolicy = ExistingWorkPolicy.REPLACE,
+    ) {
         val (hour, minute) = PreferenceManager(context).reminderTime()
         val delayMs = millisUntilNextReminder(hour, minute)
         val request = OneTimeWorkRequestBuilder<DailyReminderWorker>()
@@ -29,7 +42,7 @@ object ReminderScheduler {
 
         WorkManager.getInstance(context).enqueueUniqueWork(
             WORK_NAME,
-            ExistingWorkPolicy.REPLACE,
+            policy,
             request
         )
     }
