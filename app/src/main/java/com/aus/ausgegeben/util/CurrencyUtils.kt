@@ -7,6 +7,13 @@ import java.util.Locale
 object CurrencyUtils {
     val supportedCurrencies = listOf("EUR", "USD", "GBP", "CHF")
 
+    /**
+     * 2-decimal precision for money. Single source of truth so repository writes, analytics
+     * totals, and AmountRoundingTest all exercise the same formula — the test used to assert
+     * against a private copy of it, so it could not catch a change here.
+     */
+    fun roundAmount(amount: Double): Double = Math.round(amount * 100.0) / 100.0
+
     private val symbolsByCode = mapOf(
         "EUR" to "€",
         "USD" to "$",
