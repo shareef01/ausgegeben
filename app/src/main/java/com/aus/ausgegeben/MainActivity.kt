@@ -152,6 +152,28 @@ fun MainApp(
         }
     }
 
+    // Onboarding and the settings toggle both request POST_NOTIFICATIONS when the
+    // user turns reminders on, but the pref can also arrive from another device via
+    // PreferencesCloudSync, which routes through neither. That left the worker
+    // running on schedule while every notification it posted was silently dropped.
+    //
+    // Gated on onboardingComplete because dailyReminderFlow defaults to true, so
+    // without it a fresh install would prompt here before onboarding got the chance.
+    var reminderPermissionRequested by remember { mutableStateOf(false) }
+    LaunchedEffect(onboardingComplete, dailyReminder, notificationPermission.status) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            onboardingComplete &&
+            dailyReminder &&
+            !notificationPermission.status.isGranted &&
+            !reminderPermissionRequested
+        ) {
+            // Once per process: a permanently denied permission shows no dialog, and
+            // re-launching on every recomposition would be pointless noise.
+            reminderPermissionRequested = true
+            notificationPermission.launchPermissionRequest()
+        }
+    }
+
     LaunchedEffect(activity.intent) {
         if (activity.intent?.getBooleanExtra(NotificationHelper.EXTRA_OPEN_ADD, false) == true) {
             pendingOpenAdd = true
