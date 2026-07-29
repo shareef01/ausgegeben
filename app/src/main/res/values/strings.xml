@@ -129,6 +129,8 @@
     <string name="settings_delete_account_ok">Account deleted</string>
     <string name="settings_delete_account_failed">Could not delete account</string>
     <string name="settings_delete_account_needs_reauth">Sign in again, then delete your account</string>
+    <string name="settings_delete_account_password">Enter your password to confirm</string>
+    <string name="settings_delete_account_too_many_attempts">Too many attempts. Try again later.</string>
     <string name="settings_signed_out">Signed out</string>
     <string name="settings_sync_now">Sync now</string>
     <string name="settings_last_synced">Last synced %1$s</string>
