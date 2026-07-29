@@ -1,12 +1,13 @@
 import {
   createUserWithEmailAndPassword,
   deleteUser,
+  EmailAuthProvider,
   onAuthStateChanged,
+  reauthenticateWithCredential,
   sendEmailVerification,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
-  type User,
 } from 'firebase/auth';
 import { clearLocalFirestoreCache, getFirebaseAuth, isFirebaseConfigured } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
@@ -15,21 +16,6 @@ import { usePreferencesStore } from '@/services/preferencesStore';
 
 let unsubscribe: (() => void) | null = null;
 let readyFallbackTimer: ReturnType<typeof setTimeout> | null = null;
-
-/**
- * deleteUser() rejects with auth/requires-recent-login once the sign-in is older
- * than roughly 5 minutes. Stay well inside that so the check below cannot pass and
- * then have the delete fail anyway.
- */
-const RECENT_SIGN_IN_WINDOW_MS = 2 * 60_000;
-
-function hasRecentSignIn(user: User): boolean {
-  const lastSignIn = user.metadata.lastSignInTime;
-  if (!lastSignIn) return false;
-  const at = Date.parse(lastSignIn);
-  if (!Number.isFinite(at)) return false;
-  return Date.now() - at < RECENT_SIGN_IN_WINDOW_MS;
-}
 
 function markAuthReady(): void {
   if (readyFallbackTimer) {
@@ -124,29 +110,38 @@ export const authService = {
   },
 
   /**
-   * Deletes cloud data then the Firebase Auth user. May throw `requires_recent_login`.
+   * Reauthenticates with the given password, then deletes cloud data and the Auth user.
+   * Throws `wrong_password` or `too_many_requests` if reauthentication fails.
    *
-   * The staleness check runs BEFORE the wipe on purpose. deleteAllUserData() is
-   * irreversible, so the old order (wipe, then discover the session was too old to
-   * delete the account) destroyed the user's entire history and left the account
-   * alive — and the next sign-in re-seeded default categories, so it looked like a
-   * working fresh account rather than a failure.
+   * Order matters. deleteAllUserData() is irreversible, and deleteUser() rejects with
+   * auth/requires-recent-login once the sign-in is more than ~5 minutes old — the common
+   * case, not an edge case. Wiping first meant that rejection destroyed the user's entire
+   * history while leaving the account alive, and the next sign-in re-seeded default
+   * categories so it looked like a working fresh account rather than a failure.
+   *
+   * Reauthenticating up front both guarantees the delete cannot fail for staleness and
+   * gives us a hard confirmation gate on an irreversible action.
    */
-  async deleteAccount(): Promise<void> {
+  async deleteAccount(password: string): Promise<void> {
     const auth = getFirebaseAuth();
     const user = auth?.currentUser;
-    if (!user) throw new Error('not_signed_in');
-    if (!hasRecentSignIn(user)) throw new Error('requires_recent_login');
-    await expenseRepository.deleteAllUserData();
+    if (!user?.email) throw new Error('not_signed_in');
     try {
-      await deleteUser(user);
+      await reauthenticateWithCredential(
+        user,
+        EmailAuthProvider.credential(user.email, password),
+      );
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code;
-      if (code === 'auth/requires-recent-login') {
-        throw new Error('requires_recent_login');
+      // Firebase collapsed wrong-password into invalid-credential on newer projects.
+      if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+        throw new Error('wrong_password');
       }
+      if (code === 'auth/too-many-requests') throw new Error('too_many_requests');
       throw err;
     }
+    await expenseRepository.deleteAllUserData();
+    await deleteUser(user);
     useAuthStore.getState().setUser(null);
     usePreferencesStore.getState().resetPreferences();
     await clearLocalFirestoreCache();
