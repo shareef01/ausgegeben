@@ -88,10 +88,14 @@ android {
     }
 
     // Fail release early if google-services.json is still the placeholder example.
+    // Resolve at configuration time and capture only a Boolean: a doFirst lambda
+    // that calls a script-level helper captures the script object itself, which
+    // the Gradle configuration cache cannot serialize (release builds then fail).
     afterEvaluate {
+        val usesPlaceholderGoogleServices = isPlaceholderGoogleServices(googleServicesFile)
         listOf("assembleRelease", "bundleRelease", "minifyReleaseWithR8").forEach { taskName ->
             tasks.findByName(taskName)?.doFirst {
-                check(!isPlaceholderGoogleServices(googleServicesFile)) {
+                check(!usesPlaceholderGoogleServices) {
                     "Release builds require a real app/google-services.json from Firebase Console " +
                         "(placeholder YOUR_* values are only allowed for debug)."
                 }

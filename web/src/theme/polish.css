@@ -459,3 +459,28 @@
 [data-theme='light'] .field__input:focus {
   background: var(--color-surface);
 }
+
+/* ── Loading skeleton ──
+   The bars carry only sizing utilities in the markup; colour, surface and
+   separators live here so the placeholder is actually visible while data
+   loads (previously these relied on Tailwind-style arbitrary values that
+   this project never compiles, leaving the skeleton blank). */
+.skeleton-list {
+  border: 1px solid color-mix(in srgb, var(--color-outline) 55%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 80%, transparent);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.skeleton-row + .skeleton-row {
+  border-top: 1px solid color-mix(in srgb, var(--color-outline) 40%, transparent);
+}
+
+.skeleton {
+  background: color-mix(in srgb, var(--color-on-surface) 8%, transparent);
+}
+
+.skeleton--circle,
+.skeleton--line-short {
+  background: color-mix(in srgb, var(--color-on-surface) 6%, transparent);
+}

@@ -85,11 +85,17 @@ export const authService = {
     await sendEmailVerification(user);
   },
 
+  /**
+   * reload() refreshes profile fields but keeps the cached ID token, whose
+   * email_verified claim Firestore rules read. Force a new token so writes
+   * are accepted immediately after the user confirms their email.
+   */
   async refreshUser(): Promise<void> {
     const auth = getFirebaseAuth();
     const user = auth?.currentUser;
     if (!user) return;
     await user.reload();
+    await user.getIdToken(true);
     useAuthStore.getState().setUser(auth.currentUser);
   },
 

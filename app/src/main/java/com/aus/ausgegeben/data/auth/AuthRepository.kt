@@ -50,10 +50,17 @@ class AuthRepository @Inject constructor(
         user.sendEmailVerification().await()
     }
 
-    /** Reloads the Firebase user so emailVerified reflects inbox confirmation. */
+    /**
+     * Reloads the Firebase user so emailVerified reflects inbox confirmation.
+     *
+     * reload() refreshes profile fields but keeps the cached ID token, whose
+     * email_verified claim Firestore rules read. Without the forced token
+     * refresh below, every write stays denied until the token expires (~1h).
+     */
     suspend fun reloadCurrentUser(): Result<Unit> = runCatching {
         val user = firebaseAuth.currentUser ?: error("Not signed in")
         user.reload().await()
+        firebaseAuth.currentUser?.getIdToken(true)?.await()
         _authUser.value = firebaseAuth.currentUser
     }
 
