@@ -5,7 +5,7 @@
 import { getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
 import { t, getLocale, localeTag } from '@/i18n';
-import type { Category, Expense, TransactionTypeFilter } from '@/models/types';
+import type { Category, Expense } from '@/models/types';
 
 function uid(): string | null { return useAuthStore.getState().user?.uid ?? null; }
 function now() { return Date.now(); }
@@ -112,15 +112,10 @@ async function expenseDocsForCategory(
 export const expenseRepository = {
 
   /**
-   * One-shot full (or capped) expense fetch for Insights all-time / CSV export.
+   * One-shot soft-capped expense fetch for Insights all-time / CSV export.
    * Prefer onExpensesInRange for live UI — unbounded listeners burn Spark quota.
+   * `truncated` is true when more docs exist beyond `max`.
    */
-  async getAllExpenses(opts?: { max?: number }): Promise<Expense[]> {
-    const result = await expenseRepository.getAllExpensesCapped(opts?.max ?? 5_000);
-    return result.items;
-  },
-
-  /** Soft-capped fetch; `truncated` when more docs exist beyond `max`. */
   async getAllExpensesCapped(max = 5_000): Promise<{ items: Expense[]; truncated: boolean }> {
     const u = uid();
     if (!u) return { items: [], truncated: false };
@@ -135,8 +130,6 @@ export const expenseRepository = {
       truncated,
     };
   },
-
-  async getCategoriesByType(type: string): Promise<Category[]> { const u = uid(); if (!u) return []; const s = await getDocs(query(catCol(u), where('transactionType', '==', type), orderBy('sortOrder'))); return s.docs.map(d => ({ id: d.id, ...d.data() } as Category)); },
 
   async getAllCategories(): Promise<Category[]> {
     const userId = uid(); if (!userId) return [];
@@ -184,11 +177,17 @@ export const expenseRepository = {
             await setDoc(marker, { categoriesDeduped: true, ranAt: now() }, { merge: true });
           }
         }
-        // Remove the legacy Uncategorized sentinel (id "0") so it stays gone.
-        // When another category is deleted with linked transactions, deleteCategory
-        // still creates a temporary sink; the next seed clears it again.
+        // Remove the legacy Uncategorized sentinel (id "0") so it stays gone — but only
+        // once nothing points at it. deleteCategory reassigns linked transactions to this
+        // sink, and firestore.rules requires the target category to exist on every expense
+        // update, so clearing it while still referenced orphaned those rows. On web the
+        // edit form then silently re-pointed them at whatever category happened to be
+        // first, quietly changing the user's categorisation.
         try {
-          await deleteDoc(catDoc(userId, UNCATEGORIZED_ID));
+          const sentinel = await getDoc(catDoc(userId, UNCATEGORIZED_ID));
+          if (sentinel.exists() && (await expenseDocsForCategory(userId, UNCATEGORIZED_ID)).length === 0) {
+            await deleteDoc(catDoc(userId, UNCATEGORIZED_ID));
+          }
         } catch {
           // ignore — doc may already be absent
         }
@@ -305,25 +304,6 @@ export const expenseRepository = {
     return snap.docs.map(d => ({ id: d.id, ...d.data() } as Expense));
   },
 
-  async queryExpenses(params: ExpenseQueryParams): Promise<Expense[]> {
-    const userId = uid(); if (!userId) return [];
-    const q = query(expCol(userId), where('dateMillis', '>=', params.startMillis), where('dateMillis', '<', params.endMillis), orderBy('dateMillis', 'desc'));
-    const snap = await getDocs(q);
-    let items = snap.docs.map(d => ({ id: d.id, ...d.data() } as Expense));
-    if (params.typeFilter !== 'all') items = items.filter(e => e.transactionType === params.typeFilter);
-    const tag = localeTag(getLocale());
-    const sq = params.searchQuery.trim().toLocaleLowerCase(tag);
-    if (sq) {
-      const cats = await this.getAllCategories();
-      const catMap = new Map(cats.map(c => [c.id, c]));
-      items = items.filter(e => {
-        const cat = catMap.get(e.categoryId);
-        return e.note.toLocaleLowerCase(tag).includes(sq) || String(e.amount).includes(sq) || (cat?.name.toLocaleLowerCase(tag).includes(sq) ?? false);
-      });
-    }
-    return items;
-  },
-
   /**
    * `cb`'s second argument is `true` only when the listener itself failed
    * (auth/permission/index/quota error) — callers must use it to distinguish
@@ -406,23 +386,6 @@ export const expenseRepository = {
     await deleteDoc(expDoc(userId, id));
     emitDataChanged();
     return exp;
-  },
-
-  async restoreExpense(expense: Expense): Promise<string> {
-    const userId = uid(); if (!userId) throw new Error('Not signed in');
-    requireVerifiedEmail();
-    // Preserve id so undo after a committed delete restores the same document.
-    const id = expense.id || crypto.randomUUID();
-    const payload = {
-      ...expense,
-      id,
-      amount: roundAmount(expense.amount),
-      note: expense.note.trim().slice(0, 2000),
-      updatedAt: now(),
-    };
-    await setDoc(expDoc(userId, id), payload);
-    emitDataChanged();
-    return id;
   },
 
   async sumMonthExpenses(start: number, end: number, excludeExpenseId?: string): Promise<number> {
@@ -533,8 +496,4 @@ async function deleteCollectionBatched(colRef: CollectionReference): Promise<voi
     snap.docs.forEach((d) => batch.delete(d.ref));
     await batch.commit();
   }
-}
-
-export interface ExpenseQueryParams {
-  startMillis: number; endMillis: number; typeFilter: TransactionTypeFilter; searchQuery: string;
 }

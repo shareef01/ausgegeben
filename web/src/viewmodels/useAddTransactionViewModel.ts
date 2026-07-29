@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Category, Expense, TransactionType } from '@/models/types';
 import { expenseRepository, EmailNotVerifiedError, UNCATEGORIZED_ID } from '@/repositories/expenseRepository';
 import { formatAmount, formatAmountForInput, parseAmount } from '@/utils/currency';
@@ -33,6 +33,15 @@ export function useAddTransactionViewModel(expenseId?: string) {
   const [ready, setReady] = useState(false);
   /** Edit load failed (missing doc / fetch error) — block Save so we never recreate the id. */
   const [loadFailed, setLoadFailed] = useState(false);
+  /**
+   * Held across retries of the same logical submission, and cleared once one lands.
+   *
+   * Minting this inside save() made the mechanism inert: every attempt carried a brand
+   * new key, so insertExpense's dedupe lookup could never match and simply cost one
+   * guaranteed-empty query per insert. Reusing it means a retry after a lost response
+   * finds the document the first attempt already wrote instead of duplicating it.
+   */
+  const pendingIdempotencyKey = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     setLoadFailed(false);
@@ -145,11 +154,15 @@ export function useAddTransactionViewModel(expenseId?: string) {
       dateMillis: form.dateMillis,
       transactionType: form.transactionType,
     };
-    const idempotencyKey = crypto.randomUUID();
+    if (!pendingIdempotencyKey.current) {
+      pendingIdempotencyKey.current = crypto.randomUUID();
+    }
+    const idempotencyKey = pendingIdempotencyKey.current;
     try {
       const savedId = expenseId
         ? (await expenseRepository.updateExpense({ ...payload, id: expenseId }), expenseId)
         : await expenseRepository.insertExpense(payload, idempotencyKey);
+      pendingIdempotencyKey.current = null;
       // Budget check is best-effort — a failed projection must not look like a failed save.
       let budgetAlert: string | undefined;
       try {
