@@ -6,6 +6,7 @@ import {
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
+  type User,
 } from 'firebase/auth';
 import { clearLocalFirestoreCache, getFirebaseAuth, isFirebaseConfigured } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
@@ -14,6 +15,21 @@ import { usePreferencesStore } from '@/services/preferencesStore';
 
 let unsubscribe: (() => void) | null = null;
 let readyFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * deleteUser() rejects with auth/requires-recent-login once the sign-in is older
+ * than roughly 5 minutes. Stay well inside that so the check below cannot pass and
+ * then have the delete fail anyway.
+ */
+const RECENT_SIGN_IN_WINDOW_MS = 2 * 60_000;
+
+function hasRecentSignIn(user: User): boolean {
+  const lastSignIn = user.metadata.lastSignInTime;
+  if (!lastSignIn) return false;
+  const at = Date.parse(lastSignIn);
+  if (!Number.isFinite(at)) return false;
+  return Date.now() - at < RECENT_SIGN_IN_WINDOW_MS;
+}
 
 function markAuthReady(): void {
   if (readyFallbackTimer) {
@@ -107,11 +123,20 @@ export const authService = {
     await clearLocalFirestoreCache();
   },
 
-  /** Deletes cloud data then the Firebase Auth user. May throw `requires_recent_login`. */
+  /**
+   * Deletes cloud data then the Firebase Auth user. May throw `requires_recent_login`.
+   *
+   * The staleness check runs BEFORE the wipe on purpose. deleteAllUserData() is
+   * irreversible, so the old order (wipe, then discover the session was too old to
+   * delete the account) destroyed the user's entire history and left the account
+   * alive — and the next sign-in re-seeded default categories, so it looked like a
+   * working fresh account rather than a failure.
+   */
   async deleteAccount(): Promise<void> {
     const auth = getFirebaseAuth();
     const user = auth?.currentUser;
     if (!user) throw new Error('not_signed_in');
+    if (!hasRecentSignIn(user)) throw new Error('requires_recent_login');
     await expenseRepository.deleteAllUserData();
     try {
       await deleteUser(user);
