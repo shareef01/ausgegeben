@@ -48,6 +48,12 @@ jobs:
       - run: npm test
         working-directory: web
 
+      # This project hand-writes its utility classes (no Tailwind build), so an
+      # undefined one is silently inert — it has already shipped an invisible
+      # loading skeleton and an off-screen bottom nav.
+      - run: npm run lint:css
+        working-directory: web
+
       - run: npm run build
         working-directory: web
 
