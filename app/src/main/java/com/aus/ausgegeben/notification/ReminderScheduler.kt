@@ -2,9 +2,9 @@ package com.aus.ausgegeben.notification
 
 import android.content.Context
 import androidx.work.Constraints
-import androidx.work.ExistingWorkPolicy
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.aus.ausgegeben.data.PreferenceManager
 import java.util.Calendar
@@ -12,26 +12,33 @@ import java.util.concurrent.TimeUnit
 
 object ReminderScheduler {
 
-    private const val WORK_NAME = "daily_spending_reminder"
+    internal const val WORK_NAME = "daily_spending_reminder"
+    private const val REPEAT_INTERVAL_HOURS = 24L
 
     /**
-     * Enqueues the next reminder, re-anchored to the configured hour:minute so
-     * the schedule self-corrects instead of drifting.
+     * Enqueues the daily reminder as periodic work anchored to the configured hour:minute.
      *
-     * [policy] exists because DailyReminderWorker reschedules from inside its own
-     * doWork(). REPLACE stops RUNNING work, so the worker would cancel itself —
-     * every run recorded CANCELLED with a WorkerStoppedException and Result.success()
-     * was never reached. The worker passes APPEND_OR_REPLACE to queue the next run
-     * behind itself; external callers keep REPLACE so a settings change wins outright.
+     * This used to be a OneTimeWorkRequest that DailyReminderWorker re-enqueued from inside
+     * its own doWork() with APPEND_OR_REPLACE, which had two defects:
+     *
+     *  - the unique-work chain grew by one node on every run (and again on every
+     *    Result.retry()), accumulating in the WorkManager database indefinitely; and
+     *  - appended work is *dependent* work, so one FAILED or CANCELLED node cancelled
+     *    everything queued behind it and reminders stopped for good until something
+     *    external rescheduled — silently, which is the worst way for this to fail.
+     *
+     * Periodic work drops the self-rescheduling entirely, so there is no chain to grow or
+     * poison. CANCEL_AND_REENQUEUE re-anchors to the next hour:minute, which is what every
+     * caller wants: a settings change, a reboot, or an app launch should each realign the
+     * schedule rather than inherit a stale one.
      */
-    suspend fun scheduleNext(
-        context: Context,
-        policy: ExistingWorkPolicy = ExistingWorkPolicy.REPLACE,
-    ) {
+    suspend fun scheduleNext(context: Context) {
         val (hour, minute) = PreferenceManager(context).reminderTime()
-        val delayMs = millisUntilNextReminder(hour, minute)
-        val request = OneTimeWorkRequestBuilder<DailyReminderWorker>()
-            .setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
+        val request = PeriodicWorkRequestBuilder<DailyReminderWorker>(
+            REPEAT_INTERVAL_HOURS,
+            TimeUnit.HOURS,
+        )
+            .setInitialDelay(millisUntilNextReminder(hour, minute), TimeUnit.MILLISECONDS)
             .setConstraints(
                 Constraints.Builder()
                     .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -40,10 +47,10 @@ object ReminderScheduler {
             .addTag(WORK_NAME)
             .build()
 
-        WorkManager.getInstance(context).enqueueUniqueWork(
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             WORK_NAME,
-            policy,
-            request
+            ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE,
+            request,
         )
     }
 
@@ -51,7 +58,7 @@ object ReminderScheduler {
         WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
     }
 
-    private fun millisUntilNextReminder(hour: Int, minute: Int): Long {
+    internal fun millisUntilNextReminder(hour: Int, minute: Int): Long {
         val now = Calendar.getInstance()
         val target = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, hour)
