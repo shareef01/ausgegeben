@@ -10,6 +10,8 @@ interface ConfirmDialogProps {
   confirmLabel?: string;
   cancelLabel?: string;
   destructive?: boolean;
+  /** Blocks confirm while a required input in `message` is incomplete. */
+  confirmDisabled?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -21,6 +23,7 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel,
   destructive = true,
+  confirmDisabled = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -67,6 +70,7 @@ export function ConfirmDialog({
             type="button"
             className={`btn confirm-dialog__btn ${destructive ? 'btn-destructive' : 'btn-primary'}`}
             onClick={onConfirm}
+            disabled={confirmDisabled}
           >
             {confirmText}
           </button>

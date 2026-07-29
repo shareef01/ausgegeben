@@ -2,7 +2,10 @@ package com.aus.ausgegeben.data.auth
 
 import com.aus.ausgegeben.data.FirestoreClient
 import com.aus.ausgegeben.data.PreferenceManager
+import com.google.firebase.FirebaseTooManyRequestsException
+import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -94,19 +97,31 @@ class AuthRepository @Inject constructor(
     }
 
     /**
-     * True when the session is fresh enough for [deleteAccount] to succeed.
+     * Confirms the password against Firebase, refreshing the session in the process.
      *
-     * FirebaseUser.delete() fails with FirebaseAuthRecentLoginRequiredException once the
-     * sign-in is more than roughly 5 minutes old. Callers MUST check this before wiping
-     * Firestore data: the wipe is irreversible, so discovering staleness afterwards
-     * destroys the user's history and leaves the account alive.
+     * Callers MUST do this before wiping Firestore data. FirebaseUser.delete() fails with
+     * FirebaseAuthRecentLoginRequiredException once the sign-in is more than roughly 5
+     * minutes old — the common case, not an edge case — and the wipe is irreversible, so
+     * discovering staleness afterwards destroyed the user's history and left the account
+     * alive. Reauthenticating up front removes that failure mode and doubles as a
+     * confirmation gate on an irreversible action.
+     *
+     * Fails with [WRONG_PASSWORD] or [TOO_MANY_ATTEMPTS] so callers can tell a bad password
+     * (retry in place) from a lockout (give up).
      */
-    fun hasRecentSignIn(): Boolean {
-        val signedInAt = firebaseAuth.currentUser?.metadata?.lastSignInTimestamp ?: return false
-        return System.currentTimeMillis() - signedInAt < RECENT_SIGN_IN_WINDOW_MS
+    suspend fun reauthenticate(password: String): Result<Unit> = runCatching {
+        val user = firebaseAuth.currentUser ?: error("Not signed in")
+        val email = user.email ?: error("Not signed in")
+        try {
+            user.reauthenticate(EmailAuthProvider.getCredential(email, password)).await()
+        } catch (e: FirebaseAuthInvalidCredentialsException) {
+            throw IllegalStateException(WRONG_PASSWORD, e)
+        } catch (e: FirebaseTooManyRequestsException) {
+            throw IllegalStateException(TOO_MANY_ATTEMPTS, e)
+        }
     }
 
-    /** Deletes the Firebase Auth user. Caller should wipe Firestore data first. */
+    /** Deletes the Firebase Auth user. Caller should reauthenticate, then wipe Firestore. */
     suspend fun deleteAccount(): Result<Unit> = runCatching {
         val user = firebaseAuth.currentUser ?: error("Not signed in")
         user.delete().await()
@@ -115,7 +130,7 @@ class AuthRepository @Inject constructor(
     }
 
     companion object {
-        /** Kept well inside Firebase's ~5 minute recent-login requirement. */
-        private const val RECENT_SIGN_IN_WINDOW_MS = 2 * 60 * 1000L
+        const val WRONG_PASSWORD = "WRONG_PASSWORD"
+        const val TOO_MANY_ATTEMPTS = "TOO_MANY_ATTEMPTS"
     }
 }
