@@ -3,6 +3,7 @@ import { getFirebaseAuth, getFirebaseFirestore } from '@/services/firebase';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useAuthStore } from '@/services/authStore';
 import type { AppPreferences, SyncedPreferences, ThemeMode } from '@/models/types';
+import { normalizeAnalyticsPeriodKey } from '@/utils/periodUtils';
 
 export const PREFS_SYNC_ERROR_PERMISSION = 'permission';
 export const PREFS_SYNC_ERROR_NETWORK = 'network';
@@ -10,8 +11,10 @@ export const PREFS_SYNC_ERROR_GENERIC = 'generic';
 
 const PREFS_COLLECTION = 'settings';
 const PREFS_DOC = 'preferences';
+const PREFS_READY_TIMEOUT_MS = 8_000;
 
 const VALID_LOCALES = new Set(['en', 'de']);
+const VALID_CURRENCIES = new Set(['EUR', 'USD', 'GBP', 'CHF']);
 const VALID_THEMES = new Set<ThemeMode>([
   'light',
   'dark',
@@ -25,8 +28,11 @@ const VALID_THEMES = new Set<ThemeMode>([
   'soft_light',
 ]);
 
+const ANALYTICS_PERIOD_RE = /^(all_time|this_month|last_month|month:\d{4}-(0[1-9]|1[0-2]))$/;
+
 let snapUnsub: Unsubscribe | null = null;
 let storeUnsub: (() => void) | null = null;
+let readyTimeout: ReturnType<typeof setTimeout> | null = null;
 let activeUid: string | null = null;
 let suppressPush = false;
 let lastWrittenAt = 0;
@@ -40,8 +46,34 @@ function canWritePreferences(): boolean {
   return getFirebaseAuth()?.currentUser?.emailVerified === true;
 }
 
-export function toSyncedPreferences(state: AppPreferences): SyncedPreferences {
+function validAnalyticsPeriod(value: string): boolean {
+  return ANALYTICS_PERIOD_RE.test(value);
+}
+
+/** Ensure payload matches firestore.rules validPreferences (post-audit allowlists). */
+export function sanitizeSyncedPreferences(prefs: SyncedPreferences): SyncedPreferences {
+  const currency = VALID_CURRENCIES.has(prefs.currency) ? prefs.currency : 'EUR';
+  const normalizedPeriod = normalizeAnalyticsPeriodKey(prefs.analyticsPeriod);
+  const analyticsPeriod = validAnalyticsPeriod(normalizedPeriod)
+    ? normalizedPeriod
+    : validAnalyticsPeriod(prefs.analyticsPeriod)
+      ? prefs.analyticsPeriod
+      : 'this_month';
+  const updatedAt = prefs.updatedAt > 0 ? prefs.updatedAt : Date.now();
   return {
+    ...prefs,
+    currency,
+    analyticsPeriod,
+    updatedAt,
+    reminderHour: Math.min(23, Math.max(0, prefs.reminderHour)),
+    reminderMinute: Math.min(59, Math.max(0, prefs.reminderMinute)),
+    monthlyBudget:
+      prefs.monthlyBudget != null && prefs.monthlyBudget > 0 ? prefs.monthlyBudget : null,
+  };
+}
+
+export function toSyncedPreferences(state: AppPreferences): SyncedPreferences {
+  return sanitizeSyncedPreferences({
     currency: state.currency,
     locale: state.locale,
     themeMode: state.themeMode,
@@ -52,7 +84,7 @@ export function toSyncedPreferences(state: AppPreferences): SyncedPreferences {
     analyticsPeriod: state.analyticsPeriod,
     monthlyBudget: state.monthlyBudget,
     updatedAt: state.preferencesUpdatedAt,
-  };
+  });
 }
 
 function parseRemote(raw: Record<string, unknown>): SyncedPreferences | null {
@@ -69,7 +101,7 @@ function parseRemote(raw: Record<string, unknown>): SyncedPreferences | null {
   const onboardingComplete =
     typeof raw.onboardingComplete === 'boolean' ? raw.onboardingComplete : true;
 
-  return {
+  return sanitizeSyncedPreferences({
     currency: typeof raw.currency === 'string' && raw.currency ? raw.currency : 'EUR',
     locale: locale as 'en' | 'de',
     themeMode: themeMode as ThemeMode,
@@ -80,7 +112,15 @@ function parseRemote(raw: Record<string, unknown>): SyncedPreferences | null {
     analyticsPeriod: typeof raw.analyticsPeriod === 'string' ? raw.analyticsPeriod : 'this_month',
     monthlyBudget,
     updatedAt,
-  };
+  });
+}
+
+function markReady(): void {
+  if (readyTimeout) {
+    clearTimeout(readyTimeout);
+    readyTimeout = null;
+  }
+  usePreferencesStore.getState().markPreferencesReady();
 }
 
 async function writeRemote(uid: string, prefs: SyncedPreferences): Promise<void> {
@@ -89,7 +129,7 @@ async function writeRemote(uid: string, prefs: SyncedPreferences): Promise<void>
   // Rules require email_verified — keep local-only until the user confirms.
   if (!canWritePreferences()) return;
 
-  let payload = prefs;
+  let payload = sanitizeSyncedPreferences(prefs);
   if (!payload.updatedAt) {
     const updatedAt = Date.now();
     payload = { ...payload, updatedAt };
@@ -139,8 +179,14 @@ export const preferencesSync = {
     activeUid = uid;
     useAuthStore.getState().setSyncError(null);
     usePreferencesStore.setState({ preferencesReady: false });
+    readyTimeout = setTimeout(() => {
+      if (!usePreferencesStore.getState().preferencesReady) {
+        console.warn('[prefs] snapshot timed out; continuing with local preferences');
+        markReady();
+      }
+    }, PREFS_READY_TIMEOUT_MS);
     if (!getFirebaseFirestore()) {
-      usePreferencesStore.getState().markPreferencesReady();
+      markReady();
       return;
     }
 
@@ -153,14 +199,14 @@ export const preferencesSync = {
 
         if (!snap.exists()) {
           void writeRemote(uid, toSyncedPreferences(local)).finally(() => {
-            usePreferencesStore.getState().markPreferencesReady();
+            markReady();
           });
           return;
         }
 
         const remote = parseRemote(snap.data() as Record<string, unknown>);
         if (!remote) {
-          usePreferencesStore.getState().markPreferencesReady();
+          markReady();
           return;
         }
 
@@ -173,12 +219,12 @@ export const preferencesSync = {
           void writeRemote(uid, { ...remote, onboardingComplete: remote.onboardingComplete });
         }
 
-        usePreferencesStore.getState().markPreferencesReady();
+        markReady();
       },
       (err) => {
         console.warn('[prefs] sync listener error', err);
         useAuthStore.getState().setSyncError(classifyPrefsError(err));
-        usePreferencesStore.getState().markPreferencesReady();
+        markReady();
       },
     );
 
@@ -203,6 +249,10 @@ export const preferencesSync = {
     snapUnsub = null;
     storeUnsub?.();
     storeUnsub = null;
+    if (readyTimeout) {
+      clearTimeout(readyTimeout);
+      readyTimeout = null;
+    }
     activeUid = null;
     suppressPush = false;
     lastWrittenAt = 0;
