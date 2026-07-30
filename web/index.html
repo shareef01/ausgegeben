@@ -25,18 +25,13 @@
     <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/icons/splash-1284x2778.png" />
     <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/icons/splash-1290x2796.png" />
     <title>Ausgegeben</title>
-    <style>
-      /* Instant shell — OS preference only; applyTheme overwrites html/#root/body */
-      html, body, #root {
-        margin: 0;
-        min-height: 100%;
-        background: #000000;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-      }
-      @media (prefers-color-scheme: light) {
-        html, body, #root { background: #FFFFFF; }
-      }
-    </style>
+    <!--
+      No inline <style> here: the hosting CSP (firebase.json) sets style-src without
+      'unsafe-inline', so the browser refused the block that used to live here. It was
+      redundant anyway — src/theme/index.css declares the same OS-preference cold-start
+      background on :root, and global.css applies it to html/body/#root. The bundled
+      stylesheet is render-blocking, so it still lands before the first paint.
+    -->
   </head>
   <body>
     <div id="root"></div>

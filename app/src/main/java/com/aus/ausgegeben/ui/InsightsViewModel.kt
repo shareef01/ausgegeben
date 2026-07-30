@@ -8,6 +8,7 @@ import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.util.CashFlowPoint
+import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.analyticsDateRangeMillis
 import com.aus.ausgegeben.util.analyticsPeriodOptionFromStorage
 import com.aus.ausgegeben.util.computeCashFlowTrend
@@ -65,8 +66,9 @@ class InsightsViewModel @Inject constructor(
         repository.allCategories,
         periodExpensesFlow,
         _periodKey,
-    ) { currency, categories, scopedExpenses, periodKey ->
-        buildInsightsState(currency, categories, scopedExpenses, periodKey)
+        repository.dataTruncated,
+    ) { currency, categories, scopedExpenses, periodKey, truncated ->
+        buildInsightsState(currency, categories, scopedExpenses, periodKey, truncated)
     }
         .flowOn(Dispatchers.Default)
         .distinctUntilChanged { previous, current ->
@@ -98,6 +100,7 @@ class InsightsViewModel @Inject constructor(
         categories: List<Category>,
         scoped: List<Expense>,
         periodKey: String,
+        truncated: Boolean,
     ): InsightsUiState {
         val categoryById = categories.associateBy { it.id }
 
@@ -128,25 +131,29 @@ class InsightsViewModel @Inject constructor(
             }
         }
 
+        // Round like web's computeTotals / groupByCategory: repeated Double addition leaves
+        // artefacts (0.1 + 0.2), and unrounded values leaked into the distinctUntilChanged
+        // comparison below, so equivalent states could look different.
         fun mapTotals(totals: Map<String, Double>): Map<Category, Double> =
             totals.mapNotNull { (categoryId, amount) ->
-                categoryById[categoryId]?.let { it to amount }
+                categoryById[categoryId]?.let { it to CurrencyUtils.roundAmount(amount) }
             }.toMap()
 
         return InsightsUiState(
             periodKey = periodKey,
             periodLabel = analyticsPeriodOptionFromStorage(periodKey).label,
-            totalExpenses = totalExpenses,
-            totalIncome = totalIncome,
-            totalTransfers = totalTransfers,
+            totalExpenses = CurrencyUtils.roundAmount(totalExpenses),
+            totalIncome = CurrencyUtils.roundAmount(totalIncome),
+            totalTransfers = CurrencyUtils.roundAmount(totalTransfers),
             currency = currency,
             expensesByCategory = mapTotals(expenseTotals),
             incomeByCategory = mapTotals(incomeTotals),
             transfersByCategory = mapTotals(transferTotals),
             cashFlowTrend = scoped.computeCashFlowTrend(periodKey),
             isLoading = false,
-            dataTruncated = periodKey == AnalyticsPeriod.ALL_TIME.storageKey &&
-                scoped.size >= AppRepository.ALL_EXPENSES_SOFT_CAP.toInt(),
+            // Reported by the listener; re-deriving from scoped.size could not tell a
+            // complete result of exactly the cap from a truncated one.
+            dataTruncated = periodKey == AnalyticsPeriod.ALL_TIME.storageKey && truncated,
         )
     }
 

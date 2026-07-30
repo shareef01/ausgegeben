@@ -10,6 +10,7 @@ import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.data.auth.AuthRepository
 import com.aus.ausgegeben.util.AnalyticsPeriod
+import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.dateRangeMillis
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.Query
@@ -34,6 +35,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
 import java.util.UUID
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.round
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -61,20 +63,58 @@ class AppRepository @Inject constructor(
     // empty categories collection and both batch-insert the default set.
     private val ensureSeededMutex = Mutex()
 
+    /** Which realtime listeners are currently broken. See [markListenerFailed]. */
+    private enum class ListenerSource { CATEGORIES, EXPENSES_IN_RANGE, ALL_EXPENSES }
+
+    private val failedListeners = ConcurrentHashMap.newKeySet<ListenerSource>()
+
     private val _listenerError = MutableStateFlow<String?>(null)
     /**
-     * Non-null when a Firestore realtime listener (currently `allExpenses` / `queryExpenses`,
-     * the most user-visible ones) most recently failed, so callers can tell "genuinely empty"
-     * apart from "listener broke" — cleared as soon as a listener emits data successfully again.
-     * Surfaced as an in-tab error empty state on Record / Insights.
+     * Non-null while at least one Firestore realtime listener is broken, so callers can tell
+     * "genuinely empty" apart from "listener broke". Surfaced as an in-tab error empty state
+     * on Record / Insights.
+     *
+     * Tracked per source because a single shared flag cross-contaminated: any listener's
+     * successful snapshot cleared an error raised by a *different* listener, so a genuinely
+     * broken expense query stopped surfacing as soon as the categories listener ticked.
      */
     val listenerError: StateFlow<String?> = _listenerError.asStateFlow()
+
+    private fun markListenerFailed(source: ListenerSource) {
+        failedListeners.add(source)
+        _listenerError.value = LISTENER_ERROR
+    }
+
+    private fun markListenerHealthy(source: ListenerSource) {
+        failedListeners.remove(source)
+        _listenerError.value = if (failedListeners.isEmpty()) null else LISTENER_ERROR
+    }
+
+    private val truncatedListeners = ConcurrentHashMap.newKeySet<ListenerSource>()
+
+    private val _dataTruncated = MutableStateFlow(false)
+    /**
+     * True while a capped listener actually hit the row cap.
+     *
+     * Consumers used to re-derive this as `emittedSize >= ALL_EXPENSES_SOFT_CAP`, which cannot
+     * work: the listener queries CAP + 1 rows and trims the emission to CAP, so a genuinely
+     * complete result of exactly CAP rows was indistinguishable from a truncated one and
+     * raised a false "showing latest N only" banner. Only the listener sees the untrimmed
+     * count, so only the listener can report this.
+     */
+    val dataTruncated: StateFlow<Boolean> = _dataTruncated.asStateFlow()
+
+    private fun markTruncation(source: ListenerSource, truncated: Boolean) {
+        if (truncated) truncatedListeners.add(source) else truncatedListeners.remove(source)
+        _dataTruncated.value = truncatedListeners.isNotEmpty()
+    }
 
     /** Bumped by [retryListeners] so snapshot flows tear down and re-subscribe. */
     private val _listenerEpoch = MutableStateFlow(0)
 
-    /** Clears a surfaced listener failure and forces expense listeners to re-attach. */
+    /** Clears surfaced listener failures and forces expense listeners to re-attach. */
     fun retryListeners() {
+        failedListeners.clear()
         _listenerError.value = null
         _listenerEpoch.value += 1
     }
@@ -147,10 +187,18 @@ class AppRepository @Inject constructor(
                     }
                 }
             }
-            // Remove legacy Uncategorized (id "0") so intentional deletes stick.
-            // deleteCategory still creates a temporary sink when reassigning linked
-            // expenses; the next seed clears that sink again.
-            runCatching { catDoc(u, UNCATEGORIZED_ID).delete().await() }
+            // Remove legacy Uncategorized (id "0") so intentional deletes stick — but
+            // only once nothing points at it. deleteCategory reassigns linked expenses to
+            // this sink, and firestore.rules requires the target category to exist on
+            // every expense update, so clearing it while still referenced left those rows
+            // permanently uneditable (generic "save failed", no way to recover in-app).
+            runCatching {
+                if (catDoc(u, UNCATEGORIZED_ID).get().await().exists() &&
+                    expenseDocsForCategory(u, UNCATEGORIZED_ID).isEmpty()
+                ) {
+                    catDoc(u, UNCATEGORIZED_ID).delete().await()
+                }
+            }
         }
     }
 
@@ -191,14 +239,18 @@ class AppRepository @Inject constructor(
             val sub = catCol(u).orderBy("sortOrder").addSnapshotListener { snap, error ->
                 if (error != null) {
                     Log.w(TAG, "categories listener error", error)
-                    _listenerError.value = LISTENER_ERROR
+                    markListenerFailed(ListenerSource.CATEGORIES)
                 }
                 if (snap != null) {
-                    _listenerError.value = null
+                    markListenerHealthy(ListenerSource.CATEGORIES)
                     trySend(snap.documents.mapNotNull { doc -> categoryFromDoc(doc) })
                 }
             }
-            awaitClose { sub.remove() }
+            // Detached listeners must not keep the banner up for a query nobody is running.
+            awaitClose {
+                sub.remove()
+                markListenerHealthy(ListenerSource.CATEGORIES)
+            }
         }
     }
 
@@ -248,14 +300,17 @@ class AppRepository @Inject constructor(
                 val sub = q.addSnapshotListener { snap, error ->
                     if (error != null) {
                         Log.w(TAG, "expenses-in-range listener error", error)
-                        _listenerError.value = LISTENER_ERROR
+                        markListenerFailed(ListenerSource.EXPENSES_IN_RANGE)
                     }
                     if (snap != null) {
-                        _listenerError.value = null
+                        markListenerHealthy(ListenerSource.EXPENSES_IN_RANGE)
                         trySend(snap.documents.mapNotNull { doc -> expenseFromDoc(doc) })
                     }
                 }
-                awaitClose { sub.remove() }
+                awaitClose {
+                    sub.remove()
+                    markListenerHealthy(ListenerSource.EXPENSES_IN_RANGE)
+                }
             }
         }
 
@@ -337,20 +392,25 @@ class AppRepository @Inject constructor(
                 .addSnapshotListener { snap, error ->
                     if (error != null) {
                         Log.w(TAG, "expenses listener error", error)
-                        _listenerError.value = LISTENER_ERROR
+                        markListenerFailed(ListenerSource.ALL_EXPENSES)
                     }
                     if (snap != null) {
-                        _listenerError.value = null
+                        markListenerHealthy(ListenerSource.ALL_EXPENSES)
                         val docs = snap.documents
                         val truncated = docs.size > ALL_EXPENSES_CAP.toInt()
                         if (truncated) {
                             Log.w(TAG, "allExpenses capped at $ALL_EXPENSES_CAP rows")
                         }
+                        markTruncation(ListenerSource.ALL_EXPENSES, truncated)
                         val limited = if (truncated) docs.take(ALL_EXPENSES_CAP.toInt()) else docs
                         trySend(limited.mapNotNull { expenseFromDoc(it) })
                     }
                 }
-            awaitClose { sub.remove() }
+            awaitClose {
+                sub.remove()
+                markListenerHealthy(ListenerSource.ALL_EXPENSES)
+                markTruncation(ListenerSource.ALL_EXPENSES, false)
+            }
         }
     }
 
@@ -373,36 +433,6 @@ class AppRepository @Inject constructor(
             }
         }
 
-    fun queryExpenses(params: ExpenseQueryParams): Flow<List<Expense>> =
-        perUserFlow(emptyList()) { u ->
-            callbackFlow {
-                var q: Query = expCol(u)
-                    .whereGreaterThanOrEqualTo("dateMillis", params.startMillis)
-                    .whereLessThan("dateMillis", params.endMillis)
-                    .orderBy("dateMillis", Query.Direction.DESCENDING)
-                if (params.typeFilter.isNotEmpty()) q = q.whereEqualTo("transactionType", params.typeFilter)
-                // Soft-cap all-time (and pathological huge ranges) like web getAllExpensesCapped.
-                q = q.limit(ALL_EXPENSES_CAP + 1)
-                val sub = q.addSnapshotListener { snap, error ->
-                    if (error != null) {
-                        Log.w(TAG, "query listener error", error)
-                        _listenerError.value = LISTENER_ERROR
-                    }
-                    if (snap != null) {
-                        _listenerError.value = null
-                        val docs = snap.documents
-                        val truncated = docs.size > ALL_EXPENSES_CAP.toInt()
-                        if (truncated) {
-                            Log.w(TAG, "queryExpenses capped at $ALL_EXPENSES_CAP rows")
-                        }
-                        val limited = if (truncated) docs.take(ALL_EXPENSES_CAP.toInt()) else docs
-                        trySend(limited.mapNotNull { expenseFromDoc(it) })
-                    }
-                }
-                awaitClose { sub.remove() }
-            }
-        }
-
     // ── Helpers ──
 
     /** Resolve strings against the user's saved app language (not system / stale context). */
@@ -413,7 +443,7 @@ class AppRepository @Inject constructor(
         return appContext.createConfigurationContext(config)
     }
 
-    private fun roundAmount(amount: Double): Double = round(amount * 100.0) / 100.0
+    private fun roundAmount(amount: Double): Double = CurrencyUtils.roundAmount(amount)
 
     /**
      * Firestore equality is type-sensitive. Older Android builds stored categoryId as a number;
