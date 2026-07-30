@@ -43,7 +43,7 @@ Copy `keystore.properties.example` → `keystore.properties` (gitignored) and fi
 
 ```powershell
 $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
-.\gradlew.bat :app:assembleDebug
+.\gradlew.bat :app:assembleProdDebug
 ```
 
 APK: `app\build\outputs\apk\debug\app-debug.apk`
