@@ -15,6 +15,23 @@ service cloud.firestore {
       return request.auth.token.email_verified == true;
     }
 
+    // Account wipe marks meta/accountDeletion before deleting docs so unverified
+    // owners can still finish deletion without opening mass-delete to raw clients.
+    function accountDeletionPending(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId)/meta/accountDeletion)
+        && get(/databases/$(database)/documents/users/$(userId)/meta/accountDeletion)
+             .data.pendingDeletion == true;
+    }
+
+    function canDeleteOwned(userId) {
+      return isOwner(userId) && (isEmailVerified() || accountDeletionPending(userId));
+    }
+
+    function validAnalyticsPeriod(p) {
+      return p in ['all_time', 'this_month', 'last_month']
+        || p.matches('^month:[0-9]{4}-(0[1-9]|1[0-2])$');
+    }
+
     // 2000-01-01 .. 2100-01-01 UTC (exclusive end)
     function validDateMillis(ms) {
       return ms is number
@@ -126,8 +143,7 @@ service cloud.firestore {
         && d.reminderMinute >= 0
         && d.reminderMinute <= 59
         && d.analyticsPeriod is string
-        && d.analyticsPeriod.size() > 0
-        && d.analyticsPeriod.size() < 64
+        && validAnalyticsPeriod(d.analyticsPeriod)
         && d.updatedAt is number
         && d.updatedAt > 0
         // Block far-future LWW clocks; allow any past timestamp from real devices.
@@ -146,9 +162,9 @@ service cloud.firestore {
         allow create, update: if isOwner(userId)
           && isEmailVerified()
           && validCategory();
-        // Deletes stay owner-only (no verification) so account wipe works
-        // for unverified sign-ups before they confirm email.
-        allow delete: if isOwner(userId);
+        // Deletes require verification, except during account wipe after
+        // meta/accountDeletion.pendingDeletion is set.
+        allow delete: if canDeleteOwned(userId);
       }
 
       match /expenses/{expenseId} {
@@ -158,7 +174,7 @@ service cloud.firestore {
           && validExpense()
           && exists(/databases/$(database)/documents/users/$(userId)/categories/$(request.resource.data.categoryId))
           && expenseCategoryTypeMatches(userId);
-        allow delete: if isOwner(userId);
+        allow delete: if canDeleteOwned(userId);
       }
 
       // Prefs require verification like other mutations — blocks unverified
@@ -169,7 +185,7 @@ service cloud.firestore {
           && isEmailVerified()
           && docId == 'preferences'
           && validPreferences();
-        allow delete: if isOwner(userId) && docId == 'preferences';
+        allow delete: if canDeleteOwned(userId) && docId == 'preferences';
       }
 
       match /meta/{docId} {
@@ -179,7 +195,7 @@ service cloud.firestore {
             (docId == 'dedupe' && isEmailVerified() && validDedupeMarker())
             || (docId == 'accountDeletion' && validAccountDeletion())
           );
-        allow delete: if isOwner(userId)
+        allow delete: if canDeleteOwned(userId)
           && (docId == 'dedupe' || docId == 'accountDeletion');
       }
     }

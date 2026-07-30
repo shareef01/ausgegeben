@@ -620,9 +620,11 @@ fun SettingsScreen(
                 }
             },
             dismissButton = {
-                AppTextButton(onClick = { showExportTruncatedConfirm = false }) {
-                    Text(stringResource(R.string.action_cancel).lowercase())
-                }
+                AppTextButton(
+                    onClick = { showExportTruncatedConfirm = false },
+                    text = stringResource(R.string.action_cancel).lowercase(),
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                )
             },
         )
     }

@@ -10,6 +10,7 @@ import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.data.auth.AuthRepository
 import com.aus.ausgegeben.util.AnalyticsPeriod
+import com.aus.ausgegeben.util.CategoryDedupe
 import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.dateRangeMillis
 import com.google.firebase.firestore.DocumentSnapshot
@@ -243,9 +244,9 @@ class AppRepository @Inject constructor(
         val groups = categories.groupBy { it.name.lowercase(Locale.ROOT).trim() to it.transactionType }
         
         groups.filter { it.value.size > 1 }.forEach { (_, group) ->
-            val master = group.first()
-            val duplicates = group.drop(1)
-            
+            val master = CategoryDedupe.pickMaster(group)
+            val duplicates = group.filter { it.id != master.id }
+
             duplicates.forEach { dup ->
                 reassignCategoryExpenses(u, fromCategoryId = dup.id, toCategoryId = master.id)
                 // Narrow TOCTOU window (web parity): re-query immediately before delete.

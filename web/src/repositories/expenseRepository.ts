@@ -109,6 +109,15 @@ async function expenseDocsForCategory(
   return out;
 }
 
+/** Prefer lowest sortOrder, then id (Android CategoryDedupe parity). */
+export function pickDedupeMaster(group: Category[]): Category {
+  if (group.length === 0) throw new Error('dedupe group must not be empty');
+  return [...group].sort((a, b) => {
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    return a.id.localeCompare(b.id);
+  })[0]!;
+}
+
 export const expenseRepository = {
 
   /**
@@ -489,7 +498,11 @@ export const expenseRepository = {
     await Promise.all(
       Object.values(groups)
         .filter(group => group.length > 1)
-        .map(group => resolveGroup(group[0], group.slice(1))),
+        .map(group => {
+          const master = pickDedupeMaster(group);
+          const duplicates = group.filter((c) => c.id !== master.id);
+          return resolveGroup(master, duplicates);
+        }),
     );
 
     // Repair missing sortOrder fields
