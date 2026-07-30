@@ -141,6 +141,8 @@ export const en = {
   settingsDeleteAccountPassword: 'enter your password to confirm',
   settingsDeleteAccountTooManyAttempts: 'too many attempts. try again later.',
   settingsDeleteAccountOk: 'account deleted',
+  settingsDeleteAccountIncomplete:
+    'cloud data was erased but the login could not be removed. try delete account again to finish.',
   settingsVersionSubtitle: 'version {version}',
   settingsVersion: 'version',
   settingsPreferences: 'preferences',
@@ -211,6 +213,9 @@ export const en = {
   settingsExportSub: 'download spreadsheet',
   settingsExportOk: 'export ready',
   settingsExportTruncated: 'export ready (latest 5000 rows)',
+  settingsExportTruncatedConfirm:
+    'only the latest 5000 transactions will be included. older rows will be missing. continue?',
+  settingsExportTruncatedContinue: 'export anyway',
   dataTruncatedNotice: 'showing the latest 5,000 transactions — older rows are hidden',
   settingsExportFailed: 'export failed',
   settingsRemindersPhoneOnly: 'daily reminders are managed in the android app',
