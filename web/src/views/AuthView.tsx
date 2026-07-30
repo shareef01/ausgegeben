@@ -51,7 +51,11 @@ export function AuthView() {
         setInfo(t('authVerifyEmailSent'));
       }
     } catch (e) {
-      const code = (e as { code?: string }).code ?? 'auth_error';
+      const err = e as { code?: string; message?: string };
+      const code = err.code
+        ?? (typeof err.message === 'string' && err.message.includes('app-check')
+          ? 'app-check'
+          : 'auth_error');
       setError(mapAuthError(code, t));
     } finally {
       setBusy(false);
@@ -70,7 +74,11 @@ export function AuthView() {
       await authService.sendPasswordResetEmail(email);
       setInfo(t('authResetEmailSent'));
     } catch (e) {
-      const code = (e as { code?: string }).code ?? 'auth_error';
+      const err = e as { code?: string; message?: string };
+      const code = err.code
+        ?? (typeof err.message === 'string' && err.message.includes('app-check')
+          ? 'app-check'
+          : 'auth_error');
       setError(mapAuthError(code, t));
     } finally {
       setBusy(false);
@@ -207,9 +215,13 @@ export function AuthView() {
 function mapAuthError(code: string, t: (key: import('@/i18n').TranslationKey) => string): string {
   if (code.startsWith('auth/invalid-credential') || code.startsWith('auth/wrong-password')) return t('authErrorInvalid');
   if (code.startsWith('auth/user-not-found')) return t('authErrorInvalid');
+  if (code.startsWith('auth/invalid-email')) return t('authErrorInvalid');
   if (code.startsWith('auth/email-already-in-use')) return t('authErrorEmailInUse');
   if (code.startsWith('auth/weak-password')) return t('authErrorWeakPassword');
   if (code.startsWith('auth/unauthorized-domain')) return t('authErrorUnauthorizedDomain');
+  if (code.startsWith('auth/too-many-requests')) return t('authErrorTooManyAttempts');
+  if (code.startsWith('auth/network-request-failed')) return t('authErrorNetwork');
+  if (code.includes('app-check') || code.includes('appCheck')) return t('authErrorAppCheck');
   if (code === 'firebase_not_configured') return t('authFirebaseNotConfigured');
   return t('authErrorGeneric');
 }
