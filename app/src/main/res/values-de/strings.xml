@@ -128,6 +128,8 @@
     <string name="settings_delete_account_ok">konto gelöscht</string>
     <string name="settings_delete_account_failed">konto konnte nicht gelöscht werden</string>
     <string name="settings_delete_account_needs_reauth">melde dich erneut an und lösche dann dein konto</string>
+    <string name="settings_delete_account_password">gib zum bestätigen dein passwort ein</string>
+    <string name="settings_delete_account_too_many_attempts">zu viele versuche. versuche es später erneut.</string>
     <string name="settings_signed_out">abgemeldet</string>
     <string name="settings_sync_now">jetzt synchronisieren</string>
     <string name="settings_last_synced">zuletzt synchronisiert %1$s</string>

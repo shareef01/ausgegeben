@@ -1,7 +1,9 @@
 import {
   createUserWithEmailAndPassword,
   deleteUser,
+  EmailAuthProvider,
   onAuthStateChanged,
+  reauthenticateWithCredential,
   sendEmailVerification,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
@@ -107,21 +109,39 @@ export const authService = {
     await clearLocalFirestoreCache();
   },
 
-  /** Deletes cloud data then the Firebase Auth user. May throw `requires_recent_login`. */
-  async deleteAccount(): Promise<void> {
+  /**
+   * Reauthenticates with the given password, then deletes cloud data and the Auth user.
+   * Throws `wrong_password` or `too_many_requests` if reauthentication fails.
+   *
+   * Order matters. deleteAllUserData() is irreversible, and deleteUser() rejects with
+   * auth/requires-recent-login once the sign-in is more than ~5 minutes old — the common
+   * case, not an edge case. Wiping first meant that rejection destroyed the user's entire
+   * history while leaving the account alive, and the next sign-in re-seeded default
+   * categories so it looked like a working fresh account rather than a failure.
+   *
+   * Reauthenticating up front both guarantees the delete cannot fail for staleness and
+   * gives us a hard confirmation gate on an irreversible action.
+   */
+  async deleteAccount(password: string): Promise<void> {
     const auth = getFirebaseAuth();
     const user = auth?.currentUser;
-    if (!user) throw new Error('not_signed_in');
-    await expenseRepository.deleteAllUserData();
+    if (!user?.email) throw new Error('not_signed_in');
     try {
-      await deleteUser(user);
+      await reauthenticateWithCredential(
+        user,
+        EmailAuthProvider.credential(user.email, password),
+      );
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code;
-      if (code === 'auth/requires-recent-login') {
-        throw new Error('requires_recent_login');
+      // Firebase collapsed wrong-password into invalid-credential on newer projects.
+      if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+        throw new Error('wrong_password');
       }
+      if (code === 'auth/too-many-requests') throw new Error('too_many_requests');
       throw err;
     }
+    await expenseRepository.deleteAllUserData();
+    await deleteUser(user);
     useAuthStore.getState().setUser(null);
     usePreferencesStore.getState().resetPreferences();
     await clearLocalFirestoreCache();

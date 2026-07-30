@@ -173,4 +173,55 @@ describe('firestore.rules', () => {
       }),
     );
   });
+
+  it('rejects invalid locale on preferences', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertFails(
+      setDoc(doc(db, prefsPath('alice')), { ...validPreferences, locale: 'fr' }),
+    );
+  });
+
+  it('rejects expense amounts outside the allowed range', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'cat-1')), validCategory));
+    // Both clients reject amount <= 0 before writing; the rules are the backstop.
+    await assertFails(setDoc(doc(db, expensePath('alice')), { ...validExpense, amount: -1 }));
+    await assertFails(
+      setDoc(doc(db, expensePath('alice')), { ...validExpense, amount: 1000000000 }),
+    );
+  });
+
+  it('rejects unknown transactionType on expenses and categories', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'cat-1')), validCategory));
+    await assertFails(
+      setDoc(doc(db, expensePath('alice')), { ...validExpense, transactionType: 'refund' }),
+    );
+    await assertFails(
+      setDoc(doc(db, categoryPath('alice', 'c9')), {
+        ...validCategory,
+        transactionType: 'refund',
+      }),
+    );
+  });
+
+  it('rejects settings docs other than preferences', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertFails(
+      setDoc(doc(db, 'users/alice/settings/somethingElse'), validPreferences),
+    );
+  });
+
+  it('rejects meta docs other than dedupe', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertFails(
+      setDoc(doc(db, 'users/alice/meta/somethingElse'), { categoriesDeduped: true }),
+    );
+  });
+
+  it('rejects unknown subcollections under the user document', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertFails(setDoc(doc(db, 'users/alice/audit/entry1'), { anything: true }));
+    await assertFails(getDoc(doc(db, 'users/alice/audit/entry1')));
+  });
 });
