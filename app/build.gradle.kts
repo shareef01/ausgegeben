@@ -54,6 +54,21 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    flavorDimensions += "env"
+    productFlavors {
+        create("prod") {
+            dimension = "env"
+            isDefault = true
+            buildConfigField("boolean", "IS_STAGING", "false")
+        }
+        create("staging") {
+            dimension = "env"
+            applicationIdSuffix = ".staging"
+            versionNameSuffix = "-staging"
+            buildConfigField("boolean", "IS_STAGING", "true")
+        }
+    }
+
     val releaseStoreFile = keystoreProp("storeFile")
     val releaseStorePassword = keystoreProp("storePassword")
     val releaseKeyAlias = keystoreProp("keyAlias")
@@ -93,7 +108,14 @@ android {
     // the Gradle configuration cache cannot serialize (release builds then fail).
     afterEvaluate {
         val usesPlaceholderGoogleServices = isPlaceholderGoogleServices(googleServicesFile)
-        listOf("assembleRelease", "bundleRelease", "minifyReleaseWithR8").forEach { taskName ->
+        listOf(
+            "assembleProdRelease",
+            "bundleProdRelease",
+            "minifyProdReleaseWithR8",
+            "assembleStagingRelease",
+            "bundleStagingRelease",
+            "minifyStagingReleaseWithR8",
+        ).forEach { taskName ->
             tasks.findByName(taskName)?.doFirst {
                 check(!usesPlaceholderGoogleServices) {
                     "Release builds require a real app/google-services.json from Firebase Console " +
