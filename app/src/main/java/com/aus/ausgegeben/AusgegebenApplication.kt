@@ -70,7 +70,13 @@ class AusgegebenApplication : Application(), Configuration.Provider {
     }
 
     private fun installAppCheck() {
-        val factory = resolveAppCheckFactory() ?: return
+        val factory = resolveAppCheckFactory()
+            ?: if (BuildConfig.DEBUG) {
+                Log.w(TAG, "App Check provider unavailable in debug")
+                return
+            } else {
+                error("App Check provider required in release")
+            }
         try {
             FirebaseAppCheck.getInstance().installAppCheckProviderFactory(factory)
             if (BuildConfig.DEBUG) {
@@ -78,10 +84,10 @@ class AusgegebenApplication : Application(), Configuration.Provider {
                 FirebaseAppCheck.getInstance().getAppCheckToken(false)
                     .addOnSuccessListener {
                         Log.i(TAG, "App Check debug token ready")
-                        logStoredAppCheckDebugSecret()
+                        maybeLogStoredAppCheckDebugSecret()
                     }
                     .addOnFailureListener { e ->
-                        logStoredAppCheckDebugSecret()
+                        maybeLogStoredAppCheckDebugSecret()
                         Log.e(
                             TAG,
                             "App Check debug token exchange failed — register the secret above in Firebase Console",
@@ -90,7 +96,11 @@ class AusgegebenApplication : Application(), Configuration.Provider {
                     }
             }
         } catch (e: Exception) {
-            Log.w(TAG, "App Check provider install failed", e)
+            if (BuildConfig.DEBUG) {
+                Log.w(TAG, "App Check provider install failed", e)
+            } else {
+                throw e
+            }
         }
     }
 
@@ -111,8 +121,21 @@ class AusgegebenApplication : Application(), Configuration.Provider {
         return PlayIntegrityAppCheckProviderFactory.getInstance()
     }
 
-    /** Firebase only Log.d's this; surface at INFO so sideload devices are easy to register. */
-    private fun logStoredAppCheckDebugSecret() {
+    /**
+     * Firebase only Log.d's the debug secret. Opt in via
+     * `adb shell setprop debug.ausgegeben.log_appcheck_secret 1` so shared test
+     * devices do not leak it to every logcat dump by default.
+     */
+    private fun maybeLogStoredAppCheckDebugSecret() {
+        if (!BuildConfig.DEBUG) return
+        val requested = try {
+            val clazz = Class.forName("android.os.SystemProperties")
+            clazz.getMethod("get", String::class.java, String::class.java)
+                .invoke(null, "debug.ausgegeben.log_appcheck_secret", "") == "1"
+        } catch (_: Exception) {
+            false
+        }
+        if (!requested) return
         try {
             val dir = java.io.File(applicationInfo.dataDir, "shared_prefs")
             dir.listFiles()

@@ -97,6 +97,8 @@
     <string name="settings_export_subtitle">Share spreadsheet</string>
     <string name="settings_export_ok">CSV ready to share</string>
     <string name="settings_export_truncated">CSV ready (latest 5000 rows)</string>
+    <string name="settings_export_truncated_confirm">Only the latest 5000 transactions will be included. Older rows will be missing. Continue?</string>
+    <string name="settings_export_truncated_continue">Export anyway</string>
     <string name="settings_export_failed">Export failed</string>
     <string name="data_truncated_notice">Showing the latest 5,000 transactions — older rows are hidden</string>
     <string name="settings_version">Version</string>
@@ -128,6 +130,7 @@
     <string name="settings_delete_account_confirm">Permanently delete your account and all cloud data? This cannot be undone.</string>
     <string name="settings_delete_account_ok">Account deleted</string>
     <string name="settings_delete_account_failed">Could not delete account</string>
+    <string name="settings_delete_account_incomplete">Cloud data was erased but the login could not be removed. Try Delete account again to finish.</string>
     <string name="settings_delete_account_needs_reauth">Sign in again, then delete your account</string>
     <string name="settings_delete_account_password">Enter your password to confirm</string>
     <string name="settings_delete_account_too_many_attempts">Too many attempts. Try again later.</string>

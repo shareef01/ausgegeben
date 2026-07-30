@@ -285,6 +285,9 @@ class PreferenceManager @Inject constructor(
             preferences.remove(PreferencesKeys.CURRENCY)
             preferences.remove(PreferencesKeys.ANALYTICS_PERIOD)
             preferences.remove(PreferencesKeys.ONBOARDING_COMPLETE)
+            preferences.remove(PreferencesKeys.DAILY_REMINDER)
+            preferences.remove(PreferencesKeys.REMINDER_HOUR)
+            preferences.remove(PreferencesKeys.REMINDER_MINUTE)
         }
     }
 

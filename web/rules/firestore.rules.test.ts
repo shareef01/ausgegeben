@@ -186,8 +186,53 @@ describe('firestore.rules', () => {
     await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'cat-1')), validCategory));
     // Both clients reject amount <= 0 before writing; the rules are the backstop.
     await assertFails(setDoc(doc(db, expensePath('alice')), { ...validExpense, amount: -1 }));
+    await assertFails(setDoc(doc(db, expensePath('alice')), { ...validExpense, amount: 0 }));
     await assertFails(
       setDoc(doc(db, expensePath('alice')), { ...validExpense, amount: 1000000000 }),
+    );
+  });
+
+  it('rejects expense whose transactionType mismatches category', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'cat-1')), validCategory));
+    await assertFails(
+      setDoc(doc(db, expensePath('alice')), {
+        ...validExpense,
+        transactionType: 'income',
+      }),
+    );
+  });
+
+  it('allows uncategorized sentinel to hold any transactionType', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertSucceeds(
+      setDoc(doc(db, categoryPath('alice', '0')), {
+        ...validCategory,
+        name: 'Unknown',
+        transactionType: 'expense',
+      }),
+    );
+    await assertSucceeds(
+      setDoc(doc(db, expensePath('alice')), {
+        ...validExpense,
+        categoryId: '0',
+        transactionType: 'income',
+      }),
+    );
+  });
+
+  it('rejects far-future preferences updatedAt', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    const farFuture = Date.now() + 8 * 24 * 60 * 60 * 1000;
+    await assertFails(
+      setDoc(doc(db, prefsPath('alice')), { ...validPreferences, updatedAt: farFuture }),
+    );
+  });
+
+  it('rejects unsupported currency codes', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertFails(
+      setDoc(doc(db, prefsPath('alice')), { ...validPreferences, currency: 'XXXX' }),
     );
   });
 
@@ -212,7 +257,17 @@ describe('firestore.rules', () => {
     );
   });
 
-  it('rejects meta docs other than dedupe', async () => {
+  it('allows accountDeletion meta without email verification', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: false }).firestore();
+    await assertSucceeds(
+      setDoc(doc(db, 'users/alice/meta/accountDeletion'), {
+        pendingDeletion: true,
+        wipedAt: Date.now(),
+      }),
+    );
+  });
+
+  it('rejects meta docs other than dedupe or accountDeletion', async () => {
     const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
     await assertFails(
       setDoc(doc(db, 'users/alice/meta/somethingElse'), { categoriesDeduped: true }),

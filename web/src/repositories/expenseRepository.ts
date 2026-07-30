@@ -156,6 +156,10 @@ export const expenseRepository = {
     ensureSeededForUid = userId;
     ensureSeededInFlight = (async () => {
       try {
+        if (await expenseRepository.isAccountDeletionPending()) {
+          console.warn('[ensureSeeded] skipped: account deletion incomplete');
+          return;
+        }
         const snap = await getDocs(catCol(userId));
         if (snap.empty) {
           const ts = now();
@@ -176,6 +180,11 @@ export const expenseRepository = {
             await expenseRepository.deduplicateCategories();
             await setDoc(marker, { categoriesDeduped: true, ranAt: now() }, { merge: true });
           }
+        }
+        try {
+          await repairOrphanedExpenses(userId);
+        } catch {
+          // best-effort
         }
         // Remove the legacy Uncategorized sentinel (id "0") so it stays gone — but only
         // once nothing points at it. deleteCategory reassigns linked transactions to this
@@ -198,6 +207,26 @@ export const expenseRepository = {
       }
     })();
     await ensureSeededInFlight;
+  },
+
+  async isAccountDeletionPending(): Promise<boolean> {
+    const userId = uid();
+    if (!userId || !fs()) return false;
+    try {
+      const snap = await getDoc(metaDoc(userId, 'accountDeletion'));
+      return snap.data()?.pendingDeletion === true;
+    } catch {
+      return false;
+    }
+  },
+
+  async markAccountDeletionPending(): Promise<void> {
+    const userId = uid();
+    if (!userId) throw new Error('Not signed in');
+    await setDoc(metaDoc(userId, 'accountDeletion'), {
+      pendingDeletion: true,
+      wipedAt: now(),
+    });
   },
 
   /**
@@ -472,7 +501,7 @@ export const expenseRepository = {
     });
   },
 
-  /** Wipe all cloud docs for the signed-in user (account deletion). */
+  /** Wipe cloud docs for account deletion. Keeps meta/accountDeletion marker. */
   async deleteAllUserData(): Promise<void> {
     const userId = uid();
     if (!userId) throw new Error('Not signed in');
@@ -487,6 +516,27 @@ export const expenseRepository = {
     emitDataChanged();
   },
 };
+
+async function repairOrphanedExpenses(userId: string): Promise<void> {
+  const catSnap = await getDocs(catCol(userId));
+  const catIds = new Set(catSnap.docs.map((d) => d.id));
+  if (catIds.size === 0) return;
+  const expSnap = await getDocs(query(expCol(userId), limit(5_000)));
+  const orphans = expSnap.docs.filter((d) => {
+    const cid = String(d.data().categoryId ?? '');
+    return cid.length > 0 && !catIds.has(cid);
+  });
+  if (orphans.length === 0) return;
+  await ensureUncategorizedCategory(userId);
+  for (let i = 0; i < orphans.length; i += 450) {
+    const chunk = orphans.slice(i, i + 450);
+    const batch = writeBatch(fs()!);
+    chunk.forEach((d) => {
+      batch.update(d.ref, { categoryId: UNCATEGORIZED_ID });
+    });
+    await batch.commit();
+  }
+}
 
 async function deleteCollectionBatched(colRef: CollectionReference): Promise<void> {
   for (;;) {
