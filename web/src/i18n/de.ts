@@ -143,6 +143,8 @@ export const de: Record<TranslationKey, string> = {
   settingsDeleteAccountPassword: 'gib zum bestätigen dein passwort ein',
   settingsDeleteAccountTooManyAttempts: 'zu viele versuche. versuche es später erneut.',
   settingsDeleteAccountOk: 'konto gelöscht',
+  settingsDeleteAccountIncomplete:
+    'cloud-daten wurden gelöscht, aber die anmeldung konnte nicht entfernt werden. tippe erneut auf konto löschen, um abzuschließen.',
   settingsVersionSubtitle: 'version {version}',
   settingsVersion: 'version',
   settingsPreferences: 'einstellungen',
@@ -213,6 +215,9 @@ export const de: Record<TranslationKey, string> = {
   settingsExportSub: 'tabelle herunterladen',
   settingsExportOk: 'export bereit',
   settingsExportTruncated: 'export bereit (neueste 5000 zeilen)',
+  settingsExportTruncatedConfirm:
+    'nur die neuesten 5000 buchungen werden enthalten. ältere zeilen fehlen. fortfahren?',
+  settingsExportTruncatedContinue: 'trotzdem exportieren',
   dataTruncatedNotice: 'zeige die neuesten 5.000 transaktionen — ältere einträge sind ausgeblendet',
   settingsExportFailed: 'export fehlgeschlagen',
   settingsRemindersPhoneOnly: 'tägliche erinnerungen werden in der android-app verwaltet',

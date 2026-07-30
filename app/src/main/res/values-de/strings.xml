@@ -98,6 +98,8 @@
     <string name="settings_export_subtitle">tabelle teilen</string>
     <string name="settings_export_ok">csv bereit zum teilen</string>
     <string name="settings_export_truncated">csv bereit (neueste 5000 zeilen)</string>
+    <string name="settings_export_truncated_confirm">nur die neuesten 5000 buchungen werden enthalten. ältere zeilen fehlen. fortfahren?</string>
+    <string name="settings_export_truncated_continue">trotzdem exportieren</string>
     <string name="settings_export_failed">export fehlgeschlagen</string>
     <string name="data_truncated_notice">zeige die neuesten 5.000 transaktionen — ältere einträge sind ausgeblendet</string>
     <string name="settings_version">version</string>
@@ -127,6 +129,7 @@
     <string name="settings_delete_account_confirm">konto und alle cloud-daten dauerhaft löschen? das kann nicht rückgängig gemacht werden.</string>
     <string name="settings_delete_account_ok">konto gelöscht</string>
     <string name="settings_delete_account_failed">konto konnte nicht gelöscht werden</string>
+    <string name="settings_delete_account_incomplete">cloud-daten wurden gelöscht, aber die anmeldung konnte nicht entfernt werden. tippe erneut auf konto löschen, um abzuschließen.</string>
     <string name="settings_delete_account_needs_reauth">melde dich erneut an und lösche dann dein konto</string>
     <string name="settings_delete_account_password">gib zum bestätigen dein passwort ein</string>
     <string name="settings_delete_account_too_many_attempts">zu viele versuche. versuche es später erneut.</string>

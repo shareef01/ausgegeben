@@ -7,6 +7,7 @@ import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseUser
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -121,12 +122,24 @@ class AuthRepository @Inject constructor(
         }
     }
 
-    /** Deletes the Firebase Auth user. Caller should reauthenticate, then wipe Firestore. */
+    /** Deletes the Firebase Auth user. Caller should reauthenticate, mark pending, wipe, then call this. */
     suspend fun deleteAccount(): Result<Unit> = runCatching {
         val user = firebaseAuth.currentUser ?: error("Not signed in")
-        user.delete().await()
-        preferenceManager.clearAccountLocalState()
-        firestoreClient.clearOfflineCache()
+        var lastError: Exception? = null
+        repeat(3) { attempt ->
+            try {
+                user.delete().await()
+                preferenceManager.clearAccountLocalState()
+                firestoreClient.clearOfflineCache()
+                return@runCatching
+            } catch (e: Exception) {
+                lastError = e
+                if (attempt < 2) {
+                    delay(400L * (attempt + 1))
+                }
+            }
+        }
+        throw lastError ?: IllegalStateException("Account delete failed")
     }
 
     companion object {

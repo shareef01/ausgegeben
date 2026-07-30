@@ -8,7 +8,6 @@ import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.auth.AuthActions
 import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.FirebaseTooManyRequestsException
-import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
@@ -201,10 +200,8 @@ class AuthViewModel @Inject constructor(
             error is FirebaseAuthInvalidUserException -> appString(R.string.auth_error_user_not_found)
             error is FirebaseAuthUserCollisionException -> appString(R.string.auth_error_email_in_use)
             error is FirebaseAuthWeakPasswordException -> appString(R.string.auth_error_weak_password)
-            error is FirebaseAuthException ->
-                error.message?.takeIf { it.isNotBlank() } ?: appString(R.string.auth_error_generic)
-            else ->
-                error.message?.takeIf { it.isNotBlank() } ?: appString(R.string.auth_error_generic)
+            // Never surface vendor/raw exception messages to the UI.
+            else -> appString(R.string.auth_error_generic)
         }
     }
 }

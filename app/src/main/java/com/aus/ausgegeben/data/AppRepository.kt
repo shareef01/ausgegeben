@@ -144,11 +144,38 @@ class AppRepository @Inject constructor(
     private fun catDoc(uid: String, id: String) = catCol(uid).document(id)
     private fun expDoc(uid: String, id: String) = expCol(uid).document(id)
     private fun dedupeMarkerDoc(uid: String) = metaCol(uid).document("dedupe")
+    private fun accountDeletionDoc(uid: String) = metaCol(uid).document("accountDeletion")
+
+    /** True when wipe finished but Auth delete failed — blocks re-seeding empty accounts. */
+    suspend fun isAccountDeletionPending(): Boolean {
+        val u = uid() ?: return false
+        return runCatching {
+            accountDeletionDoc(u).get().await().getBoolean("pendingDeletion") == true
+        }.getOrDefault(false)
+    }
+
+    /**
+     * Mark wipe-in-progress before [deleteAllUserData] so a failed Auth delete cannot
+     * look like a fresh account after [ensureSeeded] re-seeds defaults.
+     */
+    suspend fun markAccountDeletionPending(): Result<Unit> = runCatching {
+        val u = uid() ?: throw IllegalStateException("Not signed in")
+        accountDeletionDoc(u).set(
+            mapOf(
+                "pendingDeletion" to true,
+                "wipedAt" to System.currentTimeMillis(),
+            ),
+        ).await()
+    }
 
     suspend fun ensureSeeded() {
         ensureSeededMutex.withLock {
             requireVerifiedEmail()
             val u = uid() ?: return
+            if (isAccountDeletionPending()) {
+                Log.w(TAG, "ensureSeeded skipped: account deletion incomplete")
+                return
+            }
             val snap = catCol(u).get().await()
             val strings = localizedContext()
             if (snap.isEmpty) {
@@ -187,6 +214,8 @@ class AppRepository @Inject constructor(
                     }
                 }
             }
+            runCatching { repairOrphanedExpenses(u) }
+                .onFailure { e -> Log.w(TAG, "orphan repair failed", e) }
             // Remove legacy Uncategorized (id "0") so intentional deletes stick — but
             // only once nothing points at it. deleteCategory reassigns linked expenses to
             // this sink, and firestore.rules requires the target category to exist on
@@ -218,6 +247,8 @@ class AppRepository @Inject constructor(
             val duplicates = group.drop(1)
             
             duplicates.forEach { dup ->
+                reassignCategoryExpenses(u, fromCategoryId = dup.id, toCategoryId = master.id)
+                // Narrow TOCTOU window (web parity): re-query immediately before delete.
                 reassignCategoryExpenses(u, fromCategoryId = dup.id, toCategoryId = master.id)
                 catDoc(u, dup.id).delete().await()
             }
@@ -285,6 +316,9 @@ class AppRepository @Inject constructor(
         // SECURE: Move orphaned expenses to "Uncategorized" (match string + legacy numeric ids)
         ensureUncategorizedCategory(u)
         reassignCategoryExpenses(u, fromCategoryId = category.id, toCategoryId = UNCATEGORIZED_ID)
+        // Narrow TOCTOU window (web parity): re-query immediately before delete so a
+        // concurrent write attaching an expense mid-delete is less likely to orphan it.
+        reassignCategoryExpenses(u, fromCategoryId = category.id, toCategoryId = UNCATEGORIZED_ID)
         catDoc(u, category.id).delete().await()
     }
 
@@ -317,7 +351,8 @@ class AppRepository @Inject constructor(
     suspend fun insertExpense(expense: Expense): Result<String> = runCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
         requireVerifiedEmail()
-        val id = if (expense.id.isBlank()) UUID.randomUUID().toString() else expense.id
+        // Always mint a new id on insert so a crafted/stale id cannot overwrite history.
+        val id = UUID.randomUUID().toString()
         val e = expense.copy(
             id = id,
             amount = roundAmount(expense.amount),
@@ -349,7 +384,7 @@ class AppRepository @Inject constructor(
         return insertExpense(expense.copy(id = "", dateMillis = System.currentTimeMillis())).map { Unit }
     }
 
-    /** Wipe all cloud docs for the signed-in user (account deletion). */
+    /** Wipe all cloud docs for the signed-in user (account deletion). Keeps accountDeletion marker. */
     suspend fun deleteAllUserData(): Result<Unit> = runCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
         deleteCollectionBatched(expCol(u))
@@ -468,6 +503,30 @@ class AppRepository @Inject constructor(
                 }
             }.await()
         }
+    }
+
+    /**
+     * Reassign expenses whose categoryId no longer exists (e.g. race orphan after
+     * category delete). Capped to [ALL_EXPENSES_CAP] like other all-history paths.
+     */
+    private suspend fun repairOrphanedExpenses(u: String) {
+        val catIds = catCol(u).get().await().documents.map { it.id }.toSet()
+        if (catIds.isEmpty()) return
+        val snap = expCol(u).limit(ALL_EXPENSES_CAP).get().await()
+        val orphans = snap.documents.filter { doc ->
+            val cid = doc.get("categoryId")?.toString().orEmpty()
+            cid.isNotEmpty() && cid !in catIds
+        }
+        if (orphans.isEmpty()) return
+        ensureUncategorizedCategory(u)
+        orphans.chunked(450).forEach { chunk ->
+            firestore.runBatch { batch ->
+                chunk.forEach { doc ->
+                    batch.update(doc.reference, "categoryId", UNCATEGORIZED_ID)
+                }
+            }.await()
+        }
+        Log.i(TAG, "Repaired ${orphans.size} orphaned expense(s)")
     }
 
     private suspend fun ensureUncategorizedCategory(u: String) {

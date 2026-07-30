@@ -66,6 +66,8 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
   const [showLanguage, setShowLanguage] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
+  const [showExportTruncatedConfirm, setShowExportTruncatedConfirm] = useState(false);
+  const [pendingExportCsv, setPendingExportCsv] = useState<string | null>(null);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
@@ -88,19 +90,28 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
     useToastStore.getState().show(t('settingsBudgetCleared'));
   }, [setMonthlyBudget, t]);
 
+  const downloadCsv = (csv: string, truncated: boolean) => {
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'ausgegeben-export.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    useToastStore.getState().show(truncated ? t('settingsExportTruncated') : t('settingsExportOk'));
+  };
+
   const exportData = async () => {
     try {
       const { items: expenses, truncated } = await expenseRepository.getAllExpensesCapped(5_000);
       const categories = await expenseRepository.getAllCategories();
       const csv = exportCsv(expenses, categories, t('recordUnknownCategory'));
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'ausgegeben-export.csv';
-      a.click();
-      URL.revokeObjectURL(url);
-      useToastStore.getState().show(truncated ? t('settingsExportTruncated') : t('settingsExportOk'));
+      if (truncated) {
+        setPendingExportCsv(csv);
+        setShowExportTruncatedConfirm(true);
+        return;
+      }
+      downloadCsv(csv, false);
     } catch {
       useToastStore.getState().show(t('settingsExportFailed'));
     }
@@ -270,6 +281,25 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
       />
 
       <ConfirmDialog
+        open={showExportTruncatedConfirm}
+        title={t('settingsExport')}
+        message={t('settingsExportTruncatedConfirm')}
+        confirmLabel={t('settingsExportTruncatedContinue')}
+        cancelLabel={t('actionCancel')}
+        destructive={false}
+        onConfirm={() => {
+          const csv = pendingExportCsv;
+          setShowExportTruncatedConfirm(false);
+          setPendingExportCsv(null);
+          if (csv) downloadCsv(csv, true);
+        }}
+        onCancel={() => {
+          setShowExportTruncatedConfirm(false);
+          setPendingExportCsv(null);
+        }}
+      />
+
+      <ConfirmDialog
         open={showDeleteAccountConfirm}
         title={t('settingsDeleteAccount')}
         // Stays open on a wrong password so the user can retry without losing context.
@@ -318,7 +348,9 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
               useToastStore.getState().show(
                 code === 'too_many_requests'
                   ? t('settingsDeleteAccountTooManyAttempts')
-                  : t('settingsDeleteAccountFailed'),
+                  : code === 'deletion_incomplete'
+                    ? t('settingsDeleteAccountIncomplete')
+                    : t('settingsDeleteAccountFailed'),
               );
             })
             .finally(() => setDeletingAccount(false));

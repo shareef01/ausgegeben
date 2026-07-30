@@ -14,9 +14,22 @@ import java.util.Date
 import java.util.Locale
 
 object ExportUtils {
-    data class Result(val success: Boolean, val truncated: Boolean = false)
+    data class Result(
+        val success: Boolean,
+        val truncated: Boolean = false,
+        /** True when the export hit the soft cap and [allowTruncated] was false. */
+        val needsConfirm: Boolean = false,
+    )
 
-    suspend fun exportCsv(context: Context, repository: AppRepository): Result {
+    /**
+     * Build and share a CSV of expenses. When the soft cap truncates history and
+     * [allowTruncated] is false, returns [Result.needsConfirm] without opening the share sheet.
+     */
+    suspend fun exportCsv(
+        context: Context,
+        repository: AppRepository,
+        allowTruncated: Boolean = false,
+    ): Result {
         return withContext(Dispatchers.IO) {
             try {
                 val expenses = repository.allExpenses.first()
@@ -24,6 +37,9 @@ object ExportUtils {
                 // hit the cap. expenses.size can't tell a complete cap-sized result apart
                 // from a truncated one.
                 val truncated = repository.dataTruncated.value
+                if (truncated && !allowTruncated) {
+                    return@withContext Result(success = false, truncated = true, needsConfirm = true)
+                }
                 val categories = repository.allCategories.first()
                 val categoryById = categories.associateBy { it.id }
                 val dateFormat = SimpleDateFormat("yyyy-MM-dd,HH:mm", Locale.US)
@@ -43,7 +59,8 @@ object ExportUtils {
                     ).joinToString(",") { csvEscape(it) }
                 }
 
-                val file = File(context.cacheDir, "ausgegeben_export.csv")
+                val exportDir = File(context.cacheDir, "exports").apply { mkdirs() }
+                val file = File(exportDir, "ausgegeben_export.csv")
                 file.writeText((listOf(header) + rows).joinToString("\n"))
 
                 val uri = FileProvider.getUriForFile(
