@@ -140,6 +140,8 @@ export const de: Record<TranslationKey, string> = {
   settingsDeleteAccountConfirm: 'konto und alle cloud-daten dauerhaft löschen? das kann nicht rückgängig gemacht werden.',
   settingsDeleteAccountFailed: 'konto konnte nicht gelöscht werden',
   settingsDeleteAccountNeedsReauth: 'melde dich erneut an und lösche dann dein konto',
+  settingsDeleteAccountPassword: 'gib zum bestätigen dein passwort ein',
+  settingsDeleteAccountTooManyAttempts: 'zu viele versuche. versuche es später erneut.',
   settingsDeleteAccountOk: 'konto gelöscht',
   settingsVersionSubtitle: 'version {version}',
   settingsVersion: 'version',

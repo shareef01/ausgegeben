@@ -20,7 +20,10 @@ object ExportUtils {
         return withContext(Dispatchers.IO) {
             try {
                 val expenses = repository.allExpenses.first()
-                val truncated = expenses.size >= AppRepository.ALL_EXPENSES_SOFT_CAP.toInt()
+                // Read after collecting, so the listener has already reported whether it
+                // hit the cap. expenses.size can't tell a complete cap-sized result apart
+                // from a truncated one.
+                val truncated = repository.dataTruncated.value
                 val categories = repository.allCategories.first()
                 val categoryById = categories.associateBy { it.id }
                 val dateFormat = SimpleDateFormat("yyyy-MM-dd,HH:mm", Locale.US)
