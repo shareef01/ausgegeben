@@ -137,7 +137,7 @@ describe('firestore.rules', () => {
     await assertFails(setDoc(doc(unverified, categoryPath('alice', 'c2')), validCategory));
   });
 
-  it('allows owner to delete data without email verification', async () => {
+  it('denies unverified deletes unless accountDeletion is pending', async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), categoryPath('alice', 'cat-1')), validCategory);
       await setDoc(doc(ctx.firestore(), expensePath('alice')), validExpense);
@@ -148,10 +148,37 @@ describe('firestore.rules', () => {
       });
     });
     const unverified = testEnv.authenticatedContext('alice', { email_verified: false }).firestore();
+    await assertFails(deleteDoc(doc(unverified, expensePath('alice'))));
+    await assertFails(deleteDoc(doc(unverified, categoryPath('alice', 'cat-1'))));
+    await assertFails(deleteDoc(doc(unverified, prefsPath('alice'))));
+    await assertFails(deleteDoc(doc(unverified, 'users/alice/meta/dedupe')));
+
+    await assertSucceeds(
+      setDoc(doc(unverified, 'users/alice/meta/accountDeletion'), {
+        pendingDeletion: true,
+        wipedAt: Date.now(),
+      }),
+    );
     await assertSucceeds(deleteDoc(doc(unverified, expensePath('alice'))));
     await assertSucceeds(deleteDoc(doc(unverified, categoryPath('alice', 'cat-1'))));
     await assertSucceeds(deleteDoc(doc(unverified, prefsPath('alice'))));
     await assertSucceeds(deleteDoc(doc(unverified, 'users/alice/meta/dedupe')));
+  });
+
+  it('rejects invalid analyticsPeriod values', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertFails(
+      setDoc(doc(db, prefsPath('alice')), {
+        ...validPreferences,
+        analyticsPeriod: 'not_a_period',
+      }),
+    );
+    await assertSucceeds(
+      setDoc(doc(db, prefsPath('alice')), {
+        ...validPreferences,
+        analyticsPeriod: 'month:2026-07',
+      }),
+    );
   });
 
   it('denies unverified owner preferences writes', async () => {
