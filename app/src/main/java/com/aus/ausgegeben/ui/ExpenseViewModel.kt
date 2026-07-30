@@ -142,10 +142,18 @@ class ExpenseViewModel @Inject constructor(
         },
         insightsFlow,
         dayTotalsFlow,
-    ) { data, toolbar, insights, totals ->
-        val truncated = toolbar.listPeriod == RecordListPeriod.ALL_TIME.key &&
-            data.headerExpenses.size >= AppRepository.ALL_EXPENSES_SOFT_CAP.toInt()
-        RecordUiState(data, toolbar, insights, totals, isLoading = false, dataTruncated = truncated)
+        // Reported by the listener, which alone sees the untrimmed row count. Re-deriving it
+        // from the emitted list size raised a false banner at exactly the cap.
+        repository.dataTruncated,
+    ) { data, toolbar, insights, totals, truncated ->
+        RecordUiState(
+            data,
+            toolbar,
+            insights,
+            totals,
+            isLoading = false,
+            dataTruncated = toolbar.listPeriod == RecordListPeriod.ALL_TIME.key && truncated,
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
