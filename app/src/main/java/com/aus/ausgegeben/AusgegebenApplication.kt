@@ -36,8 +36,10 @@ class AusgegebenApplication : Application(), Configuration.Provider {
         // Spark-compatible: cache Firestore locally for offline / faster reloads
         FirebaseFirestore.getInstance().firestoreSettings = FirebaseFirestoreSettings.Builder()
             .setPersistenceEnabled(true)
-            // Cap offline cache (~100 MiB) so financial history cannot grow unbounded on disk.
-            .setCacheSizeBytes(FirestoreClient.CACHE_SIZE_BYTES)
+        // Cap offline cache (~100 MiB) so financial history cannot grow unbounded on disk.
+        // The Firebase SDK does not offer app-level encryption of this cache; rely on
+        // platform FBE + allowBackup=false. Sensitive prefs are sealed via PrefsCrypto.
+        .setCacheSizeBytes(FirestoreClient.CACHE_SIZE_BYTES)
             .build()
     }
 
