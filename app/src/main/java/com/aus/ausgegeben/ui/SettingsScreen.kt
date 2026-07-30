@@ -96,6 +96,7 @@ fun SettingsScreen(
     var showReminderTimeDialog by remember { mutableStateOf(false) }
     var showSignOutConfirm by remember { mutableStateOf(false) }
     var showDeleteAccountConfirm by remember { mutableStateOf(false) }
+    var showExportTruncatedConfirm by remember { mutableStateOf(false) }
     var deletingAccount by remember { mutableStateOf(false) }
     var deletePassword by remember { mutableStateOf("") }
     var deleteAccountError by remember { mutableStateOf<String?>(null) }
@@ -286,6 +287,10 @@ fun SettingsScreen(
                         onClick = {
                             scope.launch {
                                 val result = ExportUtils.exportCsv(context, repository)
+                                if (result.needsConfirm) {
+                                    showExportTruncatedConfirm = true
+                                    return@launch
+                                }
                                 if (result.success) haptics.success() else haptics.light()
                                 onShowMessage(
                                     context.getString(
@@ -579,6 +584,49 @@ fun SettingsScreen(
         )
     }
 
+    if (showExportTruncatedConfirm) {
+        AppAlertDialog(
+            onDismissRequest = { showExportTruncatedConfirm = false },
+            title = {
+                Text(
+                    text = stringResource(R.string.settings_export_csv).lowercase(),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            },
+            text = {
+                AppDialogBodyText(stringResource(R.string.settings_export_truncated_confirm))
+            },
+            confirmButton = {
+                AppButton(
+                    onClick = {
+                        showExportTruncatedConfirm = false
+                        scope.launch {
+                            val result = ExportUtils.exportCsv(
+                                context,
+                                repository,
+                                allowTruncated = true,
+                            )
+                            if (result.success) haptics.success() else haptics.light()
+                            onShowMessage(
+                                context.getString(
+                                    if (result.success) R.string.settings_export_truncated
+                                    else R.string.settings_export_failed,
+                                ),
+                            )
+                        }
+                    },
+                ) {
+                    Text(stringResource(R.string.settings_export_truncated_continue).lowercase())
+                }
+            },
+            dismissButton = {
+                AppTextButton(onClick = { showExportTruncatedConfirm = false }) {
+                    Text(stringResource(R.string.action_cancel).lowercase())
+                }
+            },
+        )
+    }
+
     if (showSignOutConfirm) {
         AppDestructiveConfirmDialog(
             onDismissRequest = { showSignOutConfirm = false },
@@ -643,7 +691,11 @@ fun SettingsScreen(
                         }
                         return@launch
                     }
-                    val wipe = repository.deleteAllUserData()
+                    val wipe = run {
+                        val marked = repository.markAccountDeletionPending()
+                        if (marked.isFailure) marked
+                        else repository.deleteAllUserData()
+                    }
                     val deleted = if (wipe.isSuccess) authRepository.deleteAccount() else wipe
                     deletingAccount = false
                     showDeleteAccountConfirm = false
@@ -653,8 +705,10 @@ fun SettingsScreen(
                             onShowMessage(context.getString(R.string.settings_delete_account_ok))
                         },
                         onFailure = { error ->
-                            val msg = when (error) {
-                                is com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException ->
+                            val msg = when {
+                                wipe.isSuccess ->
+                                    R.string.settings_delete_account_incomplete
+                                error is com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException ->
                                     R.string.settings_delete_account_needs_reauth
                                 else -> R.string.settings_delete_account_failed
                             }

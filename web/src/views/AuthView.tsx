@@ -51,7 +51,7 @@ export function AuthView() {
         setInfo(t('authVerifyEmailSent'));
       }
     } catch (e) {
-      const code = (e as { code?: string }).code ?? (e instanceof Error ? e.message : 'auth_error');
+      const code = (e as { code?: string }).code ?? 'auth_error';
       setError(mapAuthError(code, t));
     } finally {
       setBusy(false);
@@ -70,7 +70,7 @@ export function AuthView() {
       await authService.sendPasswordResetEmail(email);
       setInfo(t('authResetEmailSent'));
     } catch (e) {
-      const code = (e as { code?: string }).code ?? (e instanceof Error ? e.message : 'auth_error');
+      const code = (e as { code?: string }).code ?? 'auth_error';
       setError(mapAuthError(code, t));
     } finally {
       setBusy(false);

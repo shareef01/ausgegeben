@@ -112,6 +112,8 @@ export const authService = {
   /**
    * Reauthenticates with the given password, then deletes cloud data and the Auth user.
    * Throws `wrong_password` or `too_many_requests` if reauthentication fails.
+   * Throws `deletion_incomplete` if cloud wipe succeeded but Auth delete failed —
+   * re-seeding is blocked via meta/accountDeletion until Auth delete succeeds.
    *
    * Order matters. deleteAllUserData() is irreversible, and deleteUser() rejects with
    * auth/requires-recent-login once the sign-in is more than ~5 minutes old — the common
@@ -120,7 +122,8 @@ export const authService = {
    * categories so it looked like a working fresh account rather than a failure.
    *
    * Reauthenticating up front both guarantees the delete cannot fail for staleness and
-   * gives us a hard confirmation gate on an irreversible action.
+   * gives us a hard confirmation gate on an irreversible action. A pendingDeletion marker
+   * is written before the wipe so ensureSeeded will not re-seed if Auth delete still fails.
    */
   async deleteAccount(password: string): Promise<void> {
     const auth = getFirebaseAuth();
@@ -140,11 +143,24 @@ export const authService = {
       if (code === 'auth/too-many-requests') throw new Error('too_many_requests');
       throw err;
     }
+    await expenseRepository.markAccountDeletionPending();
     await expenseRepository.deleteAllUserData();
-    await deleteUser(user);
-    useAuthStore.getState().setUser(null);
-    usePreferencesStore.getState().resetPreferences();
-    await clearLocalFirestoreCache();
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await deleteUser(user);
+        useAuthStore.getState().setUser(null);
+        usePreferencesStore.getState().resetPreferences();
+        await clearLocalFirestoreCache();
+        return;
+      } catch (err) {
+        lastError = err;
+        if (attempt < 2) {
+          await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+        }
+      }
+    }
+    throw new Error('deletion_incomplete', { cause: lastError });
   },
 
   isAvailable(): boolean {
