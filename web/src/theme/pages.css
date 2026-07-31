@@ -2379,6 +2379,13 @@
   align-items: stretch;
   gap: 10px;
   max-height: none;
+  /* Hold the natural height. The sheet is capped at 94dvh, and the field wrapper
+     clears its min-height floor, so on a short phone (SE/mini) the flex parent
+     compresses this row below its tiles — and since overflow-x: auto forces
+     overflow-y to hidden, the tiles get sliced instead of overflowing, cutting the
+     bottom off every category label. Let the sheet body scroll instead. */
+  flex: 0 0 auto;
+  min-height: fit-content;
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-x: contain;
