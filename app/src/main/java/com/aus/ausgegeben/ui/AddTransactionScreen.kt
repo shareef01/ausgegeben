@@ -856,11 +856,14 @@ private fun ObsidianKey(
     val isBack = key == "back"
     val haptics = rememberAppHaptics()
     
+    // Bare keys: no fill, no border, no specular, no shine sweep. Twelve tiles of
+    // chrome made the pad the loudest thing on the sheet, and each one ran its own
+    // endless shine animation for as long as the sheet was open. The digits carry
+    // themselves; clip only so the press ripple stays inside the key's corners.
     Box(
         modifier = modifier
             .height(48.dp)
-            .appGlassCard(RoundedCornerShape(AppRadius.interactive))
-            .glassShine()
+            .clip(RoundedCornerShape(AppRadius.interactive))
             .combinedClickable(
                     onClick = {
                         haptics.light()
