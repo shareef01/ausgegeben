@@ -46,6 +46,12 @@ This builds the PWA and deploys hosting (`aus01`) + Firestore rules from the rep
 - Expense, category, and preferences writes require a **verified email** (local prefs still work before verification)
 - **Shared devices:** web sign-out / account deletion clears the IndexedDB Firestore cache (best-effort; close other tabs first). Android clears account-scoped DataStore prefs **and** the Firestore offline disk cache on sign-out/delete.
 
+## Incomplete account deletion
+
+Deletion reauthenticates, marks `meta/accountDeletion`, wipes the cloud data, then deletes the Auth user. If that last step fails all its retries, the data is gone but the login survives, and both clients say so: *"Cloud data was erased but the login could not be removed. Try Delete account again to finish."*
+
+The marker is deliberately never cleared — re-seeding default categories would make a half-deleted account look like a working fresh one. Until deletion is retried successfully the account stays unusable (no categories, so nothing can be recorded). **Retrying deletion is the only exit**, and it is expected to succeed, since the failure is normally transient and the reauthentication is already recent.
+
 ## App Check
 
 | Client | Provider |
