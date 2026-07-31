@@ -165,6 +165,11 @@ export const expenseRepository = {
     ensureSeededForUid = userId;
     ensureSeededInFlight = (async () => {
       try {
+        // Nothing clears this marker, by design: re-seeding would dress a half-deleted
+        // account up as a working fresh one. The consequence is that the account stays
+        // unusable — no categories, so nothing can be recorded — until the user retries
+        // deletion and it succeeds. That is the only exit, and it is what the failure
+        // toast tells them to do ('settingsDeleteAccountIncomplete').
         if (await expenseRepository.isAccountDeletionPending()) {
           console.warn('[ensureSeeded] skipped: account deletion incomplete');
           return;
