@@ -468,10 +468,18 @@
   color: var(--color-expense);
 }
 
-/* Touch: keep edit + duplicate + delete visible (no hover on phones). */
+/* Touch: there is no hover, so actions have to stay visible — but all three of
+   them reserved 148px of a ~341px row, which left the category name 3px to
+   render in on a 375px phone. Tapping a row already opens it for editing and
+   long-pressing already duplicates it, so only delete actually needs a button
+   here; it is also the one action that should never be a bare gesture. */
 @media (pointer: coarse) {
   .swipeable-row__actions {
     display: flex !important;
+  }
+
+  .swipeable-row__action:not(.swipeable-row__action--danger) {
+    display: none;
   }
 
   .swipeable-row__action {
@@ -480,7 +488,7 @@
   }
 
   .swipeable-row__content {
-    padding-right: 148px;
+    padding-right: 60px;
   }
 }
 
