@@ -25,6 +25,21 @@ body {
   background-color: var(--color-background);
 }
 
+/* Modal scroll lock (useBodyScrollLock). Has to out-specify the body rule above,
+   whose !important would otherwise swallow it — hence body.is-scroll-locked rather
+   than a bare class. position: fixed is what actually holds on iOS Safari; overflow
+   alone lets the page scroll behind the sheet. The offset keeps the page visually
+   still while pinned, and the hook restores scroll on release. */
+body.is-scroll-locked {
+  position: fixed !important;
+  top: var(--scroll-lock-top, 0px);
+  left: 0;
+  right: 0;
+  width: 100%;
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
 /* iOS Safari: fill-available avoids address-bar bounce; leave Android on dvh. */
 @supports (-webkit-touch-callout: none) {
   html {
@@ -77,6 +92,18 @@ body {
   .period-select__trigger,
   .auth-page__form .field__input {
     font-size: 1rem;
+  }
+}
+
+/* ── Touch target floor ──
+   Apple's 44pt minimum. These two render well under it: the segmented control
+   (33px) carries both the sign-in/sign-up tabs and the expense/income/transfer
+   picker, and "forgot password?" is only 17px tall. Touch pointers only —
+   a mouse is precise enough for the compact desktop sizing. */
+@media (pointer: coarse) {
+  .segmented__item,
+  .auth-page__forgot {
+    min-height: 44px;
   }
 }
 
