@@ -169,7 +169,15 @@ export const expenseRepository = {
           console.warn('[ensureSeeded] skipped: account deletion incomplete');
           return;
         }
+        const markerRef = metaDoc(userId, 'dedupe');
+        const marker = (await getDoc(markerRef)).data();
         const snap = await getDocs(catCol(userId));
+        // Dedupe and the orphan sweep are both full-collection reads — by far the most
+        // expensive thing this app does. Each runs at most once per account rather than
+        // on every cold start / sign-in, and the sweep is skipped when dedupe just ran it.
+        // Manual calls to deduplicateCategories() (e.g. CategoriesView's "Deduplicate"
+        // button) bypass these markers entirely since they call the function directly.
+        let sweptNow = false;
         if (snap.empty) {
           const ts = now();
           await Promise.all(
@@ -178,22 +186,17 @@ export const expenseRepository = {
               await setDoc(catDoc(userId, id), { ...cat, id, updatedAt: ts });
             }),
           );
-        } else {
-          // SECURE: dedupe is expensive (full category-collection reads); only run it once per
-          // account instead of on every cold start / sign-in. Manual calls to
-          // deduplicateCategories() (e.g. CategoriesView's "Deduplicate" button) bypass this
-          // marker entirely since they call the function directly, not through ensureSeeded().
-          const marker = metaDoc(userId, 'dedupe');
-          const markerSnap = await getDoc(marker);
-          if (markerSnap.data()?.categoriesDeduped !== true) {
-            await expenseRepository.deduplicateCategories();
-            await setDoc(marker, { categoriesDeduped: true, ranAt: now() }, { merge: true });
-          }
+        } else if (marker?.categoriesDeduped !== true) {
+          await expenseRepository.deduplicateCategories();
+          sweptNow = true;
+          await setDoc(markerRef, { categoriesDeduped: true, ranAt: now() }, { merge: true });
         }
-        try {
-          await repairOrphanedExpenses(userId);
-        } catch {
-          // best-effort
+        if (!sweptNow && typeof marker?.orphansScannedAt !== 'number') {
+          try {
+            await sweepOrphanedExpenses(userId);
+          } catch {
+            // best-effort
+          }
         }
         // Remove the legacy Uncategorized sentinel (id "0") so it stays gone — but only
         // once nothing points at it. deleteCategory reassigns linked transactions to this
@@ -512,6 +515,10 @@ export const expenseRepository = {
             void setDoc(d.ref, { sortOrder: i }, { merge: true });
         }
     });
+
+    // Dedupe's own TOCTOU window can orphan an expense, and this is the user's
+    // "repair my categories" action — so sweep here rather than on every launch.
+    await sweepOrphanedExpenses(userId);
   },
 
   /** Wipe cloud docs for account deletion. Keeps meta/accountDeletion marker. */
@@ -529,6 +536,20 @@ export const expenseRepository = {
     emitDataChanged();
   },
 };
+
+/**
+ * Run the orphan scan and record that it happened, so cold starts can skip it.
+ * The scan reads the whole expenses collection; on Spark the daily read quota is
+ * the only backstop this project has, so it must not run on every launch.
+ * deleteCategory and deduplicateCategories already reassign their own expenses
+ * before dropping a category, which leaves this sweep to catch only rows stranded
+ * by an interrupted delete — a one-time pass, plus the manual "Deduplicate"
+ * action, covers that.
+ */
+async function sweepOrphanedExpenses(userId: string): Promise<void> {
+  await repairOrphanedExpenses(userId);
+  await setDoc(metaDoc(userId, 'dedupe'), { orphansScannedAt: now() }, { merge: true });
+}
 
 async function repairOrphanedExpenses(userId: string): Promise<void> {
   const catSnap = await getDocs(catCol(userId));
