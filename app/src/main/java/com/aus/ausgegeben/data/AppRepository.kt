@@ -287,7 +287,14 @@ class AppRepository @Inject constructor(
      * categories" action, covers that.
      */
     private suspend fun sweepOrphanedExpenses(u: String) {
-        repairOrphanedExpenses(u)
+        // The marker records that the scan ran, not that every row could be fixed.
+        // Some rows genuinely cannot be: an expense that fails the schema check in
+        // firestore.rules is rejected on any update, reassignment included. Letting
+        // that failure skip the marker would rerun the whole-collection read on every
+        // launch — the exact cost this is here to avoid, on the accounts that have
+        // orphans. The manual "deduplicate categories" action re-runs the sweep.
+        runCatching { repairOrphanedExpenses(u) }
+            .onFailure { e -> Log.w(TAG, "orphan repair incomplete; recording scan anyway", e) }
         dedupeMarkerDoc(u).set(
             mapOf("orphansScannedAt" to System.currentTimeMillis()),
             SetOptions.merge(),
