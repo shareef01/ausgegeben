@@ -6,6 +6,7 @@
 ![Android](https://img.shields.io/badge/Android-Jetpack%20Compose-3DDC84?logo=android&logoColor=white)
 ![Web](https://img.shields.io/badge/Web-React%2019%20PWA-61DAFB?logo=react&logoColor=black)
 ![Firebase](https://img.shields.io/badge/Firebase-Auth%20%2B%20Firestore-FFCA28?logo=firebase&logoColor=black)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **Try it now:** [aus01.web.app](https://aus01.web.app) · installable as a PWA
 
@@ -18,7 +19,10 @@
 
 ## Screenshots
 
-Every screen ships in matching **light and dark** themes.
+Every screen ships in matching **light and dark** themes. All of these are generated
+against the local Firebase emulators from a seeded demo account, never real finances —
+`web/scripts/capture-screenshots.mjs` and `scripts/capture-android-screenshots.mjs`
+reproduce them.
 
 ### Web
 
@@ -175,7 +179,7 @@ ausgegeben/
 ├── docs/screenshots/    # README screenshots (android/ + web/)
 ├── firestore.rules      # Per-user isolation + field-level schema validation
 ├── firebase.json        # Hosting config, security headers, rules deployment
-├── scripts/             # Maintenance utilities
+├── scripts/             # Maintenance utilities + Android screenshot capture
 └── .github/workflows/   # CI for both platforms
 ```
 
@@ -184,3 +188,7 @@ ausgegeben/
 ## Author
 
 **[shareef01](https://github.com/shareef01)**
+
+## License
+
+[MIT](LICENSE)
