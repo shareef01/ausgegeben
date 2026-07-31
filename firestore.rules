@@ -95,12 +95,16 @@ service cloud.firestore {
         && (!('id' in d) || (d.id is string && d.id.size() < 64));
     }
 
+    // Records the one-time maintenance passes (category dedupe, orphaned-expense
+    // sweep) so cold starts can skip them. Either may be written on its own, so
+    // neither key is mandatory — but at least one has to be present.
     function validDedupeMarker() {
       let d = request.resource.data;
-      return d.keys().hasOnly(['categoriesDeduped', 'ranAt'])
-        && d.keys().hasAll(['categoriesDeduped'])
-        && d.categoriesDeduped is bool
-        && (!('ranAt' in d) || d.ranAt is number);
+      return d.keys().hasOnly(['categoriesDeduped', 'ranAt', 'orphansScannedAt'])
+        && d.keys().hasAny(['categoriesDeduped', 'orphansScannedAt'])
+        && (!('categoriesDeduped' in d) || d.categoriesDeduped is bool)
+        && (!('ranAt' in d) || d.ranAt is number)
+        && (!('orphansScannedAt' in d) || d.orphansScannedAt is number);
     }
 
     // Written before irreversible wipe so a failed Auth delete cannot re-seed

@@ -301,6 +301,37 @@ describe('firestore.rules', () => {
     );
   });
 
+  it('accepts either dedupe marker field on its own', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertSucceeds(
+      setDoc(doc(db, 'users/alice/meta/dedupe'), { orphansScannedAt: Date.now() }),
+    );
+    await assertSucceeds(
+      setDoc(
+        doc(db, 'users/alice/meta/dedupe'),
+        { categoriesDeduped: true, ranAt: Date.now() },
+        { merge: true },
+      ),
+    );
+  });
+
+  it('rejects dedupe markers with bad types, unknown keys, or no keys at all', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertFails(
+      setDoc(doc(db, 'users/alice/meta/dedupe'), { orphansScannedAt: 'yesterday' }),
+    );
+    await assertFails(
+      setDoc(doc(db, 'users/alice/meta/dedupe'), { categoriesDeduped: 'true' }),
+    );
+    await assertFails(
+      setDoc(doc(db, 'users/alice/meta/dedupe'), {
+        categoriesDeduped: true,
+        somethingElse: 1,
+      }),
+    );
+    await assertFails(setDoc(doc(db, 'users/alice/meta/dedupe'), { ranAt: Date.now() }));
+  });
+
   it('rejects unknown subcollections under the user document', async () => {
     const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
     await assertFails(setDoc(doc(db, 'users/alice/audit/entry1'), { anything: true }));
