@@ -177,8 +177,13 @@ class AppRepository @Inject constructor(
                 Log.w(TAG, "ensureSeeded skipped: account deletion incomplete")
                 return
             }
+            val marker = dedupeMarkerDoc(u).get().await()
             val snap = catCol(u).get().await()
             val strings = localizedContext()
+            // Dedupe and the orphan sweep are both full-collection reads — by far the most
+            // expensive thing this app does. Each runs at most once per account rather than
+            // on every cold start / sign-in, and the sweep is skipped when dedupe just ran it.
+            var sweptNow = false
             if (snap.isEmpty) {
                 val defaults = listOf(
                     Category(name = strings.getString(R.string.cat_groceries), iconName = "shopping_cart", colorInt = 0xffe86b5a.toInt(), transactionType = "expense", sortOrder = 0),
@@ -197,26 +202,25 @@ class AppRepository @Inject constructor(
                         batch.set(catDoc(u, c.id), categoryPayload(c))
                     }
                 }.await()
-            } else {
-                // SECURE: dedupe is expensive (full category-collection reads); only run it once per
-                // account instead of on every cold start / sign-in. Manual calls to
-                // deduplicateCategories() (e.g. Settings' "Deduplicate categories" button) bypass this
-                // marker entirely since they call the function directly, not through ensureSeeded().
-                val markerSnap = dedupeMarkerDoc(u).get().await()
-                if (markerSnap.getBoolean("categoriesDeduped") != true) {
-                    val dedupeResult = deduplicateCategories()
-                    if (dedupeResult.isSuccess) {
-                        dedupeMarkerDoc(u).set(
-                            mapOf("categoriesDeduped" to true, "ranAt" to System.currentTimeMillis()),
-                            SetOptions.merge()
-                        ).await()
-                    } else {
-                        Log.w(TAG, "dedupe skipped marker", dedupeResult.exceptionOrNull())
-                    }
+            } else if (marker.getBoolean("categoriesDeduped") != true) {
+                // Manual calls to deduplicateCategories() (e.g. Settings' "Deduplicate
+                // categories" button) bypass this marker entirely since they call the
+                // function directly, not through ensureSeeded().
+                val dedupeResult = deduplicateCategories()
+                if (dedupeResult.isSuccess) {
+                    sweptNow = true
+                    dedupeMarkerDoc(u).set(
+                        mapOf("categoriesDeduped" to true, "ranAt" to System.currentTimeMillis()),
+                        SetOptions.merge()
+                    ).await()
+                } else {
+                    Log.w(TAG, "dedupe skipped marker", dedupeResult.exceptionOrNull())
                 }
             }
-            runCatching { repairOrphanedExpenses(u) }
-                .onFailure { e -> Log.w(TAG, "orphan repair failed", e) }
+            if (!sweptNow && !marker.contains("orphansScannedAt")) {
+                runCatching { sweepOrphanedExpenses(u) }
+                    .onFailure { e -> Log.w(TAG, "orphan repair failed", e) }
+            }
             // Remove legacy Uncategorized (id "0") so intentional deletes stick — but
             // only once nothing points at it. deleteCategory reassigns linked expenses to
             // this sink, and firestore.rules requires the target category to exist on
@@ -262,6 +266,27 @@ class AppRepository @Inject constructor(
                 doc.reference.update("sortOrder", index).await()
             }
         }
+
+        // Dedupe's own TOCTOU window can orphan an expense, and this is the user's
+        // "repair my categories" action — so sweep here rather than on every launch.
+        sweepOrphanedExpenses(u)
+    }
+
+    /**
+     * Run the orphan scan and record that it happened, so cold starts can skip it.
+     * The scan reads the whole expenses collection; on Spark the daily read quota is
+     * the only backstop this project has, so it must not run on every launch.
+     * [deleteCategory] and [deduplicateCategories] already reassign their own expenses
+     * before dropping a category, which leaves this sweep to catch only rows stranded
+     * by an interrupted delete — a one-time pass, plus the manual "Deduplicate
+     * categories" action, covers that.
+     */
+    private suspend fun sweepOrphanedExpenses(u: String) {
+        repairOrphanedExpenses(u)
+        dedupeMarkerDoc(u).set(
+            mapOf("orphansScannedAt" to System.currentTimeMillis()),
+            SetOptions.merge(),
+        ).await()
     }
 
     // ── Categories ──
