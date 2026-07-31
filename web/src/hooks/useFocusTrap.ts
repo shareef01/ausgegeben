@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 
 const FOCUSABLE =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -9,6 +9,16 @@ export function useFocusTrap(
   containerRef: RefObject<HTMLElement | null>,
   onEscape?: () => void,
 ) {
+  // Held in a ref, deliberately: callers build onEscape from state that changes as
+  // the user types (Add transaction derives it from the unsaved-changes check). With
+  // it in the dependency array the effect re-ran mid-edit and its body moved focus to
+  // the first focusable element — the close button — so the amount field lost focus
+  // after a single keystroke and the phone keyboard dropped with it.
+  const onEscapeRef = useRef(onEscape);
+  useEffect(() => {
+    onEscapeRef.current = onEscape;
+  }, [onEscape]);
+
   useEffect(() => {
     if (!active) return;
     const root = containerRef.current;
@@ -30,7 +40,7 @@ export function useFocusTrap(
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopImmediatePropagation();
-        onEscape?.();
+        onEscapeRef.current?.();
         return;
       }
       if (e.key !== 'Tab') return;
@@ -56,5 +66,5 @@ export function useFocusTrap(
       document.removeEventListener('keydown', onKeyDown);
       previouslyFocused?.focus?.();
     };
-  }, [active, containerRef, onEscape]);
+  }, [active, containerRef]);
 }
