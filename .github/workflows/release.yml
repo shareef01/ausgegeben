@@ -1,0 +1,114 @@
+name: Release
+
+# Ausgegeben is distributed as a signed APK attached to a GitHub Release, not
+# through Google Play. Tag a commit `v1.2.3` and this builds and publishes it.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build (must already exist)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v4
+
+      - run: chmod +x gradlew
+
+      # Every secret has to be present: a release built without the real Firebase
+      # config or signed with the wrong key is worse than no release at all, so
+      # this fails loudly rather than publishing something broken.
+      - name: Restore signing material
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+          KEYSTORE_BASE64: ${{ secrets.AUSGEGEBEN_KEYSTORE_BASE64 }}
+        run: |
+          missing=""
+          [ -z "$GOOGLE_SERVICES_JSON" ] && missing="$missing GOOGLE_SERVICES_JSON"
+          [ -z "$KEYSTORE_BASE64" ] && missing="$missing AUSGEGEBEN_KEYSTORE_BASE64"
+          [ -z "${{ secrets.AUSGEGEBEN_STOREPASSWORD }}" ] && missing="$missing AUSGEGEBEN_STOREPASSWORD"
+          [ -z "${{ secrets.AUSGEGEBEN_KEYALIAS }}" ] && missing="$missing AUSGEGEBEN_KEYALIAS"
+          [ -z "${{ secrets.AUSGEGEBEN_KEYPASSWORD }}" ] && missing="$missing AUSGEGEBEN_KEYPASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing required secret(s):$missing"
+            exit 1
+          fi
+          printf '%s' "$GOOGLE_SERVICES_JSON" | base64 -d > app/google-services.json
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > release.jks
+
+      # Android will not install an APK whose versionCode is not greater than the
+      # installed one. Derive a monotonic code from the semver tag so each release
+      # can update the last: v1.2.3 -> 10203.
+      - name: Derive version from tag
+        id: version
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          NAME="${TAG#v}"
+          if ! echo "$NAME" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Tag '$TAG' is not vMAJOR.MINOR.PATCH"
+            exit 1
+          fi
+          MAJOR=$(echo "$NAME" | cut -d. -f1)
+          MINOR=$(echo "$NAME" | cut -d. -f2)
+          PATCH=$(echo "$NAME" | cut -d. -f3)
+          if [ "$MINOR" -gt 99 ] || [ "$PATCH" -gt 99 ]; then
+            echo "::error::MINOR and PATCH must each be <= 99 for the versionCode scheme"
+            exit 1
+          fi
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "code=$((MAJOR * 10000 + MINOR * 100 + PATCH))" >> "$GITHUB_OUTPUT"
+
+      - name: Build signed release APK
+        env:
+          AUSGEGEBEN_STOREFILE: release.jks
+          AUSGEGEBEN_STOREPASSWORD: ${{ secrets.AUSGEGEBEN_STOREPASSWORD }}
+          AUSGEGEBEN_KEYALIAS: ${{ secrets.AUSGEGEBEN_KEYALIAS }}
+          AUSGEGEBEN_KEYPASSWORD: ${{ secrets.AUSGEGEBEN_KEYPASSWORD }}
+        run: |
+          ./gradlew assembleProdRelease --no-daemon \
+            -PausgegebenVersionName=${{ steps.version.outputs.name }} \
+            -PausgegebenVersionCode=${{ steps.version.outputs.code }}
+
+      # An unsigned APK cannot be installed, and the build silently produces one
+      # if the signing config did not resolve. Verify before publishing.
+      - name: Verify the APK is signed
+        run: |
+          APK=app/build/outputs/apk/prod/release/app-prod-release.apk
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/apksigner" verify --print-certs "$APK"
+          mv "$APK" "ausgegeben-${{ steps.version.outputs.name }}.apk"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ github.event.inputs.tag || github.ref_name }}" \
+            "ausgegeben-${{ steps.version.outputs.name }}.apk" \
+            --title "Ausgegeben ${{ steps.version.outputs.name }}" \
+            --generate-notes \
+            --notes-start-tag "$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo '')" \
+            || gh release create "${{ github.event.inputs.tag || github.ref_name }}" \
+                 "ausgegeben-${{ steps.version.outputs.name }}.apk" \
+                 --title "Ausgegeben ${{ steps.version.outputs.name }}" \
+                 --generate-notes
+
+      # The keystore must not survive into any later step or cached layer.
+      - name: Shred signing material
+        if: always()
+        run: shred -u release.jks 2>/dev/null || rm -f release.jks
