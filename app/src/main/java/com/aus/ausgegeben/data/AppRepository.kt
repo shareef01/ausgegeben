@@ -379,9 +379,27 @@ class AppRepository @Inject constructor(
             }
         }
 
-    suspend fun insertExpense(expense: Expense): Result<String> = runCatching {
+    /**
+     * [idempotencyKey] makes a retried save collapse onto one transaction instead of
+     * creating a second. The caller mints it once per compose session and reuses it
+     * across retries, matching the web client so both write the same field.
+     *
+     * AddExpenseViewModel's in-memory `isSaving` flag already blocks a double tap, but
+     * it dies with the process: a save interrupted by a crash, a low-memory kill, or
+     * an offline write replayed after restart had nothing stopping it from landing
+     * twice. The key survives all three because it is stored on the document.
+     */
+    suspend fun insertExpense(expense: Expense, idempotencyKey: String? = null): Result<String> = runCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
         requireVerifiedEmail()
+        if (idempotencyKey != null) {
+            val existing = expCol(u)
+                .whereEqualTo("idempotencyKey", idempotencyKey)
+                .limit(1)
+                .get()
+                .await()
+            existing.documents.firstOrNull()?.let { return@runCatching it.id }
+        }
         // Always mint a new id on insert so a crafted/stale id cannot overwrite history.
         val id = UUID.randomUUID().toString()
         val e = expense.copy(
@@ -389,7 +407,7 @@ class AppRepository @Inject constructor(
             amount = roundAmount(expense.amount),
             note = expense.note.trim().take(2000)
         )
-        expDoc(u, id).set(expensePayload(e)).await()
+        expDoc(u, id).set(expensePayload(e, idempotencyKey)).await()
         id
     }
 
@@ -607,9 +625,15 @@ class AppRepository @Inject constructor(
         "updatedAt" to System.currentTimeMillis()
     )
 
-    private fun expensePayload(e: Expense) = mapOf(
-        "amount" to e.amount, "dateMillis" to e.dateMillis, "categoryId" to e.categoryId,
-        "note" to e.note,
-        "transactionType" to e.transactionType, "updatedAt" to System.currentTimeMillis()
-    )
+    // idempotencyKey is only ever written on insert. firestore.rules allows the field
+    // but does not require it, so updates keep merging without having to carry it.
+    private fun expensePayload(e: Expense, idempotencyKey: String? = null) = buildMap {
+        put("amount", e.amount)
+        put("dateMillis", e.dateMillis)
+        put("categoryId", e.categoryId)
+        put("note", e.note)
+        put("transactionType", e.transactionType)
+        put("updatedAt", System.currentTimeMillis())
+        if (idempotencyKey != null) put("idempotencyKey", idempotencyKey)
+    }
 }
