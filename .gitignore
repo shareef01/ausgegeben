@@ -42,6 +42,7 @@ firebase.emulator.json
 
 # Local audit harness (Playwright feature audit — local only, never committed)
 web/.audit-*.mjs
+web/.audit-shots/
 web/.inspect-*.mjs
 
 # Node (any location — main once had node_modules committed at the root)
