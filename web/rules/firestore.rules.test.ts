@@ -117,6 +117,63 @@ describe('firestore.rules', () => {
     );
   });
 
+  /**
+   * Rows written before the field allowlist existed carry cloudId, categoryCloudId,
+   * receiptImagePath and deleted. hasOnly() is evaluated against the merged
+   * document, so excluding them made those rows permanently unwritable — on a real
+   * account, 39 of 89 expenses, with the orphan sweep's own repair rejected too and
+   * retried on every launch. They are tolerated, never required, and bounded.
+   */
+  it('accepts legacy expense fields so pre-allowlist rows stay writable', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'cat-1')), validCategory));
+    await assertSucceeds(
+      setDoc(doc(db, expensePath('alice')), {
+        ...validExpense,
+        cloudId: 'legacy-123',
+        categoryCloudId: 31,
+        receiptImagePath: '/storage/emulated/0/receipt.jpg',
+        deleted: false,
+      }),
+    );
+  });
+
+  it('lets the orphan sweep repair a legacy-shaped row', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), categoryPath('alice', 'cat-1')), validCategory);
+      await setDoc(doc(ctx.firestore(), expensePath('alice')), {
+        ...validExpense,
+        categoryId: 'vanished',
+        cloudId: 'legacy-123',
+        receiptImagePath: '/storage/emulated/0/receipt.jpg',
+        deleted: false,
+      });
+    });
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    // Exactly what repairOrphanedExpenses does: repoint categoryId, nothing else.
+    await assertSucceeds(setDoc(doc(db, expensePath('alice')), { categoryId: 'cat-1' }, { merge: true }));
+  });
+
+  it('still bounds the legacy fields so they are not free storage', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'cat-1')), validCategory));
+    await assertFails(
+      setDoc(doc(db, expensePath('alice')), {
+        ...validExpense,
+        receiptImagePath: 'x'.repeat(600),
+      }),
+    );
+    await assertFails(
+      setDoc(doc(db, expensePath('alice')), { ...validExpense, deleted: 'not-a-bool' }),
+    );
+  });
+
+  it('still rejects unknown extra fields', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'cat-1')), validCategory));
+    await assertFails(setDoc(doc(db, expensePath('alice')), { ...validExpense, sneaky: true }));
+  });
+
   it('rejects expense dateMillis outside allowed range', async () => {
     const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
     await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'cat-1')), validCategory));
