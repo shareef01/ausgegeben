@@ -32,6 +32,11 @@ fun keystoreProp(name: String): String? =
     keystoreProperties.getProperty(name)?.takeIf { it.isNotBlank() }
         ?: System.getenv("AUSGEGEBEN_${name.uppercase()}")?.takeIf { it.isNotBlank() }
 
+// Read via providers so the configuration cache stays valid; -P overrides come
+// from the release workflow, which derives them from the git tag.
+val appVersionCode = (providers.gradleProperty("ausgegebenVersionCode").orNull ?: "1").toInt()
+val appVersionName = providers.gradleProperty("ausgegebenVersionName").orNull ?: "1.0"
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -48,8 +53,14 @@ android {
         applicationId = "com.aus.ausgegeben"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        // Overridable so the release workflow can stamp a tag-derived version.
+        // Android refuses to install an APK whose versionCode is not higher than
+        // the one already installed, so publishing every GitHub release with a
+        // hardcoded 1 would leave the second release uninstallable for anyone who
+        // took the first — they would have to uninstall and lose local data.
+        // Defaults keep plain `./gradlew assemble*` working unchanged.
+        versionCode = appVersionCode
+        versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
