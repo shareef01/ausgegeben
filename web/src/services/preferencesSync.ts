@@ -50,9 +50,18 @@ function validAnalyticsPeriod(value: string): boolean {
   return ANALYTICS_PERIOD_RE.test(value);
 }
 
-/** Ensure payload matches firestore.rules validPreferences (post-audit allowlists). */
+/**
+ * Ensure payload matches firestore.rules validPreferences (post-audit allowlists).
+ *
+ * themeMode and locale are clamped here as well as in parseRemote. They used to be
+ * validated inbound only, so a bad local value could not be corrected on its way
+ * out — the write just failed validation and surfaced as a permission-denied sync
+ * error, with no indication of which field was at fault. Both directions now agree.
+ */
 export function sanitizeSyncedPreferences(prefs: SyncedPreferences): SyncedPreferences {
   const currency = VALID_CURRENCIES.has(prefs.currency) ? prefs.currency : 'EUR';
+  const locale = VALID_LOCALES.has(prefs.locale) ? prefs.locale : 'en';
+  const themeMode = VALID_THEMES.has(prefs.themeMode) ? prefs.themeMode : 'system';
   const normalizedPeriod = normalizeAnalyticsPeriodKey(prefs.analyticsPeriod);
   const analyticsPeriod = validAnalyticsPeriod(normalizedPeriod)
     ? normalizedPeriod
@@ -63,6 +72,8 @@ export function sanitizeSyncedPreferences(prefs: SyncedPreferences): SyncedPrefe
   return {
     ...prefs,
     currency,
+    locale,
+    themeMode,
     analyticsPeriod,
     updatedAt,
     reminderHour: Math.min(23, Math.max(0, prefs.reminderHour)),
