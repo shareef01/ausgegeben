@@ -65,18 +65,19 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // A `staging` flavor lived here but could never build: com.aus.ausgegeben.staging
+    // was never registered in Firebase, so the google-services plugin failed with
+    // "No matching client found for package name". Nothing read its IS_STAGING flag
+    // and no app/src/staging source set ever existed — it was configuration for a
+    // variant that did not work. Local emulators cover the same need.
+    //
+    // The `prod` flavor stays so task names (assembleProdDebug, assembleProdRelease,
+    // connectedProdDebugAndroidTest) are unchanged for CI and the release workflow.
     flavorDimensions += "env"
     productFlavors {
         create("prod") {
             dimension = "env"
             isDefault = true
-            buildConfigField("boolean", "IS_STAGING", "false")
-        }
-        create("staging") {
-            dimension = "env"
-            applicationIdSuffix = ".staging"
-            versionNameSuffix = "-staging"
-            buildConfigField("boolean", "IS_STAGING", "true")
         }
     }
 
@@ -123,9 +124,6 @@ android {
             "assembleProdRelease",
             "bundleProdRelease",
             "minifyProdReleaseWithR8",
-            "assembleStagingRelease",
-            "bundleStagingRelease",
-            "minifyStagingReleaseWithR8",
         ).forEach { taskName ->
             tasks.findByName(taskName)?.doFirst {
                 check(!usesPlaceholderGoogleServices) {
