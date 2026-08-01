@@ -128,28 +128,61 @@ class CategoryViewModel @Inject constructor(
 
     fun moveCategory(category: Category, moveUp: Boolean) {
         viewModelScope.launch {
-            val sorted = repository.allCategories.first()
-                .filter { it.transactionType == category.transactionType }
-                .sortedBy { it.sortOrder }
-            val index = sorted.indexOfFirst { it.id == category.id }
-            if (index < 0) return@launch
-            val targetIndex = if (moveUp) index - 1 else index + 1
-            if (targetIndex !in sorted.indices) return@launch
-            val current = sorted[index]
-            val swap = sorted[targetIndex]
-            val first = repository.updateCategory(current.copy(sortOrder = swap.sortOrder))
-            if (first.isFailure) {
-                _errorMessage.value = first.exceptionOrNull()
-                    ?.let { errorText(it, R.string.category_error_reorder_failed) }
-                    ?: getApplication<Application>().getString(R.string.category_error_reorder_failed)
-                return@launch
-            }
-            repository.updateCategory(swap.copy(sortOrder = current.sortOrder)).onFailure { e ->
-                _errorMessage.value = errorText(e, R.string.category_error_reorder_failed)
+            val changed = categoriesAfterMove(repository.allCategories.first(), category, moveUp)
+            changed.forEach { item ->
+                repository.updateCategory(item).onFailure { e ->
+                    _errorMessage.value = errorText(e, R.string.category_error_reorder_failed)
+                }
             }
         }
     }
 
     suspend fun countLinkedExpenses(categoryId: String): Int =
         repository.countExpensesForCategory(categoryId)
+}
+
+/**
+ * The categories whose sortOrder must change to move [category] one place within
+ * its own type. Empty when the move is impossible (already at the end, or the
+ * category is not in the list).
+ *
+ * Pure, and separated from the ViewModel because two bugs lived in exactly this
+ * logic and neither was reachable by a test while it was inline:
+ *
+ *  - It ranked against a list that *included* the Uncategorized sentinel, while
+ *    CategoryScreen hides it. The sentinel sits at sortOrder 999, so any category
+ *    on the far side of it swapped with a row the user cannot see, and the screen
+ *    did not visibly change. The filter now matches the screen's exactly.
+ *  - It swapped the two sortOrder values, which is a no-op whenever a pair shares
+ *    one. Real data had two categories at 1000. Renumbering the whole type
+ *    sequentially is correct regardless of duplicates or gaps, and normalises them
+ *    away as a side effect.
+ *
+ * Ties break by id so this and CategoryScreen agree; a plain sortedBy leaves equal
+ * keys in source order, which the two could resolve differently — and then "move
+ * up" moves a different row than the one the user pointed at.
+ */
+internal fun categoriesAfterMove(
+    all: List<Category>,
+    category: Category,
+    moveUp: Boolean,
+): List<Category> {
+    val ordered = all
+        .filter {
+            it.transactionType == category.transactionType &&
+                it.id != AppRepository.UNCATEGORIZED_ID
+        }
+        .sortedWith(compareBy({ it.sortOrder }, { it.id }))
+        .toMutableList()
+
+    val index = ordered.indexOfFirst { it.id == category.id }
+    if (index < 0) return emptyList()
+    val targetIndex = if (moveUp) index - 1 else index + 1
+    if (targetIndex !in ordered.indices) return emptyList()
+
+    java.util.Collections.swap(ordered, index, targetIndex)
+
+    return ordered.mapIndexedNotNull { position, item ->
+        if (item.sortOrder == position) null else item.copy(sortOrder = position)
+    }
 }
