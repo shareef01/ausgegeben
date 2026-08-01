@@ -128,7 +128,14 @@ fun AppIconButton(
 ) {
     Box(
         modifier = modifier
-            .size(44.dp)
+            // 48dp is Android's minimum touch target — 44dp is Apple's, and this
+            // was carrying the smaller one. Material3's own IconButton is 48dp.
+            // It matters most on CategoryScreen, where four of these sit shoulder
+            // to shoulder (move up, move down, edit, delete): undersized adjacent
+            // targets with a destructive action at the end invite mis-taps.
+            // Unlike Material3's IconButton, this is a bare Box + smoothClickable,
+            // so nothing expands the touch bounds for us.
+            .size(48.dp)
             .clip(CircleShape)
             .smoothClickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
