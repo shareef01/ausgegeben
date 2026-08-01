@@ -16,9 +16,10 @@
     "icons": "node scripts/generate-icons.mjs",
     "prebuild": "npm run icons",
     "prepare": "node ../scripts/install-git-hooks.mjs",
-    "deploy": "npm run build && npx firebase deploy --only hosting:aus01,firestore:rules,firestore:indexes --config ../firebase.json",
+    "deploy": "npm run build && npx firebase deploy --only hosting:aus01,firestore:rules,firestore:indexes --config ../firebase.json && npm run smoke",
     "deploy:hosting": "npm run build && npx firebase deploy --only hosting:aus01 --config ../firebase.json",
-    "deploy:rules": "npx firebase deploy --only firestore:rules,firestore:indexes --config ../firebase.json"
+    "deploy:rules": "npx firebase deploy --only firestore:rules,firestore:indexes --config ../firebase.json",
+    "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {
     "firebase": "^12.16.0",

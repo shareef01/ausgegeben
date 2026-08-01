@@ -1,0 +1,34 @@
+name: Production smoke
+
+# The web API key in .env.production was deleted from the project at some point
+# and every sign-in returned "API key expired" — through multiple green CI runs
+# and multiple successful deploys, because nothing ever exercised the deployed
+# site. Nobody noticed until someone tried to log in.
+#
+# This checks the live site on a schedule so silent breakage surfaces on its own.
+# It needs no secrets: everything it looks at is public, and the API key probe is
+# read-only, so it never accumulates failed sign-in attempts.
+on:
+  schedule:
+    - cron: '17 7 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'firebase.json'
+      - 'web/scripts/smoke.mjs'
+      - '.github/workflows/smoke.yml'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # No install step: smoke.mjs deliberately has no dependencies.
+      - name: Smoke-test the live site
+        run: node web/scripts/smoke.mjs https://aus01.web.app
