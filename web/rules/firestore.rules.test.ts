@@ -4,7 +4,7 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, Timestamp } from 'firebase/firestore';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
@@ -138,20 +138,51 @@ describe('firestore.rules', () => {
     );
   });
 
-  it('lets the orphan sweep repair a legacy-shaped row', async () => {
+  /**
+   * Copied field-for-field from a document that was actually stuck in a device's
+   * offline queue: numeric categoryId, Timestamp updatedAt, null receiptImagePath.
+   * An idealised fixture missed all three and the first fix shipped incomplete.
+   */
+  it('lets the orphan sweep repair a real legacy row', async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), categoryPath('alice', 'cat-1')), validCategory);
       await setDoc(doc(ctx.firestore(), expensePath('alice')), {
-        ...validExpense,
-        categoryId: 'vanished',
-        cloudId: 'legacy-123',
-        receiptImagePath: '/storage/emulated/0/receipt.jpg',
+        amount: 12.5,
+        dateMillis: 1782588775295,
+        categoryId: 31,
+        note: 'lunch',
+        transactionType: 'expense',
+        updatedAt: Timestamp.fromMillis(1783000216769),
+        cloudId: '087cd775-3e80-4fc7-9962-fc81e1edde0a',
+        categoryCloudId: 'cd5feabd-955a-4932-a9eb-de4c23461f51',
+        receiptImagePath: null,
         deleted: false,
       });
     });
     const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
     // Exactly what repairOrphanedExpenses does: repoint categoryId, nothing else.
-    await assertSucceeds(setDoc(doc(db, expensePath('alice')), { categoryId: 'cat-1' }, { merge: true }));
+    await assertSucceeds(
+      setDoc(doc(db, expensePath('alice')), { categoryId: 'cat-1' }, { merge: true }),
+    );
+  });
+
+  it('accepts a Timestamp updatedAt from pre-numeric builds', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'cat-1')), validCategory));
+    await assertSucceeds(
+      setDoc(doc(db, expensePath('alice')), {
+        ...validExpense,
+        updatedAt: Timestamp.fromMillis(1783000216769),
+      }),
+    );
+  });
+
+  it('accepts a null receiptImagePath', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'cat-1')), validCategory));
+    await assertSucceeds(
+      setDoc(doc(db, expensePath('alice')), { ...validExpense, receiptImagePath: null }),
+    );
   });
 
   it('still bounds the legacy fields so they are not free storage', async () => {
