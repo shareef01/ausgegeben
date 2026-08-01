@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:rules": "npx firebase emulators:exec --only firestore --project demo-ausgegeben-rules \"vitest run --config vitest.rules.config.ts\"",
+    "test:emulator": "npx firebase emulators:exec --only firestore --project demo-ausgegeben-repo \"vitest run --config vitest.emulator.config.ts\"",
     "icons": "node scripts/generate-icons.mjs",
     "prebuild": "npm run icons",
     "prepare": "node ../scripts/install-git-hooks.mjs",

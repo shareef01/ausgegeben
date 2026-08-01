@@ -50,6 +50,57 @@ jobs:
         if: steps.firebase_config.outputs.available == 'true'
         run: ./gradlew assembleProdRelease --no-daemon
 
+  # ExportFileProviderTest guards a security boundary — that file_paths.xml exposes
+  # the exports subdir and nothing above it — and MainActivityLaunchTest catches a
+  # broken Hilt graph, which compiles cleanly and only fails at runtime. Both
+  # existed unrun until now, so neither could have caught a regression.
+  instrumentation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # The runner exposes /dev/kvm but not to the runner user, and without
+      # acceleration the emulator is too slow to finish.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # MainActivity initializes Firebase on launch, so give it the real config
+      # rather than the placeholder. Skips without the secret, keeping fork PRs green.
+      - name: Restore google-services.json
+        id: firebase_config
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::GOOGLE_SERVICES_JSON secret not set — skipping instrumentation tests."
+          else
+            printf '%s' "$GOOGLE_SERVICES_JSON" | base64 -d > app/google-services.json
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - run: chmod +x gradlew
+
+      # api-level 29 is the project's minSdk — the configuration least likely to be
+      # covered by whatever device development happens on.
+      - name: Run instrumentation tests
+        if: steps.firebase_config.outputs.available == 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: ./gradlew connectedProdDebugAndroidTest --no-daemon
+
   web:
     runs-on: ubuntu-latest
     steps:
@@ -104,10 +155,16 @@ jobs:
       - run: npm run test:rules
         working-directory: web
 
+      # Repository logic (dedupe, category delete, orphan repair, batch chunking)
+      # only does anything against a real Firestore. Shares this job because the
+      # emulator and JDK 21 are already set up here.
+      - run: npm run test:emulator
+        working-directory: web
+
   # Legacy commit-status API stays "pending" with zero statuses when only
   # check-runs exist — some clients (incl. Cursor) treat that as failing CI.
   status:
-    needs: [android, web, rules]
+    needs: [android, instrumentation, web, rules]
     if: always()
     runs-on: ubuntu-latest
     permissions:
@@ -120,6 +177,7 @@ jobs:
         run: |
           state=success
           if [ "${{ needs.android.result }}" != "success" ] || \
+             [ "${{ needs.instrumentation.result }}" != "success" ] || \
              [ "${{ needs.web.result }}" != "success" ] || \
              [ "${{ needs.rules.result }}" != "success" ]; then
             state=failure
@@ -127,5 +185,5 @@ jobs:
           gh api "repos/${{ github.repository }}/statuses/${{ github.sha }}" \
             -f state="$state" \
             -f context="CI" \
-            -f description="android=${{ needs.android.result }}; web=${{ needs.web.result }}; rules=${{ needs.rules.result }}" \
+            -f description="android=${{ needs.android.result }}; instrumentation=${{ needs.instrumentation.result }}; web=${{ needs.web.result }}; rules=${{ needs.rules.result }}" \
             -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
