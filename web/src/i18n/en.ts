@@ -50,8 +50,6 @@ export const en = {
   errorDeleteFailed: 'Failed to delete transaction. Please try again.',
   errorDuplicateFailed: 'Failed to duplicate transaction.',
   categoryDeleteLinked: 'This category has {count} linked transaction(s). Deleting it will move them to Uncategorized. Delete anyway?',
-  categoryDeleteUncategorizedLinked: 'This category has {count} linked transaction(s). They will show as unknown until you assign a category. Delete anyway?',
-  categoryDeleteUncategorizedMessage: 'This cannot be undone. Linked transactions will show as unknown until you assign a category.',
   categoryDeduplicateTitle: 'Merge duplicate categories?',
   categoryDeduplicateMessage: 'Categories with identical names will be merged and their transactions combined into one.',
   categoryDeduplicateConfirm: 'Merge',
@@ -146,6 +144,12 @@ export const en = {
   settingsDeleteAccountOk: 'account deleted',
   settingsDeleteAccountIncomplete:
     'cloud data was erased but the login could not be removed. try delete account again to finish.',
+  settingsDeletionPending:
+    'this account is part-way through deletion. its cloud data is already gone. finish deleting it, or keep the account and start fresh.',
+  settingsDeletionFinish: 'finish deleting',
+  settingsDeletionKeep: 'keep account',
+  settingsDeletionKeptAccount: 'account kept — default categories restored',
+  settingsDeletionKeepFailed: 'could not restore the account. please try again.',
   settingsVersionSubtitle: 'version {version}',
   settingsVersion: 'version',
   settingsPreferences: 'preferences',
