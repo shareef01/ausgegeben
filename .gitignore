@@ -66,3 +66,6 @@ web/*.tsbuildinfo
 
 # Obsolete local helper (replaced by scripts/strip-commit-trailers.py)
 scripts/_strip_coauthor.py
+
+# Wrangler local state — caches the Cloudflare account id and name
+tools/error-endpoint/.wrangler/
