@@ -76,6 +76,11 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
 
   useEffect(() => { void reload(); }, [reload]);
 
+  // The Uncategorized sentinel is plumbing, not a user category: deleteCategory
+  // reassigns orphans to it, and ensureSeeded drops it again once nothing points
+  // at it. Deleting it by hand while it is still referenced would strand those
+  // expenses — firestore.rules requires an expense's category to exist on every
+  // update, so they would become uneditable. Hiding it is what keeps that path shut.
   const filtered = categories.filter(
     (c) => c.transactionType === filter && c.id !== UNCATEGORIZED_ID,
   );
@@ -355,13 +360,9 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
       <ConfirmDialog
         open={deleteTarget !== null}
         title={t('categoryDeleteConfirm', { name: deleteTarget?.name ?? '' })}
-        message={deleteTarget?.id === UNCATEGORIZED_ID
-          ? (deleteLinkedCount > 0
-              ? t('categoryDeleteUncategorizedLinked', { count: String(deleteLinkedCount) })
-              : t('categoryDeleteUncategorizedMessage'))
-          : (deleteLinkedCount > 0
-              ? t('categoryDeleteLinked', { count: String(deleteLinkedCount) })
-              : t('categoryDeleteMessage'))}
+        message={deleteLinkedCount > 0
+          ? t('categoryDeleteLinked', { count: String(deleteLinkedCount) })
+          : t('categoryDeleteMessage')}
         onConfirm={confirmDeleteCategory}
         onCancel={() => { setDeleteTarget(null); setDeleteLinkedCount(0); }}
       />

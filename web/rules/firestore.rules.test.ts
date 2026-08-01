@@ -165,6 +165,26 @@ describe('firestore.rules', () => {
     await assertSucceeds(deleteDoc(doc(unverified, 'users/alice/meta/dedupe')));
   });
 
+  // The escape hatch for an account stranded mid-deletion (see
+  // expenseRepository.clearAccountDeletionPending). It works precisely because the
+  // marker being set is itself what satisfies canDeleteOwned for an unverified owner
+  // — so the account can always undo a deletion that failed halfway.
+  it('lets an unverified owner clear their own accountDeletion marker', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users/alice/meta/accountDeletion'), {
+        pendingDeletion: true,
+        wipedAt: Date.UTC(2024, 5, 15),
+      });
+    });
+    const unverified = testEnv.authenticatedContext('alice', { email_verified: false }).firestore();
+    await assertSucceeds(deleteDoc(doc(unverified, 'users/alice/meta/accountDeletion')));
+  });
+
+  it('denies clearing the accountDeletion marker without one set', async () => {
+    const unverified = testEnv.authenticatedContext('alice', { email_verified: false }).firestore();
+    await assertFails(deleteDoc(doc(unverified, 'users/alice/meta/accountDeletion')));
+  });
+
   it('rejects invalid analyticsPeriod values', async () => {
     const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
     await assertFails(
