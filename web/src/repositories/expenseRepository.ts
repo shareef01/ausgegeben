@@ -325,9 +325,13 @@ export const expenseRepository = {
       await deleteDoc(catDoc(userId, id));
       return;
     }
-    await ensureUncategorizedCategory(userId);
+    // Create the sink only when there is something to put in it. This used to run
+    // unconditionally, so deleting an unused category still wrote a sentinel doc that
+    // nothing referenced — a needless write on a Spark quota, and a stray category
+    // that lingered until the next ensureSeeded pass swept it back up.
     const linked = await expenseDocsForCategory(userId, id);
     if (linked.length > 0) {
+        await ensureUncategorizedCategory(userId);
         const batch = writeBatch(fs()!);
         linked.forEach(d => {
             batch.update(d.ref, { categoryId: UNCATEGORIZED_ID });
@@ -347,6 +351,9 @@ export const expenseRepository = {
     // final gap can still orphan an expense; it just makes the window much narrower.
     const recheck = await expenseDocsForCategory(userId, id);
     if (recheck.length > 0) {
+        // Reached when an expense was linked inside the race window above, so the
+        // sink may not exist yet — ensureUncategorizedCategory no-ops if it does.
+        await ensureUncategorizedCategory(userId);
         const recheckBatch = writeBatch(fs()!);
         recheck.forEach(d => {
             recheckBatch.update(d.ref, { categoryId: UNCATEGORIZED_ID });

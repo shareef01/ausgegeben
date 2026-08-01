@@ -104,6 +104,12 @@ jobs:
       - run: npm run test:rules
         working-directory: web
 
+      # Repository logic (dedupe, category delete, orphan repair, batch chunking)
+      # only does anything against a real Firestore. Shares this job because the
+      # emulator and JDK 21 are already set up here.
+      - run: npm run test:emulator
+        working-directory: web
+
   # Legacy commit-status API stays "pending" with zero statuses when only
   # check-runs exist — some clients (incl. Cursor) treat that as failing CI.
   status:
