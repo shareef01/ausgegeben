@@ -96,14 +96,33 @@ body.is-scroll-locked {
 }
 
 /* ── Touch target floor ──
-   Apple's 44pt minimum. These two render well under it: the segmented control
+   Apple's 44pt minimum. These render well under it: the segmented control
    (33px) carries both the sign-in/sign-up tabs and the expense/income/transfer
    picker, and "forgot password?" is only 17px tall. Touch pointers only —
-   a mouse is precise enough for the compact desktop sizing. */
+   a mouse is precise enough for the compact desktop sizing.
+
+   .btn is here because it declares no padding of its own: every caller supplies
+   its own sizing utilities, and the six that do not — the empty-state and
+   error-recovery CTAs in Record, Insights, Categories and AddTransaction —
+   collapsed to 23px. That is a primary action at half the touch minimum, on
+   exactly the screens where a new or stuck user has nothing else to tap.
+   min-height rather than padding is deliberate: pages.css loads after
+   layout.css, so padding here would override the px-/py- utilities the other
+   call sites already pass, while nothing else sets min-height on a button.
+
+   .category-row-edit is the whole-row edit affordance in Categories, measured
+   at 36px — the control a user aims at repeatedly when tidying up. */
 @media (pointer: coarse) {
   .segmented__item,
-  .auth-page__forgot {
+  .auth-page__forgot,
+  .btn,
+  .category-row-edit {
     min-height: 44px;
+  }
+
+  .category-row-edit {
+    display: flex;
+    align-items: center;
   }
 }
 
