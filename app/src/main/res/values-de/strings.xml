@@ -332,6 +332,8 @@
     <string name="record_gesture_hints">Nach links wischen zum Löschen · Nach rechts wischen zum Bearbeiten · Lange drücken zum Duplizieren</string>
     <string name="state_loading">Lade…</string>
     <string name="add_confirm_transaction">Transaktion bestätigen</string>
+    <string name="add_needs_amount">betrag eingeben</string>
+    <string name="add_needs_category">kategorie wählen</string>
     <string name="add_note_label">Notiz</string>
     <string name="time_today">heute</string>
     <string name="time_yesterday">gestern</string>
