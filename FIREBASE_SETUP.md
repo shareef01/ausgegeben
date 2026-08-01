@@ -6,17 +6,16 @@ Project: **ausgegeben01** · PWA: [aus01.web.app](https://aus01.web.app)
 
 1. [Firebase Console](https://console.firebase.google.com/) → project **ausgegeben01**
 2. Add Android app → package `com.aus.ausgegeben` (production / `prod` flavor)
-3. Optional: add a second Android app → package `com.aus.ausgegeben.staging` (`staging` flavor, side-by-side install). Re-download `google-services.json` so both clients are listed.
-4. Download `google-services.json` → `app/google-services.json`
-5. **Authentication** → enable **Email/Password** only
-6. **Firestore** → create database
-7. Deploy rules from repo root:
+3. Download `google-services.json` → `app/google-services.json`
+4. **Authentication** → enable **Email/Password** only
+5. **Firestore** → create database
+6. Deploy rules from repo root:
 
 ```bash
 firebase deploy --only firestore:rules
 ```
 
-Build flavors: `assembleProdDebug` (default CI) and `assembleStagingDebug` (requires the staging package in `google-services.json`).
+Build variants: `assembleProdDebug` (default CI) and `assembleProdRelease` (signed, used by the release workflow). To test against local emulators instead of production, see the emulator section below.
 
 Release builds **fail** if `google-services.json` still contains placeholder `YOUR_*` values. Debug may auto-copy from `app/google-services.json.example` so the project compiles.
 
@@ -65,7 +64,7 @@ Firebase web/Android API keys are client-visible by design, but still restrict t
 
 1. Google Cloud Console → APIs & Services → Credentials
 2. Web key: HTTP referrers → `aus01.web.app/*`, `https://aus01.firebaseapp.com/*` (plus localhost for dev if needed)
-3. Android key: packages `com.aus.ausgegeben` and `com.aus.ausgegeben.staging` + release/debug SHA-1/256
+3. Android key: package `com.aus.ausgegeben` + release/debug SHA-1/256
 4. If a key was committed historically, restrict it immediately; rotate if unrestricted abuse appears
 5. Keep the Android key’s SHA-1 list in sync with Firebase → Project settings → Android app fingerprints (PC debug + device debug + release; same fingerprints on both packages)
 
