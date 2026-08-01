@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -242,9 +243,10 @@ fun AddTransactionScreen(
                                     }
                                 },
                                 modifier = Modifier.padding(horizontal = 16.dp),
+                                accent = typeAccent,
                             )
 
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
 
                             if (!hasCategories) {
                                 Box(
@@ -332,10 +334,6 @@ fun AddTransactionScreen(
                                     onBudgetAlert = onBudgetAlert
                                 )
                             },
-                            onQuickAdd = { increment ->
-                                val current = CurrencyUtils.parseAmount(amountText, currencyCode) ?: 0.0
-                                viewModel.onAmountChange(CurrencyUtils.formatAmountForInput(current + increment, currencyCode))
-                            }
                         )
                     }
                 }
@@ -625,15 +623,24 @@ private fun ObsidianCategorySlider(
             val isSelected = selectedCategory?.id == category.id
             val categoryColor = colorIntToCompose(category.colorInt)
 
+            // Choosing a category is mandatory — you cannot save without one — but
+            // the selected state was a 15%-alpha fill behind a half-transparent
+            // hairline, which is close to invisible against a dark background with
+            // several similarly-coloured chips in a row. Selection now reads at a
+            // glance: a solid-enough tint, a full-strength border, and a filled icon.
             val animatedAlpha by animateFloatAsState(
-                targetValue = if (isSelected) 0.15f else 0.0f,
+                targetValue = if (isSelected) 0.24f else 0.0f,
                 label = "categoryAlpha"
             )
             val animatedBorderWidth by animateDpAsState(
-                targetValue = if (isSelected) 1.5.dp else 0.dp,
+                targetValue = if (isSelected) 2.dp else 0.dp,
                 label = "categoryBorder"
             )
-            
+            val borderColor by animateColorAsState(
+                targetValue = if (isSelected) categoryColor else Color.Transparent,
+                label = "categoryBorderColor"
+            )
+
             Column(
                 modifier = Modifier
                     .wrapContentWidth()
@@ -641,25 +648,34 @@ private fun ObsidianCategorySlider(
                     .background(categoryColor.copy(alpha = animatedAlpha))
                     .border(
                         animatedBorderWidth,
-                        categoryColor.copy(alpha = 0.5f),
+                        borderColor,
                         RoundedCornerShape(AppRadius.interactive)
                     )
                     .smoothClickable { onCategorySelected(category) }
+                    .semantics { selected = isSelected }
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
-                        .appGlassCard(CircleShape),
+                        .size(40.dp)
+                        .then(
+                            if (isSelected) {
+                                Modifier
+                                    .clip(CircleShape)
+                                    .background(categoryColor)
+                            } else {
+                                Modifier.appGlassCard(CircleShape)
+                            }
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = iconForCategory(category.iconName, category.name),
                         contentDescription = null,
-                        tint = categoryColor,
-                        modifier = Modifier.size(18.dp)
+                        tint = if (isSelected) contrastColorOn(categoryColor) else categoryColor,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))
@@ -699,7 +715,6 @@ private fun ObsidianNumpadContainer(
     onBackspace: () -> Unit,
     onClear: () -> Unit,
     onSave: () -> Unit,
-    onQuickAdd: (Double) -> Unit
 ) {
     val haptics = rememberAppHaptics()
     val keys = listOf(
@@ -708,6 +723,14 @@ private fun ObsidianNumpadContainer(
         listOf("7", "8", "9"),
         listOf(CurrencyUtils.decimalSeparator(currencyCode).toString(), "0", "back")
     )
+
+    // One accent for the whole block: the amount and the save button should agree
+    // about what kind of transaction is being entered.
+    val accentColor = when (transactionType) {
+        TransactionType.INCOME -> ObsidianTokens.income()
+        TransactionType.TRANSFER -> ObsidianTokens.transfer()
+        else -> ObsidianTokens.expense()
+    }
 
     Column(
         modifier = Modifier
@@ -722,35 +745,6 @@ private fun ObsidianNumpadContainer(
             )
             .padding(bottom = navigationBarBottomPadding() + 8.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            listOf(1.0, 5.0, 10.0, 50.0).forEach { amount ->
-                val label = "+${amount.toInt()}"
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                        .appGlassCard(RoundedCornerShape(AppRadius.sm))
-                        .semantics { contentDescription = label }
-                        .smoothClickable { 
-                            haptics.light()
-                            onQuickAdd(amount) 
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                        color = ObsidianTokens.slate()
-                    )
-                }
-            }
-        }
-
         val amountInteractionSource = remember { MutableInteractionSource() }
         val amountPressed by amountInteractionSource.collectIsPressedAsState()
         val amountScale by animateFloatAsState(
@@ -759,10 +753,20 @@ private fun ObsidianNumpadContainer(
             label = "amountScale"
         )
 
+        // The amount is what this screen exists to capture, but it used to read as
+        // one of the quietest things on it: displayMedium, dimmed to slate, with a
+        // currency symbol almost the same size competing beside it. It is now the
+        // largest element, carries the type accent once it has a value, and drops
+        // the symbol to a clearly subordinate size aligned to the digits' baseline.
+        val amountColor by animateColorAsState(
+            targetValue = if (hasAmount) accentColor else ObsidianTokens.slate().copy(alpha = 0.35f),
+            label = "amountColor",
+        )
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 12.dp)
+                .padding(horizontal = 24.dp, vertical = 14.dp)
                 .graphicsLayer {
                     scaleX = amountScale
                     scaleY = amountScale
@@ -770,28 +774,46 @@ private fun ObsidianNumpadContainer(
                 .clickable(
                     interactionSource = amountInteractionSource,
                     indication = null,
-                    onClick = { 
+                    onClick = {
                         haptics.medium()
-                        onClear() 
+                        onClear()
                     }
-                ),
+                )
+                .semantics {
+                    contentDescription = "$amountText ${CurrencyUtils.symbolFor(currencyCode)}"
+                },
             horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Bottom
         ) {
             Text(
                 text = CurrencyUtils.symbolFor(currencyCode),
-                style = MaterialTheme.typography.headlineMedium.copy(color = ObsidianTokens.slate()),
-                modifier = Modifier.padding(end = 8.dp)
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = amountColor.copy(alpha = 0.6f),
+                ),
+                modifier = Modifier.padding(end = 6.dp, bottom = 8.dp)
             )
             Text(
                 text = amountText,
-                style = MaterialTheme.typography.displayMedium.copy(
+                style = MaterialTheme.typography.displayLarge.copy(
                     fontWeight = FontWeight.Bold,
                     fontFeatureSettings = "tnum"
                 ),
-                color = if (hasAmount) MaterialTheme.colorScheme.onSurface else ObsidianTokens.slate().copy(alpha = 0.5f)
+                color = amountColor,
+                maxLines = 1,
             )
         }
+
+        // The quick-add row, the amount and the keypad used to run together inside one
+        // undivided glass slab. A hairline under the amount separates what you are
+        // entering from what you enter it with, without adding another card.
+        HorizontalDivider(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            color = ObsidianTokens.hairline(),
+            thickness = 0.5.dp,
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         Column(
             modifier = Modifier
@@ -820,10 +842,16 @@ private fun ObsidianNumpadContainer(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        val saveColor = when (transactionType) {
-            TransactionType.INCOME -> ObsidianTokens.income()
-            TransactionType.TRANSFER -> ObsidianTokens.transfer()
-            else -> ObsidianTokens.expense()
+        // A disabled button that only says "CONFIRM TRANSACTION" tells you nothing
+        // about why it will not work. Both preconditions are already known here, so
+        // the label states the next step instead — amount first, since that is the
+        // field the numpad below is for.
+        val saveLabel = when {
+            canSave && isEditing -> stringResource(R.string.add_save_changes)
+            canSave -> stringResource(R.string.add_confirm_transaction)
+            !hasAmount -> stringResource(R.string.add_needs_amount)
+            !hasCategory -> stringResource(R.string.add_needs_category)
+            else -> stringResource(R.string.add_confirm_transaction)
         }
         AppButton(
             onClick = onSave,
@@ -833,13 +861,13 @@ private fun ObsidianNumpadContainer(
                 .padding(horizontal = 16.dp)
                 .glassShine(canSave),
             enabled = canSave,
-            containerColor = saveColor,
-            contentColor = contrastColorOn(saveColor),
+            containerColor = accentColor,
+            contentColor = contrastColorOn(accentColor),
         ) {
             Text(
-                text = if (isEditing) stringResource(R.string.add_save_changes).uppercase()
-                else stringResource(R.string.add_confirm_transaction).uppercase(),
-                style = TextStyle(fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, letterSpacing = 1.2.sp)
+                text = saveLabel.uppercase(),
+                style = TextStyle(fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, letterSpacing = 1.2.sp),
+                maxLines = 1,
             )
         }
     }
@@ -862,7 +890,7 @@ private fun ObsidianKey(
     // themselves; clip only so the press ripple stays inside the key's corners.
     Box(
         modifier = modifier
-            .height(48.dp)
+            .height(46.dp)
             .clip(RoundedCornerShape(AppRadius.interactive))
             .combinedClickable(
                     onClick = {
@@ -883,7 +911,7 @@ private fun ObsidianKey(
                 Icons.AutoMirrored.Rounded.Backspace,
                 contentDescription = stringResource(R.string.add_backspace),
                 tint = ObsidianTokens.slate(),
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(21.dp)
             )
         } else {
             Text(
