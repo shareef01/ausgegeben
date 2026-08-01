@@ -52,8 +52,6 @@ export const de: Record<TranslationKey, string> = {
   errorDeleteFailed: 'Transaktion konnte nicht gelöscht werden. Bitte versuche es erneut.',
   errorDuplicateFailed: 'Transaktion konnte nicht dupliziert werden.',
   categoryDeleteLinked: 'Diese Kategorie hat {count} verknüpfte Transaktion(en). Beim Löschen werden sie nach „Unkategorisiert" verschoben. Trotzdem löschen?',
-  categoryDeleteUncategorizedLinked: 'Diese Kategorie hat {count} verknüpfte Transaktion(en). Sie werden als „unbekannt“ angezeigt, bis du eine Kategorie zuweist. Trotzdem löschen?',
-  categoryDeleteUncategorizedMessage: 'Dies kann nicht rückgängig gemacht werden. Verknüpfte Transaktionen werden als „unbekannt“ angezeigt, bis du eine Kategorie zuweist.',
   categoryDeduplicateTitle: 'Doppelte Kategorien zusammenführen?',
   categoryDeduplicateMessage: 'Kategorien mit identischen Namen werden zusammengeführt und ihre Transaktionen kombiniert.',
   categoryDeduplicateConfirm: 'Zusammenführen',
@@ -148,6 +146,12 @@ export const de: Record<TranslationKey, string> = {
   settingsDeleteAccountOk: 'konto gelöscht',
   settingsDeleteAccountIncomplete:
     'cloud-daten wurden gelöscht, aber die anmeldung konnte nicht entfernt werden. tippe erneut auf konto löschen, um abzuschließen.',
+  settingsDeletionPending:
+    'die löschung dieses kontos ist unvollständig. die cloud-daten sind bereits gelöscht. schließe die löschung ab oder behalte das konto und starte neu.',
+  settingsDeletionFinish: 'löschung abschließen',
+  settingsDeletionKeep: 'konto behalten',
+  settingsDeletionKeptAccount: 'konto behalten — standardkategorien wiederhergestellt',
+  settingsDeletionKeepFailed: 'konto konnte nicht wiederhergestellt werden. bitte erneut versuchen.',
   settingsVersionSubtitle: 'version {version}',
   settingsVersion: 'version',
   settingsPreferences: 'einstellungen',

@@ -1,4 +1,4 @@
-import { useState, type ReactNode, type ComponentType, useRef, useCallback } from 'react';
+import { useState, type ReactNode, type ComponentType, useRef, useCallback, useEffect } from 'react';
 import { PageTitle } from '@/components/ui';
 import {
   IconChevronRight,
@@ -73,6 +73,8 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
   const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
   const [editBudget, setEditBudget] = useState(false);
   const [budgetInput, setBudgetInput] = useState('');
+  const [deletionPending, setDeletionPending] = useState(false);
+  const [clearingDeletion, setClearingDeletion] = useState(false);
   const budgetInputRef = useRef<HTMLInputElement>(null);
   const parsedBudget = parseAmount(budgetInput, currency);
   const canSaveBudget = parsedBudget != null && parsedBudget > 0;
@@ -89,6 +91,45 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
     setEditBudget(false);
     useToastStore.getState().show(t('settingsBudgetCleared'));
   }, [setMonthlyBudget, t]);
+
+  // Surfaces an account stuck mid-deletion: the cloud wipe went through but the Auth
+  // delete did not, so ensureSeeded is refusing to re-seed and the account has no
+  // categories. Settings is where the user already is when they hit that toast.
+  useEffect(() => {
+    if (!user) {
+      setDeletionPending(false);
+      return;
+    }
+    let active = true;
+    void expenseRepository
+      .isAccountDeletionPending()
+      .then((pending) => {
+        if (active) setDeletionPending(pending);
+      })
+      .catch(() => {
+        if (active) setDeletionPending(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
+  const keepAccount = useCallback(async () => {
+    setClearingDeletion(true);
+    try {
+      await expenseRepository.clearAccountDeletionPending();
+      setDeletionPending(false);
+      // Re-seed immediately so the user lands on a usable account rather than an
+      // empty one that only fills in after the next cold start.
+      await expenseRepository.ensureSeeded();
+      useToastStore.getState().show(t('settingsDeletionKeptAccount'));
+    } catch (err) {
+      console.error('[SettingsView] could not clear deletion marker', err);
+      useToastStore.getState().show(t('settingsDeletionKeepFailed'));
+    } finally {
+      setClearingDeletion(false);
+    }
+  }, [t]);
 
   const downloadCsv = (csv: string, truncated: boolean) => {
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -146,6 +187,30 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
             >
               {t('settingsSyncRetry')}
             </button>
+          </div>
+        ) : null}
+
+        {user && deletionPending ? (
+          <div className="settings-deletion-pending" role="alert">
+            <p className="settings-deletion-pending__text">{t('settingsDeletionPending')}</p>
+            <div className="settings-deletion-pending__actions">
+              <button
+                type="button"
+                className="settings-deletion-pending__action"
+                disabled={deletingAccount || clearingDeletion}
+                onClick={() => setShowDeleteAccountConfirm(true)}
+              >
+                {t('settingsDeletionFinish')}
+              </button>
+              <button
+                type="button"
+                className="settings-deletion-pending__action settings-deletion-pending__action--keep"
+                disabled={clearingDeletion}
+                onClick={() => void keepAccount()}
+              >
+                {t('settingsDeletionKeep')}
+              </button>
+            </div>
           </div>
         ) : null}
 
