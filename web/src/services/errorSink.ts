@@ -56,6 +56,18 @@ export function buildPayload(report: AppErrorReport): ErrorSinkPayload {
 }
 
 /**
+ * The body is JSON, but it is labelled text/plain on purpose.
+ *
+ * `application/json` is not a CORS-safelisted content type, so a cross-origin
+ * post carrying it triggers a preflight OPTIONS first. That is a poor trade on
+ * this path: the report is usually fired as the tab is closing, and requiring a
+ * round-trip before the real request is exactly when delivery gets dropped.
+ * text/plain is safelisted, so the report goes out in one hop. The receiver
+ * parses it as JSON regardless (see tools/error-endpoint).
+ */
+const CONTENT_TYPE = 'text/plain;charset=UTF-8';
+
+/**
  * `sendBeacon` first: a crash is often followed by the user closing the tab, and a
  * normal fetch is cancelled on unload while a beacon is handed to the browser to
  * deliver regardless. `keepalive` fetch is the fallback for browsers without it.
@@ -64,14 +76,14 @@ function post(url: string, payload: ErrorSinkPayload): void {
   const body = JSON.stringify(payload);
   try {
     if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
-      const blob = new Blob([body], { type: 'application/json' });
+      const blob = new Blob([body], { type: CONTENT_TYPE });
       if (navigator.sendBeacon(url, blob)) return;
     }
     void fetch(url, {
       method: 'POST',
       body,
       keepalive: true,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': CONTENT_TYPE },
     }).catch(() => {
       // Reporting the failure to report would recurse. Console only.
     });
