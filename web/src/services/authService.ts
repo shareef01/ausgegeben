@@ -11,7 +11,7 @@ import {
 } from 'firebase/auth';
 import { clearLocalFirestoreCache, getFirebaseAuth, isFirebaseConfigured } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
-import { expenseRepository } from '@/repositories/expenseRepository';
+import { expenseRepository, invalidateAllExpensesCache } from '@/repositories/expenseRepository';
 import { usePreferencesStore } from '@/services/preferencesStore';
 
 let unsubscribe: (() => void) | null = null;
@@ -106,6 +106,9 @@ export const authService = {
     if (auth) await signOut(auth);
     useAuthStore.getState().setUser(null);
     usePreferencesStore.getState().resetPreferences();
+    // The all-time scan is memoised in module scope; drop it so the next person
+    // on a shared browser cannot be served the previous account's transactions.
+    invalidateAllExpensesCache();
     await clearLocalFirestoreCache();
   },
 
@@ -151,6 +154,7 @@ export const authService = {
         await deleteUser(user);
         useAuthStore.getState().setUser(null);
         usePreferencesStore.getState().resetPreferences();
+        invalidateAllExpensesCache();
         await clearLocalFirestoreCache();
         return;
       } catch (err) {
