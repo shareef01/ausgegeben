@@ -1,0 +1,12 @@
+name = "ausgegeben-error-endpoint"
+main = "src/index.js"
+compatibility_date = "2026-07-01"
+
+# Reports are only accepted from the app's own origins — see isAllowedOrigin.
+# Add http://localhost:5173 here temporarily if testing the sink against dev.
+[vars]
+ALLOWED_ORIGINS = "https://aus01.web.app"
+
+# console.* output is the storage layer; without this the dashboard shows nothing.
+[observability]
+enabled = true
