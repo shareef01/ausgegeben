@@ -9,6 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **Try it now:** [aus01.web.app](https://aus01.web.app) · installable as a PWA
+**Or on Android:** [download the latest signed APK](https://github.com/shareef01/ausgegeben/releases/latest) · sideload, no Play Store needed
 
 - **Track** expenses, income, and transfers with notes and custom categories
 - **Understand** your money — budgets, category breakdowns, cash-flow trends
@@ -162,9 +163,26 @@ More detail in [web/README.md](web/README.md).
 
 ## Quality
 
-- **CI** ([workflow](.github/workflows/ci.yml)): every push and PR runs Android unit tests + debug build, web type-check/tests/`npm audit`/production build, and Firestore security-rules tests against the emulator.
+213 automated tests run on every push and PR ([workflow](.github/workflows/ci.yml)), across four parallel jobs:
+
+| Suite | Tests | What it covers |
+|---|---:|---|
+| Web unit | 62 | view models, currency and period maths, i18n, theming, error reporting |
+| Android unit | 69 | repositories, preferences crypto, reminder scheduling, theme contrast |
+| Repository | 39 | dedupe, category delete, orphan repair and batch chunking against a real Firestore |
+| Firestore rules | 35 | every branch of the security rules, against the emulator |
+| Instrumentation | 8 | app launch, FileProvider export boundary, touch-target floors on an API 29 emulator |
+
+Two habits behind that, both learned the hard way:
+
+- **CI builds the artifact that ships.** `assembleProdRelease` runs on every push, so R8 is exercised — a keep-rule regression once made every release APK crash on launch while the debug build stayed perfectly healthy.
+- **The deployed site is smoke-tested** ([workflow](.github/workflows/smoke.yml)), on every deploy and daily on a schedule: the page serves, the security headers survived, the Firebase key in the shipped bundle is still live. A deleted API key once broke sign-in for everyone while CI stayed green, because nothing exercised production.
+
+Also:
+
 - **Static safety:** strict TypeScript, schema-validating Firestore rules, R8-minified Android releases.
 - **Hosting hardening:** CSP, HSTS, frame-ancestors denial, restrictive Permissions-Policy ([firebase.json](firebase.json)).
+- **Releases:** tagging `v1.2.3` builds, signs, verifies and publishes the APK ([workflow](.github/workflows/release.yml)); the version code is derived from the tag so installs can always update.
 - **Privacy:** no third-party analytics or trackers.
 
 ---
