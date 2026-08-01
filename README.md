@@ -140,7 +140,6 @@ flowchart TB
 ```bash
 # Place your Firebase config first: app/google-services.json
 ./gradlew assembleProdDebug          # production debug APK
-./gradlew assembleStagingDebug       # side-by-side staging APK (needs staging Firebase Android app)
 ./gradlew testDebugUnitTest      # unit tests
 ```
 
