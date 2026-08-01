@@ -329,6 +329,10 @@
     <string name="record_gesture_hints">Swipe left to delete · Swipe right to edit · Long-press to duplicate</string>
     <string name="state_loading">Loading…</string>
     <string name="add_confirm_transaction">Confirm Transaction</string>
+    <!-- Shown on the save button while it is disabled, so it says what is missing
+         instead of sitting there greyed out with no explanation. -->
+    <string name="add_needs_amount">Enter an amount</string>
+    <string name="add_needs_category">Choose a category</string>
     <string name="add_note_label">Note</string>
     <string name="time_today">Today</string>
     <string name="time_yesterday">Yesterday</string>
