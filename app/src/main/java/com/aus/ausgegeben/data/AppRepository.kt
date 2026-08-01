@@ -543,15 +543,50 @@ class AppRepository @Inject constructor(
         (byStringDeferred.await() + byNumberDeferred.await()).distinctBy { it.id }
     }
 
-    private suspend fun reassignCategoryExpenses(u: String, fromCategoryId: String, toCategoryId: String) {
-        val docs = expenseDocsForCategory(u, fromCategoryId)
+    /**
+     * Point a set of expenses at [toCategoryId], tolerating documents the rules refuse.
+     * Returns how many could not be reassigned.
+     *
+     * A Firestore batch commits all or nothing, so one row the rules reject took its
+     * whole chunk of up to 450 down with it. That is not hypothetical: rows written
+     * by builds predating the field allowlist carry extra keys, and on a real account
+     * they were 39 of 89 expenses — enough that a single chunk almost always
+     * contained one, so the sweep repaired nothing and retried on every launch.
+     *
+     * The batch stays the fast path; a rejected commit is retried one document at a
+     * time so the healthy rows still land. Unfixable rows are counted, not thrown:
+     * a document the rules will never accept must not keep blocking the ones they will.
+     * Mirrors reassignExpenses() in the web repository.
+     */
+    private suspend fun reassignExpenses(
+        docs: List<DocumentSnapshot>,
+        toCategoryId: String,
+    ): Int {
+        var unfixable = 0
         docs.chunked(450).forEach { chunk ->
-            firestore.runBatch { batch ->
+            try {
+                firestore.runBatch { batch ->
+                    chunk.forEach { doc ->
+                        batch.update(doc.reference, "categoryId", toCategoryId)
+                    }
+                }.await()
+            } catch (e: Exception) {
+                Log.w(TAG, "batch reassign rejected — retrying one at a time", e)
                 chunk.forEach { doc ->
-                    batch.update(doc.reference, "categoryId", toCategoryId)
+                    try {
+                        doc.reference.update("categoryId", toCategoryId).await()
+                    } catch (docError: Exception) {
+                        unfixable++
+                        Log.w(TAG, "could not reassign ${doc.id}", docError)
+                    }
                 }
-            }.await()
+            }
         }
+        return unfixable
+    }
+
+    private suspend fun reassignCategoryExpenses(u: String, fromCategoryId: String, toCategoryId: String) {
+        reassignExpenses(expenseDocsForCategory(u, fromCategoryId), toCategoryId)
     }
 
     /**
@@ -568,14 +603,8 @@ class AppRepository @Inject constructor(
         }
         if (orphans.isEmpty()) return
         ensureUncategorizedCategory(u)
-        orphans.chunked(450).forEach { chunk ->
-            firestore.runBatch { batch ->
-                chunk.forEach { doc ->
-                    batch.update(doc.reference, "categoryId", UNCATEGORIZED_ID)
-                }
-            }.await()
-        }
-        Log.i(TAG, "Repaired ${orphans.size} orphaned expense(s)")
+        val unfixable = reassignExpenses(orphans, UNCATEGORIZED_ID)
+        Log.i(TAG, "Repaired ${orphans.size - unfixable} orphaned expense(s), $unfixable unfixable")
     }
 
     private suspend fun ensureUncategorizedCategory(u: String) {
