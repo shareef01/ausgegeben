@@ -247,6 +247,26 @@ export const expenseRepository = {
   },
 
   /**
+   * Abandon a half-finished deletion and let the account be used again.
+   *
+   * When the cloud wipe succeeds but the Auth delete does not, the marker stays set
+   * and ensureSeeded refuses to re-seed — deliberately, so a half-deleted account
+   * cannot masquerade as a working fresh one. The cost was that retrying deletion
+   * became the only exit; if it kept failing, the account was stranded with no
+   * categories and no way to record anything.
+   *
+   * Clearing the marker is the second exit. firestore.rules already allows it:
+   * canDeleteOwned passes here precisely *because* pendingDeletion is true, so this
+   * works even for an unverified account. The data is still gone — this only agrees
+   * to stop treating the account as mid-deletion.
+   */
+  async clearAccountDeletionPending(): Promise<void> {
+    const userId = uid();
+    if (!userId) throw new Error('Not signed in');
+    await deleteDoc(metaDoc(userId, 'accountDeletion'));
+  },
+
+  /**
    * `cb`'s second argument is `true` when the listener failed. Callers must not
    * treat `[]` + error as “user has no categories” (that would relabel every
    * expense as unknown). Prefer keeping the last good list on error.
