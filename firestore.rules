@@ -57,14 +57,30 @@ service cloud.firestore {
     //
     // Bounded rather than waved through: without size limits an allowlisted field
     // is just free storage for anyone holding the public API key.
+    // Measured against a real account rather than guessed: of 89 expenses, 22 store
+    // receiptImagePath as null and 19 carry the cloudId/categoryCloudId pair. Null is
+    // explicitly allowed — demanding `is string` here would have frozen 28 more rows
+    // than it unfroze.
     function validLegacyExpenseFields(d) {
       return (!('cloudId' in d) || (d.cloudId is string && d.cloudId.size() < 128))
         && (!('categoryCloudId' in d)
+          || d.categoryCloudId == null
           || (d.categoryCloudId is string && d.categoryCloudId.size() < 128)
           || d.categoryCloudId is number)
         && (!('receiptImagePath' in d)
+          || d.receiptImagePath == null
           || (d.receiptImagePath is string && d.receiptImagePath.size() < 512))
         && (!('deleted' in d) || d.deleted is bool);
+    }
+
+    /**
+     * updatedAt is a millisecond number today, but builds before that wrote a real
+     * Firestore timestamp — 22 of 89 rows on the account this was found on. A
+     * timestamp is not a number in rules, so requiring one made every such row
+     * unwritable, including by the orphan sweep's own repair. Accept both.
+     */
+    function validUpdatedAt(d) {
+      return !('updatedAt' in d) || d.updatedAt is number || d.updatedAt is timestamp;
     }
 
     function validExpense() {
@@ -86,7 +102,7 @@ service cloud.firestore {
         && d.note is string
         && d.note.size() < 2000
         && d.transactionType in ['expense', 'income', 'transfer']
-        && (!('updatedAt' in d) || d.updatedAt is number)
+        && validUpdatedAt(d)
         && (!('idempotencyKey' in d)
           || (d.idempotencyKey is string && d.idempotencyKey.size() < 128))
         && (!('id' in d) || (d.id is string && d.id.size() < 64));
