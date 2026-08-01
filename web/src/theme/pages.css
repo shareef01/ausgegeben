@@ -123,6 +123,57 @@
   cursor: pointer;
 }
 
+/* An account stuck mid-deletion: same warning weight as a sync error, but it
+   carries two exits rather than one retry. */
+.settings-deletion-pending {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--color-expense) 35%, transparent);
+  background: color-mix(in srgb, var(--color-expense) 10%, transparent);
+}
+
+.settings-deletion-pending__text {
+  margin: 0;
+  flex: 1;
+  min-width: 12rem;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--color-on-background);
+}
+
+.settings-deletion-pending__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.settings-deletion-pending__action {
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--color-expense) 40%, transparent);
+  background: transparent;
+  color: var(--color-expense);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.settings-deletion-pending__action--keep {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  color: var(--color-accent);
+}
+
+.settings-deletion-pending__action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .data-truncated-notice {
   margin: 0 0 16px;
   padding: 12px 16px;
