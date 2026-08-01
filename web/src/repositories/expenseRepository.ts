@@ -1,7 +1,7 @@
 ﻿import {
   collection, doc, setDoc, deleteDoc, getDoc, getDocs, query, where, orderBy, limit,
-  onSnapshot, updateDoc, type Unsubscribe, writeBatch, type CollectionReference,
-  type QueryDocumentSnapshot,
+  onSnapshot, updateDoc, getAggregateFromServer, sum, type Unsubscribe, writeBatch,
+  type CollectionReference, type QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
@@ -56,8 +56,41 @@ const DEFAULT_CATEGORIES: (t: (k: any) => string) => Omit<Category, 'id'>[] = (t
 let ensureSeededInFlight: Promise<void> | null = null;
 let ensureSeededForUid: string | null = null;
 
+/**
+ * Shared result of the all-time scan.
+ *
+ * The TTL is a floor on how often the most expensive query in the app can run,
+ * not a staleness policy: every local write clears the cache outright, so the
+ * only thing the window can hide is a change made on another device — which the
+ * all-time path never observed anyway, since it is a one-shot fetch with no
+ * listener behind it.
+ */
+const ALL_EXPENSES_CACHE_MS = 30_000;
+let allExpensesCache:
+  | { uid: string; max: number; at: number; result: { items: Expense[]; truncated: boolean } }
+  | null = null;
+let allExpensesInFlight:
+  | { uid: string; max: number; promise: Promise<{ items: Expense[]; truncated: boolean }> }
+  | null = null;
+
+function readAllExpensesCache(userId: string, max: number) {
+  if (!allExpensesCache) return null;
+  if (allExpensesCache.uid !== userId || allExpensesCache.max !== max) return null;
+  if (now() - allExpensesCache.at > ALL_EXPENSES_CACHE_MS) return null;
+  return allExpensesCache.result;
+}
+
+/** Any write invalidates the scan; sign-out must not leak one account's rows into the next. */
+export function invalidateAllExpensesCache() {
+  allExpensesCache = null;
+  allExpensesInFlight = null;
+}
+
 /** Notify UI listeners after writes (Insights / all-time one-shot refetch). */
 function emitDataChanged() {
+  // Order matters: listeners refetch synchronously on this event, so the cache
+  // has to be dropped first or they would be served the pre-write snapshot.
+  invalidateAllExpensesCache();
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event(DATA_CHANGED_EVENT));
   }
@@ -175,20 +208,46 @@ export const expenseRepository = {
    * One-shot soft-capped expense fetch for Insights all-time / CSV export.
    * Prefer onExpensesInRange for live UI — unbounded listeners burn Spark quota.
    * `truncated` is true when more docs exist beyond `max`.
+   *
+   * Results are shared (see allExpensesCache): Record and Insights each call this
+   * independently, and both refetch on ausgegeben:data-changed, so with both
+   * mounted a single save could trigger four full scans of up to 5,000 documents
+   * each. Spark allows 50,000 reads a day in total.
    */
   async getAllExpensesCapped(max = 5_000): Promise<{ items: Expense[]; truncated: boolean }> {
     const u = uid();
     if (!u) return { items: [], truncated: false };
-    const snap = await getDocs(query(expCol(u), orderBy('dateMillis', 'desc'), limit(max + 1)));
-    const truncated = snap.docs.length > max;
-    const docs = truncated ? snap.docs.slice(0, max) : snap.docs;
-    if (truncated) {
-      console.warn(`[expenseRepository] getAllExpenses capped at ${max} rows`);
+
+    const cached = readAllExpensesCache(u, max);
+    if (cached) return cached;
+
+    // Share one network round-trip between concurrent callers rather than
+    // letting each mounted view start its own.
+    if (allExpensesInFlight && allExpensesInFlight.uid === u && allExpensesInFlight.max === max) {
+      return allExpensesInFlight.promise;
     }
-    return {
-      items: docs.map((d) => ({ id: d.id, ...d.data() } as Expense)),
-      truncated,
-    };
+
+    const promise = (async () => {
+      const snap = await getDocs(query(expCol(u), orderBy('dateMillis', 'desc'), limit(max + 1)));
+      const truncated = snap.docs.length > max;
+      const docs = truncated ? snap.docs.slice(0, max) : snap.docs;
+      if (truncated) {
+        console.warn(`[expenseRepository] getAllExpenses capped at ${max} rows`);
+      }
+      const result = {
+        items: docs.map((d) => ({ id: d.id, ...d.data() } as Expense)),
+        truncated,
+      };
+      allExpensesCache = { uid: u, max, at: now(), result };
+      return result;
+    })();
+
+    allExpensesInFlight = { uid: u, max, promise };
+    try {
+      return await promise;
+    } finally {
+      if (allExpensesInFlight?.promise === promise) allExpensesInFlight = null;
+    }
   },
 
   async getAllCategories(): Promise<Category[]> {
@@ -504,12 +563,45 @@ export const expenseRepository = {
     return exp;
   },
 
+  /**
+   * Month-to-date spend for the budget warning.
+   *
+   * Runs on every save, and used to pull every expense document in the month to
+   * add up one number — 200 transactions in a month meant 200 reads per save.
+   * A server-side sum() is billed at one read per 1,000 documents matched, so
+   * this is ~1 read regardless of history size.
+   *
+   * The excluded id (the row being edited, already counted by the server) costs
+   * one extra direct read to subtract. Still two reads instead of N.
+   */
   async sumMonthExpenses(start: number, end: number, excludeExpenseId?: string): Promise<number> {
-    const items = await this.getExpensesInRange(start, end);
-    const raw = items
-      .filter((e) => e.transactionType === 'expense' && e.id !== excludeExpenseId)
-      .reduce((s, e) => s + e.amount, 0);
-    return roundAmount(raw);
+    const userId = uid();
+    if (!userId) return 0;
+    const scoped = query(
+      expCol(userId),
+      where('transactionType', '==', 'expense'),
+      where('dateMillis', '>=', start),
+      where('dateMillis', '<', end),
+    );
+    const agg = await getAggregateFromServer(scoped, { total: sum('amount') });
+    let total = Number(agg.data().total ?? 0);
+
+    if (excludeExpenseId) {
+      const excluded = await getDoc(expDoc(userId, excludeExpenseId));
+      const data = excluded.data();
+      // Only subtract when it actually falls inside the summed set.
+      if (
+        data &&
+        data.transactionType === 'expense' &&
+        typeof data.dateMillis === 'number' &&
+        data.dateMillis >= start &&
+        data.dateMillis < end
+      ) {
+        total -= Number(data.amount ?? 0);
+      }
+    }
+
+    return roundAmount(Math.max(0, total));
   },
 
   async deduplicateCategories(): Promise<void> {
