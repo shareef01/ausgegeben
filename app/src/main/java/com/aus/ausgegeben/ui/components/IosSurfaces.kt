@@ -243,6 +243,12 @@ fun IosSeparator(modifier: Modifier = Modifier, insetStart: Dp = 0.dp) {
     )
 }
 
+/**
+ * @param accent tints the selected pill and its label. Optional so the existing
+ *   monochrome callers are unchanged; the add-transaction screen passes the
+ *   transaction-type colour so the choice being made is visible at a glance
+ *   rather than only legible from the label text.
+ */
 @Composable
 fun IosSegmentedControl(
     options: List<String>,
@@ -250,6 +256,7 @@ fun IosSegmentedControl(
     onSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
     icons: List<ImageVector>? = null,
+    accent: Color? = null,
 ) {
     val safeIndex = selectedIndex.coerceIn(0, (options.size - 1).coerceAtLeast(0))
     val containerShape = RoundedCornerShape(AppRadius.pill)
@@ -283,7 +290,18 @@ fun IosSegmentedControl(
                         spotColor = Color.Black,
                         ambientColor = Color.Black.copy(alpha = 0.5f)
                     )
-                    .background(if (isAppDarkTheme()) Color(0xFF1C1C20) else Color.White, RoundedCornerShape(12.dp))
+                    .background(
+                        if (accent != null) {
+                            accent.copy(alpha = if (isAppDarkTheme()) 0.22f else 0.16f)
+                                .compositeOver(if (isAppDarkTheme()) Color(0xFF1C1C20) else Color.White)
+                        } else if (isAppDarkTheme()) Color(0xFF1C1C20) else Color.White,
+                        RoundedCornerShape(12.dp),
+                    )
+                    .then(
+                        if (accent != null) {
+                            Modifier.border(1.dp, accent.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
+                        } else Modifier
+                    )
             )
         }
 
@@ -314,7 +332,11 @@ fun IosSegmentedControl(
                             text = label.lowercase(),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                            color = if (selected) MaterialTheme.colorScheme.onSurface else readableSecondaryColor(),
+                            color = when {
+                                selected && accent != null -> accent
+                                selected -> MaterialTheme.colorScheme.onSurface
+                                else -> readableSecondaryColor()
+                            },
                             maxLines = 1,
                             textAlign = TextAlign.Center,
                         )
