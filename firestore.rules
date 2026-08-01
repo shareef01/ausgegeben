@@ -48,12 +48,33 @@ service cloud.firestore {
              .data.transactionType == request.resource.data.transactionType;
     }
 
+    // Fields written by builds that predate this allowlist. They are tolerated,
+    // never required, and nothing reads them — but hasOnly() is evaluated against
+    // the *merged* document, so excluding them made every row that carries one
+    // permanently unwritable. On a real account that was 39 of 89 transactions:
+    // uneditable, and worse, the orphan sweep's own repair write was rejected too,
+    // so the app retried the same failing mutation on every launch forever.
+    //
+    // Bounded rather than waved through: without size limits an allowlisted field
+    // is just free storage for anyone holding the public API key.
+    function validLegacyExpenseFields(d) {
+      return (!('cloudId' in d) || (d.cloudId is string && d.cloudId.size() < 128))
+        && (!('categoryCloudId' in d)
+          || (d.categoryCloudId is string && d.categoryCloudId.size() < 128)
+          || d.categoryCloudId is number)
+        && (!('receiptImagePath' in d)
+          || (d.receiptImagePath is string && d.receiptImagePath.size() < 512))
+        && (!('deleted' in d) || d.deleted is bool);
+    }
+
     function validExpense() {
       let d = request.resource.data;
       return d.keys().hasOnly([
           'amount', 'dateMillis', 'categoryId', 'note', 'transactionType',
-          'updatedAt', 'idempotencyKey', 'id'
+          'updatedAt', 'idempotencyKey', 'id',
+          'cloudId', 'categoryCloudId', 'receiptImagePath', 'deleted'
         ])
+        && validLegacyExpenseFields(d)
         && d.keys().hasAll(['amount', 'dateMillis', 'categoryId', 'note', 'transactionType'])
         && d.amount is number
         && d.amount > 0
