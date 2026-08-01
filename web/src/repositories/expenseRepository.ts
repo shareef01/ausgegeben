@@ -1,6 +1,7 @@
 ﻿import {
   collection, doc, setDoc, deleteDoc, getDoc, getDocs, query, where, orderBy, limit,
-  onSnapshot, type Unsubscribe, writeBatch, type CollectionReference, type QueryDocumentSnapshot,
+  onSnapshot, updateDoc, type Unsubscribe, writeBatch, type CollectionReference,
+  type QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
@@ -107,6 +108,56 @@ async function expenseDocsForCategory(
     out.push(d);
   }
   return out;
+}
+
+/** Firestore caps a batch at 500 writes; leave headroom like the original callers did. */
+const REASSIGN_CHUNK_SIZE = 450;
+
+/**
+ * Point a set of expenses at `targetCategoryId`, chunked, tolerating documents the
+ * rules refuse. Returns how many could not be reassigned.
+ *
+ * Two failure modes this exists to survive, both found by the emulator tests:
+ *
+ *  - deleteCategory committed every linked expense in a single batch with no
+ *    chunking at all, so deleting a category with 501+ transactions blew the
+ *    500-write cap and failed outright.
+ *  - A batch commits all or nothing. One legacy row carrying a field that
+ *    validExpense's allowlist no longer permits therefore took its entire chunk
+ *    down with it — measured: three healthy orphans, one bad one, zero repaired.
+ *    Worse, sweepOrphanedExpenses only records the sweep on success, so such an
+ *    account re-read its whole expenses collection on every cold start forever,
+ *    which is precisely what the marker was introduced to stop.
+ *
+ * The batch stays the fast path. When one is rejected its chunk is retried a
+ * document at a time so healthy rows still land, and the unfixable ones are
+ * counted rather than thrown: a row the rules will never accept must not keep
+ * blocking the ones they will.
+ */
+async function reassignExpenses(
+  docs: QueryDocumentSnapshot[],
+  targetCategoryId: string,
+): Promise<number> {
+  let unfixable = 0;
+  for (let i = 0; i < docs.length; i += REASSIGN_CHUNK_SIZE) {
+    const chunk = docs.slice(i, i + REASSIGN_CHUNK_SIZE);
+    const batch = writeBatch(fs()!);
+    chunk.forEach((d) => batch.update(d.ref, { categoryId: targetCategoryId }));
+    try {
+      await batch.commit();
+    } catch (err) {
+      console.warn('[reassignExpenses] batch rejected — retrying one at a time', err);
+      for (const d of chunk) {
+        try {
+          await updateDoc(d.ref, { categoryId: targetCategoryId });
+        } catch (docErr) {
+          unfixable += 1;
+          console.warn(`[reassignExpenses] could not reassign ${d.id}`, docErr);
+        }
+      }
+    }
+  }
+  return unfixable;
 }
 
 /** Prefer lowest sortOrder, then id (Android CategoryDedupe parity). */
@@ -332,11 +383,7 @@ export const expenseRepository = {
     const linked = await expenseDocsForCategory(userId, id);
     if (linked.length > 0) {
         await ensureUncategorizedCategory(userId);
-        const batch = writeBatch(fs()!);
-        linked.forEach(d => {
-            batch.update(d.ref, { categoryId: UNCATEGORIZED_ID });
-        });
-        await batch.commit();
+        await reassignExpenses(linked, UNCATEGORIZED_ID);
     }
     // SECURE (mitigation, not a full guarantee): ideally this whole read-reassign-delete
     // sequence would run inside a single runTransaction(db, ...) so no expense could be
@@ -354,11 +401,7 @@ export const expenseRepository = {
         // Reached when an expense was linked inside the race window above, so the
         // sink may not exist yet — ensureUncategorizedCategory no-ops if it does.
         await ensureUncategorizedCategory(userId);
-        const recheckBatch = writeBatch(fs()!);
-        recheck.forEach(d => {
-            recheckBatch.update(d.ref, { categoryId: UNCATEGORIZED_ID });
-        });
-        await recheckBatch.commit();
+        await reassignExpenses(recheck, UNCATEGORIZED_ID);
     }
     await deleteDoc(catDoc(userId, id));
   },
@@ -495,15 +538,7 @@ export const expenseRepository = {
       for (const dup of duplicates) {
         const linked = await expenseDocsForCategory(userId, dup.id);
         if (linked.length > 0) {
-          // Handle chunking for Firestore batch limit (500)
-          for (let i = 0; i < linked.length; i += 450) {
-            const chunk = linked.slice(i, i + 450);
-            const batch = writeBatch(fs()!);
-            chunk.forEach(d => {
-              batch.update(d.ref, { categoryId: master.id });
-            });
-            await batch.commit();
-          }
+          await reassignExpenses(linked, master.id);
         }
         // SECURE (mitigation, not a full guarantee): same TOCTOU gap as deleteCategory()
         // above — an expense could be (re)linked to `dup.id` between the getDocs read and
@@ -517,14 +552,7 @@ export const expenseRepository = {
         // rather than closing it entirely.
         const recheck = await expenseDocsForCategory(userId, dup.id);
         if (recheck.length > 0) {
-          for (let i = 0; i < recheck.length; i += 450) {
-            const chunk = recheck.slice(i, i + 450);
-            const recheckBatch = writeBatch(fs()!);
-            chunk.forEach(d => {
-              recheckBatch.update(d.ref, { categoryId: master.id });
-            });
-            await recheckBatch.commit();
-          }
+          await reassignExpenses(recheck, master.id);
         }
         await deleteDoc(catDoc(userId, dup.id));
       }
@@ -577,31 +605,33 @@ export const expenseRepository = {
  * before dropping a category, which leaves this sweep to catch only rows stranded
  * by an interrupted delete — a one-time pass, plus the manual "Deduplicate"
  * action, covers that.
+ *
+ * The marker is written even when some rows could not be repaired. A document the
+ * rules will never accept would otherwise keep the sweep un-recorded forever, so
+ * every cold start would re-read the whole collection chasing a repair that cannot
+ * succeed — the exact cost this marker exists to avoid.
  */
 async function sweepOrphanedExpenses(userId: string): Promise<void> {
-  await repairOrphanedExpenses(userId);
+  const unfixable = await repairOrphanedExpenses(userId);
+  if (unfixable > 0) {
+    console.warn(`[sweepOrphanedExpenses] ${unfixable} expense(s) could not be repaired`);
+  }
   await setDoc(metaDoc(userId, 'dedupe'), { orphansScannedAt: now() }, { merge: true });
 }
 
-async function repairOrphanedExpenses(userId: string): Promise<void> {
+/** Returns the number of orphans the rules refused to let us repair. */
+async function repairOrphanedExpenses(userId: string): Promise<number> {
   const catSnap = await getDocs(catCol(userId));
   const catIds = new Set(catSnap.docs.map((d) => d.id));
-  if (catIds.size === 0) return;
+  if (catIds.size === 0) return 0;
   const expSnap = await getDocs(query(expCol(userId), limit(5_000)));
   const orphans = expSnap.docs.filter((d) => {
     const cid = String(d.data().categoryId ?? '');
     return cid.length > 0 && !catIds.has(cid);
   });
-  if (orphans.length === 0) return;
+  if (orphans.length === 0) return 0;
   await ensureUncategorizedCategory(userId);
-  for (let i = 0; i < orphans.length; i += 450) {
-    const chunk = orphans.slice(i, i + 450);
-    const batch = writeBatch(fs()!);
-    chunk.forEach((d) => {
-      batch.update(d.ref, { categoryId: UNCATEGORIZED_ID });
-    });
-    await batch.commit();
-  }
+  return reassignExpenses(orphans, UNCATEGORIZED_ID);
 }
 
 async function deleteCollectionBatched(colRef: CollectionReference): Promise<void> {
