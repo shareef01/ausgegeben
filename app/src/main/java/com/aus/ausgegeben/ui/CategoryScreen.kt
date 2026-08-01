@@ -52,9 +52,12 @@ fun CategoryScreen(
     }
     val categoriesByType = remember(categories) {
         TransactionType.entries.mapNotNull { type ->
+            // Tie-broken by id so this matches CategoryViewModel.moveCategory exactly.
+            // A plain sortedBy leaves equal sortOrder values in source order, which the
+            // two could resolve differently — and then "move up" moves the wrong row.
             val items = categories
                 .filter { it.id != AppRepository.UNCATEGORIZED_ID && it.transactionType == type.storageKey }
-                .sortedBy { it.sortOrder }
+                .sortedWith(compareBy({ it.sortOrder }, { it.id }))
             if (items.isEmpty()) null else type to items
         }
     }
