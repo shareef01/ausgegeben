@@ -21,10 +21,34 @@ jobs:
 
       - run: chmod +x gradlew
 
+      # Release tasks refuse to build against the placeholder google-services.json
+      # (see app/build.gradle.kts). Decode the real one from a secret so R8 can run
+      # below; without the secret the release step is skipped rather than failing,
+      # which keeps fork PRs green.
+      - name: Restore google-services.json
+        id: firebase_config
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::GOOGLE_SERVICES_JSON secret not set — skipping the release build, so R8 is not exercised."
+          else
+            printf '%s' "$GOOGLE_SERVICES_JSON" | base64 -d > app/google-services.json
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
       # lintDebug catches manifest/config errors (e.g. a stray WorkManager
       # initializer silently dropping the Hilt worker factory) that compile fine
       # but break at runtime — and that would otherwise only surface in release.
       - run: ./gradlew testProdDebugUnitTest lintProdDebug assembleProdDebug --no-daemon
+
+      # minifyEnabled/shrinkResources only apply to the release build type, so a
+      # debug-only CI never executes R8 — ProGuard breakage would first appear in
+      # a build handed to users. Unsigned output is fine; running R8 is the point.
+      - name: Build release (runs R8)
+        if: steps.firebase_config.outputs.available == 'true'
+        run: ./gradlew assembleProdRelease --no-daemon
 
   web:
     runs-on: ubuntu-latest

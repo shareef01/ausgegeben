@@ -7,6 +7,8 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_APP_ID: string;
   readonly VITE_FIREBASE_APP_CHECK_KEY?: string;
   readonly VITE_FIREBASE_USE_EMULATORS?: string;
+  /** Endpoint that receives crash reports. Unset = console-only (see errorSink.ts). */
+  readonly VITE_ERROR_REPORT_URL?: string;
 }
 
 interface ImportMeta {
