@@ -9,6 +9,7 @@ import { authService } from '@/services/authService';
 import { applyTheme, resolveTheme, resolvedThemeName, writeStoredThemeMode } from '@/theme/tokens';
 import { t as translate } from '@/i18n';
 import { preferencesSync } from '@/services/preferencesSync';
+import { seedOnboardingForUser } from '@/services/preferencesStore';
 import { expenseRepository } from '@/repositories/expenseRepository';
 
 try {
@@ -51,10 +52,20 @@ export function App(): JSX.Element {
   useEffect(() => {
     if (!user) {
       preferencesSync.stop();
-      usePreferencesStore.getState().resetPreferences();
+      // Reset only on a genuine sign-out. During Auth init the listener can emit
+      // a transient null before the persisted session resolves; resetting there
+      // would wipe locally-persisted prefs (e.g. the onboarding flag that keeps
+      // an unverified account from re-seeing the whole flow on every reload).
+      if (useAuthStore.getState().ready) {
+        usePreferencesStore.getState().resetPreferences();
+      }
       return;
     }
     preferencesSync.start(user.uid);
+    // Restore the locally-persisted onboarding flag (per uid) before the
+    // Firestore preferences snapshot resolves, so an unverified account does
+    // not re-see onboarding on reload or after sign-out/sign-in.
+    seedOnboardingForUser(user.uid);
     return () => preferencesSync.stop();
   }, [user]);
 

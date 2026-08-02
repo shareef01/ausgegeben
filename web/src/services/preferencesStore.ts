@@ -2,8 +2,58 @@
 import type { AppPreferences, ThemeMode, SyncedPreferences } from '@/models/types';
 import type { Locale } from '@/i18n';
 import { readStoredThemeMode, writeStoredThemeMode } from '@/theme/tokens';
+import { useAuthStore } from '@/services/authStore';
 
 const storedTheme = readStoredThemeMode();
+
+// Onboarding completion is persisted locally per uid so an unverified account
+// (whose preferences writes are blocked by firestore.rules until email
+// verification) does not re-see the whole onboarding flow on every reload or
+// after a sign-out/sign-in. Cloud value wins once it exists —
+// applySyncedPreferences overwrites this on the next snapshot.
+const ONBOARDING_STORAGE_PREFIX = 'ausgegeben-onboarding-complete:';
+
+function onboardingStorageKey(uid: string): string {
+  return `${ONBOARDING_STORAGE_PREFIX}${uid}`;
+}
+
+function readStoredOnboarding(uid: string): boolean {
+  try {
+    return localStorage.getItem(onboardingStorageKey(uid)) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function writeStoredOnboarding(uid: string, complete: boolean) {
+  try {
+    if (complete) localStorage.setItem(onboardingStorageKey(uid), 'true');
+    else localStorage.removeItem(onboardingStorageKey(uid));
+  } catch {
+    // private mode / storage disabled — memory-only is the previous behaviour
+  }
+}
+
+/**
+ * Seed the onboarding flag from localStorage for a freshly signed-in user.
+ * Called from App.tsx when the auth user becomes known — before the Firestore
+ * preferences snapshot resolves — so the gate never flashes onboarding at an
+ * account that already completed it. A missing/absent cloud doc (unverified
+ * account) never fires applySyncedPreferences, so this local value is the only
+ * thing standing between them and a repeated onboarding flow.
+ *
+ * Deliberately does NOT go through completeOnboarding(): that bumps
+ * preferencesUpdatedAt, and preferencesSync's store subscription pushes on any
+ * timestamp change — seeding would overwrite a returning verified user's real
+ * cloud preferences (currency/locale/budget/…) with defaults on every reload.
+ * The clock bump is reserved for a genuine completion in OnboardingView.
+ */
+export function seedOnboardingForUser(uid: string): void {
+  if (usePreferencesStore.getState().onboardingComplete) return;
+  if (readStoredOnboarding(uid)) {
+    usePreferencesStore.setState({ onboardingComplete: true });
+  }
+}
 
 const DEFAULT_PREFERENCES: AppPreferences = {
   currency: 'EUR',
@@ -51,8 +101,11 @@ export const usePreferencesStore = create<PreferencesStore>()((set) => ({
     writeStoredThemeMode(themeMode);
     set({ themeMode, preferencesUpdatedAt: touchPrefs() });
   },
-  completeOnboarding: () =>
-    set({ onboardingComplete: true, preferencesUpdatedAt: touchPrefs() }),
+  completeOnboarding: () => {
+    const uid = useAuthStore.getState().user?.uid;
+    if (uid) writeStoredOnboarding(uid, true);
+    set({ onboardingComplete: true, preferencesUpdatedAt: touchPrefs() });
+  },
   setDailyReminder: (dailyReminder) => {
     set({ dailyReminder, preferencesUpdatedAt: touchPrefs() });
   },
