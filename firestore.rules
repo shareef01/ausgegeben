@@ -100,7 +100,9 @@ service cloud.firestore {
         && d.categoryId.size() > 0
         && d.categoryId.size() < 64
         && d.note is string
-        && d.note.size() < 2000
+        // <= matches the clients' hard cap (web slice(0,2000), Android take(2000)):
+        // an exactly-2000-char note is a legitimate write, not an overrun.
+        && d.note.size() <= 2000
         && d.transactionType in ['expense', 'income', 'transfer']
         && validUpdatedAt(d)
         && (!('idempotencyKey' in d)
@@ -117,7 +119,8 @@ service cloud.firestore {
         && d.keys().hasAll(['name', 'iconName', 'colorInt', 'transactionType', 'sortOrder'])
         && d.name is string
         && d.name.size() > 0
-        && d.name.size() < 80
+        // <= matches the clients' hard cap (web slice(0,80), Android take(80)).
+        && d.name.size() <= 80
         && d.iconName is string
         && d.iconName.size() > 0
         && d.iconName.size() < 64
