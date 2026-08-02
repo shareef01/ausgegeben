@@ -342,8 +342,6 @@
     <string name="category_deduplicate_confirm">Merge</string>
     <string name="category_deduplicate_done">Categories deduplicated</string>
     <string name="settings_deduplicate_label">deduplicate categories</string>
-    <string name="settings_deduplicate_subtitle">merge categories with same name</string>
-    <string name="settings_deduplicate_done">categories deduplicated</string>
     <string name="auth_content_desc_back">Go back</string>
     <string name="auth_content_desc_password_visibility">Toggle password visibility</string>
     <string name="chart_content_desc_cashflow">Cash flow chart showing income and expense trends</string>
