@@ -412,7 +412,8 @@ fun CategoryManageSheet(
     onEditCategory: (Category) -> Unit,
     onDeleteCategory: (Category) -> Unit,
     onMoveCategory: (Category, Boolean) -> Unit,
-    onDeduplicate: (() -> Unit)? = null
+    onDeduplicate: (() -> Unit)? = null,
+    isReordering: Boolean = false
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val typeLabel = transactionType.label()
@@ -518,8 +519,8 @@ fun CategoryManageSheet(
                     itemsIndexed(visibleCategories, key = { _, c -> c.id }) { index, category ->
                         CategoryManageRow(
                             category = category,
-                            canMoveUp = index > 0,
-                            canMoveDown = index < visibleCategories.lastIndex,
+                            canMoveUp = index > 0 && !isReordering,
+                            canMoveDown = index < visibleCategories.lastIndex && !isReordering,
                             onEdit = { onEditCategory(category) },
                             onDelete = { onDeleteCategory(category) },
                             onMoveUp = { onMoveCategory(category, true) },
