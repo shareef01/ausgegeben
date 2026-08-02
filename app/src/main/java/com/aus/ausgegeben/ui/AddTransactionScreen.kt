@@ -117,6 +117,7 @@ fun AddTransactionScreen(
     val loadedTransactionType by viewModel.loadedTransactionType.collectAsStateWithLifecycle()
     val dateMillis by viewModel.dateMillis.collectAsStateWithLifecycle()
     val isSaving by viewModel.isSaving.collectAsStateWithLifecycle()
+    val isReorderingCategories by categoryViewModel.isReordering.collectAsStateWithLifecycle()
 
     val isEditing = editingExpenseId != null
     var initialLoadDone by remember { mutableStateOf(!isEditing) }
@@ -356,6 +357,7 @@ fun AddTransactionScreen(
             },
             onDeleteCategory = { categoryToDelete = it },
             onMoveCategory = categoryViewModel::moveCategory,
+            isReordering = isReorderingCategories,
             onDeduplicate = {
                 categoryViewModel.deduplicateCategories()
             }
