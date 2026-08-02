@@ -33,6 +33,9 @@ class CategoryViewModel @Inject constructor(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private val _isReordering = MutableStateFlow(false)
+    val isReordering: StateFlow<Boolean> = _isReordering.asStateFlow()
+
     fun clearError() {
         _errorMessage.value = null
     }
@@ -126,13 +129,27 @@ class CategoryViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Two rapid taps used to race: each read the category list fresh (a brand-new
+     * Firestore listener per call) and wrote sequentially, so a second tap could
+     * compute its move from data the first tap's writes hadn't landed in yet,
+     * reintroducing duplicate sortOrder values through overlapping writes. The
+     * guard serializes moves; reading from the already-subscribed [categories]
+     * instead of a fresh listener also closes most of the window on its own.
+     */
     fun moveCategory(category: Category, moveUp: Boolean) {
+        if (_isReordering.value) return
+        _isReordering.value = true
         viewModelScope.launch {
-            val changed = categoriesAfterMove(repository.allCategories.first(), category, moveUp)
-            changed.forEach { item ->
-                repository.updateCategory(item).onFailure { e ->
-                    _errorMessage.value = errorText(e, R.string.category_error_reorder_failed)
+            try {
+                val changed = categoriesAfterMove(categories.value, category, moveUp)
+                changed.forEach { item ->
+                    repository.updateCategory(item).onFailure { e ->
+                        _errorMessage.value = errorText(e, R.string.category_error_reorder_failed)
+                    }
                 }
+            } finally {
+                _isReordering.value = false
             }
         }
     }
