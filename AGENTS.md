@@ -77,22 +77,27 @@ edit made on another device, which that path never observed anyway.
 
 ## 3. Known open
 
-**Category reordering still does not work.** Reported after PR #16, which fixed
-two genuine causes but evidently not all of them:
+**Category reordering — device-verified as working on 2026-08-02.** The note below
+is the historical context; the end-to-end verification it asked for has now been
+done (AVD + emulator backend, current `main`): move arrows reorder correctly,
+logcat stays free of `category_error_reorder_failed` / `PERMISSION_DENIED`, and
+the `sortOrder` writes land in Firestore. Stress-tested against the two historical
+failure modes — the hidden Uncategorized sentinel (`sortOrder 999`, id `'0'`)
+present, and two categories sharing one `sortOrder` — plus a `sortOrder` gap; all
+renumber correctly (sequential renumbering also normalises duplicates and gaps
+away). If reordering breaks again, the write path and listener refresh were both
+exercised and are not the culprit.
 
-- the hidden Uncategorized sentinel (`sortOrder 999`) was counted when ranking
-  neighbours while `CategoryScreen` hides it
-- swapping `sortOrder` values is a no-op when two categories share one
-
-Both are fixed and covered by `CategoryReorderTest` (9 cases). **That fix was
-verified by unit tests only and never exercised on a device** — which is exactly
-the mistake section 1 warns about. Something else is still wrong.
-
-Start by tapping the arrows on a device with the emulator backend and watching
-logcat for `category_error_reorder_failed` or `PERMISSION_DENIED`, then check
-whether the write actually lands in Firestore. Do not assume the pure logic is at
-fault; it is tested. Suspect the write path, the listener refresh, or the UI list
-identity.
+> Historical (pre-#16): reordering did not work. Reported after PR #16, which
+> fixed two genuine causes but evidently not all of them:
+>
+> - the hidden Uncategorized sentinel (`sortOrder 999`) was counted when ranking
+>   neighbours while `CategoryScreen` hides it
+> - swapping `sortOrder` values is a no-op when two categories share one
+>
+> Both are fixed and covered by `CategoryReorderTest` (9 cases), but that fix was
+> verified by unit tests only and never exercised on a device — which is exactly
+> the mistake section 1 warns about.
 
 ---
 
@@ -130,7 +135,7 @@ identity.
 ```bash
 # web
 cd web && npm test && npm run lint && npm run lint:css && npm run build
-cd web && npm run test:rules      # 35 rules tests, Firestore emulator
+cd web && npm run test:rules      # 37 rules tests, Firestore emulator
 cd web && npm run test:emulator   # 39 repository tests, Firestore emulator
 cd web && npm run smoke           # smoke-test the deployed site
 
