@@ -343,8 +343,6 @@
     <string name="category_deduplicate_confirm">Zusammenführen</string>
     <string name="category_deduplicate_done">Kategorien dedupliziert</string>
     <string name="settings_deduplicate_label">kategorien deduplizieren</string>
-    <string name="settings_deduplicate_subtitle">kategorien mit gleichem namen zusammenführen</string>
-    <string name="settings_deduplicate_done">kategorien dedupliziert</string>
     <string name="auth_content_desc_back">Zurück</string>
     <string name="auth_content_desc_password_visibility">Passwortsichtbarkeit umschalten</string>
     <string name="chart_content_desc_cashflow">Cashflow-Diagramm mit Einnahmen- und Ausgabentrends</string>
