@@ -263,22 +263,6 @@ fun SettingsScreen(
                         onClick = onNavigateToCategories,
                     )
                     IosSeparator(insetStart = 56.dp)
-                    val deduplicateDoneMsg = stringResource(R.string.settings_deduplicate_done)
-                    val deduplicateFailedMsg = stringResource(R.string.category_error_deduplicate_failed)
-                    SettingsActionRow(
-                        icon = Icons.Rounded.CleaningServices,
-                        tint = MaterialTheme.colorScheme.primary,
-                        title = stringResource(R.string.settings_deduplicate_label),
-                        subtitle = stringResource(R.string.settings_deduplicate_subtitle),
-                        onClick = {
-                            scope.launch {
-                                repository.deduplicateCategories()
-                                    .onSuccess { onShowMessage(deduplicateDoneMsg) }
-                                    .onFailure { onShowMessage(deduplicateFailedMsg) }
-                            }
-                        }
-                    )
-                    IosSeparator(insetStart = 56.dp)
                     SettingsActionRow(
                         icon = Icons.Rounded.FileDownload,
                         tint = settingsIconTintMuted(),
