@@ -130,19 +130,25 @@ class CategoryViewModel @Inject constructor(
     }
 
     /**
-     * Two rapid taps used to race: each read the category list fresh (a brand-new
-     * Firestore listener per call) and wrote sequentially, so a second tap could
-     * compute its move from data the first tap's writes hadn't landed in yet,
-     * reintroducing duplicate sortOrder values through overlapping writes. The
-     * guard serializes moves; reading from the already-subscribed [categories]
-     * instead of a fresh listener also closes most of the window on its own.
+     * Two rapid taps used to race: each read the category list fresh and wrote
+     * sequentially, so a second tap could compute its move from data the first
+     * tap's writes hadn't landed in yet, reintroducing duplicate sortOrder values
+     * through overlapping writes. The guard serializes moves.
+     *
+     * The read stays `repository.allCategories.first()`, not the cached
+     * [categories] StateFlow: [categories] is only kept warm while something
+     * collects it (`WhileSubscribed`), which happens on the Settings > Categories
+     * screen but *not* in the manage-categories sheet opened from Add Transaction
+     * (that screen displays a different ViewModel's category list and only calls
+     * through to `moveCategory`). Reading the cached value there silently computed
+     * against a stale-or-empty list and moved nothing.
      */
     fun moveCategory(category: Category, moveUp: Boolean) {
         if (_isReordering.value) return
         _isReordering.value = true
         viewModelScope.launch {
             try {
-                val changed = categoriesAfterMove(categories.value, category, moveUp)
+                val changed = categoriesAfterMove(repository.allCategories.first(), category, moveUp)
                 changed.forEach { item ->
                     repository.updateCategory(item).onFailure { e ->
                         _errorMessage.value = errorText(e, R.string.category_error_reorder_failed)
