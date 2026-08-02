@@ -90,6 +90,29 @@ describe('firestore.rules', () => {
     await assertSucceeds(setDoc(doc(db, expensePath('alice')), validExpense));
   });
 
+  /**
+   * Clients truncate notes to exactly 2000 chars (web slice(0,2000), Android
+   * take(2000)) and category names to exactly 80 — the rule bound must be <=,
+   * not <, or an at-cap value is rejected by the server with PERMISSION_DENIED
+   * after passing every client-side check.
+   */
+  it('accepts a note of exactly 2000 characters and rejects longer', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'cat-1')), validCategory));
+    await assertSucceeds(
+      setDoc(doc(db, expensePath('alice', 'e-cap')), { ...validExpense, note: 'n'.repeat(2000) }),
+    );
+    await assertFails(
+      setDoc(doc(db, expensePath('alice', 'e-over')), { ...validExpense, note: 'n'.repeat(2001) }),
+    );
+  });
+
+  it('accepts a category name of exactly 80 characters and rejects longer', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'cat-80')), { ...validCategory, name: 'n'.repeat(80) }));
+    await assertFails(setDoc(doc(db, categoryPath('alice', 'cat-81')), { ...validCategory, name: 'n'.repeat(81) }));
+  });
+
   it('denies expense with unknown categoryId', async () => {
     const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
     await assertFails(setDoc(doc(db, expensePath('alice')), validExpense));
