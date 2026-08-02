@@ -111,15 +111,15 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
+          # reactivecircus/android-emulator-runner runs each line of `script` as its
+          # own `sh -c` invocation, not as one script — a multi-line if/fi here splits
+          # across invocations and fails with a syntax error before ever checking the
+          # app. Every check must fit on one line.
           script: |
             adb install "ausgegeben-${{ steps.version.outputs.name }}.apk"
             adb shell am start -n com.aus.ausgegeben/.MainActivity
             sleep 12
-            if ! adb shell pidof com.aus.ausgegeben >/dev/null; then
-              echo "::error::release APK crashed on launch"
-              adb logcat -d | grep -iE 'FATAL|AndroidRuntime' | tail -20 || true
-              exit 1
-            fi
+            adb shell pidof com.aus.ausgegeben > /dev/null || { echo "::error::release APK crashed on launch"; adb logcat -d | grep -iE 'FATAL|AndroidRuntime' | tail -20; exit 1; }
             echo "release APK survived first launch (pid $(adb shell pidof com.aus.ausgegeben | tr -d '\r'))"
 
       - name: Publish release
