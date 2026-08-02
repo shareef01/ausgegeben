@@ -43,6 +43,7 @@ fun CategoryScreen(
 ) {
     val categories by viewModel.categories.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
+    val isReordering by viewModel.isReordering.collectAsStateWithLifecycle()
     LaunchedEffect(errorMessage) {
         val message = errorMessage
         if (message != null) {
@@ -157,8 +158,8 @@ fun CategoryScreen(
                                 CategoryListItem(
                                     category = category,
                                     typeLabel = type.localizedLabel(LocalContext.current),
-                                    canMoveUp = index > 0,
-                                    canMoveDown = index < typeCategories.lastIndex,
+                                    canMoveUp = index > 0 && !isReordering,
+                                    canMoveDown = index < typeCategories.lastIndex && !isReordering,
                                     onEdit = {
                                         editingCategory = category
                                         showEditorDialog = true
