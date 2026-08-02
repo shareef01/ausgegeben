@@ -11,6 +11,9 @@
 **Try it now:** [aus01.web.app](https://aus01.web.app) · installable as a PWA
 **Or on Android:** [download the latest signed APK](https://github.com/shareef01/ausgegeben/releases/latest) · sideload, no Play Store needed
 
+> Working on this with an AI agent? Read [AGENTS.md](AGENTS.md) first — it records
+> which apparent oddities are deliberate, and what has historically slipped past CI.
+
 - **Track** expenses, income, and transfers with notes and custom categories
 - **Understand** your money — budgets, category breakdowns, cash-flow trends
 - **Everywhere** — add a transaction on your phone, see it on the web instantly
