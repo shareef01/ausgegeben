@@ -48,7 +48,7 @@ class AppRepository @Inject constructor(
     private val authRepository: AuthRepository,
     private val preferenceManager: PreferenceManager,
     private val firestoreClient: FirestoreClient,
-) {
+) : CategoryActions {
     private val firestore get() = firestoreClient.get()
     companion object {
         const val UNCATEGORIZED_ID = "0"
@@ -241,7 +241,7 @@ class AppRepository @Inject constructor(
         }
     }
 
-    suspend fun deduplicateCategories(): Result<Unit> = runCatching {
+    override suspend fun deduplicateCategories(): Result<Unit> = runCatching {
         requireVerifiedEmail()
         val u = uid() ?: throw IllegalStateException("Not signed in")
         
@@ -303,7 +303,7 @@ class AppRepository @Inject constructor(
 
     // ── Categories ──
 
-    val allCategories: Flow<List<Category>> = perUserFlow(emptyList()) { u ->
+    override val allCategories: Flow<List<Category>> = perUserFlow(emptyList()) { u ->
         callbackFlow {
             val sub = catCol(u).orderBy("sortOrder").addSnapshotListener { snap, error ->
                 if (error != null) {
@@ -323,7 +323,7 @@ class AppRepository @Inject constructor(
         }
     }
 
-    suspend fun insertCategory(category: Category): Result<String> = runCatching {
+    override suspend fun insertCategory(category: Category): Result<String> = runCatching {
         requireVerifiedEmail()
         val u = uid() ?: throw IllegalStateException("Not signed in")
         val id = UUID.randomUUID().toString()
@@ -335,7 +335,7 @@ class AppRepository @Inject constructor(
         id
     }
 
-    suspend fun updateCategory(category: Category): Result<Unit> = runCatching {
+    override suspend fun updateCategory(category: Category): Result<Unit> = runCatching {
         requireVerifiedEmail()
         val u = uid() ?: throw IllegalStateException("Not signed in")
         val c = category.copy(name = category.name.trim().take(80))
@@ -349,7 +349,7 @@ class AppRepository @Inject constructor(
      * worse state than either the old or new order. A batch commits all writes
      * together or none of them.
      */
-    suspend fun updateCategoriesBatch(categories: List<Category>): Result<Unit> = runCatching {
+    override suspend fun updateCategoriesBatch(categories: List<Category>): Result<Unit> = runCatching {
         if (categories.isEmpty()) return@runCatching
         requireVerifiedEmail()
         val u = uid() ?: throw IllegalStateException("Not signed in")
@@ -361,7 +361,7 @@ class AppRepository @Inject constructor(
         }.await()
     }
 
-    suspend fun deleteCategory(category: Category): Result<Unit> = runCatching {
+    override suspend fun deleteCategory(category: Category): Result<Unit> = runCatching {
         requireVerifiedEmail()
         val u = uid() ?: throw IllegalStateException("Not signed in")
         // Deleting the uncategorized sentinel is allowed; linked expenses keep
@@ -524,12 +524,12 @@ class AppRepository @Inject constructor(
         }
     }
 
-    suspend fun countExpensesForCategory(categoryId: String): Int {
+    override suspend fun countExpensesForCategory(categoryId: String): Int {
         val u = uid() ?: return 0
         return expenseDocsForCategory(u, categoryId).size
     }
 
-    suspend fun updateExpenseTypesForCategory(categoryId: String, transactionType: String): Result<Unit> =
+    override suspend fun updateExpenseTypesForCategory(categoryId: String, transactionType: String): Result<Unit> =
         runCatching {
             requireVerifiedEmail()
             val u = uid() ?: throw IllegalStateException("Not signed in")
