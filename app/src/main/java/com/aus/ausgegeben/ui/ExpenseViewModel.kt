@@ -2,8 +2,9 @@ package com.aus.ausgegeben.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.aus.ausgegeben.data.AppRepository
-import com.aus.ausgegeben.data.PreferenceManager
+import com.aus.ausgegeben.data.CategoryActions
+import com.aus.ausgegeben.data.ExpenseActions
+import com.aus.ausgegeben.data.TransactionPreferences
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.util.AnalyticsPeriod
@@ -60,8 +61,9 @@ data class RecordToolbarState(
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @HiltViewModel
 class ExpenseViewModel @Inject constructor(
-    private val repository: AppRepository,
-    private val preferenceManager: PreferenceManager,
+    private val categoryActions: CategoryActions,
+    private val expenseActions: ExpenseActions,
+    private val preferenceManager: TransactionPreferences,
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
@@ -74,7 +76,7 @@ class ExpenseViewModel @Inject constructor(
     // 1. Base data flows
     private val currencyFlow = preferenceManager.currencyFlow.distinctUntilChanged()
     private val budgetFlow = preferenceManager.monthlyBudgetFlow.distinctUntilChanged()
-    private val categoriesFlow = repository.allCategories.distinctUntilChanged()
+    private val categoriesFlow = categoryActions.allCategories.distinctUntilChanged()
 
     private fun Flow<List<Expense>>.excludingSoftDeleted(): Flow<List<Expense>> =
         combine(this, _softDeletedIds) { expenses, hidden ->
@@ -89,8 +91,8 @@ class ExpenseViewModel @Inject constructor(
     private val monthExpensesShared: Flow<List<Expense>> =
         flowOf(AnalyticsPeriod.THIS_MONTH.dateRangeMillis())
             .flatMapLatest { range ->
-                if (range == null) repository.allExpenses
-                else repository.getExpensesInRange(range.first, range.second)
+                if (range == null) expenseActions.allExpenses
+                else expenseActions.getExpensesInRange(range.first, range.second)
             }
             .excludingSoftDeleted()
             .distinctUntilChanged()
@@ -108,9 +110,9 @@ class ExpenseViewModel @Inject constructor(
             } else {
                 val range = recordListDateRangeMillis(periodKey)
                 val base = if (range == null) {
-                    repository.allExpenses
+                    expenseActions.allExpenses
                 } else {
-                    repository.getExpensesInRange(range.first, range.second)
+                    expenseActions.getExpensesInRange(range.first, range.second)
                 }
                 base.excludingSoftDeleted()
             }
@@ -144,7 +146,7 @@ class ExpenseViewModel @Inject constructor(
         dayTotalsFlow,
         // Reported by the listener, which alone sees the untrimmed row count. Re-deriving it
         // from the emitted list size raised a false banner at exactly the cap.
-        repository.dataTruncated,
+        expenseActions.dataTruncated,
     ) { data, toolbar, insights, totals, truncated ->
         RecordUiState(
             data,
@@ -190,7 +192,7 @@ class ExpenseViewModel @Inject constructor(
 
     fun duplicateExpense(expense: Expense, onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
         viewModelScope.launch {
-            val result = repository.duplicateExpense(expense)
+            val result = expenseActions.duplicateExpense(expense)
             onResult(result.isSuccess, result.exceptionOrNull()?.message?.takeIf { it == "EMAIL_NOT_VERIFIED" })
         }
     }
@@ -213,7 +215,7 @@ class ExpenseViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            val result = repository.deleteExpense(expense)
+            val result = expenseActions.deleteExpense(expense)
             // Always unhide: success means gone from Firestore; failure shows the row again.
             _softDeletedIds.value = _softDeletedIds.value - expense.id
             onResult(result.isSuccess, result.exceptionOrNull()?.message?.takeIf { it == "EMAIL_NOT_VERIFIED" })
