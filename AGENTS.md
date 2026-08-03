@@ -19,6 +19,7 @@ backend. Green CI has never once predicted correctness here.
 | Web API key silently deleted → **sign-in broken for everyone** | Deploys keep succeeding; nothing validated the key |
 | Soft-deleted rows still counted as live, **inflating totals by €7,655** | Nothing read the `deleted` flag; the data looked fine |
 | Category reorder swapped against a hidden row and against duplicate values | Logic was inline behind Firestore, unreachable by tests |
+| "Category reordering — device-verified as working" (this file, 2026-08-02 morning) was itself wrong — still broken for a real account that afternoon | AVD test data carries none of the legacy `cloudId` / Timestamp `updatedAt` / `deleted` field drift a real, long-lived account has; a device test only catches what the test account's data shape can trigger |
 
 **Therefore:**
 
@@ -53,11 +54,15 @@ known, not a bug to chase.
 `10203`) because it was once hardcoded to `1`, which would have made the second
 release uninstallable over the first.
 
-**Legacy expense fields are tolerated, never written.** `cloudId`,
-`categoryCloudId`, `receiptImagePath`, `deleted` are allowed by `validExpense()`
-and bounded by type and size. `updatedAt` accepts **number or Timestamp**.
-Tightening any of this re-freezes real rows written by older builds. Three
-documents exist with no core fields at all; they are inert and intentionally left.
+**Legacy fields are tolerated, never written — on both expenses and categories.**
+`validExpense()` allows `cloudId`, `categoryCloudId`, `receiptImagePath`,
+`deleted`; `validCategory()` allows `cloudId`, `deleted`. Both bound the fields by
+type and size, and both accept `updatedAt` as **number or Timestamp**.
+Tightening any of this re-freezes real rows written by older builds — categories
+got this later than expenses (see section 1's reorder incident) and needed it
+just as much: 12 of 17 categories on the account that surfaced it carried
+`cloudId` with a Timestamp `updatedAt`. Three expense documents exist with no
+core fields at all; they are inert and intentionally left.
 
 **Web `.btn` has no padding of its own.** Sizing comes from utility classes at each
 call site. The 44px touch floor lives in a `@media (pointer: coarse)` block in
@@ -77,27 +82,30 @@ edit made on another device, which that path never observed anyway.
 
 ## 3. Known open
 
-**Category reordering — device-verified as working on 2026-08-02.** The note below
-is the historical context; the end-to-end verification it asked for has now been
-done (AVD + emulator backend, current `main`): move arrows reorder correctly,
-logcat stays free of `category_error_reorder_failed` / `PERMISSION_DENIED`, and
-the `sortOrder` writes land in Firestore. Stress-tested against the two historical
-failure modes — the hidden Uncategorized sentinel (`sortOrder 999`, id `'0'`)
-present, and two categories sharing one `sortOrder` — plus a `sortOrder` gap; all
-renumber correctly (sequential renumbering also normalises duplicates and gaps
-away). If reordering breaks again, the write path and listener refresh were both
-exercised and are not the culprit.
+Nothing currently open.
 
-> Historical (pre-#16): reordering did not work. Reported after PR #16, which
-> fixed two genuine causes but evidently not all of them:
->
-> - the hidden Uncategorized sentinel (`sortOrder 999`) was counted when ranking
->   neighbours while `CategoryScreen` hides it
-> - swapping `sortOrder` values is a no-op when two categories share one
->
-> Both are fixed and covered by `CategoryReorderTest` (9 cases), but that fix was
-> verified by unit tests only and never exercised on a device — which is exactly
-> the mistake section 1 warns about.
+**Category reordering — actually fixed 2026-08-02, verified against a real
+account with real data, not just the AVD.** The entry that used to live here
+("device-verified as working," written that same morning) was itself premature
+— see section 1's incident table. Three separate bugs, found in this order by
+testing against a real account rather than the AVD:
+
+- A genuine concurrency race: `moveCategory` read the category list fresh and
+  wrote it sequentially on every tap, so two rapid taps could interleave and
+  reintroduce duplicate `sortOrder` values through overlapping writes — the same
+  end state PR #16 fixed, via a new mechanism. Fixed with a busy-guard and a
+  single atomic batch write (`updateCategoriesBatch`).
+- A regression in that fix: switching the read to a cached `StateFlow` saved a
+  listener, but the cache is only warm on the Settings > Categories screen, not
+  the manage-categories sheet opened from Add Transaction — reordering from
+  there silently computed against stale-or-empty data and wrote nothing.
+- The actual blocker: `validCategory()` didn't tolerate the legacy fields real
+  category documents carry (see section 2) — any write to one of those rows,
+  including a plain `sortOrder` rename, was rejected outright.
+
+Covered by `CategoryViewModelTest` (busy-guard + batch write) and a
+`firestore.rules.test.ts` case built from the real account's field shape, not a
+guessed fixture. Confirmed working by the user on the real device afterward.
 
 ---
 
