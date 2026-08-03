@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.AppRepository
+import com.aus.ausgegeben.data.CategoryActions
 import com.aus.ausgegeben.data.entity.Category
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -20,7 +21,7 @@ import javax.inject.Inject
 @HiltViewModel
 class CategoryViewModel @Inject constructor(
     application: Application,
-    private val repository: AppRepository,
+    private val repository: CategoryActions,
 ) : AndroidViewModel(application) {
 
     val categories: StateFlow<List<Category>> = repository.allCategories
