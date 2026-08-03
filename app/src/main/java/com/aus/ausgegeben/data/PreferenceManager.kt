@@ -27,7 +27,7 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 @Singleton
 class PreferenceManager @Inject constructor(
     @ApplicationContext context: Context,
-) {
+) : TransactionPreferences {
     // Always pin DataStore to the application context — callers often pass an Activity.
     private val context = context.applicationContext
     private val crypto = PrefsCrypto()
@@ -81,7 +81,7 @@ class PreferenceManager @Inject constructor(
 
     val languageFlow: Flow<String> = dataFlow().map { it[PreferencesKeys.LANGUAGE] ?: "en" }
 
-    val currencyFlow: Flow<String> = dataFlow().map { prefs ->
+    override val currencyFlow: Flow<String> = dataFlow().map { prefs ->
         prefs.sealedString(PreferencesKeys.CURRENCY, "EUR")
     }
 
@@ -128,14 +128,14 @@ class PreferenceManager @Inject constructor(
         )
     }
 
-    val analyticsPeriodFlow: Flow<String> = dataFlow().map { prefs ->
+    override val analyticsPeriodFlow: Flow<String> = dataFlow().map { prefs ->
         prefs.sealedString(
             PreferencesKeys.ANALYTICS_PERIOD,
             AnalyticsPeriod.THIS_MONTH.storageKey,
         )
     }
 
-    val monthlyBudgetFlow: Flow<Double?> = dataFlow().map { prefs ->
+    override val monthlyBudgetFlow: Flow<Double?> = dataFlow().map { prefs ->
         crypto.open(prefs[PreferencesKeys.MONTHLY_BUDGET])
             ?.toDoubleOrNull()
             ?.takeIf { it > 0 }
@@ -319,7 +319,7 @@ class PreferenceManager @Inject constructor(
         updateAnalyticsPeriodKey(period.storageKey)
     }
 
-    suspend fun updateAnalyticsPeriodKey(storageKey: String) {
+    override suspend fun updateAnalyticsPeriodKey(storageKey: String) {
         touchEdit { putSealed(PreferencesKeys.ANALYTICS_PERIOD, storageKey) }
     }
 
