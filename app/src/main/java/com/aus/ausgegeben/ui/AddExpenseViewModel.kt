@@ -5,8 +5,9 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.aus.ausgegeben.R
-import com.aus.ausgegeben.data.AppRepository
-import com.aus.ausgegeben.data.PreferenceManager
+import com.aus.ausgegeben.data.CategoryActions
+import com.aus.ausgegeben.data.ExpenseActions
+import com.aus.ausgegeben.data.TransactionPreferences
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.util.CurrencyUtils
@@ -25,8 +26,9 @@ import javax.inject.Inject
 @HiltViewModel
 class AddExpenseViewModel @Inject constructor(
     application: Application,
-    private val repository: AppRepository,
-    private val preferenceManager: PreferenceManager,
+    private val categoryActions: CategoryActions,
+    private val expenseActions: ExpenseActions,
+    private val preferenceManager: TransactionPreferences,
 ) : AndroidViewModel(application) {
 
     companion object {
@@ -64,7 +66,7 @@ class AddExpenseViewModel @Inject constructor(
      */
     private var composeIdempotencyKey: String = UUID.randomUUID().toString()
 
-    val categories: StateFlow<List<Category>> = repository.allCategories
+    val categories: StateFlow<List<Category>> = categoryActions.allCategories
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -153,11 +155,11 @@ class AddExpenseViewModel @Inject constructor(
                     val excludeIdForBudget: String
                     val saveError: Throwable?
                     if (editingId != null) {
-                        val result = repository.updateExpense(expense)
+                        val result = expenseActions.updateExpense(expense)
                         excludeIdForBudget = editingId
                         saveError = result.exceptionOrNull()
                     } else {
-                        val result = repository.insertExpense(expense, composeIdempotencyKey)
+                        val result = expenseActions.insertExpense(expense, composeIdempotencyKey)
                         excludeIdForBudget = result.getOrNull().orEmpty()
                         saveError = result.exceptionOrNull()
                     }
@@ -195,7 +197,7 @@ class AddExpenseViewModel @Inject constructor(
     ): String? {
         if (type != TransactionType.EXPENSE) return null
         val budget = preferenceManager.monthlyBudgetFlow.first() ?: return null
-        val spent = repository.sumMonthExpenses(excludeExpenseId)
+        val spent = expenseActions.sumMonthExpenses(excludeExpenseId)
         val projected = spent + newAmount
         if (projected <= budget) return null
         val currency = preferenceManager.currencyFlow.first()
