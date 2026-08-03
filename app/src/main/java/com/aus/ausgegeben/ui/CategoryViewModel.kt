@@ -142,6 +142,12 @@ class CategoryViewModel @Inject constructor(
      * (that screen displays a different ViewModel's category list and only calls
      * through to `moveCategory`). Reading the cached value there silently computed
      * against a stale-or-empty list and moved nothing.
+     *
+     * The writes go through updateCategoriesBatch, not one updateCategory call per
+     * changed row: a reorder touches every category in the type, and writing them
+     * one at a time left a window where a failure partway through — the exact
+     * PERMISSION_DENIED bug this method has already hit twice — left some rows
+     * renumbered and others not, a worse state than either order.
      */
     fun moveCategory(category: Category, moveUp: Boolean) {
         if (_isReordering.value) return
@@ -149,10 +155,8 @@ class CategoryViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val changed = categoriesAfterMove(repository.allCategories.first(), category, moveUp)
-                changed.forEach { item ->
-                    repository.updateCategory(item).onFailure { e ->
-                        _errorMessage.value = errorText(e, R.string.category_error_reorder_failed)
-                    }
+                repository.updateCategoriesBatch(changed).onFailure { e ->
+                    _errorMessage.value = errorText(e, R.string.category_error_reorder_failed)
                 }
             } finally {
                 _isReordering.value = false
