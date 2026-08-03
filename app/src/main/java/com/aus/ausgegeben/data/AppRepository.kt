@@ -48,7 +48,7 @@ class AppRepository @Inject constructor(
     private val authRepository: AuthRepository,
     private val preferenceManager: PreferenceManager,
     private val firestoreClient: FirestoreClient,
-) : CategoryActions {
+) : CategoryActions, ExpenseActions, AccountActions {
     private val firestore get() = firestoreClient.get()
     companion object {
         const val UNCATEGORIZED_ID = "0"
@@ -103,7 +103,7 @@ class AppRepository @Inject constructor(
      * raised a false "showing latest N only" banner. Only the listener sees the untrimmed
      * count, so only the listener can report this.
      */
-    val dataTruncated: StateFlow<Boolean> = _dataTruncated.asStateFlow()
+    override val dataTruncated: StateFlow<Boolean> = _dataTruncated.asStateFlow()
 
     private fun markTruncation(source: ListenerSource, truncated: Boolean) {
         if (truncated) truncatedListeners.add(source) else truncatedListeners.remove(source)
@@ -148,7 +148,7 @@ class AppRepository @Inject constructor(
     private fun accountDeletionDoc(uid: String) = metaCol(uid).document("accountDeletion")
 
     /** True when wipe finished but Auth delete failed — blocks re-seeding empty accounts. */
-    suspend fun isAccountDeletionPending(): Boolean {
+    override suspend fun isAccountDeletionPending(): Boolean {
         val u = uid() ?: return false
         return runCatching {
             accountDeletionDoc(u).get().await().getBoolean("pendingDeletion") == true
@@ -159,7 +159,7 @@ class AppRepository @Inject constructor(
      * Mark wipe-in-progress before [deleteAllUserData] so a failed Auth delete cannot
      * look like a fresh account after [ensureSeeded] re-seeds defaults.
      */
-    suspend fun markAccountDeletionPending(): Result<Unit> = runCatching {
+    override suspend fun markAccountDeletionPending(): Result<Unit> = runCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
         accountDeletionDoc(u).set(
             mapOf(
@@ -381,7 +381,7 @@ class AppRepository @Inject constructor(
 
     // ── Expenses ──
 
-    fun getExpensesInRange(startMillis: Long, endMillis: Long): Flow<List<Expense>> =
+    override fun getExpensesInRange(startMillis: Long, endMillis: Long): Flow<List<Expense>> =
         perUserFlow(emptyList()) { u ->
             callbackFlow {
                 val q = expCol(u)
@@ -415,7 +415,7 @@ class AppRepository @Inject constructor(
      * an offline write replayed after restart had nothing stopping it from landing
      * twice. The key survives all three because it is stored on the document.
      */
-    suspend fun insertExpense(expense: Expense, idempotencyKey: String? = null): Result<String> = runCatching {
+    override suspend fun insertExpense(expense: Expense, idempotencyKey: String?): Result<String> = runCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
         requireVerifiedEmail()
         if (idempotencyKey != null) {
@@ -437,7 +437,7 @@ class AppRepository @Inject constructor(
         id
     }
 
-    suspend fun updateExpense(expense: Expense): Result<Unit> = runCatching {
+    override suspend fun updateExpense(expense: Expense): Result<Unit> = runCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
         requireVerifiedEmail()
         val snap = expDoc(u, expense.id).get().await()
@@ -449,18 +449,18 @@ class AppRepository @Inject constructor(
         expDoc(u, expense.id).set(expensePayload(e), SetOptions.merge()).await()
     }
 
-    suspend fun deleteExpense(expense: Expense): Result<Unit> = runCatching {
+    override suspend fun deleteExpense(expense: Expense): Result<Unit> = runCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
         requireVerifiedEmail()
         expDoc(u, expense.id).delete().await()
     }
 
-    suspend fun duplicateExpense(expense: Expense): Result<Unit> {
+    override suspend fun duplicateExpense(expense: Expense): Result<Unit> {
         return insertExpense(expense.copy(id = "", dateMillis = System.currentTimeMillis())).map { Unit }
     }
 
     /** Wipe all cloud docs for the signed-in user (account deletion). Keeps accountDeletion marker. */
-    suspend fun deleteAllUserData(): Result<Unit> = runCatching {
+    override suspend fun deleteAllUserData(): Result<Unit> = runCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
         deleteCollectionBatched(expCol(u))
         deleteCollectionBatched(catCol(u))
@@ -480,7 +480,7 @@ class AppRepository @Inject constructor(
         }
     }
 
-    suspend fun sumMonthExpenses(excludeExpenseId: String = ""): Double {
+    override suspend fun sumMonthExpenses(excludeExpenseId: String): Double {
         val range = AnalyticsPeriod.THIS_MONTH.dateRangeMillis() ?: return 0.0
         val u = uid() ?: return 0.0
         val snap = expCol(u)
@@ -494,7 +494,7 @@ class AppRepository @Inject constructor(
         return roundAmount(rawSum)
     }
 
-    val allExpenses: Flow<List<Expense>> = perUserFlow(emptyList()) { u ->
+    override val allExpenses: Flow<List<Expense>> = perUserFlow(emptyList()) { u ->
         callbackFlow {
             val sub = expCol(u)
                 .orderBy("dateMillis", Query.Direction.DESCENDING)
