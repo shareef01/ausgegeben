@@ -110,12 +110,27 @@ service cloud.firestore {
         && (!('id' in d) || (d.id is string && d.id.size() < 64));
     }
 
+    // Categories came from the same legacy backend as expenses and carry the same
+    // drift, just never audited for it until reorder started failing live:
+    // `cloudId` (their own legacy id) and `deleted`, plus updatedAt stored as a
+    // real Timestamp on any category written before that became a plain number.
+    // Checked against a real 17-category account rather than guessed: 12 of 17
+    // carry cloudId, all 12 of those have a Timestamp updatedAt, one has `deleted`.
+    // hasOnly() sees the merged document, so leaving any of this out made every
+    // one of those rows permanently unwritable — including by moveCategory, which
+    // touches every category in a type on every reorder.
+    function validLegacyCategoryFields(d) {
+      return (!('cloudId' in d) || (d.cloudId is string && d.cloudId.size() < 128))
+        && (!('deleted' in d) || d.deleted is bool);
+    }
+
     function validCategory() {
       let d = request.resource.data;
       return d.keys().hasOnly([
           'name', 'iconName', 'colorInt', 'transactionType', 'sortOrder',
-          'updatedAt', 'id', 'deleted'
+          'updatedAt', 'id', 'cloudId', 'deleted'
         ])
+        && validLegacyCategoryFields(d)
         && d.keys().hasAll(['name', 'iconName', 'colorInt', 'transactionType', 'sortOrder'])
         && d.name is string
         && d.name.size() > 0
@@ -131,15 +146,8 @@ service cloud.firestore {
         && d.sortOrder is number
         && d.sortOrder >= 0
         && d.sortOrder < 10000
-        && (!('updatedAt' in d) || d.updatedAt is number)
-        && (!('id' in d) || (d.id is string && d.id.size() < 64))
-        // Categories written by an app version before this field existed on
-        // expenses only never got it; some accounts still carry `deleted` on
-        // category docs from an even older schema. A merge update sees the
-        // resulting document with the field still there, so hasOnly() must
-        // tolerate it or every write to that document is rejected forever —
-        // this is the same class of bug validLegacyExpenseFields exists for.
-        && (!('deleted' in d) || d.deleted is bool);
+        && validUpdatedAt(d)
+        && (!('id' in d) || (d.id is string && d.id.size() < 64));
     }
 
     // Records the one-time maintenance passes (category dedupe, orphaned-expense
