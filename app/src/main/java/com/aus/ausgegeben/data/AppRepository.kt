@@ -342,6 +342,25 @@ class AppRepository @Inject constructor(
         catDoc(u, category.id).set(categoryPayload(c), SetOptions.merge()).await()
     }
 
+    /**
+     * Used by moveCategory: a reorder touches every category in a type at once
+     * (renumbering sequentially), and writing those one at a time left a window
+     * where a failure partway through could leave the type half-renumbered — a
+     * worse state than either the old or new order. A batch commits all writes
+     * together or none of them.
+     */
+    suspend fun updateCategoriesBatch(categories: List<Category>): Result<Unit> = runCatching {
+        if (categories.isEmpty()) return@runCatching
+        requireVerifiedEmail()
+        val u = uid() ?: throw IllegalStateException("Not signed in")
+        firestore.runBatch { batch ->
+            categories.forEach { category ->
+                val c = category.copy(name = category.name.trim().take(80))
+                batch.set(catDoc(u, c.id), categoryPayload(c), SetOptions.merge())
+            }
+        }.await()
+    }
+
     suspend fun deleteCategory(category: Category): Result<Unit> = runCatching {
         requireVerifiedEmail()
         val u = uid() ?: throw IllegalStateException("Not signed in")
