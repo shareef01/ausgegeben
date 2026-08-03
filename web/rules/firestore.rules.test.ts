@@ -162,16 +162,21 @@ describe('firestore.rules', () => {
   });
 
   /**
-   * Some accounts have category documents written before this allowlist existed,
-   * carrying a `deleted` field left over from an older schema. hasOnly() sees the
-   * merged document, so any update to sortOrder — the reorder feature — on one of
-   * these rows was rejected outright: real bug, found live via reorder failing
-   * with PERMISSION_DENIED on an account with pre-existing category data.
+   * Categories came from the same legacy backend as expenses and carry the same
+   * drift — cloudId, deleted, Timestamp updatedAt — just never audited for it
+   * until reorder started failing live. hasOnly() sees the merged document, so
+   * any update to sortOrder (what every reorder does, to every category in a
+   * type) on one of these rows was rejected outright. Copied field-for-field
+   * from a real account: 12 of 17 categories carry cloudId, all 12 of those
+   * have a Timestamp updatedAt, one has `deleted` — an idealised fixture with
+   * only `deleted` missed the other two and the first fix shipped incomplete.
    */
-  it('accepts a legacy deleted field on categories so old rows stay reorderable', async () => {
+  it('accepts legacy category fields so old rows stay reorderable', async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), categoryPath('alice', 'cat-1')), {
         ...validCategory,
+        cloudId: '0efe80f2-fbf9-4c5e-9693-bbb83bf4a935',
+        updatedAt: Timestamp.fromMillis(1783000216769),
         deleted: false,
       });
     });
