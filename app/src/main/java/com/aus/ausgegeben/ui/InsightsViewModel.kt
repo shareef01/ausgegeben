@@ -2,8 +2,9 @@ package com.aus.ausgegeben.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.aus.ausgegeben.data.AppRepository
-import com.aus.ausgegeben.data.PreferenceManager
+import com.aus.ausgegeben.data.CategoryActions
+import com.aus.ausgegeben.data.ExpenseActions
+import com.aus.ausgegeben.data.TransactionPreferences
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.util.AnalyticsPeriod
@@ -45,8 +46,9 @@ data class InsightsUiState(
 
 @HiltViewModel
 class InsightsViewModel @Inject constructor(
-    private val repository: AppRepository,
-    private val preferenceManager: PreferenceManager,
+    private val categoryActions: CategoryActions,
+    private val expenseActions: ExpenseActions,
+    private val preferenceManager: TransactionPreferences,
 ) : ViewModel() {
 
     private val _periodKey = MutableStateFlow(AnalyticsPeriod.THIS_MONTH.storageKey)
@@ -55,18 +57,18 @@ class InsightsViewModel @Inject constructor(
     private val periodExpensesFlow = _periodKey.flatMapLatest { periodKey ->
         val range = analyticsDateRangeMillis(periodKey)
         if (range == null) {
-            repository.allExpenses
+            expenseActions.allExpenses
         } else {
-            repository.getExpensesInRange(range.first, range.second)
+            expenseActions.getExpensesInRange(range.first, range.second)
         }
     }
 
     val uiState: StateFlow<InsightsUiState> = combine(
         preferenceManager.currencyFlow,
-        repository.allCategories,
+        categoryActions.allCategories,
         periodExpensesFlow,
         _periodKey,
-        repository.dataTruncated,
+        expenseActions.dataTruncated,
     ) { currency, categories, scopedExpenses, periodKey, truncated ->
         buildInsightsState(currency, categories, scopedExpenses, periodKey, truncated)
     }
@@ -94,95 +96,100 @@ class InsightsViewModel @Inject constructor(
             preferenceManager.updateAnalyticsPeriodKey(periodKey)
         }
     }
+}
 
-    private fun buildInsightsState(
-        currency: String,
-        categories: List<Category>,
-        scoped: List<Expense>,
-        periodKey: String,
-        truncated: Boolean,
-    ): InsightsUiState {
-        val categoryById = categories.associateBy { it.id }
+/**
+ * Pure, and separated from the ViewModel so the totals/rounding/grouping logic can be
+ * tested directly instead of only through the combine/flowOn/stateIn pipeline — the same
+ * reasoning categoriesAfterMove was pulled out of CategoryViewModel for.
+ */
+internal fun buildInsightsState(
+    currency: String,
+    categories: List<Category>,
+    scoped: List<Expense>,
+    periodKey: String,
+    truncated: Boolean,
+): InsightsUiState {
+    val categoryById = categories.associateBy { it.id }
 
-        var totalExpenses = 0.0
-        var totalIncome = 0.0
-        var totalTransfers = 0.0
-        val expenseTotals = mutableMapOf<String, Double>()
-        val incomeTotals = mutableMapOf<String, Double>()
-        val transferTotals = mutableMapOf<String, Double>()
+    var totalExpenses = 0.0
+    var totalIncome = 0.0
+    var totalTransfers = 0.0
+    val expenseTotals = mutableMapOf<String, Double>()
+    val incomeTotals = mutableMapOf<String, Double>()
+    val transferTotals = mutableMapOf<String, Double>()
 
-        for (expense in scoped) {
-            when {
-                expense.isTransfer() -> {
-                    totalTransfers += expense.amount
-                    transferTotals[expense.categoryId] =
-                        (transferTotals[expense.categoryId] ?: 0.0) + expense.amount
-                }
-                expense.isIncome() -> {
-                    totalIncome += expense.amount
-                    incomeTotals[expense.categoryId] =
-                        (incomeTotals[expense.categoryId] ?: 0.0) + expense.amount
-                }
-                expense.isExpense() -> {
-                    totalExpenses += expense.amount
-                    expenseTotals[expense.categoryId] =
-                        (expenseTotals[expense.categoryId] ?: 0.0) + expense.amount
-                }
+    for (expense in scoped) {
+        when {
+            expense.isTransfer() -> {
+                totalTransfers += expense.amount
+                transferTotals[expense.categoryId] =
+                    (transferTotals[expense.categoryId] ?: 0.0) + expense.amount
+            }
+            expense.isIncome() -> {
+                totalIncome += expense.amount
+                incomeTotals[expense.categoryId] =
+                    (incomeTotals[expense.categoryId] ?: 0.0) + expense.amount
+            }
+            expense.isExpense() -> {
+                totalExpenses += expense.amount
+                expenseTotals[expense.categoryId] =
+                    (expenseTotals[expense.categoryId] ?: 0.0) + expense.amount
             }
         }
-
-        // Round like web's computeTotals / groupByCategory: repeated Double addition leaves
-        // artefacts (0.1 + 0.2), and unrounded values leaked into the distinctUntilChanged
-        // comparison below, so equivalent states could look different.
-        fun mapTotals(totals: Map<String, Double>): Map<Category, Double> =
-            totals.mapNotNull { (categoryId, amount) ->
-                categoryById[categoryId]?.let { it to CurrencyUtils.roundAmount(amount) }
-            }.toMap()
-
-        return InsightsUiState(
-            periodKey = periodKey,
-            periodLabel = analyticsPeriodOptionFromStorage(periodKey).label,
-            totalExpenses = CurrencyUtils.roundAmount(totalExpenses),
-            totalIncome = CurrencyUtils.roundAmount(totalIncome),
-            totalTransfers = CurrencyUtils.roundAmount(totalTransfers),
-            currency = currency,
-            expensesByCategory = mapTotals(expenseTotals),
-            incomeByCategory = mapTotals(incomeTotals),
-            transfersByCategory = mapTotals(transferTotals),
-            cashFlowTrend = scoped.computeCashFlowTrend(periodKey),
-            isLoading = false,
-            // Reported by the listener; re-deriving from scoped.size could not tell a
-            // complete result of exactly the cap from a truncated one.
-            dataTruncated = periodKey == AnalyticsPeriod.ALL_TIME.storageKey && truncated,
-        )
     }
 
-    private fun insightsStatesEquivalent(previous: InsightsUiState, current: InsightsUiState): Boolean {
-        if (previous.periodKey != current.periodKey ||
-            previous.periodLabel != current.periodLabel ||
-            previous.currency != current.currency ||
-            previous.totalExpenses != current.totalExpenses ||
-            previous.totalIncome != current.totalIncome ||
-            previous.totalTransfers != current.totalTransfers ||
-            previous.dataTruncated != current.dataTruncated ||
-            previous.cashFlowTrend != current.cashFlowTrend
-        ) {
-            return false
-        }
-        return categoryMapsEquivalent(previous.expensesByCategory, current.expensesByCategory) &&
-            categoryMapsEquivalent(previous.incomeByCategory, current.incomeByCategory) &&
-            categoryMapsEquivalent(previous.transfersByCategory, current.transfersByCategory)
-    }
+    // Round like web's computeTotals / groupByCategory: repeated Double addition leaves
+    // artefacts (0.1 + 0.2), and unrounded values leaked into the distinctUntilChanged
+    // comparison below, so equivalent states could look different.
+    fun mapTotals(totals: Map<String, Double>): Map<Category, Double> =
+        totals.mapNotNull { (categoryId, amount) ->
+            categoryById[categoryId]?.let { it to CurrencyUtils.roundAmount(amount) }
+        }.toMap()
 
-    private fun categoryMapsEquivalent(
-        previous: Map<Category, Double>,
-        current: Map<Category, Double>,
-    ): Boolean {
-        if (previous.size != current.size) return false
-        return previous.all { (category, amount) ->
-            current.entries.any { (other, otherAmount) ->
-                other.id == category.id && otherAmount == amount
-            }
+    return InsightsUiState(
+        periodKey = periodKey,
+        periodLabel = analyticsPeriodOptionFromStorage(periodKey).label,
+        totalExpenses = CurrencyUtils.roundAmount(totalExpenses),
+        totalIncome = CurrencyUtils.roundAmount(totalIncome),
+        totalTransfers = CurrencyUtils.roundAmount(totalTransfers),
+        currency = currency,
+        expensesByCategory = mapTotals(expenseTotals),
+        incomeByCategory = mapTotals(incomeTotals),
+        transfersByCategory = mapTotals(transferTotals),
+        cashFlowTrend = scoped.computeCashFlowTrend(periodKey),
+        isLoading = false,
+        // Reported by the listener; re-deriving from scoped.size could not tell a
+        // complete result of exactly the cap from a truncated one.
+        dataTruncated = periodKey == AnalyticsPeriod.ALL_TIME.storageKey && truncated,
+    )
+}
+
+internal fun insightsStatesEquivalent(previous: InsightsUiState, current: InsightsUiState): Boolean {
+    if (previous.periodKey != current.periodKey ||
+        previous.periodLabel != current.periodLabel ||
+        previous.currency != current.currency ||
+        previous.totalExpenses != current.totalExpenses ||
+        previous.totalIncome != current.totalIncome ||
+        previous.totalTransfers != current.totalTransfers ||
+        previous.dataTruncated != current.dataTruncated ||
+        previous.cashFlowTrend != current.cashFlowTrend
+    ) {
+        return false
+    }
+    return categoryMapsEquivalent(previous.expensesByCategory, current.expensesByCategory) &&
+        categoryMapsEquivalent(previous.incomeByCategory, current.incomeByCategory) &&
+        categoryMapsEquivalent(previous.transfersByCategory, current.transfersByCategory)
+}
+
+internal fun categoryMapsEquivalent(
+    previous: Map<Category, Double>,
+    current: Map<Category, Double>,
+): Boolean {
+    if (previous.size != current.size) return false
+    return previous.all { (category, amount) ->
+        current.entries.any { (other, otherAmount) ->
+            other.id == category.id && otherAmount == amount
         }
     }
 }
