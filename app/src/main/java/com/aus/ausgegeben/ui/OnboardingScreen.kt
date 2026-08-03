@@ -149,8 +149,13 @@ private fun OnboardingPageContent(page: OnboardingPage) {
             .fillMaxSize()
             .padding(horizontal = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
     ) {
+        // Centering this block in the whole weighted region (most of the screen,
+        // since the dots/buttons below take a fixed height) left a large empty
+        // stretch below the text, between it and the dots/button it leads into.
+        // A modest bottom-weighted bias pulls it closer to those controls without
+        // pushing all the slack to the opposite end.
+        Spacer(modifier = Modifier.weight(1.15f))
         Surface(
             shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.surfaceVariant,
@@ -179,5 +184,6 @@ private fun OnboardingPageContent(page: OnboardingPage) {
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        Spacer(modifier = Modifier.weight(0.85f))
     }
 }
