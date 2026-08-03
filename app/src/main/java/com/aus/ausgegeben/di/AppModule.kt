@@ -1,5 +1,7 @@
 package com.aus.ausgegeben.di
 
+import com.aus.ausgegeben.data.AppRepository
+import com.aus.ausgegeben.data.CategoryActions
 import com.aus.ausgegeben.data.auth.AuthActions
 import com.aus.ausgegeben.data.auth.AuthRepository
 import com.google.firebase.auth.FirebaseAuth
@@ -25,4 +27,12 @@ abstract class AuthBindModule {
     @Binds
     @Singleton
     abstract fun bindAuthActions(impl: AuthRepository): AuthActions
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class CategoryBindModule {
+    @Binds
+    @Singleton
+    abstract fun bindCategoryActions(impl: AppRepository): CategoryActions
 }
