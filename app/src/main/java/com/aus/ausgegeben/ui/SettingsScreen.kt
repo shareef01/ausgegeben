@@ -1,7 +1,5 @@
 package com.aus.ausgegeben.ui
 
-import android.content.Intent
-import android.net.Uri
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -48,6 +46,7 @@ import com.aus.ausgegeben.data.PreferencesCloudSync
 import com.aus.ausgegeben.data.AppRepository
 import com.aus.ausgegeben.data.auth.AuthRepository
 import com.aus.ausgegeben.ui.components.*
+import com.aus.ausgegeben.ui.settings.*
 import com.aus.ausgegeben.ui.theme.*
 import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.ExportUtils
@@ -105,256 +104,23 @@ fun SettingsScreen(
         "%02d:%02d".format(reminderHour, reminderMinute)
     }
 
-    @Composable
-    fun AppearanceSection() {
-        Column {
-            GroupedSectionLabel(text = stringResource(R.string.settings_section_appearance))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = AppSpacing.md)
-                    .appGlassCard(shape = RoundedCornerShape(AppRadius.card)),
-            ) {
-                Column {
-                    SettingsActionRow(
-                        icon = Icons.Rounded.Palette,
-                        tint = settingsIconTintAccent(),
-                        title = stringResource(R.string.settings_theme).lowercase(),
-                        subtitle = themeMode.label().lowercase(),
-                        onClick = { showThemeSheet = true }
-                    )
-                    IosSeparator(insetStart = 56.dp)
-                    SettingsActionRow(
-                        icon = Icons.Rounded.Language,
-                        tint = settingsIconTintAccent(),
-                        title = stringResource(R.string.settings_language).lowercase(),
-                        subtitle = if (language == "de") stringResource(R.string.lang_german).lowercase() else stringResource(R.string.lang_english).lowercase(),
-                        onClick = { showLanguageSheet = true }
-                    )
-                    IosSeparator(insetStart = 56.dp)
-                    SettingsActionRow(
-                        icon = Icons.Rounded.Payments,
-                        tint = settingsIconTintAccent(),
-                        title = stringResource(R.string.settings_currency).lowercase(),
-                        subtitle = CurrencyUtils.labelFor(currency).lowercase(),
-                        onClick = { showCurrencySheet = true }
-                    )
-                }
+    fun exportCsv() {
+        scope.launch {
+            val result = ExportUtils.exportCsv(context, repository)
+            if (result.needsConfirm) {
+                showExportTruncatedConfirm = true
+                return@launch
             }
-        }
-    }
-
-    @Composable
-    fun NotificationSection() {
-        Column {
-            GroupedSectionLabel(text = stringResource(R.string.settings_section_notifications))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = AppSpacing.md)
-                    .appGlassCard(shape = RoundedCornerShape(AppRadius.card)),
-            ) {
-                Column {
-                    SettingsSwitchRow(
-                        icon = Icons.Rounded.NotificationsActive,
-                        tint = settingsIconTintAccent(),
-                        title = stringResource(R.string.settings_evening_reminder).lowercase(),
-                        checked = dailyReminder,
-                        onCheckedChange = { 
-                            if (it) onRequestNotificationPermission()
-                            scope.launch { preferenceManager.updateDailyReminder(it) } 
-                        }
-                    )
-                    if (dailyReminder) {
-                        IosSeparator(insetStart = 56.dp)
-                        SettingsActionRow(
-                            icon = Icons.Rounded.Schedule,
-                            tint = MaterialTheme.colorScheme.primary,
-                            title = stringResource(R.string.settings_reminder_time).lowercase(),
-                            subtitle = reminderTimeLabel,
-                            onClick = { showReminderTimeDialog = true },
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    @Composable
-    fun AccountSection() {
-        Column {
-            GroupedSectionLabel(text = stringResource(R.string.settings_section_account))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = AppSpacing.md)
-                    .appGlassCard(shape = RoundedCornerShape(AppRadius.card)),
-            ) {
-                Column {
-                    if (currentUser != null) {
-                        val email = currentUser?.email
-                        val accountTitle = stringResource(
-                            R.string.settings_account_signed_in_as,
-                            currentUser?.displayName?.takeIf { it.isNotBlank() }
-                                ?: email?.substringBefore('@')?.replaceFirstChar { it.titlecase() }
-                                ?: stringResource(R.string.settings_account_cloud),
-                        )
-                        val accountSubtitle = when {
-                            syncing -> stringResource(R.string.settings_sync_in_progress)
-                            lastCloudSyncAt != null -> stringResource(
-                                R.string.settings_last_synced,
-                                formatRelativeTimestamp(context, lastCloudSyncAt!!),
-                            )
-                            else -> stringResource(R.string.settings_account_sync_enabled)
-                        }
-                        SettingsInfoRow(
-                            icon = Icons.Rounded.CloudDone,
-                            tint = MaterialTheme.colorScheme.primary,
-                            title = accountTitle,
-                            subtitle = buildString {
-                                if (!email.isNullOrBlank()) {
-                                    append(email)
-                                    append('\n')
-                                }
-                                append(accountSubtitle)
-                            },
-                        )
-                        IosSeparator(insetStart = 56.dp)
-                        SettingsActionRow(
-                            icon = Icons.Rounded.Sync,
-                            tint = MaterialTheme.colorScheme.primary,
-                            title = stringResource(R.string.settings_sync_now).lowercase(),
-                            subtitle = stringResource(R.string.settings_account_cloud_subtitle).lowercase(),
-                            onClick = {
-                                if (syncing) return@SettingsActionRow
-                                onRetrySync()
-                            },
-                        )
-                    } else {
-                        SettingsActionRow(
-                            icon = Icons.Rounded.CloudUpload,
-                            tint = MaterialTheme.colorScheme.primary,
-                            title = stringResource(R.string.settings_sign_in).lowercase(),
-                            subtitle = stringResource(R.string.settings_account_offline_subtitle).lowercase(),
-                            onClick = onRequestSignIn,
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    @Composable
-    fun ManagementSection() {
-        Column {
-            GroupedSectionLabel(text = stringResource(R.string.settings_section_management))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = AppSpacing.md)
-                    .appGlassCard(shape = RoundedCornerShape(AppRadius.card)),
-            ) {
-                Column {
-                    SettingsActionRow(
-                        icon = Icons.Rounded.Category,
-                        tint = MaterialTheme.colorScheme.primary,
-                        title = stringResource(R.string.settings_categories).lowercase(),
-                        subtitle = stringResource(R.string.settings_categories_subtitle).lowercase(),
-                        onClick = onNavigateToCategories,
-                    )
-                    IosSeparator(insetStart = 56.dp)
-                    SettingsActionRow(
-                        icon = Icons.Rounded.FileDownload,
-                        tint = settingsIconTintMuted(),
-                        title = stringResource(R.string.settings_export_csv).lowercase(),
-                        subtitle = stringResource(R.string.settings_export_subtitle).lowercase(),
-                        onClick = {
-                            scope.launch {
-                                val result = ExportUtils.exportCsv(context, repository)
-                                if (result.needsConfirm) {
-                                    showExportTruncatedConfirm = true
-                                    return@launch
-                                }
-                                if (result.success) haptics.success() else haptics.light()
-                                onShowMessage(
-                                    context.getString(
-                                        when {
-                                            !result.success -> R.string.settings_export_failed
-                                            result.truncated -> R.string.settings_export_truncated
-                                            else -> R.string.settings_export_ok
-                                        },
-                                    ),
-                                )
-                            }
-                        },
-                    )
-                }
-            }
-        }
-    }
-
-    @Composable
-    fun BudgetSection() {
-        Column {
-            GroupedSectionLabel(text = stringResource(R.string.settings_section_budget))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = AppSpacing.md)
-                    .appGlassCard(shape = RoundedCornerShape(AppRadius.card)),
-            ) {
-                SettingsActionRow(
-                    icon = Icons.Rounded.Speed,
-                    tint = settingsIconTintMuted(),
-                    title = stringResource(R.string.settings_monthly_limit).lowercase(),
-                    subtitle = monthlyBudget?.let {
-                        CurrencyUtils.formatAmount(it, currency, showSymbol = true)
-                    } ?: stringResource(R.string.settings_monthly_limit_not_set).lowercase(),
-                    onClick = { showBudgetDialog = true },
-                )
-            }
-        }
-    }
-
-    @Composable
-    fun AboutSection() {
-        Column {
-            GroupedSectionLabel(text = stringResource(R.string.settings_section_about))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = AppSpacing.md)
-                    .appGlassCard(shape = RoundedCornerShape(AppRadius.card)),
-            ) {
-                Column {
-                    SettingsActionRow(
-                        icon = Icons.AutoMirrored.Rounded.Help,
-                        tint = settingsIconTintMuted(),
-                        title = stringResource(R.string.settings_support).lowercase(),
-                        onClick = {
-                            val intent = Intent(Intent.ACTION_SENDTO).apply {
-                                data = Uri.parse("mailto:support@ausgegeben.app")
-                                putExtra(Intent.EXTRA_SUBJECT, "Ausgegeben Support")
-                            }
-                            try {
-                                context.startActivity(intent)
-                            } catch (_: Exception) {
-                                onShowMessage(context.getString(R.string.settings_no_email_app))
-                            }
-                        }
-                    )
-                    IosSeparator(insetStart = 56.dp)
-                    SettingsInfoRow(
-                        icon = Icons.Rounded.Info,
-                        tint = settingsIconTintMuted(),
-                        title = stringResource(R.string.app_name),
-                        subtitle = stringResource(
-                            R.string.settings_version_subtitle,
-                            com.aus.ausgegeben.BuildConfig.VERSION_NAME,
-                        ),
-                    )
-                }
-            }
+            if (result.success) haptics.success() else haptics.light()
+            onShowMessage(
+                context.getString(
+                    when {
+                        !result.success -> R.string.settings_export_failed
+                        result.truncated -> R.string.settings_export_truncated
+                        else -> R.string.settings_export_ok
+                    },
+                ),
+            )
         }
     }
 
@@ -393,6 +159,57 @@ fun SettingsScreen(
                     }
                 }
 
+                val appearanceSection: @Composable () -> Unit = {
+                    SettingsAppearanceSection(
+                        themeMode = themeMode,
+                        language = language,
+                        currency = currency,
+                        onShowThemeSheet = { showThemeSheet = true },
+                        onShowLanguageSheet = { showLanguageSheet = true },
+                        onShowCurrencySheet = { showCurrencySheet = true },
+                    )
+                }
+                val notificationSection: @Composable () -> Unit = {
+                    SettingsNotificationSection(
+                        dailyReminder = dailyReminder,
+                        reminderTimeLabel = reminderTimeLabel,
+                        onDailyReminderChange = { checked ->
+                            if (checked) onRequestNotificationPermission()
+                            scope.launch { preferenceManager.updateDailyReminder(checked) }
+                        },
+                        onShowReminderTimeDialog = { showReminderTimeDialog = true },
+                    )
+                }
+                val budgetSection: @Composable () -> Unit = {
+                    SettingsBudgetSection(
+                        monthlyBudget = monthlyBudget,
+                        currency = currency,
+                        onShowBudgetDialog = { showBudgetDialog = true },
+                    )
+                }
+                val accountSection: @Composable () -> Unit = {
+                    SettingsAccountSection(
+                        currentUser = currentUser,
+                        syncing = syncing,
+                        lastCloudSyncAt = lastCloudSyncAt,
+                        onRetrySync = onRetrySync,
+                        onRequestSignIn = onRequestSignIn,
+                    )
+                }
+                val managementSection: @Composable () -> Unit = {
+                    SettingsManagementSection(
+                        onNavigateToCategories = onNavigateToCategories,
+                        onExportCsv = ::exportCsv,
+                    )
+                }
+                val aboutSection: @Composable () -> Unit = {
+                    SettingsAboutSection(
+                        onSupportUnavailable = {
+                            onShowMessage(context.getString(R.string.settings_no_email_app))
+                        },
+                    )
+                }
+
                 if (isWide) {
                     item {
                         @OptIn(ExperimentalLayoutApi::class)
@@ -402,32 +219,32 @@ fun SettingsScreen(
                             maxItemsInEachRow = 2
                         ) {
                             Box(modifier = Modifier.weight(1f)) {
-                                StaggeredEntrance(index = 0) { AppearanceSection() }
+                                StaggeredEntrance(index = 0) { appearanceSection() }
                             }
                             Box(modifier = Modifier.weight(1f)) {
-                                StaggeredEntrance(index = 1) { NotificationSection() }
+                                StaggeredEntrance(index = 1) { notificationSection() }
                             }
                             Box(modifier = Modifier.weight(1f)) {
-                                StaggeredEntrance(index = 2) { BudgetSection() }
+                                StaggeredEntrance(index = 2) { budgetSection() }
                             }
                             Box(modifier = Modifier.weight(1f)) {
-                                StaggeredEntrance(index = 3) { AccountSection() }
+                                StaggeredEntrance(index = 3) { accountSection() }
                             }
                             Box(modifier = Modifier.weight(1f)) {
-                                StaggeredEntrance(index = 4) { ManagementSection() }
+                                StaggeredEntrance(index = 4) { managementSection() }
                             }
                             Box(modifier = Modifier.weight(1f)) {
-                                StaggeredEntrance(index = 5) { AboutSection() }
+                                StaggeredEntrance(index = 5) { aboutSection() }
                             }
                         }
                     }
                 } else {
-                    item { StaggeredEntrance(index = 0) { AppearanceSection() } }
-                    item { StaggeredEntrance(index = 1) { NotificationSection() } }
-                    item { StaggeredEntrance(index = 2) { BudgetSection() } }
-                    item { StaggeredEntrance(index = 3) { AccountSection() } }
-                    item { StaggeredEntrance(index = 4) { ManagementSection() } }
-                    item { StaggeredEntrance(index = 5) { AboutSection() } }
+                    item { StaggeredEntrance(index = 0) { appearanceSection() } }
+                    item { StaggeredEntrance(index = 1) { notificationSection() } }
+                    item { StaggeredEntrance(index = 2) { budgetSection() } }
+                    item { StaggeredEntrance(index = 3) { accountSection() } }
+                    item { StaggeredEntrance(index = 4) { managementSection() } }
+                    item { StaggeredEntrance(index = 5) { aboutSection() } }
                 }
 
                 if (currentUser != null) {
