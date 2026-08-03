@@ -114,7 +114,7 @@ service cloud.firestore {
       let d = request.resource.data;
       return d.keys().hasOnly([
           'name', 'iconName', 'colorInt', 'transactionType', 'sortOrder',
-          'updatedAt', 'id'
+          'updatedAt', 'id', 'deleted'
         ])
         && d.keys().hasAll(['name', 'iconName', 'colorInt', 'transactionType', 'sortOrder'])
         && d.name is string
@@ -132,7 +132,14 @@ service cloud.firestore {
         && d.sortOrder >= 0
         && d.sortOrder < 10000
         && (!('updatedAt' in d) || d.updatedAt is number)
-        && (!('id' in d) || (d.id is string && d.id.size() < 64));
+        && (!('id' in d) || (d.id is string && d.id.size() < 64))
+        // Categories written by an app version before this field existed on
+        // expenses only never got it; some accounts still carry `deleted` on
+        // category docs from an even older schema. A merge update sees the
+        // resulting document with the field still there, so hasOnly() must
+        // tolerate it or every write to that document is rejected forever —
+        // this is the same class of bug validLegacyExpenseFields exists for.
+        && (!('deleted' in d) || d.deleted is bool);
     }
 
     // Records the one-time maintenance passes (category dedupe, orphaned-expense
