@@ -162,6 +162,26 @@ describe('firestore.rules', () => {
   });
 
   /**
+   * Some accounts have category documents written before this allowlist existed,
+   * carrying a `deleted` field left over from an older schema. hasOnly() sees the
+   * merged document, so any update to sortOrder — the reorder feature — on one of
+   * these rows was rejected outright: real bug, found live via reorder failing
+   * with PERMISSION_DENIED on an account with pre-existing category data.
+   */
+  it('accepts a legacy deleted field on categories so old rows stay reorderable', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), categoryPath('alice', 'cat-1')), {
+        ...validCategory,
+        deleted: false,
+      });
+    });
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertSucceeds(
+      setDoc(doc(db, categoryPath('alice', 'cat-1')), { sortOrder: 1 }, { merge: true }),
+    );
+  });
+
+  /**
    * Copied field-for-field from a document that was actually stuck in a device's
    * offline queue: numeric categoryId, Timestamp updatedAt, null receiptImagePath.
    * An idealised fixture missed all three and the first fix shipped incomplete.
