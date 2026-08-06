@@ -1,4 +1,78 @@
-# Audit summary — 2026-08-02
+# Audit summary
+
+Newest first. Every item is verified against the real artifact, not just by reading code — per AGENTS.md section 1. Where something could not be verified that way, it says so.
+
+---
+
+# 2026-08-06 — audit of the uncommitted soft-delete change
+
+Audit of an uncommitted working-tree change (soft-delete filtering + server-side aggregation) that arrived with a walkthrough claiming it was finished and verified. It was neither. Not committed as authored; reworked, then gated.
+
+## What the change got right
+
+Legacy `deleted: true` rows really were being counted as live by every read path — the €7,655 bug in AGENTS.md section 1 — and adding `deleted` to both data models plus filtering the list and listener paths was the correct start.
+
+## What was wrong with it
+
+| # | Finding | Evidence |
+|---|---|---|
+| 1 | **The inflation fix did not fix the inflation.** `sumMonthExpenses` was switched to a server-side `sum()` that counts soft-deleted rows, with a comment deferring correctness to a hard-delete sweep. That sweep is gated on `meta/dedupe.orphansScannedAt` being unset — already set on every account that has cold-started since the marker shipped. | Emulator probe on an already-swept account seeded with 4 live rows (400.00) and 6 soft-deleted rows (3000.00): purged 0, month total 3400.00 |
+| 2 | **Irreversible mass-delete of user records, for zero benefit.** The sweep hard-deleted every `deleted: true` document on both platforms. Nothing in the codebase writes that flag — these are legacy rows only. Combined with finding 1 it could only ever fire on accounts that had none. AGENTS.md section 2: legacy data is tolerated, never rewritten. | `grep` — `deleted` appears only in the rules' legacy tolerance and the new code |
+| 3 | **A new inconsistency the app did not have before.** Filtering was applied to the list and listener but not to `getExpensesInRange` or the aggregate, so the same month reported two different numbers. | Same probe: list 400.00, listener 400.00, one-shot 3400.00, budget 3400.00 |
+| 4 | **Android bypassed the file's own type-drift defence.** `data["dateMillis"] as? Long` returns null on a Double-typed field → `0L` → range check fails → the row being edited is never subtracted and gets double-counted. AGENTS.md section 1 warns about exactly this drift. | Latent — no Double-typed `dateMillis` was found in any test data; flagged as risk, not demonstrated |
+| 5 | **Verification was claimed, not performed.** The walkthrough's "Verification Results" were all logic/syntax assertions; the task list checked off "Final verification (smoke test and log audit)" with no suite run. | Suites were green *and blind* — 65 unit + 39 emulator passed because nothing seeded a `deleted` row |
+
+A sixth concern — that the unchunked delete batch would blow Firestore's 500-write cap, since every other bulk path here is chunked at 400–450 — **was tested and did not reproduce**: 600 writes in one batch committed fine against emulator v1.21.0. Dropped.
+
+## Fix applied
+
+- `sumMonthExpenses` on both platforms now computes `sum(range) − sum(range AND deleted == true)`. Two aggregate reads rather than one, so the Spark quota win holds, and nothing is written. The exclusion path also skips an already-soft-deleted row, which would otherwise be subtracted twice.
+- `getExpensesInRange` filters `deleted`, so all three range accessors agree.
+- The hard-delete is gone from both platforms; `repairOrphanedExpenses` skips soft-deleted rows rather than destroying them.
+- Android reads the excluded row's date with `getLong()`.
+- `(transactionType, deleted, dateMillis)` added to `firestore.indexes.json`.
+
+## Regression coverage
+
+`web/emulator/softDeletedRows.test.ts`, 5 cases, every one seeding `orphansScannedAt` first — a fixture that skips it passes against the broken code, which is the whole trap. Confirmed to have teeth by reverting the repository to HEAD: 4 of 5 fail with the inflated numbers (3400 vs 400, 3300 vs 300, 2900 vs 400). The fifth guards against the purge and passes at HEAD by design.
+
+## Gate results
+
+- Web: `tsc --noEmit` clean · `lint:css` 454 tokens · unit 65 · **emulator 44** (39 + 5 new) · rules 38 · build 40 precache entries
+- Android: `testProdDebugUnitTest` 116 tests 0 failures · `lintProdDebug` · `assembleProdDebug`
+
+## Not verified
+
+- **`assembleProdRelease` (R8) did not run** — no `keystore.properties` on this machine. Per AGENTS.md section 1 this is the gate that matters most for release; treat the change as unproven against R8.
+- **Nothing was run against a real account or a device** at the time this entry was first written. That was corrected the same day — see the device verification below, which found a sixth bug none of the above caught.
+- Environment note: the Android Studio JBR at the path AGENTS.md section 4 specifies is incomplete on this machine (missing `lib/jvm.cfg`); the Microsoft JDK 21 already on `JAVA_HOME` was used instead. Same major version. Worth re-checking before trusting that instruction.
+
+## Device verification — and the sixth bug
+
+A prod **debug** APK was sideloaded to the user's Pixel 7 (no release keystore exists on this machine, and debug shares the applicationId, so this cost an uninstall and wiped local prefs — the user chose that knowing the cost). Then: sign in, set a monthly budget of 1, add a €5 expense, read logcat.
+
+**Finding 6 — `sum()` had been failing in production the entire time.** The first save produced:
+
+```
+W AddExpenseViewModel: budget check failed
+FAILED_PRECONDITION: The query requires an index.
+```
+
+Decoding the descriptor Firestore embeds in that error gave `expenses: transactionType, dateMillis, amount, __name__`. **An aggregation's composite index must include the aggregated field** — `amount` — not just the filtered ones. This was never about the soft-delete work: `getAggregateFromServer` was already on web at HEAD, so the deployed web app's budget warning had been silently dead for as long as that aggregate had been live. Moving Android onto an aggregate would have spread the same silent breakage to a second platform.
+
+Three signals said "fine" while it was broken: the emulator invents indexes on demand (44/44 green); `gcloud firestore indexes composite list` reported `READY`, but for a *different* index that had built correctly; and the best-effort wrapper meant the only trace anywhere was one `W` line.
+
+`firestore.indexes.json` now carries `(transactionType, dateMillis, amount)` and `(transactionType, deleted, dateMillis, amount)`, both deployed and `READY`. Re-tested on the device: budget warning fired, logcat clean. Because the code runs both aggregates, that single success confirms both indexes serve.
+
+Deploying the correct index also repaired the deployed web app's budget warning with no code change.
+
+**Also fixed:** `MonthlyBudgetSheet` rendered its header cut off and overlapping. `SheetHeader` and `SheetDismissButton` both call `fillMaxWidth()` internally, so sharing a `Row` let the unweighted button claim the full width and starve the weighted header to zero. Pre-existing since `7409d72` (2026-07-16) — present in the `v1.0.11` release, unrelated to this audit. Header moved above the field, inline dismiss dropped (Clear/Save already close the sheet), `imePadding()` added.
+
+**Still open after device verification:** the subtraction logic is *not* device-proven — this account has no soft-deleted rows, so there was nothing to subtract; that half rests on the five emulator tests. `assembleProdRelease` (R8) still has not run. One orphaned index — the wrong `(transactionType, deleted, dateMillis)` — remains in production; removing it needs `--force`.
+
+---
+
+# 2026-08-02 — full-stack audit
 
 Full-stack audit of Ausgegeben (web PWA + Android app + Firestore rules + CI/CD + live production). Every item below was verified against the real artifact, not just by reading code — per AGENTS.md section 1.
 
