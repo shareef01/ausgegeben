@@ -985,16 +985,25 @@ fun MonthlyBudgetSheet(
         dragHandle = { AppSheetDragHandle() },
         shape = AppSheetShape,
     ) {
-        Column(modifier = Modifier.padding(16.dp).navigationBarsPadding()) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                SheetHeader(
-                    title = stringResource(R.string.settings_budget_dialog_title),
-                    subtitle = stringResource(R.string.settings_budget_dialog_body),
-                    modifier = Modifier.weight(1f)
-                )
-                SheetDismissButton(onClick = onDismiss)
-            }
-            
+        // SheetHeader and SheetDismissButton both fillMaxWidth() internally, so they
+        // cannot share a Row: the unweighted button is measured first against the full
+        // width and takes all of it, leaving the weighted header zero width — its title
+        // and subtitle then wrapped to nothing and the row grew to fit. Header on top,
+        // actions at the bottom, matching SelectionSheetContent. Clear and Save both
+        // close the sheet, and drag/scrim/back still dismiss it, so the separate
+        // full-width Close the other sheets need would only be a third button here.
+        // imePadding keeps the decimal keyboard off those actions.
+        Column(
+            modifier = Modifier
+                .padding(16.dp)
+                .navigationBarsPadding()
+                .imePadding()
+        ) {
+            SheetHeader(
+                title = stringResource(R.string.settings_budget_dialog_title),
+                subtitle = stringResource(R.string.settings_budget_dialog_body),
+            )
+
             Spacer(modifier = Modifier.height(24.dp))
             
             OutlinedTextField(
