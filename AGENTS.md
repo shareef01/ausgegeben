@@ -20,6 +20,8 @@ backend. Green CI has never once predicted correctness here.
 | Soft-deleted rows still counted as live, **inflating totals by €7,655** | Nothing read the `deleted` flag; the data looked fine |
 | Category reorder swapped against a hidden row and against duplicate values | Logic was inline behind Firestore, unreachable by tests |
 | "Category reordering — device-verified as working" (this file, 2026-08-02 morning) was itself wrong — still broken for a real account that afternoon | AVD test data carries none of the legacy `cloudId` / Timestamp `updatedAt` / `deleted` field drift a real, long-lived account has; a device test only catches what the test account's data shape can trigger |
+| The **fix** for that soft-delete row above (2026-08-06) left the month total still counting deleted rows, and shipped an irreversible mass-delete that could never run | The cleanup was gated on `meta/dedupe.orphansScannedAt` being unset — already set on every account that has cold-started. 65 unit + 39 emulator tests passed because not one fixture seeds a `deleted` row |
+| `sum()` in `sumMonthExpenses` had been **failing in production the whole time** for want of an index including the *aggregated* field — the web budget warning was silently dead (2026-08-06) | An aggregation needs `amount` in the composite index, not just the filtered fields. The emulator invents indexes on demand so 44 emulator tests passed; `gcloud … indexes list` said `READY` because a *different* index had built; and both clients wrap the projection best-effort, so the only trace anywhere was one `W` line in logcat |
 
 **Therefore:**
 
@@ -82,7 +84,36 @@ edit made on another device, which that path never observed anyway.
 
 ## 3. Known open
 
-Nothing currently open.
+**An aggregation's composite index must include the aggregated field.**
+`sumMonthExpenses` sums `amount`, so it needs `(transactionType, dateMillis,
+amount)`, and the deleted-subset pass needs `(transactionType, deleted,
+dateMillis, amount)`. The filtered fields alone are not enough. Both were deployed
+and **confirmed serving on 2026-08-06** by adding a real expense on a real device
+with a budget set, seeing the projection fire, and reading an empty logcat.
+
+Three separate signals said "fine" while this was broken, so trust none of them
+alone: the emulator invents indexes on demand (44/44 green), `gcloud firestore
+indexes composite list` reported `READY` — for a *different* index that had built
+correctly — and both clients wrap the projection best-effort (`runCatching {
+checkBudgetAlert(...) }` at `AddExpenseViewModel.kt:170`, `try/catch` at
+`useAddTransactionViewModel.ts:168`) so a failed projection cannot look like a
+failed save. The failure mode is therefore **silent**: saving keeps working, the
+budget warning simply never appears, and the only trace anywhere is a single
+`budget check failed` line in logcat or the browser console.
+
+The only check worth anything here is adding an expense on a device with a budget
+set and reading logcat. Deploy indexes before the code that needs them
+(`npm run deploy:rules` covers indexes as well as rules).
+
+Also unproven on that change: `assembleProdRelease` (R8) never ran for it — there
+is no `keystore.properties` and no `ausgegeben-release.jks` on the dev machine, so
+a signed release cannot currently be built at all.
+
+A **prod debug** APK was sideloaded to the Pixel 7 on 2026-08-06 and launched
+clean (process alive, empty crash buffer, only the documented App Check 403). That
+is a launch check and nothing more: the uninstall it required wiped local data, so
+the app was signed out and **no signed-in path — including the month total this
+change exists to fix — has been exercised on a device.**
 
 **Category reordering — actually fixed 2026-08-02, verified against a real
 account with real data, not just the AVD.** The entry that used to live here
