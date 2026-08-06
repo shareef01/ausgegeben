@@ -597,8 +597,12 @@ export const expenseRepository = {
     // dateMillis. Summing the deleted subset on its own and subtracting it is
     // one extra aggregate read (still ~1 per 1,000 documents) and — unlike
     // purging the rows — leaves the user's data untouched.
-    // Needs the (transactionType, deleted, dateMillis) composite index; the
-    // emulator invents indexes on demand, so only production can prove it.
+    // Both passes need `amount` in their composite index, because an aggregation
+    // indexes the field it aggregates, not just the ones it filters on:
+    // (transactionType, dateMillis, amount) and (transactionType, deleted,
+    // dateMillis, amount). Getting this wrong fails with FAILED_PRECONDITION at
+    // runtime and nowhere else — the emulator invents indexes on demand, and the
+    // caller swallows the error, so only a real device with a budget set shows it.
     const [allAgg, deletedAgg] = await Promise.all([
       getAggregateFromServer(scoped, { total: sum('amount') }),
       getAggregateFromServer(query(scoped, where('deleted', '==', true)), { total: sum('amount') }),
