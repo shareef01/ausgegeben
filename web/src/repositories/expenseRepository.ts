@@ -235,7 +235,9 @@ export const expenseRepository = {
         console.warn(`[expenseRepository] getAllExpenses capped at ${max} rows`);
       }
       const result = {
-        items: docs.map((d) => ({ id: d.id, ...d.data() } as Expense)),
+        items: docs
+          .map((d) => ({ id: d.id, ...d.data() } as Expense))
+          .filter((e) => e.deleted !== true),
         truncated,
       };
       allExpensesCache = { uid: u, max, at: now(), result };
@@ -476,7 +478,9 @@ export const expenseRepository = {
     const userId = uid(); if (!userId) return [];
     const q = query(expCol(userId), where('dateMillis', '>=', start), where('dateMillis', '<', end), orderBy('dateMillis', 'desc'));
     const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() } as Expense));
+    return snap.docs
+      .map(d => ({ id: d.id, ...d.data() } as Expense))
+      .filter(e => e.deleted !== true);
   },
 
   /**
@@ -500,7 +504,11 @@ export const expenseRepository = {
     return onSnapshot(
       q,
       (snap) => {
-        cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Expense)));
+        cb(
+          snap.docs
+            .map(d => ({ id: d.id, ...d.data() } as Expense))
+            .filter(e => e.deleted !== true)
+        );
       },
       (err) => {
         console.error('[onExpensesInRange]', err);
@@ -583,16 +591,29 @@ export const expenseRepository = {
       where('dateMillis', '>=', start),
       where('dateMillis', '<', end),
     );
-    const agg = await getAggregateFromServer(scoped, { total: sum('amount') });
-    let total = Number(agg.data().total ?? 0);
+    // sum() has no way to skip the legacy soft-deleted rows in a single pass:
+    // `deleted` is absent on every row written since, so no equality filter
+    // matches both shapes, and an inequality would collide with the range on
+    // dateMillis. Summing the deleted subset on its own and subtracting it is
+    // one extra aggregate read (still ~1 per 1,000 documents) and — unlike
+    // purging the rows — leaves the user's data untouched.
+    // Needs the (transactionType, deleted, dateMillis) composite index; the
+    // emulator invents indexes on demand, so only production can prove it.
+    const [allAgg, deletedAgg] = await Promise.all([
+      getAggregateFromServer(scoped, { total: sum('amount') }),
+      getAggregateFromServer(query(scoped, where('deleted', '==', true)), { total: sum('amount') }),
+    ]);
+    let total = Number(allAgg.data().total ?? 0) - Number(deletedAgg.data().total ?? 0);
 
     if (excludeExpenseId) {
       const excluded = await getDoc(expDoc(userId, excludeExpenseId));
       const data = excluded.data();
-      // Only subtract when it actually falls inside the summed set.
+      // Only subtract when it actually falls inside the summed set. A
+      // soft-deleted row never does — it came straight back out above.
       if (
         data &&
         data.transactionType === 'expense' &&
+        data.deleted !== true &&
         typeof data.dateMillis === 'number' &&
         data.dateMillis >= start &&
         data.dateMillis < end
@@ -718,7 +739,13 @@ async function repairOrphanedExpenses(userId: string): Promise<number> {
   if (catIds.size === 0) return 0;
   const expSnap = await getDocs(query(expCol(userId), limit(5_000)));
   const orphans = expSnap.docs.filter((d) => {
-    const cid = String(d.data().categoryId ?? '');
+    const data = d.data();
+    // Soft-deleted rows are filtered out of every read path and excluded from the
+    // month total, so repointing them would only spend writes on rows nothing
+    // reads. They are left exactly as they are — legacy data is tolerated here,
+    // never rewritten and never destroyed (AGENTS.md section 2).
+    if (data.deleted === true) return false;
+    const cid = String(data.categoryId ?? '');
     return cid.length > 0 && !catIds.has(cid);
   });
   if (orphans.length === 0) return 0;
