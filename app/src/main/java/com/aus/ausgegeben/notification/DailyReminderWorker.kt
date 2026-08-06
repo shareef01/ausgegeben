@@ -31,11 +31,24 @@ class DailyReminderWorker @AssistedInject constructor(
             val uid = authRepository.currentUserId ?: return Result.success()
             val dayStart = localDayStartMillis(System.currentTimeMillis())
             val dayEnd = dayStart + 24 * 60 * 60 * 1000L
+            // This is the one place that reads expenses without going through
+            // AppRepository, so repository-level invariants do not reach it: legacy
+            // soft-deleted rows have to be skipped here too, or one dated today makes
+            // the reminder think something was logged and stay silent.
+            //
+            // Deliberately unlimited. `deleted` is absent on most rows so it cannot be
+            // filtered server-side, and any limit() would have to be applied before
+            // that client-side check — enough soft-deleted rows dated today would then
+            // empty the page and fire a reminder at someone who did log. This reads one
+            // day of transactions once a day, which is nothing against the 50k/day
+            // Spark budget; sumMonthExpenses is the query that needed the aggregate,
+            // because it runs on every save over a whole month.
             val loggedToday = firestoreClient.get().collection("users").document(uid)
                 .collection("expenses")
                 .whereGreaterThanOrEqualTo("dateMillis", dayStart)
                 .whereLessThan("dateMillis", dayEnd)
-                .get().await().documents.isNotEmpty()
+                .get().await().documents
+                .any { it.getBoolean("deleted") != true }
 
             if (!loggedToday) {
                 NotificationHelper.showDailyReminder(applicationContext)
