@@ -22,6 +22,7 @@ export interface Expense {
   transactionType: TransactionType;
   updatedAt?: number;
   idempotencyKey?: string;
+  deleted?: boolean;
 }
 
 export interface AnalyticsPeriodOption {
