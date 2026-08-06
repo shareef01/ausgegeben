@@ -13,6 +13,8 @@ import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.util.CategoryDedupe
 import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.dateRangeMillis
+import com.google.firebase.firestore.AggregateField
+import com.google.firebase.firestore.AggregateSource
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
@@ -395,7 +397,9 @@ class AppRepository @Inject constructor(
                     }
                     if (snap != null) {
                         markListenerHealthy(ListenerSource.EXPENSES_IN_RANGE)
-                        trySend(snap.documents.mapNotNull { doc -> expenseFromDoc(doc) })
+                        trySend(snap.documents.mapNotNull { doc ->
+                            expenseFromDoc(doc)?.takeIf { !it.deleted }
+                        })
                     }
                 }
                 awaitClose {
@@ -483,15 +487,44 @@ class AppRepository @Inject constructor(
     override suspend fun sumMonthExpenses(excludeExpenseId: String): Double {
         val range = AnalyticsPeriod.THIS_MONTH.dateRangeMillis() ?: return 0.0
         val u = uid() ?: return 0.0
-        val snap = expCol(u)
+        val scoped = expCol(u)
             .whereGreaterThanOrEqualTo("dateMillis", range.first)
             .whereLessThan("dateMillis", range.second)
             .whereEqualTo("transactionType", "expense")
-            .get().await()
-        val rawSum = snap.documents
-            .filter { it.id != excludeExpenseId }
-            .sumOf { it.getDouble("amount") ?: 0.0 }
-        return roundAmount(rawSum)
+
+        // sum() has no way to skip the legacy soft-deleted rows in a single pass:
+        // `deleted` is absent on every row written since, so no equality filter
+        // matches both shapes, and an inequality would collide with the range on
+        // dateMillis. Summing the deleted subset on its own and subtracting it is
+        // one extra aggregate read (still ~1 per 1,000 documents) and — unlike
+        // purging the rows — leaves the user's data untouched.
+        // Needs the (transactionType, deleted, dateMillis) composite index; the
+        // emulator invents indexes on demand, so only production can prove it.
+        val sumField = AggregateField.sum("amount")
+        val liveSum = scoped.aggregate(sumField).get(AggregateSource.SERVER).await()
+            .getDouble(sumField) ?: 0.0
+        val deletedSum = scoped.whereEqualTo("deleted", true)
+            .aggregate(sumField).get(AggregateSource.SERVER).await()
+            .getDouble(sumField) ?: 0.0
+        var total = liveSum - deletedSum
+
+        if (excludeExpenseId.isNotEmpty()) {
+            val excluded = expDoc(u, excludeExpenseId).get().await()
+            // getLong() coerces a Double-typed dateMillis; a raw `as? Long` cast
+            // returns null on one and silently double-counts the edited row.
+            val excludedDate = excluded.getLong("dateMillis")
+            // Only subtract when it actually falls inside the summed set. A
+            // soft-deleted row never does — it came straight back out above.
+            if (excluded.getString("transactionType") == "expense" &&
+                excluded.getBoolean("deleted") != true &&
+                excludedDate != null &&
+                excludedDate in range.first until range.second
+            ) {
+                total -= excluded.getDouble("amount") ?: 0.0
+            }
+        }
+
+        return roundAmount(kotlin.math.max(0.0, total))
     }
 
     override val allExpenses: Flow<List<Expense>> = perUserFlow(emptyList()) { u ->
@@ -513,7 +546,9 @@ class AppRepository @Inject constructor(
                         }
                         markTruncation(ListenerSource.ALL_EXPENSES, truncated)
                         val limited = if (truncated) docs.take(ALL_EXPENSES_CAP.toInt()) else docs
-                        trySend(limited.mapNotNull { expenseFromDoc(it) })
+                        trySend(limited.mapNotNull { doc ->
+                            expenseFromDoc(doc)?.takeIf { !it.deleted }
+                        })
                     }
                 }
             awaitClose {
@@ -624,6 +659,11 @@ class AppRepository @Inject constructor(
         if (catIds.isEmpty()) return
         val snap = expCol(u).limit(ALL_EXPENSES_CAP).get().await()
         val orphans = snap.documents.filter { doc ->
+            // Soft-deleted rows are filtered out of every read path and excluded from
+            // the month total, so repointing them would only spend writes on rows
+            // nothing reads. They are left exactly as they are — legacy data is
+            // tolerated here, never rewritten and never destroyed (AGENTS.md section 2).
+            if (doc.getBoolean("deleted") == true) return@filter false
             val cid = doc.get("categoryId")?.toString().orEmpty()
             cid.isNotEmpty() && cid !in catIds
         }
@@ -671,6 +711,7 @@ class AppRepository @Inject constructor(
             categoryId = categoryId,
             note = doc.getString("note") ?: "",
             transactionType = doc.getString("transactionType") ?: "expense",
+            deleted = doc.getBoolean("deleted") ?: false
         )
     }
 
