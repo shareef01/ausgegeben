@@ -9,5 +9,6 @@ data class Expense(
     val categoryId: String,
     val note: String,
     /** expense | income | transfer */
-    val transactionType: String = "expense"
+    val transactionType: String = "expense",
+    val deleted: Boolean = false
 )
