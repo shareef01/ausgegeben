@@ -19,7 +19,7 @@ Working tree was clean at start (`c1dc449`), nothing unshipped besides that comm
 | 2 | **MED — `c1dc449` reinstated the touch-target regression `353da22` had fixed.** It rebuilt the move-up/move-down/edit/delete cluster in the manage-categories *sheet* (`CategoryManageRow`) out of `AppIconButton(modifier = Modifier.size(44.dp))`, replacing Material3 `IconButton` (48dp). `AppIconButton` applied its own `.size(48.dp)` *after* the caller's modifier, so the caller won | The 48dp floor now goes **before** the caller's modifier (`sizeIn(min = 48.dp).then(modifier)`), so no call site can shrink it; the seven now-ineffective size overrides removed | Compose test on the AVD reproducing the exact call-site shape: **44.19dp** measured against a 48dp floor before the fix |
 | 3 | **MED — a 20dp touch target** (pre-existing): the note-field clear button, `AddTransactionScreen.kt` | Covered by the same floor. The decoration `Row` gained `heightIn(min = 48.dp)` so gaining a 48dp button on the first keystroke cannot reflow the field | Same probe: **20.19dp** measured before the fix |
 | 4 | **MED — `TouchTargetTest` could not catch either, by construction.** All five cases build `AppIconButton` with no modifier, so they measure the component default and never a call site — including the case whose own KDoc names this cluster. 5/5 green while two call sites were undersized | Sixth case added: passes `size(44.dp)` and `size(20.dp)` and asserts the floor holds anyway | Fails against the old component, passes against the new |
-| 5 | **MED — the deployed error worker received nothing.** The worker README lists three wiring steps; the CSP allow-list and the redeploy were done on 2026-08-27, but `VITE_ERROR_REPORT_URL` was never set, so `installConfiguredErrorSink()` returned false and the PWA stayed console-only. `npm run smoke` records this as a *soft* pass — "error endpoint not configured (skipped)" — so it still read 10/10 | Added to `web/.env.production` (gitignored) and documented in `.env.example` | Endpoint re-probed live: preflight **204** with matching `Access-Control-Allow-Origin`, forged origin **403**. Rebuilt: the URL is now in the bundle. **Not yet deployed** — needs `npm run deploy` |
+| 5 | **MED — the deployed error worker received nothing.** The worker README lists three wiring steps; the CSP allow-list and the redeploy were done on 2026-08-27, but `VITE_ERROR_REPORT_URL` was never set, so `installConfiguredErrorSink()` returned false and the PWA stayed console-only. `npm run smoke` records this as a *soft* pass — "error endpoint not configured (skipped)" — so it still read 10/10 | Added to `web/.env.production` (gitignored) and documented in `.env.example` | Endpoint re-probed live: preflight **204** with matching `Access-Control-Allow-Origin`, forged origin **403**. Deployed same day; smoke now reports **"error endpoint accepts this origin" HTTP 204** in place of the skip, and the live bundle carries the URL |
 | 6 | **LOW — `AppSpacing` values were redefined, not just extended** (`lg` 32→24, `xl` 48→32, `xxl` 64→48). The six edited files remapped their literals so they look unchanged, but four call sites in *unedited* files shifted silently: both `AppButton`/`AppOutlinedButton` horizontal padding (every button in the app), an `IosSurfaces` row, and the `BillsScreen` footer spacer | Restored the original dp at those four sites via the retitled tokens, keeping the refactor visually neutral as intended | Cosmetic only — vertical padding and `defaultMinSize` untouched, so no touch-target impact |
 
 ## Checked and clean
@@ -63,13 +63,24 @@ AGENTS.md §4 warned against *driving* the phone. It now also says to pin
 `ANDROID_SERIAL` before any connected task — a task that fans out to all devices is a
 different hazard from a stray tap, and this one cost real data.
 
+## Shipped
+
+- **v2.0.1** — tagged from `f4e347b`, CI release green. Verified against the published
+  artifact rather than the green check, per finding 1: signer DN `CN=Ausgegeben,
+  O=shareef01` with cert SHA-256 `24539f14…77ee`, byte-identical to v2.0.0's signer and
+  **not** the local `CN=Test` key; versionCode 20001. R8 ran and the emulator launch
+  gate passed on the signed APK — the first time `c1dc449` or any of today's fixes has
+  been through the gate AGENTS.md §1 considers predictive.
+- **Web** — `npm run deploy` (hosting + rules + indexes), smoke **10/10**, including
+  the endpoint check that had been skipping since the worker went up.
+- **Phone** — v2.0.0 reinstalled from the CI-signed release APK after the incident
+  above (versionCode 20000 confirmed on device). Not driven or signed in.
+
 ## Not verified
 
-- **No signed release build or device launch for this work.** Per AGENTS.md §1 that is
-  the gate that matters, and `c1dc449` has still never been through R8 or a device run.
-  Note finding 1: a local signed build would not be the real artifact anyway.
-- **The error endpoint fix is not live** until the web app is redeployed. After that,
-  `npm run smoke` should show "error endpoint accepts this origin" instead of skipping.
+- The user's phone was left on **v2.0.0**, not v2.0.1, and its local prefs (theme,
+  locale, currency, monthly budget) are gone for good — see the incident above. No
+  reinstall restores them.
 - The category cluster and the note field were **not** driven by hand on the AVD; the
   48dp result is from a Compose test reproducing the call-site shapes. The cluster's
   width is back to exactly what it was before `c1dc449` (Material3 `IconButton` was also
