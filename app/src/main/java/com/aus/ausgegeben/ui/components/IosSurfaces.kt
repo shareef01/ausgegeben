@@ -211,7 +211,7 @@ fun GroupedSectionLabel(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = AppSpacing.lg)
+            .padding(horizontal = AppSpacing.xl)
             .padding(top = 24.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

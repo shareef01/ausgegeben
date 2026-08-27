@@ -582,7 +582,6 @@ private fun CategoryManageRow(
             icon = Icons.Rounded.KeyboardArrowUp,
             contentDescription = stringResource(R.string.category_move_up),
             tint = readableSecondaryColor(),
-            modifier = Modifier.size(44.dp)
         )
         AppIconButton(
             onClick = onMoveDown,
@@ -590,21 +589,18 @@ private fun CategoryManageRow(
             icon = Icons.Rounded.KeyboardArrowDown,
             contentDescription = stringResource(R.string.category_move_down),
             tint = readableSecondaryColor(),
-            modifier = Modifier.size(44.dp)
         )
         AppIconButton(
             onClick = onEdit,
             icon = Icons.Rounded.Edit,
             contentDescription = stringResource(R.string.category_edit),
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(44.dp)
         )
         AppIconButton(
             onClick = onDelete,
             icon = Icons.Rounded.Delete,
             contentDescription = stringResource(R.string.action_delete),
             tint = MaterialTheme.colorScheme.error,
-            modifier = Modifier.size(44.dp)
         )
     }
 }

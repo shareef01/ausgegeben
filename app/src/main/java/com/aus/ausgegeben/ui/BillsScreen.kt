@@ -347,7 +347,7 @@ fun BillsScreen(
                         }
                     }
 
-                    item(key = "footer") { Spacer(Modifier.height(AppSpacing.xxl)) }
+                    item(key = "footer") { Spacer(Modifier.height(AppSpacing.xxxl)) }
                 }
             }
         }
