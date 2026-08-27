@@ -1,0 +1,14 @@
+{
+  "name": "ausgegeben-error-endpoint",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker receiving crash reports from the Ausgegeben PWA (see README.md).",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "dev": "wrangler dev"
+  },
+  "devDependencies": {
+    "wrangler": "^4.127.0"
+  }
+}
