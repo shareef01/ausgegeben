@@ -4,6 +4,81 @@ Newest first. Every item is verified against the real artifact, not just by read
 
 ---
 
+# 2026-08-28 — audit of the post-v2.0.0 UI refactor
+
+Audit of the one commit that landed after the 2026-08-27 audit and release:
+`c1dc449` *"refactor(ui): consolidate design tokens, theme accents, and accessibility
+semantics"* — Android-only, 6 files. All gates re-run and production re-checked.
+Working tree was clean at start (`c1dc449`), nothing unshipped besides that commit.
+
+## Findings
+
+| # | Finding | Fix | Verified how |
+|---|---|---|---|
+| 1 | **HIGH — the local release keystore is not the release key.** AGENTS.md §3 claimed the "no signed release can be built here" warning was obsolete. The local `ausgegeben-release.jks` is `CN=Test, OU=Test, O=Test`, generated 2026-08-27 05:27; the published `v2.0.0` APK is signed `CN=Ausgegeben, O=shareef01`. A locally signed APK cannot install over a released build | AGENTS.md §3 corrected: local signing is **build coverage only** (R8/packaging), never distributable; check the DN rather than trusting "apksigner verified the cert" | `keytool -list -v` on the local store vs `apksigner verify --print-certs` on the `v2.0.0` APK downloaded from GitHub Releases — different DNs |
+| 2 | **MED — `c1dc449` reinstated the touch-target regression `353da22` had fixed.** It rebuilt the move-up/move-down/edit/delete cluster in the manage-categories *sheet* (`CategoryManageRow`) out of `AppIconButton(modifier = Modifier.size(44.dp))`, replacing Material3 `IconButton` (48dp). `AppIconButton` applied its own `.size(48.dp)` *after* the caller's modifier, so the caller won | The 48dp floor now goes **before** the caller's modifier (`sizeIn(min = 48.dp).then(modifier)`), so no call site can shrink it; the seven now-ineffective size overrides removed | Compose test on the AVD reproducing the exact call-site shape: **44.19dp** measured against a 48dp floor before the fix |
+| 3 | **MED — a 20dp touch target** (pre-existing): the note-field clear button, `AddTransactionScreen.kt` | Covered by the same floor. The decoration `Row` gained `heightIn(min = 48.dp)` so gaining a 48dp button on the first keystroke cannot reflow the field | Same probe: **20.19dp** measured before the fix |
+| 4 | **MED — `TouchTargetTest` could not catch either, by construction.** All five cases build `AppIconButton` with no modifier, so they measure the component default and never a call site — including the case whose own KDoc names this cluster. 5/5 green while two call sites were undersized | Sixth case added: passes `size(44.dp)` and `size(20.dp)` and asserts the floor holds anyway | Fails against the old component, passes against the new |
+| 5 | **MED — the deployed error worker received nothing.** The worker README lists three wiring steps; the CSP allow-list and the redeploy were done on 2026-08-27, but `VITE_ERROR_REPORT_URL` was never set, so `installConfiguredErrorSink()` returned false and the PWA stayed console-only. `npm run smoke` records this as a *soft* pass — "error endpoint not configured (skipped)" — so it still read 10/10 | Added to `web/.env.production` (gitignored) and documented in `.env.example` | Endpoint re-probed live: preflight **204** with matching `Access-Control-Allow-Origin`, forged origin **403**. Rebuilt: the URL is now in the bundle. **Not yet deployed** — needs `npm run deploy` |
+| 6 | **LOW — `AppSpacing` values were redefined, not just extended** (`lg` 32→24, `xl` 48→32, `xxl` 64→48). The six edited files remapped their literals so they look unchanged, but four call sites in *unedited* files shifted silently: both `AppButton`/`AppOutlinedButton` horizontal padding (every button in the app), an `IosSurfaces` row, and the `BillsScreen` footer spacer | Restored the original dp at those four sites via the retitled tokens, keeping the refactor visually neutral as intended | Cosmetic only — vertical padding and `defaultMinSize` untouched, so no touch-target impact |
+
+## Checked and clean
+
+`AppButton`'s content slot is `RowScope`, so the `Icon`+`Spacer`+`Text` conversion lays
+out correctly · `navigationBarsPadding()` matches the existing sheet convention
+(`IosSurfaces`, `SettingsScreen`) · `SignatureText` lowercasing is house style across 8
+call sites, and `resolvedTitle` is always a static localized string — neither caller
+passes user data as `title`, so no category name is lowercased · the `RecordScreen`
+day-total `contentDescription`s are a genuine improvement · keystore and `.env` files
+untracked, gitignored, and absent from history.
+
+## Gate results
+
+Android unit **116/116** · `lintProdDebug` clean · instrumentation on the AVD **9/9**
+(ExportFileProvider 2, MainActivityLaunch 1, TouchTargetTest 6 — including the new
+floor case, which fails against the old component and passes against the new) · web
+unit **69/69** · `tsc` clean · `lint:css` 454 tokens · `npm run build` 40 precache
+entries · production smoke **10/10** on `aus01.web.app` with the API key live · error
+worker re-probed live (preflight 204 with matching ACAO, forged origin 403).
+
+## Incident — this run wiped the app off the user's phone
+
+`connectedProdDebugAndroidTest` targets **every** attached device. The user's Pixel 7
+was plugged in (it was not at the start of the session, and I did not re-check before
+running), so Gradle ran the suite there as well as on the AVD. To get past the
+signature conflict with the release-signed v2.0.0 it uninstalled that build, installed
+the debug APK, ran the tests, and uninstalled afterwards — leaving **no app and no
+local data** on the phone. `pm list packages -u` shows no retained-data record either.
+
+Lost: DataStore prefs (theme, locale, currency, monthly budget), onboarding state, and
+the signed-in session. Firestore data is cloud-side and untouched, so reinstalling
+v2.0.0 from GitHub Releases and signing in restores everything except those local prefs.
+
+The six Pixel failures were unrelated to the change under test: all six Compose cases
+died at setup with `IllegalStateException: Exception handler was not found via a
+ServiceLoader` (kotlinx.coroutines) on that device, while the three non-Compose cases
+passed. Every touch-target number quoted above is the AVD's.
+
+AGENTS.md §4 warned against *driving* the phone. It now also says to pin
+`ANDROID_SERIAL` before any connected task — a task that fans out to all devices is a
+different hazard from a stray tap, and this one cost real data.
+
+## Not verified
+
+- **No signed release build or device launch for this work.** Per AGENTS.md §1 that is
+  the gate that matters, and `c1dc449` has still never been through R8 or a device run.
+  Note finding 1: a local signed build would not be the real artifact anyway.
+- **The error endpoint fix is not live** until the web app is redeployed. After that,
+  `npm run smoke` should show "error endpoint accepts this origin" instead of skipping.
+- The category cluster and the note field were **not** driven by hand on the AVD; the
+  48dp result is from a Compose test reproducing the call-site shapes. The cluster's
+  width is back to exactly what it was before `c1dc449` (Material3 `IconButton` was also
+  48dp), so the row layout is a restoration, not a new arrangement.
+- Web emulator-backed suites (rules 38, emulator 44) were not re-run — no web source
+  changed, only `.env`.
+
+---
+
 # 2026-08-27 — full audit, then ship: v2.0.0
 
 Full-stack audit at `66da782` (three parallel deep audits — Android data layer, web client, infra/CI/workflows — with every high-severity claim re-verified by hand), then all gates re-run, fixes committed, and the whole system shipped: release, web, worker, phone.
