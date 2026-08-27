@@ -114,7 +114,10 @@ apksigner verifies the cert, the `-P` versionCode/versionName overrides are
 honored, and mapping.txt keeps Room's `_Impl` constructors. Still true from the
 original warning: a plain `assembleProdRelease` with no `-P` produces
 versionCode 1 (§4 gotcha unchanged), and R8 passing is a *build* gate only —
-launch evidence must come separately, from a device run.
+launch evidence must come separately, from a device run. **Update same day:**
+v2.0.0 shipped from this state — CI's emulator launch gate passed on the signed
+APK, and the user installed it on their real phone (replacing a debug sideload)
+and signed in.
 
 A **prod debug** APK was sideloaded to the Pixel 7 on 2026-08-06 and launched
 clean (process alive, empty crash buffer, only the documented App Check 403). That
