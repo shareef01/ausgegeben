@@ -38,13 +38,16 @@ jobs:
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
           KEYSTORE_BASE64: ${{ secrets.AUSGEGEBEN_KEYSTORE_BASE64 }}
+          AUSGEGEBEN_STOREPASSWORD: ${{ secrets.AUSGEGEBEN_STOREPASSWORD }}
+          AUSGEGEBEN_KEYALIAS: ${{ secrets.AUSGEGEBEN_KEYALIAS }}
+          AUSGEGEBEN_KEYPASSWORD: ${{ secrets.AUSGEGEBEN_KEYPASSWORD }}
         run: |
           missing=""
           [ -z "$GOOGLE_SERVICES_JSON" ] && missing="$missing GOOGLE_SERVICES_JSON"
           [ -z "$KEYSTORE_BASE64" ] && missing="$missing AUSGEGEBEN_KEYSTORE_BASE64"
-          [ -z "${{ secrets.AUSGEGEBEN_STOREPASSWORD }}" ] && missing="$missing AUSGEGEBEN_STOREPASSWORD"
-          [ -z "${{ secrets.AUSGEGEBEN_KEYALIAS }}" ] && missing="$missing AUSGEGEBEN_KEYALIAS"
-          [ -z "${{ secrets.AUSGEGEBEN_KEYPASSWORD }}" ] && missing="$missing AUSGEGEBEN_KEYPASSWORD"
+          [ -z "$AUSGEGEBEN_STOREPASSWORD" ] && missing="$missing AUSGEGEBEN_STOREPASSWORD"
+          [ -z "$AUSGEGEBEN_KEYALIAS" ] && missing="$missing AUSGEGEBEN_KEYALIAS"
+          [ -z "$AUSGEGEBEN_KEYPASSWORD" ] && missing="$missing AUSGEGEBEN_KEYPASSWORD"
           if [ -n "$missing" ]; then
             echo "::error::Missing required secret(s):$missing"
             exit 1
@@ -57,8 +60,10 @@ jobs:
       # can update the last: v1.2.3 -> 10203.
       - name: Derive version from tag
         id: version
+        env:
+          TAG_INPUT: ${{ github.event.inputs.tag || github.ref_name }}
         run: |
-          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          TAG="$TAG_INPUT"
           NAME="${TAG#v}"
           if ! echo "$NAME" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
             echo "::error::Tag '$TAG' is not vMAJOR.MINOR.PATCH"
