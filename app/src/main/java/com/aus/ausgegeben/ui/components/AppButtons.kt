@@ -52,7 +52,7 @@ fun AppButton(
             .clip(RoundedCornerShape(AppRadius.md))
             .background(backgroundColor)
             .smoothClickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = AppSpacing.lg, vertical = AppSpacing.sm),
+            .padding(horizontal = AppSpacing.xl, vertical = AppSpacing.sm),
         contentAlignment = Alignment.Center
     ) {
         CompositionLocalProvider(LocalContentColor provides textColor) {
@@ -104,7 +104,7 @@ fun AppOutlinedButton(
             .clip(RoundedCornerShape(AppRadius.md))
             .border(1.dp, if (enabled) borderColor else borderColor.copy(alpha = 0.38f), RoundedCornerShape(AppRadius.md))
             .smoothClickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = AppSpacing.lg, vertical = AppSpacing.sm),
+            .padding(horizontal = AppSpacing.xl, vertical = AppSpacing.sm),
         contentAlignment = Alignment.Center
     ) {
         CompositionLocalProvider(LocalContentColor provides if (enabled) contentColor else contentColor.copy(alpha = 0.38f)) {
@@ -127,15 +127,23 @@ fun AppIconButton(
     tint: Color = MaterialTheme.colorScheme.onBackground
 ) {
     Box(
-        modifier = modifier
-            // 48dp is Android's minimum touch target — 44dp is Apple's, and this
-            // was carrying the smaller one. Material3's own IconButton is 48dp.
-            // It matters most on CategoryScreen, where four of these sit shoulder
-            // to shoulder (move up, move down, edit, delete): undersized adjacent
-            // targets with a destructive action at the end invite mis-taps.
-            // Unlike Material3's IconButton, this is a bare Box + smoothClickable,
-            // so nothing expands the touch bounds for us.
-            .size(48.dp)
+        // 48dp is Android's minimum touch target — 44dp is Apple's, and this once
+        // carried the smaller one. Material3's own IconButton is 48dp. It matters
+        // most on the category rows, where four of these sit shoulder to shoulder
+        // (move up, move down, edit, delete): undersized adjacent targets with a
+        // destructive action at the end invite mis-taps. Unlike Material3's
+        // IconButton, this is a bare Box + smoothClickable, so nothing expands the
+        // touch bounds for us.
+        //
+        // The floor goes BEFORE the caller's modifier on purpose. A trailing
+        // .size(48.dp) loses to any .size(n) a call site passes, because the outer
+        // fixed constraint wins — that is how six call sites ran at 44dp, and the
+        // note-field clear button at 20dp, while TouchTargetTest stayed green by
+        // never passing a modifier. sizeIn constrains whatever follows it, so a
+        // smaller size is coerced back up while a larger one still works.
+        modifier = Modifier
+            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+            .then(modifier)
             .clip(CircleShape)
             .smoothClickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
