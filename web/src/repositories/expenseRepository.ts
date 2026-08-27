@@ -519,7 +519,10 @@ export const expenseRepository = {
 
   async countExpensesForCategory(id: string): Promise<number> {
     const u = uid(); if (!u) return 0;
-    return (await expenseDocsForCategory(u, id)).length;
+    // Live rows only, mirroring Android: soft-deleted rows are invisible
+    // everywhere else, so the delete warning must not count them.
+    return (await expenseDocsForCategory(u, id))
+      .filter((d) => d.data().deleted !== true).length;
   },
 
   // SECURE: UUID and Math.round for integrity
@@ -685,13 +688,20 @@ export const expenseRepository = {
         }),
     );
 
-    // Repair missing sortOrder fields
+    // Repair missing sortOrder fields. Awaited with a per-write catch: these
+    // used to be fire-and-forget, so a rejected write surfaced as an unhandled
+    // rejection (a mystery crash report) while the orphan sweep below raced it.
     const finalSnap = await getDocs(catCol(userId));
+    const repairs: Array<Promise<void>> = [];
     finalSnap.docs.forEach((d, i) => {
         if (d.data().sortOrder === undefined) {
-            void setDoc(d.ref, { sortOrder: i }, { merge: true });
+            repairs.push(
+                setDoc(d.ref, { sortOrder: i }, { merge: true })
+                    .catch((err) => console.error('[expenseRepository] sortOrder repair failed', d.id, err)),
+            );
         }
     });
+    await Promise.all(repairs);
 
     // Dedupe's own TOCTOU window can orphan an expense, and this is the user's
     // "repair my categories" action — so sweep here rather than on every launch.

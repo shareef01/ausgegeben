@@ -77,7 +77,10 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
   const [clearingDeletion, setClearingDeletion] = useState(false);
   const budgetInputRef = useRef<HTMLInputElement>(null);
   const parsedBudget = parseAmount(budgetInput, currency);
-  const canSaveBudget = parsedBudget != null && parsedBudget > 0;
+  // Upper bound mirrors firestore.rules' validPreferences (< 1e9): without it a
+  // fat-fingered value passes the client and fails the write with a generic
+  // permission error that names no field.
+  const canSaveBudget = parsedBudget != null && parsedBudget > 0 && parsedBudget < 1_000_000_000;
 
   const saveBudget = useCallback(() => {
     if (!canSaveBudget || parsedBudget == null) return;
