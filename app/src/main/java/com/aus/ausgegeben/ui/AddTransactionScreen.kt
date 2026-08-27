@@ -440,7 +440,7 @@ private fun ObsidianTopBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
-            modifier = Modifier.size(44.dp).appGlassCard(CircleShape),
+            modifier = Modifier.size(48.dp).appGlassCard(CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             AppIconButton(
@@ -448,7 +448,6 @@ private fun ObsidianTopBar(
                 icon = Icons.Rounded.Close,
                 contentDescription = stringResource(R.string.action_close),
                 tint = contentColor,
-                modifier = Modifier.size(44.dp),
             )
         }
 
@@ -533,7 +532,12 @@ private fun ObsidianNoteField(
                 cursorBrush = androidx.compose.ui.graphics.SolidColor(accentColor),
                 modifier = Modifier.fillMaxWidth(),
                 decorationBox = { inner ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Pinned so gaining the 48dp clear button when the first
+                    // character is typed does not reflow the field.
+                    Row(
+                        modifier = Modifier.heightIn(min = 48.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         Box(modifier = Modifier.weight(1f)) {
                             if (remark.isEmpty()) {
                                 Text(
@@ -549,7 +553,6 @@ private fun ObsidianNoteField(
                                 onClick = { onRemarkChange("") },
                                 icon = Icons.Rounded.Cancel,
                                 contentDescription = stringResource(R.string.action_clear),
-                                modifier = Modifier.size(20.dp),
                                 tint = ObsidianTokens.slate().copy(alpha = 0.4f)
                             )
                         }

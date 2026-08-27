@@ -1,12 +1,14 @@
 package com.aus.ausgegeben.ui.components
 
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.Text
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -86,6 +88,34 @@ class TouchTargetTest {
         }
 
         for (label in listOf("move up", "move down", "edit", "delete")) {
+            compose.onNodeWithContentDescription(label)
+                .assertWidthIsAtLeast(minTarget)
+                .assertHeightIsAtLeast(minTarget)
+        }
+    }
+
+    /**
+     * The floor has to survive a call site that asks for less, which is the case
+     * every test above misses: they all build the button with no modifier, so they
+     * measure the default and never a real call site.
+     *
+     * Six call sites passed Modifier.size(44.dp) and the note field passed 20.dp,
+     * and all seven silently got what they asked for — a .size(48.dp) applied
+     * after the caller's modifier loses, because the outer fixed constraint wins.
+     * Measured on an AVD at 44.19dp and 20.19dp while this suite stayed green.
+     */
+    @Test
+    fun appIconButton_floorSurvivesASmallerCallerSize() {
+        compose.setContent {
+            AusgegebenTheme {
+                Row {
+                    AppIconButton({}, Icons.Rounded.Edit, "shrunk to 44", modifier = Modifier.size(44.dp))
+                    AppIconButton({}, Icons.Rounded.DeleteOutline, "shrunk to 20", modifier = Modifier.size(20.dp))
+                }
+            }
+        }
+
+        for (label in listOf("shrunk to 44", "shrunk to 20")) {
             compose.onNodeWithContentDescription(label)
                 .assertWidthIsAtLeast(minTarget)
                 .assertHeightIsAtLeast(minTarget)
