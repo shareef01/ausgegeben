@@ -573,12 +573,35 @@ class AppRepository @Inject constructor(
             requireVerifiedEmail()
             val u = uid() ?: throw IllegalStateException("Not signed in")
             val docs = expenseDocsForCategory(u, categoryId)
+            var unfixable = 0
             docs.chunked(450).forEach { chunk ->
-                firestore.runBatch { batch ->
+                try {
+                    firestore.runBatch { batch ->
+                        chunk.forEach { doc ->
+                            batch.update(doc.reference, "transactionType", transactionType)
+                        }
+                    }.await()
+                } catch (e: Exception) {
+                    // Same failure shape reassignExpenses() guards against: a
+                    // rules-rejected row fails its whole chunk, and the inert
+                    // legacy rows documented in AGENTS.md section 1 can never
+                    // pass validation on merge. Retry one document at a time so
+                    // the healthy rows still land.
+                    Log.w(TAG, "batch type change rejected — retrying one at a time", e)
                     chunk.forEach { doc ->
-                        batch.update(doc.reference, "transactionType", transactionType)
+                        try {
+                            doc.reference.update("transactionType", transactionType).await()
+                        } catch (docError: Exception) {
+                            unfixable++
+                            Log.w(TAG, "could not update type on ${doc.id}", docError)
+                        }
                     }
-                }.await()
+                }
+            }
+            if (unfixable > 0) {
+                throw IllegalStateException(
+                    "$unfixable expense(s) could not be moved to the new type",
+                )
             }
         }
 
