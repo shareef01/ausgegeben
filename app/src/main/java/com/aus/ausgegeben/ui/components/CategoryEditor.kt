@@ -30,7 +30,7 @@ import com.aus.ausgegeben.data.AppRepository
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.ui.TransactionType
 import com.aus.ausgegeben.ui.label
-import com.aus.ausgegeben.ui.theme.AccentCoral
+import com.aus.ausgegeben.ui.theme.*
 import com.aus.ausgegeben.util.argbColorsMatch
 import com.aus.ausgegeben.util.CategoryColorPaletteInts
 import com.aus.ausgegeben.util.CategoryIconOptions
@@ -109,24 +109,25 @@ fun CategoryEditorSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface,
-        dragHandle = { BottomSheetDefaults.DragHandle() }
+        containerColor = appSheetContainerColor(),
+        scrimColor = appSheetScrimColor(),
+        dragHandle = { AppSheetDragHandle() },
+        shape = AppSheetShape,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 28.dp)
+                .padding(horizontal = AppSpacing.base)
+                .padding(bottom = AppSpacing.lg)
         ) {
-            Text(
+            SignatureText(
                 text = resolvedTitle,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(AppSpacing.base))
 
             CategoryPreview(
                 name = name.ifBlank { previewNamePlaceholder },
@@ -136,21 +137,20 @@ fun CategoryEditorSheet(
                 previewLabel = stringResource(R.string.category_preview)
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(AppSpacing.lg))
 
             Text(
                 text = stringResource(R.string.category_name_label),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.SemiBold
+                style = sectionLabelStyle(),
+                color = readableSecondaryColor(),
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(AppSpacing.xs))
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                    .padding(horizontal = 16.dp, vertical = 14.dp)
+                    .clip(RoundedCornerShape(AppRadius.interactive))
+                    .appGlassCard(shape = RoundedCornerShape(AppRadius.interactive))
+                    .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm)
             ) {
                 BasicTextField(
                     value = name,
@@ -158,7 +158,7 @@ fun CategoryEditorSheet(
                     textStyle = MaterialTheme.typography.bodyLarge.copy(
                         color = MaterialTheme.colorScheme.onBackground
                     ),
-                    cursorBrush = SolidColor(AccentCoral),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     decorationBox = { inner ->
@@ -166,7 +166,7 @@ fun CategoryEditorSheet(
                             Text(
                                 stringResource(R.string.category_name_placeholder),
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = readableSecondaryColor().copy(alpha = 0.6f)
                             )
                         }
                         inner()
@@ -175,14 +175,13 @@ fun CategoryEditorSheet(
             }
 
             if (lockTransactionType == null) {
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(AppSpacing.base))
                 Text(
                     text = stringResource(R.string.category_type_label),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.SemiBold
+                    style = sectionLabelStyle(),
+                    color = readableSecondaryColor(),
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(AppSpacing.xs))
                 IosSegmentedControl(
                     options = typeSegmentLabels,
                     selectedIndex = TransactionType.entries.indexOf(selectedType).coerceAtLeast(0),
@@ -190,73 +189,54 @@ fun CategoryEditorSheet(
                 )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(AppSpacing.base))
             Text(
                 text = stringResource(R.string.category_icon_label),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.SemiBold
+                style = sectionLabelStyle(),
+                color = readableSecondaryColor(),
             )
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(AppSpacing.xs))
             IconPickerGrid(
                 selectedKey = selectedIconKey,
                 previewColor = previewColor,
                 onSelect = { selectedIconKey = it }
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(AppSpacing.base))
             Text(
                 text = stringResource(R.string.category_color_label),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.SemiBold
+                style = sectionLabelStyle(),
+                color = readableSecondaryColor(),
             )
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(AppSpacing.xs))
             ColorPickerGrid(
                 selectedColor = selectedColor,
                 onSelect = { selectedColor = it }
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(AppSpacing.lg))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Text(stringResource(R.string.action_cancel))
-                }
-                Button(
-                    onClick = {
-                        if (canSave) {
-                            onConfirm(
-                                name.trim(),
-                                selectedType.storageKey,
-                                normalizeArgbInt(selectedColor),
-                                selectedIconKey
-                            )
-                        }
-                    },
-                    enabled = canSave,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentCoral)
-                ) {
-                    Text(
-                        stringResource(
-                            if (initialCategory == null) {
-                                R.string.category_add_button
-                            } else {
-                                R.string.category_save_changes
-                            }
+            SheetConfirmActions(
+                onDismiss = onDismiss,
+                onConfirm = {
+                    if (canSave) {
+                        onConfirm(
+                            name.trim(),
+                            selectedType.storageKey,
+                            normalizeArgbInt(selectedColor),
+                            selectedIconKey
                         )
-                    )
-                }
-            }
+                    }
+                },
+                confirmLabel = stringResource(
+                    if (initialCategory == null) {
+                        R.string.category_add_button
+                    } else {
+                        R.string.category_save_changes
+                    }
+                ),
+                confirmEnabled = canSave,
+            )
         }
     }
 }
@@ -425,80 +405,75 @@ fun CategoryManageSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface,
-        dragHandle = { BottomSheetDefaults.DragHandle() }
+        containerColor = appSheetContainerColor(),
+        scrimColor = appSheetScrimColor(),
+        dragHandle = { AppSheetDragHandle() },
+        shape = AppSheetShape,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 32.dp)
+                .navigationBarsPadding()
+                .padding(horizontal = AppSpacing.base)
+                .padding(bottom = AppSpacing.xl)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        stringResource(R.string.category_manage_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
+                    SignatureText(
+                        text = stringResource(R.string.category_manage_title),
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                     )
                     Text(
                         stringResource(R.string.category_manage_subtitle, typeLabel, visibleCategories.size),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = readableSecondaryColor()
                     )
                 }
 
                 if (onDeduplicate != null) {
-                    IconButton(
+                    AppIconButton(
                         onClick = { showDeduplicateConfirm = true },
-                        modifier = Modifier.padding(end = 4.dp)
-                    ) {
-                        Icon(
-                            Icons.Rounded.CleaningServices,
-                            contentDescription = stringResource(R.string.settings_deduplicate_label),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
+                        icon = Icons.Rounded.CleaningServices,
+                        contentDescription = stringResource(R.string.settings_deduplicate_label),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(end = AppSpacing.xxs)
+                    )
                 }
 
-                FilledTonalButton(
+                AppButton(
                     onClick = onAddCategory,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = AccentCoral.copy(alpha = 0.15f),
-                        contentColor = AccentCoral
-                    )
+                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                    contentColor = MaterialTheme.colorScheme.primary
                 ) {
                     Icon(
                         Icons.Rounded.Add,
-                        contentDescription = stringResource(R.string.category_add),
-                        modifier = Modifier.size(18.dp)
+                        contentDescription = null,
+                        modifier = Modifier.size(AppIconSize.sm)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(stringResource(R.string.category_new))
+                    Spacer(modifier = Modifier.width(AppSpacing.xxs))
+                    Text(stringResource(R.string.category_new).lowercase())
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(AppSpacing.md))
 
             if (visibleCategories.isEmpty()) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 32.dp),
+                        .padding(vertical = AppSpacing.xl),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Icon(
                         Icons.Rounded.Category,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = readableSecondaryColor(),
                         modifier = Modifier.size(40.dp)
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(AppSpacing.sm))
                     Text(
                         stringResource(R.string.category_empty_title),
                         style = MaterialTheme.typography.titleMedium,
@@ -507,13 +482,13 @@ fun CategoryManageSheet(
                     Text(
                         stringResource(R.string.category_manage_empty_subtitle),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = readableSecondaryColor(),
                         textAlign = TextAlign.Center
                     )
                 }
             } else {
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(AppSpacing.xs),
                     modifier = Modifier.heightIn(max = 400.dp)
                 ) {
                     itemsIndexed(visibleCategories, key = { _, c -> c.id }) { index, category ->
@@ -533,24 +508,28 @@ fun CategoryManageSheet(
     }
 
     if (showDeduplicateConfirm) {
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showDeduplicateConfirm = false },
             title = { Text(stringResource(R.string.category_deduplicate_title)) },
-            text = { Text(stringResource(R.string.category_deduplicate_message)) },
+            text = { AppDialogBodyText(stringResource(R.string.category_deduplicate_message)) },
             confirmButton = {
-                TextButton(
+                AppButton(
                     onClick = {
                         onDeduplicate?.invoke()
                         showDeduplicateConfirm = false
-                    }
+                    },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = contrastColorOn(MaterialTheme.colorScheme.primary)
                 ) {
-                    Text(stringResource(R.string.category_deduplicate_confirm))
+                    Text(stringResource(R.string.category_deduplicate_confirm).lowercase())
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeduplicateConfirm = false }) {
-                    Text(stringResource(R.string.action_cancel))
-                }
+                AppTextButton(
+                    onClick = { showDeduplicateConfirm = false },
+                    text = stringResource(R.string.action_cancel).lowercase(),
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                )
             }
         )
     }
@@ -570,10 +549,10 @@ private fun CategoryManageRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+            .clip(RoundedCornerShape(AppRadius.interactive))
+            .appGlassCard(shape = RoundedCornerShape(AppRadius.interactive))
             .clickable(onClick = onEdit)
-            .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+            .padding(start = AppSpacing.sm, end = AppSpacing.xxs, top = AppSpacing.xs, bottom = AppSpacing.xs),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
@@ -587,31 +566,45 @@ private fun CategoryManageRow(
                 iconForCategory(category),
                 contentDescription = null,
                 tint = iconTintOnCategoryFill(categoryColor),
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(AppIconSize.md)
             )
         }
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(AppSpacing.sm))
         Text(
             text = category.name,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.weight(1f)
         )
-        IconButton(onClick = onMoveUp, enabled = canMoveUp) {
-            Icon(Icons.Rounded.KeyboardArrowUp, contentDescription = stringResource(R.string.category_move_up))
-        }
-        IconButton(onClick = onMoveDown, enabled = canMoveDown) {
-            Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = stringResource(R.string.category_move_down))
-        }
-        IconButton(onClick = onEdit) {
-            Icon(Icons.Rounded.Edit, contentDescription = stringResource(R.string.category_edit), tint = AccentCoral)
-        }
-        IconButton(onClick = onDelete) {
-            Icon(
-                Icons.Rounded.Delete,
-                contentDescription = stringResource(R.string.action_delete),
-                tint = MaterialTheme.colorScheme.error
-            )
-        }
+        AppIconButton(
+            onClick = onMoveUp,
+            enabled = canMoveUp,
+            icon = Icons.Rounded.KeyboardArrowUp,
+            contentDescription = stringResource(R.string.category_move_up),
+            tint = readableSecondaryColor(),
+            modifier = Modifier.size(44.dp)
+        )
+        AppIconButton(
+            onClick = onMoveDown,
+            enabled = canMoveDown,
+            icon = Icons.Rounded.KeyboardArrowDown,
+            contentDescription = stringResource(R.string.category_move_down),
+            tint = readableSecondaryColor(),
+            modifier = Modifier.size(44.dp)
+        )
+        AppIconButton(
+            onClick = onEdit,
+            icon = Icons.Rounded.Edit,
+            contentDescription = stringResource(R.string.category_edit),
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(44.dp)
+        )
+        AppIconButton(
+            onClick = onDelete,
+            icon = Icons.Rounded.Delete,
+            contentDescription = stringResource(R.string.action_delete),
+            tint = MaterialTheme.colorScheme.error,
+            modifier = Modifier.size(44.dp)
+        )
     }
 }
