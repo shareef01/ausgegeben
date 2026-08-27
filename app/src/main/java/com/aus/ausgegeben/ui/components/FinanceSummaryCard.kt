@@ -29,11 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aus.ausgegeben.R
-import com.aus.ausgegeben.ui.theme.financeExpenseColor
-import com.aus.ausgegeben.ui.theme.financeIncomeColor
-import com.aus.ausgegeben.ui.theme.isAppDarkTheme
-import com.aus.ausgegeben.ui.theme.readableSecondaryColor
-import com.aus.ausgegeben.ui.theme.sectionLabelStyle
+import com.aus.ausgegeben.ui.theme.*
 import com.aus.ausgegeben.util.CurrencyUtils
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -81,11 +77,11 @@ fun FinanceSummaryCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .appGlassCard(shape = RoundedCornerShape(24.dp))
+            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs)
+            .appGlassCard(shape = RoundedCornerShape(AppRadius.sheet))
             .glassShine()
             .semantics { contentDescription = summaryDescription }
-            .padding(vertical = 32.dp),
+            .padding(vertical = AppSpacing.xl),
         contentAlignment = Alignment.Center
     ) {
         Column(

@@ -24,7 +24,7 @@ import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.components.AppButton
 import com.aus.ausgegeben.ui.components.AppScreen
 import com.aus.ausgegeben.ui.components.AppTextButton
-import com.aus.ausgegeben.ui.theme.AccentCoral
+import com.aus.ausgegeben.ui.theme.*
 import kotlinx.coroutines.launch
 
 private data class OnboardingPage(
@@ -101,7 +101,7 @@ fun OnboardingScreen(
                     ) {
                         Surface(
                             shape = RoundedCornerShape(50),
-                            color = if (selected) AccentCoral
+                            color = if (selected) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
                             modifier = Modifier.fillMaxSize()
                         ) {}
