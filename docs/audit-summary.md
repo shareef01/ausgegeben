@@ -4,6 +4,40 @@ Newest first. Every item is verified against the real artifact, not just by read
 
 ---
 
+# 2026-08-27 — full audit, then ship: v2.0.0
+
+Full-stack audit at `66da782` (three parallel deep audits — Android data layer, web client, infra/CI/workflows — with every high-severity claim re-verified by hand), then all gates re-run, fixes committed, and the whole system shipped: release, web, worker, phone.
+
+## Fixed (11 commits, `a1e0c43`..`4d89a3a`)
+
+| # | Finding | Fix | Verified how |
+|---|---|---|---|
+| 1 | **MED** web `duplicateExpense` spread the raw doc into `insertExpense`, writing legacy fields (`cloudId` etc.) and the source row's `idempotencyKey` into new documents — the only forbidden-field write on either platform | Narrow whitelist payload (`utils/duplicateExpense.ts`), mirroring Android's `expensePayload`; 4 unit tests incl. legacy-field smuggling | Web unit 69/69; tsc |
+| 2 | **MED** `updateExpenseTypesForCategory` aborted whole 450-row chunks on one rules-rejected doc — the recorded `reassignExpenses` incident, re-created in a sibling | Per-doc retry fallback + unfixable count surfaced as failure; healthy rows land | Compile + unit 116/116; web has no type-change path (parity checked, no gap) |
+| 3 | **MED** release.yml interpolated secrets/tag directly into `run:` shell | Env-var indirection, matching the file's own convention elsewhere | Runs on next tag — ran, see below |
+| 4 | LOW batch: aggregates/amounts read through `Number` (getDouble null-contract could silently zero the budget projection); delete-dialog counts live rows only (both platforms); dedupe sortOrder repairs awaited with per-write catch; budget input bound matches rules' `< 1e9`; worker size cap by bytes not UTF-16 units; stale comments | As listed | Full suites re-run green after |
+| 5 | Doc drift: AGENTS.md keystore/JBR claims obsolete (signing material now exists; JBR broken — MS JDK 21 works); FIREBASE_SETUP taught enforcing App Check (would brick both clients) and rules-without-indexes deploys; ANDROID_STUDIO.md had JDK 17, nonexistent task names, wrong APK path, another machine's username; README wrong task name and stale counts (213 → actuals) | Corrected across four docs | Read-back; FIREBASE_SETUP now matches §2 |
+
+## Gates at ship time (all green)
+
+Android unit 116/116 · `lintProdDebug` · instrumentation **8/8 on the AVD** · signed `assembleProdRelease` twice (R8 ~5m, cert via apksigner, `mapping.txt` keeps Room `_Impl`, `-P` overrides honored) · web unit 69/69 · rules 38/38 · emulator 44/44 · tsc/lint:css/build · CI green at final HEAD (`4d89a3a`, 10m14s).
+
+## Shipped
+
+- **v2.0.0** — tagged from `7c5e47b`; CI release ✓ 7m24s *including the emulator boot + 12s launch gate on the signed APK*; published with versionCode 20000 (updates over v1.0.12's 10012).
+- **Web** — `npm run deploy` (hosting + rules + indexes), smoke **10/10** including the API-key-live probe. Ships today's web fixes plus the user's own uncommitted-at-the-time `layout.css` escaping fix (now committed, `735fed8`).
+- **Error worker** — wrangler pinned locally (`tools/error-endpoint/package.json`, deploy/tail scripts), OAuth login, deployed, live-probed: preflight 204 · report 204 · 20KB body 413 (new byte cap live) · forged origin 403.
+- **Phone (user's, with approval)** — this morning's debug sideload (versionCode 1, wrong signature) blocked the update; user approved uninstall+install. v2.0.0 (20000) installed, user opened it and signed in on the real device.
+
+## Not verified / left open
+
+- The user's sign-in was confirmed; **which** in-app checks they ran afterward (e.g. the budget-warning-on-expense check) was not reported — treat the real-account budget path as verified-by-CI-launch only until they say otherwise.
+- The new per-doc fallback paths (type change, dedupe repairs) have no reproducible trigger in test data; they fire only if a real account still holds rules-unfixable legacy rows.
+- Prefs LWW treating a Timestamp `updatedAt` as 0 remains as designed (such docs can't pass the rules anyway); web delete-gone vs rule-failed toast nuance and month-rollover period staleness left deliberately.
+- Tool-state dirs `.kilo/` (52.7 MB) and `.reasonix/` deleted from the working tree at user request.
+
+---
+
 # 2026-08-06 — audit of the uncommitted soft-delete change
 
 Audit of an uncommitted working-tree change (soft-delete filtering + server-side aggregation) that arrived with a walkthrough claiming it was finished and verified. It was neither. Not committed as authored; reworked, then gated.
