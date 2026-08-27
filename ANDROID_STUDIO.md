@@ -5,7 +5,7 @@ Open the **Ausgegeben** Android app from this repository in Android Studio.
 ## Quick start (Windows)
 
 ```powershell
-cd C:\Users\LENOVO\AndroidStudioProjects\ausgegeben
+cd C:\Users\<you>\AndroidStudioProjects\ausgegeben
 
 # Keep your Firebase config if you already have one
 Copy-Item app\google-services.json google-services.json.backup -ErrorAction SilentlyContinue
@@ -19,7 +19,7 @@ Copy-Item google-services.json.backup app\google-services.json -ErrorAction Sile
 
 1. **File → Open** → select the **`ausgegeben`** folder (repo root).
 2. Wait for **Gradle Sync**.
-3. **Gradle JDK:** 17 (Settings → Build → Gradle).
+3. **Gradle JDK:** 21 — Android Studio's embedded JBR (Settings → Build → Gradle). If this machine's JBR is broken (see AGENTS.md §4), any JDK 21 works, e.g. `C:\Program Files\Microsoft\jdk-21.0.11.10-hotspot`.
 4. Install **Android SDK 37** if prompted (SDK Manager).
 5. Run the **app** module.
 
@@ -37,7 +37,7 @@ Sign-in is mandatory. Data lives in Firestore under `users/{uid}/…` with offli
 
 ### Release signing (optional)
 
-Copy `keystore.properties.example` → `keystore.properties` (gitignored) and fill in store/key values, **or** set CI env vars `AUSGEGEBEN_STOREFILE`, `AUSGEGEBEN_STOREPASSWORD`, `AUSGEGEBEN_KEYALIAS`, `AUSGEGEBEN_KEYPASSWORD`. When present, `assembleRelease` / `bundleRelease` use that signing config.
+Copy `keystore.properties.example` → `keystore.properties` (gitignored) and fill in store/key values, **or** set CI env vars `AUSGEGEBEN_STOREFILE`, `AUSGEGEBEN_STOREPASSWORD`, `AUSGEGEBEN_KEYALIAS`, `AUSGEGEBEN_KEYPASSWORD`. When present, `assembleProdRelease` / `bundleProdRelease` use that signing config. (There is no unflavored `assembleRelease` — every variant is `prod`.)
 
 ## Build from terminal
 
@@ -46,7 +46,9 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 .\gradlew.bat :app:assembleProdDebug
 ```
 
-APK: `app\build\outputs\apk\debug\app-debug.apk`
+(If that JBR is broken on the machine — `Error: could not open …\lib\jvm.cfg` — point `JAVA_HOME` at a working JDK 21 instead; see AGENTS.md §4.)
+
+APK: `app\build\outputs\apk\prod\debug\app-prod-debug.apk`
 
 ## What you get on `main`
 
@@ -59,7 +61,7 @@ APK: `app\build\outputs\apk\debug\app-debug.apk`
 
 | Problem | Fix |
 |---------|-----|
-| Gradle sync failed | JDK 17, SDK 37, **File → Invalidate Caches → Restart** |
+| Gradle sync failed | JDK 21, SDK 37, **File → Invalidate Caches → Restart** |
 | Auth / sync errors | Real `app/google-services.json`, Email/Password enabled in Firebase |
 | Web data not on phone | Same email/password as the PWA; **Settings → Sync now** |
 | Release build fails on google-services | Replace placeholder `YOUR_*` values with a Console download |
