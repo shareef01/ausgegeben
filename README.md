@@ -137,14 +137,14 @@ flowchart TB
 
 ## Getting Started
 
-**Prerequisites:** JDK 17 + Android Studio (Android) · Node.js 20+ (web; CI uses 22) · JDK 21+ for local Firestore rules tests · a Firebase project — see **[FIREBASE_SETUP.md](FIREBASE_SETUP.md)**.
+**Prerequisites:** JDK 21 + Android Studio (Android) · Node.js 20+ (web; CI uses 22) · JDK 21 for local Firestore rules tests · a Firebase project — see **[FIREBASE_SETUP.md](FIREBASE_SETUP.md)**.
 
 ### Android
 
 ```bash
 # Place your Firebase config first: app/google-services.json
 ./gradlew assembleProdDebug          # production debug APK
-./gradlew testDebugUnitTest      # unit tests
+./gradlew testProdDebugUnitTest     # unit tests
 ```
 
 A placeholder `google-services.json` is generated automatically so the project compiles out of the box; real sign-in needs your own. Android Studio specifics: [ANDROID_STUDIO.md](ANDROID_STUDIO.md).
@@ -157,7 +157,7 @@ cp .env.example .env.local       # fill in your Firebase web config
 npm install
 npm run dev                      # http://localhost:5173
 npm test                         # vitest
-npm run deploy                   # build + deploy hosting & Firestore rules
+npm run deploy                   # build + deploy hosting, Firestore rules & indexes, then smoke-test
 ```
 
 More detail in [web/README.md](web/README.md).
@@ -166,14 +166,14 @@ More detail in [web/README.md](web/README.md).
 
 ## Quality
 
-213 automated tests run on every push and PR ([workflow](.github/workflows/ci.yml)), across four parallel jobs:
+235 automated tests run on every push and PR ([workflow](.github/workflows/ci.yml)), across four parallel jobs (counts as of 2026-08-27; CI's own numbers are authoritative — these have drifted before):
 
 | Suite | Tests | What it covers |
 |---|---:|---|
-| Web unit | 62 | view models, currency and period maths, i18n, theming, error reporting |
-| Android unit | 69 | repositories, preferences crypto, reminder scheduling, theme contrast |
-| Repository | 39 | dedupe, category delete, orphan repair and batch chunking against a real Firestore |
-| Firestore rules | 35 | every branch of the security rules, against the emulator |
+| Web unit | 69 | view models, currency and period maths, i18n, theming, error reporting |
+| Android unit | 116 | repositories, preferences crypto, reminder scheduling, theme contrast |
+| Repository | 44 | dedupe, category delete, orphan repair and batch chunking against a real Firestore |
+| Firestore rules | 38 | every branch of the security rules, against the emulator |
 | Instrumentation | 8 | app launch, FileProvider export boundary, touch-target floors on an API 29 emulator |
 
 Two habits behind that, both learned the hard way:
