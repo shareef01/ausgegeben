@@ -106,15 +106,26 @@ set and reading logcat. Deploy indexes before the code that needs them
 (`npm run deploy:rules` covers indexes as well as rules).
 
 Also unproven on that change: `assembleProdRelease` (R8) never ran for it.
-**Correction 2026-08-27:** signing material now exists on this machine
-(`keystore.properties` + `ausgegeben-release.jks`, both gitignored) — the
-earlier claim that no signed release could be built here is obsolete. A signed
-release built at ≈HEAD passes R8 (`minifyProdReleaseWithR8` ran, 5m),
-apksigner verifies the cert, the `-P` versionCode/versionName overrides are
-honored, and mapping.txt keeps Room's `_Impl` constructors. Still true from the
-original warning: a plain `assembleProdRelease` with no `-P` produces
-versionCode 1 (§4 gotcha unchanged), and R8 passing is a *build* gate only —
-launch evidence must come separately, from a device run. **Update same day:**
+**Correction 2026-08-27:** local signing material exists
+(`keystore.properties` + `ausgegeben-release.jks`, both gitignored), so
+`assembleProdRelease` now runs here. A signed release built at ≈HEAD passes R8
+(`minifyProdReleaseWithR8` ran, 5m), apksigner verifies the cert, the `-P`
+versionCode/versionName overrides are honored, and mapping.txt keeps Room's
+`_Impl` constructors.
+
+**But that local keystore is a throwaway, not the release key — corrected
+2026-08-28.** Its certificate is `CN=Test, OU=Test, O=Test`, generated
+2026-08-27; the published `v2.0.0` APK is signed `CN=Ausgegeben, O=shareef01`
+(compare `keytool -list -v` against `apksigner verify --print-certs` on a
+release download). Real releases are signed in CI from repository secrets. So a
+locally built release is **build coverage only** — R8, packaging, resource
+shrinking — and must never be distributed or sideloaded over a real install:
+the signatures differ, so it cannot update one. Do not read "apksigner verified
+the cert" as evidence that the *right* key signed it; check the DN.
+
+Still true from the original warning: a plain `assembleProdRelease` with no `-P`
+produces versionCode 1 (§4 gotcha unchanged), and R8 passing is a *build* gate
+only — launch evidence must come separately, from a device run. **Update same day:**
 v2.0.0 shipped from this state — CI's emulator launch gate passed on the signed
 APK, and the user installed it on their real phone (replacing a debug sideload)
 and signed in.
@@ -180,6 +191,14 @@ guessed fixture. Confirmed working by the user on the real device afterward.
 - **Do not screenshot or drive the user's physical phone.** It holds real
   financial data, and a stray coordinate tap once hit a password-visibility toggle
   and exposed their password. Use the AVD with throwaway accounts.
+- **Check `adb devices` immediately before any `connected*` Gradle task, and pin
+  `ANDROID_SERIAL` to the AVD.** These tasks fan out to *every* attached device.
+  On 2026-08-28 the phone was plugged in mid-session and
+  `connectedProdDebugAndroidTest` ran there too: to clear the signature conflict
+  with the release build it **uninstalled v2.0.0, installed the debug APK, and
+  uninstalled again**, leaving no app and wiping local prefs and the session.
+  Cloud data survived; nothing else local did. The phone being absent from
+  `adb devices` at the start of a session is not evidence it is absent now.
 
 ---
 
