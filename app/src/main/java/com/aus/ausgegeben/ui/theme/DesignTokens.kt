@@ -3,16 +3,17 @@ package com.aus.ausgegeben.ui.theme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-/** Strict 8dp-grid padding system */
+/** Strict 8dp/4dp-grid padding system */
 object AppSpacing {
     val xxs = 4.dp
     val xs = 8.dp
     val sm = 12.dp
     val md = 16.dp
-    /** Double vertical padding for distinct visual sections */
-    val lg = 32.dp
-    val xl = 48.dp
-    val xxl = 64.dp
+    val base = 20.dp
+    val lg = 24.dp
+    val xl = 32.dp
+    val xxl = 48.dp
+    val xxxl = 64.dp
 }
 
 object AppIconSize {

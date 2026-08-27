@@ -1,4 +1,4 @@
-﻿package com.aus.ausgegeben.ui
+package com.aus.ausgegeben.ui
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -711,24 +711,34 @@ private fun DateSectionHeader(
                 modifier = Modifier.weight(1f),
             )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm), verticalAlignment = Alignment.CenterVertically) {
                 val (dayIncome, dayExpense) = dayTotals
                 if (dayIncome > 0) {
+                    val incomeFormatted = CurrencyUtils.formatAmount(dayIncome, currencyCode)
+                    val incomeLabel = stringResource(R.string.filter_income)
                     Text(
-                        text = "+" + CurrencyUtils.formatAmount(dayIncome, currencyCode),
+                        text = "+$incomeFormatted",
                         style = MaterialTheme.typography.labelLarge.copy(
                             color = incomeColor,
                             textAlign = TextAlign.End,
                         ),
+                        modifier = Modifier.semantics {
+                            contentDescription = "$incomeLabel: +$incomeFormatted"
+                        }
                     )
                 }
                 if (dayExpense > 0) {
+                    val expenseFormatted = CurrencyUtils.formatAmount(dayExpense, currencyCode)
+                    val expenseLabel = stringResource(R.string.filter_expense)
                     Text(
-                        text = "-" + CurrencyUtils.formatAmount(dayExpense, currencyCode),
+                        text = "-$expenseFormatted",
                         style = MaterialTheme.typography.labelLarge.copy(
                             color = expenseColor,
                             textAlign = TextAlign.End,
                         ),
+                        modifier = Modifier.semantics {
+                            contentDescription = "$expenseLabel: -$expenseFormatted"
+                        }
                     )
                 }
             }
