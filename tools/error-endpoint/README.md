@@ -9,8 +9,9 @@ tier covers 100k requests/day and needs no payment method.
 
 ```bash
 cd tools/error-endpoint
-npx wrangler login      # one-time, opens a browser
-npx wrangler deploy
+npm install              # one-time; pins wrangler locally
+npx wrangler login       # one-time, opens a browser
+npm run deploy
 ```
 
 Deploy prints the Worker URL. Put it in `web/.env.production` as
@@ -22,7 +23,7 @@ Deploy prints the Worker URL. Put it in `web/.env.production` as
 There is no database — reports go to `console.error`.
 
 ```bash
-npx wrangler tail       # live
+npm run tail             # live (wrangler tail)
 ```
 
 Or the Workers Logs tab in the Cloudflare dashboard for recent history. If crash
