@@ -73,7 +73,10 @@ export default {
     }
 
     const body = await request.text();
-    if (body.length > MAX_BODY_BYTES) {
+    // Byte length, not `.length`: that counts UTF-16 code units, and multibyte
+    // content (CJK stacks, emoji) encodes to more bytes than units, so the cap
+    // would otherwise over-admit.
+    if (new TextEncoder().encode(body).length > MAX_BODY_BYTES) {
       return new Response('payload too large', { status: 413, headers: corsHeaders(origin) });
     }
 
