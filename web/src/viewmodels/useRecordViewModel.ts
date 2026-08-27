@@ -6,6 +6,7 @@ import { useToastStore } from '@/services/toastStore';
 import { useTranslation, getLocale, localeTag } from '@/i18n';
 import { thisMonthRange, analyticsDateRangeMillis } from '@/utils/periodUtils';
 import { computeDayTotals, topExpenseCategoryName } from '@/utils/analytics';
+import { duplicateExpensePayload } from '@/utils/duplicateExpense';
 
 const SEARCH_DEBOUNCE_MS = 300;
 const DATA_CHANGED_EVENT = 'ausgegeben:data-changed';
@@ -289,9 +290,12 @@ export function useRecordViewModel() {
 
   const duplicateExpense = useCallback(async (expense: Expense) => {
     try {
-      const { id: _id, ...rest } = expense;
+      // Narrow payload, mirroring Android's expensePayload(): the source doc
+      // may carry legacy fields that must never be written, and its
+      // idempotencyKey belongs to the original insert — see
+      // utils/duplicateExpense.ts.
       await expenseRepository.insertExpense({
-        ...rest,
+        ...duplicateExpensePayload(expense),
         dateMillis: Date.now(),
       });
       showToast(t('recordDuplicated'));
