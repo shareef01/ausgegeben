@@ -31,7 +31,7 @@ Android unit 116/116 · `lintProdDebug` · instrumentation **8/8 on the AVD** ·
 
 ## Not verified / left open
 
-- The user's sign-in was confirmed; **which** in-app checks they ran afterward (e.g. the budget-warning-on-expense check) was not reported — treat the real-account budget path as verified-by-CI-launch only until they say otherwise.
+- The user's sign-in was confirmed, and **the budget warning fired** on the real account the same day (v2.0.0, real expense added with a budget set) — the check AGENTS.md §3 calls the only one worth anything, re-confirming at v2.0.0 that both aggregation composites serve. What was *not* re-verified: the new per-doc fallback paths (type change, dedupe repairs), which still have no trigger in any known real data.
 - The new per-doc fallback paths (type change, dedupe repairs) have no reproducible trigger in test data; they fire only if a real account still holds rules-unfixable legacy rows.
 - Prefs LWW treating a Timestamp `updatedAt` as 0 remains as designed (such docs can't pass the rules anyway); web delete-gone vs rule-failed toast nuance and month-rollover period staleness left deliberately.
 - Tool-state dirs `.kilo/` (52.7 MB) and `.reasonix/` deleted from the working tree at user request.
