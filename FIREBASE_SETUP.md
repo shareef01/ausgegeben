@@ -12,8 +12,12 @@ Project: **ausgegeben01** · PWA: [aus01.web.app](https://aus01.web.app)
 6. Deploy rules from repo root:
 
 ```bash
-firebase deploy --only firestore:rules
+firebase deploy --only firestore:rules,firestore:indexes
 ```
+
+Rules and indexes go together — several rule-gated aggregate queries depend on
+composite indexes including the aggregated field; deploying rules alone can
+leave those queries failing with FAILED_PRECONDITION.
 
 Build variants: `assembleProdDebug` (default CI) and `assembleProdRelease` (signed, used by the release workflow). To test against local emulators instead of production, see the emulator section below.
 
@@ -24,7 +28,12 @@ Release builds **fail** if `google-services.json` still contains placeholder `YO
 1. Add a **Web** app in the same Firebase project
 2. Copy config to `web/.env.local` (see `web/.env.example`)
 3. Set **`VITE_FIREBASE_APP_CHECK_KEY`** (reCAPTCHA Enterprise site key) — **required for production builds** when Firebase is configured
-4. In Firebase Console → **App Check**: register the web app, then **enforce** App Check for **Authentication** and **Cloud Firestore**
+4. In Firebase Console → **App Check**: register the web app. **Do not enable
+   enforcement** — Play Integrity cannot attest sideloaded APKs (this project
+   distributes via GitHub Releases), enforcement is per-service rather than
+   per-platform, so turning it on breaks both clients' sign-in and Firestore
+   access. App Check stays unenforced project-wide; the Firestore security
+   rules are the actual boundary
 5. Restrict the Web API key by HTTP referrer in Google Cloud Console (and rotate if it ever leaked via git history)
 6. Build and deploy from `web/`:
 
@@ -34,7 +43,7 @@ npm install
 npm run deploy
 ```
 
-This builds the PWA and deploys hosting (`aus01`) + Firestore rules from the repo root.
+This builds the PWA and deploys hosting (`aus01`) + Firestore rules and indexes from the repo root.
 
 ## Sync
 
