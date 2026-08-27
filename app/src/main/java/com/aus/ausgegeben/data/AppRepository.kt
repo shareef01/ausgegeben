@@ -210,9 +210,10 @@ class AppRepository @Inject constructor(
                     }
                 }.await()
             } else if (marker.getBoolean("categoriesDeduped") != true) {
-                // Manual calls to deduplicateCategories() (e.g. Settings' "Deduplicate
-                // categories" button) bypass this marker entirely since they call the
-                // function directly, not through ensureSeeded().
+                // Manual calls to deduplicateCategories() (the confirmed
+                // "Deduplicate categories" action in the manage-categories sheet)
+                // bypass this marker entirely since they call the function
+                // directly, not through ensureSeeded().
                 val dedupeResult = deduplicateCategories()
                 if (dedupeResult.isSuccess) {
                     sweptNow = true
@@ -505,11 +506,16 @@ class AppRepository @Inject constructor(
         // runtime and nowhere else — the emulator invents indexes on demand, and the
         // caller swallows the error, so only a real device with a budget set shows it.
         val sumField = AggregateField.sum("amount")
-        val liveSum = scoped.aggregate(sumField).get(AggregateSource.SERVER).await()
-            .getDouble(sumField) ?: 0.0
-        val deletedSum = scoped.whereEqualTo("deleted", true)
+        val liveSnap = scoped.aggregate(sumField).get(AggregateSource.SERVER).await()
+        val deletedSnap = scoped.whereEqualTo("deleted", true)
             .aggregate(sumField).get(AggregateSource.SERVER).await()
-            .getDouble(sumField) ?: 0.0
+        // `as? Number` rather than getDouble(): an aggregate can surface as an
+        // int64 depending on how the matched amounts were stored, and
+        // getDouble()'s null-on-mismatch contract would coerce that to 0.0 —
+        // silently projecting a budget of zero spent, the failure mode this
+        // projection is already prone to (see the index note above).
+        val liveSum = (liveSnap.get(sumField) as? Number)?.toDouble() ?: 0.0
+        val deletedSum = (deletedSnap.get(sumField) as? Number)?.toDouble() ?: 0.0
         var total = liveSum - deletedSum
 
         if (excludeExpenseId.isNotEmpty()) {
@@ -524,7 +530,10 @@ class AppRepository @Inject constructor(
                 excludedDate != null &&
                 excludedDate in range.first until range.second
             ) {
-                total -= excluded.getDouble("amount") ?: 0.0
+                // Same coercion rationale as the dateMillis read above: reach
+                // through Number instead of getDouble() so a Long-typed amount
+                // cannot vanish from the subtraction.
+                total -= (excluded.get("amount") as? Number)?.toDouble() ?: 0.0
             }
         }
 
@@ -550,6 +559,11 @@ class AppRepository @Inject constructor(
                         }
                         markTruncation(ListenerSource.ALL_EXPENSES, truncated)
                         val limited = if (truncated) docs.take(ALL_EXPENSES_CAP.toInt()) else docs
+                        // Soft-deleted rows consume cap slots by design: `deleted`
+                        // is absent on most rows, so no server-side inequality
+                        // filter can express this exclusion without colliding
+                        // with the dateMillis ordering. Web's getAllExpensesCapped
+                        // behaves identically.
                         trySend(limited.mapNotNull { doc ->
                             expenseFromDoc(doc)?.takeIf { !it.deleted }
                         })
@@ -565,7 +579,11 @@ class AppRepository @Inject constructor(
 
     override suspend fun countExpensesForCategory(categoryId: String): Int {
         val u = uid() ?: return 0
-        return expenseDocsForCategory(u, categoryId).size
+        // Live rows only: the delete dialog says "N transactions will move to
+        // Uncategorized", and soft-deleted rows are invisible everywhere else,
+        // so counting them inflates the warning. (Reassignment itself still
+        // repoints them — harmless, and it needs no count.)
+        return expenseDocsForCategory(u, categoryId).count { it.getBoolean("deleted") != true }
     }
 
     override suspend fun updateExpenseTypesForCategory(categoryId: String, transactionType: String): Result<Unit> =
