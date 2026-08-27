@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -42,8 +43,7 @@ import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.theme.AppElevation
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
-import com.aus.ausgegeben.ui.theme.GroupedShape
-import com.aus.ausgegeben.ui.theme.appBorderColor
+import com.aus.ausgegeben.ui.theme.*
 import com.aus.ausgegeben.util.AnalyticsPeriodOption
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -132,20 +132,21 @@ fun PeriodPickerSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface,
-        dragHandle = { BottomSheetDefaults.DragHandle() },
+        containerColor = appSheetContainerColor(),
+        scrimColor = appSheetScrimColor(),
+        dragHandle = { AppSheetDragHandle() },
+        shape = AppSheetShape,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = AppSpacing.xl),
         ) {
-            Text(
+            SignatureText(
                 text = stringResource(R.string.period_picker_title),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onBackground,
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                 modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs),
             )
             Text(
