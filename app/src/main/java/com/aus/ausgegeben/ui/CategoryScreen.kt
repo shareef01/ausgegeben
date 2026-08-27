@@ -90,7 +90,7 @@ fun CategoryScreen(
                 Box(
                     modifier = Modifier
                         .padding(start = 8.dp)
-                        .size(44.dp)
+                        .size(48.dp)
                         .appGlassCard(CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -98,7 +98,6 @@ fun CategoryScreen(
                         onClick = onBack,
                         icon = Icons.AutoMirrored.Rounded.ArrowBack,
                         contentDescription = stringResource(R.string.action_back),
-                        modifier = Modifier.size(44.dp),
                     )
                 }
                 ScreenTitle(
