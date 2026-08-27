@@ -215,9 +215,9 @@
 .\!p-0 { padding: 0 !important; }
 
 /* ── Placeholder utilities ── */
-.placeholder\\:text-zinc-500::placeholder { color: var(--color-placeholder, var(--color-on-surface-variant)); }
-.placeholder\\:text-zinc-600::placeholder { color: var(--color-placeholder, var(--color-on-surface-variant)); }
-.placeholder\\:text-transparent::placeholder { color: transparent; }
+.placeholder\:text-zinc-500::placeholder { color: var(--color-placeholder, var(--color-on-surface-variant)); }
+.placeholder\:text-zinc-600::placeholder { color: var(--color-placeholder, var(--color-on-surface-variant)); }
+.placeholder\:text-transparent::placeholder { color: transparent; }
 
 /* ── Divide utilities ── */
 .divide-y > * + * { border-top-width: 1px; border-top-style: solid; }
