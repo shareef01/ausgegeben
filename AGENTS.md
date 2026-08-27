@@ -105,9 +105,16 @@ The only check worth anything here is adding an expense on a device with a budge
 set and reading logcat. Deploy indexes before the code that needs them
 (`npm run deploy:rules` covers indexes as well as rules).
 
-Also unproven on that change: `assembleProdRelease` (R8) never ran for it — there
-is no `keystore.properties` and no `ausgegeben-release.jks` on the dev machine, so
-a signed release cannot currently be built at all.
+Also unproven on that change: `assembleProdRelease` (R8) never ran for it.
+**Correction 2026-08-27:** signing material now exists on this machine
+(`keystore.properties` + `ausgegeben-release.jks`, both gitignored) — the
+earlier claim that no signed release could be built here is obsolete. A signed
+release built at ≈HEAD passes R8 (`minifyProdReleaseWithR8` ran, 5m),
+apksigner verifies the cert, the `-P` versionCode/versionName overrides are
+honored, and mapping.txt keeps Room's `_Impl` constructors. Still true from the
+original warning: a plain `assembleProdRelease` with no `-P` produces
+versionCode 1 (§4 gotcha unchanged), and R8 passing is a *build* gate only —
+launch evidence must come separately, from a device run.
 
 A **prod debug** APK was sideloaded to the Pixel 7 on 2026-08-06 and launched
 clean (process alive, empty crash buffer, only the documented App Check 403). That
@@ -143,7 +150,11 @@ guessed fixture. Confirmed working by the user on the real device afterward.
 ## 4. Environment gotchas that will waste your time
 
 - **`JAVA_HOME`** must point at Android Studio's JBR (JDK 21) for both Gradle and
-  the Firebase emulators: `C:\Program Files\Android\Android Studio\jbr`.
+  the Firebase emulators: `C:\Program Files\Android\Android Studio\jbr`. **But**
+  check it first — this machine's copy has been found broken (`lib\jvm.cfg`
+  missing, every `java.exe` invocation dies instantly). Microsoft JDK 21 at
+  `C:\Program Files\Microsoft\jdk-21.0.11.10-hotspot` works for Gradle and the
+  emulators; verify with `java -version` before blaming anything else.
 - **Git Bash rewrites device paths.** `adb shell ... /sdcard/x.png` becomes
   `C:/Program Files/Git/sdcard/...`. Always `export MSYS_NO_PATHCONV=1`.
 - **PowerShell `>` corrupts binaries.** Never `adb exec-out screencap -p > f.png`;
