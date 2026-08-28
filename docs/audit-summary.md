@@ -74,13 +74,23 @@ different hazard from a stray tap, and this one cost real data.
 - **Web** — `npm run deploy` (hosting + rules + indexes), smoke **10/10**, including
   the endpoint check that had been skipping since the worker went up.
 - **Phone** — v2.0.0 reinstalled from the CI-signed release APK after the incident
-  above (versionCode 20000 confirmed on device). Not driven or signed in.
+  above, then updated to **v2.0.1** in place: versionCode 20001, signer unchanged
+  (`e458abd4`), and `firstInstallTime` survived the update while `lastUpdateTime`
+  moved — so it went on as a normal update, not a reinstall, and wiped nothing.
+- **Device confirmation at v2.0.1 (the §3 check).** The user signed in on the real
+  phone, set a budget, added a real expense, and **the budget warning fired**. That is
+  the only check AGENTS.md §3 considers meaningful here, and because both aggregates
+  run on that path it re-confirms `(transactionType, dateMillis, amount)` and
+  `(transactionType, deleted, dateMillis, amount)` are still serving — now at v2.0.1,
+  on real account data rather than AVD fixtures.
 
 ## Not verified
 
-- The user's phone was left on **v2.0.0**, not v2.0.1, and its local prefs (theme,
-  locale, currency, monthly budget) are gone for good — see the incident above. No
-  reinstall restores them.
+- The phone's local prefs (theme, locale, currency, monthly budget) were destroyed by
+  the incident above and had to be re-entered by hand; no reinstall restores them.
+- The touch-target fixes are **not** device-confirmed by hand. The sign-in run exercised
+  the budget path, not the category cluster or the note field; those rest on the
+  Compose measurements below.
 - The category cluster and the note field were **not** driven by hand on the AVD; the
   48dp result is from a Compose test reproducing the call-site shapes. The cluster's
   width is back to exactly what it was before `c1dc449` (Material3 `IconButton` was also
