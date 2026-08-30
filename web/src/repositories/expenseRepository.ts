@@ -1,4 +1,4 @@
-﻿import {
+import {
   collection, doc, setDoc, deleteDoc, getDoc, getDocs, query, where, orderBy, limit,
   onSnapshot, updateDoc, getAggregateFromServer, sum, type Unsubscribe, writeBatch,
   type CollectionReference, type QueryDocumentSnapshot,
@@ -6,6 +6,7 @@
 import { getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
 import { t, getLocale, localeTag } from '@/i18n';
+import { CategoryValidator } from '@/utils/categoryValidator';
 import type { Category, Expense } from '@/models/types';
 
 function uid(): string | null { return useAuthStore.getState().user?.uid ?? null; }
@@ -405,11 +406,15 @@ export const expenseRepository = {
   async insertCategory(cat: Omit<Category, 'id'>): Promise<string> {
     requireVerifiedEmail();
     const userId = uid(); if (!userId) throw new Error('Not signed in');
+    const sanitizedName = CategoryValidator.sanitize(cat.name);
+    if (!CategoryValidator.isValid(sanitizedName)) {
+      throw new Error('INVALID_CATEGORY_NAME');
+    }
     const id = crypto.randomUUID();
     const payload = {
       ...cat,
       id,
-      name: cat.name.trim().slice(0, 80),
+      name: sanitizedName,
       updatedAt: now()
     };
     await setDoc(catDoc(userId, id), payload);
@@ -419,12 +424,35 @@ export const expenseRepository = {
   async updateCategory(cat: Category): Promise<void> {
     requireVerifiedEmail();
     const userId = uid(); if (!userId || !cat.id) return;
+    const sanitizedName = CategoryValidator.sanitize(cat.name);
+    if (!CategoryValidator.isValid(sanitizedName)) {
+      throw new Error('INVALID_CATEGORY_NAME');
+    }
     const payload = {
       ...cat,
-      name: cat.name.trim().slice(0, 80),
+      name: sanitizedName,
       updatedAt: now()
     };
     await setDoc(catDoc(userId, cat.id), payload, { merge: true });
+  },
+
+  async updateCategoriesBatch(categories: Category[]): Promise<void> {
+    requireVerifiedEmail();
+    const userId = uid(); if (!userId) return;
+    const firestore = fs(); if (!firestore) return;
+    const batch = writeBatch(firestore);
+    const ts = now();
+    for (const cat of categories) {
+      if (!cat.id) continue;
+      const ref = catDoc(userId, cat.id);
+      const name = CategoryValidator.sanitize(cat.name);
+      batch.set(ref, {
+        ...cat,
+        name: name || cat.name,
+        updatedAt: ts,
+      }, { merge: true });
+    }
+    await batch.commit();
   },
 
   // SECURE: Safety-first deletion (move orphaned to uncategorized — except when

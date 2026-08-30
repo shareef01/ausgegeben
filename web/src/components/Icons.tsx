@@ -7,6 +7,7 @@ import {
   Calendar,
   Check,
   ChevronDown,
+  ChevronUp,
   ChevronRight,
   Cloud,
   CreditCard,
@@ -64,6 +65,10 @@ export function IconSearch(props: IconProps) {
 
 export function IconChevronDown(props: IconProps) {
   return <ChevronDown strokeWidth={STROKE} {...props} />;
+}
+
+export function IconChevronUp(props: IconProps) {
+  return <ChevronUp strokeWidth={STROKE} {...props} />;
 }
 
 export function IconChevronRight(props: IconProps) {
