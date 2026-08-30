@@ -387,11 +387,11 @@ fun RecordScreen(
                                 }
                             ),
                             onAction = when {
-                                isSearching -> {{ viewModel.setSearchQuery("") }}
-                                hasActiveFilters -> {{
+                                isSearching -> ({ viewModel.setSearchQuery("") })
+                                hasActiveFilters -> ({
                                     viewModel.setTypeFilter(TransactionTypeFilter.ALL)
                                     viewModel.setListPeriod(RecordListPeriod.THIS_MONTH.key)
-                                }}
+                                })
                                 else -> onAddTransaction
                             },
                         )
