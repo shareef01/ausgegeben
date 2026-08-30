@@ -30,8 +30,10 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -471,10 +473,15 @@ private fun ObsidianFieldGroup(content: @Composable ColumnScope.() -> Unit) {
 @Composable
 private fun DatePickerRow(dateMillis: Long, accentColor: Color, onClick: () -> Unit) {
     val dateLabel = formatRelativeTimestamp(LocalContext.current, dateMillis)
+    val pickerLabel = stringResource(R.string.add_date_label)
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .smoothClickable { onClick() }
+            .semantics {
+                role = Role.Button
+                contentDescription = "$pickerLabel: $dateLabel"
+            }
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

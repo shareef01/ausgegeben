@@ -272,6 +272,10 @@
     <string name="category_save_changes">Save changes</string>
     <string name="category_move_up">Move up</string>
     <string name="category_move_down">Move down</string>
+    <string name="picker_increase">Increase %1$s</string>
+    <string name="picker_decrease">Decrease %1$s</string>
+    <string name="picker_hour">hour</string>
+    <string name="picker_minute">minute</string>
     <string name="category_edit">Edit</string>
     <string name="category_add">Add category</string>
     <string name="category_error_add_failed">Failed to add category</string>

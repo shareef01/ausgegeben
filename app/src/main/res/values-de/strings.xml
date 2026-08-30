@@ -257,6 +257,10 @@
     <string name="category_save_changes">änderungen speichern</string>
     <string name="category_move_up">nach oben</string>
     <string name="category_move_down">nach unten</string>
+    <string name="picker_increase">%1$s erhöhen</string>
+    <string name="picker_decrease">%1$s verringern</string>
+    <string name="picker_hour">Stunde</string>
+    <string name="picker_minute">Minute</string>
     <string name="category_edit">bearbeiten</string>
     <string name="category_add">kategorie hinzufügen</string>
     <string name="category_error_add_failed">kategorie konnte nicht hinzugefügt werden</string>
