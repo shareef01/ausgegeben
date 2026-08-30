@@ -2,13 +2,32 @@ import { describe, expect, it } from 'vitest';
 import {
   colorIntToHex,
   currencyLabel,
+  currencySymbol,
   formatAmount,
   formatAmountForInput,
   parseAmount,
+  sanitizeAmountInput,
   SUPPORTED_CURRENCIES,
 } from '@/utils/currency';
 
 describe('currency', () => {
+  it('currencySymbol returns expected symbols', () => {
+    expect(currencySymbol('EUR')).toBe('€');
+    expect(currencySymbol('USD')).toBe('$');
+    expect(currencySymbol('GBP')).toBe('£');
+    expect(currencySymbol('CHF')).toBe('CHF');
+    expect(currencySymbol('XYZ')).toBe('XYZ');
+  });
+
+  it('sanitizeAmountInput enforces single separator, max 9 int digits, max 2 decimals', () => {
+    expect(sanitizeAmountInput('12.50', 'USD')).toBe('12.50');
+    expect(sanitizeAmountInput('12,50', 'EUR')).toBe('12,50');
+    expect(sanitizeAmountInput('12..34..56', 'USD')).toBe('12.34');
+    expect(sanitizeAmountInput('12,,34,,56', 'EUR')).toBe('12,34');
+    expect(sanitizeAmountInput('1234567890123.456', 'USD')).toBe('123456789.45');
+    expect(sanitizeAmountInput('0005.50', 'USD')).toBe('5.50');
+  });
+
   it('colorIntToHex strips alpha channel', () => {
     expect(colorIntToHex(0xff1a2b3c)).toBe('#1a2b3c');
   });
