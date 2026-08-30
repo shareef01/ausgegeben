@@ -563,6 +563,7 @@ private fun ThemeSelectionSheet(
     onSelect: (ThemeMode) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val themeOptions = remember { ThemeMode.entries }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = appSheetContainerColor(),
@@ -572,22 +573,23 @@ private fun ThemeSelectionSheet(
     ) {
         SelectionSheetContent(
             title = stringResource(R.string.settings_choose_theme),
-            options = ThemeMode.entries,
+            options = themeOptions,
             isSelected = { it == currentMode },
             label = { it.label().lowercase() },
             icon = { mode ->
-                val colors = mode.getPreviewColors()
+                val colors = remember(mode) { mode.getPreviewColors() }
+                val brush = remember(colors) {
+                    Brush.sweepGradient(
+                        0.0f to colors[0],
+                        0.5f to colors[1],
+                        1.0f to colors[0]
+                    )
+                }
                 Box(
                     modifier = Modifier
                         .size(24.dp)
                         .clip(CircleShape)
-                        .background(
-                            Brush.sweepGradient(
-                                0.0f to colors[0],
-                                0.5f to colors[1],
-                                1.0f to colors[0]
-                            )
-                        )
+                        .background(brush)
                 )
             },
             onSelect = onSelect,

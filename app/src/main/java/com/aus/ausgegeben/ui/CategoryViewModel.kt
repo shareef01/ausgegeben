@@ -61,6 +61,11 @@ class CategoryViewModel @Inject constructor(
         transactionType: String,
         onAdded: ((Category) -> Unit)? = null
     ) {
+        val sanitized = com.aus.ausgegeben.util.CategoryValidator.sanitize(name)
+        if (!com.aus.ausgegeben.util.CategoryValidator.isValid(sanitized)) {
+            _errorMessage.value = getApplication<Application>().getString(R.string.category_error_add_failed)
+            return
+        }
         viewModelScope.launch {
             try {
                 val sameType = repository.allCategories.first()
@@ -68,7 +73,7 @@ class CategoryViewModel @Inject constructor(
                 val nextOrder = (sameType.maxOfOrNull { it.sortOrder } ?: -1) + 1
                 val idResult = repository.insertCategory(
                     Category(
-                        name = name,
+                        name = sanitized,
                         iconName = iconName,
                         colorInt = normalizeArgbInt(colorInt),
                         transactionType = transactionType,
@@ -79,7 +84,7 @@ class CategoryViewModel @Inject constructor(
                     onAdded?.invoke(
                         Category(
                             id = id,
-                            name = name,
+                            name = sanitized,
                             iconName = iconName,
                             colorInt = normalizeArgbInt(colorInt),
                             transactionType = transactionType,
@@ -96,9 +101,17 @@ class CategoryViewModel @Inject constructor(
     }
 
     fun updateCategory(category: Category) {
+        val sanitized = com.aus.ausgegeben.util.CategoryValidator.sanitize(category.name)
+        if (!com.aus.ausgegeben.util.CategoryValidator.isValid(sanitized)) {
+            _errorMessage.value = getApplication<Application>().getString(R.string.category_error_update_failed)
+            return
+        }
         viewModelScope.launch {
             val existing = repository.allCategories.first().find { it.id == category.id }
-            val normalized = category.copy(colorInt = normalizeArgbInt(category.colorInt))
+            val normalized = category.copy(
+                name = sanitized,
+                colorInt = normalizeArgbInt(category.colorInt)
+            )
             repository.updateCategory(normalized).onSuccess {
                 if (existing != null && existing.transactionType != normalized.transactionType) {
                     repository.updateExpenseTypesForCategory(

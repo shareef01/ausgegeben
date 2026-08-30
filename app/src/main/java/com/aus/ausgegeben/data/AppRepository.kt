@@ -329,10 +329,14 @@ class AppRepository @Inject constructor(
     override suspend fun insertCategory(category: Category): Result<String> = runCatching {
         requireVerifiedEmail()
         val u = uid() ?: throw IllegalStateException("Not signed in")
+        val sanitized = com.aus.ausgegeben.util.CategoryValidator.sanitize(category.name)
+        if (!com.aus.ausgegeben.util.CategoryValidator.isValid(sanitized)) {
+            throw IllegalArgumentException("Invalid category name")
+        }
         val id = UUID.randomUUID().toString()
         val c = category.copy(
             id = id,
-            name = category.name.trim().take(80)
+            name = sanitized
         )
         catDoc(u, id).set(categoryPayload(c)).await()
         id
@@ -341,7 +345,11 @@ class AppRepository @Inject constructor(
     override suspend fun updateCategory(category: Category): Result<Unit> = runCatching {
         requireVerifiedEmail()
         val u = uid() ?: throw IllegalStateException("Not signed in")
-        val c = category.copy(name = category.name.trim().take(80))
+        val sanitized = com.aus.ausgegeben.util.CategoryValidator.sanitize(category.name)
+        if (!com.aus.ausgegeben.util.CategoryValidator.isValid(sanitized)) {
+            throw IllegalArgumentException("Invalid category name")
+        }
+        val c = category.copy(name = sanitized)
         catDoc(u, category.id).set(categoryPayload(c), SetOptions.merge()).await()
     }
 
@@ -358,7 +366,8 @@ class AppRepository @Inject constructor(
         val u = uid() ?: throw IllegalStateException("Not signed in")
         firestore.runBatch { batch ->
             categories.forEach { category ->
-                val c = category.copy(name = category.name.trim().take(80))
+                val sanitized = com.aus.ausgegeben.util.CategoryValidator.sanitize(category.name)
+                val c = category.copy(name = sanitized.ifBlank { category.name.trim().take(80) })
                 batch.set(catDoc(u, c.id), categoryPayload(c), SetOptions.merge())
             }
         }.await()
