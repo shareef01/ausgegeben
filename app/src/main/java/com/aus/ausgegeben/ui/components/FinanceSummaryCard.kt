@@ -188,7 +188,7 @@ private fun SummaryPane(
         Text(
             text = value,
             style = TextStyle(
-                color = MaterialTheme.colorScheme.onSurface,
+                color = color,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 fontFeatureSettings = "tnum"
