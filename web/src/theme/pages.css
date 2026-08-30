@@ -1714,6 +1714,11 @@
   background: color-mix(in srgb, var(--color-expense) 18%, var(--color-background));
 }
 
+.transaction-row__type-badge--transfer {
+  color: var(--color-transfer);
+  background: color-mix(in srgb, var(--color-transfer) 18%, var(--color-background));
+}
+
 /* ═══════════════════════════════════════════════════
  *  CATEGORY ICON TILE — circular avatar
  *  ═══════════════════════════════════════════════════ */
@@ -2942,6 +2947,10 @@
   color: var(--color-on-surface-variant);
 }
 
+.auth-page__field-hint--error {
+  color: var(--color-expense);
+}
+
 .auth-page__error {
   padding: 12px 16px;
   margin: 0;
@@ -3314,6 +3323,12 @@
 .icon-btn--danger:hover {
   background: color-mix(in srgb, var(--color-expense) 12%, transparent);
   color: var(--color-expense);
+}
+
+.icon-btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .btn:disabled {

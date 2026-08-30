@@ -81,6 +81,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
   // fat-fingered value passes the client and fails the write with a generic
   // permission error that names no field.
   const canSaveBudget = parsedBudget != null && parsedBudget > 0 && parsedBudget < 1_000_000_000;
+  const budgetInvalid = budgetInput.length > 0 && !canSaveBudget;
 
   const saveBudget = useCallback(() => {
     if (!canSaveBudget || parsedBudget == null) return;
@@ -259,6 +260,8 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
                   inputMode="decimal"
                   placeholder={t('budgetPlaceholder')}
                   aria-label={t('settingsMonthlyLimit')}
+                  aria-invalid={budgetInvalid || undefined}
+                  aria-describedby={budgetInvalid ? 'budget-hint' : undefined}
                   value={budgetInput}
                   onChange={(e) => {
                     const input = e.target.value;
@@ -277,6 +280,11 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
                   }}
                   autoFocus
                 />
+                {budgetInvalid ? (
+                  <p id="budget-hint" className="auth-page__field-hint auth-page__field-hint--error" role="status">
+                    {t('budgetInvalidHint')}
+                  </p>
+                ) : null}
                 <div className="settings-budget-edit__actions">
                   <button
                     type="button"
