@@ -7,6 +7,7 @@ import com.aus.ausgegeben.data.ExpenseActions
 import com.aus.ausgegeben.data.TransactionPreferences
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
+import com.aus.ausgegeben.util.RecordListPeriod
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -157,6 +158,37 @@ class ExpenseViewModelTest {
         assertTrue(called)
         assertEquals(false, success)
         assertEquals(null, fakeExpenses.lastDeletedId)
+    }
+
+    @Test
+    fun toolbarFilters_andSearchQuery_updateUiStateProperly() = runTest(dispatcher) {
+        val job = launch { viewModel.uiState.collect {} }
+        advanceUntilIdle()
+
+        viewModel.setSearchQuery("coffee")
+        advanceUntilIdle()
+        assertEquals("coffee", viewModel.uiState.value.toolbar.searchQuery)
+
+        viewModel.setSearchQuery("")
+        advanceUntilIdle()
+        assertEquals("", viewModel.uiState.value.toolbar.searchQuery)
+
+        viewModel.setTypeFilter(TransactionTypeFilter.INCOME)
+        advanceUntilIdle()
+        assertEquals(TransactionTypeFilter.INCOME, viewModel.uiState.value.toolbar.typeFilter)
+
+        viewModel.setListPeriod(RecordListPeriod.ALL_TIME.key)
+        advanceUntilIdle()
+        assertEquals(RecordListPeriod.ALL_TIME.key, viewModel.uiState.value.toolbar.listPeriod)
+
+        // Reset to defaults
+        viewModel.setTypeFilter(TransactionTypeFilter.ALL)
+        viewModel.setListPeriod(RecordListPeriod.THIS_MONTH.key)
+        advanceUntilIdle()
+        assertEquals(TransactionTypeFilter.ALL, viewModel.uiState.value.toolbar.typeFilter)
+        assertEquals(RecordListPeriod.THIS_MONTH.key, viewModel.uiState.value.toolbar.listPeriod)
+
+        job.cancel()
     }
 
     private class FakeCategoryActions : CategoryActions {

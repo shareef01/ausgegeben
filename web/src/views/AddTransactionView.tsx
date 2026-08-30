@@ -5,7 +5,7 @@ import { SignatureText } from '@/components/ui';
 import { CategoryLucideIcon } from '@/components/CategoryLucideIcon';
 import { IosSegmentedControl } from '@/components/IosSegmentedControl';
 import { IconClose } from '@/components/Icons';
-import { colorIntToHex, parseAmount } from '@/utils/currency';
+import { colorIntToHex, parseAmount, currencySymbol } from '@/utils/currency';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useToastStore } from '@/services/toastStore';
 import { useRef, useEffect, useCallback, useMemo, useState, type ReactNode } from 'react';
@@ -289,10 +289,6 @@ function CatIcon({ color, children }: { color: string; children: ReactNode }) {
       {children}
     </span>
   );
-}
-
-function currencySymbol(currency: string): string {
-  return currency === 'EUR' ? '€' : currency === 'USD' ? '$' : currency === 'GBP' ? '£' : currency;
 }
 
 function decimalSep(currency: string): string {
