@@ -4,6 +4,28 @@ Newest first. Every item is verified against the real artifact, not just by read
 
 ---
 
+# 2026-08-30 — complete design, UX, interaction & parity audit
+
+Exhaustive audit across Android native and Web PWA covering interaction behavior, empty states, input sanitization, category reordering, touch targets, and responsive layouts. Starting HEAD was `fe211e6`.
+
+## Findings
+
+| # | Finding | Fix | Verified how |
+|---|---|---|---|
+| 1 | **HIGH — Android `RecordScreen.kt` empty-state actions no-oped.** "Clear search" and "Clear filters" passed double-nested lambdas `{{ ... }}` to `EmptyStateMessage.onAction`, evaluating to an uncalled inner lambda | Replaced with direct closures calling `setSearchQuery("")` and `setTypeFilter(ALL)` / `setListPeriod(THIS_MONTH)` | Added unit test `toolbarFilters_andSearchQuery_updateUiStateProperly` in `ExpenseViewModelTest.kt` (130/130 green) |
+| 2 | **MED — Web lacked category name sanitization & validation.** Android had `CategoryValidator.kt` with control character stripping, punctuation pruning, and Unicode alphanumeric regex bounds; web only had `.trim()` | Added `web/src/utils/categoryValidator.ts` and unit tests in `categoryValidator.test.ts`; integrated into `expenseRepository.ts` and `CategoriesView.tsx` | Vitest test suite `categoryValidator.test.ts` (75/75 web unit tests green) |
+| 3 | **MED — Web lacked category reordering parity.** Android supported reordering via `CategoryScreen` / `CategoryViewModel` with atomic batch updates; Web lacked Move Up / Move Down affordances | Added `updateCategoriesBatch` with Firestore `writeBatch` in `expenseRepository.ts`; added Move Up and Move Down buttons with boundary disable states, busy guards, and accessibility labels in `CategoriesView.tsx` | Web component tests and end-to-end PWA production build |
+| 4 | **MED — Web amount input handling allowed multi-separator or oversized input on paste.** Keypad and typed inputs could exceed precision or produce invalid amounts | Added `sanitizeAmountInput` in `currency.ts` enforcing max 9 integer digits, max 2 decimals, and single separator per active currency (`.` or `,`) | Unit tests in `currency.test.ts` |
+| 5 | **LOW — Web currency symbol mapping was duplicated and incomplete.** `AddTransactionView.tsx` had a local switch missing `CHF` | Exported `currencySymbol` from `currency.ts` supporting `EUR`, `USD`, `GBP`, `CHF`; removed duplicate local definitions | Unit tests in `currency.test.ts` |
+| 6 | **LOW — CSS utility linter caught missing gap tokens.** `gap-1.5` and `gap-3.5` were used in category rows | Defined `.gap-1\.5` and `.gap-3\.5` in `layout.css` | `npm run lint:css` (455 tokens scanned, 0 undefined) |
+
+## Gate results
+
+- **Web**: 75/75 unit tests passed (`vitest run`), 0 TypeScript errors (`tsc --noEmit`), 0 CSS lint errors (`lint:css`), production PWA build successful (`npm run build`).
+- **Android**: 130/130 unit tests passed (`testProdDebugUnitTest`), 0 lint errors (`lintProdDebug`), debug APK built (`assembleProdDebug`), release APK built with R8 minification (`assembleProdRelease`).
+
+---
+
 # 2026-08-28 — audit of the post-v2.0.0 UI refactor
 
 Audit of the one commit that landed after the 2026-08-27 audit and release:
