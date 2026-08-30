@@ -83,6 +83,10 @@ export function AddTransactionView({
     wasSuspended.current = suspended;
   }, [suspended, vm.reloadCategories]);
 
+  const amountError = vm.error === t('errorValidAmount');
+  const categoryError = vm.error === t('errorChooseCategory');
+  const formErrorId = vm.error ? 'add-txn-error' : undefined;
+
   const handleSave = async () => {
     const result = await vm.save();
     if (result.ok) {
@@ -156,6 +160,8 @@ export function AddTransactionView({
                 value={vm.form.amountInput}
                 onChange={(e) => vm.setAmountInput(e.target.value)}
                 disabled={vm.loadFailed}
+                aria-invalid={amountError || undefined}
+                aria-describedby={amountError ? formErrorId : undefined}
               />
             </div>
           </div>
@@ -182,6 +188,8 @@ export function AddTransactionView({
               className="add-txn__cats"
               role="group"
               aria-labelledby="txn-category-label"
+              aria-invalid={categoryError || undefined}
+              aria-describedby={categoryError ? formErrorId : undefined}
             >
               {vm.categories.length === 0 ? (
                 <div className="categories-empty add-txn__cats-empty">
@@ -226,7 +234,7 @@ export function AddTransactionView({
           </div>
 
           {vm.error ? (
-            <p className="add-txn__error" role="alert">{vm.error}</p>
+            <p id="add-txn-error" className="add-txn__error" role="alert">{vm.error}</p>
           ) : null}
         </div>
 
