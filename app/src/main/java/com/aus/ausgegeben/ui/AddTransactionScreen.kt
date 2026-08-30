@@ -311,14 +311,10 @@ fun AddTransactionScreen(
                             hasCategory = hasCategory,
                             isEditing = isEditing,
                             onKeyPress = { key ->
-                                viewModel.onAmountChange(handleKeyInput(amountText, key, CurrencyUtils.decimalSeparator(currencyCode)))
+                                viewModel.onAmountChange(NumericKeypadHelper.handleKeyInput(amountText, key, CurrencyUtils.decimalSeparator(currencyCode)))
                             },
                             onBackspace = {
-                                if (amountText.length > 1) {
-                                    viewModel.onAmountChange(amountText.dropLast(1))
-                                } else {
-                                    viewModel.onAmountChange("0")
-                                }
+                                viewModel.onAmountChange(NumericKeypadHelper.handleBackspace(amountText))
                             },
                             onClear = { viewModel.onAmountChange("0") },
                             onSave = {
@@ -931,12 +927,3 @@ private fun ObsidianKey(
     }
 }
 
-private fun handleKeyInput(current: String, input: String, decimalSeparator: Char): String {
-    if (current == "0" && input != decimalSeparator.toString()) return input
-    if (input == decimalSeparator.toString() && current.contains(decimalSeparator)) return current
-    if (current.contains(decimalSeparator)) {
-        val decimals = current.substringAfter(decimalSeparator)
-        if (decimals.length >= 2) return current
-    }
-    return current + input
-}

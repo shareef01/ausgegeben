@@ -653,14 +653,22 @@ private fun RecordListToolbar(
                             }
                         }
                         
-                        Text(
-                            text = stringResource(R.string.action_cancel).lowercase(),
-                            style = MaterialTheme.typography.labelLarge.copy(color = MaterialTheme.colorScheme.primary),
-                            modifier = Modifier.smoothClickable { 
-                                onSearchToggle(false)
-                                onSearchChange("")
-                            }
-                        )
+                        Box(
+                            modifier = Modifier
+                                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                .clip(RoundedCornerShape(AppRadius.interactive))
+                                .smoothClickable { 
+                                    onSearchToggle(false)
+                                    onSearchChange("")
+                                }
+                                .padding(horizontal = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = stringResource(R.string.action_cancel).lowercase(),
+                                style = MaterialTheme.typography.labelLarge.copy(color = MaterialTheme.colorScheme.primary),
+                            )
+                        }
                     }
                 }
             }
@@ -779,7 +787,8 @@ private fun SwipeableTransactionRow(
                 }
                 else -> true
             }
-        }
+        },
+        positionalThreshold = { totalDistance -> totalDistance * 0.42f }
     )
 
     SwipeToDismissBox(
@@ -788,61 +797,66 @@ private fun SwipeableTransactionRow(
         backgroundContent = {
             val direction = dismissState.dismissDirection
             val swipeFraction = dismissState.progress.coerceIn(0f, 1f)
-            
-            when (direction) {
-                SwipeToDismissBoxValue.EndToStart -> {
-                    Box(
-                        Modifier
-                            .fillMaxSize()
-                            .background(deleteColor.copy(alpha = swipeFraction))
-                            .padding(horizontal = 24.dp),
-                        contentAlignment = Alignment.CenterEnd
-                    ) {
-                        val iconScale by animateFloatAsState(
-                            targetValue = if (swipeFraction > 0.5f) 1.2f else 1.0f,
-                            animationSpec = spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMedium),
-                            label = "deleteIconScale"
-                        )
-                        Icon(
-                            Icons.Rounded.Delete,
-                            null,
-                            tint = contrastColorOn(deleteColor).copy(alpha = swipeFraction.coerceAtLeast(0.35f)),
-                            modifier = Modifier
-                                .size(24.dp)
-                                .graphicsLayer {
-                                    scaleX = iconScale
-                                    scaleY = iconScale
-                                },
-                        )
+            val isSwiping = dismissState.currentValue != SwipeToDismissBoxValue.Settled ||
+                dismissState.targetValue != SwipeToDismissBoxValue.Settled ||
+                swipeFraction > 0.05f
+
+            if (isSwiping) {
+                when (direction) {
+                    SwipeToDismissBoxValue.EndToStart -> {
+                        Box(
+                            Modifier
+                                .fillMaxSize()
+                                .background(deleteColor.copy(alpha = swipeFraction))
+                                .padding(horizontal = 24.dp),
+                            contentAlignment = Alignment.CenterEnd
+                        ) {
+                            val iconScale by animateFloatAsState(
+                                targetValue = if (swipeFraction > 0.5f) 1.2f else 1.0f,
+                                animationSpec = spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMedium),
+                                label = "deleteIconScale"
+                            )
+                            Icon(
+                                Icons.Rounded.Delete,
+                                null,
+                                tint = contrastColorOn(deleteColor).copy(alpha = swipeFraction.coerceAtLeast(0.35f)),
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .graphicsLayer {
+                                        scaleX = iconScale
+                                        scaleY = iconScale
+                                    },
+                            )
+                        }
                     }
-                }
-                SwipeToDismissBoxValue.StartToEnd -> {
-                    Box(
-                        Modifier
-                            .fillMaxSize()
-                            .background(editSwipeColor.copy(alpha = swipeFraction))
-                            .padding(horizontal = 24.dp),
-                        contentAlignment = Alignment.CenterStart
-                    ) {
-                        val iconScale by animateFloatAsState(
-                            targetValue = if (swipeFraction > 0.5f) 1.2f else 1.0f,
-                            animationSpec = spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMedium),
-                            label = "editIconScale"
-                        )
-                        Icon(
-                            Icons.Rounded.Edit,
-                            null,
-                            tint = contrastColorOn(editSwipeColor).copy(alpha = swipeFraction.coerceAtLeast(0.35f)),
-                            modifier = Modifier
-                                .size(24.dp)
-                                .graphicsLayer {
-                                    scaleX = iconScale
-                                    scaleY = iconScale
-                                },
-                        )
+                    SwipeToDismissBoxValue.StartToEnd -> {
+                        Box(
+                            Modifier
+                                .fillMaxSize()
+                                .background(editSwipeColor.copy(alpha = swipeFraction))
+                                .padding(horizontal = 24.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            val iconScale by animateFloatAsState(
+                                targetValue = if (swipeFraction > 0.5f) 1.2f else 1.0f,
+                                animationSpec = spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMedium),
+                                label = "editIconScale"
+                            )
+                            Icon(
+                                Icons.Rounded.Edit,
+                                null,
+                                tint = contrastColorOn(editSwipeColor).copy(alpha = swipeFraction.coerceAtLeast(0.35f)),
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .graphicsLayer {
+                                        scaleX = iconScale
+                                        scaleY = iconScale
+                                    },
+                            )
+                        }
                     }
+                    else -> {}
                 }
-                else -> {}
             }
         }
     ) {
