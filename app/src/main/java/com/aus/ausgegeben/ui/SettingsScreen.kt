@@ -924,14 +924,14 @@ fun ReminderTimeDialog(
                 value = hour,
                 range = 0..23,
                 onValueChange = { hour = it },
-                label = "hr"
+                label = stringResource(R.string.picker_hour),
             )
             Text(":", style = MaterialTheme.typography.headlineMedium)
             NumberPicker(
                 value = minute,
                 range = 0..59,
                 onValueChange = { minute = it },
-                label = "min"
+                label = stringResource(R.string.picker_minute),
             )
         }
     }
@@ -946,7 +946,10 @@ private fun NumberPicker(
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         IconButton(onClick = { if (value < range.last) onValueChange(value + 1) }) {
-            Icon(Icons.Rounded.Add, null)
+            Icon(
+                Icons.Rounded.Add,
+                contentDescription = stringResource(R.string.picker_increase, label),
+            )
         }
         Text(
             text = "%02d".format(value),
@@ -954,7 +957,10 @@ private fun NumberPicker(
         )
         Text(label, style = MaterialTheme.typography.labelSmall, color = readableSecondaryColor())
         IconButton(onClick = { if (value > range.first) onValueChange(value - 1) }) {
-            Icon(Icons.Rounded.Remove, null)
+            Icon(
+                Icons.Rounded.Remove,
+                contentDescription = stringResource(R.string.picker_decrease, label),
+            )
         }
     }
 }
