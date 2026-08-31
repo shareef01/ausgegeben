@@ -1059,7 +1059,10 @@ and Android's three instrumentation classes did not run here. Fixtures are also 
 no test seeds a legacy `Timestamp` `updatedAt`, a `cloudId`, or a `deleted` row through a *client
 code path* (the rules tests do seed those shapes, which is why the rules are the best-covered part).
 
-**The ten highest-value missing tests, ranked:**
+**The ten highest-value missing tests, ranked** — written as the audit found them.
+**Seven of the ten (1, 3, 4, 5, 6, 8, 9) were written during remediation and are green;
+see §19a.** Item 2 was retracted with AUS-102. Items 7 and 10 remain open — 7 is the one
+worth doing next.
 
 1. **Web edit-form category resolution (AUS-101).** Load an expense with `categoryId: '0'`; assert
    `save()` does not change `categoryId`. The single highest-value test in this list — it covers a
