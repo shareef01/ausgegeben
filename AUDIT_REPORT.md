@@ -1371,11 +1371,23 @@ report could not previously offer:
 | Category reorder against legacy rows | Moves and persists | 12 of 17 categories on this account carry `cloudId`. AVD data carries none of that drift — the reason a previous "device-verified" claim was wrong the same afternoon |
 | **AUS-101 fixed on production web** | Editing an Uncategorized transaction now refuses instead of silently refiling | The highest-severity finding in this report, confirmed on the deployed bundle |
 
-**Still unverified.** `AUS-104` (Android clearing local prefs and cache after account
-deletion) is the one shipped fix nobody has exercised: it needs a throwaway account and is
-irreversible, so it was deliberately not run against the real one. `AUS-113`'s timeout
-cannot be triggered on demand. `AUS-115`/`AUS-117` (CSV BOM, amount prefill) are cosmetic
-and were skipped. The one-off orphan sweep's logcat trace was not read — no cable.
+**`AUS-104` verified on throwaway accounts.** A throwaway was set to distinctive values
+(GBP, budget 1234, reminder 06:15), those were confirmed to survive a force-stop so they
+were genuinely persisted, the account was deleted, and a *second* throwaway was then
+registered on the same device. It came up with EUR, no budget and default reminders. A new
+account has no cloud preferences, so the sync pushes whatever is local up to it — any
+fingerprint appearing there could only have come from the deleted account. None did, so
+`clearAccountLocalState()` ran.
+
+The offline-cache half is **reached, not proven**: both calls sit in the same method, each
+wrapped best-effort, so clearing the prefs shows the cache call was made — a failure inside
+it is logged, not surfaced. Confirming the cache file is gone needs `adb run-as`, which
+only works on a debug build, and a new account cannot read the old one's cached documents
+in any case because the paths are uid-scoped. This is as far as a release build goes.
+
+**Still unverified.** `AUS-113`'s timeout cannot be triggered on demand. `AUS-115`/`AUS-117`
+(CSV BOM, amount prefill) are cosmetic and were skipped. The one-off orphan sweep's logcat
+trace was not read — no cable.
 
 ---
 
