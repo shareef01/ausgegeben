@@ -166,14 +166,14 @@ More detail in [web/README.md](web/README.md).
 
 ## Quality
 
-323 automated tests run on every push and PR ([workflow](.github/workflows/ci.yml)), across four parallel jobs, and again before any release is published ([workflow](.github/workflows/release.yml)). Counts verified 2026-08-31; CI's own numbers are authoritative — these have drifted before, and the previous figure was both stale and inconsistent with its own table.
+370 automated tests run on every push and PR ([workflow](.github/workflows/ci.yml)), across four parallel jobs, and again before any release is published ([workflow](.github/workflows/release.yml)). Counts re-verified 2026-08-31 after the audit remediation; CI's own numbers are authoritative — these have drifted before, and the previous figure was both stale and inconsistent with its own table.
 
 | Suite | Tests | What it covers |
 |---|---:|---|
-| Web unit | 85 | view models, currency and period maths, i18n, theming, error reporting, CSV export |
-| Android unit | 146 | repositories, preferences crypto, reminder scheduling, theme contrast, insights totals, account deletion coordinator |
-| Firestore rules | 48 | every branch of the security rules, plus cross-user isolation across all four subcollections |
-| Repository | 44 | dedupe, category delete, orphan repair and batch chunking against a real Firestore |
+| Web unit | 109 | view models, currency and period maths, i18n, theming, error reporting, CSV export, edit-category resolution, orphan-scan versioning |
+| Android unit | 162 | repositories, preferences crypto, reminder scheduling, theme contrast, insights totals, account deletion coordinator, reorder screening, money parity |
+| Firestore rules | 50 | every branch of the security rules, plus cross-user isolation across all four subcollections |
+| Repository | 49 | dedupe, category delete, orphan repair, batch chunking and the month-total invariant against a real Firestore |
 | Instrumentation | 9 | app launch, FileProvider export boundary, touch-target floors on an API 29 emulator |
 
 Two habits behind that, both learned the hard way:
