@@ -40,18 +40,50 @@ function isAllowedOrigin(origin, env) {
   return allowedOrigins(env).includes(origin);
 }
 
+/**
+ * Bound a field and strip control characters before it reaches a log line.
+ *
+ * `Origin` is not a security boundary (see isAllowedOrigin), so every field here is
+ * attacker-controllable by anyone willing to set a header. `source` and `name` are
+ * interpolated into the log message itself, so an unescaped newline in either forges
+ * what looks like a separate, genuine log entry. Caps stop one report filling the log.
+ */
+function logSafe(value, max) {
+  return String(value ?? '')
+    // Newlines, tabs and the rest of C0/C1 become spaces so nothing can break out of
+    // its log line. Written with escapes rather than literal control bytes.
+    .replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ')
+    .slice(0, max);
+}
+
+/**
+ * ISO timestamp, or null when the value is not a usable date.
+ *
+ * `new Date('x').toISOString()` throws RangeError, and `summarize` is not wrapped, so a
+ * report with a malformed `at` took the whole request down with a 500 and was dropped.
+ * The PWA always sends `Date.now()`, so this was only reachable by a crafted client —
+ * but a 500 is the wrong answer to bad input either way.
+ */
+function isoOrNull(at) {
+  if (at === null || at === undefined) return null;
+  const ms = new Date(at).getTime();
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+}
+
 function summarize(report) {
   const error = report?.error ?? {};
   return {
-    source: report?.source ?? 'unknown',
-    name: error.name ?? 'unknown',
-    message: String(error.message ?? '').slice(0, 500),
-    stack: String(error.stack ?? '').slice(0, 4000),
+    source: logSafe(report?.source ?? 'unknown', 64),
+    name: logSafe(error.name ?? 'unknown', 128),
+    message: logSafe(error.message, 500),
+    stack: logSafe(error.stack, 4000),
+    // Objects are logged structurally rather than interpolated, so they cannot forge a
+    // log line; the body cap is what bounds their size.
     context: report?.context,
-    url: report?.url,
-    release: report?.release,
-    userAgent: String(report?.userAgent ?? '').slice(0, 300),
-    reportedAt: report?.at ? new Date(report.at).toISOString() : null,
+    url: logSafe(report?.url, 512),
+    release: logSafe(report?.release, 64),
+    userAgent: logSafe(report?.userAgent, 300),
+    reportedAt: isoOrNull(report?.at),
   };
 }
 
@@ -70,6 +102,14 @@ export default {
 
     if (!isAllowedOrigin(origin, env)) {
       return new Response('forbidden', { status: 403 });
+    }
+
+    // Refuse on the declared size before buffering. request.text() reads the whole body
+    // into the isolate first, so checking only afterwards let anyone force the worker to
+    // hold megabytes it was always going to reject.
+    const declared = Number(request.headers.get('Content-Length'));
+    if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
+      return new Response('payload too large', { status: 413, headers: corsHeaders(origin) });
     }
 
     const body = await request.text();

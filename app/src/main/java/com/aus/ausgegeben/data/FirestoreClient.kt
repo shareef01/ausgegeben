@@ -3,6 +3,7 @@ package com.aus.ausgegeben.data
 import android.util.Log
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
+import com.google.firebase.firestore.PersistentCacheSettings
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
@@ -35,8 +36,11 @@ class FirestoreClient @Inject constructor() {
         }
         val fresh = FirebaseFirestore.getInstance()
         fresh.firestoreSettings = FirebaseFirestoreSettings.Builder()
-            .setPersistenceEnabled(true)
-            .setCacheSizeBytes(CACHE_SIZE_BYTES)
+            .setLocalCacheSettings(
+                PersistentCacheSettings.newBuilder()
+                    .setSizeBytes(CACHE_SIZE_BYTES)
+                    .build(),
+            )
             .build()
         db = fresh
     }

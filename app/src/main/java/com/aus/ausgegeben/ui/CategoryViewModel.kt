@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.withTimeoutOrNull
 
 @HiltViewModel
 class CategoryViewModel @Inject constructor(
@@ -48,6 +49,12 @@ class CategoryViewModel @Inject constructor(
      */
     private fun errorText(error: Throwable, fallbackResId: Int): String {
         val app = getApplication<Application>()
+        // Name the row a reorder cannot write. The batch is atomic, so one category the
+        // rules refuse blocks every reorder in that type — a generic message left the
+        // user repeating an action that could never succeed.
+        if (error is com.aus.ausgegeben.data.UnwritableCategoryException) {
+            return app.getString(R.string.category_error_unwritable, error.categoryNames)
+        }
         return when (error.message) {
             "EMAIL_NOT_VERIFIED" -> app.getString(R.string.auth_verify_required)
             else -> app.getString(fallbackResId)
@@ -168,7 +175,20 @@ class CategoryViewModel @Inject constructor(
         _isReordering.value = true
         viewModelScope.launch {
             try {
-                val changed = categoriesAfterMove(repository.allCategories.first(), category, moveUp)
+                // allCategories emits only on a successful snapshot: its listener logs and
+                // marks itself failed on error but sends nothing and never closes, so
+                // first() would suspend forever and the finally below would never run —
+                // latching the busy guard and disabling reordering for the rest of the
+                // ViewModel's life, silently. Time it out instead.
+                val current = withTimeoutOrNull(CATEGORY_READ_TIMEOUT_MS) {
+                    repository.allCategories.first()
+                }
+                if (current == null) {
+                    _errorMessage.value =
+                        getApplication<Application>().getString(R.string.category_error_reorder_failed)
+                    return@launch
+                }
+                val changed = categoriesAfterMove(current, category, moveUp)
                 repository.updateCategoriesBatch(changed).onFailure { e ->
                     _errorMessage.value = errorText(e, R.string.category_error_reorder_failed)
                 }
@@ -203,6 +223,9 @@ class CategoryViewModel @Inject constructor(
  * keys in source order, which the two could resolve differently — and then "move
  * up" moves a different row than the one the user pointed at.
  */
+/** Bound on the fresh category read a reorder needs; see moveCategory. */
+private const val CATEGORY_READ_TIMEOUT_MS = 10_000L
+
 internal fun categoriesAfterMove(
     all: List<Category>,
     category: Category,

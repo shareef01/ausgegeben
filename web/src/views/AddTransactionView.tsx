@@ -64,7 +64,7 @@ export function AddTransactionView({
   const handleEscape = useCallback(() => {
     requestClose();
   }, [requestClose]);
-  useFocusTrap(!suspended && vm.ready && !showDiscardConfirm, dialogRef, handleEscape);
+  useFocusTrap(!suspended && !showDiscardConfirm, dialogRef, handleEscape);
   useBodyScrollLock(!suspended);
 
   useEffect(() => {
@@ -101,16 +101,6 @@ export function AddTransactionView({
     }
   };
 
-  if (!vm.ready) {
-    return (
-      <div className="fixed inset-0 z-[200] safe-overlay bg-background/80 backdrop-blur-xl flex items-center justify-center" role="status" aria-live="polite">
-        <div className="card--pro add-txn add-txn--loading">
-          {t('loading')}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <>
     <div
@@ -120,13 +110,18 @@ export function AddTransactionView({
     >
       <div
         ref={dialogRef}
-        className="card--pro add-txn"
+        className={`card--pro add-txn${!vm.ready ? ' add-txn--loading' : ''}`}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="add-txn-title"
+        aria-labelledby={vm.ready ? 'add-txn-title' : undefined}
+        aria-label={vm.ready ? undefined : t('loading')}
         tabIndex={-1}
       >
+        {!vm.ready ? (
+          <div role="status" aria-live="polite">{t('loading')}</div>
+        ) : (
+        <>
         <div className="add-txn__header">
           <h2 id="add-txn-title" className="modal-title add-txn__title">
             <SignatureText text={vm.isEditing ? t('editTransaction') : t('addTransaction')} />
@@ -272,6 +267,8 @@ export function AddTransactionView({
             </button>
           )}
         </div>
+        </>
+        )}
       </div>
     </div>
     <ConfirmDialog

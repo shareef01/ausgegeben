@@ -24,6 +24,39 @@ const defaultForm = (): AddTransactionForm => ({
   dateMillis: Date.now(),
 });
 
+/**
+ * The categories the picker may offer for `type`.
+ *
+ * Exported and shared with [isStoredCategorySelectable] on purpose: the silent
+ * re-categorisation bug existed because "what the picker shows" and "is the stored
+ * category acceptable" were two separately-written conditions that drifted. They are
+ * now one predicate, so they cannot disagree again.
+ */
+export function selectableCategoriesFor<T extends Pick<Category, 'id' | 'transactionType' | 'name'>>(
+  cats: T[],
+  type: TransactionType,
+): T[] {
+  return cats.filter(
+    (c) => c.transactionType === type && Boolean(c.name?.trim()) && c.id !== UNCATEGORIZED_ID,
+  );
+}
+
+/**
+ * Whether a stored `categoryId` is one the user could have picked.
+ *
+ * False for the Uncategorized sentinel and for an orphan whose category was deleted.
+ * Both cases must block the save rather than resolve to a substitute — writing a guessed
+ * category is a silent edit to data the user never touched.
+ */
+export function isStoredCategorySelectable(
+  cats: Pick<Category, 'id' | 'transactionType' | 'name'>[],
+  type: TransactionType,
+  categoryId: string | null,
+): boolean {
+  if (!categoryId) return false;
+  return selectableCategoriesFor(cats, type).some((c) => c.id === categoryId);
+}
+
 export function useAddTransactionViewModel(expenseId?: string) {
   const { t } = useTranslation();
   const [form, setForm] = useState<AddTransactionForm>(defaultForm);
@@ -43,6 +76,25 @@ export function useAddTransactionViewModel(expenseId?: string) {
    */
   const pendingIdempotencyKey = useRef<string | null>(null);
 
+  /**
+   * The transaction type the category selection was last reconciled against.
+   *
+   * Switching type must reset the chosen category, but "the stored category is not
+   * selectable" is a different condition entirely and must NOT resolve to a guess.
+   * Keying the reset off the *rendered* list instead of an actual type change meant
+   * opening any transaction whose category was the Uncategorized sentinel or an orphan
+   * silently refiled it under whichever category happened to sort first — the user
+   * edited a note and the categorisation changed underneath them. Android has never
+   * done this: loadForEdit leaves the selection null and saveExpense refuses.
+   *
+   * Seeded from the loaded expense so arriving on an income row does not read as the
+   * user having just switched to income.
+   */
+  const reconciledType = useRef<TransactionType>(defaultForm().transactionType);
+
+  /** Stored category exists but is not selectable (deleted, or the '0' sentinel). */
+  const [categoryUnresolved, setCategoryUnresolved] = useState(false);
+
   const load = useCallback(async () => {
     setLoadFailed(false);
     try {
@@ -56,6 +108,17 @@ export function useAddTransactionViewModel(expenseId?: string) {
       if (expenseId) {
         const existing = await expenseRepository.getExpenseById(expenseId);
         if (existing) {
+          // Seed the reconciliation ref before the state commit so the effect below
+          // does not read this load as a user-initiated type switch and reset the
+          // category we just restored.
+          reconciledType.current = existing.transactionType;
+          const selectable = isStoredCategorySelectable(
+            cats,
+            existing.transactionType,
+            existing.categoryId,
+          );
+          setCategoryUnresolved(!selectable);
+          if (!selectable) setError(t('errorChooseCategory'));
           setForm({
             amountInput: formatAmountForInput(existing.amount, usePreferencesStore.getState().currency),
             transactionType: existing.transactionType,
@@ -91,15 +154,26 @@ export function useAddTransactionViewModel(expenseId?: string) {
   }, [load]);
 
   const filteredCategories = useMemo(
-    () => categories.filter((c) => c.transactionType === form.transactionType && c.name?.trim() && c.id !== UNCATEGORIZED_ID),
+    () => selectableCategoriesFor(categories, form.transactionType),
     [categories, form.transactionType],
   );
 
   useEffect(() => {
-    if (!filteredCategories.some((c) => c.id === form.categoryId)) {
-      setForm((f) => ({ ...f, categoryId: filteredCategories[0]?.id ?? null }));
+    if (reconciledType.current === form.transactionType) return;
+    // A real type switch: the previous category belongs to the old type, so pick the
+    // first of the new one. Only this transition may replace the user's choice.
+    reconciledType.current = form.transactionType;
+    setCategoryUnresolved(false);
+    setForm((f) => ({ ...f, categoryId: filteredCategories[0]?.id ?? null }));
+  }, [form.transactionType, filteredCategories]);
+
+  /** Clear the unresolved flag once the user picks a real category. */
+  useEffect(() => {
+    if (categoryUnresolved && filteredCategories.some((c) => c.id === form.categoryId)) {
+      setCategoryUnresolved(false);
+      setError(null);
     }
-  }, [form.transactionType, filteredCategories, form.categoryId]);
+  }, [categoryUnresolved, filteredCategories, form.categoryId]);
 
   const appendDigit = (digit: string) => {
     setForm((f) => {
@@ -144,7 +218,10 @@ export function useAddTransactionViewModel(expenseId?: string) {
       setError(t('errorValidAmount'));
       return { ok: false };
     }
-    if (!form.categoryId) {
+    if (!form.categoryId || categoryUnresolved) {
+      // categoryUnresolved: the stored category is the Uncategorized sentinel or points
+      // at a deleted one. Refuse rather than substituting — writing a guessed category
+      // here is a silent edit to data the user never touched (Android parity).
       setError(t('errorChooseCategory'));
       return { ok: false };
     }
@@ -209,6 +286,8 @@ export function useAddTransactionViewModel(expenseId?: string) {
     saving,
     error,
     loadFailed,
+    /** True while the stored category is the Uncategorized sentinel or an orphan. */
+    categoryUnresolved,
     isEditing: Boolean(expenseId),
     reloadCategories,
     reload: load,

@@ -165,6 +165,16 @@ class ExpenseViewModelTest {
         val job = launch { viewModel.uiState.collect {} }
         advanceUntilIdle()
 
+        // uiState combines insightsFlow and dayTotalsFlow, both of which end in
+        // flowOn(Dispatchers.Default) — real threads that advanceUntilIdle() does not wait
+        // for, since it only drains the virtual scheduler. combine withholds its first
+        // emission until every input has produced one, so asserting immediately raced the
+        // thread pool and intermittently read the placeholder initialValue instead
+        // (isLoading = true, blank toolbar). That lost the race only under the load of the
+        // full suite, which is why the test passed when run alone. Wait for the first real
+        // emission; after it, toolbar changes travel solely through the test dispatcher.
+        viewModel.uiState.first { !it.isLoading }
+
         viewModel.setSearchQuery("coffee")
         advanceUntilIdle()
         assertEquals("coffee", viewModel.uiState.value.toolbar.searchQuery)

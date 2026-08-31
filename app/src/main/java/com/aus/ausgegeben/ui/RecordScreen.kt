@@ -36,7 +36,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.animation.core.Animatable
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -456,7 +458,7 @@ private fun RecordListToolbar(
     val isMonthPeriod = listPeriod.startsWith("month:")
     var showMonthSheet by remember { mutableStateOf(false) }
     // Same 12-month sheet as Bills so Record can scope the list to any month (parity with web)
-    val monthPickerOptions = remember { analyticsPeriodOptions(monthsBack = 12) }
+    val monthPickerOptions = remember { analyticsPeriodOptions(monthsBack = 14) }
     val currentMonthKey = remember(monthPickerOptions) {
         monthPickerOptions.firstOrNull { it.storageKey != "all_time" }?.storageKey
     }
@@ -885,6 +887,8 @@ private fun SwipeableTransactionRow(
                 currencyCode,
                 incomeColor,
                 expenseColor,
+                onDeleteAction = onDeleteRequest,
+                onDuplicateAction = onLongClick,
             )
         }
     }
@@ -899,6 +903,8 @@ fun TransactionRow(
     currencyCode: String,
     incomeColor: Color,
     expenseColor: Color,
+    onDeleteAction: (() -> Unit)? = null,
+    onDuplicateAction: (() -> Unit)? = null,
 ) {
     val isIncome = expense.isIncome()
     val isTransfer = expense.isTransfer()
@@ -919,13 +925,29 @@ fun TransactionRow(
         CurrencyUtils.formatAmount(expense.amount, currencyCode),
         if (expense.note.isNotBlank()) expense.note else ""
     )
+    val deleteActionLabel = stringResource(R.string.a11y_action_delete)
+    val duplicateActionLabel = stringResource(R.string.a11y_action_duplicate)
 
     // Law 2: Ironclad Transaction Row Alignments
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(IntrinsicSize.Min) // Pillar 4: Consistent vertical metrics
-            .semantics { contentDescription = rowDescription },
+            .semantics {
+                contentDescription = rowDescription
+                if (onDeleteAction != null && onDuplicateAction != null) {
+                    customActions = listOf(
+                        CustomAccessibilityAction(deleteActionLabel) {
+                            onDeleteAction()
+                            true
+                        },
+                        CustomAccessibilityAction(duplicateActionLabel) {
+                            onDuplicateAction()
+                            true
+                        },
+                    )
+                }
+            },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Law 6: Category Spine

@@ -75,10 +75,11 @@ class PreferencesCloudSync @Inject constructor(
                         return@launch
                     }
                     val remote = parseRemote(snap.data) ?: return@launch
-                    when {
-                        remote.updatedAt > localAt -> applyRemote(remote)
-                        localAt > remote.updatedAt -> writeRemote(uid, preferenceManager.snapshotSyncedPreferences())
-                        else -> _syncError.value = null
+                    when (prefsLwwAction(remote.updatedAt, localAt)) {
+                        PrefsLwwAction.APPLY_REMOTE -> applyRemote(remote)
+                        PrefsLwwAction.PUSH_LOCAL ->
+                            writeRemote(uid, preferenceManager.snapshotSyncedPreferences())
+                        PrefsLwwAction.HOLD -> _syncError.value = null
                     }
                 } finally {
                     _preferencesReady.value = true

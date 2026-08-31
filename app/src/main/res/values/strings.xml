@@ -132,6 +132,12 @@
     <string name="settings_delete_account_failed">Could not delete account</string>
     <string name="settings_delete_account_incomplete">Cloud data was erased but the login could not be removed. Try Delete account again to finish.</string>
     <string name="settings_delete_account_needs_reauth">Sign in again, then delete your account</string>
+    <string name="settings_deletion_pending_title">Deletion unfinished</string>
+    <string name="settings_deletion_pending">This account is part-way through deletion. Its cloud data is already gone. Finish deleting it, or keep the account and start fresh.</string>
+    <string name="settings_deletion_finish">Finish deleting</string>
+    <string name="settings_deletion_keep">Keep account</string>
+    <string name="settings_deletion_kept">Account kept — default categories restored</string>
+    <string name="settings_deletion_keep_failed">Could not restore the account. Please try again.</string>
     <string name="settings_delete_account_password">Enter your password to confirm</string>
     <string name="settings_delete_account_too_many_attempts">Too many attempts. Try again later.</string>
     <string name="settings_signed_out">Signed out</string>
@@ -283,6 +289,7 @@
     <string name="category_error_delete_failed">Failed to delete category</string>
     <string name="category_error_deduplicate_failed">Failed to deduplicate categories</string>
     <string name="category_error_reorder_failed">Failed to reorder category</string>
+    <string name="category_error_unwritable">Can\'t reorder: fix or rename this category first — %1$s</string>
 
     <!-- Finance summary -->
     <string name="summary_balance_period">Balance · %1$s</string>
@@ -325,6 +332,8 @@
     <string name="record_most_spent_on">Most spent on %1$s</string>
     <string name="desc_income_row">%1$s income of %2$s. %3$s</string>
     <string name="desc_expense_row">%1$s expense of %2$s. %3$s</string>
+    <string name="a11y_action_delete">Delete transaction</string>
+    <string name="a11y_action_duplicate">Duplicate for today</string>
     <string name="desc_transfer_row">%1$s transfer of %2$s. %3$s</string>
     <string name="desc_finance_summary">Finance summary for %1$s. Net balance %2$s. Total earned %3$s. Total spent %4$s.</string>
     <string name="record_filter">Filter by type</string>
