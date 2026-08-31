@@ -58,14 +58,48 @@ class InsightsStateTest {
         assertEquals(50.0, state.transfersByCategory[transferCat])
     }
 
+    /**
+     * The breakdown must always account for the headline total. This test previously
+     * asserted the opposite — that an expense whose category is gone is dropped from the
+     * grouping — which is how the defect stayed invisible: the money left the donut while
+     * "Spent" above it still counted the row, and a passing test said that was correct.
+     * Orphans are reachable (deleteCategory can leave rows the rules refuse to reassign),
+     * and the web client has always kept them as a "?" row.
+     */
     @Test
-    fun buildInsightsState_expenseWithUnknownCategory_isExcludedFromGrouping() {
+    fun buildInsightsState_expenseWithUnknownCategory_keepsItInTheBreakdown() {
         val expenses = listOf(expense("does-not-exist", 10.0, "expense"))
         val state = buildInsightsState("EUR", listOf(groceries), expenses, AnalyticsPeriod.THIS_MONTH.storageKey, truncated = false)
 
-        // Still counted in the total — only the per-category breakdown drops it.
         assertEquals(10.0, state.totalExpenses, 0.0)
-        assertTrue(state.expensesByCategory.isEmpty())
+        assertEquals(1, state.expensesByCategory.size)
+        val (placeholder, amount) = state.expensesByCategory.entries.single()
+        assertEquals("does-not-exist", placeholder.id)
+        assertEquals("?", placeholder.name)
+        assertEquals(10.0, amount, 0.0)
+        // The invariant that matters: the breakdown sums to the headline figure.
+        assertEquals(state.totalExpenses, state.expensesByCategory.values.sum(), 0.0)
+    }
+
+    @Test
+    fun buildInsightsState_mixedKnownAndOrphanCategories_breakdownStillSumsToTotal() {
+        val expenses = listOf(
+            expense("c1", 15.0, "expense"),
+            expense("gone-1", 5.0, "expense"),
+            expense("gone-2", 2.5, "expense"),
+            expense("c3", 100.0, "income"),
+            expense("gone-3", 20.0, "income"),
+        )
+        val state = buildInsightsState(
+            "EUR", listOf(groceries, salary), expenses,
+            AnalyticsPeriod.THIS_MONTH.storageKey, truncated = false,
+        )
+
+        assertEquals(22.5, state.totalExpenses, 0.0)
+        assertEquals(state.totalExpenses, state.expensesByCategory.values.sum(), 0.0)
+        assertEquals(state.totalIncome, state.incomeByCategory.values.sum(), 0.0)
+        // Distinct dangling ids stay distinct rows rather than collapsing into one.
+        assertEquals(3, state.expensesByCategory.size)
     }
 
     @Test

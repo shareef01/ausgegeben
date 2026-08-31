@@ -11,7 +11,13 @@
  * If the endpoint lives on another origin, add it to `connect-src` in the
  * firebase.json CSP — the default policy allows same-origin only.
  */
-import { reportError, setErrorSink, type AppErrorReport } from '@/services/errorReporter';
+import {
+  reportError,
+  setErrorBuffering,
+  setErrorSink,
+  type AppErrorReport,
+} from '@/services/errorReporter';
+import { readErrorReportingEnabled } from '@/services/errorReportPreference';
 
 /**
  * A crash loop can fire the same error hundreds of times a second. Cap both total
@@ -113,7 +119,7 @@ export function createEndpointSink(url: string): (report: AppErrorReport) => voi
  */
 export function installConfiguredErrorSink(): boolean {
   const url = import.meta.env.VITE_ERROR_REPORT_URL?.trim();
-  if (!url) return false;
+  if (!url || !readErrorReportingEnabled()) return false;
   try {
     setErrorSink(createEndpointSink(url));
     return true;
@@ -121,4 +127,17 @@ export function installConfiguredErrorSink(): boolean {
     reportError('manual', error, { during: 'installConfiguredErrorSink' });
     return false;
   }
+}
+
+/** Apply the local opt-out toggle and attach or detach the endpoint sink. */
+export function applyErrorReportingPreference(enabled: boolean): void {
+  // Order matters on disable: drop the sink first so nothing in flight can emit, then
+  // clear the replay buffer. Leaving the buffer intact turned the opt-out into a delay —
+  // every error captured while it was off shipped the moment it was switched back on.
+  setErrorBuffering(enabled);
+  if (!enabled) {
+    setErrorSink(null);
+    return;
+  }
+  installConfiguredErrorSink();
 }

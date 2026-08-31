@@ -19,6 +19,14 @@ describe('periodUtils', () => {
     expect(JUNE_2026).toBeLessThan(end);
   });
 
+  it('analyticsPeriodOptions default depth is 14 months plus all_time', () => {
+    const options = analyticsPeriodOptions(undefined, JUNE_2026);
+    expect(options).toHaveLength(15);
+    expect(options[0]?.storageKey).toBe('all_time');
+    expect(options[1]?.storageKey).toBe('month:2026-06');
+    expect(options.at(-1)?.storageKey).toBe('month:2025-05');
+  });
+
   it('analyticsPeriodOptions puts all_time first', () => {
     const options = analyticsPeriodOptions(3, JUNE_2026);
     expect(options[0]?.storageKey).toBe('all_time');

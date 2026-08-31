@@ -3446,6 +3446,17 @@
   flex-shrink: 0;
 }
 
+.settings-row--toggle {
+  cursor: pointer;
+}
+
+.settings-row__toggle {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: var(--color-accent);
+}
+
 .account-profile-card__avatar {
   width: 56px;
   height: 56px;

@@ -261,6 +261,7 @@ describe('deduplicateCategories', () => {
 });
 
 describe('deleteAllUserData', () => {
+  // 420 docs = two 400-doc batches; under CI load this can exceed the default 30s.
   it('clears every expense and category past the batch limit', async () => {
     await seedCategory({ id: 'cat-1', name: 'Groceries' });
     const total = 420;
@@ -282,7 +283,7 @@ describe('deleteAllUserData', () => {
 
     expect((await getDocs(expCol())).size).toBe(0);
     expect((await getDocs(catCol())).size).toBe(0);
-  });
+  }, 60_000);
 });
 
 describe('account deletion marker', () => {
