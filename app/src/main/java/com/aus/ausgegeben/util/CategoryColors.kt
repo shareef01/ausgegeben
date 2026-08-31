@@ -7,7 +7,7 @@ import com.aus.ausgegeben.ui.theme.forChartDisplay
 fun normalizeArgbInt(value: Int): Int =
     if (value and 0xFF000000.toInt() == 0) value or 0xFF000000.toInt() else value
 
-/** Converts a Compose [Color] to a standard Android ARGB int for Room storage. */
+/** Converts a Compose [Color] to a standard Android ARGB int for Firestore storage. */
 fun Color.toArgbInt(): Int {
     val a = (alpha * 255f + 0.5f).toInt().coerceIn(0, 255)
     val r = (red * 255f + 0.5f).toInt().coerceIn(0, 255)

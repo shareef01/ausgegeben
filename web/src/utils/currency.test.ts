@@ -33,6 +33,7 @@ describe('currency', () => {
   });
 
   it('formatAmount uses app locale separators (default en)', () => {
+    // Keep in sync with CurrencyUtilsTest.kt parityCases.
     expect(formatAmount(1234.56, 'EUR', false, 'en')).toBe('1,234.56');
   });
 

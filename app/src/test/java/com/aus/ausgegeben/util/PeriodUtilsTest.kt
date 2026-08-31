@@ -45,6 +45,19 @@ class PeriodUtilsTest {
     }
 
     @Test
+    fun analyticsPeriodOptions_defaultDepthIsFourteenMonthsPlusAllTime() {
+        val now = Calendar.getInstance().apply {
+            set(2026, Calendar.JUNE, 15, 12, 0, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val options = analyticsPeriodOptions(nowMillis = now)
+        assertEquals(15, options.size)
+        assertEquals("all_time", options.first().storageKey)
+        assertEquals("month:2026-06", options[1].storageKey)
+        assertEquals("month:2025-05", options.last().storageKey)
+    }
+
+    @Test
     fun analyticsPeriod_dateRangeMillis_matchesExpected() {
         val now = Calendar.getInstance().apply {
             set(2024, Calendar.JULY, 15)

@@ -11,23 +11,118 @@ on:
         description: 'Tag to build (must already exist)'
         required: true
 
+# Least privilege by default; only the publishing job gets write access.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
+  # A tag is not evidence. `git tag` on any commit used to publish an APK without
+  # running a single test — CI runs on pushes to main and pull requests, so a tag
+  # placed on a commit that never landed there, or on a red one, shipped anyway.
+  # These three jobs mirror ci.yml's fast suites and must pass before the build.
+  #
+  # Deliberately excluded: connectedProdDebugAndroidTest. The release job already
+  # boots an emulator for the launch check, and a second one would roughly double
+  # wall time for coverage that ci.yml already provides on the way to main.
+  gate-android:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
 
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
           java-version: 17
 
-      - uses: android-actions/setup-android@v4
+      - uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
+
+      - run: chmod +x gradlew
+
+      # No secrets needed: app/build.gradle.kts copies google-services.json.example
+      # when the real file is absent, and debug tasks accept the placeholder.
+      - run: ./gradlew testProdDebugUnitTest lintProdDebug --no-daemon
+
+  gate-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci
+        working-directory: web
+
+      - run: npm audit --omit=dev --audit-level=high
+        working-directory: web
+
+      - run: npm test
+        working-directory: web
+
+      - run: npm run lint:css
+        working-directory: web
+
+      - run: npm run build
+        working-directory: web
+
+  gate-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          # firebase-tools Firestore emulator requires JDK 21+
+          java-version: 21
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci
+        working-directory: web
+
+      # The rules are the actual security boundary (App Check is unenforced by
+      # design), so shipping a client without re-proving them is the wrong order.
+      - run: npm run test:rules
+        working-directory: web
+
+      - run: npm run test:emulator
+        working-directory: web
+
+  release:
+    needs: [gate-android, gate-web, gate-rules]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          # Full history + tags: the publish step derives the release-notes range from
+          # `git describe --tags HEAD^`, which on the default shallow clone always failed,
+          # silently passing an empty --notes-start-tag and falling through to the
+          # fallback command on every single release.
+          fetch-depth: 0
+
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
 
       - run: chmod +x gradlew
 
@@ -69,15 +164,23 @@ jobs:
             echo "::error::Tag '$TAG' is not vMAJOR.MINOR.PATCH"
             exit 1
           fi
-          MAJOR=$(echo "$NAME" | cut -d. -f1)
-          MINOR=$(echo "$NAME" | cut -d. -f2)
-          PATCH=$(echo "$NAME" | cut -d. -f3)
+          # 10# forces base 10: bash reads a leading-zero operand as octal, so
+          # v1.010.5 would otherwise yield 10805 instead of 11005.
+          MAJOR=$((10#$(echo "$NAME" | cut -d. -f1)))
+          MINOR=$((10#$(echo "$NAME" | cut -d. -f2)))
+          PATCH=$((10#$(echo "$NAME" | cut -d. -f3)))
           if [ "$MINOR" -gt 99 ] || [ "$PATCH" -gt 99 ]; then
             echo "::error::MINOR and PATCH must each be <= 99 for the versionCode scheme"
             exit 1
           fi
+          # versionCode is a signed 32-bit int; Play's own ceiling is 2100000000.
+          CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
+          if [ "$CODE" -gt 2100000000 ]; then
+            echo "::error::versionCode $CODE exceeds the 2100000000 ceiling"
+            exit 1
+          fi
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
-          echo "code=$((MAJOR * 10000 + MINOR * 100 + PATCH))" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
 
       - name: Build signed release APK
         env:
@@ -90,14 +193,52 @@ jobs:
             -PausgegebenVersionName=${{ steps.version.outputs.name }} \
             -PausgegebenVersionCode=${{ steps.version.outputs.code }}
 
-      # An unsigned APK cannot be installed, and the build silently produces one
-      # if the signing config did not resolve. Verify before publishing.
-      - name: Verify the APK is signed
+      # `apksigner verify` only proves the APK carries a valid signature — it says
+      # nothing about *which* key produced it, and exits 0 for any self-signed cert.
+      # A locally built APK signed with a throwaway `CN=Test` key verifies happily.
+      # That matters because an APK signed with the wrong key cannot update an
+      # existing install: users are stranded on the old version with no upgrade path
+      # and no error message that explains why. So pin the fingerprint and compare.
+      - name: Verify the APK is signed by the expected key
         run: |
           APK=app/build/outputs/apk/prod/release/app-prod-release.apk
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
-          "$BT/apksigner" verify --print-certs "$APK"
+          "$BT/apksigner" verify --print-certs "$APK" | tee apksigner-out.txt
+
+          EXPECTED=$(grep -v '^[[:space:]]*#' .github/release-cert.sha256 \
+            | tr -d '[:space:]:' | tr '[:upper:]' '[:lower:]')
+          if [ -z "$EXPECTED" ] || ! echo "$EXPECTED" | grep -qE '^[0-9a-f]{64}$'; then
+            echo "::error::.github/release-cert.sha256 does not contain a SHA-256 fingerprint."
+            echo "Get it from the currently published APK (this is the key users already trust):"
+            echo "  apksigner verify --print-certs ausgegeben-<version>.apk | grep -i 'SHA-256'"
+            echo "or from the keystore:"
+            echo "  keytool -list -v -keystore <release.jks> -alias <alias> | grep -i 'SHA256:'"
+            echo "Then commit the 64-hex-character value (colons and case are ignored)."
+            exit 1
+          fi
+
+          ACTUAL=$(grep -iE 'Signer #1 certificate SHA-256 digest' apksigner-out.txt \
+            | head -1 | awk '{print $NF}' | tr -d '[:space:]:' | tr '[:upper:]' '[:lower:]')
+          if ! echo "$ACTUAL" | grep -qE '^[0-9a-f]{64}$'; then
+            echo "::error::Could not read a SHA-256 digest from apksigner output"
+            exit 1
+          fi
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::Signing key mismatch — refusing to publish an APK that cannot update existing installs."
+            echo "expected $EXPECTED"
+            echo "actual   $ACTUAL"
+            exit 1
+          fi
+          echo "signing certificate matches the pinned fingerprint ($ACTUAL)"
           mv "$APK" "ausgegeben-${{ steps.version.outputs.name }}.apk"
+
+      # Signing is finished and verified, so the keystore has no further use in this
+      # job. Shred it *now* rather than at the end: the emulator step below is a
+      # third-party action, and leaving decrypted signing material on disk across it
+      # is an exposure window with no upside. The `if: always()` sweep at the end
+      # still covers the paths that fail before reaching here.
+      - name: Shred signing material before third-party steps
+        run: shred -u release.jks 2>/dev/null || rm -f release.jks
 
       # AGENTS.md: assembling the release proves nothing — R8 once stripped Room's
       # generated constructors and every release APK crashed on launch, through
@@ -109,8 +250,11 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      # Pinned to the v2.38.0 commit rather than the mutable `v2` tag: this action
+      # runs in the same job that handles release signing, and a moved tag would
+      # execute new third-party code here without any change to this repository.
       - name: Launch the release APK on an emulator
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
           api-level: 29
           target: google_apis
@@ -141,7 +285,7 @@ jobs:
                  --title "Ausgegeben ${{ steps.version.outputs.name }}" \
                  --generate-notes
 
-      # The keystore must not survive into any later step or cached layer.
+      # Covers the failure paths that never reach the early shred above.
       - name: Shred signing material
         if: always()
         run: shred -u release.jks 2>/dev/null || rm -f release.jks

@@ -19,6 +19,10 @@
  */
 
 const ORIGIN = (process.argv[2] || 'https://aus01.web.app').replace(/\/$/, '');
+// Configuration that is optional on a preview build is mandatory on the real site, so
+// some checks are only hard failures here.
+const PRODUCTION_ORIGINS = ['https://aus01.web.app'];
+const IS_PRODUCTION = PRODUCTION_ORIGINS.includes(ORIGIN);
 const results = [];
 let hardFailures = 0;
 
@@ -83,6 +87,23 @@ async function main() {
     }
   }
 
+  // ── the App Check site key, without which the app throws before it renders ──
+  // getFirebaseApp() fails closed in production when VITE_FIREBASE_APP_CHECK_KEY is
+  // unset. Vite substitutes a missing env var with an empty string *without failing the
+  // build*, so the throw lands in the browser: `npm run build` succeeds, the deploy
+  // succeeds, every other check here passes, and the site is a white screen for
+  // everyone. Same shape as the deleted API key above — a build-time input that nothing
+  // validated — so it gets the same treatment. reCAPTCHA Enterprise site keys are `6L…`.
+  const appCheckKey = (bundle.match(/6L[A-Za-z0-9_-]{20,}/) || [])[0];
+  record(
+    Boolean(appCheckKey),
+    'App Check site key is baked into the bundle',
+    appCheckKey
+      ? `${appCheckKey.slice(0, 6)}…`
+      : 'VITE_FIREBASE_APP_CHECK_KEY missing at build time — the app throws on boot',
+    !IS_PRODUCTION,
+  );
+
   // ── the service worker, since a stale one can pin users to an old build ──
   const sw = await fetch(ORIGIN + '/sw.js');
   record(sw.ok, `service worker serves ${sw.status}`);
@@ -93,11 +114,33 @@ async function main() {
     swCache || '(no cache-control)',
   );
 
-  // ── error reporting endpoint, if one is configured in the bundle ──
+  // ── error reporting endpoint ──
+  // This check used to record a *pass* when no endpoint was found in the bundle, and
+  // that is precisely how the endpoint stayed dead for weeks: VITE_ERROR_REPORT_URL was
+  // never set, installConfiguredErrorSink() returned false, the PWA was console-only,
+  // and smoke still read 10/10. On the production origin a missing URL is now a hard
+  // failure — crash reporting being absent is the thing this check exists to detect.
+  // Off-production (previews, local `npm run dev` builds) it stays an honest skip.
   const endpoint = (bundle.match(/https:\/\/[a-z0-9.-]*workers\.dev/) || [])[0];
   if (!endpoint) {
-    record(true, 'error endpoint not configured (skipped)', '', true);
+    record(
+      false,
+      'error report URL is baked into the bundle',
+      'VITE_ERROR_REPORT_URL missing at build time — crash reports go nowhere',
+      !IS_PRODUCTION,
+    );
   } else {
+    // Being in the bundle is not enough: the browser blocks the POST unless the host is
+    // also in connect-src. Both wiring steps were needed last time and only one was done.
+    const allowed = csp.includes(new URL(endpoint).origin);
+    record(
+      allowed,
+      'error endpoint is allowed by CSP connect-src',
+      allowed ? endpoint : `${endpoint} absent from connect-src`,
+      !IS_PRODUCTION,
+    );
+  }
+  if (endpoint) {
     try {
       const opt = await fetch(endpoint, {
         method: 'OPTIONS',
