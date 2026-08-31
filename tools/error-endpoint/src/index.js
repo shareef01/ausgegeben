@@ -70,6 +70,78 @@ function isoOrNull(at) {
   return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
 }
 
+const RATE_LIMIT = 20;
+const RATE_WINDOW_SECONDS = 60;
+
+/**
+ * Per-IP rate limit. Returns true when the request should proceed.
+ *
+ * Two mechanisms, because the obvious one does not work here.
+ *
+ * `env.REPORT_LIMITER` is Cloudflare's built-in rate limiting binding, declared in
+ * wrangler.toml. It binds, it is callable, and it returns `{ success: true }` — always.
+ * Measured, not assumed: 80 POSTs in a burst from one IP against a configured limit of
+ * 20/60s were all accepted, while a diagnostic build confirmed `limit()` was being
+ * called and returning success with no error. `wrangler deploy` prints
+ * "env.REPORT_LIMITER (20 requests/60s)" regardless. So three separate signals say the
+ * limiter is live and it enforces nothing on this account. The call is kept because it
+ * costs nothing and starts working if that ever changes — but it is not the mechanism.
+ *
+ * The counter below is. It uses the Cache API, which is free, needs no binding, and is
+ * the only durable-ish store available here: KV allows 1,000 writes a day on the free
+ * plan and this would need one per request, and Durable Objects are paid.
+ *
+ * Two honest limits. The cache is per data centre, so a caller spread across regions
+ * gets the limit per region. And read-then-write is not atomic, so a burst of exactly
+ * simultaneous requests undercounts. Neither matters much for what this defends
+ * against: one source flooding the log and burning the daily request allowance.
+ *
+ * **Fails open on purpose.** Any error here lets the report through. This endpoint
+ * exists to make crashes visible, and silently dropping real reports because a
+ * defence-in-depth counter hiccuped costs more than the noise it prevents. It is a
+ * brake on abuse, not an authorisation check — there is nothing here to authorise and
+ * no data to protect.
+ */
+async function withinRateLimit(request, env, ctx) {
+  const limiter = env.REPORT_LIMITER;
+  if (limiter && typeof limiter.limit === 'function') {
+    try {
+      // CF-Connecting-IP is set by Cloudflare's edge, not the caller, so unlike Origin
+      // it cannot be spoofed.
+      const key = request.headers.get('CF-Connecting-IP') ?? 'unknown';
+      const { success } = await limiter.limit({ key });
+      if (!success) return false;
+    } catch {
+      // fall through to the counter
+    }
+  }
+
+  try {
+    const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
+    const window = Math.floor(Date.now() / (RATE_WINDOW_SECONDS * 1000));
+    // A synthetic GET is the documented way to key the Cache API by something other
+    // than a real URL. The host is deliberately unroutable.
+    const cacheKey = new Request(
+      `https://ratelimit.invalid/${encodeURIComponent(ip)}/${window}`,
+    );
+    const cache = caches.default;
+    const hit = await cache.match(cacheKey);
+    const seen = hit ? Number(await hit.text()) || 0 : 0;
+    if (seen >= RATE_LIMIT) return false;
+    const write = cache.put(
+      cacheKey,
+      new Response(String(seen + 1), {
+        headers: { 'Cache-Control': `max-age=${RATE_WINDOW_SECONDS}` },
+      }),
+    );
+    if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(write);
+    else await write;
+    return true;
+  } catch {
+    return true;
+  }
+}
+
 function summarize(report) {
   const error = report?.error ?? {};
   return {
@@ -88,7 +160,7 @@ function summarize(report) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const origin = request.headers.get('Origin');
 
     if (request.method === 'OPTIONS') {
@@ -102,6 +174,15 @@ export default {
 
     if (!isAllowedOrigin(origin, env)) {
       return new Response('forbidden', { status: 403 });
+    }
+
+    // Checked before the body is read: a limited caller should cost this Worker as
+    // little as possible, which is the whole point of limiting it.
+    if (!(await withinRateLimit(request, env, ctx))) {
+      return new Response('too many requests', {
+        status: 429,
+        headers: { ...corsHeaders(origin), 'Retry-After': '60' },
+      });
     }
 
     // Refuse on the declared size before buffering. request.text() reads the whole body
