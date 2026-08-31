@@ -1060,9 +1060,9 @@ no test seeds a legacy `Timestamp` `updatedAt`, a `cloudId`, or a `deleted` row 
 code path* (the rules tests do seed those shapes, which is why the rules are the best-covered part).
 
 **The ten highest-value missing tests, ranked** — written as the audit found them.
-**Seven of the ten (1, 3, 4, 5, 6, 8, 9) were written during remediation and are green;
-see §19a.** Item 2 was retracted with AUS-102. Items 7 and 10 remain open — 7 is the one
-worth doing next.
+**Eight of the ten (1, 3, 4, 5, 6, 7, 8, 9) are written and green; see §19a.** Item 2 was
+retracted with AUS-102. Only item 10 remains, and it is marginal now that the workflow
+fails loudly on a missing secret.
 
 1. **Web edit-form category resolution (AUS-101).** Load an expense with `categoryId: '0'`; assert
    `save()` does not change `categoryId`. The single highest-value test in this list — it covers a
@@ -1343,9 +1343,9 @@ constant is bumped deliberately.
 |---|---|---|
 | Web unit tests | 85 | **109** |
 | Firestore rules tests | 48 | **50** |
-| Repository emulator tests | 44 | **49** |
+| Repository emulator tests | 44 | **59** |
 | Android unit tests | 146 | **162** |
-| **Total** | **323** | **370** |
+| **Total** | **323** | **380** |
 | `tsc --noEmit` | pass | pass |
 | `lint:css` | 459 tokens, 0 undefined | 459 tokens, 0 undefined |
 | `npm run build` | pass | pass |
