@@ -71,3 +71,10 @@ scripts/_strip_coauthor.py
 
 # Wrangler local state — caches the Cloudflare account id and name
 tools/error-endpoint/.wrangler/
+
+# Internal audit reports — kept locally, not published.
+# These describe account data shapes and review findings; the repo is public.
+AUDIT.md
+AUDIT_REPORT.md
+docs/audit-baseline.md
+docs/audit-summary.md
