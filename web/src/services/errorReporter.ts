@@ -32,6 +32,16 @@ const RECENT_LIMIT = 20;
 const recent: AppErrorReport[] = [];
 let sink: ErrorSink | null = null;
 
+/**
+ * When false, errors are still logged to the console but never buffered for replay.
+ *
+ * The replay buffer and the user's opt-out used to be independent: opting out cleared the
+ * sink, but reportError kept filling `recent`, so re-enabling replayed everything captured
+ * while reporting was switched off. An opt-out that defers transmission rather than
+ * suppressing it is not an opt-out.
+ */
+let bufferingEnabled = true;
+
 function emit(report: AppErrorReport): void {
   if (!sink) return;
   try {
@@ -54,10 +64,26 @@ export function reportError(
   context?: Record<string, unknown>,
 ): void {
   const report: AppErrorReport = { source, error, context, at: Date.now() };
-  if (recent.length >= RECENT_LIMIT) recent.shift();
-  recent.push(report);
+  // Console logging is local and always on; only the replay buffer is gated, so an
+  // opted-out session cannot accumulate reports that a later opt-in would ship.
+  if (bufferingEnabled) {
+    if (recent.length >= RECENT_LIMIT) recent.shift();
+    recent.push(report);
+  }
   console.error(`[${source}]`, error, context ?? '');
   emit(report);
+}
+
+/**
+ * Turn buffering on or off, dropping anything already held when turning it off.
+ *
+ * Called by the Settings opt-out. Clearing on disable is the load-bearing half: without
+ * it, errors captured before the user opted out would still be replayed the moment they
+ * opted back in.
+ */
+export function setErrorBuffering(enabled: boolean): void {
+  bufferingEnabled = enabled;
+  if (!enabled) recent.length = 0;
 }
 
 export function getRecentErrors(): readonly AppErrorReport[] {
@@ -68,6 +94,7 @@ export function getRecentErrors(): readonly AppErrorReport[] {
 export function resetErrorReporter(): void {
   recent.length = 0;
   sink = null;
+  bufferingEnabled = true;
 }
 
 /**

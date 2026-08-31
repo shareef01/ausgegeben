@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Category, TransactionType } from '@/models/types';
-import { expenseRepository, EmailNotVerifiedError, UNCATEGORIZED_ID } from '@/repositories/expenseRepository';
+import { expenseRepository, EmailNotVerifiedError, UnwritableCategoryError, UNCATEGORIZED_ID } from '@/repositories/expenseRepository';
 
 import { CategoryIconTile, EmptyState, LoadingListSkeleton, SignatureText } from '@/components/ui';
 import { useToastStore } from '@/services/toastStore';
@@ -160,7 +160,14 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
       await expenseRepository.updateCategoriesBatch(updatedCategories);
     } catch (err) {
       console.error('[CategoriesView] reorder failed', err);
-      showToast(t('categoryErrorUpdateFailed'));
+      // Name the offending row: a reorder is one atomic batch, so a single category the
+      // rules refuse blocks every reorder in that type. A generic "update failed" left
+      // the user repeating an action that could never succeed.
+      showToast(
+        err instanceof UnwritableCategoryError
+          ? t('categoryErrorUnwritable', { names: err.categoryNames })
+          : t('categoryErrorUpdateFailed'),
+      );
       await reload({ showSkeleton: false });
     } finally {
       setReordering(false);
