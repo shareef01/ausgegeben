@@ -87,6 +87,10 @@ fun SettingsScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val haptics = rememberAppHaptics()
+    val deletionCoordinator = remember(repository, authRepository) {
+        AccountDeletionCoordinator(repository, authRepository)
+    }
+    val deletionUi by deletionCoordinator.state.collectAsStateWithLifecycle()
 
     var showThemeSheet by remember { mutableStateOf(false) }
     var showLanguageSheet by remember { mutableStateOf(false) }
@@ -99,6 +103,24 @@ fun SettingsScreen(
     var deletingAccount by remember { mutableStateOf(false) }
     var deletePassword by remember { mutableStateOf("") }
     var deleteAccountError by remember { mutableStateOf<String?>(null) }
+
+    // One read per signed-in user per composition, not per recomposition — the marker
+    // only changes as a result of actions on this screen, which update the flag directly.
+    LaunchedEffect(currentUser?.uid) {
+        deletionCoordinator.refresh(currentUser != null)
+    }
+
+    fun keepAccount() {
+        scope.launch {
+            val toast = deletionCoordinator.keepAccount()
+            if (toast == AccountDeletionToast.KEEP_FAILED) {
+                onShowMessage(context.getString(R.string.settings_deletion_keep_failed))
+                return@launch
+            }
+            haptics.success()
+            onShowMessage(context.getString(R.string.settings_deletion_kept))
+        }
+    }
 
     val reminderTimeLabel = remember(reminderHour, reminderMinute) {
         "%02d:%02d".format(reminderHour, reminderMinute)
@@ -141,6 +163,19 @@ fun SettingsScreen(
                 contentPadding = tabScreenListBottomPadding()
             ) {
                 item { ScreenTitle(title = stringResource(R.string.screen_settings)) }
+
+                // Above the sync banner: an unfinished deletion makes the account unusable,
+                // which outranks a preferences sync failure.
+                if (deletionUi.pending) {
+                    item {
+                        AccountDeletionPendingBanner(
+                            onFinishDeleting = { showDeleteAccountConfirm = true },
+                            onKeepAccount = { keepAccount() },
+                            busy = deletionUi.busy || deletingAccount,
+                            modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs),
+                        )
+                    }
+                }
 
                 if (syncError != null) {
                     item {
@@ -465,59 +500,34 @@ fun SettingsScreen(
                 deletingAccount = true
                 deleteAccountError = null
                 scope.launch {
-                    // Reauthenticate BEFORE the wipe. deleteAllUserData() is irreversible and
-                    // FirebaseUser.delete() rejects a session older than ~5 minutes, so the old
-                    // order destroyed every expense and category and only then discovered it
-                    // could not delete the account — leaving the account alive, history gone.
-                    val reauth = authRepository.reauthenticate(deletePassword)
-                    if (reauth.isFailure) {
-                        deletingAccount = false
-                        when (reauth.exceptionOrNull()?.message) {
-                            // Wrong password: keep the dialog open so it can be retried.
-                            AuthRepository.WRONG_PASSWORD ->
-                                deleteAccountError =
-                                    context.getString(R.string.auth_error_invalid_credentials)
-                            AuthRepository.TOO_MANY_ATTEMPTS -> {
-                                showDeleteAccountConfirm = false
-                                deletePassword = ""
-                                onShowMessage(
-                                    context.getString(R.string.settings_delete_account_too_many_attempts),
-                                )
-                            }
-                            else -> {
-                                showDeleteAccountConfirm = false
-                                deletePassword = ""
-                                onShowMessage(
-                                    context.getString(R.string.settings_delete_account_failed),
-                                )
-                            }
+                    when (val outcome = deletionCoordinator.deleteAccount(deletePassword)) {
+                        DeleteAccountOutcome.WrongPassword -> {
+                            deletingAccount = false
+                            deleteAccountError =
+                                context.getString(R.string.auth_error_invalid_credentials)
                         }
-                        return@launch
-                    }
-                    val wipe = run {
-                        val marked = repository.markAccountDeletionPending()
-                        if (marked.isFailure) marked
-                        else repository.deleteAllUserData()
-                    }
-                    val deleted = if (wipe.isSuccess) authRepository.deleteAccount() else wipe
-                    deletingAccount = false
-                    showDeleteAccountConfirm = false
-                    deletePassword = ""
-                    deleted.fold(
-                        onSuccess = {
+                        DeleteAccountOutcome.Success -> {
+                            deletingAccount = false
+                            showDeleteAccountConfirm = false
+                            deletePassword = ""
                             onShowMessage(context.getString(R.string.settings_delete_account_ok))
-                        },
-                        onFailure = { error ->
-                            val msg = when {
-                                wipe.isSuccess ->
+                        }
+                        is DeleteAccountOutcome.Closed -> {
+                            deletingAccount = false
+                            showDeleteAccountConfirm = false
+                            deletePassword = ""
+                            val msg = when (outcome.toast) {
+                                AccountDeletionToast.TOO_MANY ->
+                                    R.string.settings_delete_account_too_many_attempts
+                                AccountDeletionToast.INCOMPLETE ->
                                     R.string.settings_delete_account_incomplete
-                                error is com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException ->
+                                AccountDeletionToast.NEEDS_REAUTH ->
                                     R.string.settings_delete_account_needs_reauth
                                 else -> R.string.settings_delete_account_failed
                             }
                             onShowMessage(context.getString(msg))
-                        },
-                    )
+                        }
+                    }
                 }
             },
             title = {

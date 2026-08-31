@@ -28,6 +28,10 @@ import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import packageJson from '../../package.json';
 import { useCssProps } from '@/utils/cssVars';
+import { applyErrorReportingPreference } from '@/services/errorSink';
+import { readErrorReportingEnabled, writeErrorReportingEnabled } from '@/services/errorReportPreference';
+
+const ERROR_REPORTING_AVAILABLE = Boolean(import.meta.env.VITE_ERROR_REPORT_URL?.trim());
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 type IconTint = 'accent' | 'income' | 'expense' | 'neutral';
@@ -75,6 +79,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
   const [budgetInput, setBudgetInput] = useState('');
   const [deletionPending, setDeletionPending] = useState(false);
   const [clearingDeletion, setClearingDeletion] = useState(false);
+  const [reportErrors, setReportErrors] = useState(() => readErrorReportingEnabled());
   const budgetInputRef = useRef<HTMLInputElement>(null);
   const parsedBudget = parseAmount(budgetInput, currency);
   // Upper bound mirrors firestore.rules' validPreferences (< 1e9): without it a
@@ -136,7 +141,12 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
   }, [t]);
 
   const downloadCsv = (csv: string, truncated: boolean) => {
-    const blob = new Blob([csv], { type: 'text/csv' });
+    // U+FEFF so Excel on Windows reads the file as UTF-8. Without it Excel assumes the
+    // system ANSI code page and mangles every umlaut — "Lebensmittel & Getränke" becomes
+    // mojibake — which matters because German is a first-class locale here and CSV export
+    // is the app's data-portability promise. Added at the file layer, not in exportCsv(),
+    // so the CSV string itself stays pure and its parity tests keep asserting exact bytes.
+    const blob = new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -332,6 +342,29 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
           </Section>
 
           <Section title={t('settingsAbout')}>
+            {ERROR_REPORTING_AVAILABLE ? (
+              <label className="settings-row settings-row--static settings-row--toggle">
+                <span className="settings-row__icon-tile" data-tint="neutral">
+                  <IconSettings width={18} height={18} strokeWidth={2} />
+                </span>
+                <div className="settings-row__label">
+                  <div className="settings-row__title">{t('settingsErrorReporting')}</div>
+                  <div className="settings-row__sub">{t('settingsErrorReportingSub')}</div>
+                </div>
+                <input
+                  type="checkbox"
+                  className="settings-row__toggle"
+                  checked={reportErrors}
+                  aria-label={t('settingsErrorReporting')}
+                  onChange={(event) => {
+                    const enabled = event.target.checked;
+                    writeErrorReportingEnabled(enabled);
+                    applyErrorReportingPreference(enabled);
+                    setReportErrors(enabled);
+                  }}
+                />
+              </label>
+            ) : null}
             <SettingsRow
               icon={IconSettings}
               iconTint="neutral"
