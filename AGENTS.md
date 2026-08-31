@@ -201,6 +201,16 @@ guessed fixture. Confirmed working by the user on the real device afterward.
  so a tag pushed with it unstaged fails with "does not contain a SHA-256 fingerprint" —
  a confusing message, since the value on disk is correct. Check `git ls-files
  .github/release-cert.sha256` returns the path before tagging.
+ **The guard's own first run failed, 2026-08-31.** `v2.0.3` built and signed correctly with
+ the right key, and the check rejected it anyway: it grepped for `Signer #1 certificate
+ SHA-256 digest`, but the runner's build-tools now prints `V2 Signer: certificate SHA-256
+ digest`. The step picks the newest build-tools on the image (`sort -V | tail -1`), so that
+ output format drifts underneath you. It now matches either shape and requires all signers
+ to present one certificate. Note the pin was added *after* v2.0.2 shipped, so v2.0.3 was
+ the first tag ever to reach this step — a guard nothing has exercised is not a guard yet.
+ Second bug found while fixing the first: `tr -d '[:space:]:'` deletes newlines, so
+ collecting multiple signer lines produced one 128-character string that failed the
+ 64-hex check. Use `tr -d ' :'`.
 - **`web/.env.production` is single-copy, unbacked-up state.** It is gitignored and holds
   all five production values (API key, auth domain, project id, app id, App Check
   reCAPTCHA site key, error-report URL), and the web deploy runs *locally* — no CI job
