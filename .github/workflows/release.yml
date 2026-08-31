@@ -217,12 +217,28 @@ jobs:
             exit 1
           fi
 
-          ACTUAL=$(grep -iE 'Signer #1 certificate SHA-256 digest' apksigner-out.txt \
-            | head -1 | awk '{print $NF}' | tr -d '[:space:]:' | tr '[:upper:]' '[:lower:]')
-          if ! echo "$ACTUAL" | grep -qE '^[0-9a-f]{64}$'; then
-            echo "::error::Could not read a SHA-256 digest from apksigner output"
+          # apksigner's output format is not stable across build-tools versions, and this
+          # step deliberately picks whatever the runner image ships (sort -V | tail -1).
+          # Older versions print
+          #   Signer #1 certificate SHA-256 digest: <hex>
+          # newer ones print one line per signature scheme:
+          #   V2 Signer: certificate SHA-256 digest: <hex>
+          # Matching only the first shape made this guard reject a correctly signed APK on
+          # v2.0.3 — the first tag that ever reached it, since the pin was added after
+          # v2.0.2 shipped. Accept either shape, and require every signer to present the
+          # same certificate so a multi-signed APK cannot pass on one matching entry.
+          # tr -d ' :' rather than '[:space:]:' — the latter deletes newlines too, which
+          # concatenates multiple signer lines into one 128-char string that then fails the
+          # 64-hex check. The old code only got away with it because head -1 ran first.
+          DIGESTS=$(grep -iE 'certificate SHA-256 digest' apksigner-out.txt \
+            | sed -E 's/.*digest:[[:space:]]*//' \
+            | tr -d ' :' | tr '[:upper:]' '[:lower:]' | sort -u)
+          if [ "$(printf '%s\n' "$DIGESTS" | grep -c '^[0-9a-f]\{64\}$')" -ne 1 ]; then
+            echo "::error::Expected exactly one signing certificate; apksigner reported:"
+            printf '%s\n' "$DIGESTS"
             exit 1
           fi
+          ACTUAL="$DIGESTS"
           if [ "$ACTUAL" != "$EXPECTED" ]; then
             echo "::error::Signing key mismatch — refusing to publish an APK that cannot update existing installs."
             echo "expected $EXPECTED"
