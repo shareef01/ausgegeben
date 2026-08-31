@@ -1,0 +1,8 @@
+# SHA-256 fingerprint of the certificate that MUST sign every published APK.
+#
+# Verified from the currently published GitHub Release (v2.0.2, 2026-08-31):
+#   gh release download v2.0.2
+#   apksigner verify --print-certs ausgegeben-2.0.2.apk
+#
+# DN: CN=Ausgegeben, O=shareef01
+24539f14a0e1462546df65bf8edaaeedadbed7cf7bb9b4c258c5463d9aed77ee

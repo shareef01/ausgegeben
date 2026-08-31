@@ -51,4 +51,43 @@ object CategoryValidator {
         if (!CONTAINS_ALPHANUMERIC.containsMatchIn(sanitized)) return false
         return VALID_NAME_REGEX.matches(sanitized)
     }
+
+    /**
+     * Characters, not UTF-16 code units — which is what Firestore rules `size()` counts.
+     *
+     * "🙂".length is 2 but it is one character, so counting code units would reject a name
+     * of 50 emoji that the rules accept. This screen exists to avoid a failed write;
+     * over-rejecting would make it the very thing it guards against. Erring this way is
+     * also the safe direction: if the rules are stricter, the write just fails at the
+     * server exactly as it did before the screen existed.
+     */
+    private fun charCount(value: String): Int = value.codePointCount(0, value.length)
+
+    /**
+     * Whether firestore.rules validCategory() would accept this document.
+     *
+     * Deliberately mirrors the rule bounds rather than [isValid]'s name policy: a legacy
+     * category can carry a name this validator dislikes that the rules accept happily,
+     * and rejecting those here would freeze rows the server is fine with.
+     *
+     * A reorder is one atomic batch across every category in a type — correctly, since a
+     * per-document retry would leave the type half-renumbered, which is worse than either
+     * order. The cost of that atomicity is that a single row the rules refuse takes the
+     * whole batch with it, so reordering fails permanently with a generic message and no
+     * way to tell which row is at fault. Screening first turns that into a nameable row.
+     * Mirrors web isRulesWritableCategory().
+     */
+    fun isRulesWritable(
+        name: String?,
+        iconName: String?,
+        colorInt: Int,
+        transactionType: String?,
+        sortOrder: Int,
+    ): Boolean {
+        if (name == null || name.isEmpty() || charCount(name) > 80) return false
+        if (iconName == null || iconName.isEmpty() || charCount(iconName) >= 64) return false
+        // colorInt is an Int, so the rules' int32 bounds hold by construction.
+        if (transactionType !in setOf("expense", "income", "transfer")) return false
+        return sortOrder in 0 until 10000
+    }
 }

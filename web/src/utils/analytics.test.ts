@@ -4,6 +4,7 @@ import {
   computeCashFlowTrend,
   computeDayTotals,
   computeTotals,
+  csvEscapeField,
   exportCsv,
   groupByCategory,
   isExpense,
@@ -150,7 +151,43 @@ describe('analytics', () => {
     );
     const [header, row] = csv.split('\n');
     expect(header).toBe('date,time,type,category,note,amount');
-    expect(row).toBe('2026-06-10,00:30,expense,Food,late snack,9.5');
+    expect(row).toBe('2026-06-10,00:30,expense,Food,late snack,9.50');
+  });
+
+  /**
+   * Both clients must render an amount identically or the same expense exports
+   * differently depending on which one produced the file. Kotlin's Double.toString()
+   * gives "5.0"/"1.0E9" and JS's String() gives "5"/"1000000000"; two decimals is the
+   * one rendering both can agree on. These expectations are the contract Android's
+   * String.format(Locale.US, "%.2f", amount) is held to.
+   */
+  it('exportCsv renders amounts with exactly two decimals (Android parity)', () => {
+    const categories: Category[] = [{ id: '1', name: 'Food', iconName: 'food', colorInt: 0, transactionType: 'expense', sortOrder: 0, updatedAt: 0 }];
+    const amountCell = (amount: number) =>
+      exportCsv(
+        [expense({ amount, transactionType: 'expense', dateMillis: new Date(2026, 5, 10, 12).getTime(), categoryId: '1' })],
+        categories,
+        'Unknown',
+      )
+        .split('\n')[1]
+        .split(',')
+        .pop();
+
+    expect(amountCell(5)).toBe('5.00');
+    expect(amountCell(9.5)).toBe('9.50');
+    expect(amountCell(0.01)).toBe('0.01');
+    expect(amountCell(1234.5)).toBe('1234.50');
+    // Never exponential within the range the rules permit (amount < 1e9).
+    expect(amountCell(999999999)).toBe('999999999.00');
+  });
+
+  it('csvEscapeField quotes a bare carriage return', () => {
+    // A lone CR ends the record for most parsers, so leaving it unquoted splits the
+    // row. Android has always checked \r; the web escaper omitted it.
+    expect(csvEscapeField('line1\rline2')).toBe('"line1\rline2"');
+    expect(csvEscapeField('line1\r\nline2')).toBe('"line1\r\nline2"');
+    // A leading CR is also a formula trigger, so it gets the apostrophe *and* quotes.
+    expect(csvEscapeField('\rvalue')).toBe('"\'\rvalue"');
   });
 
   it('exportCsv neutralizes formula triggers and escapes category names', () => {

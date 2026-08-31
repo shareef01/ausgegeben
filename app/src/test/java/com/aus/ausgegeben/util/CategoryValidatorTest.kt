@@ -61,4 +61,69 @@ class CategoryValidatorTest {
         val sanitizedTooLong = CategoryValidator.sanitize(tooLong)
         assertEquals(80, sanitizedTooLong.length)
     }
+
+    // -- isRulesWritable: the reorder pre-flight screen (AUS-105) --
+    //
+    // A reorder is one atomic batch across a whole transaction type -- correctly, since a
+    // per-document retry would leave the type half-renumbered. The cost is that one row
+    // firestore.rules refuses takes the batch with it, so reordering failed permanently
+    // behind a generic message that named nothing. Screening first makes the row nameable.
+
+    private fun writable(
+        name: String? = "Groceries",
+        iconName: String? = "shopping_cart",
+        colorInt: Int = -2345678,
+        transactionType: String? = "expense",
+        sortOrder: Int = 0,
+    ) = CategoryValidator.isRulesWritable(name, iconName, colorInt, transactionType, sortOrder)
+
+    @Test
+    fun `isRulesWritable accepts a well-formed category`() {
+        assertTrue(writable())
+    }
+
+    @Test
+    fun `isRulesWritable accepts legacy names the name validator rejects`() {
+        // The rules only bound length. Rejecting these would freeze rows the server
+        // accepts, which is the opposite of the problem being solved.
+        assertTrue(writable(name = "--->"))
+        assertTrue(writable(name = ";;;"))
+    }
+
+    @Test
+    fun `isRulesWritable rejects the blank name and icon that break a reorder batch`() {
+        assertFalse(writable(name = ""))
+        assertFalse(writable(name = null))
+        assertFalse(writable(iconName = ""))
+        assertFalse(writable(iconName = null))
+    }
+
+    @Test
+    fun `isRulesWritable rejects an out-of-enum transactionType`() {
+        assertFalse(writable(transactionType = "Expense"))
+        assertFalse(writable(transactionType = "savings"))
+        assertFalse(writable(transactionType = null))
+    }
+
+    @Test
+    fun `isRulesWritable counts characters not UTF-16 units so emoji names survive`() {
+        // A smiling-face emoji is two chars in a Kotlin String but one character to
+        // firestore.rules size(). Counting length would reject 50 of them as "100",
+        // turning this guard into the very failure it prevents.
+        val emoji = String(Character.toChars(0x1F642))
+        assertTrue(writable(name = emoji.repeat(50)))
+        assertTrue(writable(name = emoji.repeat(80)))
+        assertFalse(writable(name = emoji.repeat(81)))
+    }
+
+    @Test
+    fun `isRulesWritable enforces the rules bounds on length and sortOrder`() {
+        assertTrue(writable(name = "n".repeat(80)))
+        assertFalse(writable(name = "n".repeat(81)))
+        assertTrue(writable(iconName = "i".repeat(63)))
+        assertFalse(writable(iconName = "i".repeat(64)))
+        assertFalse(writable(sortOrder = -1))
+        assertFalse(writable(sortOrder = 10000))
+        assertTrue(writable(sortOrder = 9999))
+    }
 }

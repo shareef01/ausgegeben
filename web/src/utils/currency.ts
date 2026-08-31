@@ -79,6 +79,15 @@ export function parseAmount(input: string, currency = 'EUR'): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
+/**
+ * Prefill string for the amount field when editing an existing transaction.
+ *
+ * Always two decimals, matching Android's DecimalFormat("0.00"). Android used "0.##",
+ * which drops trailing zeros, so the same stored 12.50 prefilled as "12,5" there and
+ * "12,50" here — the same transaction rendering differently depending on which client
+ * opened it. Both re-parse correctly, so nothing was miscalculated; it was purely a
+ * visible parity gap. Asserted by MoneyParityTest / moneyParity.test.ts.
+ */
 export function formatAmountForInput(amount: number, currency = 'EUR'): string {
   const text = amount.toFixed(2);
   return decimalSeparatorFor(currency) === ',' ? text.replace('.', ',') : text;
