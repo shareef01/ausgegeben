@@ -1354,9 +1354,28 @@ constant is bumped deliberately.
 | i18n parity (web / Android) | 290/290 · 329/329 | **291/291 · 330/330** |
 | Production smoke | 11/11 | **12/12** (adds the App Check key assertion) |
 
-**Not re-verified, and unchanged from §19:** nothing was run on a device, no instrumentation
-test ran, the release APK was not installed or launched, and no authenticated production
-journey was driven. The Android changes are covered by unit tests and a release build only.
+### Device and production verification (2026-08-31, after shipping)
+
+The paragraph that stood here said nothing had been run on a device. That is no longer
+true. v2.0.3 was released and the following were confirmed by the user on their real
+phone and on the deployed site — the standard AGENTS.md §1 asks for, and the thing this
+report could not previously offer:
+
+| Check | Result | Why it could not be proven any other way |
+|---|---|---|
+| v2.0.3 is the running binary | Settings shows `v2.0.3` (`BuildConfig.VERSION_NAME`) | An install that silently fails as a downgrade looks identical to one that worked |
+| In-place update over v2.0.2 | Session and data intact, no re-login | Proves the signing key matched; a different key is rejected, and a reinstall would have cleared the session |
+| CI emulator launch of the signed APK | `release APK survived first launch (pid 5916)` | R8 succeeding proves nothing — historical incident #1 was a release-only launch crash |
+| Composite indexes serving | Budget warning appeared | Both clients wrap the projection best-effort, so a missing index is **silent**. The emulator invents indexes on demand and `indexes list` has reported READY for the wrong index |
+| `sumMonthExpenses` returns a *correct* figure | Spent total matched the user's actual month | The €7,655 incident survived 65 unit + 39 emulator tests because no fixture seeded a `deleted` row. This account has them; the subtraction pass works on real data |
+| Category reorder against legacy rows | Moves and persists | 12 of 17 categories on this account carry `cloudId`. AVD data carries none of that drift — the reason a previous "device-verified" claim was wrong the same afternoon |
+| **AUS-101 fixed on production web** | Editing an Uncategorized transaction now refuses instead of silently refiling | The highest-severity finding in this report, confirmed on the deployed bundle |
+
+**Still unverified.** `AUS-104` (Android clearing local prefs and cache after account
+deletion) is the one shipped fix nobody has exercised: it needs a throwaway account and is
+irreversible, so it was deliberately not run against the real one. `AUS-113`'s timeout
+cannot be triggered on demand. `AUS-115`/`AUS-117` (CSV BOM, amount prefill) are cosmetic
+and were skipped. The one-off orphan sweep's logcat trace was not read — no cable.
 
 ---
 
