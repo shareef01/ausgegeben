@@ -32,6 +32,7 @@ import com.aus.ausgegeben.ui.TransactionType
 import com.aus.ausgegeben.ui.label
 import com.aus.ausgegeben.ui.theme.*
 import com.aus.ausgegeben.util.argbColorsMatch
+import com.aus.ausgegeben.util.CategoryValidator
 import com.aus.ausgegeben.util.CategoryColorPaletteInts
 import com.aus.ausgegeben.util.CategoryIconOptions
 import com.aus.ausgegeben.util.defaultIconKeyForName
@@ -99,7 +100,10 @@ fun CategoryEditorSheet(
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val previewColor = colorIntToCompose(selectedColor)
-    val canSave = name.isNotBlank()
+    val isValidName = remember(name) { CategoryValidator.isValid(name) }
+    val sanitizedName = remember(name) { CategoryValidator.sanitize(name) }
+    val canSave = isValidName
+    val isNameInvalid = name.isNotBlank() && !isValidName
     val resolvedTitle = title ?: stringResource(
         if (initialCategory == null) R.string.category_new_title else R.string.category_edit_title
     )
@@ -130,10 +134,10 @@ fun CategoryEditorSheet(
             Spacer(modifier = Modifier.height(AppSpacing.base))
 
             CategoryPreview(
-                name = name.ifBlank { previewNamePlaceholder },
+                name = sanitizedName.ifBlank { name.ifBlank { previewNamePlaceholder } },
                 color = previewColor,
                 iconKey = selectedIconKey,
-                isPlaceholder = name.isBlank(),
+                isPlaceholder = sanitizedName.isBlank() && name.isBlank(),
                 previewLabel = stringResource(R.string.category_preview)
             )
 
@@ -150,6 +154,10 @@ fun CategoryEditorSheet(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(AppRadius.interactive))
                     .appGlassCard(shape = RoundedCornerShape(AppRadius.interactive))
+                    .then(
+                        if (isNameInvalid) Modifier.border(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.7f), RoundedCornerShape(AppRadius.interactive))
+                        else Modifier
+                    )
                     .padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm)
             ) {
                 BasicTextField(
@@ -171,6 +179,16 @@ fun CategoryEditorSheet(
                         }
                         inner()
                     }
+                )
+            }
+
+            if (isNameInvalid) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.category_error_add_failed),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(start = AppSpacing.xs)
                 )
             }
 
@@ -221,7 +239,7 @@ fun CategoryEditorSheet(
                 onConfirm = {
                     if (canSave) {
                         onConfirm(
-                            name.trim(),
+                            sanitizedName,
                             selectedType.storageKey,
                             normalizeArgbInt(selectedColor),
                             selectedIconKey

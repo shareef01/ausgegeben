@@ -166,19 +166,20 @@ More detail in [web/README.md](web/README.md).
 
 ## Quality
 
-235 automated tests run on every push and PR ([workflow](.github/workflows/ci.yml)), across four parallel jobs (counts as of 2026-08-27; CI's own numbers are authoritative — these have drifted before):
+370 automated tests run on every push and PR ([workflow](.github/workflows/ci.yml)), across four parallel jobs, and again before any release is published ([workflow](.github/workflows/release.yml)). Counts re-verified 2026-08-31 after the audit remediation; CI's own numbers are authoritative — these have drifted before, and the previous figure was both stale and inconsistent with its own table.
 
 | Suite | Tests | What it covers |
 |---|---:|---|
-| Web unit | 69 | view models, currency and period maths, i18n, theming, error reporting |
-| Android unit | 116 | repositories, preferences crypto, reminder scheduling, theme contrast |
-| Repository | 44 | dedupe, category delete, orphan repair and batch chunking against a real Firestore |
-| Firestore rules | 38 | every branch of the security rules, against the emulator |
-| Instrumentation | 8 | app launch, FileProvider export boundary, touch-target floors on an API 29 emulator |
+| Web unit | 109 | view models, currency and period maths, i18n, theming, error reporting, CSV export, edit-category resolution, orphan-scan versioning |
+| Android unit | 162 | repositories, preferences crypto, reminder scheduling, theme contrast, insights totals, account deletion coordinator, reorder screening, money parity |
+| Firestore rules | 50 | every branch of the security rules, plus cross-user isolation across all four subcollections |
+| Repository | 49 | dedupe, category delete, orphan repair, batch chunking and the month-total invariant against a real Firestore |
+| Instrumentation | 9 | app launch, FileProvider export boundary, touch-target floors on an API 29 emulator |
 
 Two habits behind that, both learned the hard way:
 
 - **CI builds the artifact that ships.** `assembleProdRelease` runs on every push, so R8 is exercised — a keep-rule regression once made every release APK crash on launch while the debug build stayed perfectly healthy.
+- **A tag cannot outrun the tests.** Releasing runs the unit, rules and repository suites first, then verifies the built APK carries the *expected* signing certificate (a valid signature is not enough — the wrong key produces an APK that cannot update any existing install) and launches it on an emulator before publishing.
 - **The deployed site is smoke-tested** ([workflow](.github/workflows/smoke.yml)), on every deploy and daily on a schedule: the page serves, the security headers survived, the Firebase key in the shipped bundle is still live. A deleted API key once broke sign-in for everyone while CI stayed green, because nothing exercised production.
 
 Also:
@@ -186,7 +187,8 @@ Also:
 - **Static safety:** strict TypeScript, schema-validating Firestore rules, R8-minified Android releases.
 - **Hosting hardening:** CSP, HSTS, frame-ancestors denial, restrictive Permissions-Policy ([firebase.json](firebase.json)).
 - **Releases:** tagging `v1.2.3` builds, signs, verifies and publishes the APK ([workflow](.github/workflows/release.yml)); the version code is derived from the tag so installs can always update.
-- **Privacy:** no third-party analytics or trackers.
+- **Privacy:** no third-party analytics or trackers. When crash reporting is enabled (Settings → About on web), unhandled errors — message, stack trace, page path, and browser user-agent — are sent to a first-party Cloudflare Worker; no financial data, account identifiers, or auth tokens are included. Users can turn this off in Settings.
+- **Operations:** set Firebase console usage alerts on Firestore **daily reads** (Spark: 50k/day) and **storage** (Spark: 1 GiB). Unverified accounts can still list foreign collection paths (AUS-005); a verified account can fill storage by writing maximal documents (AUS-019). Rules `get`/`exists` on every expense write also burn reads (AUS-018) — intentional for referential integrity.
 
 ---
 

@@ -4,7 +4,16 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, deleteDoc, Timestamp } from 'firebase/firestore';
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  Timestamp,
+  updateDoc,
+} from 'firebase/firestore';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
@@ -221,6 +230,34 @@ describe('firestore.rules', () => {
       setDoc(doc(db, expensePath('alice')), {
         ...validExpense,
         updatedAt: Timestamp.fromMillis(1783000216769),
+      }),
+    );
+  });
+
+  it('accepts a merge that carries every tolerated legacy field at once', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), categoryPath('alice', 'cat-1')), validCategory);
+      await setDoc(doc(ctx.firestore(), expensePath('alice')), {
+        ...validExpense,
+        cloudId: 'legacy-cloud',
+        categoryCloudId: 'legacy-cat',
+        receiptImagePath: null,
+        updatedAt: Timestamp.fromMillis(1783000216769),
+      });
+    });
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertSucceeds(
+      setDoc(doc(db, expensePath('alice')), { note: 'updated' }, { merge: true }),
+    );
+  });
+
+  it('rejects dateMillis as a Timestamp — only numbers are validDateMillis', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'cat-1')), validCategory));
+    await assertFails(
+      setDoc(doc(db, expensePath('alice')), {
+        ...validExpense,
+        dateMillis: Timestamp.fromMillis(Date.UTC(2024, 5, 15)),
       }),
     );
   });
@@ -469,15 +506,12 @@ describe('firestore.rules', () => {
         { merge: true },
       ),
     );
-  });
-
-  it('accepts a versioned orphan-scan marker', async () => {
-    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
     await assertSucceeds(
-      setDoc(doc(db, 'users/alice/meta/dedupe'), {
-        orphansScannedAt: Date.now(),
-        orphansScanVersion: 1,
-      }),
+      setDoc(
+        doc(db, 'users/alice/meta/dedupe'),
+        { orphansScannedAt: Date.now(), orphanRepairScanTruncated: true },
+        { merge: true },
+      ),
     );
   });
 
@@ -495,18 +529,183 @@ describe('firestore.rules', () => {
         somethingElse: 1,
       }),
     );
-    await assertFails(
+    await assertFails(setDoc(doc(db, 'users/alice/meta/dedupe'), { ranAt: Date.now() }));
+  });
+
+  /**
+   * `orphanScanVersion` records *which* sweep ran, not merely that one did. Gating on the
+   * presence of `orphansScannedAt` alone is what made a shipped orphan repair permanently
+   * unrunnable: the marker was already set on every account that had cold-started.
+   */
+  it('accepts a bounded orphanScanVersion on the dedupe marker', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertSucceeds(
       setDoc(doc(db, 'users/alice/meta/dedupe'), {
         orphansScannedAt: Date.now(),
-        orphansScanVersion: '1',
+        orphanScanVersion: 1,
       }),
     );
-    await assertFails(setDoc(doc(db, 'users/alice/meta/dedupe'), { ranAt: Date.now() }));
+    await assertSucceeds(
+      setDoc(
+        doc(db, 'users/alice/meta/dedupe'),
+        { orphansScannedAt: Date.now(), orphanScanVersion: 0 },
+        { merge: true },
+      ),
+    );
+  });
+
+  it('rejects an orphanScanVersion that is not a bounded integer', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    for (const bad of ['1', -1, 1_000_000, 1.5, null]) {
+      await assertFails(
+        setDoc(doc(db, 'users/alice/meta/dedupe'), {
+          orphansScannedAt: Date.now(),
+          orphanScanVersion: bad,
+        }),
+      );
+    }
   });
 
   it('rejects unknown subcollections under the user document', async () => {
     const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
     await assertFails(setDoc(doc(db, 'users/alice/audit/entry1'), { anything: true }));
     await assertFails(getDoc(doc(db, 'users/alice/audit/entry1')));
+  });
+
+  /**
+   * Cross-user isolation is the one property whose failure would be catastrophic
+   * rather than merely wrong, and for a long time its entire coverage was a single
+   * assertion: bob reading one of alice's expenses. Every rule is rooted at
+   * isOwner(userId), so this holds by construction — but "holds by construction"
+   * is exactly what the audit history of this project keeps disproving, and a
+   * future rule that reads a uid from document data instead of the path segment
+   * would leave that one assertion still green.
+   *
+   * So: every subcollection, every operation, foreign UID, all denied.
+   */
+  describe('cross-user isolation', () => {
+    const foreignTargets = [
+      {
+        label: 'expenses',
+        collectionPath: 'users/alice/expenses',
+        docPath: 'users/alice/expenses/e1',
+        seed: validExpense,
+        update: { note: 'edited by bob' },
+      },
+      {
+        label: 'categories',
+        collectionPath: 'users/alice/categories',
+        docPath: 'users/alice/categories/c1',
+        seed: validCategory,
+        update: { name: 'renamed by bob' },
+      },
+      {
+        label: 'settings/preferences',
+        collectionPath: 'users/alice/settings',
+        docPath: 'users/alice/settings/preferences',
+        seed: validPreferences,
+        update: { currency: 'USD' },
+      },
+      {
+        label: 'meta/dedupe',
+        collectionPath: 'users/alice/meta',
+        docPath: 'users/alice/meta/dedupe',
+        seed: { categoriesDeduped: true, ranAt: Date.UTC(2024, 5, 15) },
+        update: { categoriesDeduped: false },
+      },
+      /**
+       * The most dangerous cell in this table. validAccountDeletion() deliberately
+       * does not require email verification, and writing pendingDeletion: true is
+       * what unlocks canDeleteOwned() on every other subcollection. If a foreign
+       * user could write this document, they could arm deletion of someone else's
+       * data and then delete it.
+       */
+      {
+        label: 'meta/accountDeletion',
+        collectionPath: 'users/alice/meta',
+        docPath: 'users/alice/meta/accountDeletion',
+        seed: { pendingDeletion: true, wipedAt: Date.UTC(2024, 5, 15) },
+        update: { pendingDeletion: false },
+      },
+    ];
+
+    for (const target of foreignTargets) {
+      it(`denies a foreign user every operation on alice's ${target.label}`, async () => {
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          const admin = ctx.firestore();
+          // cat-1 satisfies the exists() check that expense writes depend on, so a
+          // denial here can only come from ownership, not from a missing category.
+          await setDoc(doc(admin, categoryPath('alice', 'cat-1')), validCategory);
+          await setDoc(doc(admin, target.docPath), target.seed);
+        });
+
+        const bob = testEnv.authenticatedContext('bob', { email_verified: true }).firestore();
+
+        await assertFails(getDoc(doc(bob, target.docPath)));
+        await assertFails(getDocs(collection(bob, target.collectionPath)));
+        await assertFails(updateDoc(doc(bob, target.docPath), target.update));
+        await assertFails(deleteDoc(doc(bob, target.docPath)));
+      });
+    }
+
+    it('denies a foreign user creating new documents in alice namespace', async () => {
+      const bob = testEnv.authenticatedContext('bob', { email_verified: true }).firestore();
+      await assertFails(setDoc(doc(bob, 'users/alice/expenses/planted'), validExpense));
+      await assertFails(setDoc(doc(bob, 'users/alice/categories/planted'), validCategory));
+      await assertFails(setDoc(doc(bob, 'users/alice/settings/preferences'), validPreferences));
+      await assertFails(
+        setDoc(doc(bob, 'users/alice/meta/accountDeletion'), {
+          pendingDeletion: true,
+          wipedAt: Date.now(),
+        }),
+      );
+    });
+
+    /**
+     * An unverified foreign user is the cheapest attacker to become: sign up with
+     * any address and never confirm it. meta/accountDeletion is the one document
+     * that does not require verification, so it must still be ownership-gated.
+     */
+    it('denies an unverified foreign user the same operations', async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(doc(ctx.firestore(), 'users/alice/meta/accountDeletion'), {
+          pendingDeletion: false,
+          wipedAt: Date.UTC(2024, 5, 15),
+        });
+      });
+
+      const bob = testEnv.authenticatedContext('bob', { email_verified: false }).firestore();
+      await assertFails(
+        setDoc(doc(bob, 'users/alice/meta/accountDeletion'), {
+          pendingDeletion: true,
+          wipedAt: Date.now(),
+        }),
+      );
+      await assertFails(getDoc(doc(bob, 'users/alice/meta/accountDeletion')));
+      await assertFails(deleteDoc(doc(bob, 'users/alice/expenses/e1')));
+    });
+
+    /**
+     * Arming deletion on your own account must not widen anything on anyone
+     * else's — canDeleteOwned() reads the marker under the *path's* uid, so bob's
+     * own pending deletion must not authorise deletes in alice's namespace.
+     */
+    it('does not let a foreign user borrow their own pendingDeletion marker', async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        const admin = ctx.firestore();
+        await setDoc(doc(admin, categoryPath('alice', 'cat-1')), validCategory);
+        await setDoc(doc(admin, expensePath('alice')), validExpense);
+      });
+
+      const bob = testEnv.authenticatedContext('bob', { email_verified: true }).firestore();
+      await assertSucceeds(
+        setDoc(doc(bob, 'users/bob/meta/accountDeletion'), {
+          pendingDeletion: true,
+          wipedAt: Date.now(),
+        }),
+      );
+      await assertFails(deleteDoc(doc(bob, expensePath('alice'))));
+      await assertFails(deleteDoc(doc(bob, categoryPath('alice', 'cat-1'))));
+    });
   });
 });

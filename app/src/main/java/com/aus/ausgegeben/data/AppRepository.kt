@@ -12,7 +12,6 @@ import com.aus.ausgegeben.data.auth.AuthRepository
 import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.util.CategoryDedupe
 import com.aus.ausgegeben.util.CurrencyUtils
-import com.aus.ausgegeben.util.OrphanScan
 import com.aus.ausgegeben.util.dateRangeMillis
 import com.google.firebase.firestore.AggregateField
 import com.google.firebase.firestore.AggregateSource
@@ -58,6 +57,25 @@ class AppRepository @Inject constructor(
         private const val TAG = "AppRepository"
         /** Soft cap matching web getAllExpensesCapped — unbounded listeners burn quota. */
         const val ALL_EXPENSES_SOFT_CAP = 5_000L
+
+        /**
+         * Which generation of the orphan sweep has run for an account.
+         *
+         * Bump when the sweep's behaviour changes and every existing account should run
+         * the new one once. Gating on the *presence* of `orphansScannedAt` — which this
+         * replaces — has already made a shipped repair permanently unrunnable: the marker
+         * was set on every account that had cold-started, so the fix could never fire on
+         * the long-lived accounts it was written for. Must stay identical to web's
+         * ORPHAN_SCAN_VERSION in expenseRepository.ts.
+         */
+        const val ORPHAN_SCAN_VERSION = 1L
+
+        /**
+         * True when this account has not yet run the current generation of the sweep.
+         * A marker with no version predates versioning, so the current sweep has not run.
+         */
+        internal fun needsOrphanScan(scanVersion: Long?): Boolean =
+            scanVersion == null || scanVersion < ORPHAN_SCAN_VERSION
         private const val ALL_EXPENSES_CAP = ALL_EXPENSES_SOFT_CAP
         private const val LISTENER_ERROR = "LISTENER_ERROR"
     }
@@ -172,15 +190,39 @@ class AppRepository @Inject constructor(
         ).await()
     }
 
-    suspend fun ensureSeeded() {
+    /**
+     * The second exit from a failed deletion, alongside retrying it. firestore.rules
+     * already permits this delete: canDeleteOwned() passes here precisely *because*
+     * pendingDeletion is true, so it works even for an unverified account.
+     */
+    override suspend fun clearAccountDeletionPending(): Result<Unit> = runCatching {
+        val u = uid() ?: throw IllegalStateException("Not signed in")
+        accountDeletionDoc(u).delete().await()
+    }
+
+    /**
+     * Same two steps [AuthRepository.signOut] performs, callable on the deletion path.
+     * Both are individually best-effort — a failure here must not turn a completed account
+     * deletion into a reported failure — so each is wrapped rather than allowed to throw.
+     */
+    override suspend fun clearAccountLocalState() {
+        runCatching { preferenceManager.clearAccountLocalState() }
+            .onFailure { e -> Log.w(TAG, "could not clear local prefs after deletion", e) }
+        runCatching { firestoreClient.clearOfflineCache() }
+            .onFailure { e -> Log.w(TAG, "could not clear offline cache after deletion", e) }
+    }
+
+    override suspend fun ensureSeeded() {
         ensureSeededMutex.withLock {
             requireVerifiedEmail()
             val u = uid() ?: return
-            // Nothing clears this marker, by design: re-seeding would dress a half-deleted
-            // account up as a working fresh one. The consequence is that the account stays
-            // unusable — no categories, so nothing can be recorded — until the user retries
-            // deletion and it succeeds. That is the only exit, and it is what the failure
-            // message tells them to do (settings_delete_account_incomplete).
+            // Seeding stays blocked while the marker is set: re-seeding here would dress a
+            // half-deleted account up as a working fresh one. The account is therefore
+            // unusable — no categories, so nothing can be recorded — until the user either
+            // retries deletion successfully or explicitly chooses to keep the account, which
+            // clears the marker via clearAccountDeletionPending(). Settings surfaces both
+            // exits in a banner; leaving retry as the only one stranded anyone whose Auth
+            // delete failed after the wipe.
             if (isAccountDeletionPending()) {
                 Log.w(TAG, "ensureSeeded skipped: account deletion incomplete")
                 return
@@ -226,7 +268,7 @@ class AppRepository @Inject constructor(
                     Log.w(TAG, "dedupe skipped marker", dedupeResult.exceptionOrNull())
                 }
             }
-            if (!sweptNow && OrphanScan.needsSweep(marker.data)) {
+            if (!sweptNow && needsOrphanScan(marker.getLong("orphanScanVersion"))) {
                 runCatching { sweepOrphanedExpenses(u) }
                     .onFailure { e -> Log.w(TAG, "orphan repair failed", e) }
             }
@@ -263,7 +305,10 @@ class AppRepository @Inject constructor(
             duplicates.forEach { dup ->
                 reassignCategoryExpenses(u, fromCategoryId = dup.id, toCategoryId = master.id)
                 // Narrow TOCTOU window (web parity): re-query immediately before delete.
-                reassignCategoryExpenses(u, fromCategoryId = dup.id, toCategoryId = master.id)
+                val unfixable = reassignCategoryExpenses(u, fromCategoryId = dup.id, toCategoryId = master.id)
+                if (unfixable > 0) {
+                    Log.w(TAG, "deduplicateCategories: $unfixable expense(s) left orphaned by ${dup.id}")
+                }
                 catDoc(u, dup.id).delete().await()
             }
         }
@@ -297,15 +342,20 @@ class AppRepository @Inject constructor(
         // that failure skip the marker would rerun the whole-collection read on every
         // launch — the exact cost this is here to avoid, on the accounts that have
         // orphans. The manual "deduplicate categories" action re-runs the sweep.
-        runCatching { repairOrphanedExpenses(u) }
-            .onFailure { e -> Log.w(TAG, "orphan repair incomplete; recording scan anyway", e) }
-        dedupeMarkerDoc(u).set(
-            mapOf(
-                "orphansScannedAt" to System.currentTimeMillis(),
-                "orphansScanVersion" to OrphanScan.VERSION,
-            ),
-            SetOptions.merge(),
-        ).await()
+        val repair = runCatching { repairOrphanedExpenses(u) }
+        repair.onFailure { e -> Log.w(TAG, "orphan repair incomplete; recording scan anyway", e) }
+        val scanTruncated = repair.getOrNull()?.scanTruncated == true
+        if (scanTruncated) {
+            Log.w(TAG, "orphan repair scan capped at $ALL_EXPENSES_CAP — older orphans may remain")
+        }
+        val marker = mutableMapOf<String, Any>(
+            "orphansScannedAt" to System.currentTimeMillis(),
+            // Records *which* sweep ran, so bumping ORPHAN_SCAN_VERSION can re-run a
+            // future one. Presence alone is what froze a shipped repair before.
+            "orphanScanVersion" to ORPHAN_SCAN_VERSION,
+        )
+        if (scanTruncated) marker["orphanRepairScanTruncated"] = true
+        dedupeMarkerDoc(u).set(marker, SetOptions.merge()).await()
     }
 
     // ── Categories ──
@@ -333,10 +383,14 @@ class AppRepository @Inject constructor(
     override suspend fun insertCategory(category: Category): Result<String> = runCatching {
         requireVerifiedEmail()
         val u = uid() ?: throw IllegalStateException("Not signed in")
+        val sanitized = com.aus.ausgegeben.util.CategoryValidator.sanitize(category.name)
+        if (!com.aus.ausgegeben.util.CategoryValidator.isValid(sanitized)) {
+            throw IllegalArgumentException("Invalid category name")
+        }
         val id = UUID.randomUUID().toString()
         val c = category.copy(
             id = id,
-            name = category.name.trim().take(80)
+            name = sanitized
         )
         catDoc(u, id).set(categoryPayload(c)).await()
         id
@@ -345,7 +399,11 @@ class AppRepository @Inject constructor(
     override suspend fun updateCategory(category: Category): Result<Unit> = runCatching {
         requireVerifiedEmail()
         val u = uid() ?: throw IllegalStateException("Not signed in")
-        val c = category.copy(name = category.name.trim().take(80))
+        val sanitized = com.aus.ausgegeben.util.CategoryValidator.sanitize(category.name)
+        if (!com.aus.ausgegeben.util.CategoryValidator.isValid(sanitized)) {
+            throw IllegalArgumentException("Invalid category name")
+        }
+        val c = category.copy(name = sanitized)
         catDoc(u, category.id).set(categoryPayload(c), SetOptions.merge()).await()
     }
 
@@ -360,9 +418,30 @@ class AppRepository @Inject constructor(
         if (categories.isEmpty()) return@runCatching
         requireVerifiedEmail()
         val u = uid() ?: throw IllegalStateException("Not signed in")
+        val prepared = categories.map { category ->
+            val sanitized = com.aus.ausgegeben.util.CategoryValidator.sanitize(category.name)
+            category.copy(name = sanitized.ifBlank { category.name.trim().take(80) })
+        }
+        // The batch is all-or-nothing by design, so screen for rows the rules will refuse
+        // before committing. Without this a single legacy category with a blank name or
+        // icon failed the whole commit, and every reorder in that type failed forever
+        // behind a generic message that named nothing.
+        val unwritable = prepared.filterNot { c ->
+            com.aus.ausgegeben.util.CategoryValidator.isRulesWritable(
+                name = c.name,
+                iconName = c.iconName,
+                colorInt = c.colorInt,
+                transactionType = c.transactionType,
+                sortOrder = c.sortOrder,
+            )
+        }
+        if (unwritable.isNotEmpty()) {
+            throw UnwritableCategoryException(
+                unwritable.joinToString(", ") { it.name.trim().ifBlank { it.id } },
+            )
+        }
         firestore.runBatch { batch ->
-            categories.forEach { category ->
-                val c = category.copy(name = category.name.trim().take(80))
+            prepared.forEach { c ->
                 batch.set(catDoc(u, c.id), categoryPayload(c), SetOptions.merge())
             }
         }.await()
@@ -382,7 +461,15 @@ class AppRepository @Inject constructor(
         reassignCategoryExpenses(u, fromCategoryId = category.id, toCategoryId = UNCATEGORIZED_ID)
         // Narrow TOCTOU window (web parity): re-query immediately before delete so a
         // concurrent write attaching an expense mid-delete is less likely to orphan it.
-        reassignCategoryExpenses(u, fromCategoryId = category.id, toCategoryId = UNCATEGORIZED_ID)
+        val unfixable = reassignCategoryExpenses(u, fromCategoryId = category.id, toCategoryId = UNCATEGORIZED_ID)
+        // Deliberately not thrown — see reassignExpenses: a row the rules will never
+        // accept must not permanently block deleting a category. But the count used to be
+        // discarded entirely, so the resulting orphans had no trace anywhere. They now
+        // also stay visible in Insights as "?" rather than being dropped from the
+        // breakdown, so the amount no longer disappears from the chart silently.
+        if (unfixable > 0) {
+            Log.w(TAG, "deleteCategory: $unfixable expense(s) left orphaned by ${category.id}")
+        }
         catDoc(u, category.id).delete().await()
     }
 
@@ -695,19 +782,30 @@ class AppRepository @Inject constructor(
         return unfixable
     }
 
-    private suspend fun reassignCategoryExpenses(u: String, fromCategoryId: String, toCategoryId: String) {
-        reassignExpenses(expenseDocsForCategory(u, fromCategoryId), toCategoryId)
-    }
+    /** Returns how many rows the rules refused, so callers can at least report it. */
+    private suspend fun reassignCategoryExpenses(
+        u: String,
+        fromCategoryId: String,
+        toCategoryId: String,
+    ): Int = reassignExpenses(expenseDocsForCategory(u, fromCategoryId), toCategoryId)
 
     /**
      * Reassign expenses whose categoryId no longer exists (e.g. race orphan after
-     * category delete). Capped to [ALL_EXPENSES_CAP] like other all-history paths.
+     * category delete). Scans the newest [ALL_EXPENSES_CAP] rows by date so the
+     * cap repairs recent orphans first rather than an arbitrary document-id window.
      */
-    private suspend fun repairOrphanedExpenses(u: String) {
+    private data class OrphanRepairResult(val unfixable: Int, val scanTruncated: Boolean)
+
+    private suspend fun repairOrphanedExpenses(u: String): OrphanRepairResult {
         val catIds = catCol(u).get().await().documents.map { it.id }.toSet()
-        if (catIds.isEmpty()) return
-        val snap = expCol(u).limit(ALL_EXPENSES_CAP).get().await()
-        val orphans = snap.documents.filter { doc ->
+        if (catIds.isEmpty()) return OrphanRepairResult(unfixable = 0, scanTruncated = false)
+        val snap = expCol(u)
+            .orderBy("dateMillis", Query.Direction.DESCENDING)
+            .limit(ALL_EXPENSES_CAP + 1)
+            .get().await()
+        val scanTruncated = snap.size() > ALL_EXPENSES_CAP.toInt()
+        val scanned = if (scanTruncated) snap.documents.take(ALL_EXPENSES_CAP.toInt()) else snap.documents
+        val orphans = scanned.filter { doc ->
             // Soft-deleted rows are filtered out of every read path and excluded from
             // the month total, so repointing them would only spend writes on rows
             // nothing reads. They are left exactly as they are — legacy data is
@@ -716,10 +814,11 @@ class AppRepository @Inject constructor(
             val cid = doc.get("categoryId")?.toString().orEmpty()
             cid.isNotEmpty() && cid !in catIds
         }
-        if (orphans.isEmpty()) return
+        if (orphans.isEmpty()) return OrphanRepairResult(unfixable = 0, scanTruncated = scanTruncated)
         ensureUncategorizedCategory(u)
         val unfixable = reassignExpenses(orphans, UNCATEGORIZED_ID)
         Log.i(TAG, "Repaired ${orphans.size - unfixable} orphaned expense(s), $unfixable unfixable")
+        return OrphanRepairResult(unfixable = unfixable, scanTruncated = scanTruncated)
     }
 
     private suspend fun ensureUncategorizedCategory(u: String) {
