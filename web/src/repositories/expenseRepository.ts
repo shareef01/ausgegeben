@@ -6,8 +6,9 @@ import {
 import { getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
 import { t, getLocale, localeTag } from '@/i18n';
-import { CategoryValidator, isRulesWritableCategory } from '@/utils/categoryValidator';
+import { CategoryValidator, isRulesWritableCategory, type WritableCategoryShape } from '@/utils/categoryValidator';
 import type { Category, Expense } from '@/models/types';
+import { categoryWritePayload, expenseWritePayload } from '@/utils/firestorePayloads';
 
 function uid(): string | null { return useAuthStore.getState().user?.uid ?? null; }
 function now() { return Date.now(); }
@@ -143,15 +144,14 @@ async function ensureUncategorizedCategory(userId: string): Promise<void> {
   const ref = catDoc(userId, UNCATEGORIZED_ID);
   const snap = await getDoc(ref);
   if (snap.exists()) return;
-  await setDoc(ref, {
+  await setDoc(ref, categoryWritePayload({
     id: UNCATEGORIZED_ID,
     name: t('recordUnknownCategory'),
     iconName: 'help_outline',
     colorInt: argb(0xff8e8e96),
     transactionType: 'expense',
     sortOrder: 999,
-    updatedAt: now(),
-  });
+  }, now()));
 }
 
 /**
@@ -336,7 +336,7 @@ export const expenseRepository = {
           await Promise.all(
             DEFAULT_CATEGORIES(t).map(async (cat) => {
               const id = crypto.randomUUID();
-              await setDoc(catDoc(userId, id), { ...cat, id, updatedAt: ts });
+              await setDoc(catDoc(userId, id), categoryWritePayload({ ...cat, id }, ts));
             }),
           );
         } else if (marker?.categoriesDeduped !== true) {
@@ -446,13 +446,10 @@ export const expenseRepository = {
       throw new Error('INVALID_CATEGORY_NAME');
     }
     const id = crypto.randomUUID();
-    const payload = {
-      ...cat,
-      id,
-      name: sanitizedName,
-      updatedAt: now()
-    };
-    await setDoc(catDoc(userId, id), payload);
+    await setDoc(
+      catDoc(userId, id),
+      categoryWritePayload({ ...cat, id, name: sanitizedName }, now()),
+    );
     return id;
   },
 
@@ -463,12 +460,11 @@ export const expenseRepository = {
     if (!CategoryValidator.isValid(sanitizedName)) {
       throw new Error('INVALID_CATEGORY_NAME');
     }
-    const payload = {
-      ...cat,
-      name: sanitizedName,
-      updatedAt: now()
-    };
-    await setDoc(catDoc(userId, cat.id), payload, { merge: true });
+    await setDoc(
+      catDoc(userId, cat.id),
+      categoryWritePayload({ ...cat, name: sanitizedName }, now()),
+      { merge: true },
+    );
   },
 
   /**
@@ -490,18 +486,18 @@ export const expenseRepository = {
       .filter((cat) => cat.id)
       .map((cat) => {
         const name = CategoryValidator.sanitize(cat.name);
-        return { ...cat, name: name || cat.name, updatedAt: ts };
+        return categoryWritePayload({ ...cat, name: name || cat.name }, ts);
       });
 
-    const rejected = payloads.filter((p) => !isRulesWritableCategory(p));
+    const rejected = payloads.filter((p) => !isRulesWritableCategory(p as WritableCategoryShape));
     if (rejected.length > 0) {
-      const names = rejected.map((c) => c.name?.trim() || c.id).join(', ');
+      const names = rejected.map((c) => String(c.name ?? c.id ?? '')).join(', ');
       throw new UnwritableCategoryError(names);
     }
 
     const batch = writeBatch(firestore);
     for (const payload of payloads) {
-      batch.set(catDoc(userId, payload.id), payload, { merge: true });
+      batch.set(catDoc(userId, String(payload.id)), payload, { merge: true });
     }
     await batch.commit();
   },
@@ -613,15 +609,13 @@ export const expenseRepository = {
       if (!dupSnap.empty) return dupSnap.docs[0].id;
     }
     const id = crypto.randomUUID();
-    const payload = {
-        ...expense,
-        id,
-        amount: roundAmount(expense.amount),
-        note: expense.note.trim().slice(0, 2000),
-        updatedAt: now()
-    } as any;
-    if (idempotencyKey) payload.idempotencyKey = idempotencyKey;
-    await setDoc(expDoc(userId, id), payload);
+    await setDoc(
+      expDoc(userId, id),
+      expenseWritePayload(
+        { ...expense, id },
+        { updatedAt: now(), idempotencyKey },
+      ),
+    );
     emitDataChanged();
     return id;
   },
@@ -633,13 +627,11 @@ export const expenseRepository = {
     if (!existing.exists()) {
       throw new Error('EXPENSE_NOT_FOUND');
     }
-    const payload = {
-      ...expense,
-      amount: roundAmount(expense.amount),
-      note: expense.note.trim().slice(0, 2000),
-      updatedAt: now()
-    };
-    await setDoc(expDoc(userId, expense.id), payload, { merge: true });
+    await setDoc(
+      expDoc(userId, expense.id),
+      expenseWritePayload(expense, { updatedAt: now() }),
+      { merge: true },
+    );
     emitDataChanged();
   },
 
