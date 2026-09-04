@@ -333,3 +333,60 @@ describe('ensureSeeded', () => {
     expect(await categoryIds()).toEqual([]);
   });
 });
+
+describe('orphan scan version', () => {
+  it('re-runs the sweep when orphansScannedAt is set without a version', async () => {
+    await seedCategory({ id: 'keep', name: 'Keep' });
+    await seedExpense('orphan', 'vanished');
+    await setDoc(doc(emulatorFirestore(), `users/${TEST_UID}/meta/dedupe`), {
+      categoriesDeduped: true,
+      ranAt: Date.now(),
+      orphansScannedAt: Date.now(),
+    });
+
+    await expenseRepository.ensureSeeded();
+
+    expect(await categoryIdOf('orphan')).toBe(UNCATEGORIZED_ID);
+    const marker = await getDoc(doc(emulatorFirestore(), `users/${TEST_UID}/meta/dedupe`));
+    expect(marker.data()?.orphansScanVersion).toBe(1);
+  });
+
+  it('skips the sweep when the recorded version is current', async () => {
+    await seedCategory({ id: 'keep', name: 'Keep' });
+    await seedExpense('orphan', 'vanished');
+    await setDoc(doc(emulatorFirestore(), `users/${TEST_UID}/meta/dedupe`), {
+      categoriesDeduped: true,
+      ranAt: Date.now(),
+      orphansScannedAt: Date.now(),
+      orphansScanVersion: 1,
+    });
+
+    await expenseRepository.ensureSeeded();
+
+    expect(await categoryIdOf('orphan')).toBe('vanished');
+  });
+});
+
+describe('write allowlists', () => {
+  it('does not persist unknown fields from a category object on update', async () => {
+    await seedCategory({ id: 'c1', name: 'Keep' });
+    const extra = {
+      id: 'c1',
+      name: 'Renamed',
+      iconName: 'shopping_cart',
+      colorInt: -2345678,
+      transactionType: 'expense',
+      sortOrder: 0,
+      cloudId: 'legacy',
+      deleted: true,
+      sneaky: true,
+    };
+    await expenseRepository.updateCategory(extra as never);
+
+    const data = (await getDoc(doc(catCol(), 'c1'))).data();
+    expect(data?.name).toBe('Renamed');
+    expect(data?.cloudId).toBeUndefined();
+    expect(data?.deleted).toBeUndefined();
+    expect(data?.sneaky).toBeUndefined();
+  });
+});
