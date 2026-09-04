@@ -91,12 +91,30 @@ jobs:
             -PausgegebenVersionCode=${{ steps.version.outputs.code }}
 
       # An unsigned APK cannot be installed, and the build silently produces one
-      # if the signing config did not resolve. Verify before publishing.
-      - name: Verify the APK is signed
+      # if the signing config did not resolve. Verify before publishing, and fail
+      # closed unless the signer matches the committed pin — a swapped GitHub
+      # secret would otherwise publish a still-signed APK users cannot update over.
+      - name: Verify the APK is signed with the pinned certificate
         run: |
           APK=app/build/outputs/apk/prod/release/app-prod-release.apk
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
-          "$BT/apksigner" verify --print-certs "$APK"
+          CERTS=$("$BT/apksigner" verify --print-certs "$APK")
+          echo "$CERTS"
+          PIN=$(grep -vE '^\s*(#|$)' .github/release-cert.sha256 | tr -d '[:space:]' | tr 'A-F' 'a-f')
+          if [ -z "$PIN" ]; then
+            echo "::error::.github/release-cert.sha256 is missing or empty"
+            exit 1
+          fi
+          COUNT=$(printf '%s\n' "$CERTS" | grep -ciE 'SHA-256( digest)?:' || true)
+          if [ "$COUNT" -ne 1 ]; then
+            echo "::error::expected exactly one SHA-256 signer line, got $COUNT"
+            exit 1
+          fi
+          GOT=$(printf '%s\n' "$CERTS" | grep -iE 'SHA-256( digest)?:' | awk '{print tolower($NF)}' | tr -d '[:space:]')
+          if [ "$GOT" != "$PIN" ]; then
+            echo "::error::APK signer SHA-256 does not match .github/release-cert.sha256"
+            exit 1
+          fi
           mv "$APK" "ausgegeben-${{ steps.version.outputs.name }}.apk"
 
       # AGENTS.md: assembling the release proves nothing — R8 once stripped Room's
