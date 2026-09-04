@@ -4,6 +4,7 @@ import { usePreferencesStore } from '@/services/preferencesStore';
 import { useAuthStore } from '@/services/authStore';
 import type { AppPreferences, SyncedPreferences, ThemeMode } from '@/models/types';
 import { normalizeAnalyticsPeriodKey } from '@/utils/periodUtils';
+import { prefsLwwAction } from '@/services/prefsLww';
 
 export const PREFS_SYNC_ERROR_PERMISSION = 'permission';
 export const PREFS_SYNC_ERROR_NETWORK = 'network';
@@ -221,9 +222,10 @@ export const preferencesSync = {
           return;
         }
 
-        if (remote.updatedAt > localAt) {
+        const lww = prefsLwwAction(remote.updatedAt, localAt);
+        if (lww === 'apply_remote') {
           applyRemote(remote);
-        } else if (localAt > remote.updatedAt) {
+        } else if (lww === 'push_local') {
           void writeRemote(uid, toSyncedPreferences(local));
         } else if (typeof (snap.data() as Record<string, unknown>).onboardingComplete !== 'boolean') {
           // Backfill onboardingComplete onto legacy docs without bumping LWW.

@@ -311,6 +311,7 @@ fun IosSegmentedControl(
                 Box(
                     modifier = Modifier
                         .weight(1f)
+                        .defaultMinSize(minHeight = 48.dp)
                         .clip(containerShape)
                         .semantics {
                             contentDescription = label

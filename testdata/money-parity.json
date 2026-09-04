@@ -1,0 +1,109 @@
+{
+  "display": [
+    {
+      "amount": 1234.56,
+      "currency": "EUR",
+      "language": "en",
+      "showSymbol": false,
+      "formatted": "1,234.56"
+    },
+    {
+      "amount": 1234.56,
+      "currency": "EUR",
+      "language": "de",
+      "showSymbol": false,
+      "formatted": "1.234,56"
+    }
+  ],
+  "parse": [
+    {
+      "input": "12,50",
+      "currency": "EUR",
+      "value": 12.5
+    },
+    {
+      "input": "12.50",
+      "currency": "USD",
+      "value": 12.5
+    },
+    {
+      "input": "12.50",
+      "currency": "EUR",
+      "value": 12.5
+    },
+    {
+      "input": "12,50",
+      "currency": "USD",
+      "value": 12.5
+    },
+    {
+      "input": "1.234,56",
+      "currency": "EUR",
+      "value": 1234.56
+    },
+    {
+      "input": "1,234.56",
+      "currency": "USD",
+      "value": 1234.56
+    }
+  ],
+  "csv": [
+    {
+      "amount": 5,
+      "cell": "5.00"
+    },
+    {
+      "amount": 9.5,
+      "cell": "9.50"
+    },
+    {
+      "amount": 0.01,
+      "cell": "0.01"
+    },
+    {
+      "amount": 1234.5,
+      "cell": "1234.50"
+    },
+    {
+      "amount": 999999999,
+      "cell": "999999999.00"
+    }
+  ],
+  "input": [
+    {
+      "amount": 12.5,
+      "currency": "EUR",
+      "text": "12,50"
+    },
+    {
+      "amount": 12.0,
+      "currency": "EUR",
+      "text": "12,00"
+    },
+    {
+      "amount": 12.5,
+      "currency": "USD",
+      "text": "12.50"
+    },
+    {
+      "amount": 12.0,
+      "currency": "USD",
+      "text": "12.00"
+    },
+    {
+      "amount": 1234.5,
+      "currency": "EUR",
+      "text": "1234,50"
+    },
+    {
+      "amount": 0.01,
+      "currency": "EUR",
+      "text": "0,01"
+    },
+    {
+      "amount": 0.0,
+      "currency": "USD",
+      "text": "0.00"
+    }
+  ]
+}

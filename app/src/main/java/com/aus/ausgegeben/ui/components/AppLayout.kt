@@ -37,8 +37,8 @@ fun tabScreenListBottomPadding(): PaddingValues =
     PaddingValues(bottom = BottomScrollExtraPadding)
 
 /** Extra clearance for Record tab FAB floating above the nav bar.
- * Scaffold with contentWindowInsets = WindowInsets(0,0,0,0) disables
- * automatic FAB offset — we must reserve 120dp manually. */
+ * Ensures the bottom-most list items are completely accessible, clickable,
+ * and swipeable above the floating action button and bottom navigation. */
 @Composable
 fun recordListBottomPadding(): PaddingValues =
-    PaddingValues(bottom = 120.dp)
+    PaddingValues(bottom = 128.dp)
