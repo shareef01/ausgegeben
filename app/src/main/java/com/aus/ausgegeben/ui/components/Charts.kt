@@ -602,8 +602,28 @@ fun CashFlowLegend(modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        LegendDot(financeIncomeColor())
-        LegendDot(financeExpenseColor())
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            LegendDot(financeIncomeColor())
+            Text(
+                text = stringResource(R.string.filter_income),
+                style = MaterialTheme.typography.labelSmall,
+                color = readableSecondaryColor()
+            )
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            LegendDot(financeExpenseColor())
+            Text(
+                text = stringResource(R.string.filter_expense),
+                style = MaterialTheme.typography.labelSmall,
+                color = readableSecondaryColor()
+            )
+        }
     }
 }
 
