@@ -36,7 +36,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.animation.core.Animatable
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -387,11 +389,11 @@ fun RecordScreen(
                                 }
                             ),
                             onAction = when {
-                                isSearching -> {{ viewModel.setSearchQuery("") }}
-                                hasActiveFilters -> {{
+                                isSearching -> ({ viewModel.setSearchQuery("") })
+                                hasActiveFilters -> ({
                                     viewModel.setTypeFilter(TransactionTypeFilter.ALL)
                                     viewModel.setListPeriod(RecordListPeriod.THIS_MONTH.key)
-                                }}
+                                })
                                 else -> onAddTransaction
                             },
                         )
@@ -456,7 +458,7 @@ private fun RecordListToolbar(
     val isMonthPeriod = listPeriod.startsWith("month:")
     var showMonthSheet by remember { mutableStateOf(false) }
     // Same 12-month sheet as Bills so Record can scope the list to any month (parity with web)
-    val monthPickerOptions = remember { analyticsPeriodOptions(monthsBack = 12) }
+    val monthPickerOptions = remember { analyticsPeriodOptions(monthsBack = 14) }
     val currentMonthKey = remember(monthPickerOptions) {
         monthPickerOptions.firstOrNull { it.storageKey != "all_time" }?.storageKey
     }
@@ -653,14 +655,22 @@ private fun RecordListToolbar(
                             }
                         }
                         
-                        Text(
-                            text = stringResource(R.string.action_cancel).lowercase(),
-                            style = MaterialTheme.typography.labelLarge.copy(color = MaterialTheme.colorScheme.primary),
-                            modifier = Modifier.smoothClickable { 
-                                onSearchToggle(false)
-                                onSearchChange("")
-                            }
-                        )
+                        Box(
+                            modifier = Modifier
+                                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                .clip(RoundedCornerShape(AppRadius.interactive))
+                                .smoothClickable { 
+                                    onSearchToggle(false)
+                                    onSearchChange("")
+                                }
+                                .padding(horizontal = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = stringResource(R.string.action_cancel).lowercase(),
+                                style = MaterialTheme.typography.labelLarge.copy(color = MaterialTheme.colorScheme.primary),
+                            )
+                        }
                     }
                 }
             }
@@ -779,7 +789,8 @@ private fun SwipeableTransactionRow(
                 }
                 else -> true
             }
-        }
+        },
+        positionalThreshold = { totalDistance -> totalDistance * 0.42f }
     )
 
     SwipeToDismissBox(
@@ -788,61 +799,66 @@ private fun SwipeableTransactionRow(
         backgroundContent = {
             val direction = dismissState.dismissDirection
             val swipeFraction = dismissState.progress.coerceIn(0f, 1f)
-            
-            when (direction) {
-                SwipeToDismissBoxValue.EndToStart -> {
-                    Box(
-                        Modifier
-                            .fillMaxSize()
-                            .background(deleteColor.copy(alpha = swipeFraction))
-                            .padding(horizontal = 24.dp),
-                        contentAlignment = Alignment.CenterEnd
-                    ) {
-                        val iconScale by animateFloatAsState(
-                            targetValue = if (swipeFraction > 0.5f) 1.2f else 1.0f,
-                            animationSpec = spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMedium),
-                            label = "deleteIconScale"
-                        )
-                        Icon(
-                            Icons.Rounded.Delete,
-                            null,
-                            tint = contrastColorOn(deleteColor).copy(alpha = swipeFraction.coerceAtLeast(0.35f)),
-                            modifier = Modifier
-                                .size(24.dp)
-                                .graphicsLayer {
-                                    scaleX = iconScale
-                                    scaleY = iconScale
-                                },
-                        )
+            val isSwiping = dismissState.currentValue != SwipeToDismissBoxValue.Settled ||
+                dismissState.targetValue != SwipeToDismissBoxValue.Settled ||
+                swipeFraction > 0.05f
+
+            if (isSwiping) {
+                when (direction) {
+                    SwipeToDismissBoxValue.EndToStart -> {
+                        Box(
+                            Modifier
+                                .fillMaxSize()
+                                .background(deleteColor.copy(alpha = swipeFraction))
+                                .padding(horizontal = 24.dp),
+                            contentAlignment = Alignment.CenterEnd
+                        ) {
+                            val iconScale by animateFloatAsState(
+                                targetValue = if (swipeFraction > 0.5f) 1.2f else 1.0f,
+                                animationSpec = spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMedium),
+                                label = "deleteIconScale"
+                            )
+                            Icon(
+                                Icons.Rounded.Delete,
+                                null,
+                                tint = contrastColorOn(deleteColor).copy(alpha = swipeFraction.coerceAtLeast(0.35f)),
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .graphicsLayer {
+                                        scaleX = iconScale
+                                        scaleY = iconScale
+                                    },
+                            )
+                        }
                     }
-                }
-                SwipeToDismissBoxValue.StartToEnd -> {
-                    Box(
-                        Modifier
-                            .fillMaxSize()
-                            .background(editSwipeColor.copy(alpha = swipeFraction))
-                            .padding(horizontal = 24.dp),
-                        contentAlignment = Alignment.CenterStart
-                    ) {
-                        val iconScale by animateFloatAsState(
-                            targetValue = if (swipeFraction > 0.5f) 1.2f else 1.0f,
-                            animationSpec = spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMedium),
-                            label = "editIconScale"
-                        )
-                        Icon(
-                            Icons.Rounded.Edit,
-                            null,
-                            tint = contrastColorOn(editSwipeColor).copy(alpha = swipeFraction.coerceAtLeast(0.35f)),
-                            modifier = Modifier
-                                .size(24.dp)
-                                .graphicsLayer {
-                                    scaleX = iconScale
-                                    scaleY = iconScale
-                                },
-                        )
+                    SwipeToDismissBoxValue.StartToEnd -> {
+                        Box(
+                            Modifier
+                                .fillMaxSize()
+                                .background(editSwipeColor.copy(alpha = swipeFraction))
+                                .padding(horizontal = 24.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            val iconScale by animateFloatAsState(
+                                targetValue = if (swipeFraction > 0.5f) 1.2f else 1.0f,
+                                animationSpec = spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMedium),
+                                label = "editIconScale"
+                            )
+                            Icon(
+                                Icons.Rounded.Edit,
+                                null,
+                                tint = contrastColorOn(editSwipeColor).copy(alpha = swipeFraction.coerceAtLeast(0.35f)),
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .graphicsLayer {
+                                        scaleX = iconScale
+                                        scaleY = iconScale
+                                    },
+                            )
+                        }
                     }
+                    else -> {}
                 }
-                else -> {}
             }
         }
     ) {
@@ -871,6 +887,8 @@ private fun SwipeableTransactionRow(
                 currencyCode,
                 incomeColor,
                 expenseColor,
+                onDeleteAction = onDeleteRequest,
+                onDuplicateAction = onLongClick,
             )
         }
     }
@@ -885,6 +903,8 @@ fun TransactionRow(
     currencyCode: String,
     incomeColor: Color,
     expenseColor: Color,
+    onDeleteAction: (() -> Unit)? = null,
+    onDuplicateAction: (() -> Unit)? = null,
 ) {
     val isIncome = expense.isIncome()
     val isTransfer = expense.isTransfer()
@@ -905,13 +925,29 @@ fun TransactionRow(
         CurrencyUtils.formatAmount(expense.amount, currencyCode),
         if (expense.note.isNotBlank()) expense.note else ""
     )
+    val deleteActionLabel = stringResource(R.string.a11y_action_delete)
+    val duplicateActionLabel = stringResource(R.string.a11y_action_duplicate)
 
     // Law 2: Ironclad Transaction Row Alignments
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(IntrinsicSize.Min) // Pillar 4: Consistent vertical metrics
-            .semantics { contentDescription = rowDescription },
+            .semantics {
+                contentDescription = rowDescription
+                if (onDeleteAction != null && onDuplicateAction != null) {
+                    customActions = listOf(
+                        CustomAccessibilityAction(deleteActionLabel) {
+                            onDeleteAction()
+                            true
+                        },
+                        CustomAccessibilityAction(duplicateActionLabel) {
+                            onDuplicateAction()
+                            true
+                        },
+                    )
+                }
+            },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Law 6: Category Spine

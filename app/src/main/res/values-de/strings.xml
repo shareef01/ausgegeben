@@ -131,6 +131,12 @@
     <string name="settings_delete_account_failed">konto konnte nicht gelöscht werden</string>
     <string name="settings_delete_account_incomplete">cloud-daten wurden gelöscht, aber die anmeldung konnte nicht entfernt werden. tippe erneut auf konto löschen, um abzuschließen.</string>
     <string name="settings_delete_account_needs_reauth">melde dich erneut an und lösche dann dein konto</string>
+    <string name="settings_deletion_pending_title">löschung unvollständig</string>
+    <string name="settings_deletion_pending">die löschung dieses kontos ist unvollständig. die cloud-daten sind bereits gelöscht. schließe die löschung ab oder behalte das konto und starte neu.</string>
+    <string name="settings_deletion_finish">löschung abschließen</string>
+    <string name="settings_deletion_keep">konto behalten</string>
+    <string name="settings_deletion_kept">konto behalten — standardkategorien wiederhergestellt</string>
+    <string name="settings_deletion_keep_failed">konto konnte nicht wiederhergestellt werden. bitte erneut versuchen.</string>
     <string name="settings_delete_account_password">gib zum bestätigen dein passwort ein</string>
     <string name="settings_delete_account_too_many_attempts">zu viele versuche. versuche es später erneut.</string>
     <string name="settings_signed_out">abgemeldet</string>
@@ -258,6 +264,10 @@
     <string name="category_save_changes">änderungen speichern</string>
     <string name="category_move_up">nach oben</string>
     <string name="category_move_down">nach unten</string>
+    <string name="picker_increase">%1$s erhöhen</string>
+    <string name="picker_decrease">%1$s verringern</string>
+    <string name="picker_hour">Stunde</string>
+    <string name="picker_minute">Minute</string>
     <string name="category_edit">bearbeiten</string>
     <string name="category_add">kategorie hinzufügen</string>
     <string name="category_error_add_failed">kategorie konnte nicht hinzugefügt werden</string>
@@ -265,6 +275,7 @@
     <string name="category_error_delete_failed">kategorie konnte nicht gelöscht werden</string>
     <string name="category_error_deduplicate_failed">deduplizierung fehlgeschlagen</string>
     <string name="category_error_reorder_failed">neuordnung fehlgeschlagen</string>
+    <string name="category_error_unwritable">neu sortieren nicht möglich: kategorie zuerst korrigieren oder umbenennen — %1$s</string>
 
     <!-- Finance summary -->
     <string name="summary_balance_period">saldo · %1$s</string>
@@ -325,6 +336,8 @@
     <string name="record_most_spent_on">Am meisten ausgegeben für %1$s</string>
     <string name="desc_income_row">%1$s Einnahme von %2$s. %3$s</string>
     <string name="desc_expense_row">%1$s Ausgabe von %2$s. %3$s</string>
+    <string name="a11y_action_delete">Transaktion löschen</string>
+    <string name="a11y_action_duplicate">Für heute duplizieren</string>
     <string name="desc_transfer_row">%1$s Transfer von %2$s. %3$s</string>
     <string name="desc_finance_summary">Finanzübersicht für %1$s. Netto-Saldo %2$s. Gesamteinnahmen %3$s. Gesamtausgaben %4$s.</string>
     <string name="record_filter">Nach Typ filtern</string>

@@ -9,7 +9,7 @@ import { SwipeableRow } from '@/components/SwipeableRow';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useRecordViewModel } from '@/viewmodels/useRecordViewModel';
 import { usePreferencesStore } from '@/services/preferencesStore';
-import { useTranslation } from '@/i18n';
+import { useTranslation, type Locale } from '@/i18n';
 import { formatDateLabel, dayKey } from '@/utils/periodUtils';
 import type { Expense, Category, TransactionTypeFilter } from '@/models/types';
 import { formatAmount, colorIntToHex } from '@/utils/currency';
@@ -250,7 +250,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
                         onTap={() => handleEdit(expense.id)}
                         onLongPress={() => handleDuplicate(expense)}
                         onDuplicate={() => handleDuplicate(expense)}
-                        ariaLabel={`${catMap.get(expense.categoryId)?.name || t('recordUnknownCategory')} ${formatAmount(expense.amount, currency)}`}
+                        ariaLabel={recordRowAriaLabel(expense, catMap.get(expense.categoryId), currency, locale, t)}
                       >
                         <TransactionRow
                           expense={expense}
@@ -313,18 +313,24 @@ const TransactionRow = memo(({ expense, category, currency }: {
             <span className="transaction-row__icon-fallback-dot" />
           </span>
         )}
-        {!isTransfer && (
-          <span
-            className={`transaction-row__type-badge ${isIncome ? 'transaction-row__type-badge--income' : 'transaction-row__type-badge--expense'}`}
-            aria-hidden
-          >
-            {isIncome ? (
-              <IconArrowUp width={11} height={11} strokeWidth={2.75} />
-            ) : (
-              <IconArrowDown width={11} height={11} strokeWidth={2.75} />
-            )}
-          </span>
-        )}
+        <span
+          className={`transaction-row__type-badge ${
+            isTransfer
+              ? 'transaction-row__type-badge--transfer'
+              : isIncome
+                ? 'transaction-row__type-badge--income'
+                : 'transaction-row__type-badge--expense'
+          }`}
+          aria-hidden
+        >
+          {isTransfer ? (
+            <IconTransfer width={11} height={11} strokeWidth={2.5} />
+          ) : isIncome ? (
+            <IconArrowUp width={11} height={11} strokeWidth={2.75} />
+          ) : (
+            <IconArrowDown width={11} height={11} strokeWidth={2.75} />
+          )}
+        </span>
       </div>
 
       <div className="transaction-row__meta">
@@ -338,6 +344,31 @@ const TransactionRow = memo(({ expense, category, currency }: {
     </div>
   );
 });
+
+function recordRowAriaLabel(
+  expense: Expense,
+  category: Category | undefined,
+  currency: string,
+  locale: Locale,
+  t: (key: import('@/i18n').TranslationKey, params?: Record<string, string>) => string,
+): string {
+  const categoryName = category?.name || t('recordUnknownCategory');
+  const formatted = formatAmount(expense.amount, currency, true, locale);
+  const amount =
+    expense.transactionType === 'income'
+      ? `+${formatted}`
+      : expense.transactionType === 'expense'
+        ? `−${formatted}`
+        : formatted;
+  const note = expense.note?.trim() ?? '';
+  const key =
+    expense.transactionType === 'income'
+      ? 'descIncomeRow'
+      : expense.transactionType === 'transfer'
+        ? 'descTransferRow'
+        : 'descExpenseRow';
+  return t(key, { category: categoryName, amount, note });
+}
 
 function filterLabel(f: TransactionTypeFilter, t: (key: import('@/i18n').TranslationKey, params?: Record<string, string>) => string): string {
   switch (f) {
