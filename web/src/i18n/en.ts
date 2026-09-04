@@ -203,6 +203,7 @@ export const en = {
   errorLoadFailed: 'failed to load. please try again.',
   errorLoadFailedHint: 'check your connection, then retry',
   errorBudgetExceeded: 'monthly budget exceeded: {spent} of {budget}',
+  errorBudgetCheckFailed: 'could not check the monthly budget. the transaction was saved.',
   errorSaveFailed: 'could not save. please try again.',
   actionRetry: 'retry',
   typeExpense: 'expense',

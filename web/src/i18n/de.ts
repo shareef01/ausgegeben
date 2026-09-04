@@ -205,6 +205,7 @@ export const de: Record<TranslationKey, string> = {
   errorLoadFailed: 'laden fehlgeschlagen. bitte erneut versuchen.',
   errorLoadFailedHint: 'verbindung prüfen und erneut versuchen',
   errorBudgetExceeded: 'monatsbudget überschritten: {spent} von {budget}',
+  errorBudgetCheckFailed: 'monatsbudget konnte nicht geprüft werden. die transaktion wurde gespeichert.',
   errorSaveFailed: 'speichern fehlgeschlagen. bitte erneut versuchen.',
   actionRetry: 'erneut versuchen',
   typeExpense: 'ausgabe',
