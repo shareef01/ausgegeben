@@ -487,6 +487,14 @@ private fun CashFlowCard(
                     style = MaterialTheme.typography.labelSmall,
                     color = readableSecondaryColor()
                 )
+                if (trend.size >= 3) {
+                    val midPoint = trend[trend.size / 2]
+                    Text(
+                        text = midPoint.label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = readableSecondaryColor()
+                    )
+                }
                 Text(
                     text = trend.lastOrNull()?.label ?: "",
                     style = MaterialTheme.typography.labelSmall,

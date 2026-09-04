@@ -192,7 +192,7 @@ fun CategoryEditorSheet(
                 )
             }
 
-            if (lockTransactionType == null) {
+            if (initialCategory == null && lockTransactionType == null) {
                 Spacer(modifier = Modifier.height(AppSpacing.base))
                 Text(
                     text = stringResource(R.string.category_type_label),
