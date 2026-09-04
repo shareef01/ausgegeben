@@ -141,18 +141,38 @@ class PreferencesCloudSyncTest {
     }
 
     @Test
-    fun parseRemote_defaultsCurrency_toEur_whenMissing() {
-        val raw = validRaw().minus("currency")
+    fun parseRemote_defaultsCurrency_toEur_whenInvalid() {
+        val raw = validRaw(mapOf("currency" to "JPY"))
         val result = PreferencesCloudSync.parseRemote(raw)
         requireNotNull(result)
         assertEquals("EUR", result.currency)
     }
 
     @Test
-    fun parseRemote_defaultsCurrency_toEur_whenBlank() {
-        val raw = validRaw(mapOf("currency" to "   "))
+    fun parseRemote_keepsCurrency_whenValid() {
+        listOf("EUR", "USD", "GBP", "CHF").forEach { c ->
+            val raw = validRaw(mapOf("currency" to c))
+            val result = PreferencesCloudSync.parseRemote(raw)
+            requireNotNull(result)
+            assertEquals(c, result.currency)
+        }
+    }
+
+    @Test
+    fun parseRemote_defaultsAnalyticsPeriod_toThisMonth_whenInvalid() {
+        val raw = validRaw(mapOf("analyticsPeriod" to "invalid_period"))
         val result = PreferencesCloudSync.parseRemote(raw)
         requireNotNull(result)
-        assertEquals("EUR", result.currency)
+        assertEquals("this_month", result.analyticsPeriod)
+    }
+
+    @Test
+    fun parseRemote_keepsAnalyticsPeriod_whenValid() {
+        listOf("this_month", "last_month", "all_time", "month:2026-08").forEach { p ->
+            val raw = validRaw(mapOf("analyticsPeriod" to p))
+            val result = PreferencesCloudSync.parseRemote(raw)
+            requireNotNull(result)
+            assertEquals(p, result.analyticsPeriod)
+        }
     }
 }

@@ -6,7 +6,6 @@ import { FinanceSummaryCard } from '@/components/FinanceSummaryCard';
 import { BudgetProgressBar } from '@/components/BudgetProgressBar';
 import { recordPeriodOptions, PremiumPeriodSelector } from '@/components/PeriodSelector';
 import { SwipeableRow } from '@/components/SwipeableRow';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useRecordViewModel } from '@/viewmodels/useRecordViewModel';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useTranslation, type Locale } from '@/i18n';
@@ -33,7 +32,6 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
   );
   const periodLabel = selectedPeriod.label;
   const [searchFocused, setSearchFocused] = useState(false);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const hasQuery = uiState.searchQuery.length > 0;
   const filtersActive = hasQuery || uiState.typeFilter !== 'all';
 
@@ -65,17 +63,9 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
 
   // SECURE: Prop stability for React.memo children
   const handleDelete = useCallback((id: string) => {
-      setDeleteConfirmId(id);
-  }, []);
-
-  const confirmDelete = useCallback(() => {
-    if (!deleteConfirmId) return;
     haptics.heavy();
-    void requestDelete(deleteConfirmId);
-    setDeleteConfirmId(null);
-  }, [deleteConfirmId, requestDelete, haptics]);
-
-  const cancelDelete = useCallback(() => setDeleteConfirmId(null), []);
+    void requestDelete(id);
+  }, [requestDelete, haptics]);
 
   const handleEdit = useCallback((id: string) => {
       haptics.light();
@@ -268,18 +258,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
             </>
           )}
         </div>
-
       </div>
-
-      <ConfirmDialog
-        open={deleteConfirmId !== null}
-        title={t('recordDeleteTitle')}
-        message={t('recordDeleteConfirm')}
-        confirmLabel={t('actionDelete')}
-        cancelLabel={t('actionCancel')}
-        onConfirm={confirmDelete}
-        onCancel={cancelDelete}
-      />
     </>
   );
 }
