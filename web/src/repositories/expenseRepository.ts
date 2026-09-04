@@ -6,9 +6,9 @@ import {
 import { getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
 import { t, getLocale, localeTag } from '@/i18n';
+import { CategoryValidator, isRulesWritableCategory, type WritableCategoryShape } from '@/utils/categoryValidator';
 import type { Category, Expense } from '@/models/types';
 import { categoryWritePayload, expenseWritePayload } from '@/utils/firestorePayloads';
-import { needsOrphanSweep, ORPHANS_SCAN_VERSION } from '@/utils/orphanScan';
 
 function uid(): string | null { return useAuthStore.getState().user?.uid ?? null; }
 function now() { return Date.now(); }
@@ -27,6 +27,18 @@ export class EmailNotVerifiedError extends Error {
   }
 }
 
+/**
+ * A category the Firestore rules will refuse, blocking an atomic reorder batch.
+ * Carries the offending names so the UI can say which row needs fixing rather than
+ * repeating a generic failure the user cannot act on.
+ */
+export class UnwritableCategoryError extends Error {
+  constructor(readonly categoryNames: string) {
+    super('UNWRITABLE_CATEGORY');
+    this.name = 'UnwritableCategoryError';
+  }
+}
+
 function requireVerifiedEmail(): void {
   const user = useAuthStore.getState().user;
   if (!user) throw new Error('Not signed in');
@@ -35,6 +47,29 @@ function requireVerifiedEmail(): void {
 
 export const UNCATEGORIZED_ID = '0';
 const DATA_CHANGED_EVENT = 'ausgegeben:data-changed';
+
+/**
+ * Which generation of the orphan sweep has run for an account.
+ *
+ * Bump this when the sweep's behaviour changes and every existing account should run the
+ * new one once. Gating on the *presence* of `orphansScannedAt` — which is what this
+ * replaces — has already made a shipped repair permanently unrunnable: the marker was
+ * set on every account that had ever cold-started, so the fix could never fire on the
+ * long-lived accounts it was written for. A version costs one number and makes that
+ * recoverable. Must stay identical to Android's AppRepository.ORPHAN_SCAN_VERSION.
+ */
+export const ORPHAN_SCAN_VERSION = 1;
+
+/**
+ * True when this account has not yet run the current generation of the sweep.
+ * Absent version = a pre-versioning marker, so the current sweep has not run.
+ */
+export function needsOrphanScan(marker: Record<string, unknown> | undefined): boolean {
+  if (!marker) return true;
+  const version = marker.orphanScanVersion;
+  if (typeof version === 'number') return version < ORPHAN_SCAN_VERSION;
+  return true;
+}
 
 /** Match Android Int colorInts (signed 32-bit) for shared Firestore docs. */
 function argb(hex: number): number {
@@ -237,7 +272,7 @@ export const expenseRepository = {
       }
       const result = {
         items: docs
-          .map((d) => ({ id: d.id, ...d.data() } as Expense))
+          .map((d) => ({ ...d.data(), id: d.id } as Expense))
           .filter((e) => e.deleted !== true),
         truncated,
       };
@@ -256,7 +291,7 @@ export const expenseRepository = {
   async getAllCategories(): Promise<Category[]> {
     const userId = uid(); if (!userId) return [];
     const snap = await getDocs(query(catCol(userId), orderBy('sortOrder')));
-    return snap.docs.map(d => ({ id: d.id, ...d.data() } as Category));
+    return snap.docs.map(d => ({ ...d.data(), id: d.id } as Category));
   },
 
   /**
@@ -309,7 +344,7 @@ export const expenseRepository = {
           sweptNow = true;
           await setDoc(markerRef, { categoriesDeduped: true, ranAt: now() }, { merge: true });
         }
-        if (!sweptNow && needsOrphanSweep(marker as Record<string, unknown> | undefined)) {
+        if (!sweptNow && needsOrphanScan(marker)) {
           try {
             await sweepOrphanedExpenses(userId);
           } catch {
@@ -393,7 +428,7 @@ export const expenseRepository = {
     return onSnapshot(
       query(catCol(userId), orderBy('sortOrder')),
       (snap) => {
-        cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Category)));
+        cb(snap.docs.map(d => ({ ...d.data(), id: d.id } as Category)));
       },
       (err) => {
         console.error('[onCategoriesChanged]', err);
@@ -406,10 +441,14 @@ export const expenseRepository = {
   async insertCategory(cat: Omit<Category, 'id'>): Promise<string> {
     requireVerifiedEmail();
     const userId = uid(); if (!userId) throw new Error('Not signed in');
+    const sanitizedName = CategoryValidator.sanitize(cat.name);
+    if (!CategoryValidator.isValid(sanitizedName)) {
+      throw new Error('INVALID_CATEGORY_NAME');
+    }
     const id = crypto.randomUUID();
     await setDoc(
       catDoc(userId, id),
-      categoryWritePayload({ ...cat, id }, now()),
+      categoryWritePayload({ ...cat, id, name: sanitizedName }, now()),
     );
     return id;
   },
@@ -417,25 +456,48 @@ export const expenseRepository = {
   async updateCategory(cat: Category): Promise<void> {
     requireVerifiedEmail();
     const userId = uid(); if (!userId || !cat.id) return;
+    const sanitizedName = CategoryValidator.sanitize(cat.name);
+    if (!CategoryValidator.isValid(sanitizedName)) {
+      throw new Error('INVALID_CATEGORY_NAME');
+    }
     await setDoc(
       catDoc(userId, cat.id),
-      categoryWritePayload(cat, now()),
+      categoryWritePayload({ ...cat, name: sanitizedName }, now()),
       { merge: true },
     );
   },
 
+  /**
+   * Renumber a set of categories in one atomic batch.
+   *
+   * The batch is deliberate: a reorder touches every category in a type, and a
+   * per-document fallback like reassignExpenses' would leave the type half-renumbered —
+   * worse than either the old or the new order. The price is that one row the rules
+   * refuse takes the whole batch down, which used to surface as a generic "update failed"
+   * that repeated forever with no way to tell which category was at fault. Screen for
+   * that up front and name the row instead.
+   */
   async updateCategoriesBatch(categories: Category[]): Promise<void> {
     requireVerifiedEmail();
-    const userId = uid();
-    if (!userId || categories.length === 0) return;
-    const batch = writeBatch(fs()!);
+    const userId = uid(); if (!userId) return;
+    const firestore = fs(); if (!firestore) return;
     const ts = now();
-    for (const cat of categories) {
-      batch.set(
-        catDoc(userId, cat.id),
-        categoryWritePayload(cat, ts),
-        { merge: true },
-      );
+    const payloads = categories
+      .filter((cat) => cat.id)
+      .map((cat) => {
+        const name = CategoryValidator.sanitize(cat.name);
+        return categoryWritePayload({ ...cat, name: name || cat.name }, ts);
+      });
+
+    const rejected = payloads.filter((p) => !isRulesWritableCategory(p as WritableCategoryShape));
+    if (rejected.length > 0) {
+      const names = rejected.map((c) => String(c.name ?? c.id ?? '')).join(', ');
+      throw new UnwritableCategoryError(names);
+    }
+
+    const batch = writeBatch(firestore);
+    for (const payload of payloads) {
+      batch.set(catDoc(userId, String(payload.id)), payload, { merge: true });
     }
     await batch.commit();
   },
@@ -484,7 +546,7 @@ export const expenseRepository = {
     const userId = uid(); if (!userId) return undefined;
     const snap = await getDoc(expDoc(userId, id));
     if (!snap.exists()) return undefined;
-    return { id: snap.id, ...snap.data() } as Expense;
+    return { ...snap.data(), id: snap.id } as Expense;
   },
 
   async getExpensesInRange(start: number, end: number): Promise<Expense[]> {
@@ -492,7 +554,7 @@ export const expenseRepository = {
     const q = query(expCol(userId), where('dateMillis', '>=', start), where('dateMillis', '<', end), orderBy('dateMillis', 'desc'));
     const snap = await getDocs(q);
     return snap.docs
-      .map(d => ({ id: d.id, ...d.data() } as Expense))
+      .map(d => ({ ...d.data(), id: d.id } as Expense))
       .filter(e => e.deleted !== true);
   },
 
@@ -519,7 +581,7 @@ export const expenseRepository = {
       (snap) => {
         cb(
           snap.docs
-            .map(d => ({ id: d.id, ...d.data() } as Expense))
+            .map(d => ({ ...d.data(), id: d.id } as Expense))
             .filter(e => e.deleted !== true)
         );
       },
@@ -649,7 +711,7 @@ export const expenseRepository = {
     const snap = await getDocs(catCol(userId));
     // Keep the Uncategorized sentinel out of dedupe groups (matches Android)
     const categories = snap.docs
-      .map(d => ({ id: d.id, ...d.data() } as Category))
+      .map(d => ({ ...d.data(), id: d.id } as Category))
       .filter(c => c.id !== UNCATEGORIZED_ID);
 
     const groups: Record<string, Category[]> = {};
@@ -742,30 +804,63 @@ export const expenseRepository = {
  * by an interrupted delete — a one-time pass, plus the manual "Deduplicate"
  * action, covers that.
  *
- * The marker is written even when some rows could not be repaired. A document the
- * rules will never accept would otherwise keep the sweep un-recorded forever, so
- * every cold start would re-read the whole collection chasing a repair that cannot
- * succeed — the exact cost this marker exists to avoid.
+ * The marker is written even when some rows could not be repaired, AND when the scan
+ * itself throws. A document the rules will never accept would otherwise keep the sweep
+ * un-recorded forever, so every cold start would re-read the whole collection chasing a
+ * repair that cannot succeed — the exact cost this marker exists to avoid.
+ *
+ * The throwing case used to skip the write, which was worse than the un-repairable-row
+ * case it already guarded against: quota exhaustion makes the scan throw, and a skipped
+ * marker makes the next cold start scan again, which spends more quota. That loop
+ * sustains itself. Android has always recorded the scan regardless
+ * (AppRepository.sweepOrphanedExpenses wraps the repair in runCatching); this is parity.
+ *
+ * `orphanScanVersion` records *which* sweep ran, not merely that one did — see
+ * ORPHAN_SCAN_VERSION.
  */
 async function sweepOrphanedExpenses(userId: string): Promise<void> {
-  const unfixable = await repairOrphanedExpenses(userId);
-  if (unfixable > 0) {
-    console.warn(`[sweepOrphanedExpenses] ${unfixable} expense(s) could not be repaired`);
+  let scanTruncated = false;
+  try {
+    const result = await repairOrphanedExpenses(userId);
+    scanTruncated = result.scanTruncated;
+    if (result.unfixable > 0) {
+      console.warn(`[sweepOrphanedExpenses] ${result.unfixable} expense(s) could not be repaired`);
+    }
+    if (scanTruncated) {
+      console.warn('[sweepOrphanedExpenses] scan capped at 5000 — older orphans may remain');
+    }
+  } catch (err) {
+    console.warn('[sweepOrphanedExpenses] scan incomplete; recording it anyway', err);
+  } finally {
+    await setDoc(
+      metaDoc(userId, 'dedupe'),
+      {
+        orphansScannedAt: now(),
+        orphanScanVersion: ORPHAN_SCAN_VERSION,
+        ...(scanTruncated ? { orphanRepairScanTruncated: true } : {}),
+      },
+      { merge: true },
+    );
   }
-  await setDoc(
-    metaDoc(userId, 'dedupe'),
-    { orphansScannedAt: now(), orphansScanVersion: ORPHANS_SCAN_VERSION },
-    { merge: true },
-  );
+}
+
+interface OrphanRepairResult {
+  unfixable: number;
+  scanTruncated: boolean;
 }
 
 /** Returns the number of orphans the rules refused to let us repair. */
-async function repairOrphanedExpenses(userId: string): Promise<number> {
+async function repairOrphanedExpenses(userId: string): Promise<OrphanRepairResult> {
   const catSnap = await getDocs(catCol(userId));
   const catIds = new Set(catSnap.docs.map((d) => d.id));
-  if (catIds.size === 0) return 0;
-  const expSnap = await getDocs(query(expCol(userId), limit(5_000)));
-  const orphans = expSnap.docs.filter((d) => {
+  if (catIds.size === 0) return { unfixable: 0, scanTruncated: false };
+  const ORPHAN_SCAN_CAP = 5_000;
+  const expSnap = await getDocs(
+    query(expCol(userId), orderBy('dateMillis', 'desc'), limit(ORPHAN_SCAN_CAP + 1)),
+  );
+  const scanTruncated = expSnap.docs.length > ORPHAN_SCAN_CAP;
+  const scanned = scanTruncated ? expSnap.docs.slice(0, ORPHAN_SCAN_CAP) : expSnap.docs;
+  const orphans = scanned.filter((d) => {
     const data = d.data();
     // Soft-deleted rows are filtered out of every read path and excluded from the
     // month total, so repointing them would only spend writes on rows nothing
@@ -775,9 +870,10 @@ async function repairOrphanedExpenses(userId: string): Promise<number> {
     const cid = String(data.categoryId ?? '');
     return cid.length > 0 && !catIds.has(cid);
   });
-  if (orphans.length === 0) return 0;
+  if (orphans.length === 0) return { unfixable: 0, scanTruncated };
   await ensureUncategorizedCategory(userId);
-  return reassignExpenses(orphans, UNCATEGORIZED_ID);
+  const unfixable = await reassignExpenses(orphans, UNCATEGORIZED_ID);
+  return { unfixable, scanTruncated };
 }
 
 async function deleteCollectionBatched(colRef: CollectionReference): Promise<void> {

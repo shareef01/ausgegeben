@@ -13,7 +13,7 @@ backend. Green CI has never once predicted correctness here.
 
 | Bug | Why nothing caught it |
 |---|---|
-| R8 stripped Room's generated constructors → **every release APK crashed on launch** | Debug builds don't run R8; CI built the release but never launched it |
+| R8 stripped WorkManager's Room-generated constructors (the app itself has no Room DB) → **every release APK crashed on launch** | Debug builds don't run R8; CI built the release but never launched it |
 | One rules-rejected document aborted a whole 450-doc batch, stranding healthy rows | Needs real rules + real data; mocks pass |
 | Legacy `Timestamp` `updatedAt` made **44% of a user's rows permanently uneditable** | Only visible by reading actual documents, not the schema |
 | Web API key silently deleted → **sign-in broken for everyone** | Deploys keep succeeding; nothing validated the key |
@@ -66,7 +66,14 @@ just as much: 12 of 17 categories on the account that surfaced it carried
 `cloudId` with a Timestamp `updatedAt`. Three expense documents exist with no
 core fields at all; they are inert and intentionally left.
 
-**Web `.btn` has no padding of its own.** Sizing comes from utility classes at each
+**Money display follows app language, not currency.** Both clients format amounts
+with the user's locale (`en` or `de`) via `Intl.NumberFormat` / `NumberFormat`.
+Currency still governs the **input** decimal separator (`EUR` → comma,
+`USD`/`GBP`/`CHF` → dot) in `parseAmount` / `formatAmountForInput`. Do not
+revert Android `formatAmount` to currency→locale heuristics — that diverged
+from web and produced different strings for the same user (AUS-008).
+
+**The web `.btn` has no padding of its own.** Sizing comes from utility classes at each
 call site. The 44px touch floor lives in a `@media (pointer: coarse)` block in
 `ios.css` — a mouse deliberately keeps the compact desktop sizing. Do not move it
 to an unconditional rule, and do not add `padding` to `.btn` (pages.css loads
@@ -110,8 +117,9 @@ Also unproven on that change: `assembleProdRelease` (R8) never ran for it.
 (`keystore.properties` + `ausgegeben-release.jks`, both gitignored), so
 `assembleProdRelease` now runs here. A signed release built at ≈HEAD passes R8
 (`minifyProdReleaseWithR8` ran, 5m), apksigner verifies the cert, the `-P`
-versionCode/versionName overrides are honored, and mapping.txt keeps Room's
-`_Impl` constructors.
+versionCode/versionName overrides are honored, and mapping.txt keeps WorkManager's
+Room `_Impl` constructors (the keep rule is still load-bearing via
+`androidx.work`, not an app Room database).
 
 **But that local keystore is a throwaway, not the release key — corrected
 2026-08-28.** Its certificate is `CN=Test, OU=Test, O=Test`, generated
@@ -175,6 +183,42 @@ guessed fixture. Confirmed working by the user on the real device afterward.
   use `adb shell screencap` then `adb pull`.
 - **PowerShell splits `-PausgegebenVersionName=1.2.3`** at the dots. Quote it, or
   run Gradle from Bash.
+- **`.github/release-cert.sha256` must hold the real release certificate fingerprint
+ or every release fails.** `release.yml` compares the built APK's signing certificate
+ against that file and refuses to publish on mismatch, because `apksigner verify` alone
+ exits 0 for *any* valid signature — including the throwaway `CN=Test` key — and an APK
+ signed with the wrong key cannot update an existing install. This is deliberately
+ fail-closed: a soft warning here is the same shape as the smoke-test soft pass that hid a
+ dead error endpoint for weeks.
+ **Updated 2026-08-31 — the placeholder is gone.** The file now holds
+ `24539f14a0e1462546df65bf8edaaeedadbed7cf7bb9b4c258c5463d9aed77ee`, verified against the
+ published artifact rather than copied forward: `gh release download v2.0.2` +
+ `apksigner verify --print-certs` reports exactly that digest for `CN=Ausgegeben,
+ O=shareef01`. The guard was also confirmed to have teeth — a locally built
+ `assembleProdRelease` signs `CN=Test` / `5009409a…`, which the pin rejects.
+ **The remaining hazard is that the file must be *committed*.** It was untracked (never
+ gitignored, just never added) and `release.yml` reads it from a fresh checkout at the tag,
+ so a tag pushed with it unstaged fails with "does not contain a SHA-256 fingerprint" —
+ a confusing message, since the value on disk is correct. Check `git ls-files
+ .github/release-cert.sha256` returns the path before tagging.
+ **The guard's own first run failed, 2026-08-31.** `v2.0.3` built and signed correctly with
+ the right key, and the check rejected it anyway: it grepped for `Signer #1 certificate
+ SHA-256 digest`, but the runner's build-tools now prints `V2 Signer: certificate SHA-256
+ digest`. The step picks the newest build-tools on the image (`sort -V | tail -1`), so that
+ output format drifts underneath you. It now matches either shape and requires all signers
+ to present one certificate. Note the pin was added *after* v2.0.2 shipped, so v2.0.3 was
+ the first tag ever to reach this step — a guard nothing has exercised is not a guard yet.
+ Second bug found while fixing the first: `tr -d '[:space:]:'` deletes newlines, so
+ collecting multiple signer lines produced one 128-character string that failed the
+ 64-hex check. Use `tr -d ' :'`.
+- **`web/.env.production` is single-copy, unbacked-up state.** It is gitignored and holds
+  all five production values (API key, auth domain, project id, app id, App Check
+  reCAPTCHA site key, error-report URL), and the web deploy runs *locally* — no CI job
+  deploys hosting. Lose that file and a rebuild produces a bundle with no Firebase config
+  at all. That is caught, but only after a live deploy: `vite.config.ts` fails the build
+  when the API key is present and the App Check key is not, and `smoke.mjs` hard-fails on a
+  bundle containing no API key (`npm run deploy` runs smoke immediately after deploying).
+  Re-derive the values from Firebase Console → Project settings and App Check if needed.
 - **`assembleProdRelease` without `-P` flags produces versionCode 1**, and
   installing it over a real release fails as a downgrade — sometimes *silently*.
   Always confirm with `adb shell dumpsys package … | grep versionCode`.
@@ -207,8 +251,8 @@ guessed fixture. Confirmed working by the user on the real device afterward.
 ```bash
 # web
 cd web && npm test && npm run lint && npm run lint:css && npm run build
-cd web && npm run test:rules      # 37 rules tests, Firestore emulator
-cd web && npm run test:emulator   # 39 repository tests, Firestore emulator
+cd web && npm run test:rules      # rules tests, Firestore emulator (JDK 21)
+cd web && npm run test:emulator   # repository tests, Firestore emulator
 cd web && npm run smoke           # smoke-test the deployed site
 
 # android (JAVA_HOME set)

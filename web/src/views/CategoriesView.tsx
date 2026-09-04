@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Category, TransactionType } from '@/models/types';
-import { expenseRepository, EmailNotVerifiedError, UNCATEGORIZED_ID } from '@/repositories/expenseRepository';
+import { expenseRepository, EmailNotVerifiedError, UnwritableCategoryError, UNCATEGORIZED_ID } from '@/repositories/expenseRepository';
 
 import { CategoryIconTile, EmptyState, LoadingListSkeleton, SignatureText } from '@/components/ui';
 import { useToastStore } from '@/services/toastStore';
 import { CategoryLucideIcon, CATEGORY_ICON_KEYS, categoryIconLabel } from '@/components/CategoryLucideIcon';
-import { IconBroom, IconDelete, IconCheck, IconClose } from '@/components/Icons';
+import { IconBroom, IconDelete, IconCheck, IconClose, IconChevronUp, IconChevronDown } from '@/components/Icons';
 import { colorIntToHex } from '@/utils/currency';
+import { CategoryValidator } from '@/utils/categoryValidator';
 import { CATEGORY_COLOR_INTS, colorIntsMatch } from '@/utils/categoryStyle';
 import { useTranslation, type TranslationKey } from '@/i18n';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -47,6 +48,7 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
   const [showDedupeConfirm, setShowDedupeConfirm] = useState(false);
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [saving, setSaving] = useState(false);
+  const [reordering, setReordering] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -97,8 +99,11 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
 
   const saveEditor = async () => {
     if (!editor || saving) return;
-    const name = editor.name.trim();
-    if (!name) return;
+    const sanitizedName = CategoryValidator.sanitize(editor.name);
+    if (!CategoryValidator.isValid(sanitizedName)) {
+      showToast(t('categoryInvalidName'));
+      return;
+    }
     const isUpdate = Boolean(editor.id);
     setSaving(true);
     try {
@@ -107,7 +112,7 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
         if (existing) {
           await expenseRepository.updateCategory({
             ...existing,
-            name,
+            name: sanitizedName,
             iconName: editor.iconName,
             colorInt: editor.colorInt,
           });
@@ -115,7 +120,7 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
       } else {
         const maxOrder = filtered.reduce((m, c) => Math.max(m, c.sortOrder), -1);
         await expenseRepository.insertCategory({
-          name,
+          name: sanitizedName,
           iconName: editor.iconName,
           colorInt: editor.colorInt,
           transactionType: filter,
@@ -129,6 +134,43 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
       showToast(categoryErrorMessage(err, isUpdate ? 'update' : 'add', t));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const moveCategory = async (cat: Category, up: boolean) => {
+    if (reordering) return;
+    const currentIndex = filtered.findIndex((c) => c.id === cat.id);
+    if (currentIndex === -1) return;
+    const targetIndex = up ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= filtered.length) return;
+
+    setReordering(true);
+    try {
+      const reordered = [...filtered];
+      const [removed] = reordered.splice(currentIndex, 1);
+      reordered.splice(targetIndex, 0, removed);
+      const updatedCategories = reordered.map((c, idx) => ({
+        ...c,
+        sortOrder: idx,
+      }));
+      setCategories((prev) => {
+        const otherTypes = prev.filter((c) => c.transactionType !== filter || c.id === UNCATEGORIZED_ID);
+        return [...otherTypes, ...updatedCategories];
+      });
+      await expenseRepository.updateCategoriesBatch(updatedCategories);
+    } catch (err) {
+      console.error('[CategoriesView] reorder failed', err);
+      // Name the offending row: a reorder is one atomic batch, so a single category the
+      // rules refuse blocks every reorder in that type. A generic "update failed" left
+      // the user repeating an action that could never succeed.
+      showToast(
+        err instanceof UnwritableCategoryError
+          ? t('categoryErrorUnwritable', { names: err.categoryNames })
+          : t('categoryErrorUpdateFailed'),
+      );
+      await reload({ showSkeleton: false });
+    } finally {
+      setReordering(false);
     }
   };
 
@@ -271,14 +313,14 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
 
             <div className="category-editor__preview">
               <CategoryIconTile iconName={editor.iconName} color={colorIntToHex(editor.colorInt)} size={44} />
-              <span className="category-editor__preview-name">{editor.name.trim() || t('categoryNamePrompt')}</span>
+              <span className="category-editor__preview-name">{CategoryValidator.sanitize(editor.name) || t('categoryNamePrompt')}</span>
             </div>
 
             <div className="flex items-center gap-3">
               <button
                 type="button"
                 className="btn btn-primary flex-1 py-3.5 font-bold text-sm"
-                disabled={!editor.name.trim() || saving}
+                disabled={!CategoryValidator.isValid(editor.name) || saving}
                 onClick={() => void saveEditor()}
               >
                 {saving ? t('actionSaving') : t('actionSave').toLowerCase()}
@@ -319,26 +361,48 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
                      <p className="categories-empty__text">{t('categoriesEmptyForType')}</p>
                    </div>
                  ) : (
-                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                   {filtered.map((cat) => (
-                      <div key={cat.id} className="card--pro p-4 flex items-center gap-4 bg-surface border border-white/5 shadow-none">
+                 <div className="flex flex-col gap-3">
+                   {filtered.map((cat, index) => (
+                      <div key={cat.id} className="card--pro p-4 flex items-center gap-3 bg-surface border border-white/5 shadow-none">
                           <button
                             type="button"
-                            className="category-row-edit flex items-center gap-4 flex-1 min-w-0 text-left"
+                            className="category-row-edit flex items-center gap-3.5 flex-1 min-w-0 text-left"
                             onClick={() => startEdit(cat)}
                             aria-label={`${t('categoryEditTitle')}: ${cat.name}`}
                           >
                             <CategoryIconTile iconName={cat.iconName} color={colorIntToHex(cat.colorInt)} />
                             <span className="flex-1 text-sm font-semibold text-on-background truncate">{cat.name}</span>
                           </button>
-                          <button
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              className="icon-btn"
+                              disabled={index === 0 || reordering}
+                              onClick={() => void moveCategory(cat, true)}
+                              aria-label={`${t('categoryMoveUp')}: ${cat.name}`}
+                              title={t('categoryMoveUp')}
+                            >
+                              <IconChevronUp width={18} height={18} aria-hidden />
+                            </button>
+                            <button
+                              type="button"
+                              className="icon-btn"
+                              disabled={index === filtered.length - 1 || reordering}
+                              onClick={() => void moveCategory(cat, false)}
+                              aria-label={`${t('categoryMoveDown')}: ${cat.name}`}
+                              title={t('categoryMoveDown')}
+                            >
+                              <IconChevronDown width={18} height={18} aria-hidden />
+                            </button>
+                            <button
                               type="button"
                               className="icon-btn icon-btn--danger"
                               onClick={() => void deleteCategory(cat)}
                               aria-label={t('actionDelete') + ' ' + cat.name}
-                          >
+                            >
                               <IconDelete width={18} height={18} aria-hidden />
-                          </button>
+                            </button>
+                          </div>
                       </div>
                    ))}
                  </div>

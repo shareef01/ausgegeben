@@ -10,3 +10,17 @@ ALLOWED_ORIGINS = "https://aus01.web.app"
 # console.* output is the storage layer; without this the dashboard shows nothing.
 [observability]
 enabled = true
+
+# Per-IP rate limit. The Origin check is not a security boundary — a non-browser
+# client can send any header it likes — so without this anyone could flood the logs
+# and burn the daily request allowance. Cloudflare's built-in limiter is used rather
+# than KV (1,000 writes/day on the free plan, and this would need one per request) or
+# Durable Objects (paid). It costs nothing and needs no extra service.
+#
+# 20 per minute per IP is far above real use: the client caps itself at 10 reports
+# per session and drops duplicates, so a genuine user cannot approach this even while
+# crash-looping.
+[[ratelimits]]
+name = "REPORT_LIMITER"
+namespace_id = "1001"
+simple = { limit = 20, period = 60 }

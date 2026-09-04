@@ -5,7 +5,7 @@ import { SignatureText } from '@/components/ui';
 import { CategoryLucideIcon } from '@/components/CategoryLucideIcon';
 import { IosSegmentedControl } from '@/components/IosSegmentedControl';
 import { IconClose } from '@/components/Icons';
-import { colorIntToHex, parseAmount } from '@/utils/currency';
+import { colorIntToHex, parseAmount, currencySymbol } from '@/utils/currency';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useToastStore } from '@/services/toastStore';
 import { useRef, useEffect, useCallback, useMemo, useState, type ReactNode } from 'react';
@@ -64,7 +64,7 @@ export function AddTransactionView({
   const handleEscape = useCallback(() => {
     requestClose();
   }, [requestClose]);
-  useFocusTrap(!suspended && vm.ready && !showDiscardConfirm, dialogRef, handleEscape);
+  useFocusTrap(!suspended && !showDiscardConfirm, dialogRef, handleEscape);
   useBodyScrollLock(!suspended);
 
   useEffect(() => {
@@ -83,6 +83,10 @@ export function AddTransactionView({
     wasSuspended.current = suspended;
   }, [suspended, vm.reloadCategories]);
 
+  const amountError = vm.error === t('errorValidAmount');
+  const categoryError = vm.error === t('errorChooseCategory');
+  const formErrorId = vm.error ? 'add-txn-error' : undefined;
+
   const handleSave = async () => {
     const result = await vm.save();
     if (result.ok) {
@@ -97,16 +101,6 @@ export function AddTransactionView({
     }
   };
 
-  if (!vm.ready) {
-    return (
-      <div className="fixed inset-0 z-[200] safe-overlay bg-background/80 backdrop-blur-xl flex items-center justify-center" role="status" aria-live="polite">
-        <div className="card--pro add-txn add-txn--loading">
-          {t('loading')}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <>
     <div
@@ -116,13 +110,18 @@ export function AddTransactionView({
     >
       <div
         ref={dialogRef}
-        className="card--pro add-txn"
+        className={`card--pro add-txn${!vm.ready ? ' add-txn--loading' : ''}`}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="add-txn-title"
+        aria-labelledby={vm.ready ? 'add-txn-title' : undefined}
+        aria-label={vm.ready ? undefined : t('loading')}
         tabIndex={-1}
       >
+        {!vm.ready ? (
+          <div role="status" aria-live="polite">{t('loading')}</div>
+        ) : (
+        <>
         <div className="add-txn__header">
           <h2 id="add-txn-title" className="modal-title add-txn__title">
             <SignatureText text={vm.isEditing ? t('editTransaction') : t('addTransaction')} />
@@ -156,6 +155,8 @@ export function AddTransactionView({
                 value={vm.form.amountInput}
                 onChange={(e) => vm.setAmountInput(e.target.value)}
                 disabled={vm.loadFailed}
+                aria-invalid={amountError || undefined}
+                aria-describedby={amountError ? formErrorId : undefined}
               />
             </div>
           </div>
@@ -182,6 +183,8 @@ export function AddTransactionView({
               className="add-txn__cats"
               role="group"
               aria-labelledby="txn-category-label"
+              aria-invalid={categoryError || undefined}
+              aria-describedby={categoryError ? formErrorId : undefined}
             >
               {vm.categories.length === 0 ? (
                 <div className="categories-empty add-txn__cats-empty">
@@ -226,7 +229,7 @@ export function AddTransactionView({
           </div>
 
           {vm.error ? (
-            <p className="add-txn__error" role="alert">{vm.error}</p>
+            <p id="add-txn-error" className="add-txn__error" role="alert">{vm.error}</p>
           ) : null}
         </div>
 
@@ -264,6 +267,8 @@ export function AddTransactionView({
             </button>
           )}
         </div>
+        </>
+        )}
       </div>
     </div>
     <ConfirmDialog
@@ -289,10 +294,6 @@ function CatIcon({ color, children }: { color: string; children: ReactNode }) {
       {children}
     </span>
   );
-}
-
-function currencySymbol(currency: string): string {
-  return currency === 'EUR' ? '€' : currency === 'USD' ? '$' : currency === 'GBP' ? '£' : currency;
 }
 
 function decimalSep(currency: string): string {

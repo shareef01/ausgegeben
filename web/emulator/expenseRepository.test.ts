@@ -261,6 +261,7 @@ describe('deduplicateCategories', () => {
 });
 
 describe('deleteAllUserData', () => {
+  // 420 docs = two 400-doc batches; under CI load this can exceed the default 30s.
   it('clears every expense and category past the batch limit', async () => {
     await seedCategory({ id: 'cat-1', name: 'Groceries' });
     const total = 420;
@@ -282,7 +283,7 @@ describe('deleteAllUserData', () => {
 
     expect((await getDocs(expCol())).size).toBe(0);
     expect((await getDocs(catCol())).size).toBe(0);
-  });
+  }, 60_000);
 });
 
 describe('account deletion marker', () => {
@@ -348,7 +349,7 @@ describe('orphan scan version', () => {
 
     expect(await categoryIdOf('orphan')).toBe(UNCATEGORIZED_ID);
     const marker = await getDoc(doc(emulatorFirestore(), `users/${TEST_UID}/meta/dedupe`));
-    expect(marker.data()?.orphansScanVersion).toBe(1);
+    expect(marker.data()?.orphanScanVersion).toBe(1);
   });
 
   it('skips the sweep when the recorded version is current', async () => {
@@ -358,7 +359,7 @@ describe('orphan scan version', () => {
       categoriesDeduped: true,
       ranAt: Date.now(),
       orphansScannedAt: Date.now(),
-      orphansScanVersion: 1,
+      orphanScanVersion: 1,
     });
 
     await expenseRepository.ensureSeeded();

@@ -43,7 +43,7 @@ class AuthRepository @Inject constructor(
     private val firebaseAuth: FirebaseAuth,
     private val preferenceManager: PreferenceManager,
     private val firestoreClient: FirestoreClient,
-) : AuthActions {
+) : AuthActions, AccountDeletionAuth {
     private val _authUser = MutableStateFlow(firebaseAuth.currentUser?.toAuthUser())
     val authState: StateFlow<AuthUser?> = _authUser.asStateFlow()
 
@@ -110,7 +110,7 @@ class AuthRepository @Inject constructor(
      * Fails with [WRONG_PASSWORD] or [TOO_MANY_ATTEMPTS] so callers can tell a bad password
      * (retry in place) from a lockout (give up).
      */
-    suspend fun reauthenticate(password: String): Result<Unit> = runCatching {
+    override suspend fun reauthenticate(password: String): Result<Unit> = runCatching {
         val user = firebaseAuth.currentUser ?: error("Not signed in")
         val email = user.email ?: error("Not signed in")
         try {
@@ -123,7 +123,7 @@ class AuthRepository @Inject constructor(
     }
 
     /** Deletes the Firebase Auth user. Caller should reauthenticate, mark pending, wipe, then call this. */
-    suspend fun deleteAccount(): Result<Unit> = runCatching {
+    override suspend fun deleteAccount(): Result<Unit> = runCatching {
         val user = firebaseAuth.currentUser ?: error("Not signed in")
         var lastError: Exception? = null
         repeat(3) { attempt ->

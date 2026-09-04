@@ -12,6 +12,7 @@ import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderF
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
+import com.google.firebase.firestore.PersistentCacheSettings
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -33,13 +34,16 @@ class AusgegebenApplication : Application(), Configuration.Provider {
         if (!emulatorsHooked) {
             installAppCheck()
         }
-        // Spark-compatible: cache Firestore locally for offline / faster reloads
-        FirebaseFirestore.getInstance().firestoreSettings = FirebaseFirestoreSettings.Builder()
-            .setPersistenceEnabled(true)
+        // Spark-compatible: cache Firestore locally for offline / faster reloads.
         // Cap offline cache (~100 MiB) so financial history cannot grow unbounded on disk.
         // The Firebase SDK does not offer app-level encryption of this cache; rely on
         // platform FBE + allowBackup=false. Sensitive prefs are sealed via PrefsCrypto.
-        .setCacheSizeBytes(FirestoreClient.CACHE_SIZE_BYTES)
+        FirebaseFirestore.getInstance().firestoreSettings = FirebaseFirestoreSettings.Builder()
+            .setLocalCacheSettings(
+                PersistentCacheSettings.newBuilder()
+                    .setSizeBytes(FirestoreClient.CACHE_SIZE_BYTES)
+                    .build(),
+            )
             .build()
     }
 
@@ -73,12 +77,10 @@ class AusgegebenApplication : Application(), Configuration.Provider {
 
     private fun installAppCheck() {
         val factory = resolveAppCheckFactory()
-            ?: if (BuildConfig.DEBUG) {
-                Log.w(TAG, "App Check provider unavailable in debug")
-                return
-            } else {
-                error("App Check provider required in release")
-            }
+        if (factory == null) {
+            Log.w(TAG, "App Check provider unavailable — continuing without it")
+            return
+        }
         try {
             FirebaseAppCheck.getInstance().installAppCheckProviderFactory(factory)
             if (BuildConfig.DEBUG) {
@@ -98,11 +100,10 @@ class AusgegebenApplication : Application(), Configuration.Provider {
                     }
             }
         } catch (e: Exception) {
-            if (BuildConfig.DEBUG) {
-                Log.w(TAG, "App Check provider install failed", e)
-            } else {
-                throw e
-            }
+            // App Check is deliberately unenforced project-wide (AGENTS.md §2): sideloaded
+            // GitHub APKs cannot pass Play Integrity, and enforcement is per-service anyway.
+            // A failed install must not crash launch — the rules are the actual boundary.
+            Log.w(TAG, "App Check provider install failed — continuing without it", e)
         }
     }
 

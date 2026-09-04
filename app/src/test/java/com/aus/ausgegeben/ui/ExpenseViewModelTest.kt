@@ -7,6 +7,7 @@ import com.aus.ausgegeben.data.ExpenseActions
 import com.aus.ausgegeben.data.TransactionPreferences
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
+import com.aus.ausgegeben.util.RecordListPeriod
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -157,6 +158,47 @@ class ExpenseViewModelTest {
         assertTrue(called)
         assertEquals(false, success)
         assertEquals(null, fakeExpenses.lastDeletedId)
+    }
+
+    @Test
+    fun toolbarFilters_andSearchQuery_updateUiStateProperly() = runTest(dispatcher) {
+        val job = launch { viewModel.uiState.collect {} }
+        advanceUntilIdle()
+
+        // uiState combines insightsFlow and dayTotalsFlow, both of which end in
+        // flowOn(Dispatchers.Default) — real threads that advanceUntilIdle() does not wait
+        // for, since it only drains the virtual scheduler. combine withholds its first
+        // emission until every input has produced one, so asserting immediately raced the
+        // thread pool and intermittently read the placeholder initialValue instead
+        // (isLoading = true, blank toolbar). That lost the race only under the load of the
+        // full suite, which is why the test passed when run alone. Wait for the first real
+        // emission; after it, toolbar changes travel solely through the test dispatcher.
+        viewModel.uiState.first { !it.isLoading }
+
+        viewModel.setSearchQuery("coffee")
+        advanceUntilIdle()
+        assertEquals("coffee", viewModel.uiState.value.toolbar.searchQuery)
+
+        viewModel.setSearchQuery("")
+        advanceUntilIdle()
+        assertEquals("", viewModel.uiState.value.toolbar.searchQuery)
+
+        viewModel.setTypeFilter(TransactionTypeFilter.INCOME)
+        advanceUntilIdle()
+        assertEquals(TransactionTypeFilter.INCOME, viewModel.uiState.value.toolbar.typeFilter)
+
+        viewModel.setListPeriod(RecordListPeriod.ALL_TIME.key)
+        advanceUntilIdle()
+        assertEquals(RecordListPeriod.ALL_TIME.key, viewModel.uiState.value.toolbar.listPeriod)
+
+        // Reset to defaults
+        viewModel.setTypeFilter(TransactionTypeFilter.ALL)
+        viewModel.setListPeriod(RecordListPeriod.THIS_MONTH.key)
+        advanceUntilIdle()
+        assertEquals(TransactionTypeFilter.ALL, viewModel.uiState.value.toolbar.typeFilter)
+        assertEquals(RecordListPeriod.THIS_MONTH.key, viewModel.uiState.value.toolbar.listPeriod)
+
+        job.cancel()
     }
 
     private class FakeCategoryActions : CategoryActions {
