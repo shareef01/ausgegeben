@@ -71,6 +71,7 @@ async function seedAlreadySweptAccount(): Promise<void> {
 
   await setDoc(doc(db, `users/${TEST_UID}/meta/dedupe`), {
     categoriesDeduped: true, ranAt: Date.now(), orphansScannedAt: Date.now(),
+    orphansScanVersion: 1,
   });
 }
 

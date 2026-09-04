@@ -471,6 +471,16 @@ describe('firestore.rules', () => {
     );
   });
 
+  it('accepts a versioned orphan-scan marker', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertSucceeds(
+      setDoc(doc(db, 'users/alice/meta/dedupe'), {
+        orphansScannedAt: Date.now(),
+        orphansScanVersion: 1,
+      }),
+    );
+  });
+
   it('rejects dedupe markers with bad types, unknown keys, or no keys at all', async () => {
     const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
     await assertFails(
@@ -483,6 +493,12 @@ describe('firestore.rules', () => {
       setDoc(doc(db, 'users/alice/meta/dedupe'), {
         categoriesDeduped: true,
         somethingElse: 1,
+      }),
+    );
+    await assertFails(
+      setDoc(doc(db, 'users/alice/meta/dedupe'), {
+        orphansScannedAt: Date.now(),
+        orphansScanVersion: '1',
       }),
     );
     await assertFails(setDoc(doc(db, 'users/alice/meta/dedupe'), { ranAt: Date.now() }));

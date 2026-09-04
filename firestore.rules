@@ -155,11 +155,17 @@ service cloud.firestore {
     // neither key is mandatory — but at least one has to be present.
     function validDedupeMarker() {
       let d = request.resource.data;
-      return d.keys().hasOnly(['categoriesDeduped', 'ranAt', 'orphansScannedAt'])
+      return d.keys().hasOnly([
+          'categoriesDeduped', 'ranAt', 'orphansScannedAt', 'orphansScanVersion'
+        ])
         && d.keys().hasAny(['categoriesDeduped', 'orphansScannedAt'])
         && (!('categoriesDeduped' in d) || d.categoriesDeduped is bool)
         && (!('ranAt' in d) || d.ranAt is number)
-        && (!('orphansScannedAt' in d) || d.orphansScannedAt is number);
+        && (!('orphansScannedAt' in d) || d.orphansScannedAt is number)
+        && (!('orphansScanVersion' in d)
+          || (d.orphansScanVersion is number
+            && d.orphansScanVersion >= 0
+            && d.orphansScanVersion < 10000));
     }
 
     // Written before irreversible wipe so a failed Auth delete cannot re-seed

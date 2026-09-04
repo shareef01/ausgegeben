@@ -169,6 +169,7 @@ export function useAddTransactionViewModel(expenseId?: string) {
         budgetAlert = await checkBudgetAlert(form.transactionType, amount, savedId);
       } catch (err) {
         console.error('[useAddTransactionViewModel] budget check failed', err);
+        budgetAlert = t('errorBudgetCheckFailed');
       }
       return { ok: true, budgetAlert };
       } catch (err) {
