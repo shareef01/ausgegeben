@@ -1,0 +1,48 @@
+{
+  "base": "979c0959",
+  "branch": "cleanup/20260904-unused-files",
+  "backup": "backup/pre-cleanup/20260904",
+  "removed": [
+    {
+      "path": "app/src/main/java/com/aus/ausgegeben/util/DisplayUtils.kt",
+      "reason": "enableHighRefreshRate never called",
+      "heuristics": ["symbol-search", "no-manifest-ref"],
+      "evidence": "rg DisplayUtils|enableHighRefreshRate — definition only"
+    },
+    {
+      "path": "app/src/main/java/com/aus/ausgegeben/ui/components/AppBrandMark.kt",
+      "reason": "AppBrandMark never composed; AppBrandIcon is the live mark",
+      "heuristics": ["symbol-search"],
+      "evidence": "rg AppBrandMark( — definition only"
+    },
+    {
+      "path": "app/src/main/java/com/aus/ausgegeben/ui/components/AppInteractions.kt",
+      "reason": "premiumClickable never applied",
+      "heuristics": ["symbol-search"],
+      "evidence": "rg premiumClickable — definition only"
+    },
+    {
+      "path": "app/src/main/res/drawable/placeholder.png",
+      "reason": "unreferenced drawable, not the launcher icon",
+      "heuristics": ["resource-name-search"],
+      "evidence": "rg R.drawable.placeholder|@drawable/placeholder — no hits"
+    }
+  ],
+  "falsePositives": [
+    {
+      "path": "app/src/main/java/com/aus/ausgegeben/ui/components/TabSwipe.kt",
+      "reason": "SwipeableTabSurface used by MainTabPager; compile failed after delete; restored in 473b8fc5"
+    }
+  ],
+  "gitignore": [".reasonix/"],
+  "manualReview": [
+    {
+      "path": "web/src/utils/categoryReorder.ts",
+      "note": "untracked leftover; CategoriesView does not import it"
+    },
+    {
+      "path": "web/src/utils/categoryReorder.test.ts",
+      "note": "untracked; only imports the leftover helper"
+    }
+  ]
+}
