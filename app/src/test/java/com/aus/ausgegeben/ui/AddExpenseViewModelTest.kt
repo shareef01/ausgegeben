@@ -185,6 +185,30 @@ class AddExpenseViewModelTest {
     }
 
     @Test
+    fun saveExpense_budgetCheckFailure_stillSucceedsAndSurfacesFallback() = runTest(dispatcher) {
+        fakePreferences.monthlyBudget.value = 100.0
+        fakeExpenses.sumMonthThrows = true
+        viewModel.onCategorySelect(expenseCategory)
+        viewModel.onAmountChange("10,00")
+
+        var success = false
+        var error: String? = null
+        var alert: String? = null
+        viewModel.saveExpense(
+            TransactionType.EXPENSE,
+            onSuccess = { success = true },
+            onError = { error = it },
+            onBudgetAlert = { alert = it },
+        )
+        advanceUntilIdle()
+
+        assertTrue(success)
+        assertNull(error)
+        assertEquals(appString(R.string.error_budget_check_failed), alert)
+        assertTrue(fakeExpenses.insertCalled)
+    }
+
+    @Test
     fun resetForm_clearsEverything() {
         viewModel.onCategorySelect(expenseCategory)
         viewModel.onAmountChange("42")
@@ -227,6 +251,7 @@ class AddExpenseViewModelTest {
         var updateCalled = false
         var lastInserted: Expense? = null
         var lastUpdated: Expense? = null
+        var sumMonthThrows = false
 
         override fun getExpensesInRange(startMillis: Long, endMillis: Long): Flow<List<Expense>> =
             MutableStateFlow(emptyList())
@@ -245,7 +270,10 @@ class AddExpenseViewModelTest {
 
         override suspend fun deleteExpense(expense: Expense) = Result.success(Unit)
         override suspend fun duplicateExpense(expense: Expense) = Result.success(Unit)
-        override suspend fun sumMonthExpenses(excludeExpenseId: String): Double = sumMonthResult
+        override suspend fun sumMonthExpenses(excludeExpenseId: String): Double {
+            if (sumMonthThrows) throw IllegalStateException("FAILED_PRECONDITION")
+            return sumMonthResult
+        }
     }
 
     /**
