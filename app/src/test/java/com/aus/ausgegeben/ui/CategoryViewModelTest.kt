@@ -142,6 +142,29 @@ class CategoryViewModelTest {
     }
 
     @Test
+    fun addCategory_invalidName_setsErrorMessageAndDoesNotInsert() = runTest(dispatcher) {
+        viewModel.addCategory("--->", "home", 1, "expense")
+        advanceUntilIdle()
+
+        assertFalse(fakeActions.insertCalled)
+        assertEquals(
+            appString(R.string.category_error_add_failed),
+            viewModel.errorMessage.value,
+        )
+    }
+
+    @Test
+    fun updateCategory_invalidName_setsErrorMessageAndDoesNotUpdate() = runTest(dispatcher) {
+        viewModel.updateCategory(cat0.copy(name = ";;;"))
+        advanceUntilIdle()
+
+        assertEquals(
+            appString(R.string.category_error_update_failed),
+            viewModel.errorMessage.value,
+        )
+    }
+
+    @Test
     fun updateCategory_transactionTypeChanged_alsoRetypesExpenses() = runTest(dispatcher) {
         fakeActions.setCategories(listOf(cat0))
         viewModel.updateCategory(cat0.copy(transactionType = "income"))

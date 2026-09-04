@@ -10,14 +10,14 @@ jobs:
   android:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
           java-version: 17
 
-      - uses: android-actions/setup-android@v4
+      - uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
 
       - run: chmod +x gradlew
 
@@ -31,8 +31,17 @@ jobs:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
           if [ -z "$GOOGLE_SERVICES_JSON" ]; then
-            echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::GOOGLE_SERVICES_JSON secret not set — skipping the release build, so R8 is not exercised."
+            # Forks cannot see secrets, and failing their PRs would be noise. On a
+            # same-repo run the secret is supposed to be there, so its absence is a real
+            # problem: skipping leaves the job green while R8 never runs, and an R8-only
+            # crash is the single worst bug this project has shipped.
+            if [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ]; then
+              echo "available=false" >> "$GITHUB_OUTPUT"
+              echo "::warning::Fork PR — no secret, so the release build (R8) is skipped."
+            else
+              echo "::error::GOOGLE_SERVICES_JSON is not set. R8 would silently not run."
+              exit 1
+            fi
           else
             printf '%s' "$GOOGLE_SERVICES_JSON" | base64 -d > app/google-services.json
             echo "available=true" >> "$GITHUB_OUTPUT"
@@ -57,9 +66,9 @@ jobs:
   instrumentation:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
           java-version: 17
@@ -80,8 +89,16 @@ jobs:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
           if [ -z "$GOOGLE_SERVICES_JSON" ]; then
-            echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::GOOGLE_SERVICES_JSON secret not set — skipping instrumentation tests."
+            # Same reasoning as the android job: green-with-a-warning hid the fact that
+            # none of the three instrumentation classes ran, including the one guarding
+            # the FileProvider export boundary.
+            if [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ]; then
+              echo "available=false" >> "$GITHUB_OUTPUT"
+              echo "::warning::Fork PR — no secret, so instrumentation tests are skipped."
+            else
+              echo "::error::GOOGLE_SERVICES_JSON is not set. Instrumentation would silently not run."
+              exit 1
+            fi
           else
             printf '%s' "$GOOGLE_SERVICES_JSON" | base64 -d > app/google-services.json
             echo "available=true" >> "$GITHUB_OUTPUT"
@@ -93,7 +110,7 @@ jobs:
       # covered by whatever device development happens on.
       - name: Run instrumentation tests
         if: steps.firebase_config.outputs.available == 'true'
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
           api-level: 29
           target: google_apis
@@ -104,9 +121,9 @@ jobs:
   web:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22
           cache: npm
@@ -135,15 +152,15 @@ jobs:
   rules:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
           # firebase-tools Firestore emulator requires JDK 21+
           java-version: 21
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22
           cache: npm

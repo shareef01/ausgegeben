@@ -153,19 +153,26 @@ service cloud.firestore {
     // Records the one-time maintenance passes (category dedupe, orphaned-expense
     // sweep) so cold starts can skip them. Either may be written on its own, so
     // neither key is mandatory — but at least one has to be present.
+    // `orphanScanVersion` records *which* sweep ran, not merely that one did. Gating on
+    // the mere presence of orphansScannedAt is what made a shipped repair unrunnable once:
+    // the marker was already set on every account that had cold-started, so the new
+    // cleanup could never fire on the accounts that needed it. Bounded like every other
+    // client-written number here.
     function validDedupeMarker() {
       let d = request.resource.data;
       return d.keys().hasOnly([
-          'categoriesDeduped', 'ranAt', 'orphansScannedAt', 'orphansScanVersion'
+          'categoriesDeduped', 'ranAt', 'orphansScannedAt',
+          'orphanRepairScanTruncated', 'orphanScanVersion'
         ])
         && d.keys().hasAny(['categoriesDeduped', 'orphansScannedAt'])
         && (!('categoriesDeduped' in d) || d.categoriesDeduped is bool)
         && (!('ranAt' in d) || d.ranAt is number)
         && (!('orphansScannedAt' in d) || d.orphansScannedAt is number)
-        && (!('orphansScanVersion' in d)
-          || (d.orphansScanVersion is number
-            && d.orphansScanVersion >= 0
-            && d.orphansScanVersion < 10000));
+        && (!('orphanRepairScanTruncated' in d) || d.orphanRepairScanTruncated is bool)
+        && (!('orphanScanVersion' in d)
+          || (d.orphanScanVersion is int
+            && d.orphanScanVersion >= 0
+            && d.orphanScanVersion < 1000000));
     }
 
     // Written before irreversible wipe so a failed Auth delete cannot re-seed

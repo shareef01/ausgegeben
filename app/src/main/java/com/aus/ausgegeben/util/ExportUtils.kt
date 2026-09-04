@@ -44,6 +44,8 @@ object ExportUtils {
                 val categoryById = categories.associateBy { it.id }
                 val dateFormat = SimpleDateFormat("yyyy-MM-dd,HH:mm", Locale.US)
 
+                // Local wall-clock date/time with no offset column — matches web exportCsv
+                // and the app's local-calendar month buckets (AUS-025).
                 val header = "date,time,type,category,note,amount"
                 val unknownLabel = context.getString(R.string.record_unknown_category)
                 val rows = expenses.map { expense ->
@@ -55,13 +57,25 @@ object ExportUtils {
                         expense.transactionType,
                         category,
                         expense.note,
-                        expense.amount.toString()
+                        formatAmountCell(expense.amount)
                     ).joinToString(",") { csvEscape(it) }
                 }
 
                 val exportDir = File(context.cacheDir, "exports").apply { mkdirs() }
+                // Drop anything a previous export left behind before writing. The file
+                // name is fixed and nothing ever deleted it, so a full copy of the user's
+                // financial history sat in the cache directory indefinitely after a single
+                // share. App-private and allowBackup=false, so this is data residency
+                // rather than exposure -- but a finance app should not keep a plaintext
+                // export around for no reason.
+                exportDir.listFiles()?.forEach { runCatching { it.delete() } }
                 val file = File(exportDir, "ausgegeben_export.csv")
-                file.writeText((listOf(header) + rows).joinToString("\n"))
+                // U+FEFF so Excel on Windows reads the file as UTF-8. Without it Excel
+                // assumes the system ANSI code page and mangles every umlaut, which
+                // matters because German is a first-class locale here. Written at the
+                // file layer, not into the row builder, so the CSV parity tests keep
+                // asserting exact bytes against the web client.
+                file.writeText("\uFEFF" + (listOf(header) + rows).joinToString("\n"))
 
                 val uri = FileProvider.getUriForFile(
                     context,
@@ -84,6 +98,17 @@ object ExportUtils {
     }
 
     private fun csvEscape(value: String): String = csvEscapeField(value)
+
+    /**
+     * Two decimals rather than [Double.toString], which renders 5.0 as "5.0" and 1e9 as
+     * "1.0E9" where the web client's `String(amount)` renders "5" and "1000000000" — the
+     * same expense exported differently depending on which client produced the file.
+     * [Locale.US] keeps the separator a dot on every device, matching the web output.
+     * Kept internal so the parity contract is asserted directly rather than through
+     * exportCsv, which needs a Context and a repository.
+     */
+    internal fun formatAmountCell(amount: Double): String =
+        String.format(Locale.US, "%.2f", amount)
 
     internal fun csvEscapeField(value: String): String {
         // Neutralize spreadsheet formula triggers (=, +, -, @, tab, CR) so a

@@ -99,6 +99,20 @@ class InsightsViewModel @Inject constructor(
 }
 
 /**
+ * Stand-in for a category an expense still points at but which no longer exists, so the
+ * amount stays visible in the breakdown instead of vanishing from it. Name and colour
+ * match the web client's fallback (`cat?.name ?? '?'`, `0xff7eb0e8`) so the same orphan
+ * looks the same on both clients. The id is the dangling categoryId, which keeps distinct
+ * orphans in distinct rows and keeps [categoryMapsEquivalent] comparisons stable.
+ */
+internal fun orphanCategoryPlaceholder(categoryId: String): Category = Category(
+    id = categoryId,
+    name = "?",
+    iconName = "help",
+    colorInt = 0xff7eb0e8.toInt(),
+)
+
+/**
  * Pure, and separated from the ViewModel so the totals/rounding/grouping logic can be
  * tested directly instead of only through the combine/flowOn/stateIn pipeline — the same
  * reasoning categoriesAfterMove was pulled out of CategoryViewModel for.
@@ -142,9 +156,16 @@ internal fun buildInsightsState(
     // Round like web's computeTotals / groupByCategory: repeated Double addition leaves
     // artefacts (0.1 + 0.2), and unrounded values leaked into the distinctUntilChanged
     // comparison below, so equivalent states could look different.
+    //
+    // An expense whose category no longer exists keeps its own row rather than being
+    // dropped. mapNotNull used to discard it, which made the breakdown silently disagree
+    // with the headline total — the money left the chart with no indication, while the
+    // "Spent" figure above it still counted the row. Orphans are reachable (see
+    // deleteCategory's unfixable rows), and the web client has always shown them as "?".
     fun mapTotals(totals: Map<String, Double>): Map<Category, Double> =
-        totals.mapNotNull { (categoryId, amount) ->
-            categoryById[categoryId]?.let { it to CurrencyUtils.roundAmount(amount) }
+        totals.map { (categoryId, amount) ->
+            val category = categoryById[categoryId] ?: orphanCategoryPlaceholder(categoryId)
+            category to CurrencyUtils.roundAmount(amount)
         }.toMap()
 
     return InsightsUiState(
