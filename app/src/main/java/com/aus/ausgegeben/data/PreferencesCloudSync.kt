@@ -180,6 +180,8 @@ class PreferencesCloudSync @Inject constructor(
         const val SYNC_ERROR_NETWORK = "network"
         const val SYNC_ERROR_GENERIC = "generic"
         private val VALID_LOCALES = setOf("en", "de")
+        private val VALID_CURRENCIES = setOf("EUR", "USD", "GBP", "CHF")
+        private val ANALYTICS_PERIOD_REGEX = Regex("^(all_time|this_month|last_month|month:[0-9]{4}-(0[1-9]|1[0-2]))$")
 
         // Same set as web preferencesSync.VALID_THEMES
         private val VALID_THEMES = setOf(
@@ -205,30 +207,39 @@ class PreferencesCloudSync @Inject constructor(
             // Existing cloud prefs docs predate this field — treat missing as already onboarded
             // (matches web's parseRemote), so a legacy doc never re-triggers onboarding.
             val onboardingComplete = raw["onboardingComplete"] as? Boolean ?: true
+            val rawCurrency = raw["currency"] as? String
+            val currency = if (rawCurrency in VALID_CURRENCIES) rawCurrency!! else "EUR"
+            val rawPeriod = raw["analyticsPeriod"] as? String
+            val analyticsPeriod = if (rawPeriod != null && ANALYTICS_PERIOD_REGEX.matches(rawPeriod)) {
+                rawPeriod
+            } else {
+                "this_month"
+            }
+
             return SyncedPreferences(
-                currency = (raw["currency"] as? String)?.takeIf { it.isNotBlank() } ?: "EUR",
+                currency = currency,
                 locale = locale,
                 themeMode = themeMode,
                 onboardingComplete = onboardingComplete,
                 dailyReminder = raw["dailyReminder"] as? Boolean ?: true,
                 reminderHour = ((raw["reminderHour"] as? Number)?.toInt() ?: 19).coerceIn(0, 23),
                 reminderMinute = ((raw["reminderMinute"] as? Number)?.toInt() ?: 0).coerceIn(0, 59),
-                analyticsPeriod = raw["analyticsPeriod"] as? String ?: "this_month",
+                analyticsPeriod = analyticsPeriod,
                 monthlyBudget = monthlyBudget,
                 updatedAt = updatedAt,
             )
         }
 
         private fun SyncedPreferences.toFirestoreMap(): Map<String, Any?> = mapOf(
-            "currency" to currency,
-            "locale" to locale,
-            "themeMode" to themeMode,
+            "currency" to if (currency in VALID_CURRENCIES) currency else "EUR",
+            "locale" to if (locale in VALID_LOCALES) locale else "en",
+            "themeMode" to if (themeMode in VALID_THEMES) themeMode else "system",
             "onboardingComplete" to onboardingComplete,
             "dailyReminder" to dailyReminder,
-            "reminderHour" to reminderHour,
-            "reminderMinute" to reminderMinute,
-            "analyticsPeriod" to analyticsPeriod,
-            "monthlyBudget" to monthlyBudget,
+            "reminderHour" to reminderHour.coerceIn(0, 23),
+            "reminderMinute" to reminderMinute.coerceIn(0, 59),
+            "analyticsPeriod" to if (ANALYTICS_PERIOD_REGEX.matches(analyticsPeriod)) analyticsPeriod else "this_month",
+            "monthlyBudget" to monthlyBudget?.takeIf { it > 0 },
             "updatedAt" to updatedAt,
         )
     }
