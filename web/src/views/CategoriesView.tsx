@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Category, TransactionType } from '@/models/types';
 import { expenseRepository, EmailNotVerifiedError, UnwritableCategoryError, UNCATEGORIZED_ID } from '@/repositories/expenseRepository';
+import { categoriesAfterMove } from '@/utils/categoryReorder';
 
 import { CategoryIconTile, EmptyState, LoadingListSkeleton, SignatureText } from '@/components/ui';
 import { useToastStore } from '@/services/toastStore';
@@ -139,25 +140,16 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
 
   const moveCategory = async (cat: Category, up: boolean) => {
     if (reordering) return;
-    const currentIndex = filtered.findIndex((c) => c.id === cat.id);
-    if (currentIndex === -1) return;
-    const targetIndex = up ? currentIndex - 1 : currentIndex + 1;
-    if (targetIndex < 0 || targetIndex >= filtered.length) return;
+    const changed = categoriesAfterMove(categories, cat, up);
+    if (changed.length === 0) return;
 
     setReordering(true);
     try {
-      const reordered = [...filtered];
-      const [removed] = reordered.splice(currentIndex, 1);
-      reordered.splice(targetIndex, 0, removed);
-      const updatedCategories = reordered.map((c, idx) => ({
-        ...c,
-        sortOrder: idx,
-      }));
-      setCategories((prev) => {
-        const otherTypes = prev.filter((c) => c.transactionType !== filter || c.id === UNCATEGORIZED_ID);
-        return [...otherTypes, ...updatedCategories];
-      });
-      await expenseRepository.updateCategoriesBatch(updatedCategories);
+      const changedMap = new Map(changed.map((c) => [c.id, c.sortOrder]));
+      setCategories((prev) =>
+        prev.map((c) => (changedMap.has(c.id) ? { ...c, sortOrder: changedMap.get(c.id)! } : c)),
+      );
+      await expenseRepository.updateCategoriesBatch(changed);
     } catch (err) {
       console.error('[CategoriesView] reorder failed', err);
       // Name the offending row: a reorder is one atomic batch, so a single category the

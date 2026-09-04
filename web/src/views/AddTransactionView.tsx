@@ -91,12 +91,11 @@ export function AddTransactionView({
     const result = await vm.save();
     if (result.ok) {
       haptics.success();
-      // Prefer budget alert when present (same urgency as Android's onBudgetAlert);
-      // otherwise confirm the write like Android's saved/updated snackbar.
-      useToastStore.getState().show(
-        result.budgetAlert
-          ?? (vm.isEditing ? t('transactionUpdated') : t('transactionSaved')),
-      );
+      const savedNotice = vm.isEditing ? t('transactionUpdated') : t('transactionSaved');
+      const message = result.budgetAlert
+        ? `${savedNotice} · ${result.budgetAlert}`
+        : savedNotice;
+      useToastStore.getState().show(message);
       onSaved();
     }
   };
