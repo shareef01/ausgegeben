@@ -65,6 +65,7 @@ web/*.tsbuildinfo
 .agent/
 .artifacts/
 .cursor/
+.reasonix/
 
 # Obsolete local helper (replaced by scripts/strip-commit-trailers.py)
 scripts/_strip_coauthor.py
