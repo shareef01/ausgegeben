@@ -169,7 +169,10 @@ class AddExpenseViewModel @Inject constructor(
                         // after the write already succeeded (web parity).
                         runCatching { checkBudgetAlert(type, amt, excludeIdForBudget) }
                             .onSuccess { alert -> alert?.let { onBudgetAlert?.invoke(it) } }
-                            .onFailure { e -> Log.w(TAG, "budget check failed", e) }
+                            .onFailure { e ->
+                                Log.w(TAG, "budget check failed", e)
+                                onBudgetAlert?.invoke(app.getString(R.string.error_budget_check_failed))
+                            }
                         resetForm()
                         onSuccess()
                     } else {

@@ -188,6 +188,7 @@
     <string name="error_amount_required">Enter an amount greater than 0</string>
     <string name="error_category_type_mismatch">This category is for %1$s transactions</string>
     <string name="error_budget_exceeded">Monthly budget exceeded: %1$s of %2$s</string>
+    <string name="error_budget_check_failed">Couldn\'t check the monthly budget. The transaction was saved.</string>
 
     <!-- Snackbars -->
     <string name="snackbar_transaction_deleted">Transaction deleted</string>

@@ -1,0 +1,4 @@
+# Production release signing certificate SHA-256 from `apksigner verify --print-certs`.
+# DN: CN=Ausgegeben, O=shareef01
+# Compared in .github/workflows/release.yml — fail closed on mismatch, missing line, or extra signers.
+24539f14a0e1462546df65bf8edaaeedadbed7cf7bb9b4c258c5463d9aed77ee

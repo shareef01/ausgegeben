@@ -12,6 +12,7 @@ import com.aus.ausgegeben.data.auth.AuthRepository
 import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.util.CategoryDedupe
 import com.aus.ausgegeben.util.CurrencyUtils
+import com.aus.ausgegeben.util.OrphanScan
 import com.aus.ausgegeben.util.dateRangeMillis
 import com.google.firebase.firestore.AggregateField
 import com.google.firebase.firestore.AggregateSource
@@ -225,7 +226,7 @@ class AppRepository @Inject constructor(
                     Log.w(TAG, "dedupe skipped marker", dedupeResult.exceptionOrNull())
                 }
             }
-            if (!sweptNow && !marker.contains("orphansScannedAt")) {
+            if (!sweptNow && OrphanScan.needsSweep(marker.data)) {
                 runCatching { sweepOrphanedExpenses(u) }
                     .onFailure { e -> Log.w(TAG, "orphan repair failed", e) }
             }
@@ -299,7 +300,10 @@ class AppRepository @Inject constructor(
         runCatching { repairOrphanedExpenses(u) }
             .onFailure { e -> Log.w(TAG, "orphan repair incomplete; recording scan anyway", e) }
         dedupeMarkerDoc(u).set(
-            mapOf("orphansScannedAt" to System.currentTimeMillis()),
+            mapOf(
+                "orphansScannedAt" to System.currentTimeMillis(),
+                "orphansScanVersion" to OrphanScan.VERSION,
+            ),
             SetOptions.merge(),
         ).await()
     }

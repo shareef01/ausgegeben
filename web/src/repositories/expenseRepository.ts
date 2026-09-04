@@ -1,4 +1,4 @@
-﻿import {
+import {
   collection, doc, setDoc, deleteDoc, getDoc, getDocs, query, where, orderBy, limit,
   onSnapshot, updateDoc, getAggregateFromServer, sum, type Unsubscribe, writeBatch,
   type CollectionReference, type QueryDocumentSnapshot,
@@ -7,6 +7,8 @@ import { getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
 import { t, getLocale, localeTag } from '@/i18n';
 import type { Category, Expense } from '@/models/types';
+import { categoryWritePayload, expenseWritePayload } from '@/utils/firestorePayloads';
+import { needsOrphanSweep, ORPHANS_SCAN_VERSION } from '@/utils/orphanScan';
 
 function uid(): string | null { return useAuthStore.getState().user?.uid ?? null; }
 function now() { return Date.now(); }
@@ -107,15 +109,14 @@ async function ensureUncategorizedCategory(userId: string): Promise<void> {
   const ref = catDoc(userId, UNCATEGORIZED_ID);
   const snap = await getDoc(ref);
   if (snap.exists()) return;
-  await setDoc(ref, {
+  await setDoc(ref, categoryWritePayload({
     id: UNCATEGORIZED_ID,
     name: t('recordUnknownCategory'),
     iconName: 'help_outline',
     colorInt: argb(0xff8e8e96),
     transactionType: 'expense',
     sortOrder: 999,
-    updatedAt: now(),
-  });
+  }, now()));
 }
 
 /**
@@ -300,7 +301,7 @@ export const expenseRepository = {
           await Promise.all(
             DEFAULT_CATEGORIES(t).map(async (cat) => {
               const id = crypto.randomUUID();
-              await setDoc(catDoc(userId, id), { ...cat, id, updatedAt: ts });
+              await setDoc(catDoc(userId, id), categoryWritePayload({ ...cat, id }, ts));
             }),
           );
         } else if (marker?.categoriesDeduped !== true) {
@@ -308,7 +309,7 @@ export const expenseRepository = {
           sweptNow = true;
           await setDoc(markerRef, { categoriesDeduped: true, ranAt: now() }, { merge: true });
         }
-        if (!sweptNow && typeof marker?.orphansScannedAt !== 'number') {
+        if (!sweptNow && needsOrphanSweep(marker as Record<string, unknown> | undefined)) {
           try {
             await sweepOrphanedExpenses(userId);
           } catch {
@@ -406,25 +407,37 @@ export const expenseRepository = {
     requireVerifiedEmail();
     const userId = uid(); if (!userId) throw new Error('Not signed in');
     const id = crypto.randomUUID();
-    const payload = {
-      ...cat,
-      id,
-      name: cat.name.trim().slice(0, 80),
-      updatedAt: now()
-    };
-    await setDoc(catDoc(userId, id), payload);
+    await setDoc(
+      catDoc(userId, id),
+      categoryWritePayload({ ...cat, id }, now()),
+    );
     return id;
   },
 
   async updateCategory(cat: Category): Promise<void> {
     requireVerifiedEmail();
     const userId = uid(); if (!userId || !cat.id) return;
-    const payload = {
-      ...cat,
-      name: cat.name.trim().slice(0, 80),
-      updatedAt: now()
-    };
-    await setDoc(catDoc(userId, cat.id), payload, { merge: true });
+    await setDoc(
+      catDoc(userId, cat.id),
+      categoryWritePayload(cat, now()),
+      { merge: true },
+    );
+  },
+
+  async updateCategoriesBatch(categories: Category[]): Promise<void> {
+    requireVerifiedEmail();
+    const userId = uid();
+    if (!userId || categories.length === 0) return;
+    const batch = writeBatch(fs()!);
+    const ts = now();
+    for (const cat of categories) {
+      batch.set(
+        catDoc(userId, cat.id),
+        categoryWritePayload(cat, ts),
+        { merge: true },
+      );
+    }
+    await batch.commit();
   },
 
   // SECURE: Safety-first deletion (move orphaned to uncategorized — except when
@@ -534,15 +547,13 @@ export const expenseRepository = {
       if (!dupSnap.empty) return dupSnap.docs[0].id;
     }
     const id = crypto.randomUUID();
-    const payload = {
-        ...expense,
-        id,
-        amount: roundAmount(expense.amount),
-        note: expense.note.trim().slice(0, 2000),
-        updatedAt: now()
-    } as any;
-    if (idempotencyKey) payload.idempotencyKey = idempotencyKey;
-    await setDoc(expDoc(userId, id), payload);
+    await setDoc(
+      expDoc(userId, id),
+      expenseWritePayload(
+        { ...expense, id },
+        { updatedAt: now(), idempotencyKey },
+      ),
+    );
     emitDataChanged();
     return id;
   },
@@ -554,13 +565,11 @@ export const expenseRepository = {
     if (!existing.exists()) {
       throw new Error('EXPENSE_NOT_FOUND');
     }
-    const payload = {
-      ...expense,
-      amount: roundAmount(expense.amount),
-      note: expense.note.trim().slice(0, 2000),
-      updatedAt: now()
-    };
-    await setDoc(expDoc(userId, expense.id), payload, { merge: true });
+    await setDoc(
+      expDoc(userId, expense.id),
+      expenseWritePayload(expense, { updatedAt: now() }),
+      { merge: true },
+    );
     emitDataChanged();
   },
 
@@ -743,7 +752,11 @@ async function sweepOrphanedExpenses(userId: string): Promise<void> {
   if (unfixable > 0) {
     console.warn(`[sweepOrphanedExpenses] ${unfixable} expense(s) could not be repaired`);
   }
-  await setDoc(metaDoc(userId, 'dedupe'), { orphansScannedAt: now() }, { merge: true });
+  await setDoc(
+    metaDoc(userId, 'dedupe'),
+    { orphansScannedAt: now(), orphansScanVersion: ORPHANS_SCAN_VERSION },
+    { merge: true },
+  );
 }
 
 /** Returns the number of orphans the rules refused to let us repair. */

@@ -177,6 +177,7 @@
     <string name="error_amount_required">gib einen betrag größer als 0 ein</string>
     <string name="error_category_type_mismatch">kategorie ist für %1$s-transaktionen</string>
     <string name="error_budget_exceeded">monatsbudget überschritten: %1$s von %2$s</string>
+    <string name="error_budget_check_failed">monatsbudget konnte nicht geprüft werden. die transaktion wurde gespeichert.</string>
 
     <!-- Snackbars -->
     <string name="snackbar_transaction_deleted">transaktion gelöscht</string>
