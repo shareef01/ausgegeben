@@ -19,6 +19,7 @@ export function AuthView() {
   const [info, setInfo] = useState<string | null>(null);
   const firebaseReady = authService.isAvailable();
   const passwordTooShort = tab === 'signup' && password.length > 0 && password.length < 8;
+  const passwordMismatch = tab === 'signup' && confirmPassword.length > 0 && password !== confirmPassword;
 
   const switchTab = (next: 'signin' | 'signup') => {
     setTab(next);
@@ -158,7 +159,7 @@ export function AuthView() {
               </button>
             </div>
             {passwordTooShort ? (
-              <p id="auth-password-hint" className="auth-page__field-hint" role="status">
+              <p id="auth-password-hint" className="auth-page__field-hint auth-page__field-hint--error" role="status">
                 {t('authErrorWeakPassword')}
               </p>
             ) : null}
@@ -176,7 +177,14 @@ export function AuthView() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 disabled={!firebaseReady || busy}
+                aria-invalid={passwordMismatch || undefined}
+                aria-describedby={passwordMismatch ? 'auth-confirm-hint' : undefined}
               />
+              {passwordMismatch ? (
+                <p id="auth-confirm-hint" className="auth-page__field-hint auth-page__field-hint--error" role="status">
+                  {t('authErrorPasswordMismatch')}
+                </p>
+              ) : null}
             </div>
           ) : null}
 

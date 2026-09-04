@@ -145,11 +145,21 @@ export function computeCashFlowTrend(expenses: Expense[], periodKey = 'all_time'
  */
 export function csvEscapeField(value: string): string {
   const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
-  if (!/[",\n]/.test(safe)) return safe;
+  // \r must quote as well as \n: a lone CR inside a note ends the record for most
+  // parsers, so an unquoted one splits a row in half. Browsers normalise textarea
+  // newlines to \n, but a note synced from Android can carry a bare CR, and this
+  // escaper is the security boundary for the export — Android already checks it.
+  if (!/[",\n\r]/.test(safe)) return safe;
   return `"${safe.replace(/"/g, '""')}"`;
 }
 
-/** Same columns and local-time formatting as Android ExportUtils ("yyyy-MM-dd,HH:mm"). */
+export function formatCsvAmount(amount: number): string {
+  return amount.toFixed(2);
+}
+
+/** Same columns and local-time formatting as Android ExportUtils ("yyyy-MM-dd,HH:mm").
+ * Date/time are the device's local calendar (no timezone offset column) — deliberate
+ * parity with month bucketing in the app (AUS-025). */
 export function exportCsv(expenses: Expense[], categories: Category[], unknownLabel: string): string {
   const catMap = new Map(categories.map((c) => [c.id, c]));
   const header = 'date,time,type,category,note,amount';
@@ -159,7 +169,12 @@ export function exportCsv(expenses: Expense[], categories: Category[], unknownLa
     const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
     const cat = catMap.get(e.categoryId)?.name ?? unknownLabel;
-    return [date, time, e.transactionType, cat, e.note, String(e.amount)]
+    // Two decimals, not String(amount): JS renders 5 as "5" while Kotlin's
+    // Double.toString() renders it "5.0", and Kotlin switches to "1.0E9" at scale
+    // where JS does not. The same expense therefore exported differently depending
+    // on which client produced the file, breaking diffs and re-imports. Amounts are
+    // bounded below 1e9 by the rules, so toFixed never reaches exponential form.
+    return [date, time, e.transactionType, cat, e.note, formatCsvAmount(e.amount)]
       .map(csvEscapeField)
       .join(',');
   });

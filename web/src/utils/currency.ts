@@ -79,12 +79,32 @@ export function parseAmount(input: string, currency = 'EUR'): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
+/**
+ * Prefill string for the amount field when editing an existing transaction.
+ *
+ * Always two decimals, matching Android's DecimalFormat("0.00"). Android used "0.##",
+ * which drops trailing zeros, so the same stored 12.50 prefilled as "12,5" there and
+ * "12,50" here — the same transaction rendering differently depending on which client
+ * opened it. Both re-parse correctly, so nothing was miscalculated; it was purely a
+ * visible parity gap. Asserted by MoneyParityTest / moneyParity.test.ts.
+ */
 export function formatAmountForInput(amount: number, currency = 'EUR'): string {
   const text = amount.toFixed(2);
   return decimalSeparatorFor(currency) === ',' ? text.replace('.', ',') : text;
 }
 
 export const SUPPORTED_CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF'] as const;
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  EUR: '€',
+  USD: '$',
+  GBP: '£',
+  CHF: 'CHF',
+};
+
+export function currencySymbol(code: string): string {
+  return CURRENCY_SYMBOLS[code] ?? code;
+}
 
 const CURRENCY_LABEL_KEYS: Record<string, TranslationKey> = {
   EUR: 'currencyEur',
@@ -97,3 +117,19 @@ export function currencyLabel(code: string): string {
   const key = CURRENCY_LABEL_KEYS[code];
   return key ? t(key) : code;
 }
+
+export function sanitizeAmountInput(raw: string, currency = 'EUR'): string {
+  const allowed = raw.replace(/[^\d,.]/g, '');
+  if (!allowed) return '';
+  const sep = decimalSeparatorFor(currency);
+  const firstSepIdx = allowed.search(/[,.]/);
+  if (firstSepIdx === -1) {
+    const cleaned = allowed.replace(/^0+(?=\d)/, '');
+    return cleaned.slice(0, 9);
+  }
+  const integerPart = allowed.slice(0, firstSepIdx).replace(/[,.]/g, '').replace(/^0+(?=\d)/, '').slice(0, 9);
+  const decimalPart = allowed.slice(firstSepIdx + 1).replace(/[,.]/g, '').slice(0, 2);
+  return `${integerPart || '0'}${sep}${decimalPart}`;
+}
+
+

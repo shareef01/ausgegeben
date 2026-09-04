@@ -399,18 +399,25 @@ private fun StatCard(
     Box(
         modifier = modifier
             .appGlassCard(RoundedCornerShape(AppRadius.md))
-            .padding(vertical = 12.dp, horizontal = 8.dp),
+            .padding(vertical = 12.dp, horizontal = 6.dp),
         contentAlignment = Alignment.Center
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            AutoScalingText(
                 text = label.uppercase(),
-                style = BillsAuroraTokens.labelStyle().copy(fontSize = 11.sp),
+                style = BillsAuroraTokens.labelStyle().copy(
+                    fontSize = 11.sp,
+                    letterSpacing = 0.5.sp
+                ),
+                minFontSize = 8.sp,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(4.dp))
-            Text(
+            AutoScalingText(
                 text = value,
                 style = TextStyle(
                     fontSize = 13.sp,
@@ -418,8 +425,9 @@ private fun StatCard(
                     fontFeatureSettings = "tnum",
                     color = color
                 ),
+                minFontSize = 9.5.sp,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }

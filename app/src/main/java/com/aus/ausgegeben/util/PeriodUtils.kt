@@ -88,7 +88,7 @@ fun AnalyticsPeriod.dateRangeMillis(nowMillis: Long = System.currentTimeMillis()
 
 fun analyticsPeriodOptions(
     nowMillis: Long = System.currentTimeMillis(),
-    monthsBack: Int = 12
+    monthsBack: Int = 14
 ): List<AnalyticsPeriodOption> {
     val cal = Calendar.getInstance().apply {
         timeInMillis = nowMillis

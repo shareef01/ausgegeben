@@ -239,10 +239,19 @@
   font-size: 0.875rem !important;
   font-weight: 800 !important;
   line-height: 1.15;
-  color: var(--color-on-background);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.finance-stat-chip--income .finance-stat-chip__value,
+.finance-stat-chip--income .money {
+  color: var(--color-income);
+}
+
+.finance-stat-chip--expense .finance-stat-chip__value,
+.finance-stat-chip--expense .money {
+  color: var(--color-expense);
 }
 
 /* ── Transaction List Restoration ── */
