@@ -271,11 +271,15 @@
 
 .transaction-list-bare__rows .txn-row-wrap {
   position: relative;
-  transition: background-color 0.15s ease;
+  transition: background-color 0.15s ease, transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .transaction-list-bare__rows .txn-row-wrap:hover {
   background: color-mix(in srgb, var(--color-on-surface) 4%, transparent);
+}
+
+.transaction-list-bare__rows .txn-row-wrap:active {
+  transform: scale(0.98);
 }
 
 /* Inset hairline — starts after icon column so it doesn’t collide with card radius */

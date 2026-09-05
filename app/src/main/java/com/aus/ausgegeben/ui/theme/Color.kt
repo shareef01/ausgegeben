@@ -28,11 +28,11 @@ object AppColors {
     /** Interactive Layer States */
     val NumpadPress = Color(0x1AFFFFFF)
     val DisabledSurface = Color(0xFF18181B)
-    val DisabledContent = Color(0xFF3F3F46)
+    val DisabledContent = Color(0xFF52525B)
 
     val OnBackground = Color(0xFFFFFFFF)
     /** Metadata / Secondary Labels: Muted Slate */
-    val OnSurfaceVariant = Color(0xFFA1A1AA)
+    val OnSurfaceVariant = Color(0xFFD4D4D8)
 }
 
 // ── Palette aliases ───────────────────────────────────────────────────────────
@@ -61,6 +61,9 @@ val OnSurfaceVariantLight = Color(0xFF52525B)
 val IncomeGreenLight = Color(0xFF157A3A)
 val TransferGrayLight = Color(0xFF52525B)
 val SystemViolet = Color(0xFF8B5CF6)
+
+val ShadowDark = Color(0x80000000)
+val ShadowLight = Color(0x1A09090B)
 
 val FocusRing = Color(0xFF3B82F6)
 val ChartStrokeWidth = 6.dp
