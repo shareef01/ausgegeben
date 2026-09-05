@@ -99,7 +99,7 @@ const baseDark = (overrides: Partial<ThemePalette> = {}): ThemePalette => {
     surface: '#09090B',
     onSurface: '#FFFFFF',
     surfaceVariant: '#121214',
-    onSurfaceVariant: '#A1A1AA',
+    onSurfaceVariant: '#B0B0B8',
     outline: '#27272A',
     error: EXPENSE,
     income: INCOME_DARK,
@@ -128,7 +128,7 @@ const baseLight = (overrides: Partial<ThemePalette> = {}): ThemePalette => {
     surface: '#FFFFFF',
     onSurface: '#09090B',
     surfaceVariant: '#F8F8FA',
-    onSurfaceVariant: '#52525B',
+    onSurfaceVariant: '#404044',
     outline: '#D4D4D8',
     error: EXPENSE,
     income: INCOME_LIGHT,
@@ -314,31 +314,31 @@ export function applyTheme(palette: ThemePalette): void {
   root.style.setProperty('--color-on-transfer', onTransfer);
 
   if (palette.isDark) {
-    root.style.setProperty('--glass-bg', 'rgba(255, 255, 255, 0.03)');
-    root.style.setProperty('--glass-border', 'rgba(255, 255, 255, 0.07)');
-    root.style.setProperty('--glass-bg-elevated', 'rgba(9, 9, 11, 0.94)');
-    root.style.setProperty('--surface-border', 'rgba(255, 255, 255, 0.07)');
-    root.style.setProperty('--hairline-border', 'rgba(255, 255, 255, 0.07)');
-    root.style.setProperty('--hairline-divider', 'rgba(255, 255, 255, 0.06)');
-    root.style.setProperty('--overlay-scrim', 'rgba(0, 0, 0, 0.72)');
-    root.style.setProperty('--shadow-elevated', '0 10px 40px rgba(0, 0, 0, 0.45)');
-    root.style.setProperty('--shadow-nav-pill', '0 0 0 1px rgba(255, 255, 255, 0.04), 0 8px 32px rgba(0, 0, 0, 0.45)');
+    root.style.setProperty('--glass-bg', 'rgba(255, 255, 255, 0.05)');
+    root.style.setProperty('--glass-border', 'rgba(255, 255, 255, 0.1)');
+    root.style.setProperty('--glass-bg-elevated', 'rgba(9, 9, 11, 0.85)');
+    root.style.setProperty('--surface-border', 'rgba(255, 255, 255, 0.08)');
+    root.style.setProperty('--hairline-border', 'rgba(255, 255, 255, 0.08)');
+    root.style.setProperty('--hairline-divider', 'rgba(255, 255, 255, 0.08)');
+    root.style.setProperty('--overlay-scrim', 'rgba(0, 0, 0, 0.8)');
+    root.style.setProperty('--shadow-elevated', '0 12px 48px rgba(0, 0, 0, 0.6)');
+    root.style.setProperty('--shadow-nav-pill', '0 0 0 1px rgba(255, 255, 255, 0.06), 0 12px 32px rgba(0, 0, 0, 0.55)');
   } else {
     // Solid fills — translucent black wash left light UIs looking half-themed
-    root.style.setProperty('--glass-bg', palette.surface);
-    root.style.setProperty('--glass-border', 'rgba(0, 0, 0, 0.11)');
-    root.style.setProperty('--glass-bg-elevated', palette.surface);
-    root.style.setProperty('--surface-border', 'rgba(0, 0, 0, 0.11)');
-    root.style.setProperty('--hairline-border', 'rgba(0, 0, 0, 0.12)');
-    root.style.setProperty('--hairline-divider', 'rgba(0, 0, 0, 0.09)');
-    root.style.setProperty('--overlay-scrim', 'rgba(15, 15, 20, 0.36)');
+    root.style.setProperty('--glass-bg', 'color-mix(in srgb, ' + palette.surface + ' 85%, transparent)');
+    root.style.setProperty('--glass-border', 'rgba(0, 0, 0, 0.08)');
+    root.style.setProperty('--glass-bg-elevated', 'color-mix(in srgb, ' + palette.surface + ' 95%, transparent)');
+    root.style.setProperty('--surface-border', 'rgba(0, 0, 0, 0.08)');
+    root.style.setProperty('--hairline-border', 'rgba(0, 0, 0, 0.08)');
+    root.style.setProperty('--hairline-divider', 'rgba(0, 0, 0, 0.06)');
+    root.style.setProperty('--overlay-scrim', 'rgba(15, 15, 20, 0.45)');
     root.style.setProperty(
       '--shadow-elevated',
-      '0 8px 28px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04)',
+      '0 12px 32px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.03)',
     );
     root.style.setProperty(
       '--shadow-nav-pill',
-      '0 0 0 1px rgba(0, 0, 0, 0.06), 0 8px 28px rgba(0, 0, 0, 0.10)',
+      '0 0 0 1px rgba(0, 0, 0, 0.04), 0 12px 32px rgba(0, 0, 0, 0.08)',
     );
   }
 
