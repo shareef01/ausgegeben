@@ -41,6 +41,8 @@ firestore-debug.log
 firebase.emulator.json
 
 # Local audit harness (Playwright feature audit — local only, never committed)
+.audit-gradle/
+web/.audit-config/
 web/.audit-*.mjs
 web/.audit-shots/
 web/.inspect-*.mjs
