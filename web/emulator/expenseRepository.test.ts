@@ -110,6 +110,31 @@ describe('insertExpense', () => {
     expect((await getDocs(expCol())).size).toBe(1);
   });
 
+  it('collapses 20 concurrent creates onto one deterministic document', async () => {
+    const ids = await Promise.all(
+      Array.from({ length: 20 }, () => expenseRepository.insertExpense(draft, 'concurrent-key')),
+    );
+    expect(new Set(ids).size).toBe(1);
+    expect(ids[0]).toBe('f09d6c23d388ea5751b33a6b8eef0c50f660571c35966f819dd47f9af63cab3a');
+    expect((await getDocs(expCol())).size).toBe(1);
+  });
+
+  it('does not overwrite financial fields on a contradictory retry', async () => {
+    const id = await expenseRepository.insertExpense(draft, 'conflict-key');
+    await expenseRepository.insertExpense({ ...draft, amount: 999, note: 'contradiction' }, 'conflict-key');
+    const saved = (await getDoc(doc(expCol(), id))).data();
+    expect(saved?.amount).toBe(12.35);
+    expect(saved?.note).toBe('coffee');
+  });
+
+  it('returns a legacy random-id row with the same key', async () => {
+    await setDoc(doc(expCol(), 'legacy-random-id'), {
+      ...draft, idempotencyKey: 'legacy-key', updatedAt: Date.now(),
+    });
+    await expect(expenseRepository.insertExpense(draft, 'legacy-key')).resolves.toBe('legacy-random-id');
+    expect((await getDocs(expCol())).size).toBe(1);
+  });
+
   it('treats different keys as different transactions', async () => {
     await expenseRepository.insertExpense(draft, 'key-1');
     await expenseRepository.insertExpense(draft, 'key-2');
@@ -188,6 +213,15 @@ describe('deleteCategory', () => {
     await expenseRepository.deleteCategory('7');
 
     expect(await categoryIdOf('legacy')).toBe(UNCATEGORIZED_ID);
+  });
+
+  it('refuses to delete the referenced uncategorized sentinel', async () => {
+    await seedCategory({ id: UNCATEGORIZED_ID, name: 'Uncategorized' });
+    await seedExpense('e1', UNCATEGORIZED_ID);
+    await expect(expenseRepository.deleteCategory(UNCATEGORIZED_ID)).rejects.toThrow('CATEGORY_IN_USE');
+    expect(await categoryIds()).toContain(UNCATEGORIZED_ID);
+    expect(await categoryIdOf('e1')).toBe(UNCATEGORIZED_ID);
+    expect((await getDoc(doc(catCol(), UNCATEGORIZED_ID))).data()?.deletionState).toBeUndefined();
   });
 });
 

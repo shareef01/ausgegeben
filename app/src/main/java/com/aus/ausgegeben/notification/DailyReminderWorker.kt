@@ -12,6 +12,7 @@ import com.aus.ausgegeben.util.localDayStartMillis
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.CancellationException
 
 @HiltWorker
 class DailyReminderWorker @AssistedInject constructor(
@@ -58,6 +59,8 @@ class DailyReminderWorker @AssistedInject constructor(
             // WorkManager owns the next run. Re-enqueueing from in here is what grew the
             // unique-work chain without bound and let one failed node kill the whole chain.
             Result.success()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Exception) {
             Log.w(TAG, "daily reminder failed", e)
             Result.retry()

@@ -48,6 +48,14 @@ service cloud.firestore {
              .data.transactionType == request.resource.data.transactionType;
     }
 
+    // A category in the deletion protocol remains readable for recovery, but no
+    // current or old client may attach a new expense after the barrier is raised.
+    // Missing means active for every historical category document.
+    function expenseCategoryAcceptsReferences(userId) {
+      let cat = get(/databases/$(database)/documents/users/$(userId)/categories/$(request.resource.data.categoryId));
+      return !('deletionState' in cat.data) || cat.data.deletionState != 'deleting';
+    }
+
     // Fields written by builds that predate this allowlist. They are tolerated,
     // never required, and nothing reads them — but hasOnly() is evaluated against
     // the *merged* document, so excluding them made every row that carries one
@@ -107,7 +115,7 @@ service cloud.firestore {
         && validUpdatedAt(d)
         && (!('idempotencyKey' in d)
           || (d.idempotencyKey is string && d.idempotencyKey.size() < 128))
-        && (!('id' in d) || (d.id is string && d.id.size() < 64));
+        && (!('id' in d) || (d.id is string && d.id.size() <= 64));
     }
 
     // Categories came from the same legacy backend as expenses and carry the same
@@ -128,7 +136,7 @@ service cloud.firestore {
       let d = request.resource.data;
       return d.keys().hasOnly([
           'name', 'iconName', 'colorInt', 'transactionType', 'sortOrder',
-          'updatedAt', 'id', 'cloudId', 'deleted'
+          'updatedAt', 'id', 'cloudId', 'deleted', 'deletionState'
         ])
         && validLegacyCategoryFields(d)
         && d.keys().hasAll(['name', 'iconName', 'colorInt', 'transactionType', 'sortOrder'])
@@ -147,6 +155,7 @@ service cloud.firestore {
         && d.sortOrder >= 0
         && d.sortOrder < 10000
         && validUpdatedAt(d)
+        && (!('deletionState' in d) || d.deletionState == 'deleting')
         && (!('id' in d) || (d.id is string && d.id.size() < 64));
     }
 
@@ -236,7 +245,8 @@ service cloud.firestore {
           && validCategory();
         // Deletes require verification, except during account wipe after
         // meta/accountDeletion.pendingDeletion is set.
-        allow delete: if canDeleteOwned(userId);
+        allow delete: if canDeleteOwned(userId)
+          && (accountDeletionPending(userId) || resource.data.deletionState == 'deleting');
       }
 
       match /expenses/{expenseId} {
@@ -245,6 +255,7 @@ service cloud.firestore {
           && isEmailVerified()
           && validExpense()
           && exists(/databases/$(database)/documents/users/$(userId)/categories/$(request.resource.data.categoryId))
+          && expenseCategoryAcceptsReferences(userId)
           && expenseCategoryTypeMatches(userId);
         allow delete: if canDeleteOwned(userId);
       }

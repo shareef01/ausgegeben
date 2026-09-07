@@ -7,6 +7,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -168,6 +169,8 @@ class PreferencesCloudSync @Inject constructor(
                 .await()
             preferenceManager.setLastCloudSyncAt(System.currentTimeMillis())
             _syncError.value = null
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Exception) {
             Log.w(TAG, "failed to write preferences", e)
             _syncError.value = mapSyncFailure(e)

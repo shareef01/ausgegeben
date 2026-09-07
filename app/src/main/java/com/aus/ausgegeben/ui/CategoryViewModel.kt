@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.first
 import com.aus.ausgegeben.util.normalizeArgbInt
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.withTimeoutOrNull
@@ -101,6 +102,8 @@ class CategoryViewModel @Inject constructor(
                 }.onFailure { e ->
                     _errorMessage.value = errorText(e, R.string.category_error_add_failed)
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (e: Exception) {
                 _errorMessage.value = errorText(e, R.string.category_error_add_failed)
             }

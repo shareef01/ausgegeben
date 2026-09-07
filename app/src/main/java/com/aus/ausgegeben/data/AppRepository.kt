@@ -13,12 +13,16 @@ import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.util.CategoryDedupe
 import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.dateRangeMillis
+import com.aus.ausgegeben.util.expenseDocumentId
+import com.aus.ausgegeben.util.runSuspendCatching
 import com.google.firebase.firestore.AggregateField
 import com.google.firebase.firestore.AggregateSource
 import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.coroutineScope
@@ -171,16 +175,14 @@ class AppRepository @Inject constructor(
     /** True when wipe finished but Auth delete failed — blocks re-seeding empty accounts. */
     override suspend fun isAccountDeletionPending(): Boolean {
         val u = uid() ?: return false
-        return runCatching {
-            accountDeletionDoc(u).get().await().getBoolean("pendingDeletion") == true
-        }.getOrDefault(false)
+        return accountDeletionDoc(u).get().await().getBoolean("pendingDeletion") == true
     }
 
     /**
      * Mark wipe-in-progress before [deleteAllUserData] so a failed Auth delete cannot
      * look like a fresh account after [ensureSeeded] re-seeds defaults.
      */
-    override suspend fun markAccountDeletionPending(): Result<Unit> = runCatching {
+    override suspend fun markAccountDeletionPending(): Result<Unit> = runSuspendCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
         accountDeletionDoc(u).set(
             mapOf(
@@ -195,7 +197,7 @@ class AppRepository @Inject constructor(
      * already permits this delete: canDeleteOwned() passes here precisely *because*
      * pendingDeletion is true, so it works even for an unverified account.
      */
-    override suspend fun clearAccountDeletionPending(): Result<Unit> = runCatching {
+    override suspend fun clearAccountDeletionPending(): Result<Unit> = runSuspendCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
         accountDeletionDoc(u).delete().await()
     }
@@ -206,9 +208,9 @@ class AppRepository @Inject constructor(
      * deletion into a reported failure — so each is wrapped rather than allowed to throw.
      */
     override suspend fun clearAccountLocalState() {
-        runCatching { preferenceManager.clearAccountLocalState() }
+        runSuspendCatching { preferenceManager.clearAccountLocalState() }
             .onFailure { e -> Log.w(TAG, "could not clear local prefs after deletion", e) }
-        runCatching { firestoreClient.clearOfflineCache() }
+        runSuspendCatching { firestoreClient.clearOfflineCache() }
             .onFailure { e -> Log.w(TAG, "could not clear offline cache after deletion", e) }
     }
 
@@ -269,7 +271,7 @@ class AppRepository @Inject constructor(
                 }
             }
             if (!sweptNow && needsOrphanScan(marker.getLong("orphanScanVersion"))) {
-                runCatching { sweepOrphanedExpenses(u) }
+                runSuspendCatching { sweepOrphanedExpenses(u) }
                     .onFailure { e -> Log.w(TAG, "orphan repair failed", e) }
             }
             // Remove legacy Uncategorized (id "0") so intentional deletes stick — but
@@ -277,17 +279,17 @@ class AppRepository @Inject constructor(
             // this sink, and firestore.rules requires the target category to exist on
             // every expense update, so clearing it while still referenced left those rows
             // permanently uneditable (generic "save failed", no way to recover in-app).
-            runCatching {
+            runSuspendCatching {
                 if (catDoc(u, UNCATEGORIZED_ID).get().await().exists() &&
                     expenseDocsForCategory(u, UNCATEGORIZED_ID).isEmpty()
                 ) {
-                    catDoc(u, UNCATEGORIZED_ID).delete().await()
+                    deleteCategoryInto(u, UNCATEGORIZED_ID, null)
                 }
             }
         }
     }
 
-    override suspend fun deduplicateCategories(): Result<Unit> = runCatching {
+    override suspend fun deduplicateCategories(): Result<Unit> = runSuspendCatching {
         requireVerifiedEmail()
         val u = uid() ?: throw IllegalStateException("Not signed in")
         
@@ -303,13 +305,7 @@ class AppRepository @Inject constructor(
             val duplicates = group.filter { it.id != master.id }
 
             duplicates.forEach { dup ->
-                reassignCategoryExpenses(u, fromCategoryId = dup.id, toCategoryId = master.id)
-                // Narrow TOCTOU window (web parity): re-query immediately before delete.
-                val unfixable = reassignCategoryExpenses(u, fromCategoryId = dup.id, toCategoryId = master.id)
-                if (unfixable > 0) {
-                    Log.w(TAG, "deduplicateCategories: $unfixable expense(s) left orphaned by ${dup.id}")
-                }
-                catDoc(u, dup.id).delete().await()
+                deleteCategoryInto(u, dup.id, master.id)
             }
         }
         
@@ -342,7 +338,7 @@ class AppRepository @Inject constructor(
         // that failure skip the marker would rerun the whole-collection read on every
         // launch — the exact cost this is here to avoid, on the accounts that have
         // orphans. The manual "deduplicate categories" action re-runs the sweep.
-        val repair = runCatching { repairOrphanedExpenses(u) }
+        val repair = runSuspendCatching { repairOrphanedExpenses(u) }
         repair.onFailure { e -> Log.w(TAG, "orphan repair incomplete; recording scan anyway", e) }
         val scanTruncated = repair.getOrNull()?.scanTruncated == true
         if (scanTruncated) {
@@ -380,7 +376,7 @@ class AppRepository @Inject constructor(
         }
     }
 
-    override suspend fun insertCategory(category: Category): Result<String> = runCatching {
+    override suspend fun insertCategory(category: Category): Result<String> = runSuspendCatching {
         requireVerifiedEmail()
         val u = uid() ?: throw IllegalStateException("Not signed in")
         val sanitized = com.aus.ausgegeben.util.CategoryValidator.sanitize(category.name)
@@ -396,7 +392,7 @@ class AppRepository @Inject constructor(
         id
     }
 
-    override suspend fun updateCategory(category: Category): Result<Unit> = runCatching {
+    override suspend fun updateCategory(category: Category): Result<Unit> = runSuspendCatching {
         requireVerifiedEmail()
         val u = uid() ?: throw IllegalStateException("Not signed in")
         val sanitized = com.aus.ausgegeben.util.CategoryValidator.sanitize(category.name)
@@ -414,8 +410,8 @@ class AppRepository @Inject constructor(
      * worse state than either the old or new order. A batch commits all writes
      * together or none of them.
      */
-    override suspend fun updateCategoriesBatch(categories: List<Category>): Result<Unit> = runCatching {
-        if (categories.isEmpty()) return@runCatching
+    override suspend fun updateCategoriesBatch(categories: List<Category>): Result<Unit> = runSuspendCatching {
+        if (categories.isEmpty()) return@runSuspendCatching
         requireVerifiedEmail()
         val u = uid() ?: throw IllegalStateException("Not signed in")
         val prepared = categories.map { category ->
@@ -447,30 +443,14 @@ class AppRepository @Inject constructor(
         }.await()
     }
 
-    override suspend fun deleteCategory(category: Category): Result<Unit> = runCatching {
+    override suspend fun deleteCategory(category: Category): Result<Unit> = runSuspendCatching {
         requireVerifiedEmail()
         val u = uid() ?: throw IllegalStateException("Not signed in")
-        // Deleting the uncategorized sentinel is allowed; linked expenses keep
-        // categoryId "0" and the UI falls back to the unknown label.
-        if (category.id == UNCATEGORIZED_ID) {
-            catDoc(u, category.id).delete().await()
-            return@runCatching
-        }
-        // SECURE: Move orphaned expenses to "Uncategorized" (match string + legacy numeric ids)
-        ensureUncategorizedCategory(u)
-        reassignCategoryExpenses(u, fromCategoryId = category.id, toCategoryId = UNCATEGORIZED_ID)
-        // Narrow TOCTOU window (web parity): re-query immediately before delete so a
-        // concurrent write attaching an expense mid-delete is less likely to orphan it.
-        val unfixable = reassignCategoryExpenses(u, fromCategoryId = category.id, toCategoryId = UNCATEGORIZED_ID)
-        // Deliberately not thrown — see reassignExpenses: a row the rules will never
-        // accept must not permanently block deleting a category. But the count used to be
-        // discarded entirely, so the resulting orphans had no trace anywhere. They now
-        // also stay visible in Insights as "?" rather than being dropped from the
-        // breakdown, so the amount no longer disappears from the chart silently.
-        if (unfixable > 0) {
-            Log.w(TAG, "deleteCategory: $unfixable expense(s) left orphaned by ${category.id}")
-        }
-        catDoc(u, category.id).delete().await()
+        deleteCategoryInto(
+            u,
+            category.id,
+            if (category.id == UNCATEGORIZED_ID) null else UNCATEGORIZED_ID,
+        )
     }
 
     // ── Expenses ──
@@ -511,16 +491,35 @@ class AppRepository @Inject constructor(
      * an offline write replayed after restart had nothing stopping it from landing
      * twice. The key survives all three because it is stored on the document.
      */
-    override suspend fun insertExpense(expense: Expense, idempotencyKey: String?): Result<String> = runCatching {
+    override suspend fun insertExpense(expense: Expense, idempotencyKey: String?): Result<String> = runSuspendCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
         requireVerifiedEmail()
         if (idempotencyKey != null) {
+            // Historical releases used random ids. Return an existing legacy row before
+            // deriving the modern identity so an upgrade does not duplicate history.
             val existing = expCol(u)
                 .whereEqualTo("idempotencyKey", idempotencyKey)
                 .limit(1)
                 .get()
                 .await()
-            existing.documents.firstOrNull()?.let { return@runCatching it.id }
+            existing.documents.firstOrNull()?.let { return@runSuspendCatching it.id }
+
+            val id = expenseDocumentId(idempotencyKey)
+            val e = expense.copy(
+                id = id,
+                amount = roundAmount(expense.amount),
+                note = expense.note.trim().take(2000),
+            )
+            val ref = expDoc(u, id)
+            // The raw legacy-lookup field is rules-bounded; deterministic identity is
+            // fixed-size and therefore still supports arbitrarily long caller keys.
+            val payload = expensePayload(e, idempotencyKey.takeIf { it.length < 128 })
+            firestore.runTransaction { transaction ->
+                val deterministic = transaction.get(ref)
+                if (!deterministic.exists()) transaction.set(ref, payload)
+                id
+            }.await()
+            return@runSuspendCatching id
         }
         // Always mint a new id on insert so a crafted/stale id cannot overwrite history.
         val id = UUID.randomUUID().toString()
@@ -533,7 +532,7 @@ class AppRepository @Inject constructor(
         id
     }
 
-    override suspend fun updateExpense(expense: Expense): Result<Unit> = runCatching {
+    override suspend fun updateExpense(expense: Expense): Result<Unit> = runSuspendCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
         requireVerifiedEmail()
         val snap = expDoc(u, expense.id).get().await()
@@ -545,7 +544,7 @@ class AppRepository @Inject constructor(
         expDoc(u, expense.id).set(expensePayload(e), SetOptions.merge()).await()
     }
 
-    override suspend fun deleteExpense(expense: Expense): Result<Unit> = runCatching {
+    override suspend fun deleteExpense(expense: Expense): Result<Unit> = runSuspendCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
         requireVerifiedEmail()
         expDoc(u, expense.id).delete().await()
@@ -556,12 +555,14 @@ class AppRepository @Inject constructor(
     }
 
     /** Wipe all cloud docs for the signed-in user (account deletion). Keeps accountDeletion marker. */
-    override suspend fun deleteAllUserData(): Result<Unit> = runCatching {
+    override suspend fun deleteAllUserData(): Result<Unit> = runSuspendCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
         deleteCollectionBatched(expCol(u))
         deleteCollectionBatched(catCol(u))
-        runCatching { settingsPrefsDoc(u).delete().await() }
-        runCatching { dedupeMarkerDoc(u).delete().await() }
+        // Firestore delete already succeeds for an absent document. Any exception here
+        // is a real cleanup failure and must prevent irreversible Auth deletion.
+        settingsPrefsDoc(u).delete().await()
+        dedupeMarkerDoc(u).delete().await()
     }
 
     private suspend fun deleteCollectionBatched(
@@ -678,7 +679,7 @@ class AppRepository @Inject constructor(
     }
 
     override suspend fun updateExpenseTypesForCategory(categoryId: String, transactionType: String): Result<Unit> =
-        runCatching {
+        runSuspendCatching {
             requireVerifiedEmail()
             val u = uid() ?: throw IllegalStateException("Not signed in")
             val docs = expenseDocsForCategory(u, categoryId)
@@ -690,6 +691,8 @@ class AppRepository @Inject constructor(
                             batch.update(doc.reference, "transactionType", transactionType)
                         }
                     }.await()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
                 } catch (e: Exception) {
                     // Same failure shape reassignExpenses() guards against: a
                     // rules-rejected row fails its whole chunk, and the inert
@@ -700,6 +703,8 @@ class AppRepository @Inject constructor(
                     chunk.forEach { doc ->
                         try {
                             doc.reference.update("transactionType", transactionType).await()
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
                         } catch (docError: Exception) {
                             unfixable++
                             Log.w(TAG, "could not update type on ${doc.id}", docError)
@@ -759,27 +764,14 @@ class AppRepository @Inject constructor(
         docs: List<DocumentSnapshot>,
         toCategoryId: String,
     ): Int {
-        var unfixable = 0
         docs.chunked(450).forEach { chunk ->
-            try {
-                firestore.runBatch { batch ->
-                    chunk.forEach { doc ->
-                        batch.update(doc.reference, "categoryId", toCategoryId)
-                    }
-                }.await()
-            } catch (e: Exception) {
-                Log.w(TAG, "batch reassign rejected — retrying one at a time", e)
+            firestore.runBatch { batch ->
                 chunk.forEach { doc ->
-                    try {
-                        doc.reference.update("categoryId", toCategoryId).await()
-                    } catch (docError: Exception) {
-                        unfixable++
-                        Log.w(TAG, "could not reassign ${doc.id}", docError)
-                    }
+                    batch.update(doc.reference, "categoryId", toCategoryId)
                 }
-            }
+            }.await()
         }
-        return unfixable
+        return 0
     }
 
     /** Returns how many rows the rules refused, so callers can at least report it. */
@@ -788,6 +780,51 @@ class AppRepository @Inject constructor(
         fromCategoryId: String,
         toCategoryId: String,
     ): Int = reassignExpenses(expenseDocsForCategory(u, fromCategoryId), toCategoryId)
+
+    private suspend fun deleteCategoryInto(u: String, fromCategoryId: String, toCategoryId: String?) {
+        val source = catDoc(u, fromCategoryId)
+        source.set(
+            mapOf("deletionState" to "deleting", "updatedAt" to System.currentTimeMillis()),
+            SetOptions.merge(),
+        ).await()
+        try {
+            var linked = expenseDocsForCategory(u, fromCategoryId)
+            if (toCategoryId == null) {
+                if (linked.isNotEmpty()) throw CategoryInUseException()
+            } else {
+                if (linked.isNotEmpty()) {
+                    if (toCategoryId == UNCATEGORIZED_ID) ensureUncategorizedCategory(u)
+                    reassignExpenses(linked, toCategoryId)
+                }
+                linked = expenseDocsForCategory(u, fromCategoryId)
+                if (linked.isNotEmpty()) throw CategoryInUseException()
+            }
+            source.delete().await()
+        } catch (cancelled: CancellationException) {
+            reopenCategoryAfterFailedDelete(source)
+            throw cancelled
+        } catch (error: Exception) {
+            reopenCategoryAfterFailedDelete(source)
+            throw error
+        }
+    }
+
+    private suspend fun reopenCategoryAfterFailedDelete(
+        source: com.google.firebase.firestore.DocumentReference,
+    ) {
+        try {
+            source.update(
+                mapOf(
+                    "deletionState" to FieldValue.delete(),
+                    "updatedAt" to System.currentTimeMillis(),
+                ),
+            ).await()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (cleanupError: Exception) {
+            Log.w(TAG, "category deletion barrier remains; retry will resume", cleanupError)
+        }
+    }
 
     /**
      * Reassign expenses whose categoryId no longer exists (e.g. race orphan after
@@ -823,7 +860,18 @@ class AppRepository @Inject constructor(
 
     private suspend fun ensureUncategorizedCategory(u: String) {
         val ref = catDoc(u, UNCATEGORIZED_ID)
-        if (ref.get().await().exists()) return
+        val existing = ref.get().await()
+        if (existing.exists()) {
+            if (existing.getString("deletionState") == "deleting") {
+                ref.update(
+                    mapOf(
+                        "deletionState" to FieldValue.delete(),
+                        "updatedAt" to System.currentTimeMillis(),
+                    ),
+                ).await()
+            }
+            return
+        }
         val uncategorized = Category(
             id = UNCATEGORIZED_ID,
             name = localizedContext().getString(R.string.record_unknown_category),

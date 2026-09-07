@@ -5,6 +5,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
 import com.google.firebase.firestore.PersistentCacheSettings
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -31,6 +32,8 @@ class FirestoreClient @Inject constructor() {
         try {
             old.terminate().await()
             old.clearPersistence().await()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Exception) {
             Log.w(TAG, "Failed to clear Firestore offline cache", e)
         }

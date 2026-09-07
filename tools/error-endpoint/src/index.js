@@ -53,7 +53,22 @@ function logSafe(value, max) {
     // Newlines, tabs and the rest of C0/C1 become spaces so nothing can break out of
     // its log line. Written with escapes rather than literal control bytes.
     .replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ')
+    .replace(/Bearer\s+[A-Za-z0-9._~+\/-]+=*/gi, 'Bearer [REDACTED]')
+    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, '[JWT REDACTED]')
+    .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '[EMAIL REDACTED]')
+    .replace(/(password|refresh[_-]?token|access[_-]?token|authorization|cookie|secret)\s*[:=]\s*[^\s,;]+/gi, '$1=[REDACTED]')
     .slice(0, max);
+}
+
+function safeContext(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const out = {};
+  for (const key of ['during', 'operation', 'component', 'componentStack', 'filename', 'route']) {
+    if (typeof raw[key] === 'string') out[key] = logSafe(raw[key], key === 'componentStack' ? 2000 : 256);
+  }
+  if (typeof raw.line === 'number' && Number.isFinite(raw.line)) out.line = raw.line;
+  if (typeof raw.column === 'number' && Number.isFinite(raw.column)) out.column = raw.column;
+  return Object.keys(out).length ? out : undefined;
 }
 
 /**
@@ -151,13 +166,15 @@ function summarize(report) {
     stack: logSafe(error.stack, 4000),
     // Objects are logged structurally rather than interpolated, so they cannot forge a
     // log line; the body cap is what bounds their size.
-    context: report?.context,
+    context: safeContext(report?.context),
     url: logSafe(report?.url, 512),
     release: logSafe(report?.release, 64),
     userAgent: logSafe(report?.userAgent, 300),
     reportedAt: isoOrNull(report?.at),
   };
 }
+
+export { logSafe, safeContext, summarize };
 
 export default {
   async fetch(request, env, ctx) {

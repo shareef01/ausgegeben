@@ -304,10 +304,34 @@ describe('firestore.rules', () => {
   it('allows verified owner category CRUD and denies unverified create', async () => {
     const verified = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
     await assertSucceeds(setDoc(doc(verified, categoryPath('alice')), validCategory));
+    await assertFails(deleteDoc(doc(verified, categoryPath('alice'))));
+    await assertSucceeds(updateDoc(doc(verified, categoryPath('alice')), { deletionState: 'deleting' }));
     await assertSucceeds(deleteDoc(doc(verified, categoryPath('alice'))));
 
     const unverified = testEnv.authenticatedContext('alice', { email_verified: false }).firestore();
     await assertFails(setDoc(doc(unverified, categoryPath('alice', 'c2')), validCategory));
+  });
+
+  it('deletion barrier blocks new references and retargeting while legacy categories remain usable', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'active')), validCategory));
+    await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'deleting')), {
+      ...validCategory,
+      deletionState: 'deleting',
+    }));
+    await assertFails(setDoc(doc(db, expensePath('alice', 'blocked')), {
+      ...validExpense,
+      categoryId: 'deleting',
+    }));
+    await assertSucceeds(setDoc(doc(db, expensePath('alice', 'existing')), {
+      ...validExpense,
+      categoryId: 'active',
+    }));
+    await assertFails(updateDoc(doc(db, expensePath('alice', 'existing')), { categoryId: 'deleting' }));
+    await assertSucceeds(setDoc(doc(db, expensePath('alice', 'legacy-active')), {
+      ...validExpense,
+      categoryId: 'active',
+    }));
   });
 
   it('denies unverified deletes unless accountDeletion is pending', async () => {

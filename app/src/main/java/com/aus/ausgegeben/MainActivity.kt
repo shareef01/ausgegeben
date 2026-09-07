@@ -42,6 +42,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.coroutines.withContext
+import com.aus.ausgegeben.util.runSuspendCatching
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -203,7 +204,7 @@ fun MainApp(
             return@LaunchedEffect
         }
         withContext(Dispatchers.IO) {
-            runCatching { repository.ensureSeeded() }
+            runSuspendCatching { repository.ensureSeeded() }
         }
     }
 
