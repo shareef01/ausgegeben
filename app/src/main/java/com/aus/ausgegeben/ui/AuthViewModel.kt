@@ -14,6 +14,7 @@ import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -118,13 +119,20 @@ class AuthViewModel @Inject constructor(
             _uiState.update {
                 it.copy(isLoading = true, loadingMessage = loadingMessage, errorMessage = null, infoMessage = null)
             }
-            val result = runCatching {
-                withTimeout(AUTH_TIMEOUT_MS) {
+            val result = try {
+                Result.success(withTimeout(AUTH_TIMEOUT_MS) {
                     when (state.selectedTab) {
                         AuthTab.SIGN_IN -> authRepository.signIn(email, password).getOrThrow()
                         AuthTab.SIGN_UP -> authRepository.signUp(email, password).getOrThrow()
                     }
-                }
+                })
+            } catch (timeout: TimeoutCancellationException) {
+                // This is our own bounded-operation timeout, not parent cancellation.
+                Result.failure(timeout)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Result.failure(error)
             }
             handleAuthResult(result, onSuccess)
         }

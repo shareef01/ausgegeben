@@ -4,6 +4,7 @@
   "type": "module",
   "description": "Cloudflare Worker receiving crash reports from the Ausgegeben PWA (see README.md).",
   "scripts": {
+    "test": "node --test src/index.test.js",
     "deploy": "wrangler deploy",
     "tail": "wrangler tail",
     "dev": "wrangler dev"

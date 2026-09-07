@@ -14,10 +14,22 @@
 
 export type AppErrorSource = 'render' | 'window' | 'promise' | 'manual';
 
+/** Only technical, non-account fields may cross the reporting boundary. */
+export interface DiagnosticContext {
+  during?: string;
+  operation?: string;
+  component?: string;
+  componentStack?: string;
+  filename?: string;
+  route?: string;
+  line?: number;
+  column?: number;
+}
+
 export interface AppErrorReport {
   source: AppErrorSource;
   error: unknown;
-  context?: Record<string, unknown>;
+  context?: DiagnosticContext;
   at: number;
 }
 
@@ -30,6 +42,7 @@ type ErrorSink = (report: AppErrorReport) => void;
  */
 const RECENT_LIMIT = 20;
 const recent: AppErrorReport[] = [];
+const pending: AppErrorReport[] = [];
 let sink: ErrorSink | null = null;
 
 /**
@@ -55,13 +68,14 @@ function emit(report: AppErrorReport): void {
 export function setErrorSink(next: ErrorSink | null): void {
   sink = next;
   if (!next) return;
-  for (const report of recent) emit(report);
+  const replay = pending.splice(0);
+  for (const report of replay) emit(report);
 }
 
 export function reportError(
   source: AppErrorSource,
   error: unknown,
-  context?: Record<string, unknown>,
+  context?: DiagnosticContext,
 ): void {
   const report: AppErrorReport = { source, error, context, at: Date.now() };
   // Console logging is local and always on; only the replay buffer is gated, so an
@@ -69,6 +83,10 @@ export function reportError(
   if (bufferingEnabled) {
     if (recent.length >= RECENT_LIMIT) recent.shift();
     recent.push(report);
+    if (!sink) {
+      if (pending.length >= RECENT_LIMIT) pending.shift();
+      pending.push(report);
+    }
   }
   console.error(`[${source}]`, error, context ?? '');
   emit(report);
@@ -83,7 +101,10 @@ export function reportError(
  */
 export function setErrorBuffering(enabled: boolean): void {
   bufferingEnabled = enabled;
-  if (!enabled) recent.length = 0;
+  if (!enabled) {
+    recent.length = 0;
+    pending.length = 0;
+  }
 }
 
 export function getRecentErrors(): readonly AppErrorReport[] {
@@ -93,6 +114,7 @@ export function getRecentErrors(): readonly AppErrorReport[] {
 /** Test-only: drop buffered reports so cases cannot leak into one another. */
 export function resetErrorReporter(): void {
   recent.length = 0;
+  pending.length = 0;
   sink = null;
   bufferingEnabled = true;
 }

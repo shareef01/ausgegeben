@@ -12,6 +12,8 @@ import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.datePickerMillisToLocalDayStart
+import com.aus.ausgegeben.util.runSuspendCatching
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -167,7 +169,7 @@ class AddExpenseViewModel @Inject constructor(
                     if (saveError == null) {
                         // Budget projection is best-effort — must not look like a failed save
                         // after the write already succeeded (web parity).
-                        runCatching { checkBudgetAlert(type, amt, excludeIdForBudget) }
+                        runSuspendCatching { checkBudgetAlert(type, amt, excludeIdForBudget) }
                             .onSuccess { alert -> alert?.let { onBudgetAlert?.invoke(it) } }
                             .onFailure { e ->
                                 Log.w(TAG, "budget check failed", e)
@@ -178,6 +180,8 @@ class AddExpenseViewModel @Inject constructor(
                     } else {
                         onError(saveErrorMessage(app, saveError.message))
                     }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
                 } catch (e: Exception) {
                     onError(saveErrorMessage(app, e.message))
                 } finally {

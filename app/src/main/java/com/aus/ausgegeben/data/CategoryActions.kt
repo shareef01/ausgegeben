@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.Flow
 class UnwritableCategoryException(val categoryNames: String) :
     IllegalStateException("UNWRITABLE_CATEGORY")
 
+class CategoryInUseException : IllegalStateException("CATEGORY_IN_USE")
+
 interface CategoryActions {
     val allCategories: Flow<List<Category>>
     suspend fun insertCategory(category: Category): Result<String>

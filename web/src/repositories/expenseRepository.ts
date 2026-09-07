@@ -1,7 +1,7 @@
 import {
   collection, doc, setDoc, deleteDoc, getDoc, getDocs, query, where, orderBy, limit,
   onSnapshot, updateDoc, getAggregateFromServer, sum, type Unsubscribe, writeBatch,
-  type CollectionReference, type QueryDocumentSnapshot,
+  runTransaction, deleteField, type CollectionReference, type QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
@@ -9,6 +9,8 @@ import { t, getLocale, localeTag } from '@/i18n';
 import { CategoryValidator, isRulesWritableCategory, type WritableCategoryShape } from '@/utils/categoryValidator';
 import type { Category, Expense } from '@/models/types';
 import { categoryWritePayload, expenseWritePayload } from '@/utils/firestorePayloads';
+import { expenseDocumentId } from '@/utils/idempotency';
+import { KeyedSingleFlight } from '@/utils/keyedSingleFlight';
 
 function uid(): string | null { return useAuthStore.getState().user?.uid ?? null; }
 function now() { return Date.now(); }
@@ -36,6 +38,13 @@ export class UnwritableCategoryError extends Error {
   constructor(readonly categoryNames: string) {
     super('UNWRITABLE_CATEGORY');
     this.name = 'UnwritableCategoryError';
+  }
+}
+
+export class CategoryInUseError extends Error {
+  constructor() {
+    super('CATEGORY_IN_USE');
+    this.name = 'CategoryInUseError';
   }
 }
 
@@ -90,8 +99,7 @@ const DEFAULT_CATEGORIES: (t: (k: any) => string) => Omit<Category, 'id'>[] = (t
   { name: t('catTransfer'), iconName: 'swap_horiz', colorInt: argb(0xff8e8e96), transactionType: 'transfer', sortOrder: 0 },
 ];
 
-let ensureSeededInFlight: Promise<void> | null = null;
-let ensureSeededForUid: string | null = null;
+const ensureSeededFlights = new KeyedSingleFlight<string>();
 
 /**
  * Shared result of the all-time scan.
@@ -143,7 +151,12 @@ function roundAmount(amt: number) { return Math.round(amt * 100) / 100; }
 async function ensureUncategorizedCategory(userId: string): Promise<void> {
   const ref = catDoc(userId, UNCATEGORIZED_ID);
   const snap = await getDoc(ref);
-  if (snap.exists()) return;
+  if (snap.exists()) {
+    if (snap.data().deletionState === 'deleting') {
+      await updateDoc(ref, { deletionState: deleteField(), updatedAt: now() });
+    }
+    return;
+  }
   await setDoc(ref, categoryWritePayload({
     id: UNCATEGORIZED_ID,
     name: t('recordUnknownCategory'),
@@ -207,26 +220,44 @@ async function reassignExpenses(
   docs: QueryDocumentSnapshot[],
   targetCategoryId: string,
 ): Promise<number> {
-  let unfixable = 0;
   for (let i = 0; i < docs.length; i += REASSIGN_CHUNK_SIZE) {
     const chunk = docs.slice(i, i + REASSIGN_CHUNK_SIZE);
     const batch = writeBatch(fs()!);
     chunk.forEach((d) => batch.update(d.ref, { categoryId: targetCategoryId }));
-    try {
-      await batch.commit();
-    } catch (err) {
-      console.warn('[reassignExpenses] batch rejected — retrying one at a time', err);
-      for (const d of chunk) {
-        try {
-          await updateDoc(d.ref, { categoryId: targetCategoryId });
-        } catch (docErr) {
-          unfixable += 1;
-          console.warn(`[reassignExpenses] could not reassign ${d.id}`, docErr);
-        }
-      }
-    }
+    // Fail closed. A transient/auth/unknown failure is not proof that a row is
+    // permanently malformed, so it must never be converted into permission to delete
+    // the source category. Callers preserve the raised deletion barrier or clear it.
+    await batch.commit();
   }
-  return unfixable;
+  return 0;
+}
+
+async function deleteCategoryInto(userId: string, id: string, targetId?: string): Promise<void> {
+  const source = catDoc(userId, id);
+  await setDoc(source, { deletionState: 'deleting', updatedAt: now() }, { merge: true });
+  try {
+    let linked = await expenseDocsForCategory(userId, id);
+    if (!targetId) {
+      if (linked.length > 0) throw new CategoryInUseError();
+    } else {
+      if (linked.length > 0) {
+        if (targetId === UNCATEGORIZED_ID) await ensureUncategorizedCategory(userId);
+        await reassignExpenses(linked, targetId);
+      }
+      linked = await expenseDocsForCategory(userId, id);
+      if (linked.length > 0) throw new CategoryInUseError();
+    }
+    await deleteDoc(source);
+  } catch (error) {
+    // Recovery is identity-safe: only this source document is reopened. If the cleanup
+    // itself cannot reach Firestore, the next delete resumes from `deleting`.
+    try {
+      await updateDoc(source, { deletionState: deleteField(), updatedAt: now() });
+    } catch {
+      // Preserve the original failure. A stranded barrier is resumable by retrying delete.
+    }
+    throw error;
+  }
 }
 
 /** Prefer lowest sortOrder, then id (Android CategoryDedupe parity). */
@@ -306,12 +337,7 @@ export const expenseRepository = {
     } catch {
       return;
     }
-    if (ensureSeededInFlight && ensureSeededForUid === userId) {
-      await ensureSeededInFlight;
-      return;
-    }
-    ensureSeededForUid = userId;
-    ensureSeededInFlight = (async () => {
+    await ensureSeededFlights.run(userId, async () => {
       try {
         // Nothing clears this marker, by design: re-seeding would dress a half-deleted
         // account up as a working fresh one. The consequence is that the account stays
@@ -360,29 +386,22 @@ export const expenseRepository = {
         try {
           const sentinel = await getDoc(catDoc(userId, UNCATEGORIZED_ID));
           if (sentinel.exists() && (await expenseDocsForCategory(userId, UNCATEGORIZED_ID)).length === 0) {
-            await deleteDoc(catDoc(userId, UNCATEGORIZED_ID));
+            await deleteCategoryInto(userId, UNCATEGORIZED_ID);
           }
         } catch {
           // ignore — doc may already be absent
         }
       } catch (err) {
         console.warn('[ensureSeeded]', err);
-      } finally {
-        ensureSeededInFlight = null;
       }
-    })();
-    await ensureSeededInFlight;
+    });
   },
 
   async isAccountDeletionPending(): Promise<boolean> {
     const userId = uid();
     if (!userId || !fs()) return false;
-    try {
-      const snap = await getDoc(metaDoc(userId, 'accountDeletion'));
-      return snap.data()?.pendingDeletion === true;
-    } catch {
-      return false;
-    }
+    const snap = await getDoc(metaDoc(userId, 'accountDeletion'));
+    return snap.data()?.pendingDeletion === true;
   },
 
   async markAccountDeletionPending(): Promise<void> {
@@ -502,44 +521,16 @@ export const expenseRepository = {
     await batch.commit();
   },
 
-  // SECURE: Safety-first deletion (move orphaned to uncategorized — except when
-  // deleting the uncategorized sentinel itself, which is allowed and leaves
-  // linked expenses with categoryId '0'; the UI already falls back to "unknown").
+  // Raise a Firestore-visible barrier before reading references. Rules reject new
+  // expense references until reassignment and deletion finish.
   async deleteCategory(id: string): Promise<void> {
     requireVerifiedEmail();
     const userId = uid(); if (!userId) return;
-    if (id === UNCATEGORIZED_ID) {
-      await deleteDoc(catDoc(userId, id));
-      return;
-    }
-    // Create the sink only when there is something to put in it. This used to run
-    // unconditionally, so deleting an unused category still wrote a sentinel doc that
-    // nothing referenced — a needless write on a Spark quota, and a stray category
-    // that lingered until the next ensureSeeded pass swept it back up.
-    const linked = await expenseDocsForCategory(userId, id);
-    if (linked.length > 0) {
-        await ensureUncategorizedCategory(userId);
-        await reassignExpenses(linked, UNCATEGORIZED_ID);
-    }
-    // SECURE (mitigation, not a full guarantee): ideally this whole read-reassign-delete
-    // sequence would run inside a single runTransaction(db, ...) so no expense could be
-    // (re)linked to `id` between the read above and the deleteDoc below. But Firestore's
-    // Web SDK only allows direct doc reads (tx.get(docRef)) inside a transaction callback —
-    // query-based reads like getDocs(query(...)) aren't transactional, and "all expenses
-    // with categoryId == id" is a query over an a-priori unknown set of docs, so it can't
-    // be wrapped that way. As the best available mitigation, we re-run the same query one
-    // more time immediately before deleting the category, and reassign anything that shows
-    // up newly linked. This shrinks the race window from "arbitrarily long" down to "the
-    // network latency of one extra query round-trip" — a concurrent write landing in that
-    // final gap can still orphan an expense; it just makes the window much narrower.
-    const recheck = await expenseDocsForCategory(userId, id);
-    if (recheck.length > 0) {
-        // Reached when an expense was linked inside the race window above, so the
-        // sink may not exist yet — ensureUncategorizedCategory no-ops if it does.
-        await ensureUncategorizedCategory(userId);
-        await reassignExpenses(recheck, UNCATEGORIZED_ID);
-    }
-    await deleteDoc(catDoc(userId, id));
+    await deleteCategoryInto(
+      userId,
+      id,
+      id === UNCATEGORIZED_ID ? undefined : UNCATEGORIZED_ID,
+    );
   },
 
   async getExpenseById(id: string): Promise<Expense | undefined> {
@@ -600,13 +591,35 @@ export const expenseRepository = {
       .filter((d) => d.data().deleted !== true).length;
   },
 
-  // SECURE: UUID and Math.round for integrity
+  // A keyed create derives remote identity from the key. The transaction makes the
+  // existing-document check and create one atomic operation across tabs/devices/clients.
   async insertExpense(expense: Omit<Expense, 'id'>, idempotencyKey?: string): Promise<string> {
     const userId = uid(); if (!userId) throw new Error('Not signed in');
     requireVerifiedEmail();
     if (idempotencyKey) {
-      const dupSnap = await getDocs(query(expCol(userId), where('idempotencyKey', '==', idempotencyKey)));
+      // Historical releases used random document ids. Find those first so upgrading a
+      // user cannot create a deterministic second copy of an already-recorded expense.
+      const dupSnap = await getDocs(query(
+        expCol(userId), where('idempotencyKey', '==', idempotencyKey), limit(1),
+      ));
       if (!dupSnap.empty) return dupSnap.docs[0].id;
+
+      const id = await expenseDocumentId(idempotencyKey);
+      const ref = expDoc(userId, id);
+      const payload = expenseWritePayload(
+        { ...expense, id },
+        // Historical rules bound the raw compatibility field. Identity itself has no
+        // such limit because only the fixed-size hash is used as the document path.
+        { updatedAt: now(), idempotencyKey: idempotencyKey.length < 128 ? idempotencyKey : undefined },
+      );
+      const created = await runTransaction(fs()!, async (transaction) => {
+        const existing = await transaction.get(ref);
+        if (existing.exists()) return false;
+        transaction.set(ref, payload);
+        return true;
+      });
+      if (created) emitDataChanged();
+      return id;
     }
     const id = crypto.randomUUID();
     await setDoc(
@@ -727,25 +740,7 @@ export const expenseRepository = {
     // the batch commit must wait on that duplicate's own getDocs read before it can fire.
     const resolveGroup = async (master: Category, duplicates: Category[]) => {
       for (const dup of duplicates) {
-        const linked = await expenseDocsForCategory(userId, dup.id);
-        if (linked.length > 0) {
-          await reassignExpenses(linked, master.id);
-        }
-        // SECURE (mitigation, not a full guarantee): same TOCTOU gap as deleteCategory()
-        // above — an expense could be (re)linked to `dup.id` between the getDocs read and
-        // the deleteDoc below, leaving it orphaned once the duplicate category is gone. A
-        // single Firestore transaction can't wrap this because the Web SDK only supports
-        // transactional direct doc reads (tx.get), not query-based reads like
-        // getDocs(query(...)), and "expenses with categoryId == dup.id" is a query, not a
-        // known set of doc refs. As the best available mitigation, re-run the query once
-        // more immediately before deleting, and reassign anything newly linked. This
-        // narrows the race window from "arbitrarily long" to "one extra query round-trip"
-        // rather than closing it entirely.
-        const recheck = await expenseDocsForCategory(userId, dup.id);
-        if (recheck.length > 0) {
-          await reassignExpenses(recheck, master.id);
-        }
-        await deleteDoc(catDoc(userId, dup.id));
+        await deleteCategoryInto(userId, dup.id, master.id);
       }
     };
 
@@ -785,12 +780,10 @@ export const expenseRepository = {
     if (!userId) throw new Error('Not signed in');
     await deleteCollectionBatched(expCol(userId));
     await deleteCollectionBatched(catCol(userId));
-    try {
-      await deleteDoc(doc(fs()!, 'users', userId, 'settings', 'preferences'));
-    } catch { /* missing prefs is fine */ }
-    try {
-      await deleteDoc(metaDoc(userId, 'dedupe'));
-    } catch { /* missing marker is fine */ }
+    // deleteDoc succeeds when a document is absent. Any rejection is a real cleanup
+    // failure and must prevent the irreversible Firebase Auth deletion that follows.
+    await deleteDoc(doc(fs()!, 'users', userId, 'settings', 'preferences'));
+    await deleteDoc(metaDoc(userId, 'dedupe'));
     emitDataChanged();
   },
 };

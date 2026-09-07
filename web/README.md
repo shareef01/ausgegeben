@@ -23,6 +23,7 @@ npm test          # unit tests (vitest)
 npm run lint      # tsc --noEmit
 npm run lint:css  # fails on utility classes used in JSX but not defined in src/theme/*.css
 npm run test:rules  # Firestore rules against the emulator
+npm run validate:prod-env # checks every required production Firebase value without printing it
 ```
 
 `test:rules` needs **JDK 21+** (firebase-tools dropped Java <21). A JDK 21 being
@@ -39,14 +40,14 @@ no Tailwind build — so an undefined class is silently inert rather than a buil
 
 ## Deploy (Spark-safe)
 
-1. Copy `web/.env.example` → `web/.env.local` with Firebase Web config (Auth + Firestore only)
+1. Copy `web/.env.example` → `web/.env.production` and fill all five required Firebase/App Check values. The file is gitignored local operational state; recover values from Firebase Console → Project settings and App Check.
 2. From `web/`:
 
 ```bash
 npm run deploy
 ```
 
-Deploys **Hosting** (`aus01`) + **Firestore rules** only.
+The deploy command validates configuration before building, verifies the values reached the bundle, deploys Hosting + rules + indexes, then preserves the live smoke test. A validation failure touches no production resource.
 
 ## Structure
 

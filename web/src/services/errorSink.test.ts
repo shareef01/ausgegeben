@@ -48,6 +48,27 @@ describe('errorSink', () => {
     expect(payload.error.message).toBe('just a string');
   });
 
+  it('allowlists context and redacts identity, credentials, and tokens', () => {
+    const payload = buildPayload(report({
+      error: new Error('user alice@example.com Authorization: Bearer abc.def.ghi password=hunter2'),
+      context: {
+        operation: 'bootstrap for alice@example.com',
+        // Runtime defense must drop fields even when an unsafe caller bypasses TypeScript.
+        amount: 99.95,
+        note: 'private memo',
+        uid: 'account-123',
+        refreshToken: 'secret-token',
+      } as never,
+    }));
+    const serialized = JSON.stringify(payload);
+    expect(serialized).not.toContain('alice@example.com');
+    expect(serialized).not.toContain('hunter2');
+    expect(serialized).not.toContain('private memo');
+    expect(serialized).not.toContain('account-123');
+    expect(serialized).not.toContain('secret-token');
+    expect(payload.context?.operation).toContain('[EMAIL REDACTED]');
+  });
+
   it('sends the report to the configured endpoint', () => {
     createEndpointSink(URL_UNDER_TEST)(report());
 
