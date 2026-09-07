@@ -764,15 +764,38 @@ class AppRepository @Inject constructor(
         docs: List<DocumentSnapshot>,
         toCategoryId: String,
     ): Int {
+        var unfixable = 0
         docs.chunked(450).forEach { chunk ->
-            firestore.runBatch { batch ->
+            try {
+                firestore.runBatch { batch ->
+                    chunk.forEach { doc ->
+                        batch.update(doc.reference, "categoryId", toCategoryId)
+                    }
+                }.await()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                // Retry only a known permanent rules rejection. Transient, auth, quota,
+                // and unknown failures must abort so category deletion keeps its source.
+                if (!error.isPermissionDenied()) throw error
                 chunk.forEach { doc ->
-                    batch.update(doc.reference, "categoryId", toCategoryId)
+                    try {
+                        doc.reference.update("categoryId", toCategoryId).await()
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (itemError: Exception) {
+                        if (!itemError.isPermissionDenied()) throw itemError
+                        unfixable += 1
+                    }
                 }
-            }.await()
+            }
         }
-        return 0
+        return unfixable
     }
+
+    private fun Exception.isPermissionDenied(): Boolean =
+        this is com.google.firebase.firestore.FirebaseFirestoreException &&
+            code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED
 
     /** Returns how many rows the rules refused, so callers can at least report it. */
     private suspend fun reassignCategoryExpenses(

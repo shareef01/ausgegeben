@@ -286,7 +286,7 @@ describe('legacy document shapes through client code, rules enforced', () => {
       expect(all.items.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('cannot block a category delete that has healthy rows to reassign', async () => {
+    it('repairs healthy rows but preserves a category while an inert reference remains', async () => {
       await seed({
         [catPath('doomed')]: legacyCategory({ id: 'doomed', name: 'Doomed' }),
         [expPath('healthy-a')]: legacyExpense({ id: 'healthy-a', categoryId: 'doomed' }),
@@ -295,12 +295,16 @@ describe('legacy document shapes through client code, rules enforced', () => {
         [expPath('inert')]: { categoryId: 'doomed' },
       });
 
-      await expenseRepository.deleteCategory('doomed');
+      await expect(expenseRepository.deleteCategory('doomed')).rejects.toThrow('CATEGORY_IN_USE');
 
       // The batch containing the inert row fails; the per-document retry lands the
-      // healthy ones anyway. Before that fallback existed this repaired nothing.
+      // healthy ones anyway. The inert reference keeps the source category alive so
+      // it never becomes a dangling categoryId.
       expect((await read(expPath('healthy-a')))?.categoryId).toBe('0');
       expect((await read(expPath('healthy-b')))?.categoryId).toBe('0');
+      expect((await read(expPath('inert')))?.categoryId).toBe('doomed');
+      expect(await read(catPath('doomed'))).toBeDefined();
+      expect((await read(catPath('doomed')))?.deletionState).toBeUndefined();
     });
   });
 });

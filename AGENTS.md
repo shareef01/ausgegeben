@@ -176,7 +176,12 @@ guessed fixture. Confirmed working by the user on the real device afterward.
   check it first — this machine's copy has been found broken (`lib\jvm.cfg`
   missing, every `java.exe` invocation dies instantly). Microsoft JDK 21 at
   `C:\Program Files\Microsoft\jdk-21.0.11.10-hotspot` works for Gradle and the
-  emulators; verify with `java -version` before blaming anything else.
+  emulators; verify with `java -version` before blaming anything else. If either
+  Gradle or the Firestore emulator then dies with `Unable to establish loopback
+  connection`, Java's automatic Unix-domain socket path is the problem on this
+  host. Create a short writable directory and set both `java.io.tmpdir` and
+  `jdk.net.unixdomain.tmpdir` to it via `JAVA_TOOL_OPTIONS`; `C:\jtmp` made the
+  full Gradle and Firestore suites run on 2026-09-07.
 - **Git Bash rewrites device paths.** `adb shell ... /sdcard/x.png` becomes
   `C:/Program Files/Git/sdcard/...`. Always `export MSYS_NO_PATHCONV=1`.
 - **PowerShell `>` corrupts binaries.** Never `adb exec-out screencap -p > f.png`;
@@ -285,7 +290,9 @@ git tag v1.2.3 && git push --tags
   `runCatching` catches `CancellationException`. Inner fallback loops also rethrow it.
 - Category deletion and dedupe must raise `deletionState: deleting` first. Rules deny new
   references and deny direct category deletes without the barrier (account wipe excepted).
-  A transient or unknown reassignment failure preserves the source category.
+  A transient or unknown reassignment failure preserves the source category. A confirmed
+  `PERMISSION_DENIED` batch may retry per document so one legacy row does not strand healthy
+  rows, but any surviving reference still preserves and reopens the source category.
 - Firestore `delete()` already succeeds for a missing document. Never suppress a settings
   or metadata delete error during account wipe; it must gate Firebase Auth deletion.
 - Production Hosting deploys validate all required Firebase/App Check values before build,
