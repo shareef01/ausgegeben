@@ -220,16 +220,36 @@ async function reassignExpenses(
   docs: QueryDocumentSnapshot[],
   targetCategoryId: string,
 ): Promise<number> {
+  let unfixable = 0;
   for (let i = 0; i < docs.length; i += REASSIGN_CHUNK_SIZE) {
     const chunk = docs.slice(i, i + REASSIGN_CHUNK_SIZE);
     const batch = writeBatch(fs()!);
     chunk.forEach((d) => batch.update(d.ref, { categoryId: targetCategoryId }));
-    // Fail closed. A transient/auth/unknown failure is not proof that a row is
-    // permanently malformed, so it must never be converted into permission to delete
-    // the source category. Callers preserve the raised deletion barrier or clear it.
-    await batch.commit();
+    try {
+      await batch.commit();
+    } catch (error) {
+      // A rules-rejected legacy row poisons an otherwise healthy atomic batch. Retry
+      // only that known permanent failure one document at a time. Network, auth, quota,
+      // and unknown failures remain fatal so category deletion cannot strand references.
+      if (!isPermissionDenied(error)) throw error;
+      for (const item of chunk) {
+        try {
+          await updateDoc(item.ref, { categoryId: targetCategoryId });
+        } catch (itemError) {
+          if (!isPermissionDenied(itemError)) throw itemError;
+          unfixable += 1;
+        }
+      }
+    }
   }
-  return 0;
+  return unfixable;
+}
+
+function isPermissionDenied(error: unknown): boolean {
+  return typeof error === 'object'
+    && error !== null
+    && 'code' in error
+    && error.code === 'permission-denied';
 }
 
 async function deleteCategoryInto(userId: string, id: string, targetId?: string): Promise<void> {
