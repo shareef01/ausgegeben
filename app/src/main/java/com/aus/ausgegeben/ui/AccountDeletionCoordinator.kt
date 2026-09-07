@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import com.aus.ausgegeben.util.runSuspendCatching
 
 data class AccountDeletionUiState(
     val pending: Boolean = false,
@@ -57,7 +58,7 @@ class AccountDeletionCoordinator(
             return AccountDeletionToast.KEEP_FAILED
         }
         _state.update { it.copy(pending = false) }
-        runCatching { account.ensureSeeded() }
+        runSuspendCatching { account.ensureSeeded() }
         _state.update { it.copy(clearing = false) }
         return AccountDeletionToast.KEPT
     }

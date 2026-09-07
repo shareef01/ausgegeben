@@ -4,6 +4,7 @@ import com.aus.ausgegeben.data.AccountActions
 import com.aus.ausgegeben.data.auth.AccountDeletionAuth
 import com.aus.ausgegeben.data.auth.AuthRepository
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.CancellationException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -99,6 +100,26 @@ class AccountDeletionCoordinatorTest {
         assertEquals(0, account.wipeCalls)
         assertEquals(0, auth.deleteCalls)
         assertFalse(coordinator.state.value.pending)
+    }
+
+    @Test
+    fun deleteAccount_cancellationRemainsCancellationAndDoesNotWipe() = runTest {
+        val account = FakeAccount()
+        val auth = object : AccountDeletionAuth {
+            override suspend fun reauthenticate(password: String): Result<Unit> {
+                throw CancellationException("cancelled")
+            }
+            override suspend fun deleteAccount(): Result<Unit> = Result.success(Unit)
+        }
+        val coordinator = AccountDeletionCoordinator(account, auth)
+        var cancelled = false
+        try {
+            coordinator.deleteAccount("x")
+        } catch (_: CancellationException) {
+            cancelled = true
+        }
+        assertTrue(cancelled)
+        assertEquals(0, account.wipeCalls)
     }
 
     @Test

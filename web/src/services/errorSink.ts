@@ -16,6 +16,7 @@ import {
   setErrorBuffering,
   setErrorSink,
   type AppErrorReport,
+  type DiagnosticContext,
 } from '@/services/errorReporter';
 import { readErrorReportingEnabled } from '@/services/errorReportPreference';
 
@@ -32,18 +33,46 @@ interface SerializedError {
   stack?: string;
 }
 
+const TEXT_LIMIT = 500;
+const STACK_LIMIT = 4_000;
+
+function redact(value: unknown, limit: number): string {
+  return String(value ?? '')
+    .replace(/Bearer\s+[A-Za-z0-9._~+\/-]+=*/gi, 'Bearer [REDACTED]')
+    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, '[JWT REDACTED]')
+    .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '[EMAIL REDACTED]')
+    .replace(/(password|refresh[_-]?token|access[_-]?token|authorization|cookie|secret)\s*[:=]\s*[^\s,;]+/gi, '$1=[REDACTED]')
+    .slice(0, limit);
+}
+
+function sanitizeContext(raw: unknown): DiagnosticContext | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const source = raw as Record<string, unknown>;
+  const out: DiagnosticContext = {};
+  for (const key of ['during', 'operation', 'component', 'componentStack', 'filename', 'route'] as const) {
+    if (typeof source[key] === 'string') out[key] = redact(source[key], key === 'componentStack' ? 2_000 : 256);
+  }
+  if (typeof source.line === 'number' && Number.isFinite(source.line)) out.line = source.line;
+  if (typeof source.column === 'number' && Number.isFinite(source.column)) out.column = source.column;
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 function serializeError(error: unknown): SerializedError {
   if (error instanceof Error) {
-    return { name: error.name, message: error.message, stack: error.stack };
+    return {
+      name: redact(error.name, 128),
+      message: redact(error.message, TEXT_LIMIT),
+      stack: error.stack ? redact(error.stack, STACK_LIMIT) : undefined,
+    };
   }
-  return { name: 'NonError', message: String(error) };
+  return { name: 'NonError', message: redact(error, TEXT_LIMIT) };
 }
 
 export interface ErrorSinkPayload {
   source: AppErrorReport['source'];
   at: number;
   error: SerializedError;
-  context?: Record<string, unknown>;
+  context?: DiagnosticContext;
   url: string;
   userAgent: string;
   release: string;
@@ -54,7 +83,7 @@ export function buildPayload(report: AppErrorReport): ErrorSinkPayload {
     source: report.source,
     at: report.at,
     error: serializeError(report.error),
-    context: report.context,
+    context: sanitizeContext(report.context),
     url: typeof location === 'undefined' ? '' : location.pathname,
     userAgent: typeof navigator === 'undefined' ? '' : navigator.userAgent,
     release: import.meta.env.MODE,

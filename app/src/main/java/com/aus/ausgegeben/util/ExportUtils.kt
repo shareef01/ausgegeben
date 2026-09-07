@@ -8,6 +8,7 @@ import com.aus.ausgegeben.data.AppRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CancellationException
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -91,6 +92,8 @@ object ExportUtils {
                     context.startActivity(Intent.createChooser(intent, "Export CSV"))
                 }
                 Result(success = true, truncated = truncated)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (_: Exception) {
                 Result(success = false)
             }

@@ -2,12 +2,14 @@ package com.aus.ausgegeben.data.auth
 
 import com.aus.ausgegeben.data.FirestoreClient
 import com.aus.ausgegeben.data.PreferenceManager
+import com.aus.ausgegeben.util.runSuspendCatching
 import com.google.firebase.FirebaseTooManyRequestsException
 import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -59,20 +61,20 @@ class AuthRepository @Inject constructor(
     val currentUserId: String?
         get() = firebaseAuth.currentUser?.uid
 
-    override suspend fun signIn(email: String, password: String): Result<Unit> = runCatching {
+    override suspend fun signIn(email: String, password: String): Result<Unit> = runSuspendCatching {
         firebaseAuth.signInWithEmailAndPassword(email.trim(), password).await()
     }
 
-    override suspend fun signUp(email: String, password: String): Result<Unit> = runCatching {
+    override suspend fun signUp(email: String, password: String): Result<Unit> = runSuspendCatching {
         val result = firebaseAuth.createUserWithEmailAndPassword(email.trim(), password).await()
         result.user?.sendEmailVerification()?.await()
     }
 
-    override suspend fun sendPasswordResetEmail(email: String): Result<Unit> = runCatching {
+    override suspend fun sendPasswordResetEmail(email: String): Result<Unit> = runSuspendCatching {
         firebaseAuth.sendPasswordResetEmail(email.trim()).await()
     }
 
-    suspend fun sendEmailVerification(): Result<Unit> = runCatching {
+    suspend fun sendEmailVerification(): Result<Unit> = runSuspendCatching {
         val user = firebaseAuth.currentUser ?: error("Not signed in")
         user.sendEmailVerification().await()
     }
@@ -84,7 +86,7 @@ class AuthRepository @Inject constructor(
      * email_verified claim Firestore rules read. Without the forced token
      * refresh below, every write stays denied until the token expires (~1h).
      */
-    suspend fun reloadCurrentUser(): Result<Unit> = runCatching {
+    suspend fun reloadCurrentUser(): Result<Unit> = runSuspendCatching {
         val user = firebaseAuth.currentUser ?: error("Not signed in")
         user.reload().await()
         firebaseAuth.currentUser?.getIdToken(true)?.await()
@@ -110,7 +112,7 @@ class AuthRepository @Inject constructor(
      * Fails with [WRONG_PASSWORD] or [TOO_MANY_ATTEMPTS] so callers can tell a bad password
      * (retry in place) from a lockout (give up).
      */
-    override suspend fun reauthenticate(password: String): Result<Unit> = runCatching {
+    override suspend fun reauthenticate(password: String): Result<Unit> = runSuspendCatching {
         val user = firebaseAuth.currentUser ?: error("Not signed in")
         val email = user.email ?: error("Not signed in")
         try {
@@ -123,7 +125,7 @@ class AuthRepository @Inject constructor(
     }
 
     /** Deletes the Firebase Auth user. Caller should reauthenticate, mark pending, wipe, then call this. */
-    override suspend fun deleteAccount(): Result<Unit> = runCatching {
+    override suspend fun deleteAccount(): Result<Unit> = runSuspendCatching {
         val user = firebaseAuth.currentUser ?: error("Not signed in")
         var lastError: Exception? = null
         repeat(3) { attempt ->
@@ -131,7 +133,9 @@ class AuthRepository @Inject constructor(
                 user.delete().await()
                 preferenceManager.clearAccountLocalState()
                 firestoreClient.clearOfflineCache()
-                return@runCatching
+                return@runSuspendCatching
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (e: Exception) {
                 lastError = e
                 if (attempt < 2) {

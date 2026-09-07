@@ -49,6 +49,16 @@ describe('errorReporter', () => {
     expect(sink).toHaveBeenCalledTimes(1);
   });
 
+  it('does not replay already-delivered recent history to a replacement sink', () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    setErrorSink(first);
+    reportError('window', new Error('delivered'));
+    setErrorSink(second);
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(second).not.toHaveBeenCalled();
+  });
+
   // A reporter that is itself broken must not turn one error into two.
   it('swallows a throwing sink', () => {
     setErrorSink(() => {

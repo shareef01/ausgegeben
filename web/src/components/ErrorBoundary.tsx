@@ -108,7 +108,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
-    reportError('render', error, { componentStack: info.componentStack });
+    reportError('render', error, { componentStack: info.componentStack ?? undefined });
   }
 
   render(): ReactNode {

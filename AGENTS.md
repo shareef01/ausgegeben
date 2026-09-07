@@ -273,3 +273,20 @@ git tag v1.2.3 && git push --tags
   because several confident diagnoses in its history were wrong and had to be
   retracted.
 - Don't manufacture a backlog. When the useful work is done, say so.
+
+---
+
+## 7. Distributed integrity rules added 2026-09-07
+
+- Expense uniqueness is document identity, not a field query: both clients use lowercase
+  SHA-256 of the exact UTF-8 idempotency key and transactionally create that document.
+  Keep the legacy field query first so upgrades find historical random-ID rows.
+- Android suspend work returning `Result` must use `runSuspendCatching`; ordinary
+  `runCatching` catches `CancellationException`. Inner fallback loops also rethrow it.
+- Category deletion and dedupe must raise `deletionState: deleting` first. Rules deny new
+  references and deny direct category deletes without the barrier (account wipe excepted).
+  A transient or unknown reassignment failure preserves the source category.
+- Firestore `delete()` already succeeds for a missing document. Never suppress a settings
+  or metadata delete error during account wipe; it must gate Firebase Auth deletion.
+- Production Hosting deploys validate all required Firebase/App Check values before build,
+  then verify the bundle, then deploy, then run the live smoke test. Do not reorder this.
