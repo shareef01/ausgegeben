@@ -248,6 +248,15 @@ guessed fixture. Confirmed working by the user on the real device afterward.
   uninstalled again**, leaving no app and wiping local prefs and the session.
   Cloud data survived; nothing else local did. The phone being absent from
   `adb devices` at the start of a session is not evidence it is absent now.
+- **Compose instrumentation needs an unlocked display.** On 2026-09-08 the same
+  `TouchTargetTest` APK passed 6/6 on the Android 16 AVD but reported `No compose
+  hierarchies found` on a dozing, keyguard-locked Pixel 7. Waking the phone is not
+  enough when secure keyguard remains; the owner must unlock it before the run.
+- **Keep `kotlinx-coroutines-test` in `debugImplementation`, not only
+  `androidTestImplementation`.** With coroutines 1.10.2, core is loaded from the
+  target app APK and its `ServiceLoader` cannot see the exception-handler provider
+  if that provider exists only in the separate instrumentation APK. The failure is
+  `Exception handler was not found via a ServiceLoader` before any Compose assertion.
 
 ---
 
