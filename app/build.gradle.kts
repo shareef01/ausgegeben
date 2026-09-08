@@ -189,7 +189,11 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation("org.json:json:20240303")
     testImplementation(libs.kotlinx.coroutines.test)
-    androidTestImplementation(libs.kotlinx.coroutines.test)
+    // Instrumentation uses a separate test APK. Coroutines core is loaded from the
+    // target app, so its ServiceLoader cannot discover a provider packaged only in
+    // the test APK on Android 16. Keep the test runtime in debug app variants so the
+    // provider and CoroutineExceptionHandler share one classloader; release is untouched.
+    debugImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.work.testing)
     androidTestImplementation(platform(libs.androidx.compose.bom))
