@@ -16,7 +16,6 @@
     "test:emulator": "npx firebase emulators:exec --only firestore --project demo-ausgegeben-repo \"vitest run --config vitest.emulator.config.ts\"",
     "icons": "node scripts/generate-icons.mjs",
     "prebuild": "npm run icons",
-    "prepare": "node ../scripts/install-git-hooks.mjs",
     "validate:prod-env": "node scripts/validate-prod-env.mjs",
     "validate:prod-bundle": "node scripts/validate-prod-env.mjs --bundle",
     "deploy": "npm run validate:prod-env && npm run build && npm run validate:prod-bundle && npx firebase deploy --only hosting:aus01,firestore:rules,firestore:indexes --config ../firebase.json && npm run smoke",

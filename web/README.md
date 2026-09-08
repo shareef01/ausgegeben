@@ -1,6 +1,6 @@
 # Ausgegeben Web (PWA)
 
-Installable web version of **Ausgegeben**. Requires Firebase Auth; expense data and preferences live in Cloud Firestore (online). Stays on the **Firebase Spark** free plan (Hosting + Auth + Firestore).
+Installable web version of **Ausgegeben**. It requires Firebase Auth; expense data and preferences live in Cloud Firestore with an IndexedDB offline cache. The project uses the Firebase Spark plan for Hosting, Auth, and Firestore.
 
 Settings (theme, locale, currency, budget, reminders, onboarding) sync at `users/{uid}/settings/preferences`. Empty accounts get the same starter categories as Android.
 

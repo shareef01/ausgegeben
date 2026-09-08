@@ -878,7 +878,7 @@ async function repairOrphanedExpenses(userId: string): Promise<OrphanRepairResul
     // Soft-deleted rows are filtered out of every read path and excluded from the
     // month total, so repointing them would only spend writes on rows nothing
     // reads. They are left exactly as they are — legacy data is tolerated here,
-    // never rewritten and never destroyed (AGENTS.md section 2).
+    // never rewritten and never destroyed (see docs/maintenance.md).
     if (data.deleted === true) return false;
     const cid = String(data.categoryId ?? '');
     return cid.length > 0 && !catIds.has(cid);

@@ -696,7 +696,7 @@ class AppRepository @Inject constructor(
                 } catch (e: Exception) {
                     // Same failure shape reassignExpenses() guards against: a
                     // rules-rejected row fails its whole chunk, and the inert
-                    // legacy rows documented in AGENTS.md section 1 can never
+                    // legacy rows documented in docs/maintenance.md can never
                     // pass validation on merge. Retry one document at a time so
                     // the healthy rows still land.
                     Log.w(TAG, "batch type change rejected — retrying one at a time", e)
@@ -869,7 +869,7 @@ class AppRepository @Inject constructor(
             // Soft-deleted rows are filtered out of every read path and excluded from
             // the month total, so repointing them would only spend writes on rows
             // nothing reads. They are left exactly as they are — legacy data is
-            // tolerated here, never rewritten and never destroyed (AGENTS.md section 2).
+            // tolerated here, never rewritten and never destroyed (see docs/maintenance.md).
             if (doc.getBoolean("deleted") == true) return@filter false
             val cid = doc.get("categoryId")?.toString().orEmpty()
             cid.isNotEmpty() && cid !in catIds
