@@ -27,7 +27,8 @@
  * never mentions. A narrow payload does not protect you.
  *
  * Field shapes below are the measured ones recorded in firestore.rules and
- * AGENTS.md — of 89 expenses, 22 stored `receiptImagePath` as null, 19 carried the
+ * Production evidence documented in docs/maintenance.md showed that, of 89 expenses,
+ * 22 stored `receiptImagePath` as null and 19 carried the
  * `cloudId`/`categoryCloudId` pair, 22 had a Timestamp `updatedAt` — not invented.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -145,7 +146,7 @@ describe('legacy document shapes through client code, rules enforced', () => {
     });
 
     /**
-     * Legacy data is tolerated, never rewritten and never destroyed (AGENTS.md §2).
+     * Legacy data is tolerated, never rewritten and never destroyed.
      * An edit must not quietly strip the fields it does not understand.
      */
     it('leaves untouched legacy fields intact after an edit', async () => {
@@ -267,7 +268,7 @@ describe('legacy document shapes through client code, rules enforced', () => {
 
   /**
    * Three documents with no core fields at all exist on the real account and are
-   * deliberately left alone (AGENTS.md §2). They can never satisfy validExpense, so
+   * deliberately left alone (see docs/maintenance.md). They can never satisfy validExpense, so
    * the contract is that they are inert — skipped by reads, and unable to take a
    * healthy batch down with them.
    */
