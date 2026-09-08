@@ -95,10 +95,9 @@ async function run(scheme) {
 
   const { width, height } = screenSize();
   const y = Math.round(height * NAV_Y);
-  // "bills" is the historical file name for what the app calls Insights.
   for (const [tab, file, settle] of [
     ['record', 'record', 4000],
-    ['insights', 'bills', 6000],
+    ['insights', 'insights', 6000],
     ['settings', 'settings', 5000],
   ]) {
     adb(['shell', 'input', 'tap', String(Math.round(width * TABS[tab])), String(y)]);

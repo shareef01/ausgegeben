@@ -2,6 +2,8 @@
 
 Project: **ausgegeben01** · PWA: [aus01.web.app](https://aus01.web.app)
 
+For release checks, legacy schema compatibility, and production-specific constraints, see [Maintaining Ausgegeben](docs/maintenance.md).
+
 ## Android
 
 1. [Firebase Console](https://console.firebase.google.com/) → project **ausgegeben01**

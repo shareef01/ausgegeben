@@ -3,7 +3,7 @@
  *
  * Nothing has written this flag for a long time, but rows carrying it are still
  * sitting in real accounts, and they once inflated a user's totals by €7,655
- * because every read path counted them as live (AGENTS.md section 1).
+ * because every read path counted them as live (see docs/maintenance.md).
  *
  * The trap these tests exist for: the rows only matter on an account that has
  * *already* had its one-shot orphan sweep (`meta/dedupe.orphansScannedAt` set),

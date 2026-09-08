@@ -179,7 +179,7 @@ jobs:
         working-directory: web
 
   # Legacy commit-status API stays "pending" with zero statuses when only
-  # check-runs exist — some clients (incl. Cursor) treat that as failing CI.
+  # check-runs exist, so publish a combined status for compatible clients.
   status:
     needs: [android, instrumentation, web, rules]
     if: always()

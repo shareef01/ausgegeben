@@ -19,7 +19,7 @@ Copy-Item google-services.json.backup app\google-services.json -ErrorAction Sile
 
 1. **File → Open** → select the **`ausgegeben`** folder (repo root).
 2. Wait for **Gradle Sync**.
-3. **Gradle JDK:** 21 — Android Studio's embedded JBR (Settings → Build → Gradle). If this machine's JBR is broken (see AGENTS.md §4), any JDK 21 works, e.g. `C:\Program Files\Microsoft\jdk-21.0.11.10-hotspot`.
+3. **Gradle JDK:** 21 — Android Studio's embedded JBR (Settings → Build → Gradle). If the bundled JBR is unavailable, use another JDK 21; see [Maintaining Ausgegeben](docs/maintenance.md#development-and-test-environment).
 4. Install **Android SDK 37** if prompted (SDK Manager).
 5. Run the **app** module.
 
@@ -46,7 +46,7 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 .\gradlew.bat :app:assembleProdDebug
 ```
 
-(If that JBR is broken on the machine — `Error: could not open …\lib\jvm.cfg` — point `JAVA_HOME` at a working JDK 21 instead; see AGENTS.md §4.)
+(If that JBR is broken on the machine — `Error: could not open …\lib\jvm.cfg` — point `JAVA_HOME` at a working JDK 21 instead.)
 
 APK: `app\build\outputs\apk\prod\debug\app-prod-debug.apk`
 

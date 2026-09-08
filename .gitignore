@@ -50,9 +50,6 @@ web/.inspect-*.mjs
 # Node (any location — main once had node_modules committed at the root)
 node_modules/
 
-# Claude Code personal settings
-.claude/
-
 # Web
 web/node_modules/
 web/dist/
@@ -63,19 +60,14 @@ web/.browser-key-rotation.json
 web/.vite/
 web/*.tsbuildinfo
 
-# Agent / editor
-.agent/
+# Local tooling output
 .artifacts/
-.cursor/
 .reasonix/
-
-# Obsolete local helper (replaced by scripts/strip-commit-trailers.py)
-scripts/_strip_coauthor.py
 
 # Wrangler local state — caches the Cloudflare account id and name
 tools/error-endpoint/.wrangler/
 
-# Internal audit and cleanup reports — kept locally, not published.
+# Internal review and cleanup reports — kept locally, not published.
 # These describe account data shapes and review findings; the repo is public.
 AUDIT.md
 AUDIT_REPORT.md

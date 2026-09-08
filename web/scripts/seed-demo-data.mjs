@@ -47,17 +47,24 @@ const CATEGORIES = [
   { id: '0', name: 'Uncategorized', iconName: 'help_outline', colorInt: argb(0xff8e8e96), transactionType: 'expense', sortOrder: 999 },
 ];
 
-const at = (day, hour = 12) => new Date(2026, 6, day, hour, 0, 0).getTime(); // July 2026
+// Keep the demo rows in the current month so the default Record filter shows them
+// whenever screenshots are refreshed. Clamp near the start of a month; multiple
+// transactions on one day are valid and still exercise the grouped list.
+const now = new Date();
+const atRecentDay = (daysAgo, hour = 12) =>
+  new Date(now.getFullYear(), now.getMonth(), Math.max(1, now.getDate() - daysAgo), hour, 0, 0).getTime();
+const atMonthStart = (hour = 12) =>
+  new Date(now.getFullYear(), now.getMonth(), 1, hour, 0, 0).getTime();
 
 // Expenses total 499,13 against 3.000,00 income → 2.500,87 balance, on a 2.000,00 budget.
 const EXPENSES = [
-  { id: 'exp-salary-july', amount: 3000.0, dateMillis: at(1, 9), categoryId: 'cat-salary', note: 'Monthly salary', transactionType: 'income' },
-  { id: 'exp-subscriptions', amount: 17.99, dateMillis: at(8, 10), categoryId: 'cat-subscriptions', note: 'Streaming plan', transactionType: 'expense' },
-  { id: 'exp-transport', amount: 45.0, dateMillis: at(12, 8), categoryId: 'cat-transport', note: 'Monthly transit pass', transactionType: 'expense' },
-  { id: 'exp-bills', amount: 89.25, dateMillis: at(15, 17), categoryId: 'cat-bills', note: 'Electricity', transactionType: 'expense' },
-  { id: 'exp-shopping', amount: 129.99, dateMillis: at(18, 14), categoryId: 'cat-shopping', note: 'New headphones', transactionType: 'expense' },
-  { id: 'exp-dining', amount: 154.5, dateMillis: at(20, 20), categoryId: 'cat-dining', note: 'Dinner with friends', transactionType: 'expense' },
-  { id: 'exp-groceries', amount: 62.4, dateMillis: at(21, 18), categoryId: 'cat-groceries', note: 'Weekly groceries', transactionType: 'expense' },
+  { id: 'exp-salary-month', amount: 3000.0, dateMillis: atMonthStart(9), categoryId: 'cat-salary', note: 'Monthly salary', transactionType: 'income' },
+  { id: 'exp-subscriptions', amount: 17.99, dateMillis: atRecentDay(6, 10), categoryId: 'cat-subscriptions', note: 'Streaming plan', transactionType: 'expense' },
+  { id: 'exp-transport', amount: 45.0, dateMillis: atRecentDay(5, 8), categoryId: 'cat-transport', note: 'Monthly transit pass', transactionType: 'expense' },
+  { id: 'exp-bills', amount: 89.25, dateMillis: atRecentDay(4, 17), categoryId: 'cat-bills', note: 'Electricity', transactionType: 'expense' },
+  { id: 'exp-shopping', amount: 129.99, dateMillis: atRecentDay(3, 14), categoryId: 'cat-shopping', note: 'New headphones', transactionType: 'expense' },
+  { id: 'exp-dining', amount: 154.5, dateMillis: atRecentDay(2, 20), categoryId: 'cat-dining', note: 'Dinner with friends', transactionType: 'expense' },
+  { id: 'exp-groceries', amount: 62.4, dateMillis: atRecentDay(1, 18), categoryId: 'cat-groceries', note: 'Weekly groceries', transactionType: 'expense' },
 ];
 
 const PREFERENCES = {

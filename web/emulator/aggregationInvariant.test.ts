@@ -8,7 +8,7 @@
  *
  * That gap is exactly how the €7,655 incident happened: soft-deleted rows were counted as
  * live by one path while the other looked correct, and the fix for it *still* left the
- * month total counting deleted rows (AGENTS.md section 1). A single fixture with live
+ * month total counting deleted rows (see docs/maintenance.md). A single fixture with live
  * rows, soft-deleted rows, income, transfers and out-of-month rows pins both routes to
  * one number, so a future change cannot move one without moving the other.
  */

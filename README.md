@@ -1,215 +1,104 @@
 # Ausgegeben
 
-*German for "spent"* — a personal finance tracker for **Android** and the **web**, sharing one Firebase backend so your data follows you across devices in real time.
+Ausgegeben is a personal finance tracker for Android and the web. It records expenses, income, and transfers, shows budgets and spending insights, and synchronizes data through Firebase.
+
+[Open the web app](https://aus01.web.app) · [Download the latest Android APK](https://github.com/shareef01/ausgegeben/releases/latest)
 
 [![CI](https://github.com/shareef01/ausgegeben/actions/workflows/ci.yml/badge.svg)](https://github.com/shareef01/ausgegeben/actions/workflows/ci.yml)
-![Android](https://img.shields.io/badge/Android-Jetpack%20Compose-3DDC84?logo=android&logoColor=white)
-![Web](https://img.shields.io/badge/Web-React%2019%20PWA-61DAFB?logo=react&logoColor=black)
-![Firebase](https://img.shields.io/badge/Firebase-Auth%20%2B%20Firestore-FFCA28?logo=firebase&logoColor=black)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-
-**Try it now:** [aus01.web.app](https://aus01.web.app) · installable as a PWA
-**Or on Android:** [download the latest signed APK](https://github.com/shareef01/ausgegeben/releases/latest) · sideload, no Play Store needed
-
-> Working on this with an AI agent? Read [AGENTS.md](AGENTS.md) first — it records
-> which apparent oddities are deliberate, and what has historically slipped past CI.
-
-- **Track** expenses, income, and transfers with notes and custom categories
-- **Understand** your money — budgets, category breakdowns, cash-flow trends
-- **Everywhere** — add a transaction on your phone, see it on the web instantly
-- **Private by design** — no third-party analytics or trackers; per-user data isolation; CSV export so you're never locked in
-
----
 
 ## Screenshots
 
-Every screen ships in matching **light and dark** themes. All of these are generated
-against the local Firebase emulators from a seeded demo account, never real finances —
-`web/scripts/capture-screenshots.mjs` and `scripts/capture-android-screenshots.mjs`
-reproduce them.
-
 ### Web
 
-| | Light | Dark |
-|---|---|---|
-| **Record** | ![Web Record — light](docs/screenshots/web/web-record-light.png) | ![Web Record — dark](docs/screenshots/web/web-record-dark.png) |
-| **Insights** | ![Web Insights — light](docs/screenshots/web/web-insights-light.png) | ![Web Insights — dark](docs/screenshots/web/web-insights-dark.png) |
-| **Add Transaction** | ![Web Add Transaction — light](docs/screenshots/web/web-add-transaction-light.png) | ![Web Add Transaction — dark](docs/screenshots/web/web-add-transaction-dark.png) |
-| **Settings** | ![Web Settings — light](docs/screenshots/web/web-settings-light.png) | ![Web Settings — dark](docs/screenshots/web/web-settings-dark.png) |
+<p>
+  <img src="docs/screenshots/web/web-record-light.png" alt="Web record screen in the light theme" width="49%">
+  <img src="docs/screenshots/web/web-insights-dark.png" alt="Web insights screen in the dark theme" width="49%">
+</p>
 
 ### Android
 
-| Record | Insights | Settings |
-|---|---|---|
-| ![Android Record — light](docs/screenshots/android/record-light.png) | ![Android Insights — light](docs/screenshots/android/bills-light.png) | ![Android Settings — light](docs/screenshots/android/settings-light.png) |
-| ![Android Record — dark](docs/screenshots/android/record-dark.png) | ![Android Insights — dark](docs/screenshots/android/bills-dark.png) | ![Android Settings — dark](docs/screenshots/android/settings-dark.png) |
+<p>
+  <img src="docs/screenshots/android/record-light.png" alt="Android record screen" width="30%">
+  <img src="docs/screenshots/android/insights-light.png" alt="Android insights screen" width="30%">
+  <img src="docs/screenshots/android/settings-light.png" alt="Android settings screen" width="30%">
+</p>
 
----
+The screenshots use a local Firebase emulator and seeded demonstration data. The capture scripts are in [`web/scripts`](web/scripts/capture-screenshots.mjs) and [`scripts`](scripts/capture-android-screenshots.mjs).
 
 ## Features
 
-| | |
-|---|---|
-| **Transactions** | Expense / income / transfer with notes, undo-able delete, duplicate, search |
-| **Categories** | Full CRUD with a curated icon & color library; deleting a category reassigns linked transactions |
-| **Insights** | Real-time balance, monthly budget bar, per-category donut charts, cash-flow graph, flexible analysis periods |
-| **Sync** | Firebase Auth + Cloud Firestore; preferences (theme, locale, currency, budget) sync cross-device with last-write-wins |
-| **Personalization** | Multiple theme modes (system / light / dark / AMOLED / …), English & German localization |
-| **Reminders** | Daily notification at a configurable time on **Android** (WorkManager; survives reboots). Preference syncs to web; notifications are Android-only |
-| **Portability** | One-tap CSV export on both platforms |
+- Expenses, income, and transfers with notes and custom categories
+- Monthly budgets, category breakdowns, and cash-flow trends
+- Search, duplicate, undo-delete, and CSV export
+- English and German interfaces with configurable currencies
+- System, light, dark, AMOLED, and additional color themes
+- Firebase synchronization and offline Firestore caches on both clients
+- Configurable daily reminders on Android
+- Installable web app with an automatically updated offline shell
 
----
+## Platforms
 
-## Architecture
+| Platform | Stack | Distribution |
+|---|---|---|
+| Android | Kotlin, Jetpack Compose, Hilt, WorkManager, DataStore | Signed APKs from [GitHub Releases](https://github.com/shareef01/ausgegeben/releases) |
+| Web | React, TypeScript, Vite, Zustand | Firebase Hosting at [aus01.web.app](https://aus01.web.app), installable as a PWA |
 
-Two clients, one serverless backend. There is **no custom API server** — clients talk to Firebase directly. Ownership and field schema are enforced in [Firestore security rules](firestore.rules).
+Both clients use Firebase Authentication with email and password. Transactions, categories, and synchronized preferences are stored below the signed-in user's Firestore document and protected by field-validating security rules.
 
-### System overview
-
-```mermaid
-flowchart TB
-  subgraph clients [Clients]
-    Android["Android<br/>Kotlin · Jetpack Compose<br/>MVVM · Flow · DataStore"]
-    Web["Web PWA<br/>React 19 · TypeScript<br/>Vite · Zustand"]
-  end
-
-  subgraph firebase [Firebase]
-    Auth["Authentication<br/>Email / password"]
-    FS["Cloud Firestore"]
-    Host["Hosting<br/>aus01.web.app"]
-    Rules["Security Rules<br/>+ App Check"]
-  end
-
-  Android --> Auth
-  Web --> Auth
-  Android --> FS
-  Web --> FS
-  Web --> Host
-  Auth --> Rules
-  FS --> Rules
-```
-
-### Data model
-
-Every document lives under the signed-in user. The `users/{uid}` document itself is not readable or writable — only subcollections are.
-
-```mermaid
-flowchart LR
-  U["users/{uid}"]
-  U --> E["expenses/{id}<br/>amount · dateMillis · categoryId<br/>note · transactionType"]
-  U --> C["categories/{id}<br/>name · icon · color<br/>type · sortOrder"]
-  U --> S["settings/preferences<br/>theme · locale · currency<br/>budget · reminders"]
-  U --> M["meta/dedupe<br/>one-time category cleanup"]
-```
-
-### Client layers
-
-Both apps follow the same shape: UI → view-model → repository → Firestore.
-
-```mermaid
-flowchart TB
-  subgraph android [Android]
-    AUI["Compose screens<br/>Record · Insights · Settings"]
-    AVM["ViewModels<br/>StateFlow"]
-    AREPO["AppRepository<br/>AuthRepository"]
-    AUI --> AVM --> AREPO
-  end
-
-  subgraph web [Web]
-    WUI["React views<br/>Record · Insights · Settings"]
-    WVM["Hooks / view-models"]
-    WREPO["expenseRepository<br/>authService · preferencesSync"]
-    WUI --> WVM --> WREPO
-  end
-
-  FS[(Cloud Firestore)]
-  AREPO --> FS
-  WREPO --> FS
-```
-
-**Android** — Jetpack Compose (Material 3) with a custom design system. Cold Firestore listener flows keyed to auth state, exposed as `StateFlow`. Offline cache keeps the app usable without a network; DataStore holds local preferences.
-
-**Web** — React 19 + TypeScript (Vite). Zustand stores fed by the same Firestore documents and rules as Android, including matching starter categories. Installable PWA with a precached shell.
-
-**Backend** — Email/password Firebase Auth (App Check: Play Integrity on Android; reCAPTCHA Enterprise required on web production). Queries are range-scoped where possible to keep Firestore reads modest.
-
----
-
-## Getting Started
-
-**Prerequisites:** JDK 21 + Android Studio (Android) · Node.js 20+ (web; CI uses 22) · JDK 21 for local Firestore rules tests · a Firebase project — see **[FIREBASE_SETUP.md](FIREBASE_SETUP.md)**.
+## Getting started
 
 ### Android
 
-```bash
-# Place your Firebase config first: app/google-services.json
-./gradlew assembleProdDebug          # production debug APK
-./gradlew testProdDebugUnitTest     # unit tests
+Install JDK 21 and Android Studio with Android SDK 37. Copy your Firebase Android configuration to `app/google-services.json`, then run:
+
+```powershell
+.\gradlew.bat assembleProdDebug
+.\gradlew.bat testProdDebugUnitTest
 ```
 
-A placeholder `google-services.json` is generated automatically so the project compiles out of the box; real sign-in needs your own. Android Studio specifics: [ANDROID_STUDIO.md](ANDROID_STUDIO.md).
+The example Firebase file allows debug compilation but not real authentication. Release builds require real Firebase configuration and signing material. See [Android Studio setup](ANDROID_STUDIO.md).
 
 ### Web
 
+Install Node.js 20 or newer, copy `web/.env.example` to `web/.env.local`, and add the Firebase web configuration:
+
 ```bash
 cd web
-cp .env.example .env.local       # fill in your Firebase web config
 npm install
-npm run dev                      # http://localhost:5173
-npm test                         # vitest
-npm run deploy                   # build + deploy hosting, Firestore rules & indexes, then smoke-test
+npm run dev
 ```
 
-More detail in [web/README.md](web/README.md).
+See [web development and deployment](web/README.md) and [Firebase setup](FIREBASE_SETUP.md).
 
----
+## Development
 
-## Quality
+```bash
+# Web unit, type, CSS, and production-build checks
+cd web
+npm test
+npm run lint
+npm run lint:css
+npm run build
 
-370 automated tests run on every push and PR ([workflow](.github/workflows/ci.yml)), across four parallel jobs, and again before any release is published ([workflow](.github/workflows/release.yml)). Counts re-verified 2026-08-31 after the audit remediation; CI's own numbers are authoritative — these have drifted before, and the previous figure was both stale and inconsistent with its own table.
+# Firestore rules and repository integration tests (JDK 21 required)
+npm run test:rules
+npm run test:emulator
 
-| Suite | Tests | What it covers |
-|---|---:|---|
-| Web unit | 109 | view models, currency and period maths, i18n, theming, error reporting, CSV export, edit-category resolution, orphan-scan versioning |
-| Android unit | 162 | repositories, preferences crypto, reminder scheduling, theme contrast, insights totals, account deletion coordinator, reorder screening, money parity |
-| Firestore rules | 50 | every branch of the security rules, plus cross-user isolation across all four subcollections |
-| Repository | 49 | dedupe, category delete, orphan repair, batch chunking and the month-total invariant against a real Firestore |
-| Instrumentation | 9 | app launch, FileProvider export boundary, touch-target floors on an API 29 emulator |
-
-Two habits behind that, both learned the hard way:
-
-- **CI builds the artifact that ships.** `assembleProdRelease` runs on every push, so R8 is exercised — a keep-rule regression once made every release APK crash on launch while the debug build stayed perfectly healthy.
-- **A tag cannot outrun the tests.** Releasing runs the unit, rules and repository suites first, then verifies the built APK carries the *expected* signing certificate (a valid signature is not enough — the wrong key produces an APK that cannot update any existing install) and launches it on an emulator before publishing.
-- **The deployed site is smoke-tested** ([workflow](.github/workflows/smoke.yml)), on every deploy and daily on a schedule: the page serves, the security headers survived, the Firebase key in the shipped bundle is still live. A deleted API key once broke sign-in for everyone while CI stayed green, because nothing exercised production.
-
-Also:
-
-- **Static safety:** strict TypeScript, schema-validating Firestore rules, R8-minified Android releases.
-- **Hosting hardening:** CSP, HSTS, frame-ancestors denial, restrictive Permissions-Policy ([firebase.json](firebase.json)).
-- **Releases:** tagging `v1.2.3` builds, signs, verifies and publishes the APK ([workflow](.github/workflows/release.yml)); the version code is derived from the tag so installs can always update.
-- **Privacy:** no third-party analytics or trackers. When crash reporting is enabled (Settings → About on web), unhandled errors — message, stack trace, page path, and browser user-agent — are sent to a first-party Cloudflare Worker; no financial data, account identifiers, or auth tokens are included. Users can turn this off in Settings.
-- **Operations:** set Firebase console usage alerts on Firestore **daily reads** (Spark: 50k/day) and **storage** (Spark: 1 GiB). Unverified accounts can still list foreign collection paths (AUS-005); a verified account can fill storage by writing maximal documents (AUS-019). Rules `get`/`exists` on every expense write also burn reads (AUS-018) — intentional for referential integrity.
-
----
-
-## Project Structure
-
-```
-ausgegeben/
-├── app/                 # Android — Kotlin, Compose, WorkManager
-├── web/                 # Web PWA — React, TypeScript, Vite
-├── docs/screenshots/    # README screenshots (android/ + web/)
-├── firestore.rules      # Per-user isolation + field-level schema validation
-├── firebase.json        # Hosting config, security headers, rules deployment
-├── scripts/             # Maintenance utilities + Android screenshot capture
-└── .github/workflows/   # CI for both platforms
+# Android unit, lint, and debug-build checks, from the repository root
+./gradlew testProdDebugUnitTest lintProdDebug assembleProdDebug
 ```
 
----
+CI also runs Android instrumentation tests and an R8 release build. Version tags matching `vMAJOR.MINOR.PATCH` run the test gates, build and verify the signed APK, launch it on an emulator, and publish a GitHub Release. Operational constraints and the release checklist are documented in [Maintaining Ausgegeben](docs/maintenance.md).
 
-## Author
+## Privacy
 
-**[shareef01](https://github.com/shareef01)**
+Financial records are stored in the user's Cloud Firestore account and cached locally for offline use. Firestore rules isolate each user's data. The project does not include advertising or analytics SDKs.
+
+Optional web error reporting can send an error message, stack trace, page path, browser user-agent, and bounded technical context to the project's Cloudflare Worker. It can be disabled from Settings. The reporter filters account identifiers, authentication data, and financial fields; reports are retained only in Worker logs.
+
+## Maintainer
+
+[shareef01](https://github.com/shareef01)
 
 ## License
 
