@@ -19,9 +19,11 @@ class BootReceiver : BroadcastReceiver() {
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val enabled = PreferenceManager(context).dailyReminderFlow.first()
+                val prefs = PreferenceManager(context)
+                val enabled = prefs.dailyReminderFlow.first()
                 if (enabled) {
-                    ReminderScheduler.scheduleNext(context)
+                    val (hour, minute) = prefs.reminderTime()
+                    ReminderScheduler.scheduleNext(context, hour, minute)
                 }
             } finally {
                 pending.finish()

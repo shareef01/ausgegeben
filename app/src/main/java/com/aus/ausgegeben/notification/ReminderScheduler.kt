@@ -6,7 +6,6 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import com.aus.ausgegeben.data.PreferenceManager
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
@@ -32,8 +31,7 @@ object ReminderScheduler {
      * caller wants: a settings change, a reboot, or an app launch should each realign the
      * schedule rather than inherit a stale one.
      */
-    suspend fun scheduleNext(context: Context) {
-        val (hour, minute) = PreferenceManager(context).reminderTime()
+    suspend fun scheduleNext(context: Context, hour: Int = 19, minute: Int = 0) {
         val request = PeriodicWorkRequestBuilder<DailyReminderWorker>(
             REPEAT_INTERVAL_HOURS,
             TimeUnit.HOURS,

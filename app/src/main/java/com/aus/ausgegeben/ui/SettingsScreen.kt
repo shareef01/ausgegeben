@@ -389,7 +389,7 @@ fun SettingsScreen(
                 scope.launch {
                     preferenceManager.updateReminderTime(hour, minute)
                     if (dailyReminder) {
-                        ReminderScheduler.scheduleNext(context)
+                        ReminderScheduler.scheduleNext(context, hour, minute)
                     }
                     onShowMessage(
                         context.getString(R.string.settings_reminder_set, "%02d:%02d".format(hour, minute)),

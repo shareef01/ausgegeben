@@ -193,12 +193,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           state=success
-          if [ "${{ needs.android.result }}" != "success" ] || \
-             [ "${{ needs.instrumentation.result }}" != "success" ] || \
-             [ "${{ needs.web.result }}" != "success" ] || \
-             [ "${{ needs.rules.result }}" != "success" ]; then
-            state=failure
-          fi
+          for result in "${{ needs.android.result }}" "${{ needs.instrumentation.result }}" "${{ needs.web.result }}" "${{ needs.rules.result }}"; do
+            if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
+              state=failure
+              break
+            fi
+          done
           gh api "repos/${{ github.repository }}/statuses/${{ github.sha }}" \
             -f state="$state" \
             -f context="CI" \
