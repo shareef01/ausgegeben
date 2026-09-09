@@ -21,6 +21,7 @@ import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
+import com.google.firebase.firestore.Source
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
@@ -37,6 +38,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
@@ -61,6 +63,7 @@ class AppRepository @Inject constructor(
         private const val TAG = "AppRepository"
         /** Soft cap matching web getAllExpensesCapped — unbounded listeners burn quota. */
         const val ALL_EXPENSES_SOFT_CAP = 5_000L
+        private const val MAX_DELETE_BATCHES = 100
 
         /**
          * Which generation of the orphan sweep has run for an account.
@@ -142,7 +145,7 @@ class AppRepository @Inject constructor(
     fun retryListeners() {
         failedListeners.clear()
         _listenerError.value = null
-        _listenerEpoch.value += 1
+        _listenerEpoch.update { it + 1 }
     }
 
     private fun uid(): String? = authRepository.currentUserId
@@ -568,12 +571,17 @@ class AppRepository @Inject constructor(
     private suspend fun deleteCollectionBatched(
         col: com.google.firebase.firestore.CollectionReference,
     ) {
-        while (true) {
+        var iterations = 0
+        while (iterations < MAX_DELETE_BATCHES) {
             val snap = col.limit(400).get().await()
             if (snap.isEmpty) break
             val batch = firestore.batch()
             snap.documents.forEach { batch.delete(it.reference) }
             batch.commit().await()
+            iterations++
+        }
+        if (iterations >= MAX_DELETE_BATCHES) {
+            throw IllegalStateException("Deletion exceeded batch ceiling ($MAX_DELETE_BATCHES batches)")
         }
     }
 
@@ -598,17 +606,26 @@ class AppRepository @Inject constructor(
         // runtime and nowhere else — the emulator invents indexes on demand, and the
         // caller swallows the error, so only a real device with a budget set shows it.
         val sumField = AggregateField.sum("amount")
-        val liveSnap = scoped.aggregate(sumField).get(AggregateSource.SERVER).await()
-        val deletedSnap = scoped.whereEqualTo("deleted", true)
-            .aggregate(sumField).get(AggregateSource.SERVER).await()
-        // `as? Number` rather than getDouble(): an aggregate can surface as an
-        // int64 depending on how the matched amounts were stored, and
-        // getDouble()'s null-on-mismatch contract would coerce that to 0.0 —
-        // silently projecting a budget of zero spent, the failure mode this
-        // projection is already prone to (see the index note above).
-        val liveSum = (liveSnap.get(sumField) as? Number)?.toDouble() ?: 0.0
-        val deletedSum = (deletedSnap.get(sumField) as? Number)?.toDouble() ?: 0.0
-        var total = liveSum - deletedSum
+        var total = try {
+            val liveSnap = scoped.aggregate(sumField).get(AggregateSource.SERVER).await()
+            val deletedSnap = scoped.whereEqualTo("deleted", true)
+                .aggregate(sumField).get(AggregateSource.SERVER).await()
+            // `as? Number` rather than getDouble(): an aggregate can surface as an
+            // int64 depending on how the matched amounts were stored, and
+            // getDouble()'s null-on-mismatch contract would coerce that to 0.0 —
+            // silently projecting a budget of zero spent, the failure mode this
+            // projection is already prone to (see the index note above).
+            val liveSum = (liveSnap.get(sumField) as? Number)?.toDouble() ?: 0.0
+            val deletedSum = (deletedSnap.get(sumField) as? Number)?.toDouble() ?: 0.0
+            liveSum - deletedSum
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            // Offline or network unavailable: fall back to calculating the sum from the local Firestore cache.
+            val cacheSnap = scoped.get(Source.CACHE).await()
+            cacheSnap.documents
+                .filter { it.getBoolean("deleted") != true }
+                .sumOf { (it.get("amount") as? Number)?.toDouble() ?: 0.0 }
+        }
 
         if (excludeExpenseId.isNotEmpty()) {
             val excluded = expDoc(u, excludeExpenseId).get().await()
@@ -907,9 +924,11 @@ class AppRepository @Inject constructor(
     }
 
     private fun categoryFromDoc(doc: DocumentSnapshot): Category? {
+        val name = doc.getString("name")?.trim().orEmpty()
+        if (name.isEmpty()) return null
         return Category(
             id = doc.id,
-            name = doc.getString("name") ?: "",
+            name = name,
             iconName = doc.getString("iconName") ?: "shopping_bag",
             colorInt = (doc.getLong("colorInt") ?: 0xff6a9fd4).toInt(),
             transactionType = doc.getString("transactionType") ?: "expense",

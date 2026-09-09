@@ -134,10 +134,10 @@ class PreferencesCloudSync @Inject constructor(
 
     private suspend fun applyRemote(remote: SyncedPreferences) {
         suppressPush = true
+        lastWrittenAt = remote.updatedAt
         try {
             preferenceManager.applySyncedPreferences(remote)
             preferenceManager.setLastCloudSyncAt(System.currentTimeMillis())
-            lastWrittenAt = remote.updatedAt
             _syncError.value = null
             withContext(Dispatchers.Main) {
                 AppCompatDelegate.setApplicationLocales(
