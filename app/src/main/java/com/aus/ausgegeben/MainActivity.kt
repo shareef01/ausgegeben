@@ -147,7 +147,7 @@ fun MainApp(
     LaunchedEffect(dailyReminder, reminderHour, reminderMinute) {
         NotificationHelper.ensureChannel(context)
         if (dailyReminder) {
-            ReminderScheduler.scheduleNext(context)
+            ReminderScheduler.scheduleNext(context, reminderHour, reminderMinute)
         } else {
             ReminderScheduler.cancel(context)
         }
@@ -228,7 +228,7 @@ fun MainApp(
                     ) {
                         notificationPermission.launchPermissionRequest()
                     }
-                    ReminderScheduler.scheduleNext(context)
+                    ReminderScheduler.scheduleNext(context, reminderHour, reminderMinute)
                 }
             }
         )

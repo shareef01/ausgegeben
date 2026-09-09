@@ -8,6 +8,7 @@ import com.aus.ausgegeben.data.AppRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.CancellationException
 import java.io.File
 import java.text.SimpleDateFormat
@@ -33,7 +34,9 @@ object ExportUtils {
     ): Result {
         return withContext(Dispatchers.IO) {
             try {
-                val expenses = repository.allExpenses.first()
+                val expenses = withTimeoutOrNull(EXPORT_TIMEOUT_MS) {
+                    repository.allExpenses.first()
+                } ?: return@withContext Result(success = false)
                 // Read after collecting, so the listener has already reported whether it
                 // hit the cap. expenses.size can't tell a complete cap-sized result apart
                 // from a truncated one.
@@ -41,7 +44,9 @@ object ExportUtils {
                 if (truncated && !allowTruncated) {
                     return@withContext Result(success = false, truncated = true, needsConfirm = true)
                 }
-                val categories = repository.allCategories.first()
+                val categories = withTimeoutOrNull(EXPORT_TIMEOUT_MS) {
+                    repository.allCategories.first()
+                } ?: return@withContext Result(success = false)
                 val categoryById = categories.associateBy { it.id }
                 val dateFormat = SimpleDateFormat("yyyy-MM-dd,HH:mm", Locale.US)
 
@@ -122,4 +127,5 @@ object ExportUtils {
     }
 
     private val FORMULA_TRIGGERS = charArrayOf('=', '+', '-', '@', '\t', '\r')
+    private const val EXPORT_TIMEOUT_MS = 15_000L
 }
