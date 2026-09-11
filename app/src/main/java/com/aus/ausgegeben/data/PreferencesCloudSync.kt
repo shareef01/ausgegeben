@@ -38,6 +38,11 @@ class PreferencesCloudSync @Inject constructor(
     @Volatile private var suppressPush = false
     @Volatile private var lastWrittenAt = 0L
 
+    private data class CommitResult(
+        val wrote: Boolean,
+        val winner: SyncedPreferences,
+    )
+
     private val _syncError = MutableStateFlow<String?>(null)
     /** Non-null when the last push/pull to `users/{uid}/settings/preferences` failed. */
     val syncError: StateFlow<String?> = _syncError.asStateFlow()
@@ -158,15 +163,29 @@ class PreferencesCloudSync @Inject constructor(
             payload = preferenceManager.snapshotSyncedPreferences().copy(updatedAt = stamped)
         }
         if (payload.updatedAt == lastWrittenAt) return
-        lastWrittenAt = payload.updatedAt
         try {
-            firestore
+            val ref = firestore
                 .collection("users")
                 .document(uid)
                 .collection("settings")
                 .document("preferences")
-                .set(payload.toFirestoreMap(), SetOptions.merge())
-                .await()
+            val result = firestore.runTransaction { transaction ->
+                val remote = parseRemote(transaction.get(ref).data)
+                // Firestore retries this callback when another device commits first.
+                // Equal clocks are first-writer-wins, so the result is deterministic
+                // and a delayed stale write can never overwrite a newer document.
+                if (remote != null && remote.updatedAt >= payload.updatedAt) {
+                    CommitResult(wrote = false, winner = remote)
+                } else {
+                    transaction.set(ref, payload.toFirestoreMap(), SetOptions.merge())
+                    CommitResult(wrote = true, winner = payload)
+                }
+            }.await()
+            if (result.wrote) {
+                lastWrittenAt = result.winner.updatedAt
+            } else if (result.winner.updatedAt >= preferenceManager.preferencesUpdatedAt()) {
+                applyRemote(result.winner)
+            }
             preferenceManager.setLastCloudSyncAt(System.currentTimeMillis())
             _syncError.value = null
         } catch (cancelled: CancellationException) {

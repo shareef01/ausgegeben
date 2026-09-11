@@ -27,6 +27,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.util.UUID
 
 /**
  * Covers saveExpense's validation and success/failure paths — the same class of bug
@@ -153,6 +154,35 @@ class AddExpenseViewModelTest {
     }
 
     @Test
+    fun saveExpense_processRecreationAfterAmbiguousFailure_reusesDurableKey() = runTest(dispatcher) {
+        fakeExpenses.insertResult = Result.failure(RuntimeException("response lost"))
+        viewModel.onCategorySelect(expenseCategory)
+        viewModel.onAmountChange("12,50")
+        viewModel.onNoteChange("coffee")
+        viewModel.saveExpense(TransactionType.EXPENSE, onSuccess = {}, onError = {})
+        advanceUntilIdle()
+        val firstKey = fakeExpenses.idempotencyKeys.single()
+
+        // New ViewModel models process/UI recreation. The journal survives, while
+        // volatile time-of-day can differ within the same selected calendar day.
+        viewModel = AddExpenseViewModel(
+            ApplicationProvider.getApplicationContext(),
+            fakeCategories,
+            fakeExpenses,
+            fakePreferences,
+        )
+        fakeExpenses.insertResult = Result.success("existing-id")
+        viewModel.onCategorySelect(expenseCategory)
+        viewModel.onAmountChange("12,50")
+        viewModel.onNoteChange("coffee")
+        viewModel.saveExpense(TransactionType.EXPENSE, onSuccess = {}, onError = {})
+        advanceUntilIdle()
+
+        assertEquals(firstKey, fakeExpenses.idempotencyKeys.last())
+        assertTrue(fakePreferences.pending.isEmpty())
+    }
+
+    @Test
     fun saveExpense_emailNotVerified_mapsToVerifyMessage() = runTest(dispatcher) {
         fakeExpenses.insertResult = Result.failure(IllegalStateException("EMAIL_NOT_VERIFIED"))
         viewModel.onCategorySelect(expenseCategory)
@@ -252,6 +282,7 @@ class AddExpenseViewModelTest {
         var lastInserted: Expense? = null
         var lastUpdated: Expense? = null
         var sumMonthThrows = false
+        val idempotencyKeys = mutableListOf<String?>()
 
         override fun getExpensesInRange(startMillis: Long, endMillis: Long): Flow<List<Expense>> =
             MutableStateFlow(emptyList())
@@ -259,6 +290,7 @@ class AddExpenseViewModelTest {
         override suspend fun insertExpense(expense: Expense, idempotencyKey: String?): Result<String> {
             insertCalled = true
             lastInserted = expense
+            idempotencyKeys += idempotencyKey
             return insertResult
         }
 
@@ -286,6 +318,7 @@ class AddExpenseViewModelTest {
         val currency = MutableStateFlow("EUR")
         val monthlyBudget = MutableStateFlow<Double?>(null)
         val analyticsPeriod = MutableStateFlow("this_month")
+        val pending = mutableMapOf<String, String>()
 
         override val currencyFlow: Flow<String> = currency
         override val monthlyBudgetFlow: Flow<Double?> = monthlyBudget
@@ -293,6 +326,13 @@ class AddExpenseViewModelTest {
 
         override suspend fun updateAnalyticsPeriodKey(storageKey: String) {
             analyticsPeriod.value = storageKey
+        }
+
+        override suspend fun prepareExpenseSubmission(fingerprint: String): String =
+            pending.getOrPut(fingerprint) { UUID.randomUUID().toString() }
+
+        override suspend fun completeExpenseSubmission(fingerprint: String, idempotencyKey: String) {
+            if (pending[fingerprint] == idempotencyKey) pending.remove(fingerprint)
         }
     }
 }

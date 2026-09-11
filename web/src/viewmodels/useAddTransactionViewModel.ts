@@ -5,6 +5,11 @@ import { formatAmount, formatAmountForInput, parseAmount, sanitizeAmountInput } 
 import { thisMonthRange } from '@/utils/periodUtils';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useTranslation } from '@/i18n';
+import { useAuthStore } from '@/services/authStore';
+import {
+  completeExpenseSubmission,
+  prepareExpenseSubmission,
+} from '@/services/expenseSubmissionJournal';
 
 export interface AddTransactionForm {
   amountInput: string;
@@ -66,16 +71,6 @@ export function useAddTransactionViewModel(expenseId?: string) {
   const [ready, setReady] = useState(false);
   /** Edit load failed (missing doc / fetch error) — block Save so we never recreate the id. */
   const [loadFailed, setLoadFailed] = useState(false);
-  /**
-   * Held across retries of the same logical submission, and cleared once one lands.
-   *
-   * Minting this inside save() made the mechanism inert: every attempt carried a brand
-   * new key, so insertExpense's dedupe lookup could never match and simply cost one
-   * guaranteed-empty query per insert. Reusing it means a retry after a lost response
-   * finds the document the first attempt already wrote instead of duplicating it.
-   */
-  const pendingIdempotencyKey = useRef<string | null>(null);
-
   /**
    * The transaction type the category selection was last reconciled against.
    *
@@ -234,15 +229,26 @@ export function useAddTransactionViewModel(expenseId?: string) {
       dateMillis: form.dateMillis,
       transactionType: form.transactionType,
     };
-    if (!pendingIdempotencyKey.current) {
-      pendingIdempotencyKey.current = crypto.randomUUID();
-    }
-    const idempotencyKey = pendingIdempotencyKey.current;
     try {
-      const savedId = expenseId
-        ? (await expenseRepository.updateExpense({ ...payload, id: expenseId }), expenseId)
-        : await expenseRepository.insertExpense(payload, idempotencyKey);
-      pendingIdempotencyKey.current = null;
+      let savedId: string;
+      if (expenseId) {
+        await expenseRepository.updateExpense({ ...payload, id: expenseId });
+        savedId = expenseId;
+      } else {
+        const uid = useAuthStore.getState().user?.uid;
+        if (!uid) throw new Error('Not signed in');
+        // Persist before Firestore. If the commit lands but its response is lost and
+        // the tab/process dies, the same normalized submission recovers the same key.
+        const prepared = await prepareExpenseSubmission(uid, payload);
+        savedId = await expenseRepository.insertExpense(payload, prepared.idempotencyKey);
+        try {
+          await completeExpenseSubmission(prepared);
+        } catch (journalError) {
+          // The financial write is already acknowledged. Keeping the journal is safer
+          // than reporting a false save failure: a retry will resolve to the same doc.
+          console.warn('[useAddTransactionViewModel] could not clear submission journal', journalError);
+        }
+      }
       // Budget check is best-effort — a failed projection must not look like a failed save.
       let budgetAlert: string | undefined;
       try {

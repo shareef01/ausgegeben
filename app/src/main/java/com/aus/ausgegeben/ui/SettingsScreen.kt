@@ -110,18 +110,6 @@ fun SettingsScreen(
         deletionCoordinator.refresh(currentUser != null)
     }
 
-    fun keepAccount() {
-        scope.launch {
-            val toast = deletionCoordinator.keepAccount()
-            if (toast == AccountDeletionToast.KEEP_FAILED) {
-                onShowMessage(context.getString(R.string.settings_deletion_keep_failed))
-                return@launch
-            }
-            haptics.success()
-            onShowMessage(context.getString(R.string.settings_deletion_kept))
-        }
-    }
-
     val reminderTimeLabel = remember(reminderHour, reminderMinute) {
         "%02d:%02d".format(reminderHour, reminderMinute)
     }
@@ -170,7 +158,6 @@ fun SettingsScreen(
                     item {
                         AccountDeletionPendingBanner(
                             onFinishDeleting = { showDeleteAccountConfirm = true },
-                            onKeepAccount = { keepAccount() },
                             busy = deletionUi.busy || deletingAccount,
                             modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs),
                         )
@@ -523,6 +510,8 @@ fun SettingsScreen(
                                     R.string.settings_delete_account_incomplete
                                 AccountDeletionToast.NEEDS_REAUTH ->
                                     R.string.settings_delete_account_needs_reauth
+                                AccountDeletionToast.LOCAL_DATA_REMAINS ->
+                                    R.string.settings_local_cleanup_failed
                                 else -> R.string.settings_delete_account_failed
                             }
                             onShowMessage(context.getString(msg))

@@ -171,8 +171,16 @@ class AuthViewModel @Inject constructor(
 
     fun signOut(onComplete: () -> Unit = {}) {
         viewModelScope.launch {
-            authRepository.signOut()
-            onComplete()
+            try {
+                authRepository.signOut()
+                onComplete()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(errorMessage = appString(R.string.settings_local_cleanup_failed))
+                }
+            }
         }
     }
 

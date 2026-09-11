@@ -4,9 +4,12 @@ This document records constraints and operational details that are easy to miss 
 
 ## Architecture constraints
 
-### Firebase Spark plan
+### Firebase billing and quota
 
-The project intentionally stays on Firebase's no-billing Spark plan. There are no Cloud Functions. The web error endpoint is a Cloudflare Worker in `tools/error-endpoint/` because deploying functions would require the Blaze plan.
+Production remains on the Firebase Spark plan. Account deletion is a resumable,
+rules-constrained client protocol; the web error
+endpoint remains a Cloudflare Worker so telemetry does not add function invocations or
+Firebase storage.
 
 Firestore reads are limited, so full-collection maintenance scans use versioned one-time markers under `users/{uid}/meta/dedupe` and the all-time expense fetch has a short cache. Local writes invalidate that cache immediately.
 
@@ -44,8 +47,14 @@ These fields remain type- and size-bounded. Firestore evaluates `hasOnly()` agai
 
 - Soft-deleted expenses are excluded from totals but remain references while they can be restored.
 - Modern idempotent expense creation uses the lowercase SHA-256 digest of the exact UTF-8 idempotency key as the document ID and creates it transactionally. The legacy field query must remain first so upgrades find older random-ID rows.
+- Before a new-expense write, Android seals a payload fingerprint and idempotency key in DataStore; web stores the same opaque pair in IndexedDB. An ambiguous retry within 24 hours reuses the key even after process/tab loss. The acknowledged generation is cleared conditionally so a concurrent newer submission is not erased.
+- Category type changes use `migrationState: migrating` plus `pendingTransactionType`. Rules accept linked expenses with either the published or pending type, reject direct category type flips, and permit finalization only to the staged target. Both clients resume staged migrations during seeding; Android serializes staging/finalization in Firestore transactions.
 - Category deletion and deduplication first set `deletionState: deleting`. Rules then reject new references. A transient or unknown reassignment failure preserves and reopens the source category; a confirmed rules rejection may retry individual documents. Any surviving reference prevents deletion.
-- Account deletion writes `meta/accountDeletion`, removes cloud documents, and only then deletes the Firebase Auth user. Settings or metadata deletion failures must stop the Auth deletion. The marker remains if the final Auth step fails so the empty account cannot be silently reseeded; retrying account deletion is the recovery path.
+- Orphan repair scans document-ID-ordered pages and checkpoints `orphanRepairCursorId` after each successful page. It writes `orphanScanVersion` only at the terminal page; transient/quota failures therefore resume, while permanently rules-rejected legacy rows finish as `orphanRepairState: complete_with_errors` with an explicit count.
+- Preference writes are read/write Firestore transactions on both clients. Rules require `updatedAt` to increase strictly and reject clocks more than five minutes ahead; equal timestamps are first-writer-wins. Local edits use `max(wallClock, previous + 1)`, so clock rollback cannot generate a stale local revision.
+- Web sign-out broadcasts cache termination to other open app tabs and retries IndexedDB clearing; Android propagates `clearPersistence` failure. Neither client reports a local-cache failure as a failed cloud/Auth deletion. The UI instead warns that local financial data may remain and directs the user to close tabs/clear site data or clear Android app storage. Firebase cache deletion is not a secure-overwrite guarantee.
+- `app/google-services.ci.json` targets a deliberately nonexistent project and contains no credentials with backend access. Fork CI copies it when secrets are unavailable so R8 and device instrumentation still run. Skipped required jobs make the combined status fail, and release tags rerun instrumentation for the exact tagged SHA.
+- Account deletion reauthenticates and force-refreshes the ID token. Rules require a five-minute `auth_time` before accepting `meta/accountDeletion`; the permanent marker freezes writes across clients. Android and web use server-only reads, delete all known collections in unbounded 400-document pages, verify empty, and only then delete Auth. An interrupted or quota-limited attempt resumes after reauthentication; clients cannot clear the marker.
 - `sumMonthExpenses` needs composite indexes that include the aggregated `amount` field. Keep both `(transactionType, dateMillis, amount)` and `(transactionType, deleted, dateMillis, amount)` in `firestore.indexes.json`.
 - Android suspend operations returning `Result` use `runSuspendCatching`; ordinary `runCatching` must not swallow `CancellationException`.
 
@@ -70,7 +79,7 @@ Before an Android release:
 Before or after a web deployment:
 
 1. Keep all production values in the gitignored `web/.env.production`: Firebase API key, auth domain, project ID, app ID, App Check site key, and error-report URL.
-2. Run `npm run deploy` from `web/`. Its order is deliberate: validate configuration, build, verify the bundle, deploy Hosting plus rules and indexes, then smoke-test production.
+2. Deploy and verify Firestore rules/indexes before the clients, then run `npm run deploy` from `web/`.
 3. Run `npm run smoke` separately when checking the existing deployment. It verifies the live site, security headers, bundle, Firebase key, App Check key, service worker, and error endpoint without signing in.
 4. Exercise signed-in production behavior with a throwaway verified account after backend-sensitive changes.
 
@@ -93,7 +102,7 @@ Do not deploy Firestore rules without their indexes. The local emulator serves u
 
 - An old released client still uses query-then-random-ID creation and can race a current client during the legacy lookup window. Current-to-current keyed creation is protected by document identity.
 - A category can remain marked `deleting` if the process terminates mid-operation. Retrying deletion resumes the operation.
-- Firestore data deletion and Firebase Auth deletion cannot be globally atomic without a trusted backend. The persistent deletion marker makes partial failure explicit and recoverable.
+- Firestore data deletion and Firebase Auth deletion are not globally atomic. The persistent tombstone makes the Spark-compatible operation resumable and freezes clients; Auth is deleted only after every known collection is verified empty. The tombstone intentionally remains to block already-issued tokens. Because there is no Admin backend, deletion covers the schema explicitly allowed by rules rather than dynamically discovering arbitrary subcollections.
 - The web production environment file is local, gitignored operational state. It must be backed up securely outside the repository or reconstructed from Firebase and App Check settings.
 
 ## Useful commands

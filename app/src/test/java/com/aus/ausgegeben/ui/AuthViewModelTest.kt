@@ -114,6 +114,17 @@ class AuthViewModelTest {
         )
     }
 
+    @Test
+    fun signOut_localCleanupFailure_isSurfaced() = runTest(dispatcher) {
+        fakeAuth.signOutFailure = IllegalStateException("cache")
+        viewModel.signOut()
+        advanceUntilIdle()
+        assertEquals(
+            appString(R.string.settings_local_cleanup_failed),
+            viewModel.uiState.value.errorMessage,
+        )
+    }
+
     private fun appString(id: Int): String =
         ApplicationProvider.getApplicationContext<Application>().getString(id)
 
@@ -121,6 +132,7 @@ class AuthViewModelTest {
         var signInCalled = false
         var signUpCalled = false
         var resetCalled = false
+        var signOutFailure: Exception? = null
 
         override suspend fun signIn(email: String, password: String): Result<Unit> {
             signInCalled = true
@@ -137,6 +149,8 @@ class AuthViewModelTest {
             return Result.success(Unit)
         }
 
-        override suspend fun signOut() = Unit
+        override suspend fun signOut() {
+            signOutFailure?.let { throw it }
+        }
     }
 }

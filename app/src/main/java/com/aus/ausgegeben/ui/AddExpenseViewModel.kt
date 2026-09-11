@@ -22,7 +22,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.util.UUID
+import java.math.BigDecimal
+import java.security.MessageDigest
 import javax.inject.Inject
 
 @HiltViewModel
@@ -57,16 +58,6 @@ class AddExpenseViewModel @Inject constructor(
 
     private val _isSaving = MutableStateFlow(false)
     val isSaving = _isSaving.asStateFlow()
-
-    /**
-     * Identifies one compose session, so a retried save collapses onto a single
-     * transaction rather than creating a second (web parity).
-     *
-     * Minted per form rather than per attempt: a failed save keeps the same key, so
-     * pressing save again cannot duplicate the row. resetForm() rotates it once the
-     * save lands, which is what makes the *next* transaction a genuinely new one.
-     */
-    private var composeIdempotencyKey: String = UUID.randomUUID().toString()
 
     val categories: StateFlow<List<Category>> = categoryActions.allCategories
         .stateIn(
@@ -161,9 +152,22 @@ class AddExpenseViewModel @Inject constructor(
                         excludeIdForBudget = editingId
                         saveError = result.exceptionOrNull()
                     } else {
-                        val result = expenseActions.insertExpense(expense, composeIdempotencyKey)
+                        // Persist the key before Firestore. A commit followed by a lost
+                        // response/process death will recover it from DataStore on retry.
+                        val fingerprint = expenseSubmissionFingerprint(expense)
+                        val idempotencyKey = preferenceManager.prepareExpenseSubmission(fingerprint)
+                        val result = expenseActions.insertExpense(expense, idempotencyKey)
                         excludeIdForBudget = result.getOrNull().orEmpty()
                         saveError = result.exceptionOrNull()
+                        if (saveError == null) {
+                            runSuspendCatching {
+                                preferenceManager.completeExpenseSubmission(fingerprint, idempotencyKey)
+                            }.onFailure { e ->
+                                // The financial write is already acknowledged. Leaving the
+                                // journal makes a retry dedupe; it must not become a false save error.
+                                Log.w(TAG, "could not clear expense submission journal", e)
+                            }
+                        }
                     }
 
                     if (saveError == null) {
@@ -223,8 +227,25 @@ class AddExpenseViewModel @Inject constructor(
         _selectedCategory.value = null
         _dateMillis.value = System.currentTimeMillis()
         _loadedTransactionType.value = TransactionType.EXPENSE
-        // A cleared form is a new transaction, so it needs a key of its own —
-        // otherwise the next save would dedupe against the one just written.
-        composeIdempotencyKey = UUID.randomUUID().toString()
     }
+}
+
+/** Stable across process restarts and independent of locale-specific input formatting. */
+internal fun expenseSubmissionFingerprint(expense: Expense): String {
+    val amount = BigDecimal.valueOf(expense.amount).stripTrailingZeros().toPlainString()
+    val fields = listOf(
+        amount,
+        // Time-of-day is volatile after a process restart. Day identity preserves a
+        // genuine retry while separating intentionally back/forward-dated entries.
+        Math.floorDiv(expense.dateMillis, 86_400_000L).toString(),
+        expense.categoryId,
+        expense.note,
+        expense.transactionType,
+    )
+    val canonical = buildString {
+        fields.forEach { value -> append(value.length).append(':').append(value) }
+    }
+    return MessageDigest.getInstance("SHA-256")
+        .digest(canonical.toByteArray(Charsets.UTF_8))
+        .joinToString("") { byte -> "%02x".format(byte) }
 }

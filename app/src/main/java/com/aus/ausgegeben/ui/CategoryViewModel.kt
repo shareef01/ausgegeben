@@ -117,21 +117,13 @@ class CategoryViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            val existing = repository.allCategories.first().find { it.id == category.id }
             val normalized = category.copy(
                 name = sanitized,
                 colorInt = normalizeArgbInt(category.colorInt)
             )
-            repository.updateCategory(normalized).onSuccess {
-                if (existing != null && existing.transactionType != normalized.transactionType) {
-                    repository.updateExpenseTypesForCategory(
-                        normalized.id,
-                        normalized.transactionType
-                    ).onFailure { e ->
-                        _errorMessage.value = errorText(e, R.string.category_error_update_failed)
-                    }
-                }
-            }.onFailure { e ->
+            // AppRepository owns the complete marker → page migration → finalize
+            // protocol. Splitting it here used to make a failed retry non-resumable.
+            repository.updateCategory(normalized).onFailure { e ->
                 _errorMessage.value = errorText(e, R.string.category_error_update_failed)
             }
         }

@@ -234,13 +234,13 @@ fun computeSpendingInsights(
         .size
 
     val billable = monthExpenses.filter { !it.isTransfer() }
-    val monthExpenseTotal = billable.filter { it.isExpense() }.sumOf { it.amount }
-    val monthIncomeTotal = billable.filter { it.isIncome() }.sumOf { it.amount }
+    val monthExpenseTotal = billable.asSequence().filter { it.isExpense() }.map { it.amount }.sumMoney()
+    val monthIncomeTotal = billable.asSequence().filter { it.isIncome() }.map { it.amount }.sumMoney()
 
     val topCategory = billable
         .filter { it.isExpense() }
         .groupBy { it.categoryId }
-        .mapValues { (_, items) -> items.sumOf { it.amount } }
+        .mapValues { (_, items) -> items.map { it.amount }.sumMoney() }
         .maxByOrNull { it.value }
 
     return SpendingInsights(
