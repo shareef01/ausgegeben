@@ -3,8 +3,8 @@
  *
  * No third-party SDK and no vendor: the transport is a plain POST, so the receiver
  * can be a Cloud Function, a log collector, or anything else that accepts JSON.
- * Note that Cloud Functions require the Blaze plan — this project is otherwise
- * Spark-safe, so the endpoint stays opt-in via VITE_ERROR_REPORT_URL. With the
+ * The endpoint stays opt-in via VITE_ERROR_REPORT_URL and outside Firebase's
+ * billing/storage failure domain. With the
  * variable unset (the default, including every local build) nothing is sent and
  * errors remain console-only.
  *
@@ -19,6 +19,7 @@ import {
   type DiagnosticContext,
 } from '@/services/errorReporter';
 import { readErrorReportingEnabled } from '@/services/errorReportPreference';
+import { getBackendAppCheckToken } from '@/services/firebase';
 
 /**
  * A crash loop can fire the same error hundreds of times a second. Cap both total
@@ -90,37 +91,19 @@ export function buildPayload(report: AppErrorReport): ErrorSinkPayload {
   };
 }
 
-/**
- * The body is JSON, but it is labelled text/plain on purpose.
- *
- * `application/json` is not a CORS-safelisted content type, so a cross-origin
- * post carrying it triggers a preflight OPTIONS first. That is a poor trade on
- * this path: the report is usually fired as the tab is closing, and requiring a
- * round-trip before the real request is exactly when delivery gets dropped.
- * text/plain is safelisted, so the report goes out in one hop. The receiver
- * parses it as JSON regardless (see tools/error-endpoint).
- */
-const CONTENT_TYPE = 'text/plain;charset=UTF-8';
-
-/**
- * `sendBeacon` first: a crash is often followed by the user closing the tab, and a
- * normal fetch is cancelled on unload while a beacon is handed to the browser to
- * deliver regardless. `keepalive` fetch is the fallback for browsers without it.
- */
-function post(url: string, payload: ErrorSinkPayload): void {
-  const body = JSON.stringify(payload);
+/** Authenticated delivery. sendBeacon cannot attach App Check, so keepalive fetch is used. */
+async function post(url: string, payload: ErrorSinkPayload): Promise<void> {
   try {
-    if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
-      const blob = new Blob([body], { type: CONTENT_TYPE });
-      if (navigator.sendBeacon(url, blob)) return;
-    }
-    void fetch(url, {
+    const token = await getBackendAppCheckToken();
+    if (!token) return;
+    await fetch(url, {
       method: 'POST',
-      body,
+      body: JSON.stringify(payload),
       keepalive: true,
-      headers: { 'Content-Type': CONTENT_TYPE },
-    }).catch(() => {
-      // Reporting the failure to report would recurse. Console only.
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Firebase-AppCheck': token,
+      },
     });
   } catch {
     // Never let delivery problems surface as new errors.
@@ -138,7 +121,7 @@ export function createEndpointSink(url: string): (report: AppErrorReport) => voi
     if (seen.has(fingerprint)) return;
     seen.add(fingerprint);
     sent += 1;
-    post(url, payload);
+    void post(url, payload);
   };
 }
 

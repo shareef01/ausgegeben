@@ -18,6 +18,7 @@ import com.aus.ausgegeben.util.runSuspendCatching
 import com.google.firebase.firestore.AggregateField
 import com.google.firebase.firestore.AggregateSource
 import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
@@ -63,7 +64,9 @@ class AppRepository @Inject constructor(
         private const val TAG = "AppRepository"
         /** Soft cap matching web getAllExpensesCapped — unbounded listeners burn quota. */
         const val ALL_EXPENSES_SOFT_CAP = 5_000L
-        private const val MAX_DELETE_BATCHES = 100
+        private const val CATEGORY_MIGRATION_STATE = "migrating"
+        private const val ORPHAN_PAGE_SIZE = 450L
+        private const val ORPHAN_PAGES_PER_RUN = 10
 
         /**
          * Which generation of the orphan sweep has run for an account.
@@ -181,59 +184,48 @@ class AppRepository @Inject constructor(
         return accountDeletionDoc(u).get().await().getBoolean("pendingDeletion") == true
     }
 
-    /**
-     * Mark wipe-in-progress before [deleteAllUserData] so a failed Auth delete cannot
-     * look like a fresh account after [ensureSeeded] re-seeds defaults.
-     */
+    /** Firestore rules accept this only with an ID token authenticated in the last five minutes. */
     override suspend fun markAccountDeletionPending(): Result<Unit> = runSuspendCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
         accountDeletionDoc(u).set(
             mapOf(
                 "pendingDeletion" to true,
-                "wipedAt" to System.currentTimeMillis(),
+                "state" to "deleting",
+                "startedAt" to System.currentTimeMillis(),
             ),
         ).await()
     }
 
     /**
-     * The second exit from a failed deletion, alongside retrying it. firestore.rules
-     * already permits this delete: canDeleteOwned() passes here precisely *because*
-     * pendingDeletion is true, so it works even for an unverified account.
-     */
-    override suspend fun clearAccountDeletionPending(): Result<Unit> = runSuspendCatching {
-        val u = uid() ?: throw IllegalStateException("Not signed in")
-        accountDeletionDoc(u).delete().await()
-    }
-
-    /**
      * Same two steps [AuthRepository.signOut] performs, callable on the deletion path.
-     * Both are individually best-effort — a failure here must not turn a completed account
-     * deletion into a reported failure — so each is wrapped rather than allowed to throw.
+     * A failure is returned separately from cloud/Auth deletion so the UI can truthfully
+     * report that the account is gone while local financial cache removal is unconfirmed.
      */
-    override suspend fun clearAccountLocalState() {
-        runSuspendCatching { preferenceManager.clearAccountLocalState() }
-            .onFailure { e -> Log.w(TAG, "could not clear local prefs after deletion", e) }
-        runSuspendCatching { firestoreClient.clearOfflineCache() }
-            .onFailure { e -> Log.w(TAG, "could not clear offline cache after deletion", e) }
+    override suspend fun clearAccountLocalState(): Result<Unit> = runSuspendCatching {
+        preferenceManager.clearAccountLocalState()
+        firestoreClient.clearOfflineCache()
     }
 
-    override suspend fun ensureSeeded() {
+    suspend fun ensureSeeded() {
         ensureSeededMutex.withLock {
             requireVerifiedEmail()
             val u = uid() ?: return
             // Seeding stays blocked while the marker is set: re-seeding here would dress a
             // half-deleted account up as a working fresh one. The account is therefore
             // unusable — no categories, so nothing can be recorded — until the user either
-            // retries deletion successfully or explicitly chooses to keep the account, which
-            // clears the marker via clearAccountDeletionPending(). Settings surfaces both
-            // exits in a banner; leaving retry as the only one stranded anyone whose Auth
-            // delete failed after the wipe.
+            // retries deletion successfully.
             if (isAccountDeletionPending()) {
                 Log.w(TAG, "ensureSeeded skipped: account deletion incomplete")
                 return
             }
             val marker = dedupeMarkerDoc(u).get().await()
-            val snap = catCol(u).get().await()
+            var snap = catCol(u).get().await()
+            if (!snap.isEmpty) {
+                // A process may have died after staging a category type or after any
+                // expense batch. Resume before dedupe/repair observes mixed types.
+                resumeCategoryTypeMigrations(u, snap.documents)
+                snap = catCol(u).get().await()
+            }
             val strings = localizedContext()
             // Dedupe and the orphan sweep are both full-collection reads — by far the most
             // expensive thing this app does. Each runs at most once per account rather than
@@ -326,35 +318,60 @@ class AppRepository @Inject constructor(
     }
 
     /**
-     * Run the orphan scan and record that it happened, so cold starts can skip it.
-     * The scan reads the whole expenses collection; on Spark the daily read quota is
-     * the only backstop this project has, so it must not run on every launch.
+     * Repair bounded document-ID-ordered pages, durably advancing after each page.
+     * Transient/quota failures retain the last cursor and never publish the terminal
+     * version, so later launches resume instead of permanently skipping old rows.
      * [deleteCategory] and [deduplicateCategories] already reassign their own expenses
      * before dropping a category, which leaves this sweep to catch only rows stranded
      * by an interrupted delete — a one-time pass, plus the manual "Deduplicate
      * categories" action, covers that.
      */
     private suspend fun sweepOrphanedExpenses(u: String) {
-        // The marker records that the scan ran, not that every row could be fixed.
-        // Some rows genuinely cannot be: an expense that fails the schema check in
-        // firestore.rules is rejected on any update, reassignment included. Letting
-        // that failure skip the marker would rerun the whole-collection read on every
-        // launch — the exact cost this is here to avoid, on the accounts that have
-        // orphans. The manual "deduplicate categories" action re-runs the sweep.
-        val repair = runSuspendCatching { repairOrphanedExpenses(u) }
-        repair.onFailure { e -> Log.w(TAG, "orphan repair incomplete; recording scan anyway", e) }
-        val scanTruncated = repair.getOrNull()?.scanTruncated == true
-        if (scanTruncated) {
-            Log.w(TAG, "orphan repair scan capped at $ALL_EXPENSES_CAP — older orphans may remain")
+        val markerRef = dedupeMarkerDoc(u)
+        val initial = markerRef.get().await()
+        var cursor = if (initial.getLong("orphanRepairTargetVersion") == ORPHAN_SCAN_VERSION) {
+            initial.getString("orphanRepairCursorId")
+        } else null
+
+        repeat(ORPHAN_PAGES_PER_RUN) {
+            val expectedCursor = cursor
+            val result = repairOrphanPage(u, cursor)
+            val advanced = firestore.runTransaction { transaction ->
+                val latest = transaction.get(markerRef)
+                val sameGeneration = latest.getLong("orphanRepairTargetVersion") == ORPHAN_SCAN_VERSION
+                val latestCursor = if (sameGeneration) latest.getString("orphanRepairCursorId") else null
+                if (latestCursor != expectedCursor) return@runTransaction false
+                val priorUnfixable = if (sameGeneration) {
+                    latest.getLong("orphanRepairUnfixable") ?: 0L
+                } else 0L
+                val totalUnfixable = priorUnfixable + result.unfixable
+                val update = if (result.complete) {
+                    mapOf(
+                        "orphansScannedAt" to System.currentTimeMillis(),
+                        "orphanScanVersion" to ORPHAN_SCAN_VERSION,
+                        "orphanRepairState" to if (totalUnfixable > 0) "complete_with_errors" else "complete",
+                        "orphanRepairUnfixable" to totalUnfixable,
+                        "orphanRepairUpdatedAt" to System.currentTimeMillis(),
+                        "orphanRepairCursorId" to FieldValue.delete(),
+                        "orphanRepairTargetVersion" to FieldValue.delete(),
+                        "orphanRepairScanTruncated" to FieldValue.delete(),
+                    )
+                } else {
+                    mapOf(
+                        "orphanRepairState" to "running",
+                        "orphanRepairCursorId" to requireNotNull(result.nextCursor),
+                        "orphanRepairTargetVersion" to ORPHAN_SCAN_VERSION,
+                        "orphanRepairUnfixable" to totalUnfixable,
+                        "orphanRepairUpdatedAt" to System.currentTimeMillis(),
+                        "orphanRepairScanTruncated" to FieldValue.delete(),
+                    )
+                }
+                transaction.set(markerRef, update, SetOptions.merge())
+                true
+            }.await()
+            if (!advanced || result.complete) return
+            cursor = result.nextCursor
         }
-        val marker = mutableMapOf<String, Any>(
-            "orphansScannedAt" to System.currentTimeMillis(),
-            // Records *which* sweep ran, so bumping ORPHAN_SCAN_VERSION can re-run a
-            // future one. Presence alone is what froze a shipped repair before.
-            "orphanScanVersion" to ORPHAN_SCAN_VERSION,
-        )
-        if (scanTruncated) marker["orphanRepairScanTruncated"] = true
-        dedupeMarkerDoc(u).set(marker, SetOptions.merge()).await()
     }
 
     // ── Categories ──
@@ -402,8 +419,111 @@ class AppRepository @Inject constructor(
         if (!com.aus.ausgegeben.util.CategoryValidator.isValid(sanitized)) {
             throw IllegalArgumentException("Invalid category name")
         }
-        val c = category.copy(name = sanitized)
-        catDoc(u, category.id).set(categoryPayload(c), SetOptions.merge()).await()
+        val desired = category.copy(name = sanitized)
+        val ref = catDoc(u, category.id)
+        val snapshot = ref.get().await()
+        val persisted = categoryFromDoc(snapshot)
+            ?: throw IllegalStateException("CATEGORY_NOT_FOUND")
+        val pendingType = persisted.pendingTransactionType
+            .takeIf { persisted.migrationState == CATEGORY_MIGRATION_STATE }
+
+        when {
+            pendingType != null -> {
+                if (desired.transactionType != persisted.transactionType &&
+                    desired.transactionType != pendingType
+                ) {
+                    throw IllegalStateException("CATEGORY_TYPE_MIGRATION_IN_PROGRESS")
+                }
+                migrateCategoryType(u, desired, persisted.transactionType, pendingType)
+            }
+            desired.transactionType != persisted.transactionType ->
+                migrateCategoryType(u, desired, persisted.transactionType, desired.transactionType)
+            else -> ref.set(categoryPayload(desired), SetOptions.merge()).await()
+        }
+    }
+
+    private suspend fun resumeCategoryTypeMigrations(
+        u: String,
+        documents: List<DocumentSnapshot>,
+    ) {
+        documents.mapNotNull(::categoryFromDoc)
+            .filter { it.migrationState == CATEGORY_MIGRATION_STATE && it.pendingTransactionType != null }
+            .forEach { category ->
+                migrateCategoryType(
+                    u = u,
+                    desired = category,
+                    currentType = category.transactionType,
+                    targetType = requireNotNull(category.pendingTransactionType),
+                )
+            }
+    }
+
+    /**
+     * Stage an old+target category shape accepted by rules, migrate every expense in
+     * restartable chunks, then publish the target and remove the marker. A failure at
+     * any point leaves enough state for ensureSeeded() or the next edit to resume.
+     */
+    private suspend fun migrateCategoryType(
+        u: String,
+        desired: Category,
+        currentType: String,
+        targetType: String,
+    ) {
+        require(targetType in setOf("expense", "income", "transfer"))
+        require(targetType != currentType)
+        val ref = catDoc(u, desired.id)
+        val staged = desired.copy(
+            transactionType = currentType,
+            migrationState = CATEGORY_MIGRATION_STATE,
+            pendingTransactionType = targetType,
+        )
+        // Serialize competing devices. A stale client may join the same migration,
+        // but it cannot replace it with a different target or stage from an old type.
+        firestore.runTransaction { transaction ->
+            val latest = categoryFromDoc(transaction.get(ref))
+                ?: throw IllegalStateException("CATEGORY_NOT_FOUND")
+            val latestTarget = latest.pendingTransactionType
+                .takeIf { latest.migrationState == CATEGORY_MIGRATION_STATE }
+            when {
+                latestTarget == targetType && latest.transactionType == currentType ->
+                    transaction.set(ref, categoryPayload(staged), SetOptions.merge())
+                latestTarget != null ->
+                    throw IllegalStateException("CATEGORY_TYPE_MIGRATION_IN_PROGRESS")
+                latest.transactionType == currentType ->
+                    transaction.set(ref, categoryPayload(staged), SetOptions.merge())
+                latest.transactionType == targetType -> return@runTransaction false
+                else -> throw IllegalStateException("CATEGORY_TYPE_CHANGED")
+            }
+            true
+        }.await().let { stagedOrActive ->
+            if (!stagedOrActive) return
+        }
+
+        updateExpenseTypesForCategory(desired.id, targetType).getOrThrow()
+
+        val finalized = categoryPayload(
+            desired.copy(
+                transactionType = targetType,
+                migrationState = null,
+                pendingTransactionType = null,
+            ),
+        ).toMutableMap()
+        finalized["migrationState"] = FieldValue.delete()
+        finalized["pendingTransactionType"] = FieldValue.delete()
+        firestore.runTransaction { transaction ->
+            val latest = categoryFromDoc(transaction.get(ref))
+                ?: throw IllegalStateException("CATEGORY_NOT_FOUND")
+            if (latest.migrationState == CATEGORY_MIGRATION_STATE &&
+                latest.pendingTransactionType == targetType &&
+                latest.transactionType == currentType
+            ) {
+                transaction.set(ref, finalized, SetOptions.merge())
+            } else if (latest.migrationState != CATEGORY_MIGRATION_STATE &&
+                latest.transactionType != targetType
+            ) {
+                throw IllegalStateException("CATEGORY_TYPE_CHANGED")
+            }
+        }.await()
     }
 
     /**
@@ -557,31 +677,41 @@ class AppRepository @Inject constructor(
         return insertExpense(expense.copy(id = "", dateMillis = System.currentTimeMillis())).map { Unit }
     }
 
-    /** Wipe all cloud docs for the signed-in user (account deletion). Keeps accountDeletion marker. */
+    /**
+     * Wipe every known account document while retaining meta/accountDeletion. Queries
+     * explicitly use SERVER so an offline or incomplete cache can never be mistaken for
+     * an empty account before Firebase Auth is irreversibly deleted.
+     */
     override suspend fun deleteAllUserData(): Result<Unit> = runSuspendCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
         deleteCollectionBatched(expCol(u))
         deleteCollectionBatched(catCol(u))
-        // Firestore delete already succeeds for an absent document. Any exception here
-        // is a real cleanup failure and must prevent irreversible Auth deletion.
         settingsPrefsDoc(u).delete().await()
         dedupeMarkerDoc(u).delete().await()
+
+        check(expCol(u).limit(1).get(Source.SERVER).await().isEmpty) {
+            "Expense deletion verification failed"
+        }
+        check(catCol(u).limit(1).get(Source.SERVER).await().isEmpty) {
+            "Category deletion verification failed"
+        }
+        check(!settingsPrefsDoc(u).get(Source.SERVER).await().exists()) {
+            "Settings deletion verification failed"
+        }
+        check(!dedupeMarkerDoc(u).get(Source.SERVER).await().exists()) {
+            "Metadata deletion verification failed"
+        }
     }
 
     private suspend fun deleteCollectionBatched(
         col: com.google.firebase.firestore.CollectionReference,
     ) {
-        var iterations = 0
-        while (iterations < MAX_DELETE_BATCHES) {
-            val snap = col.limit(400).get().await()
-            if (snap.isEmpty) break
+        while (true) {
+            val snap = col.limit(400).get(Source.SERVER).await()
+            if (snap.isEmpty) return
             val batch = firestore.batch()
             snap.documents.forEach { batch.delete(it.reference) }
             batch.commit().await()
-            iterations++
-        }
-        if (iterations >= MAX_DELETE_BATCHES) {
-            throw IllegalStateException("Deletion exceeded batch ceiling ($MAX_DELETE_BATCHES batches)")
         }
     }
 
@@ -711,6 +841,10 @@ class AppRepository @Inject constructor(
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (e: Exception) {
+                    // Only split a permanently rules-rejected batch. Retrying a
+                    // transient/quota/auth failure one row at a time can partially
+                    // migrate a chunk and amplify both writes and failure impact.
+                    if (!e.isPermissionDenied()) throw e
                     // Same failure shape reassignExpenses() guards against: a
                     // rules-rejected row fails its whole chunk, and the inert
                     // legacy rows documented in docs/maintenance.md can never
@@ -723,6 +857,7 @@ class AppRepository @Inject constructor(
                         } catch (cancelled: CancellationException) {
                             throw cancelled
                         } catch (docError: Exception) {
+                            if (!docError.isPermissionDenied()) throw docError
                             unfixable++
                             Log.w(TAG, "could not update type on ${doc.id}", docError)
                         }
@@ -867,22 +1002,21 @@ class AppRepository @Inject constructor(
     }
 
     /**
-     * Reassign expenses whose categoryId no longer exists (e.g. race orphan after
-     * category delete). Scans the newest [ALL_EXPENSES_CAP] rows by date so the
-     * cap repairs recent orphans first rather than an arbitrary document-id window.
+     * Reassign one restartable page of expenses whose categoryId no longer exists.
      */
-    private data class OrphanRepairResult(val unfixable: Int, val scanTruncated: Boolean)
+    private data class OrphanRepairPageResult(
+        val unfixable: Int,
+        val complete: Boolean,
+        val nextCursor: String?,
+    )
 
-    private suspend fun repairOrphanedExpenses(u: String): OrphanRepairResult {
+    private suspend fun repairOrphanPage(u: String, cursor: String?): OrphanRepairPageResult {
         val catIds = catCol(u).get().await().documents.map { it.id }.toSet()
-        if (catIds.isEmpty()) return OrphanRepairResult(unfixable = 0, scanTruncated = false)
-        val snap = expCol(u)
-            .orderBy("dateMillis", Query.Direction.DESCENDING)
-            .limit(ALL_EXPENSES_CAP + 1)
-            .get().await()
-        val scanTruncated = snap.size() > ALL_EXPENSES_CAP.toInt()
-        val scanned = if (scanTruncated) snap.documents.take(ALL_EXPENSES_CAP.toInt()) else snap.documents
-        val orphans = scanned.filter { doc ->
+        if (catIds.isEmpty()) return OrphanRepairPageResult(0, true, null)
+        var query = expCol(u).orderBy(FieldPath.documentId()).limit(ORPHAN_PAGE_SIZE)
+        if (cursor != null) query = query.startAfter(cursor)
+        val snap = query.get().await()
+        val orphans = snap.documents.filter { doc ->
             // Soft-deleted rows are filtered out of every read path and excluded from
             // the month total, so repointing them would only spend writes on rows
             // nothing reads. They are left exactly as they are — legacy data is
@@ -891,11 +1025,16 @@ class AppRepository @Inject constructor(
             val cid = doc.get("categoryId")?.toString().orEmpty()
             cid.isNotEmpty() && cid !in catIds
         }
-        if (orphans.isEmpty()) return OrphanRepairResult(unfixable = 0, scanTruncated = scanTruncated)
-        ensureUncategorizedCategory(u)
-        val unfixable = reassignExpenses(orphans, UNCATEGORIZED_ID)
+        val unfixable = if (orphans.isNotEmpty()) {
+            ensureUncategorizedCategory(u)
+            reassignExpenses(orphans, UNCATEGORIZED_ID)
+        } else 0
         Log.i(TAG, "Repaired ${orphans.size - unfixable} orphaned expense(s), $unfixable unfixable")
-        return OrphanRepairResult(unfixable = unfixable, scanTruncated = scanTruncated)
+        return OrphanRepairPageResult(
+            unfixable = unfixable,
+            complete = snap.size() < ORPHAN_PAGE_SIZE.toInt(),
+            nextCursor = snap.documents.lastOrNull()?.id,
+        )
     }
 
     private suspend fun ensureUncategorizedCategory(u: String) {
@@ -932,7 +1071,9 @@ class AppRepository @Inject constructor(
             iconName = doc.getString("iconName") ?: "shopping_bag",
             colorInt = (doc.getLong("colorInt") ?: 0xff6a9fd4).toInt(),
             transactionType = doc.getString("transactionType") ?: "expense",
-            sortOrder = (doc.getLong("sortOrder") ?: 0).toInt()
+            sortOrder = (doc.getLong("sortOrder") ?: 0).toInt(),
+            migrationState = doc.getString("migrationState"),
+            pendingTransactionType = doc.getString("pendingTransactionType"),
         )
     }
 
@@ -953,11 +1094,16 @@ class AppRepository @Inject constructor(
         )
     }
 
-    private fun categoryPayload(c: Category) = mapOf(
-        "name" to c.name, "iconName" to c.iconName, "colorInt" to c.colorInt.toLong(),
-        "transactionType" to c.transactionType, "sortOrder" to c.sortOrder,
-        "updatedAt" to System.currentTimeMillis()
-    )
+    private fun categoryPayload(c: Category): Map<String, Any> = buildMap {
+        put("name", c.name)
+        put("iconName", c.iconName)
+        put("colorInt", c.colorInt.toLong())
+        put("transactionType", c.transactionType)
+        put("sortOrder", c.sortOrder)
+        put("updatedAt", System.currentTimeMillis())
+        c.migrationState?.let { put("migrationState", it) }
+        c.pendingTransactionType?.let { put("pendingTransactionType", it) }
+    }
 
     // idempotencyKey is only ever written on insert. firestore.rules allows the field
     // but does not require it, so updates keep merging without having to carry it.

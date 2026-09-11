@@ -21,30 +21,19 @@ jobs:
 
       - run: chmod +x gradlew
 
-      # Release tasks refuse to build against the placeholder google-services.json
-      # (see app/build.gradle.kts). Decode the real one from a secret so R8 can run
-      # below; without the secret the release step is skipped rather than failing,
-      # which keeps fork PRs green.
+      # Forks cannot receive repository secrets. The checked-in CI-only config names
+      # a deliberately nonexistent Firebase project, but is structurally valid so R8
+      # and startup tests execute on every PR without granting backend access.
       - name: Restore google-services.json
         id: firebase_config
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
           if [ -z "$GOOGLE_SERVICES_JSON" ]; then
-            # Forks cannot see secrets, and failing their PRs would be noise. On a
-            # same-repo run the secret is supposed to be there, so its absence is a real
-            # problem: skipping leaves the job green while R8 never runs, and an R8-only
-            # crash is the single worst bug this project has shipped.
-            if [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ]; then
-              echo "available=false" >> "$GITHUB_OUTPUT"
-              echo "::warning::Fork PR — no secret, so the release build (R8) is skipped."
-            else
-              echo "::error::GOOGLE_SERVICES_JSON is not set. R8 would silently not run."
-              exit 1
-            fi
+            cp app/google-services.ci.json app/google-services.json
+            echo "Using isolated CI-only Firebase config (no backend access)."
           else
             printf '%s' "$GOOGLE_SERVICES_JSON" | base64 -d > app/google-services.json
-            echo "available=true" >> "$GITHUB_OUTPUT"
           fi
 
       # lintDebug catches manifest/config errors (e.g. a stray WorkManager
@@ -56,7 +45,6 @@ jobs:
       # debug-only CI never executes R8 — ProGuard breakage would first appear in
       # a build handed to users. Unsigned output is fine; running R8 is the point.
       - name: Build release (runs R8)
-        if: steps.firebase_config.outputs.available == 'true'
         run: ./gradlew assembleProdRelease --no-daemon
 
   # ExportFileProviderTest guards a security boundary — that file_paths.xml exposes
@@ -81,27 +69,18 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      # MainActivity initializes Firebase on launch, so give it the real config
-      # rather than the placeholder. Skips without the secret, keeping fork PRs green.
+      # MainActivity only needs a structurally valid config to launch. Forks use the
+      # isolated nonexistent project; same-repository runs may use the real config.
       - name: Restore google-services.json
         id: firebase_config
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
           if [ -z "$GOOGLE_SERVICES_JSON" ]; then
-            # Same reasoning as the android job: green-with-a-warning hid the fact that
-            # none of the three instrumentation classes ran, including the one guarding
-            # the FileProvider export boundary.
-            if [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ]; then
-              echo "available=false" >> "$GITHUB_OUTPUT"
-              echo "::warning::Fork PR — no secret, so instrumentation tests are skipped."
-            else
-              echo "::error::GOOGLE_SERVICES_JSON is not set. Instrumentation would silently not run."
-              exit 1
-            fi
+            cp app/google-services.ci.json app/google-services.json
+            echo "Using isolated CI-only Firebase config (no backend access)."
           else
             printf '%s' "$GOOGLE_SERVICES_JSON" | base64 -d > app/google-services.json
-            echo "available=true" >> "$GITHUB_OUTPUT"
           fi
 
       - run: chmod +x gradlew
@@ -109,7 +88,6 @@ jobs:
       # api-level 29 is the project's minSdk — the configuration least likely to be
       # covered by whatever device development happens on.
       - name: Run instrumentation tests
-        if: steps.firebase_config.outputs.available == 'true'
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
           api-level: 29
@@ -132,9 +110,9 @@ jobs:
       - run: npm ci
         working-directory: web
 
-      # Audit runtime deps only — firebase-tools / vite-plugin-pwa pull
-      # known-high transitive advisories that don't ship in the browser bundle.
-      - run: npm audit --omit=dev --audit-level=high
+      # Build tools execute with repository access in CI, so they are part of the
+      # supply-chain boundary even though they do not ship in the browser bundle.
+      - run: npm audit --audit-level=high
         working-directory: web
 
       - run: npm test
@@ -148,6 +126,22 @@ jobs:
 
       - run: npm run build
         working-directory: web
+
+  telemetry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tools/error-endpoint/package-lock.json
+      - run: npm ci
+        working-directory: tools/error-endpoint
+      - run: npm audit --audit-level=high
+        working-directory: tools/error-endpoint
+      - run: npm test
+        working-directory: tools/error-endpoint
 
   rules:
     runs-on: ubuntu-latest
@@ -181,7 +175,7 @@ jobs:
   # Legacy commit-status API stays "pending" with zero statuses when only
   # check-runs exist, so publish a combined status for compatible clients.
   status:
-    needs: [android, instrumentation, web, rules]
+    needs: [android, instrumentation, web, rules, telemetry]
     if: always()
     runs-on: ubuntu-latest
     permissions:
@@ -193,8 +187,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           state=success
-          for result in "${{ needs.android.result }}" "${{ needs.instrumentation.result }}" "${{ needs.web.result }}" "${{ needs.rules.result }}"; do
-            if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
+          for result in "${{ needs.android.result }}" "${{ needs.instrumentation.result }}" "${{ needs.web.result }}" "${{ needs.rules.result }}" "${{ needs.telemetry.result }}"; do
+            if [ "$result" != "success" ]; then
               state=failure
               break
             fi
@@ -202,5 +196,5 @@ jobs:
           gh api "repos/${{ github.repository }}/statuses/${{ github.sha }}" \
             -f state="$state" \
             -f context="CI" \
-            -f description="android=${{ needs.android.result }}; instrumentation=${{ needs.instrumentation.result }}; web=${{ needs.web.result }}; rules=${{ needs.rules.result }}" \
+            -f description="android=${{ needs.android.result }}; instrumentation=${{ needs.instrumentation.result }}; web=${{ needs.web.result }}; rules=${{ needs.rules.result }}; telemetry=${{ needs.telemetry.result }}" \
             -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

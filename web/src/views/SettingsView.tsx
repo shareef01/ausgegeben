@@ -30,6 +30,7 @@ import packageJson from '../../package.json';
 import { useCssProps } from '@/utils/cssVars';
 import { applyErrorReportingPreference } from '@/services/errorSink';
 import { readErrorReportingEnabled, writeErrorReportingEnabled } from '@/services/errorReportPreference';
+import { isPersistentStorageEnabled, setPersistentStorageEnabled } from '@/services/firebase';
 
 const ERROR_REPORTING_AVAILABLE = Boolean(import.meta.env.VITE_ERROR_REPORT_URL?.trim());
 
@@ -78,8 +79,8 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
   const [editBudget, setEditBudget] = useState(false);
   const [budgetInput, setBudgetInput] = useState('');
   const [deletionPending, setDeletionPending] = useState(false);
-  const [clearingDeletion, setClearingDeletion] = useState(false);
   const [reportErrors, setReportErrors] = useState(() => readErrorReportingEnabled());
+  const [persistentStorage, setPersistentStorage] = useState(() => isPersistentStorageEnabled());
   const budgetInputRef = useRef<HTMLInputElement>(null);
   const parsedBudget = parseAmount(budgetInput, currency);
   // Upper bound mirrors firestore.rules' validPreferences (< 1e9): without it a
@@ -122,23 +123,6 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
       active = false;
     };
   }, [user]);
-
-  const keepAccount = useCallback(async () => {
-    setClearingDeletion(true);
-    try {
-      await expenseRepository.clearAccountDeletionPending();
-      setDeletionPending(false);
-      // Re-seed immediately so the user lands on a usable account rather than an
-      // empty one that only fills in after the next cold start.
-      await expenseRepository.ensureSeeded();
-      useToastStore.getState().show(t('settingsDeletionKeptAccount'));
-    } catch (err) {
-      console.error('[SettingsView] could not clear deletion marker', err);
-      useToastStore.getState().show(t('settingsDeletionKeepFailed'));
-    } finally {
-      setClearingDeletion(false);
-    }
-  }, [t]);
 
   const downloadCsv = (csv: string, truncated: boolean) => {
     // U+FEFF so Excel on Windows reads the file as UTF-8. Without it Excel assumes the
@@ -211,18 +195,10 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
               <button
                 type="button"
                 className="settings-deletion-pending__action"
-                disabled={deletingAccount || clearingDeletion}
+                disabled={deletingAccount}
                 onClick={() => setShowDeleteAccountConfirm(true)}
               >
                 {t('settingsDeletionFinish')}
-              </button>
-              <button
-                type="button"
-                className="settings-deletion-pending__action settings-deletion-pending__action--keep"
-                disabled={clearingDeletion}
-                onClick={() => void keepAccount()}
-              >
-                {t('settingsDeletionKeep')}
               </button>
             </div>
           </div>
@@ -339,6 +315,30 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
           <Section title={t('settingsData')}>
             <SettingsRow icon={IconLayers} iconTint="accent" title={t('settingsCategories')} subtitle={t('settingsCategoriesSub')} onClick={onManageCategories} />
             <SettingsRow icon={IconDownload} iconTint="neutral" title={t('settingsExport')} subtitle={t('settingsExportSub')} onClick={() => void exportData()} />
+            <label className="settings-row settings-row--static settings-row--toggle">
+              <span className="settings-row__icon-tile" data-tint="neutral">
+                <IconSettings width={18} height={18} strokeWidth={2} />
+              </span>
+              <div className="settings-row__label">
+                <div className="settings-row__title">{t('settingsTrustedDevice')}</div>
+                <div className="settings-row__sub">{t('settingsTrustedDeviceSub')}</div>
+              </div>
+              <input
+                type="checkbox"
+                className="settings-row__toggle"
+                checked={persistentStorage}
+                aria-label={t('settingsTrustedDevice')}
+                onChange={(event) => {
+                  const enabled = event.target.checked;
+                  void setPersistentStorageEnabled(enabled)
+                    .then(() => {
+                      setPersistentStorage(enabled);
+                      window.location.reload();
+                    })
+                    .catch(() => useToastStore.getState().show(t('settingsLocalCleanupFailed')));
+                }}
+              />
+            </label>
           </Section>
 
           <Section title={t('settingsAbout')}>
@@ -384,7 +384,9 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
         cancelLabel={t('actionCancel')}
         onConfirm={() => {
           setShowSignOutConfirm(false);
-          void authService.signOut();
+          void authService.signOut().catch(() => {
+            useToastStore.getState().show(t('settingsLocalCleanupFailed'));
+          });
         }}
         onCancel={() => setShowSignOutConfirm(false)}
       />
@@ -457,6 +459,8 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
               useToastStore.getState().show(
                 code === 'too_many_requests'
                   ? t('settingsDeleteAccountTooManyAttempts')
+                  : code === 'local_cleanup_failed'
+                    ? t('settingsLocalCleanupFailed')
                   : code === 'deletion_incomplete'
                     ? t('settingsDeleteAccountIncomplete')
                     : t('settingsDeleteAccountFailed'),

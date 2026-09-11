@@ -1,6 +1,7 @@
 package com.aus.ausgegeben.data
 
 import kotlinx.coroutines.flow.Flow
+import java.util.UUID
 
 /**
  * Narrow preferences surface used by the transaction/insights ViewModels (easy to fake
@@ -14,4 +15,8 @@ interface TransactionPreferences {
     val monthlyBudgetFlow: Flow<Double?>
     val analyticsPeriodFlow: Flow<String>
     suspend fun updateAnalyticsPeriodKey(storageKey: String)
+
+    /** Durable in [PreferenceManager]; default keeps narrow test fakes source-compatible. */
+    suspend fun prepareExpenseSubmission(fingerprint: String): String = UUID.randomUUID().toString()
+    suspend fun completeExpenseSubmission(fingerprint: String, idempotencyKey: String) = Unit
 }

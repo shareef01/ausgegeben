@@ -9,10 +9,15 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
-import { clearLocalFirestoreCache, getFirebaseAuth, isFirebaseConfigured } from '@/services/firebase';
+import {
+  clearLocalFirestoreCache,
+  getFirebaseAuth,
+  isFirebaseConfigured,
+} from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
 import { expenseRepository, invalidateAllExpensesCache } from '@/repositories/expenseRepository';
 import { usePreferencesStore } from '@/services/preferencesStore';
+import { clearExpenseSubmissionJournal } from '@/services/expenseSubmissionJournal';
 
 let unsubscribe: (() => void) | null = null;
 let readyFallbackTimer: ReturnType<typeof setTimeout> | null = null;
@@ -103,7 +108,9 @@ export const authService = {
 
   async signOut(): Promise<void> {
     const auth = getFirebaseAuth();
+    const uid = auth?.currentUser?.uid;
     if (auth) await signOut(auth);
+    if (uid) await clearExpenseSubmissionJournal(uid);
     useAuthStore.getState().setUser(null);
     usePreferencesStore.getState().resetPreferences();
     // The all-time scan is memoised in module scope; drop it so the next person
@@ -112,22 +119,7 @@ export const authService = {
     await clearLocalFirestoreCache();
   },
 
-  /**
-   * Reauthenticates with the given password, then deletes cloud data and the Auth user.
-   * Throws `wrong_password` or `too_many_requests` if reauthentication fails.
-   * Throws `deletion_incomplete` if cloud wipe succeeded but Auth delete failed —
-   * re-seeding is blocked via meta/accountDeletion until Auth delete succeeds.
-   *
-   * Order matters. deleteAllUserData() is irreversible, and deleteUser() rejects with
-   * auth/requires-recent-login once the sign-in is more than ~5 minutes old — the common
-   * case, not an edge case. Wiping first meant that rejection destroyed the user's entire
-   * history while leaving the account alive, and the next sign-in re-seeded default
-   * categories so it looked like a working fresh account rather than a failure.
-   *
-   * Reauthenticating up front both guarantees the delete cannot fail for staleness and
-   * gives us a hard confirmation gate on an irreversible action. A pendingDeletion marker
-   * is written before the wipe so ensureSeeded will not re-seed if Auth delete still fails.
-   */
+  /** Spark-safe protocol: reauth, freeze writes, server-verified wipe, then Auth delete. */
   async deleteAccount(password: string): Promise<void> {
     const auth = getFirebaseAuth();
     const user = auth?.currentUser;
@@ -137,6 +129,8 @@ export const authService = {
         user,
         EmailAuthProvider.credential(user.email, password),
       );
+      // Firestore rules independently require this recent auth_time for the marker.
+      await user.getIdToken(true);
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code;
       // Firebase collapsed wrong-password into invalid-credential on newer projects.
@@ -148,23 +142,34 @@ export const authService = {
     }
     await expenseRepository.markAccountDeletionPending();
     await expenseRepository.deleteAllUserData();
-    let lastError: unknown;
-    for (let attempt = 0; attempt < 3; attempt++) {
+
+    try {
+      await deleteUser(user);
+    } catch (error) {
+      // A response can be lost after Auth accepted deletion. Reload distinguishes that
+      // from a retryable terminal-stage failure; the marker remains either way.
       try {
-        await deleteUser(user);
-        useAuthStore.getState().setUser(null);
-        usePreferencesStore.getState().resetPreferences();
-        invalidateAllExpensesCache();
-        await clearLocalFirestoreCache();
-        return;
-      } catch (err) {
-        lastError = err;
-        if (attempt < 2) {
-          await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+        await user.reload();
+        throw new Error('deletion_incomplete', { cause: error });
+      } catch (reloadError) {
+        if ((reloadError as { code?: string })?.code !== 'auth/user-not-found') {
+          if ((reloadError as Error)?.message === 'deletion_incomplete') throw reloadError;
+          throw new Error('deletion_incomplete', { cause: error });
         }
       }
     }
-    throw new Error('deletion_incomplete', { cause: lastError });
+
+    await clearExpenseSubmissionJournal(user.uid);
+    useAuthStore.getState().setUser(null);
+    usePreferencesStore.getState().resetPreferences();
+    invalidateAllExpensesCache();
+    try {
+      await clearLocalFirestoreCache();
+    } catch (error) {
+      // The account is already gone. Do not retry deletion or misreport this as an
+      // incomplete cloud deletion merely because local IndexedDB cleanup failed.
+      throw new Error('local_cleanup_failed', { cause: error });
+    }
   },
 
   isAvailable(): boolean {

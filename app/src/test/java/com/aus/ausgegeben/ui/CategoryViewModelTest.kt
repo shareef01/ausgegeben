@@ -165,12 +165,13 @@ class CategoryViewModelTest {
     }
 
     @Test
-    fun updateCategory_transactionTypeChanged_alsoRetypesExpenses() = runTest(dispatcher) {
+    fun updateCategory_transactionTypeChanged_isDelegatedAsOneRepositoryOperation() = runTest(dispatcher) {
         fakeActions.setCategories(listOf(cat0))
         viewModel.updateCategory(cat0.copy(transactionType = "income"))
         advanceUntilIdle()
 
-        assertTrue(fakeActions.updateExpenseTypesCalled)
+        assertEquals("income", fakeActions.lastUpdated?.transactionType)
+        assertFalse(fakeActions.updateExpenseTypesCalled)
     }
 
     @Test
@@ -223,6 +224,7 @@ class CategoryViewModelTest {
 
         var insertCalled = false
         var updateExpenseTypesCalled = false
+        var lastUpdated: Category? = null
         var batchCallCount = 0
         var lastBatchArg: List<Category>? = null
 
@@ -236,6 +238,7 @@ class CategoryViewModelTest {
         }
 
         override suspend fun updateCategory(category: Category): Result<Unit> {
+            lastUpdated = category
             return updateResult
         }
 

@@ -6,6 +6,10 @@ compatibility_date = "2026-07-01"
 # Add http://localhost:5173 here temporarily if testing the sink against dev.
 [vars]
 ALLOWED_ORIGINS = "https://aus01.web.app"
+# Public Firebase identifiers, not secrets. Deployment intentionally fails closed
+# until both values are replaced with the production project number and web App ID.
+FIREBASE_PROJECT_NUMBER = "SET_BEFORE_DEPLOY"
+FIREBASE_APP_IDS = "SET_BEFORE_DEPLOY"
 
 # console.* output is the storage layer; without this the dashboard shows nothing.
 [observability]

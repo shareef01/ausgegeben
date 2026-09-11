@@ -9,5 +9,8 @@ data class Category(
     val colorInt: Int,
     /** expense | income | transfer */
     val transactionType: String = "expense",
-    val sortOrder: Int = 0
+    val sortOrder: Int = 0,
+    /** Present only while a crash-resumable category type migration is running. */
+    val migrationState: String? = null,
+    val pendingTransactionType: String? = null,
 )

@@ -68,8 +68,8 @@ const DEFAULT_PREFERENCES: AppPreferences = {
   preferencesUpdatedAt: 0,
 };
 
-function touchPrefs(): number {
-  return Date.now();
+function touchPrefs(previous: number): number {
+  return Math.max(Date.now(), previous + 1);
 }
 
 interface PreferencesStore extends AppPreferences {
@@ -92,31 +92,38 @@ export const usePreferencesStore = create<PreferencesStore>()((set) => ({
   ...DEFAULT_PREFERENCES,
   preferencesReady: false,
   setCurrency: (currency) => {
-    set({ currency, preferencesUpdatedAt: touchPrefs() });
+    set((state) => ({ currency, preferencesUpdatedAt: touchPrefs(state.preferencesUpdatedAt) }));
   },
   setLocale: (locale) => {
-    set({ locale, preferencesUpdatedAt: touchPrefs() });
+    set((state) => ({ locale, preferencesUpdatedAt: touchPrefs(state.preferencesUpdatedAt) }));
   },
   setThemeMode: (themeMode) => {
     writeStoredThemeMode(themeMode);
-    set({ themeMode, preferencesUpdatedAt: touchPrefs() });
+    set((state) => ({ themeMode, preferencesUpdatedAt: touchPrefs(state.preferencesUpdatedAt) }));
   },
   completeOnboarding: () => {
     const uid = useAuthStore.getState().user?.uid;
     if (uid) writeStoredOnboarding(uid, true);
-    set({ onboardingComplete: true, preferencesUpdatedAt: touchPrefs() });
+    set((state) => ({
+      onboardingComplete: true,
+      preferencesUpdatedAt: touchPrefs(state.preferencesUpdatedAt),
+    }));
   },
   setDailyReminder: (dailyReminder) => {
-    set({ dailyReminder, preferencesUpdatedAt: touchPrefs() });
+    set((state) => ({ dailyReminder, preferencesUpdatedAt: touchPrefs(state.preferencesUpdatedAt) }));
   },
   setReminderTime: (reminderHour, reminderMinute) => {
-    set({ reminderHour, reminderMinute, preferencesUpdatedAt: touchPrefs() });
+    set((state) => ({
+      reminderHour,
+      reminderMinute,
+      preferencesUpdatedAt: touchPrefs(state.preferencesUpdatedAt),
+    }));
   },
   setAnalyticsPeriod: (analyticsPeriod) => {
-    set({ analyticsPeriod, preferencesUpdatedAt: touchPrefs() });
+    set((state) => ({ analyticsPeriod, preferencesUpdatedAt: touchPrefs(state.preferencesUpdatedAt) }));
   },
   setMonthlyBudget: (monthlyBudget) => {
-    set({ monthlyBudget, preferencesUpdatedAt: touchPrefs() });
+    set((state) => ({ monthlyBudget, preferencesUpdatedAt: touchPrefs(state.preferencesUpdatedAt) }));
   },
   applySyncedPreferences: (prefs) => {
     writeStoredThemeMode(prefs.themeMode);

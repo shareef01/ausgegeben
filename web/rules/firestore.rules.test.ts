@@ -6,6 +6,7 @@ import {
 } from '@firebase/rules-unit-testing';
 import {
   collection,
+  deleteField,
   deleteDoc,
   doc,
   getDoc,
@@ -79,6 +80,13 @@ function categoryPath(uid: string, id = 'c1') {
 
 function prefsPath(uid: string) {
   return `users/${uid}/settings/preferences`;
+}
+
+function recentAuthClaims(emailVerified: boolean) {
+  return {
+    email_verified: emailVerified,
+    auth_time: Math.floor(Date.now() / 1000),
+  };
 }
 
 describe('firestore.rules', () => {
@@ -334,7 +342,61 @@ describe('firestore.rules', () => {
     }));
   });
 
-  it('denies unverified deletes unless accountDeletion is pending', async () => {
+  it('allows only old-or-target expense types during a resumable category migration', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    const category = doc(db, categoryPath('alice', 'cat-1'));
+    await assertSucceeds(setDoc(category, validCategory));
+    await assertFails(updateDoc(category, { transactionType: 'income' }));
+    await assertSucceeds(updateDoc(category, {
+      migrationState: 'migrating',
+      pendingTransactionType: 'income',
+    }));
+    await assertFails(updateDoc(category, { pendingTransactionType: 'transfer' }));
+    await assertSucceeds(setDoc(doc(db, expensePath('alice', 'old')), validExpense));
+    await assertSucceeds(setDoc(doc(db, expensePath('alice', 'target')), {
+      ...validExpense,
+      transactionType: 'income',
+    }));
+    await assertFails(setDoc(doc(db, expensePath('alice', 'unrelated')), {
+      ...validExpense,
+      transactionType: 'transfer',
+    }));
+
+    await assertSucceeds(updateDoc(category, {
+      transactionType: 'income',
+      migrationState: deleteField(),
+      pendingTransactionType: deleteField(),
+    }));
+    await assertFails(setDoc(doc(db, expensePath('alice', 'old-after-finalize')), validExpense));
+    await assertSucceeds(setDoc(doc(db, expensePath('alice', 'new-after-finalize')), {
+      ...validExpense,
+      transactionType: 'income',
+    }));
+  });
+
+  it('rejects incomplete, invalid, or no-op category migration markers', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertFails(setDoc(doc(db, categoryPath('alice', 'missing-target')), {
+      ...validCategory,
+      migrationState: 'migrating',
+    }));
+    await assertFails(setDoc(doc(db, categoryPath('alice', 'missing-state')), {
+      ...validCategory,
+      pendingTransactionType: 'income',
+    }));
+    await assertFails(setDoc(doc(db, categoryPath('alice', 'bad-state')), {
+      ...validCategory,
+      migrationState: 'done',
+      pendingTransactionType: 'income',
+    }));
+    await assertFails(setDoc(doc(db, categoryPath('alice', 'same-type')), {
+      ...validCategory,
+      migrationState: 'migrating',
+      pendingTransactionType: 'expense',
+    }));
+  });
+
+  it('denies unverified deletes unless trusted infrastructure has marked deletion pending', async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), categoryPath('alice', 'cat-1')), validCategory);
       await setDoc(doc(ctx.firestore(), expensePath('alice')), validExpense);
@@ -344,41 +406,37 @@ describe('firestore.rules', () => {
         ranAt: Date.UTC(2024, 5, 15),
       });
     });
-    const unverified = testEnv.authenticatedContext('alice', { email_verified: false }).firestore();
+    const unverified = testEnv.authenticatedContext('alice', recentAuthClaims(false)).firestore();
     await assertFails(deleteDoc(doc(unverified, expensePath('alice'))));
     await assertFails(deleteDoc(doc(unverified, categoryPath('alice', 'cat-1'))));
     await assertFails(deleteDoc(doc(unverified, prefsPath('alice'))));
     await assertFails(deleteDoc(doc(unverified, 'users/alice/meta/dedupe')));
 
-    await assertSucceeds(
-      setDoc(doc(unverified, 'users/alice/meta/accountDeletion'), {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users/alice/meta/accountDeletion'), {
         pendingDeletion: true,
-        wipedAt: Date.now(),
-      }),
-    );
+        state: 'deleting',
+      });
+    });
     await assertSucceeds(deleteDoc(doc(unverified, expensePath('alice'))));
     await assertSucceeds(deleteDoc(doc(unverified, categoryPath('alice', 'cat-1'))));
     await assertSucceeds(deleteDoc(doc(unverified, prefsPath('alice'))));
     await assertSucceeds(deleteDoc(doc(unverified, 'users/alice/meta/dedupe')));
   });
 
-  // The escape hatch for an account stranded mid-deletion (see
-  // expenseRepository.clearAccountDeletionPending). It works precisely because the
-  // marker being set is itself what satisfies canDeleteOwned for an unverified owner
-  // — so the account can always undo a deletion that failed halfway.
-  it('lets an unverified owner clear their own accountDeletion marker', async () => {
+  it('denies even a recently authenticated owner clearing the trusted deletion marker', async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'users/alice/meta/accountDeletion'), {
         pendingDeletion: true,
         wipedAt: Date.UTC(2024, 5, 15),
       });
     });
-    const unverified = testEnv.authenticatedContext('alice', { email_verified: false }).firestore();
-    await assertSucceeds(deleteDoc(doc(unverified, 'users/alice/meta/accountDeletion')));
+    const unverified = testEnv.authenticatedContext('alice', recentAuthClaims(false)).firestore();
+    await assertFails(deleteDoc(doc(unverified, 'users/alice/meta/accountDeletion')));
   });
 
   it('denies clearing the accountDeletion marker without one set', async () => {
-    const unverified = testEnv.authenticatedContext('alice', { email_verified: false }).firestore();
+    const unverified = testEnv.authenticatedContext('alice', recentAuthClaims(false)).firestore();
     await assertFails(deleteDoc(doc(unverified, 'users/alice/meta/accountDeletion')));
   });
 
@@ -408,6 +466,15 @@ describe('firestore.rules', () => {
     await assertSucceeds(setDoc(doc(db, prefsPath('alice')), validPreferences));
   });
 
+  it('enforces strictly monotonic preference clocks', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    const ref = doc(db, prefsPath('alice'));
+    await assertSucceeds(setDoc(ref, validPreferences));
+    await assertFails(updateDoc(ref, { currency: 'USD', updatedAt: validPreferences.updatedAt - 1 }));
+    await assertFails(updateDoc(ref, { currency: 'USD', updatedAt: validPreferences.updatedAt }));
+    await assertSucceeds(updateDoc(ref, { currency: 'USD', updatedAt: validPreferences.updatedAt + 1 }));
+  });
+
   it('rejects invalid themeMode on preferences', async () => {
     const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
     await assertFails(
@@ -431,6 +498,8 @@ describe('firestore.rules', () => {
     // Both clients reject amount <= 0 before writing; the rules are the backstop.
     await assertFails(setDoc(doc(db, expensePath('alice')), { ...validExpense, amount: -1 }));
     await assertFails(setDoc(doc(db, expensePath('alice')), { ...validExpense, amount: 0 }));
+    await assertFails(setDoc(doc(db, expensePath('alice')), { ...validExpense, amount: 1.001 }));
+    await assertSucceeds(setDoc(doc(db, expensePath('alice')), { ...validExpense, amount: 1.23 }));
     await assertFails(
       setDoc(doc(db, expensePath('alice')), { ...validExpense, amount: 1000000000 }),
     );
@@ -501,14 +570,91 @@ describe('firestore.rules', () => {
     );
   });
 
-  it('allows accountDeletion meta without email verification', async () => {
-    const db = testEnv.authenticatedContext('alice', { email_verified: false }).firestore();
+  it('allows only a valid deletion marker after recent reauthentication', async () => {
+    const db = testEnv.authenticatedContext('alice', recentAuthClaims(false)).firestore();
     await assertSucceeds(
       setDoc(doc(db, 'users/alice/meta/accountDeletion'), {
         pendingDeletion: true,
-        wipedAt: Date.now(),
+        state: 'deleting',
+        startedAt: Date.now(),
       }),
     );
+    await assertFails(setDoc(doc(db, 'users/alice/meta/accountDeletion'), {
+      pendingDeletion: false,
+      state: 'deleting',
+      startedAt: Date.now(),
+    }));
+  });
+
+  it('rejects preference clocks more than five minutes ahead', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertFails(
+      setDoc(doc(db, prefsPath('alice')), {
+        ...validPreferences,
+        updatedAt: Date.now() + 6 * 60 * 1000,
+      }),
+    );
+  });
+
+  it('rejects deletion markers from stale or missing-auth_time sessions', async () => {
+    const missing = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    const stale = testEnv.authenticatedContext('alice', {
+      email_verified: true,
+      auth_time: Math.floor(Date.now() / 1000) - 301,
+    }).firestore();
+
+    await assertFails(setDoc(doc(missing, 'users/alice/meta/accountDeletion'), {
+      pendingDeletion: true,
+      state: 'deleting',
+      startedAt: Date.now(),
+    }));
+    await assertFails(setDoc(doc(stale, 'users/alice/meta/accountDeletion'), {
+      pendingDeletion: true,
+      state: 'deleting',
+      startedAt: Date.now(),
+    }));
+  });
+
+  it('freezes creates and updates from a second client while deletion is pending', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const admin = ctx.firestore();
+      await setDoc(doc(admin, categoryPath('alice', 'cat-1')), validCategory);
+      await setDoc(doc(admin, expensePath('alice', 'existing')), validExpense);
+      await setDoc(doc(admin, prefsPath('alice')), validPreferences);
+      await setDoc(doc(admin, 'users/alice/meta/dedupe'), {
+        categoriesDeduped: true,
+        ranAt: Date.UTC(2024, 5, 15),
+      });
+    });
+
+    const deletingClient = testEnv.authenticatedContext('alice', recentAuthClaims(true)).firestore();
+    const secondClient = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users/alice/meta/accountDeletion'), {
+        pendingDeletion: true,
+        state: 'deleting',
+      });
+    });
+
+    await assertFails(setDoc(doc(secondClient, categoryPath('alice', 'new-cat')), validCategory));
+    await assertFails(updateDoc(doc(secondClient, categoryPath('alice', 'cat-1')), { name: 'raced' }));
+    await assertFails(setDoc(doc(secondClient, expensePath('alice', 'raced')), validExpense));
+    await assertFails(updateDoc(doc(secondClient, expensePath('alice', 'existing')), { note: 'raced' }));
+    await assertFails(updateDoc(doc(secondClient, prefsPath('alice')), { currency: 'USD' }));
+    await assertFails(updateDoc(doc(secondClient, 'users/alice/meta/dedupe'), {
+      categoriesDeduped: false,
+    }));
+    await assertFails(updateDoc(doc(deletingClient, 'users/alice/meta/accountDeletion'), {
+      pendingDeletion: false,
+    }));
+
+    // A stale second client cannot remove the lock to reopen its own write race.
+    await assertFails(deleteDoc(doc(secondClient, 'users/alice/meta/accountDeletion')));
+    // No client, including the one that reauthenticated, can reopen writes mid-wipe.
+    await assertFails(deleteDoc(doc(deletingClient, 'users/alice/meta/accountDeletion')));
+    await assertFails(updateDoc(doc(secondClient, categoryPath('alice', 'cat-1')), {
+      name: 'still frozen',
+    }));
   });
 
   it('rejects meta docs other than dedupe or accountDeletion', async () => {
@@ -673,7 +819,7 @@ describe('firestore.rules', () => {
     }
 
     it('denies a foreign user creating new documents in alice namespace', async () => {
-      const bob = testEnv.authenticatedContext('bob', { email_verified: true }).firestore();
+      const bob = testEnv.authenticatedContext('bob', recentAuthClaims(true)).firestore();
       await assertFails(setDoc(doc(bob, 'users/alice/expenses/planted'), validExpense));
       await assertFails(setDoc(doc(bob, 'users/alice/categories/planted'), validCategory));
       await assertFails(setDoc(doc(bob, 'users/alice/settings/preferences'), validPreferences));
@@ -721,13 +867,13 @@ describe('firestore.rules', () => {
         await setDoc(doc(admin, expensePath('alice')), validExpense);
       });
 
-      const bob = testEnv.authenticatedContext('bob', { email_verified: true }).firestore();
-      await assertSucceeds(
-        setDoc(doc(bob, 'users/bob/meta/accountDeletion'), {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(doc(ctx.firestore(), 'users/bob/meta/accountDeletion'), {
           pendingDeletion: true,
-          wipedAt: Date.now(),
-        }),
-      );
+          state: 'deleting',
+        });
+      });
+      const bob = testEnv.authenticatedContext('bob', recentAuthClaims(true)).firestore();
       await assertFails(deleteDoc(doc(bob, expensePath('alice'))));
       await assertFails(deleteDoc(doc(bob, categoryPath('alice', 'cat-1'))));
     });

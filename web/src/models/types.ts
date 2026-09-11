@@ -11,6 +11,8 @@ export interface Category {
   transactionType: string;
   sortOrder: number;
   updatedAt?: number;
+  migrationState?: 'migrating';
+  pendingTransactionType?: TransactionType;
 }
 
 export interface Expense {

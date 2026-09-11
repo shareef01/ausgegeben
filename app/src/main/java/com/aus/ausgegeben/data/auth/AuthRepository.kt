@@ -7,9 +7,8 @@ import com.google.firebase.FirebaseTooManyRequestsException
 import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseUser
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -117,6 +116,8 @@ class AuthRepository @Inject constructor(
         val email = user.email ?: error("Not signed in")
         try {
             user.reauthenticate(EmailAuthProvider.getCredential(email, password)).await()
+            // Firestore rules validate auth_time before accepting the deletion marker.
+            user.getIdToken(true).await()
         } catch (e: FirebaseAuthInvalidCredentialsException) {
             throw IllegalStateException(WRONG_PASSWORD, e)
         } catch (e: FirebaseTooManyRequestsException) {
@@ -124,26 +125,21 @@ class AuthRepository @Inject constructor(
         }
     }
 
-    /** Deletes the Firebase Auth user. Caller should reauthenticate, mark pending, wipe, then call this. */
+    /** Delete Auth only after the coordinator has verified the Firestore wipe. */
     override suspend fun deleteAccount(): Result<Unit> = runSuspendCatching {
         val user = firebaseAuth.currentUser ?: error("Not signed in")
-        var lastError: Exception? = null
-        repeat(3) { attempt ->
+        try {
+            user.delete().await()
+        } catch (deleteError: Exception) {
+            // The server can delete the identity while the success response is lost.
+            // Prove that state before classifying the terminal stage as incomplete.
             try {
-                user.delete().await()
-                preferenceManager.clearAccountLocalState()
-                firestoreClient.clearOfflineCache()
-                return@runSuspendCatching
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (e: Exception) {
-                lastError = e
-                if (attempt < 2) {
-                    delay(400L * (attempt + 1))
-                }
+                user.reload().await()
+                throw deleteError
+            } catch (_: FirebaseAuthInvalidUserException) {
+                // The identity is gone; local erasure may proceed.
             }
         }
-        throw lastError ?: IllegalStateException("Account delete failed")
     }
 
     companion object {

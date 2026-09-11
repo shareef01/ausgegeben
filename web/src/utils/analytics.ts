@@ -1,6 +1,7 @@
 import type { Expense, Category, CashFlowPoint } from '@/models/types';
 import { analyticsDateRangeMillis, dayKey } from '@/utils/periodUtils';
 import { getLocale, localeTag } from '@/i18n';
+import { fromMinorUnits, toMinorUnits } from '@/utils/money';
 
 export function isExpense(e: { transactionType: string }): boolean {
   return e.transactionType === 'expense';
@@ -15,19 +16,20 @@ export function isTransfer(e: Expense): boolean {
 }
 
 export function computeTotals(expenses: Expense[]) {
-  let totalExpenses = 0;
-  let totalIncome = 0;
-  let totalTransfers = 0;
+  let totalExpensesMinor = 0;
+  let totalIncomeMinor = 0;
+  let totalTransfersMinor = 0;
   for (const e of expenses) {
-    if (isExpense(e)) totalExpenses += e.amount;
-    else if (isIncome(e)) totalIncome += e.amount;
-    else totalTransfers += e.amount;
+    const minor = toMinorUnits(e.amount);
+    if (isExpense(e)) totalExpensesMinor += minor;
+    else if (isIncome(e)) totalIncomeMinor += minor;
+    else totalTransfersMinor += minor;
   }
   return {
-    totalExpenses: Math.round(totalExpenses * 100) / 100,
-    totalIncome: Math.round(totalIncome * 100) / 100,
-    totalTransfers: Math.round(totalTransfers * 100) / 100,
-    net: Math.round((totalIncome - totalExpenses) * 100) / 100
+    totalExpenses: fromMinorUnits(totalExpensesMinor),
+    totalIncome: fromMinorUnits(totalIncomeMinor),
+    totalTransfers: fromMinorUnits(totalTransfersMinor),
+    net: fromMinorUnits(totalIncomeMinor - totalExpensesMinor),
   };
 }
 
@@ -39,7 +41,7 @@ export function topExpenseCategoryName(
   const totals = new Map<string, number>();
   for (const e of expenses) {
     if (!isExpense(e)) continue;
-    totals.set(e.categoryId, (totals.get(e.categoryId) ?? 0) + e.amount);
+    totals.set(e.categoryId, (totals.get(e.categoryId) ?? 0) + toMinorUnits(e.amount));
   }
   let bestId: string | null = null;
   let bestAmount = 0;
@@ -58,10 +60,10 @@ export function groupByCategory(expenses: Expense[], type: Expense['transactionT
   const map = new Map<string, number>();
   for (const e of expenses) {
     if (e.transactionType !== type) continue;
-    map.set(e.categoryId, (map.get(e.categoryId) ?? 0) + e.amount);
+    map.set(e.categoryId, (map.get(e.categoryId) ?? 0) + toMinorUnits(e.amount));
   }
   for (const [key, value] of map) {
-    map.set(key, Math.round(value * 100) / 100);
+    map.set(key, fromMinorUnits(value));
   }
   return map;
 }
@@ -71,8 +73,12 @@ export function computeDayTotals(expenses: Expense[]): Record<string, { income: 
   for (const e of expenses) {
     const label = dayKey(e.dateMillis);
     if (!result[label]) result[label] = { income: 0, expense: 0 };
-    if (isIncome(e)) result[label].income += e.amount;
-    if (isExpense(e)) result[label].expense += e.amount;
+    if (isIncome(e)) result[label].income = fromMinorUnits(
+      toMinorUnits(result[label].income) + toMinorUnits(e.amount),
+    );
+    if (isExpense(e)) result[label].expense = fromMinorUnits(
+      toMinorUnits(result[label].expense) + toMinorUnits(e.amount),
+    );
   }
   return result;
 }
@@ -123,8 +129,8 @@ export function computeCashFlowTrend(expenses: Expense[], periodKey = 'all_time'
   for (const e of billable) {
     const key = keyFor(e.dateMillis);
     const entry = byBucket.get(key) ?? { income: 0, expense: 0 };
-    if (isIncome(e)) entry.income += e.amount;
-    if (isExpense(e)) entry.expense += e.amount;
+    if (isIncome(e)) entry.income += toMinorUnits(e.amount);
+    if (isExpense(e)) entry.expense += toMinorUnits(e.amount);
     byBucket.set(key, entry);
   }
 
@@ -132,8 +138,8 @@ export function computeCashFlowTrend(expenses: Expense[], periodKey = 'all_time'
     const entry = byBucket.get(start);
     return {
       label,
-      income: Math.round((entry?.income ?? 0) * 100) / 100,
-      expense: Math.round((entry?.expense ?? 0) * 100) / 100,
+      income: fromMinorUnits(entry?.income ?? 0),
+      expense: fromMinorUnits(entry?.expense ?? 0),
     };
   });
 }
@@ -154,7 +160,7 @@ export function csvEscapeField(value: string): string {
 }
 
 export function formatCsvAmount(amount: number): string {
-  return amount.toFixed(2);
+  return fromMinorUnits(toMinorUnits(amount)).toFixed(2);
 }
 
 /** Same columns and local-time formatting as Android ExportUtils ("yyyy-MM-dd,HH:mm").

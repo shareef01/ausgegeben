@@ -15,12 +15,29 @@ service cloud.firestore {
       return request.auth.token.email_verified == true;
     }
 
-    // Account wipe marks meta/accountDeletion before deleting docs so unverified
-    // owners can still finish deletion without opening mass-delete to raw clients.
+    // Spark-plan account deletion is client-driven. Require recent credential
+    // proof independently at the Firestore boundary before arming the write freeze.
+    function hasRecentAuthentication() {
+      return isSignedIn()
+        && request.auth.token.auth_time is int
+        && request.auth.token.auth_time * 1000 >= request.time.toMillis() - 300000
+        && request.auth.token.auth_time * 1000 <= request.time.toMillis() + 60000;
+    }
+
+    // Account wipe marks meta/accountDeletion before deleting docs. Once armed, the
+    // marker freezes every ordinary create/update so a second tab/device cannot race
+    // a new record in after the wipe's final collection scan.
     function accountDeletionPending(userId) {
       return exists(/databases/$(database)/documents/users/$(userId)/meta/accountDeletion)
         && get(/databases/$(database)/documents/users/$(userId)/meta/accountDeletion)
              .data.pendingDeletion == true;
+    }
+
+    function accountAcceptsWrites(userId) {
+      // Valid clients never persist a false marker: "keep account" deletes it. Using
+      // existence as the lock also avoids evaluating get().data for a missing document,
+      // which Firestore Rules treats as an evaluation error rather than an empty map.
+      return !exists(/databases/$(database)/documents/users/$(userId)/meta/accountDeletion);
     }
 
     function canDeleteOwned(userId) {
@@ -43,9 +60,13 @@ service cloud.firestore {
     // category delete reassignment; all other categories must match.
     function expenseCategoryTypeMatches(userId) {
       let catId = request.resource.data.categoryId;
+      let cat = get(/databases/$(database)/documents/users/$(userId)/categories/$(catId));
+      let migrationState = cat.data.get('migrationState', '');
+      let pendingType = cat.data.get('pendingTransactionType', '');
       return catId == '0'
-        || get(/databases/$(database)/documents/users/$(userId)/categories/$(catId))
-             .data.transactionType == request.resource.data.transactionType;
+        || cat.data.transactionType == request.resource.data.transactionType
+        || (migrationState == 'migrating'
+          && pendingType == request.resource.data.transactionType);
     }
 
     // A category in the deletion protocol remains readable for recovery, but no
@@ -103,6 +124,10 @@ service cloud.firestore {
         && d.amount is number
         && d.amount > 0
         && d.amount < 1000000000
+        // Currency values are cent-granular. This is enforced at the trust boundary,
+        // so a raw Firebase client cannot inject sub-cent values that make totals and
+        // exports disagree after floating-point accumulation.
+        && d.amount * 100 == math.round(d.amount * 100)
         && validDateMillis(d.dateMillis)
         && d.categoryId is string
         && d.categoryId.size() > 0
@@ -136,7 +161,8 @@ service cloud.firestore {
       let d = request.resource.data;
       return d.keys().hasOnly([
           'name', 'iconName', 'colorInt', 'transactionType', 'sortOrder',
-          'updatedAt', 'id', 'cloudId', 'deleted', 'deletionState'
+          'updatedAt', 'id', 'cloudId', 'deleted', 'deletionState',
+          'migrationState', 'pendingTransactionType'
         ])
         && validLegacyCategoryFields(d)
         && d.keys().hasAll(['name', 'iconName', 'colorInt', 'transactionType', 'sortOrder'])
@@ -156,7 +182,44 @@ service cloud.firestore {
         && d.sortOrder < 10000
         && validUpdatedAt(d)
         && (!('deletionState' in d) || d.deletionState == 'deleting')
+        && (
+          (!('migrationState' in d) && !('pendingTransactionType' in d))
+          || (d.get('migrationState', '') == 'migrating'
+            && d.get('pendingTransactionType', '') in ['expense', 'income', 'transfer']
+            && d.get('pendingTransactionType', '') != d.transactionType)
+        )
         && (!('id' in d) || (d.id is string && d.id.size() < 64));
+    }
+
+    // A type change must be staged before linked expenses move and can only publish
+    // the staged target. This prevents raw clients (and stale official clients) from
+    // silently flipping the category while leaving every linked expense inconsistent.
+    function validCategoryCreate() {
+      return validCategory()
+        && !('migrationState' in request.resource.data)
+        && !('pendingTransactionType' in request.resource.data);
+    }
+
+    function validCategoryUpdate() {
+      let before = resource.data;
+      let after = request.resource.data;
+      let beforeMigrating = before.get('migrationState', '') == 'migrating';
+      let afterMigrating = after.get('migrationState', '') == 'migrating';
+      return validCategory() && (
+        // Ordinary rename/style/order/deletion-state updates cannot change type.
+        (!beforeMigrating && !afterMigrating
+          && after.transactionType == before.transactionType)
+        // Start a migration without changing the published type.
+        || (!beforeMigrating && afterMigrating
+          && after.transactionType == before.transactionType)
+        // Retrying/resuming must preserve the exact staged transition.
+        || (beforeMigrating && afterMigrating
+          && after.transactionType == before.transactionType
+          && after.pendingTransactionType == before.pendingTransactionType)
+        // Finalization may publish only the previously staged target.
+        || (beforeMigrating && !afterMigrating
+          && after.transactionType == before.pendingTransactionType)
+      );
     }
 
     // Records the one-time maintenance passes (category dedupe, orphaned-expense
@@ -171,27 +234,42 @@ service cloud.firestore {
       let d = request.resource.data;
       return d.keys().hasOnly([
           'categoriesDeduped', 'ranAt', 'orphansScannedAt',
-          'orphanRepairScanTruncated', 'orphanScanVersion'
+          'orphanRepairScanTruncated', 'orphanScanVersion',
+          'orphanRepairState', 'orphanRepairCursorId',
+          'orphanRepairTargetVersion', 'orphanRepairUnfixable',
+          'orphanRepairUpdatedAt'
         ])
-        && d.keys().hasAny(['categoriesDeduped', 'orphansScannedAt'])
+        && d.keys().hasAny(['categoriesDeduped', 'orphansScannedAt', 'orphanRepairState'])
         && (!('categoriesDeduped' in d) || d.categoriesDeduped is bool)
         && (!('ranAt' in d) || d.ranAt is number)
         && (!('orphansScannedAt' in d) || d.orphansScannedAt is number)
         && (!('orphanRepairScanTruncated' in d) || d.orphanRepairScanTruncated is bool)
+        && (!('orphanRepairState' in d)
+          || d.orphanRepairState in ['running', 'complete', 'complete_with_errors'])
+        && (!('orphanRepairCursorId' in d)
+          || (d.orphanRepairCursorId is string && d.orphanRepairCursorId.size() > 0
+            && d.orphanRepairCursorId.size() < 256))
+        && (!('orphanRepairTargetVersion' in d)
+          || (d.orphanRepairTargetVersion is int && d.orphanRepairTargetVersion >= 0
+            && d.orphanRepairTargetVersion < 1000000))
+        && (!('orphanRepairUnfixable' in d)
+          || (d.orphanRepairUnfixable is int && d.orphanRepairUnfixable >= 0))
+        && (!('orphanRepairUpdatedAt' in d) || d.orphanRepairUpdatedAt is number)
         && (!('orphanScanVersion' in d)
           || (d.orphanScanVersion is int
             && d.orphanScanVersion >= 0
             && d.orphanScanVersion < 1000000));
     }
 
-    // Written before irreversible wipe so a failed Auth delete cannot re-seed
-    // an empty account. Allowed without email verification (wipe path).
     function validAccountDeletion() {
       let d = request.resource.data;
-      return d.keys().hasOnly(['pendingDeletion', 'wipedAt'])
-        && d.keys().hasAll(['pendingDeletion'])
-        && d.pendingDeletion is bool
-        && (!('wipedAt' in d) || d.wipedAt is number);
+      return d.keys().hasOnly(['pendingDeletion', 'state', 'startedAt'])
+        && d.keys().hasAll(['pendingDeletion', 'state', 'startedAt'])
+        && d.pendingDeletion == true
+        && d.state == 'deleting'
+        && d.startedAt is number
+        && d.startedAt > 0
+        && d.startedAt <= request.time.toMillis() + 60000;
     }
 
     function validThemeMode(mode) {
@@ -227,8 +305,8 @@ service cloud.firestore {
         && validAnalyticsPeriod(d.analyticsPeriod)
         && d.updatedAt is number
         && d.updatedAt > 0
-        // Block far-future LWW clocks; allow any past timestamp from real devices.
-        && d.updatedAt < request.time.toMillis() + 86400000
+        // Bound clock-skew abuse: a raw client cannot pin preferences far ahead.
+        && d.updatedAt < request.time.toMillis() + 300000
         && (!('monthlyBudget' in d)
           || d.monthlyBudget == null
           || (d.monthlyBudget is number && d.monthlyBudget >= 0 && d.monthlyBudget < 1000000000))
@@ -240,9 +318,14 @@ service cloud.firestore {
 
       match /categories/{categoryId} {
         allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId)
+        allow create: if isOwner(userId)
+          && accountAcceptsWrites(userId)
           && isEmailVerified()
-          && validCategory();
+          && validCategoryCreate();
+        allow update: if isOwner(userId)
+          && accountAcceptsWrites(userId)
+          && isEmailVerified()
+          && validCategoryUpdate();
         // Deletes require verification, except during account wipe after
         // meta/accountDeletion.pendingDeletion is set.
         allow delete: if canDeleteOwned(userId)
@@ -252,6 +335,7 @@ service cloud.firestore {
       match /expenses/{expenseId} {
         allow read: if isOwner(userId);
         allow create, update: if isOwner(userId)
+          && accountAcceptsWrites(userId)
           && isEmailVerified()
           && validExpense()
           && exists(/databases/$(database)/documents/users/$(userId)/categories/$(request.resource.data.categoryId))
@@ -264,22 +348,42 @@ service cloud.firestore {
       // quota spam while still allowing local-only theme/locale until confirm.
       match /settings/{docId} {
         allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId)
+        allow create: if isOwner(userId)
+          && accountAcceptsWrites(userId)
           && isEmailVerified()
           && docId == 'preferences'
           && validPreferences();
+        // Backend-enforced monotonicity is the final defense against delayed offline
+        // writes and custom clients. Official clients also use read/write transactions
+        // so a losing local candidate immediately adopts the committed winner.
+        allow update: if isOwner(userId)
+          && accountAcceptsWrites(userId)
+          && isEmailVerified()
+          && docId == 'preferences'
+          && validPreferences()
+          && request.resource.data.updatedAt > resource.data.updatedAt;
         allow delete: if canDeleteOwned(userId) && docId == 'preferences';
       }
 
       match /meta/{docId} {
         allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && docId == 'dedupe'
+          && accountAcceptsWrites(userId)
+          && isEmailVerified()
+          && validDedupeMarker();
+        allow update: if isOwner(userId)
+          && docId == 'dedupe'
+          && accountAcceptsWrites(userId)
+          && isEmailVerified()
+          && validDedupeMarker();
+        allow delete: if docId == 'dedupe' && canDeleteOwned(userId);
+        // May be armed or retried only immediately after reauthentication. There is
+        // deliberately no client delete permission: the tombstone is permanent.
         allow create, update: if isOwner(userId)
-          && (
-            (docId == 'dedupe' && isEmailVerified() && validDedupeMarker())
-            || (docId == 'accountDeletion' && validAccountDeletion())
-          );
-        allow delete: if canDeleteOwned(userId)
-          && (docId == 'dedupe' || docId == 'accountDeletion');
+          && docId == 'accountDeletion'
+          && hasRecentAuthentication()
+          && validAccountDeletion();
       }
     }
   }
