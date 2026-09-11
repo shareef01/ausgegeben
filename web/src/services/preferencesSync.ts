@@ -1,4 +1,4 @@
-import { doc, onSnapshot, setDoc, type Unsubscribe } from 'firebase/firestore';
+import { doc, onSnapshot, runTransaction, type Unsubscribe } from 'firebase/firestore';
 import { getFirebaseAuth, getFirebaseFirestore } from '@/services/firebase';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useAuthStore } from '@/services/authStore';
@@ -155,9 +155,27 @@ async function writeRemote(uid: string, prefs: SyncedPreferences): Promise<void>
     return;
   }
 
-  lastWrittenAt = payload.updatedAt;
-  pushInFlight = setDoc(prefsRef(uid), payload, { merge: true })
-    .then(() => {
+  pushInFlight = runTransaction(fs, async (transaction) => {
+    const ref = prefsRef(uid);
+    const snapshot = await transaction.get(ref);
+    const remote = snapshot.exists()
+      ? parseRemote(snapshot.data() as Record<string, unknown>)
+      : null;
+    // Strict first-writer-wins for equal clocks. Firestore retries this callback if
+    // another device commits between the read and write, so stale payloads cannot win.
+    if (remote && remote.updatedAt >= payload.updatedAt) {
+      return remote;
+    }
+    transaction.set(ref, payload, { merge: true });
+    return null;
+  })
+    .then((remoteWinner) => {
+      if (remoteWinner &&
+          remoteWinner.updatedAt >= usePreferencesStore.getState().preferencesUpdatedAt) {
+        applyRemote(remoteWinner);
+      } else if (!remoteWinner) {
+        lastWrittenAt = payload.updatedAt;
+      }
       useAuthStore.getState().setSyncError(null);
     })
     .catch((err: unknown) => {
@@ -227,9 +245,6 @@ export const preferencesSync = {
           applyRemote(remote);
         } else if (lww === 'push_local') {
           void writeRemote(uid, toSyncedPreferences(local));
-        } else if (typeof (snap.data() as Record<string, unknown>).onboardingComplete !== 'boolean') {
-          // Backfill onboardingComplete onto legacy docs without bumping LWW.
-          void writeRemote(uid, { ...remote, onboardingComplete: remote.onboardingComplete });
         }
 
         markReady();

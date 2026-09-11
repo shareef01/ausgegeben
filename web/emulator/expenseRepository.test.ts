@@ -73,6 +73,11 @@ async function categoryIdOf(expenseId: string): Promise<string | undefined> {
   return snap.data()?.categoryId as string | undefined;
 }
 
+async function transactionTypeOf(expenseId: string): Promise<string | undefined> {
+  const snap = await getDoc(doc(expCol(), expenseId));
+  return snap.data()?.transactionType as string | undefined;
+}
+
 beforeAll(startHarness, 60_000);
 afterAll(stopHarness);
 beforeEach(async () => {
@@ -291,63 +296,71 @@ describe('deduplicateCategories', () => {
       (d) => d.data().categoryId === 'vanished-category',
     );
     expect(remaining).toHaveLength(0);
+    const marker = (await getDoc(doc(emulatorFirestore(), `users/${TEST_UID}/meta/dedupe`))).data();
+    expect(marker?.orphanRepairState).toBe('complete');
+    expect(marker?.orphanScanVersion).toBe(1);
+    expect(marker?.orphanRepairCursorId).toBeUndefined();
   });
-});
-
-describe('deleteAllUserData', () => {
-  // 420 docs = two 400-doc batches; under CI load this can exceed the default 30s.
-  it('clears every expense and category past the batch limit', async () => {
-    await seedCategory({ id: 'cat-1', name: 'Groceries' });
-    const total = 420;
-    const batch = writeBatch(emulatorFirestore());
-    for (let i = 0; i < total; i++) {
-      batch.set(doc(expCol(), `e-${i}`), {
-        id: `e-${i}`,
-        amount: 1,
-        dateMillis: Date.UTC(2026, 5, 15),
-        categoryId: 'cat-1',
-        note: 'bulk',
-        transactionType: 'expense',
-        updatedAt: Date.now(),
-      });
-    }
-    await batch.commit();
-
-    await expenseRepository.deleteAllUserData();
-
-    expect((await getDocs(expCol())).size).toBe(0);
-    expect((await getDocs(catCol())).size).toBe(0);
-  }, 60_000);
 });
 
 describe('account deletion marker', () => {
-  it('round-trips pending state and can be cleared again', async () => {
+  it('detects the permanent deletion marker', async () => {
     expect(await expenseRepository.isAccountDeletionPending()).toBe(false);
-
-    await expenseRepository.markAccountDeletionPending();
+    await setDoc(doc(emulatorFirestore(), `users/${TEST_UID}/meta/accountDeletion`), {
+      pendingDeletion: true,
+      state: 'deleting',
+    });
     expect(await expenseRepository.isAccountDeletionPending()).toBe(true);
-
-    await expenseRepository.clearAccountDeletionPending();
-    expect(await expenseRepository.isAccountDeletionPending()).toBe(false);
   });
+
+  it('deletes and verifies an empty account', async () => {
+    await expect(expenseRepository.deleteAllUserData()).resolves.toBeUndefined();
+  });
+
+  it('deletes boundary plus one records without a total-record cap', async () => {
+    await seedCategory({ id: 'cat-1', name: 'Groceries' });
+    for (let offset = 0; offset < 401; offset += 400) {
+      const batch = writeBatch(emulatorFirestore());
+      for (let i = offset; i < Math.min(offset + 400, 401); i++) {
+        batch.set(doc(expCol(), `expense-${i.toString().padStart(4, '0')}`), {
+          id: `expense-${i}`,
+          amount: 1,
+          dateMillis: Date.UTC(2026, 5, 15),
+          categoryId: 'cat-1',
+          note: 'deletion boundary',
+          transactionType: 'expense',
+          updatedAt: Date.now(),
+        });
+      }
+      await batch.commit();
+    }
+    await setDoc(doc(emulatorFirestore(), `users/${TEST_UID}/settings/preferences`), {
+      marker: true,
+    });
+    await setDoc(doc(emulatorFirestore(), `users/${TEST_UID}/meta/dedupe`), {
+      marker: true,
+    });
+
+    await expenseRepository.deleteAllUserData();
+
+    expect((await getDocs(expCol())).empty).toBe(true);
+    expect((await getDocs(catCol())).empty).toBe(true);
+    expect((await getDoc(doc(emulatorFirestore(), `users/${TEST_UID}/settings/preferences`))).exists()).toBe(false);
+    expect((await getDoc(doc(emulatorFirestore(), `users/${TEST_UID}/meta/dedupe`))).exists()).toBe(false);
+  }, 30_000);
 
   // The guard that stops a half-deleted account from looking like a fresh one.
   it('refuses to seed while a deletion is pending', async () => {
-    await expenseRepository.markAccountDeletionPending();
+    await setDoc(doc(emulatorFirestore(), `users/${TEST_UID}/meta/accountDeletion`), {
+      pendingDeletion: true,
+      state: 'deleting',
+    });
 
     await expenseRepository.ensureSeeded();
 
     expect(await categoryIds()).toEqual([]);
   });
 
-  it('seeds defaults once the marker is cleared', async () => {
-    await expenseRepository.markAccountDeletionPending();
-    await expenseRepository.clearAccountDeletionPending();
-
-    await expenseRepository.ensureSeeded();
-
-    expect((await categoryIds()).length).toBeGreaterThan(0);
-  });
 });
 
 describe('ensureSeeded', () => {
@@ -366,6 +379,31 @@ describe('ensureSeeded', () => {
     await expenseRepository.ensureSeeded();
 
     expect(await categoryIds()).toEqual([]);
+  });
+
+  it('resumes and finalizes an interrupted Android category type migration', async () => {
+    await seedCategory({ id: 'moving', name: 'Moving', transactionType: 'expense' });
+    await setDoc(doc(catCol(), 'moving'), {
+      migrationState: 'migrating',
+      pendingTransactionType: 'income',
+    }, { merge: true });
+    await seedExpense('old-type', 'moving');
+    await seedExpense('already-moved', 'moving');
+    await setDoc(doc(expCol(), 'already-moved'), { transactionType: 'income' }, { merge: true });
+    await setDoc(doc(emulatorFirestore(), `users/${TEST_UID}/meta/dedupe`), {
+      categoriesDeduped: true,
+      orphansScannedAt: Date.now(),
+      orphanScanVersion: 1,
+    });
+
+    await expenseRepository.ensureSeeded();
+
+    expect(await transactionTypeOf('old-type')).toBe('income');
+    expect(await transactionTypeOf('already-moved')).toBe('income');
+    const category = (await getDoc(doc(catCol(), 'moving'))).data();
+    expect(category?.transactionType).toBe('income');
+    expect(category?.migrationState).toBeUndefined();
+    expect(category?.pendingTransactionType).toBeUndefined();
   });
 });
 

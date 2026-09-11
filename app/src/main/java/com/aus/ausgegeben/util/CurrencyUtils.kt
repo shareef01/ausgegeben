@@ -12,7 +12,9 @@ object CurrencyUtils {
      * totals, and AmountRoundingTest all exercise the same formula — the test used to assert
      * against a private copy of it, so it could not catch a change here.
      */
-    fun roundAmount(amount: Double): Double = Math.round(amount * 100.0) / 100.0
+    fun toMinorUnits(amount: Double): Long = Math.round(amount * 100.0)
+    fun fromMinorUnits(minor: Long): Double = minor / 100.0
+    fun roundAmount(amount: Double): Double = fromMinorUnits(toMinorUnits(amount))
 
     private val symbolsByCode = mapOf(
         "EUR" to "€",
@@ -117,3 +119,10 @@ object CurrencyUtils {
         return normalized.toDoubleOrNull()
     }
 }
+
+/** Sum in integer cents so thousands of valid rows cannot accumulate binary drift. */
+fun Iterable<Double>.sumMoney(): Double =
+    CurrencyUtils.fromMinorUnits(fold(0L) { total, amount -> total + CurrencyUtils.toMinorUnits(amount) })
+
+fun Sequence<Double>.sumMoney(): Double =
+    CurrencyUtils.fromMinorUnits(fold(0L) { total, amount -> total + CurrencyUtils.toMinorUnits(amount) })

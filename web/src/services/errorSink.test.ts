@@ -12,6 +12,11 @@ import {
   setErrorSink,
   type AppErrorReport,
 } from '@/services/errorReporter';
+import { getBackendAppCheckToken } from '@/services/firebase';
+
+vi.mock('@/services/firebase', () => ({
+  getBackendAppCheckToken: vi.fn(async () => 'valid-app-check-token'),
+}));
 
 const URL_UNDER_TEST = 'https://example.test/report';
 
@@ -69,50 +74,40 @@ describe('errorSink', () => {
     expect(payload.context?.operation).toContain('[EMAIL REDACTED]');
   });
 
-  it('sends the report to the configured endpoint', () => {
+  it('sends the report to the configured endpoint with App Check', async () => {
     createEndpointSink(URL_UNDER_TEST)(report());
 
-    expect(fetch).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
     const [url, init] = vi.mocked(fetch).mock.calls[0]!;
     expect(url).toBe(URL_UNDER_TEST);
     expect(JSON.parse(String(init?.body)).error.message).toBe('boom');
+    expect(new Headers(init?.headers).get('X-Firebase-AppCheck')).toBe('valid-app-check-token');
   });
 
   // A crash loop repeats one error endlessly; the endpoint should hear it once.
-  it('sends an identical error only once', () => {
+  it('sends an identical error only once', async () => {
     const sink = createEndpointSink(URL_UNDER_TEST);
 
     sink(report());
     sink(report());
     sink(report());
 
-    expect(fetch).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
   });
 
-  it('stops after the per-session cap even for distinct errors', () => {
+  it('stops after the per-session cap even for distinct errors', async () => {
     const sink = createEndpointSink(URL_UNDER_TEST);
 
     for (let i = 0; i < 25; i++) sink(report({ error: new Error(`distinct-${i}`) }));
 
-    expect(fetch).toHaveBeenCalledTimes(10);
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(10));
   });
 
-  it('prefers sendBeacon so a report survives the tab closing', () => {
-    const sendBeacon = vi.fn(() => true);
-    vi.stubGlobal('navigator', { userAgent: 'test-agent', sendBeacon });
-
+  it('drops the report when App Check cannot produce a token', async () => {
+    vi.mocked(getBackendAppCheckToken).mockResolvedValueOnce(null);
     createEndpointSink(URL_UNDER_TEST)(report());
-
-    expect(sendBeacon).toHaveBeenCalledTimes(1);
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(fetch).not.toHaveBeenCalled();
-  });
-
-  it('falls back to fetch when sendBeacon refuses the payload', () => {
-    vi.stubGlobal('navigator', { userAgent: 'test-agent', sendBeacon: vi.fn(() => false) });
-
-    createEndpointSink(URL_UNDER_TEST)(report());
-
-    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it('never throws when delivery fails', () => {

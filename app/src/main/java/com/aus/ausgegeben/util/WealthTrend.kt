@@ -68,8 +68,8 @@ fun List<Expense>.computeCashFlowTrend(
         CashFlowPoint(
             bucketStartMillis = start,
             label = label,
-            income = items.filter { it.isIncome() }.sumOf { it.amount },
-            expense = items.filter { it.isExpense() }.sumOf { it.amount }
+            income = items.asSequence().filter { it.isIncome() }.map { it.amount }.sumMoney(),
+            expense = items.asSequence().filter { it.isExpense() }.map { it.amount }.sumMoney()
         )
     }
 }
@@ -138,8 +138,8 @@ fun List<Expense>.computeWealthTrend(
 }
 
 private fun List<Expense>.netTotal(): Double {
-    val income = filter { it.isIncome() }.sumOf { it.amount }
-    val expense = filter { it.isExpense() }.sumOf { it.amount }
+    val income = asSequence().filter { it.isIncome() }.map { it.amount }.sumMoney()
+    val expense = asSequence().filter { it.isExpense() }.map { it.amount }.sumMoney()
     return income - expense
 }
 

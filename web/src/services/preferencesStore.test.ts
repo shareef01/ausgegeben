@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { seedOnboardingForUser, usePreferencesStore } from '@/services/preferencesStore';
 
 /**
@@ -36,6 +36,7 @@ describe('seedOnboardingForUser', () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     if (originalLocalStorage === undefined) {
       delete (globalThis as unknown as { localStorage?: Storage }).localStorage;
     } else {
@@ -64,5 +65,12 @@ describe('seedOnboardingForUser', () => {
     usePreferencesStore.setState({ onboardingComplete: true, preferencesUpdatedAt: 12345 });
     seedOnboardingForUser(UID);
     expect(usePreferencesStore.getState().preferencesUpdatedAt).toBe(12345);
+  });
+
+  it('advances monotonically when the device clock moves backwards', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(100);
+    usePreferencesStore.setState({ preferencesUpdatedAt: 200 });
+    usePreferencesStore.getState().setCurrency('USD');
+    expect(usePreferencesStore.getState().preferencesUpdatedAt).toBe(201);
   });
 });

@@ -21,6 +21,7 @@ import com.aus.ausgegeben.util.AnalyticsPeriod
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.util.UUID
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
@@ -46,6 +47,9 @@ class PreferenceManager @Inject constructor(
         val LANGUAGE = stringPreferencesKey("language")
         /** LWW clock shared with web (`users/{uid}/settings/preferences.updatedAt`). */
         val PREFERENCES_UPDATED_AT = stringPreferencesKey("preferences_updated_at")
+        val PENDING_EXPENSE_FINGERPRINT = stringPreferencesKey("pending_expense_fingerprint_enc")
+        val PENDING_EXPENSE_IDEMPOTENCY_KEY = stringPreferencesKey("pending_expense_idempotency_key_enc")
+        val PENDING_EXPENSE_CREATED_AT = stringPreferencesKey("pending_expense_created_at_enc")
         // Legacy plaintext keys (migrated into sealed blobs on first read/write).
         val LEGACY_ONBOARDING = booleanPreferencesKey("onboarding_complete")
         val LEGACY_DAILY_REMINDER = booleanPreferencesKey("daily_reminder")
@@ -268,10 +272,12 @@ class PreferenceManager @Inject constructor(
     }
 
     private suspend fun touchEdit(block: MutablePreferences.() -> Unit) {
-        val now = System.currentTimeMillis().toString()
         context.dataStore.edit { preferences ->
             preferences.block()
-            preferences.putSealed(PreferencesKeys.PREFERENCES_UPDATED_AT, now)
+            val previous = crypto.open(preferences[PreferencesKeys.PREFERENCES_UPDATED_AT])
+                ?.toLongOrNull() ?: 0L
+            val next = maxOf(System.currentTimeMillis(), previous + 1L)
+            preferences.putSealed(PreferencesKeys.PREFERENCES_UPDATED_AT, next.toString())
         }
     }
 
@@ -364,6 +370,48 @@ class PreferenceManager @Inject constructor(
             preferences.remove(PreferencesKeys.LEGACY_REMINDER_HOUR)
             preferences.remove(PreferencesKeys.REMINDER_MINUTE)
             preferences.remove(PreferencesKeys.LEGACY_REMINDER_MINUTE)
+            preferences.remove(PreferencesKeys.PENDING_EXPENSE_FINGERPRINT)
+            preferences.remove(PreferencesKeys.PENDING_EXPENSE_IDEMPOTENCY_KEY)
+            preferences.remove(PreferencesKeys.PENDING_EXPENSE_CREATED_AT)
+        }
+    }
+
+    /**
+     * Atomically recover or mint the key before Firestore is called. Only an opaque
+     * SHA-256 fingerprint and UUID are stored, sealed with the existing Keystore helper.
+     */
+    override suspend fun prepareExpenseSubmission(fingerprint: String): String {
+        var prepared = UUID.randomUUID().toString()
+        val now = System.currentTimeMillis()
+        context.dataStore.edit { preferences ->
+            val storedFingerprint = crypto.open(preferences[PreferencesKeys.PENDING_EXPENSE_FINGERPRINT])
+            val storedKey = crypto.open(preferences[PreferencesKeys.PENDING_EXPENSE_IDEMPOTENCY_KEY])
+            val createdAt = crypto.open(preferences[PreferencesKeys.PENDING_EXPENSE_CREATED_AT])
+                ?.toLongOrNull()
+            val age = createdAt?.let { now - it }
+            if (storedFingerprint == fingerprint && !storedKey.isNullOrBlank() &&
+                age != null && age >= 0 && age <= PENDING_EXPENSE_TTL_MS
+            ) {
+                prepared = storedKey
+            } else {
+                preferences.putSealed(PreferencesKeys.PENDING_EXPENSE_FINGERPRINT, fingerprint)
+                preferences.putSealed(PreferencesKeys.PENDING_EXPENSE_IDEMPOTENCY_KEY, prepared)
+                preferences.putSealed(PreferencesKeys.PENDING_EXPENSE_CREATED_AT, now.toString())
+            }
+        }
+        return prepared
+    }
+
+    /** Clear only the acknowledged generation, never a newer concurrent submission. */
+    override suspend fun completeExpenseSubmission(fingerprint: String, idempotencyKey: String) {
+        context.dataStore.edit { preferences ->
+            val storedFingerprint = crypto.open(preferences[PreferencesKeys.PENDING_EXPENSE_FINGERPRINT])
+            val storedKey = crypto.open(preferences[PreferencesKeys.PENDING_EXPENSE_IDEMPOTENCY_KEY])
+            if (storedFingerprint == fingerprint && storedKey == idempotencyKey) {
+                preferences.remove(PreferencesKeys.PENDING_EXPENSE_FINGERPRINT)
+                preferences.remove(PreferencesKeys.PENDING_EXPENSE_IDEMPOTENCY_KEY)
+                preferences.remove(PreferencesKeys.PENDING_EXPENSE_CREATED_AT)
+            }
         }
     }
 
@@ -376,6 +424,10 @@ class PreferenceManager @Inject constructor(
             preferences.putSealed(PreferencesKeys.PREFERENCES_UPDATED_AT, now.toString())
         }
         return now
+    }
+
+    companion object {
+        private const val PENDING_EXPENSE_TTL_MS = 24 * 60 * 60 * 1000L
     }
 }
 

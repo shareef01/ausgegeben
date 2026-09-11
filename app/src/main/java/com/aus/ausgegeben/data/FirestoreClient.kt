@@ -22,13 +22,14 @@ class FirestoreClient @Inject constructor() {
     fun get(): FirebaseFirestore = db
 
     /**
-     * Drop the offline disk cache after listeners have detached. Safe to call when
-     * already signed out; failures are logged and do not throw.
+     * Drop the offline disk cache after listeners have detached. Failure is surfaced:
+     * callers must not claim sensitive local data was removed when it was not.
      */
     suspend fun clearOfflineCache() {
         // Give per-user snapshot listeners a beat to remove after auth → null.
         delay(400)
         val old = db
+        var failure: Exception? = null
         try {
             old.terminate().await()
             old.clearPersistence().await()
@@ -36,6 +37,7 @@ class FirestoreClient @Inject constructor() {
             throw cancelled
         } catch (e: Exception) {
             Log.w(TAG, "Failed to clear Firestore offline cache", e)
+            failure = e
         }
         val fresh = FirebaseFirestore.getInstance()
         fresh.firestoreSettings = FirebaseFirestoreSettings.Builder()
@@ -46,6 +48,7 @@ class FirestoreClient @Inject constructor() {
             )
             .build()
         db = fresh
+        failure?.let { throw it }
     }
 
     companion object {

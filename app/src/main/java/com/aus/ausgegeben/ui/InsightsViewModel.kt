@@ -126,29 +126,32 @@ internal fun buildInsightsState(
 ): InsightsUiState {
     val categoryById = categories.associateBy { it.id }
 
-    var totalExpenses = 0.0
-    var totalIncome = 0.0
-    var totalTransfers = 0.0
-    val expenseTotals = mutableMapOf<String, Double>()
-    val incomeTotals = mutableMapOf<String, Double>()
-    val transferTotals = mutableMapOf<String, Double>()
+    var totalExpenses = 0L
+    var totalIncome = 0L
+    var totalTransfers = 0L
+    val expenseTotals = mutableMapOf<String, Long>()
+    val incomeTotals = mutableMapOf<String, Long>()
+    val transferTotals = mutableMapOf<String, Long>()
 
     for (expense in scoped) {
         when {
             expense.isTransfer() -> {
-                totalTransfers += expense.amount
+                val minor = CurrencyUtils.toMinorUnits(expense.amount)
+                totalTransfers += minor
                 transferTotals[expense.categoryId] =
-                    (transferTotals[expense.categoryId] ?: 0.0) + expense.amount
+                    (transferTotals[expense.categoryId] ?: 0L) + minor
             }
             expense.isIncome() -> {
-                totalIncome += expense.amount
+                val minor = CurrencyUtils.toMinorUnits(expense.amount)
+                totalIncome += minor
                 incomeTotals[expense.categoryId] =
-                    (incomeTotals[expense.categoryId] ?: 0.0) + expense.amount
+                    (incomeTotals[expense.categoryId] ?: 0L) + minor
             }
             expense.isExpense() -> {
-                totalExpenses += expense.amount
+                val minor = CurrencyUtils.toMinorUnits(expense.amount)
+                totalExpenses += minor
                 expenseTotals[expense.categoryId] =
-                    (expenseTotals[expense.categoryId] ?: 0.0) + expense.amount
+                    (expenseTotals[expense.categoryId] ?: 0L) + minor
             }
         }
     }
@@ -162,18 +165,18 @@ internal fun buildInsightsState(
     // with the headline total — the money left the chart with no indication, while the
     // "Spent" figure above it still counted the row. Orphans are reachable (see
     // deleteCategory's unfixable rows), and the web client has always shown them as "?".
-    fun mapTotals(totals: Map<String, Double>): Map<Category, Double> =
+    fun mapTotals(totals: Map<String, Long>): Map<Category, Double> =
         totals.map { (categoryId, amount) ->
             val category = categoryById[categoryId] ?: orphanCategoryPlaceholder(categoryId)
-            category to CurrencyUtils.roundAmount(amount)
+            category to CurrencyUtils.fromMinorUnits(amount)
         }.toMap()
 
     return InsightsUiState(
         periodKey = periodKey,
         periodLabel = analyticsPeriodOptionFromStorage(periodKey).label,
-        totalExpenses = CurrencyUtils.roundAmount(totalExpenses),
-        totalIncome = CurrencyUtils.roundAmount(totalIncome),
-        totalTransfers = CurrencyUtils.roundAmount(totalTransfers),
+        totalExpenses = CurrencyUtils.fromMinorUnits(totalExpenses),
+        totalIncome = CurrencyUtils.fromMinorUnits(totalIncome),
+        totalTransfers = CurrencyUtils.fromMinorUnits(totalTransfers),
         currency = currency,
         expensesByCategory = mapTotals(expenseTotals),
         incomeByCategory = mapTotals(incomeTotals),

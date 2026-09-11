@@ -135,12 +135,10 @@
     <string name="settings_deletion_pending_title">Deletion unfinished</string>
     <string name="settings_deletion_pending">This account is part-way through deletion. Its cloud data is already gone. Finish deleting it, or keep the account and start fresh.</string>
     <string name="settings_deletion_finish">Finish deleting</string>
-    <string name="settings_deletion_keep">Keep account</string>
-    <string name="settings_deletion_kept">Account kept — default categories restored</string>
-    <string name="settings_deletion_keep_failed">Could not restore the account. Please try again.</string>
     <string name="settings_delete_account_password">Enter your password to confirm</string>
     <string name="settings_delete_account_too_many_attempts">Too many attempts. Try again later.</string>
     <string name="settings_signed_out">Signed out</string>
+    <string name="settings_local_cleanup_failed">Signed out, but local financial data could not be cleared. Clear this app’s storage in Android settings.</string>
     <string name="settings_sync_now">Sync now</string>
     <string name="settings_last_synced">Last synced %1$s</string>
     <string name="settings_never_synced">Not synced yet — tap Sync now after sign-in</string>

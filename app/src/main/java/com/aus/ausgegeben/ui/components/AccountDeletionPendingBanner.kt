@@ -30,7 +30,6 @@ import com.aus.ausgegeben.ui.theme.AppSpacing
 @Composable
 fun AccountDeletionPendingBanner(
     onFinishDeleting: () -> Unit,
-    onKeepAccount: () -> Unit,
     busy: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -92,13 +91,6 @@ fun AccountDeletionPendingBanner(
                     text = stringResource(R.string.settings_deletion_finish).lowercase(),
                     enabled = !busy,
                     contentColor = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.heightIn(min = 48.dp),
-                )
-                AppTextButton(
-                    onClick = onKeepAccount,
-                    text = stringResource(R.string.settings_deletion_keep).lowercase(),
-                    enabled = !busy,
-                    contentColor = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.heightIn(min = 48.dp),
                 )
             }

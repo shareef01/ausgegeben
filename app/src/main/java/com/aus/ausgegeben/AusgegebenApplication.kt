@@ -34,7 +34,7 @@ class AusgegebenApplication : Application(), Configuration.Provider {
         if (!emulatorsHooked) {
             installAppCheck()
         }
-        // Spark-compatible: cache Firestore locally for offline / faster reloads.
+        // Cache Firestore locally for offline use and faster reloads.
         // Cap offline cache (~100 MiB) so financial history cannot grow unbounded on disk.
         // The Firebase SDK does not offer app-level encryption of this cache; rely on
         // platform FBE + allowBackup=false. Sensitive prefs are sealed via PrefsCrypto.

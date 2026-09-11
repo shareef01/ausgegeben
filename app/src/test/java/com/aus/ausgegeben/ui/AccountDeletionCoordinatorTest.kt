@@ -14,33 +14,30 @@ class AccountDeletionCoordinatorTest {
 
     private class FakeAccount : AccountActions {
         var pending = false
-        var seeded = 0
+        var localClearFails = false
+        var markResult: Result<Unit> = Result.success(Unit)
+        var wipeResult: Result<Unit> = Result.success(Unit)
+        var markCalls = 0
         var wipeCalls = 0
-        var markFails = false
-        var wipeFails = false
-        var clearFails = false
 
         override suspend fun isAccountDeletionPending(): Boolean = pending
-        override suspend fun markAccountDeletionPending(): Result<Unit> =
-            if (markFails) Result.failure(IllegalStateException("mark")) else {
-                pending = true
-                Result.success(Unit)
-            }
-        override suspend fun clearAccountDeletionPending(): Result<Unit> =
-            if (clearFails) Result.failure(IllegalStateException("clear")) else {
-                pending = false
-                Result.success(Unit)
-            }
+        override suspend fun markAccountDeletionPending(): Result<Unit> {
+            markCalls += 1
+            if (markResult.isSuccess) pending = true
+            return markResult
+        }
         override suspend fun deleteAllUserData(): Result<Unit> {
             wipeCalls += 1
-            return if (wipeFails) Result.failure(IllegalStateException("wipe")) else Result.success(Unit)
-        }
-        override suspend fun ensureSeeded() {
-            seeded += 1
+            return wipeResult
         }
         var localStateCleared = 0
-        override suspend fun clearAccountLocalState() {
+        override suspend fun clearAccountLocalState(): Result<Unit> {
             localStateCleared += 1
+            return if (localClearFails) {
+                Result.failure(IllegalStateException("local clear"))
+            } else {
+                Result.success(Unit)
+            }
         }
     }
 
@@ -67,29 +64,6 @@ class AccountDeletionCoordinatorTest {
     }
 
     @Test
-    fun keepAccount_clearsMarkerAndSeeds() = runTest {
-        val account = FakeAccount().apply { pending = true }
-        val coordinator = AccountDeletionCoordinator(account, FakeAuth())
-        coordinator.refresh(signedIn = true)
-        assertEquals(AccountDeletionToast.KEPT, coordinator.keepAccount())
-        assertFalse(account.pending)
-        assertEquals(1, account.seeded)
-        assertFalse(coordinator.state.value.pending)
-    }
-
-    @Test
-    fun keepAccount_failedClear_doesNotSeed() = runTest {
-        val account = FakeAccount().apply {
-            pending = true
-            clearFails = true
-        }
-        val coordinator = AccountDeletionCoordinator(account, FakeAuth())
-        assertEquals(AccountDeletionToast.KEEP_FAILED, coordinator.keepAccount())
-        assertEquals(0, account.seeded)
-        assertTrue(account.pending)
-    }
-
-    @Test
     fun deleteAccount_wrongPassword_doesNotWipe() = runTest {
         val account = FakeAccount()
         val auth = FakeAuth().apply {
@@ -97,8 +71,9 @@ class AccountDeletionCoordinatorTest {
         }
         val coordinator = AccountDeletionCoordinator(account, auth)
         assertEquals(DeleteAccountOutcome.WrongPassword, coordinator.deleteAccount("x"))
-        assertEquals(0, account.wipeCalls)
         assertEquals(0, auth.deleteCalls)
+        assertEquals(0, account.markCalls)
+        assertEquals(0, account.wipeCalls)
         assertFalse(coordinator.state.value.pending)
     }
 
@@ -119,11 +94,10 @@ class AccountDeletionCoordinatorTest {
             cancelled = true
         }
         assertTrue(cancelled)
-        assertEquals(0, account.wipeCalls)
     }
 
     @Test
-    fun deleteAccount_wipeOkAuthFail_setsPending() = runTest {
+    fun deleteAccount_authDeleteFailure_setsPending() = runTest {
         val account = FakeAccount()
         val auth = FakeAuth().apply {
             deleteResult = Result.failure(IllegalStateException("auth delete"))
@@ -132,8 +106,43 @@ class AccountDeletionCoordinatorTest {
         val outcome = coordinator.deleteAccount("ok")
         assertEquals(DeleteAccountOutcome.Closed(AccountDeletionToast.INCOMPLETE), outcome)
         assertTrue(coordinator.state.value.pending)
-        assertEquals(1, account.wipeCalls)
         assertEquals(1, auth.deleteCalls)
+        assertEquals(1, account.markCalls)
+        assertEquals(1, account.wipeCalls)
+    }
+
+    @Test
+    fun deleteAccount_wipeFailure_neverDeletesAuth() = runTest {
+        val account = FakeAccount().apply {
+            wipeResult = Result.failure(IllegalStateException("quota"))
+        }
+        val auth = FakeAuth()
+        val coordinator = AccountDeletionCoordinator(account, auth)
+
+        assertEquals(
+            DeleteAccountOutcome.Closed(AccountDeletionToast.INCOMPLETE),
+            coordinator.deleteAccount("ok"),
+        )
+        assertTrue(coordinator.state.value.pending)
+        assertEquals(0, auth.deleteCalls)
+        assertEquals(0, account.localStateCleared)
+    }
+
+    @Test
+    fun deleteAccount_markerFailure_neverWipesOrDeletesAuth() = runTest {
+        val account = FakeAccount().apply {
+            markResult = Result.failure(IllegalStateException("offline"))
+        }
+        val auth = FakeAuth()
+        val coordinator = AccountDeletionCoordinator(account, auth)
+
+        assertEquals(
+            DeleteAccountOutcome.Closed(AccountDeletionToast.INCOMPLETE),
+            coordinator.deleteAccount("ok"),
+        )
+        assertEquals(0, account.wipeCalls)
+        assertEquals(0, auth.deleteCalls)
+        assertFalse(coordinator.state.value.pending)
     }
 
     @Test
@@ -142,7 +151,6 @@ class AccountDeletionCoordinatorTest {
         val auth = FakeAuth()
         val coordinator = AccountDeletionCoordinator(account, auth)
         assertEquals(DeleteAccountOutcome.Success, coordinator.deleteAccount("ok"))
-        assertEquals(1, account.wipeCalls)
         assertEquals(1, auth.deleteCalls)
     }
 
@@ -162,11 +170,28 @@ class AccountDeletionCoordinatorTest {
         assertEquals(1, account.localStateCleared)
     }
 
-    /** A failed wipe leaves the cloud copy in place, so the local copy must stay too. */
+    @Test
+    fun deleteAccount_localCleanupFailure_isReportedWithoutRelabelingCloudDeletion() = runTest {
+        val account = FakeAccount().apply { localClearFails = true }
+        val auth = FakeAuth()
+        val coordinator = AccountDeletionCoordinator(account, auth)
+
+        assertEquals(
+            DeleteAccountOutcome.Closed(AccountDeletionToast.LOCAL_DATA_REMAINS),
+            coordinator.deleteAccount("ok"),
+        )
+        assertEquals(1, auth.deleteCalls)
+        assertEquals(1, account.localStateCleared)
+    }
+
+    /** A failed callable may be partial, so the local copy must stay for recovery. */
     @Test
     fun deleteAccount_failedWipe_keepsLocalState() = runTest {
-        val account = FakeAccount().apply { wipeFails = true }
-        val coordinator = AccountDeletionCoordinator(account, FakeAuth())
+        val account = FakeAccount()
+        val auth = FakeAuth().apply {
+            deleteResult = Result.failure(IllegalStateException("callable failed"))
+        }
+        val coordinator = AccountDeletionCoordinator(account, auth)
         coordinator.deleteAccount("ok")
         assertEquals(0, account.localStateCleared)
     }

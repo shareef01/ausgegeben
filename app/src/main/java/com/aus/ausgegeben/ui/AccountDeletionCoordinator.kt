@@ -8,20 +8,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import com.aus.ausgegeben.util.runSuspendCatching
 
 data class AccountDeletionUiState(
     val pending: Boolean = false,
     val deleting: Boolean = false,
-    val clearing: Boolean = false,
 ) {
-    val busy: Boolean get() = deleting || clearing
+    val busy: Boolean get() = deleting
 }
 
 enum class AccountDeletionToast {
-    KEPT,
-    KEEP_FAILED,
     DELETED_OK,
+    LOCAL_DATA_REMAINS,
     INCOMPLETE,
     FAILED,
     TOO_MANY,
@@ -36,7 +33,8 @@ sealed class DeleteAccountOutcome {
 
 /**
  * Account-deletion lifecycle extracted from Settings so the irreversible sequence
- * (reauth → mark → wipe → Auth delete) and the keep-account recovery can be unit-tested.
+ * (reauth → freeze → verified cloud wipe → Auth delete → local erase)
+ * and recovery can be unit-tested.
  */
 class AccountDeletionCoordinator(
     private val account: AccountActions,
@@ -48,19 +46,6 @@ class AccountDeletionCoordinator(
     suspend fun refresh(signedIn: Boolean) {
         val pending = signedIn && account.isAccountDeletionPending()
         _state.update { it.copy(pending = pending) }
-    }
-
-    suspend fun keepAccount(): AccountDeletionToast {
-        _state.update { it.copy(clearing = true) }
-        val cleared = account.clearAccountDeletionPending()
-        if (cleared.isFailure) {
-            _state.update { it.copy(clearing = false) }
-            return AccountDeletionToast.KEEP_FAILED
-        }
-        _state.update { it.copy(pending = false) }
-        runSuspendCatching { account.ensureSeeded() }
-        _state.update { it.copy(clearing = false) }
-        return AccountDeletionToast.KEPT
     }
 
     suspend fun deleteAccount(password: String): DeleteAccountOutcome {
@@ -75,27 +60,46 @@ class AccountDeletionCoordinator(
                 else -> DeleteAccountOutcome.Closed(AccountDeletionToast.FAILED)
             }
         }
-        val wipe = run {
-            val marked = account.markAccountDeletionPending()
-            if (marked.isFailure) marked else account.deleteAllUserData()
+        val marked = account.markAccountDeletionPending()
+        if (marked.isFailure) {
+            _state.update { it.copy(deleting = false) }
+            return DeleteAccountOutcome.Closed(AccountDeletionToast.INCOMPLETE)
         }
-        val deleted = if (wipe.isSuccess) auth.deleteAccount() else wipe
+        _state.update { it.copy(pending = true) }
+
+        // All Firestore operations are server-acknowledged. An interruption leaves the
+        // permanent marker in place and a later reauthenticated attempt resumes safely.
+        val wiped = account.deleteAllUserData()
+        if (wiped.isFailure) {
+            _state.update { it.copy(deleting = false) }
+            return DeleteAccountOutcome.Closed(AccountDeletionToast.INCOMPLETE)
+        }
+        val deleted = auth.deleteAccount()
+        var localCleanupFailed = false
         if (deleted.isSuccess) {
             // The cloud copy is gone; drop the local one too. Sign-out has always done
             // this, so without it deletion was the *less* thorough of the two and left
             // cached transactions and every preference on the device.
-            account.clearAccountLocalState()
+            localCleanupFailed = account.clearAccountLocalState().isFailure
         }
         _state.update { it.copy(deleting = false) }
         return deleted.fold(
-            onSuccess = { DeleteAccountOutcome.Success },
+            onSuccess = {
+                _state.update { it.copy(pending = false) }
+                if (localCleanupFailed) {
+                    DeleteAccountOutcome.Closed(AccountDeletionToast.LOCAL_DATA_REMAINS)
+                } else {
+                    DeleteAccountOutcome.Success
+                }
+            },
             onFailure = { error ->
-                if (wipe.isSuccess) _state.update { it.copy(pending = true) }
+                // A partial client wipe leaves the tombstone in place. Treat it as
+                // pending until the next reauthenticated attempt resumes.
+                _state.update { it.copy(pending = true) }
                 val toast = when {
-                    wipe.isSuccess -> AccountDeletionToast.INCOMPLETE
                     error is FirebaseAuthRecentLoginRequiredException ->
                         AccountDeletionToast.NEEDS_REAUTH
-                    else -> AccountDeletionToast.FAILED
+                    else -> AccountDeletionToast.INCOMPLETE
                 }
                 DeleteAccountOutcome.Closed(toast)
             },

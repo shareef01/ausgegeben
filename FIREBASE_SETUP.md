@@ -52,15 +52,28 @@ This builds the PWA and deploys hosting (`aus01`) + Firestore rules and indexes 
 - Firestore paths: `users/{uid}/categories/{id}`, `users/{uid}/expenses/{id}`, `users/{uid}/settings/preferences`
 - Use the **same email/password** on Android and the PWA
 - Sign-in is **required** on both clients
-- Both clients use Firestore offline persistence (Android disk cache; web IndexedDB)
+- Android uses Firestore disk persistence. Web defaults to memory-only and enables
+  IndexedDB only when the user explicitly marks the browser as a trusted device.
 - Expense, category, and preferences writes require a **verified email** (local prefs still work before verification)
-- **Shared devices:** web sign-out / account deletion clears the IndexedDB Firestore cache (best-effort; close other tabs first). Android clears account-scoped DataStore prefs **and** the Firestore offline disk cache on sign-out/delete.
+- **Shared devices:** web coordinates other tabs and retries IndexedDB erasure; Android
+  clears account-scoped DataStore prefs and the Firestore disk cache. Either client
+  surfaces cleanup failure and directs the user to clear site/app storage.
 
 ## Incomplete account deletion
 
-Deletion reauthenticates, marks `meta/accountDeletion`, wipes the cloud data, then deletes the Auth user. If that last step fails all its retries, the data is gone but the login survives, and both clients say so: *"Cloud data was erased but the login could not be removed. Try Delete account again to finish."*
+Account deletion remains compatible with the Firebase Spark plan. Deploy the hardened
+rules before releasing clients that use the resumable deletion protocol:
 
-The marker is deliberately never cleared — re-seeding default categories would make a half-deleted account look like a working fresh one. Until deletion is retried successfully the account stays unusable (no categories, so nothing can be recorded). **Retrying deletion is the only exit**, and it is expected to succeed, since the failure is normally transient and the reauthentication is already recent.
+```bash
+firebase deploy --only firestore:rules,firestore:indexes,hosting:aus01
+```
+
+Both clients reauthenticate and force-refresh the ID token. Firestore rules require an
+`auth_time` no more than five minutes old before accepting the permanent
+`meta/accountDeletion` write-freeze tombstone. Clients then use server-only reads to
+delete and verify every known account collection before deleting the Auth identity. If
+the operation is interrupted or quota-limited, retry **Finish deletion**; there is no
+client permission to remove the tombstone and reopen a potentially partial account.
 
 ## App Check
 
@@ -83,7 +96,7 @@ Firebase web/Android API keys are client-visible by design, but still restrict t
 
 | File | Purpose |
 |------|---------|
-| `firebase.json` | Hosting + Firestore + emulators |
+| `firebase.json` | Hosting + Firestore + Functions + emulators |
 | `.firebaserc` | Default project `ausgegeben01` |
 | `firestore.rules` | Per-user data access + schema validation |
 | `app/google-services.json` | Android config (gitignored, per developer) |

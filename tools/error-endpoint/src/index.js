@@ -1,8 +1,8 @@
 /**
  * Receives crash reports from the Ausgegeben PWA (web/src/services/errorSink.ts).
  *
- * Deliberately not a Cloud Function: those need the Blaze plan and this project
- * stays on Spark. A Cloudflare Worker is free at this volume and needs no card.
+ * Deliberately not a Cloud Function: the application remains on Firebase Spark, and
+ * telemetry stays isolated from Firebase billing and storage in a small Worker.
  *
  * There is no database. Reports go to `console.*`, which surfaces in
  * `npx wrangler tail` live and in the Workers Logs tab of the Cloudflare
@@ -11,15 +11,67 @@
  */
 
 const MAX_BODY_BYTES = 16 * 1024;
+const APP_CHECK_JWKS = 'https://firebaseappcheck.googleapis.com/v1/jwks';
+const JWKS_CACHE_SECONDS = 6 * 60 * 60;
+let jwksCache = null;
 
 function corsHeaders(origin) {
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Firebase-AppCheck',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
   };
+}
+
+function decodeBase64Url(value) {
+  const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+  const binary = atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '='));
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+}
+
+async function readJwks(fetcher, nowSeconds) {
+  if (jwksCache && jwksCache.expiresAt > nowSeconds) return jwksCache.keys;
+  const response = await fetcher(APP_CHECK_JWKS);
+  if (!response.ok) throw new Error('jwks_fetch_failed');
+  const body = await response.json();
+  if (!body || !Array.isArray(body.keys)) throw new Error('jwks_invalid');
+  jwksCache = { keys: body.keys, expiresAt: nowSeconds + JWKS_CACHE_SECONDS };
+  return body.keys;
+}
+
+/** Verify Firebase App Check exactly as required for a custom backend. */
+async function verifyAppCheckToken(token, env, fetcher = fetch, nowSeconds = Math.floor(Date.now() / 1000)) {
+  const projectNumber = String(env.FIREBASE_PROJECT_NUMBER ?? '').trim();
+  const allowedAppIds = String(env.FIREBASE_APP_IDS ?? '').split(',').map((v) => v.trim()).filter(Boolean);
+  if (!token || !projectNumber || allowedAppIds.length === 0) return false;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return false;
+    const header = JSON.parse(new TextDecoder().decode(decodeBase64Url(parts[0])));
+    const claims = JSON.parse(new TextDecoder().decode(decodeBase64Url(parts[1])));
+    if (header.alg !== 'RS256' || header.typ !== 'JWT' || typeof header.kid !== 'string') return false;
+    if (claims.iss !== `https://firebaseappcheck.googleapis.com/${projectNumber}`) return false;
+    const audience = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
+    if (!audience.includes(`projects/${projectNumber}`)) return false;
+    if (!allowedAppIds.includes(claims.sub)) return false;
+    if (!Number.isFinite(claims.exp) || claims.exp <= nowSeconds) return false;
+    if (!Number.isFinite(claims.iat) || claims.iat > nowSeconds + 60) return false;
+
+    const jwks = await readJwks(fetcher, nowSeconds);
+    const jwk = jwks.find((candidate) => candidate?.kid === header.kid);
+    if (!jwk) return false;
+    const key = await crypto.subtle.importKey(
+      'jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify'],
+    );
+    return await crypto.subtle.verify(
+      'RSASSA-PKCS1-v1_5', key, decodeBase64Url(parts[2]),
+      new TextEncoder().encode(`${parts[0]}.${parts[1]}`),
+    );
+  } catch {
+    return false;
+  }
 }
 
 function allowedOrigins(env) {
@@ -111,11 +163,8 @@ const RATE_WINDOW_SECONDS = 60;
  * simultaneous requests undercounts. Neither matters much for what this defends
  * against: one source flooding the log and burning the daily request allowance.
  *
- * **Fails open on purpose.** Any error here lets the report through. This endpoint
- * exists to make crashes visible, and silently dropping real reports because a
- * defence-in-depth counter hiccuped costs more than the noise it prevents. It is a
- * brake on abuse, not an authorisation check — there is nothing here to authorise and
- * no data to protect.
+ * Counter failures fail closed. Losing telemetry during an edge-cache incident is
+ * preferable to turning a known public endpoint into an unbounded log-ingestion path.
  */
 async function withinRateLimit(request, env, ctx) {
   const limiter = env.REPORT_LIMITER;
@@ -153,7 +202,7 @@ async function withinRateLimit(request, env, ctx) {
     else await write;
     return true;
   } catch {
-    return true;
+    return false;
   }
 }
 
@@ -174,7 +223,7 @@ function summarize(report) {
   };
 }
 
-export { logSafe, safeContext, summarize };
+export { logSafe, safeContext, summarize, verifyAppCheckToken };
 
 export default {
   async fetch(request, env, ctx) {
@@ -191,6 +240,11 @@ export default {
 
     if (!isAllowedOrigin(origin, env)) {
       return new Response('forbidden', { status: 403 });
+    }
+
+    const appCheckToken = request.headers.get('X-Firebase-AppCheck');
+    if (!(await verifyAppCheckToken(appCheckToken, env))) {
+      return new Response('unauthorized', { status: 401, headers: corsHeaders(origin) });
     }
 
     // Checked before the body is read: a limited caller should cost this Worker as

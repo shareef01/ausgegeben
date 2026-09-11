@@ -1,7 +1,9 @@
 import {
-  collection, doc, setDoc, deleteDoc, getDoc, getDocs, query, where, orderBy, limit,
+  collection, doc, setDoc, deleteDoc, getDoc, getDocs, getDocsFromServer,
+  getDocFromServer, query, where, orderBy, limit,
   onSnapshot, updateDoc, getAggregateFromServer, sum, type Unsubscribe, writeBatch,
-  runTransaction, deleteField, type CollectionReference, type QueryDocumentSnapshot,
+  runTransaction, deleteField, type QueryDocumentSnapshot,
+  documentId, startAfter,
 } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
@@ -40,7 +42,6 @@ export class UnwritableCategoryError extends Error {
     this.name = 'UnwritableCategoryError';
   }
 }
-
 export class CategoryInUseError extends Error {
   constructor() {
     super('CATEGORY_IN_USE');
@@ -245,6 +246,59 @@ async function reassignExpenses(
   return unfixable;
 }
 
+/** Resume Android-originated category type migrations on either client. */
+async function resumeCategoryTypeMigrations(userId: string): Promise<void> {
+  const categories = await getDocs(catCol(userId));
+  for (const category of categories.docs) {
+    const data = category.data();
+    const target = data.pendingTransactionType;
+    if (data.migrationState !== 'migrating' ||
+        !['expense', 'income', 'transfer'].includes(target) ||
+        target === data.transactionType) {
+      continue;
+    }
+    const linked = await expenseDocsForCategory(userId, category.id);
+    let unfixable = 0;
+    for (let i = 0; i < linked.length; i += REASSIGN_CHUNK_SIZE) {
+      const chunk = linked.slice(i, i + REASSIGN_CHUNK_SIZE);
+      const batch = writeBatch(fs()!);
+      chunk.forEach((expense) => batch.update(expense.ref, { transactionType: target }));
+      try {
+        await batch.commit();
+      } catch (error) {
+        if (!isPermissionDenied(error)) throw error;
+        for (const expense of chunk) {
+          try {
+            await updateDoc(expense.ref, { transactionType: target });
+          } catch (itemError) {
+            if (!isPermissionDenied(itemError)) throw itemError;
+            unfixable += 1;
+          }
+        }
+      }
+    }
+    if (unfixable > 0) {
+      throw new Error(`CATEGORY_TYPE_MIGRATION_BLOCKED:${category.id}:${unfixable}`);
+    }
+    await runTransaction(fs()!, async (transaction) => {
+      const latest = (await transaction.get(category.ref)).data();
+      if (!latest) throw new Error(`CATEGORY_NOT_FOUND:${category.id}`);
+      if (latest.migrationState === 'migrating' &&
+          latest.pendingTransactionType === target &&
+          latest.transactionType === data.transactionType) {
+        transaction.update(category.ref, {
+          transactionType: target,
+          migrationState: deleteField(),
+          pendingTransactionType: deleteField(),
+          updatedAt: now(),
+        });
+      } else if (latest.migrationState === 'migrating' || latest.transactionType !== target) {
+        throw new Error(`CATEGORY_TYPE_MIGRATION_CONFLICT:${category.id}`);
+      }
+    });
+  }
+}
+
 function isPermissionDenied(error: unknown): boolean {
   return typeof error === 'object'
     && error !== null
@@ -359,17 +413,17 @@ export const expenseRepository = {
     }
     await ensureSeededFlights.run(userId, async () => {
       try {
-        // Nothing clears this marker, by design: re-seeding would dress a half-deleted
-        // account up as a working fresh one. The consequence is that the account stays
-        // unusable — no categories, so nothing can be recorded — until the user retries
-        // deletion and it succeeds. That is the only exit, and it is what the failure
-        // toast tells them to do ('settingsDeleteAccountIncomplete').
+        // Never re-seed while deletion is pending. Retrying deletion is the
+        // only safe exit from a potentially partial destructive operation.
         if (await expenseRepository.isAccountDeletionPending()) {
           console.warn('[ensureSeeded] skipped: account deletion incomplete');
           return;
         }
         const markerRef = metaDoc(userId, 'dedupe');
         const marker = (await getDoc(markerRef)).data();
+        // Android is the only UI that starts category type changes, but either client
+        // must be able to finish one after the initiating process dies.
+        await resumeCategoryTypeMigrations(userId);
         const snap = await getDocs(catCol(userId));
         // Dedupe and the orphan sweep are both full-collection reads — by far the most
         // expensive thing this app does. Each runs at most once per account rather than
@@ -429,28 +483,9 @@ export const expenseRepository = {
     if (!userId) throw new Error('Not signed in');
     await setDoc(metaDoc(userId, 'accountDeletion'), {
       pendingDeletion: true,
-      wipedAt: now(),
+      state: 'deleting',
+      startedAt: now(),
     });
-  },
-
-  /**
-   * Abandon a half-finished deletion and let the account be used again.
-   *
-   * When the cloud wipe succeeds but the Auth delete does not, the marker stays set
-   * and ensureSeeded refuses to re-seed — deliberately, so a half-deleted account
-   * cannot masquerade as a working fresh one. The cost was that retrying deletion
-   * became the only exit; if it kept failing, the account was stranded with no
-   * categories and no way to record anything.
-   *
-   * Clearing the marker is the second exit. firestore.rules already allows it:
-   * canDeleteOwned passes here precisely *because* pendingDeletion is true, so this
-   * works even for an unverified account. The data is still gone — this only agrees
-   * to stop treating the account as mid-deletion.
-   */
-  async clearAccountDeletionPending(): Promise<void> {
-    const userId = uid();
-    if (!userId) throw new Error('Not signed in');
-    await deleteDoc(metaDoc(userId, 'accountDeletion'));
   },
 
   /**
@@ -794,86 +829,120 @@ export const expenseRepository = {
     await sweepOrphanedExpenses(userId);
   },
 
-  /** Wipe cloud docs for account deletion. Keeps meta/accountDeletion marker. */
+  /**
+   * Wipe every known account document while retaining meta/accountDeletion. All
+   * emptiness checks are server-only: an offline/incomplete cache must never allow
+   * the irreversible Firebase Auth deletion that follows.
+   */
   async deleteAllUserData(): Promise<void> {
     const userId = uid();
     if (!userId) throw new Error('Not signed in');
     await deleteCollectionBatched(expCol(userId));
     await deleteCollectionBatched(catCol(userId));
-    // deleteDoc succeeds when a document is absent. Any rejection is a real cleanup
-    // failure and must prevent the irreversible Firebase Auth deletion that follows.
-    await deleteDoc(doc(fs()!, 'users', userId, 'settings', 'preferences'));
-    await deleteDoc(metaDoc(userId, 'dedupe'));
+    const settings = doc(fs()!, 'users', userId, 'settings', 'preferences');
+    const dedupe = metaDoc(userId, 'dedupe');
+    await deleteDoc(settings);
+    await deleteDoc(dedupe);
+
+    if (!(await getDocsFromServer(query(expCol(userId), limit(1)))).empty) {
+      throw new Error('expense_deletion_verification_failed');
+    }
+    if (!(await getDocsFromServer(query(catCol(userId), limit(1)))).empty) {
+      throw new Error('category_deletion_verification_failed');
+    }
+    if ((await getDocFromServer(settings)).exists()) {
+      throw new Error('settings_deletion_verification_failed');
+    }
+    if ((await getDocFromServer(dedupe)).exists()) {
+      throw new Error('metadata_deletion_verification_failed');
+    }
     emitDataChanged();
   },
+
 };
 
+async function deleteCollectionBatched(colRef: ReturnType<typeof collection>): Promise<void> {
+  for (;;) {
+    const snap = await getDocsFromServer(query(colRef, limit(400)));
+    if (snap.empty) return;
+    const batch = writeBatch(fs()!);
+    snap.docs.forEach((item) => batch.delete(item.ref));
+    await batch.commit();
+  }
+}
+
 /**
- * Run the orphan scan and record that it happened, so cold starts can skip it.
- * The scan reads the whole expenses collection; on Spark the daily read quota is
- * the only backstop this project has, so it must not run on every launch.
+ * Repair a bounded number of document-ID-ordered pages and persist the cursor after
+ * each successful page. A transient/quota failure leaves the last durable cursor and
+ * no terminal version, so the next launch retries rather than claiming completion.
  * deleteCategory and deduplicateCategories already reassign their own expenses
  * before dropping a category, which leaves this sweep to catch only rows stranded
  * by an interrupted delete — a one-time pass, plus the manual "Deduplicate"
  * action, covers that.
  *
- * The marker is written even when some rows could not be repaired, AND when the scan
- * itself throws. A document the rules will never accept would otherwise keep the sweep
- * un-recorded forever, so every cold start would re-read the whole collection chasing a
- * repair that cannot succeed — the exact cost this marker exists to avoid.
- *
- * The throwing case used to skip the write, which was worse than the un-repairable-row
- * case it already guarded against: quota exhaustion makes the scan throw, and a skipped
- * marker makes the next cold start scan again, which spends more quota. That loop
- * sustains itself. Android has always recorded the scan regardless
- * (AppRepository.sweepOrphanedExpenses wraps the repair in runCatching); this is parity.
- *
- * `orphanScanVersion` records *which* sweep ran, not merely that one did — see
- * ORPHAN_SCAN_VERSION.
+ * Rules-rejected legacy rows are counted and reported as `complete_with_errors`; they
+ * do not block later pages. `orphanScanVersion` is written only after the terminal page.
  */
+const ORPHAN_PAGE_SIZE = 450;
+const ORPHAN_PAGES_PER_RUN = 10;
+
 async function sweepOrphanedExpenses(userId: string): Promise<void> {
-  let scanTruncated = false;
-  try {
-    const result = await repairOrphanedExpenses(userId);
-    scanTruncated = result.scanTruncated;
-    if (result.unfixable > 0) {
-      console.warn(`[sweepOrphanedExpenses] ${result.unfixable} expense(s) could not be repaired`);
-    }
-    if (scanTruncated) {
-      console.warn('[sweepOrphanedExpenses] scan capped at 5000 — older orphans may remain');
-    }
-  } catch (err) {
-    console.warn('[sweepOrphanedExpenses] scan incomplete; recording it anyway', err);
-  } finally {
-    await setDoc(
-      metaDoc(userId, 'dedupe'),
-      {
+  const markerRef = metaDoc(userId, 'dedupe');
+  const initial = (await getDoc(markerRef)).data();
+  let cursor = initial?.orphanRepairTargetVersion === ORPHAN_SCAN_VERSION &&
+    typeof initial.orphanRepairCursorId === 'string'
+    ? initial.orphanRepairCursorId : null;
+
+  for (let page = 0; page < ORPHAN_PAGES_PER_RUN; page++) {
+    const expectedCursor = cursor;
+    const result = await repairOrphanPage(userId, cursor);
+    const advanced = await runTransaction(fs()!, async (transaction) => {
+      const latest = (await transaction.get(markerRef)).data();
+      const sameGeneration = latest?.orphanRepairTargetVersion === ORPHAN_SCAN_VERSION;
+      const latestCursor = sameGeneration && typeof latest?.orphanRepairCursorId === 'string'
+        ? latest.orphanRepairCursorId : null;
+      // Another device advanced this generation while this page was in flight.
+      if (latestCursor !== expectedCursor) return false;
+      const priorUnfixable = sameGeneration && typeof latest?.orphanRepairUnfixable === 'number'
+        ? latest.orphanRepairUnfixable : 0;
+      transaction.set(markerRef, result.complete ? {
         orphansScannedAt: now(),
         orphanScanVersion: ORPHAN_SCAN_VERSION,
-        ...(scanTruncated ? { orphanRepairScanTruncated: true } : {}),
-      },
-      { merge: true },
-    );
+        orphanRepairState: priorUnfixable + result.unfixable > 0 ? 'complete_with_errors' : 'complete',
+        orphanRepairUnfixable: priorUnfixable + result.unfixable,
+        orphanRepairUpdatedAt: now(),
+        orphanRepairCursorId: deleteField(),
+        orphanRepairTargetVersion: deleteField(),
+        orphanRepairScanTruncated: deleteField(),
+      } : {
+        orphanRepairState: 'running',
+        orphanRepairCursorId: result.nextCursor,
+        orphanRepairTargetVersion: ORPHAN_SCAN_VERSION,
+        orphanRepairUnfixable: priorUnfixable + result.unfixable,
+        orphanRepairUpdatedAt: now(),
+        orphanRepairScanTruncated: deleteField(),
+      }, { merge: true });
+      return true;
+    });
+    if (!advanced || result.complete) return;
+    cursor = result.nextCursor;
   }
 }
 
-interface OrphanRepairResult {
+interface OrphanRepairPageResult {
   unfixable: number;
-  scanTruncated: boolean;
+  complete: boolean;
+  nextCursor: string | null;
 }
 
-/** Returns the number of orphans the rules refused to let us repair. */
-async function repairOrphanedExpenses(userId: string): Promise<OrphanRepairResult> {
+/** Repair one restartable page; the caller advances its cursor only after this succeeds. */
+async function repairOrphanPage(userId: string, cursor: string | null): Promise<OrphanRepairPageResult> {
   const catSnap = await getDocs(catCol(userId));
   const catIds = new Set(catSnap.docs.map((d) => d.id));
-  if (catIds.size === 0) return { unfixable: 0, scanTruncated: false };
-  const ORPHAN_SCAN_CAP = 5_000;
-  const expSnap = await getDocs(
-    query(expCol(userId), orderBy('dateMillis', 'desc'), limit(ORPHAN_SCAN_CAP + 1)),
-  );
-  const scanTruncated = expSnap.docs.length > ORPHAN_SCAN_CAP;
-  const scanned = scanTruncated ? expSnap.docs.slice(0, ORPHAN_SCAN_CAP) : expSnap.docs;
-  const orphans = scanned.filter((d) => {
+  if (catIds.size === 0) return { unfixable: 0, complete: true, nextCursor: null };
+  const base = query(expCol(userId), orderBy(documentId()), limit(ORPHAN_PAGE_SIZE));
+  const expSnap = await getDocs(cursor ? query(base, startAfter(cursor)) : base);
+  const orphans = expSnap.docs.filter((d) => {
     const data = d.data();
     // Soft-deleted rows are filtered out of every read path and excluded from the
     // month total, so repointing them would only spend writes on rows nothing
@@ -883,18 +952,14 @@ async function repairOrphanedExpenses(userId: string): Promise<OrphanRepairResul
     const cid = String(data.categoryId ?? '');
     return cid.length > 0 && !catIds.has(cid);
   });
-  if (orphans.length === 0) return { unfixable: 0, scanTruncated };
-  await ensureUncategorizedCategory(userId);
-  const unfixable = await reassignExpenses(orphans, UNCATEGORIZED_ID);
-  return { unfixable, scanTruncated };
-}
-
-async function deleteCollectionBatched(colRef: CollectionReference): Promise<void> {
-  for (;;) {
-    const snap = await getDocs(query(colRef, limit(400)));
-    if (snap.empty) break;
-    const batch = writeBatch(fs()!);
-    snap.docs.forEach((d) => batch.delete(d.ref));
-    await batch.commit();
+  let unfixable = 0;
+  if (orphans.length > 0) {
+    await ensureUncategorizedCategory(userId);
+    unfixable = await reassignExpenses(orphans, UNCATEGORIZED_ID);
   }
+  return {
+    unfixable,
+    complete: expSnap.size < ORPHAN_PAGE_SIZE,
+    nextCursor: expSnap.docs.at(-1)?.id ?? null,
+  };
 }

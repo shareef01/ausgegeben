@@ -134,12 +134,10 @@
     <string name="settings_deletion_pending_title">löschung unvollständig</string>
     <string name="settings_deletion_pending">die löschung dieses kontos ist unvollständig. die cloud-daten sind bereits gelöscht. schließe die löschung ab oder behalte das konto und starte neu.</string>
     <string name="settings_deletion_finish">löschung abschließen</string>
-    <string name="settings_deletion_keep">konto behalten</string>
-    <string name="settings_deletion_kept">konto behalten — standardkategorien wiederhergestellt</string>
-    <string name="settings_deletion_keep_failed">konto konnte nicht wiederhergestellt werden. bitte erneut versuchen.</string>
     <string name="settings_delete_account_password">gib zum bestätigen dein passwort ein</string>
     <string name="settings_delete_account_too_many_attempts">zu viele versuche. versuche es später erneut.</string>
     <string name="settings_signed_out">abgemeldet</string>
+    <string name="settings_local_cleanup_failed">Abgemeldet, aber lokale Finanzdaten konnten nicht gelöscht werden. Lösche die App-Daten in den Android-Einstellungen.</string>
     <string name="settings_sync_now">jetzt synchronisieren</string>
     <string name="settings_last_synced">zuletzt synchronisiert %1$s</string>
     <string name="settings_never_synced">noch nicht synchronisiert</string>
