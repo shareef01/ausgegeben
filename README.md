@@ -1,105 +1,141 @@
 # Ausgegeben
 
-Ausgegeben is a personal finance tracker for Android and the web. It records expenses, income, and transfers, shows budgets and spending insights, and synchronizes data through Firebase.
+**A straightforward personal finance tracker for Android and the web.**
 
-[Open the web app](https://aus01.web.app) · [Download the latest Android APK](https://github.com/shareef01/ausgegeben/releases/latest)
+Ausgegeben keeps expenses, income, transfers, budgets, and spending trends in one place. It is designed for everyday use: quick to update, useful offline, and consistent across phone and browser.
 
+[Use the web app](https://aus01.web.app) · [Download the Android app](https://github.com/shareef01/ausgegeben/releases/latest)
+
+[![Latest release](https://img.shields.io/github/v/release/shareef01/ausgegeben?display_name=tag&sort=semver)](https://github.com/shareef01/ausgegeben/releases/latest)
 [![CI](https://github.com/shareef01/ausgegeben/actions/workflows/ci.yml/badge.svg)](https://github.com/shareef01/ausgegeben/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-16803a.svg)](LICENSE)
 
-## Screenshots
+## A quick look
 
 ### Web
 
 <p>
-  <img src="docs/screenshots/web/web-record-light.png" alt="Web record screen in the light theme" width="49%">
-  <img src="docs/screenshots/web/web-insights-dark.png" alt="Web insights screen in the dark theme" width="49%">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/web/web-record-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/web/web-record-light.png">
+    <img src="docs/screenshots/web/web-record-light.png" alt="Ausgegeben transaction record in the web app" width="49%">
+  </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/web/web-insights-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/web/web-insights-light.png">
+    <img src="docs/screenshots/web/web-insights-light.png" alt="Ausgegeben spending insights in the web app" width="49%">
+  </picture>
 </p>
 
 ### Android
 
 <p>
-  <img src="docs/screenshots/android/record-light.png" alt="Android record screen" width="30%">
-  <img src="docs/screenshots/android/insights-light.png" alt="Android insights screen" width="30%">
-  <img src="docs/screenshots/android/settings-light.png" alt="Android settings screen" width="30%">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/android/record-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/android/record-light.png">
+    <img src="docs/screenshots/android/record-light.png" alt="Ausgegeben transaction record on Android" width="32%">
+  </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/android/insights-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/android/insights-light.png">
+    <img src="docs/screenshots/android/insights-light.png" alt="Ausgegeben spending insights on Android" width="32%">
+  </picture>
 </p>
 
-The screenshots use a local Firebase emulator and seeded demonstration data. The capture scripts are in [`web/scripts`](web/scripts/capture-screenshots.mjs) and [`scripts`](scripts/capture-android-screenshots.mjs).
+Every screenshot is generated from a verified demo account against local Firebase emulators. No personal financial data is used. The repeatable capture tools live in [`web/scripts`](web/scripts/capture-screenshots.mjs) and [`scripts`](scripts/capture-android-screenshots.mjs).
 
-## Features
+## What it does
 
-- Expenses, income, and transfers with notes and custom categories
-- Monthly budgets, category breakdowns, and cash-flow trends
-- Search, duplicate, undo-delete, and CSV export
-- English and German interfaces with configurable currencies
-- System, light, dark, AMOLED, and additional color themes
-- Firebase synchronization and offline Firestore caches on both clients
-- Configurable daily reminders on Android
-- Installable web app with an automatically updated offline shell
+- Records expenses, income, and transfers with notes and custom categories
+- Breaks down spending by category and visualizes cash flow over time
+- Tracks a monthly spending limit and highlights budget progress
+- Searches, duplicates, soft-deletes, restores, and exports transactions to CSV
+- Synchronizes data and preferences between Android and the web
+- Supports English and German, multiple currencies, and several light and dark themes
+- Works offline through Firestore's local cache, with browser persistence controlled per device
+- Provides configurable daily reminders on Android
+- Installs as a PWA and updates its cached application shell automatically
 
-## Platforms
+## How it is built
 
-| Platform | Stack | Distribution |
+| Platform | Main technologies | Distribution |
 |---|---|---|
-| Android | Kotlin, Jetpack Compose, Hilt, WorkManager, DataStore | Signed APKs from [GitHub Releases](https://github.com/shareef01/ausgegeben/releases) |
-| Web | React, TypeScript, Vite, Zustand | Firebase Hosting at [aus01.web.app](https://aus01.web.app), installable as a PWA |
+| Android | Kotlin, Jetpack Compose, Hilt, WorkManager, DataStore | Signed APKs on [GitHub Releases](https://github.com/shareef01/ausgegeben/releases) |
+| Web | React, TypeScript, Vite, Zustand | [Firebase Hosting](https://aus01.web.app) as an installable PWA |
+| Shared backend | Firebase Authentication and Cloud Firestore | Firebase Spark plan; no paid Cloud Functions dependency |
+| Error reporting | Optional Cloudflare Worker endpoint | App Check validation and per-session client limits |
 
-Both clients use Firebase Authentication with email and password. Transactions, categories, and synchronized preferences are stored below the signed-in user's Firestore document and protected by field-validating security rules.
+Both clients store cloud data below the authenticated user's Firestore document. Security rules enforce user isolation, verified-email writes, accepted document fields, and financial data constraints. Important operations such as category migration and account deletion are resumable and tested at batch boundaries.
 
-## Getting started
+## Privacy and security
+
+Ausgegeben contains no advertising or analytics SDKs. Financial records are stored in the user's Cloud Firestore account and may be cached locally for offline access. Browser persistence is opt-in for trusted devices; signing out and account deletion attempt to clear local application data on both clients.
+
+Optional web error reporting can send bounded technical diagnostics—including an error message, stack trace, page path, browser user-agent, and limited runtime context—to the project's Cloudflare Worker. It can be disabled in Settings. Account identifiers, authentication material, and financial fields are filtered before transmission.
+
+The security model, operational constraints, and release procedure are documented in [Firebase setup](FIREBASE_SETUP.md), [audit remediation notes](docs/audit-remediation.md), and the [maintenance guide](docs/maintenance.md).
+
+## Run it locally
 
 ### Android
 
-Install JDK 21 and Android Studio with Android SDK 37. Copy your Firebase Android configuration to `app/google-services.json`, then run:
+Install Android Studio, Android SDK 37, and JDK 21. Add a real Firebase Android configuration at `app/google-services.json`, then run:
 
 ```powershell
 .\gradlew.bat assembleProdDebug
 .\gradlew.bat testProdDebugUnitTest
 ```
 
-The example Firebase file allows debug compilation but not real authentication. Release builds require real Firebase configuration and signing material. See [Android Studio setup](ANDROID_STUDIO.md).
+The committed example Firebase file is deliberately nonfunctional: it supports CI and local compilation without exposing production configuration. Signed release builds require the maintainer's Firebase and signing material. See [Android Studio setup](ANDROID_STUDIO.md) for the complete setup.
 
 ### Web
 
-Install Node.js 20 or newer, copy `web/.env.example` to `web/.env.local`, and add the Firebase web configuration:
+Install Node.js 22 or newer, copy `web/.env.example` to `web/.env.local`, and add your Firebase web configuration:
 
 ```bash
 cd web
-npm install
+npm ci
 npm run dev
 ```
 
-See [web development and deployment](web/README.md) and [Firebase setup](FIREBASE_SETUP.md).
+See the [web development guide](web/README.md) for emulator, testing, and deployment details.
 
-## Development
+## Quality checks
 
 ```bash
-# Web unit, type, CSS, and production-build checks
+# Web: unit tests, type checks, CSS validation, and production build
 cd web
 npm test
 npm run lint
 npm run lint:css
 npm run build
 
-# Firestore rules and repository integration tests (JDK 21 required)
+# Firestore rules and repository integration tests (JDK 21+)
 npm run test:rules
 npm run test:emulator
 
-# Android unit, lint, and debug-build checks, from the repository root
+# Android: unit tests, lint, and debug build (from the repository root)
 ./gradlew testProdDebugUnitTest lintProdDebug assembleProdDebug
 ```
 
-CI also runs Android instrumentation tests and an R8 release build. Version tags matching `vMAJOR.MINOR.PATCH` run the test gates, build and verify the signed APK, launch it on an emulator, and publish a GitHub Release. Operational constraints and the release checklist are documented in [Maintaining Ausgegeben](docs/maintenance.md).
+CI also runs Android instrumentation tests. A semantic version tag runs every release gate again, builds and verifies the signed APK, launches that exact artifact on an emulator, and publishes it only after every check succeeds.
 
-## Privacy
+## Repository map
 
-Financial records are stored in the user's Cloud Firestore account and cached locally for offline use. Firestore rules isolate each user's data. The project does not include advertising or analytics SDKs.
+```text
+app/                  Android application and tests
+web/                  React PWA, Firestore tests, and web tooling
+tools/error-endpoint/ Optional Cloudflare error-reporting Worker
+docs/                 Maintenance, remediation, and product screenshots
+scripts/              Cross-platform repository tooling
+```
 
-Optional web error reporting can send an error message, stack trace, page path, browser user-agent, and bounded technical context to the project's Cloudflare Worker. It can be disabled from Settings. The reporter filters account identifiers, authentication data, and financial fields; reports are retained only in Worker logs.
+Generated builds, emulator state, local audit material, dependencies, Firebase configuration, and signing files are intentionally excluded from Git.
 
 ## Maintainer
 
-[shareef01](https://github.com/shareef01)
+Created and maintained by [shareef01](https://github.com/shareef01).
 
 ## License
 
-[MIT](LICENSE)
+Ausgegeben is available under the [MIT License](LICENSE).

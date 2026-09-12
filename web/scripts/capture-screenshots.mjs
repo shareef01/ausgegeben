@@ -61,16 +61,6 @@ async function run(scheme) {
   await page.waitForTimeout(2000); // donut + cash-flow chart animate in
   await capture(page, 'web-insights', scheme);
 
-  await page.getByRole('button', { name: 'settings', exact: true }).first().click();
-  await page.waitForTimeout(1200);
-  await capture(page, 'web-settings', scheme);
-
-  await page.getByRole('button', { name: 'record', exact: true }).first().click();
-  await page.waitForTimeout(800);
-  await page.getByRole('button', { name: 'add transaction', exact: true }).first().click();
-  await page.waitForTimeout(1200);
-  await capture(page, 'web-add-transaction', scheme);
-
   await browser.close();
 }
 
