@@ -10,6 +10,7 @@ import {
   IconDownload,
   IconCheck,
   IconSettings,
+  IconShield,
 } from '@/components/Icons';
 import type { SVGProps } from 'react';
 import { usePreferencesStore } from '@/services/preferencesStore';
@@ -341,8 +342,8 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
               />
             </label>
             <label className="settings-row settings-row--static settings-row--toggle">
-              <span className="settings-row__icon-tile" data-tint="neutral">
-                <IconSettings width={18} height={18} strokeWidth={2} />
+              <span className="settings-row__icon-tile" data-tint="accent">
+                <IconShield width={18} height={18} strokeWidth={2} />
               </span>
               <div className="settings-row__label">
                 <div className="settings-row__title">{t('settingsPersistentAuth')}</div>

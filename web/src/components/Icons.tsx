@@ -28,6 +28,8 @@ import {
   Eye,
   EyeOff,
   X,
+  Shield,
+  Lock,
 } from 'lucide-react';
 
 /** Consistent stroke for all UI chrome icons */
@@ -147,4 +149,12 @@ export function IconEyeOff(props: IconProps) {
 
 export function IconClose(props: IconProps) {
   return <X strokeWidth={STROKE} {...props} />;
+}
+
+export function IconShield(props: IconProps) {
+  return <Shield strokeWidth={STROKE} {...props} />;
+}
+
+export function IconLock(props: IconProps) {
+  return <Lock strokeWidth={STROKE} {...props} />;
 }
