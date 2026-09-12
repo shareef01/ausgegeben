@@ -49,7 +49,7 @@ Every screenshot is generated from a verified demo account against local Firebas
 - Records expenses, income, and transfers with notes and custom categories
 - Breaks down spending by category and visualizes cash flow over time
 - Tracks a monthly spending limit and highlights budget progress
-- Searches, duplicates, soft-deletes, restores, and exports transactions to CSV
+- Searches, duplicates, soft-deletes, restores, and exports transactions to CSV (with a versioned JSON backup format for disaster recovery)
 - Synchronizes data and preferences between Android and the web
 - Supports English and German, multiple currencies, and several light and dark themes
 - Works offline through Firestore's local cache, with browser persistence controlled per device
@@ -69,7 +69,7 @@ Both clients store cloud data below the authenticated user's Firestore document.
 
 ## Privacy and security
 
-Ausgegeben contains no advertising or analytics SDKs. Financial records are stored in the user's Cloud Firestore account and may be cached locally for offline access. Browser persistence is opt-in for trusted devices; signing out and account deletion attempt to clear local application data on both clients.
+Ausgegeben contains no advertising or analytics SDKs. Financial records are stored in the user's Cloud Firestore account and may be cached locally for offline access. Web authentication defaults to session-based persistence so shared computers do not retain account access across browser restarts; persistent login and offline financial data caching are decoupled opt-in settings. Signing out and account deletion attempt to clear local application data on both clients.
 
 Optional web error reporting can send bounded technical diagnostics—including an error message, stack trace, page path, browser user-agent, and limited runtime context—to the project's Cloudflare Worker. It can be disabled in Settings. Account identifiers, authentication material, and financial fields are filtered before transmission.
 
