@@ -21,7 +21,7 @@ datastorePreferences = "1.1.7"
 workmanager = "2.10.1"
 firebaseBom = "34.16.0"
 googleServices = "4.5.0"
-hilt = "2.59.2"
+hilt = "2.60.1"
 ksp = "2.2.10-2.0.2"
 robolectric = "4.14.1"
 
