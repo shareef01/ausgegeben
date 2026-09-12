@@ -69,7 +69,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  * Bottom-nav tap targets, as a fraction of screen size — resolution-independent
  * so a differently sized AVD still lands on the right tab.
  */
-const TABS = { record: 0.18, insights: 0.5, settings: 0.82 };
+const TABS = { record: 0.18, insights: 0.5 };
 const NAV_Y = 0.938;
 
 function screenSize() {
@@ -98,7 +98,6 @@ async function run(scheme) {
   for (const [tab, file, settle] of [
     ['record', 'record', 4000],
     ['insights', 'insights', 6000],
-    ['settings', 'settings', 5000],
   ]) {
     adb(['shell', 'input', 'tap', String(Math.round(width * TABS[tab])), String(y)]);
     await sleep(settle);
