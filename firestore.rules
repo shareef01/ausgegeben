@@ -109,7 +109,15 @@ service cloud.firestore {
      * unwritable, including by the orphan sweep's own repair. Accept both.
      */
     function validUpdatedAt(d) {
-      return !('updatedAt' in d) || d.updatedAt is number || d.updatedAt is timestamp;
+      // Keep both historical representations writable, but do not let a custom
+      // client pin conflict/migration metadata arbitrarily far into the future.
+      // A five-minute allowance is generous enough for offline writes produced by
+      // a normally skewed device clock; old offline writes have no lower bound.
+      return !('updatedAt' in d)
+        || (d.updatedAt is number
+          && d.updatedAt <= request.time.toMillis() + 300000)
+        || (d.updatedAt is timestamp
+          && d.updatedAt.toMillis() <= request.time.toMillis() + 300000);
     }
 
     function validExpense() {

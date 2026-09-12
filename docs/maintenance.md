@@ -13,15 +13,49 @@ Firebase storage.
 
 Firestore reads are limited, so full-collection maintenance scans use versioned one-time markers under `users/{uid}/meta/dedupe` and the all-time expense fetch has a short cache. Local writes invalidate that cache immediately.
 
+#### Spark architecture invariants
+
+These are release constraints, not suggestions. Re-check current official pricing
+before adding a Firebase product because plan requirements can change.
+
+| Capability | Current use | Spark invariant |
+|---|---|---|
+| Firebase Authentication | Email/password and Google sign-in | Keep base Auth. Do not enable phone/SMS. Authentication App Check requires an Identity Platform upgrade and its Spark DAU limits, so it needs an explicit product decision. |
+| Cloud Firestore | One Standard database, client SDKs and Rules | Stay inside the daily free quotas (50,000 reads, 20,000 writes, 20,000 deletes; 1 GiB stored). Do not enable TTL, PITR, scheduled backups, restore/clone, or extra databases; those require billing. |
+| Firebase Hosting | Static PWA | Stay inside Spark storage/transfer quotas. Do not migrate to App Hosting or add server-side rewrites that require a billed compute product. |
+| Firebase App Check | Play Integrity on Android; reCAPTCHA Enterprise on web | App Check itself is no-cost subject to provider quotas. Roll out Firestore enforcement only after valid-request monitoring. Do not enable Authentication enforcement implicitly. |
+| Cloud Storage for Firebase | Not used | Must remain unused: since February 2026, Storage requires Blaze even for existing buckets. The transitive `@firebase/storage` package inside the umbrella web SDK is not evidence of runtime use; importing/initializing Storage is forbidden. |
+| Cloud Functions / Extensions / scheduled jobs | Not used | Do not add them. They introduce billed Google Cloud resources or require Blaze. Keep account deletion client-driven and telemetry in the existing Worker. |
+| Analytics / Crashlytics | Not used | Do not add financial values, notes, user identifiers, or record URLs to telemetry. Any new SDK needs a privacy and quota review. |
+| Cloudflare Worker | Optional redacted error sink | Keep it on Workers Free, fail closed, and monitor the 100,000-request daily allowance. No KV/Durable Object dependency is required. |
+| GitHub Actions / Releases | CI and signed APK distribution | GitHub is outside Firebase billing. Keep actions SHA-pinned, release secrets scoped to the release job, and Android distribution GitHub-only. |
+
+The web `firebase` package contains optional product modules transitively; only
+actual imports and initialization determine which Firebase services are used. A
+future change adding `getStorage`, Functions SDKs, phone-auth APIs, a `functions/`
+deployment target, TTL policies, or managed backup configuration must be rejected
+until the Spark constraint is deliberately changed.
+
 ### App Check
 
-Both clients initialize App Check, but enforcement is intentionally disabled for the Firebase project. Android is distributed as a sideloaded GitHub APK, which Play Integrity cannot reliably attest. App Check enforcement is configured per Firebase service rather than per client platform, so enabling it would also block supported clients. Firestore authentication, per-user ownership checks, and field validation are the security boundary.
+Both clients initialize App Check. Contrary to an earlier repository assumption,
+Play Integrity supports apps distributed exclusively outside Google Play. For the
+GitHub APK, configure `PLAY_RECOGNIZED` and `LICENSED` as not required and require
+Device integrity; the release certificate SHA-256 must be registered. Play Console
+is currently needed to link the Play Integrity API to the Firebase project, but the
+APK must not be published through Google Play. See `FIREBASE_SETUP.md` for the
+monitor-first Firestore enforcement sequence.
+
+Firestore authentication, per-user ownership checks, and field validation remain
+the security boundary. App Check is an abuse-control layer, not authorization.
+Authentication enforcement stays off unless Identity Platform's Spark DAU limit is
+explicitly accepted.
 
 The web client still requires a reCAPTCHA Enterprise site key in production. An unenforced App Check token request can log a harmless 403; that is not an authorization failure from Firestore.
 
 ### Android distribution
 
-Android releases are published through GitHub Releases, not Google Play. Pushing a semantic version tag such as `v2.0.5` starts `.github/workflows/release.yml`. The workflow derives `versionCode` from the tag (`v1.2.3` becomes `10203`), runs the test gates, signs the APK, checks the signing certificate, launches the signed release on an emulator, and publishes it.
+Android releases are published through GitHub Releases, not Google Play. Pushing a semantic version tag such as `v2.0.5` starts `.github/workflows/release.yml`. The workflow derives `versionCode` from the tag (`v1.2.3` becomes `10203`), rejects it unless it exceeds the code inside every previously published APK, runs the test gates, signs the APK, verifies package/version/certificate metadata, launches the signed release on an emulator, creates `SHA256SUMS` and GitHub build provenance, and publishes both files.
 
 `.github/release-cert.sha256` pins the public release certificate. Its current fingerprint is:
 
@@ -56,6 +90,7 @@ These fields remain type- and size-bounded. Firestore evaluates `hasOnly()` agai
 - `app/google-services.ci.json` targets a deliberately nonexistent project and contains no credentials with backend access. Fork CI copies it when secrets are unavailable so R8 and device instrumentation still run. Skipped required jobs make the combined status fail, and release tags rerun instrumentation for the exact tagged SHA.
 - Account deletion reauthenticates and force-refreshes the ID token. Rules require a five-minute `auth_time` before accepting `meta/accountDeletion`; the permanent marker freezes writes across clients. Android and web use server-only reads, delete all known collections in unbounded 400-document pages, verify empty, and only then delete Auth. An interrupted or quota-limited attempt resumes after reauthentication; clients cannot clear the marker.
 - `sumMonthExpenses` needs composite indexes that include the aggregated `amount` field. Keep both `(transactionType, dateMillis, amount)` and `(transactionType, deleted, dateMillis, amount)` in `firestore.indexes.json`.
+- Expense notes are searched only after records reach a client; no Firestore query filters or sorts on `note`. Its single-field index is therefore exempted to reduce index storage and write amplification. Do not remove that exemption without adding a real server-side note query and its tests.
 - Android suspend operations returning `Result` use `runSuspendCatching`; ordinary `runCatching` must not swallow `CancellationException`.
 
 ### Display and UI contracts
@@ -104,6 +139,15 @@ Do not deploy Firestore rules without their indexes. The local emulator serves u
 - A category can remain marked `deleting` if the process terminates mid-operation. Retrying deletion resumes the operation.
 - Firestore data deletion and Firebase Auth deletion are not globally atomic. The persistent tombstone makes the Spark-compatible operation resumable and freezes clients; Auth is deleted only after every known collection is verified empty. The tombstone intentionally remains to block already-issued tokens. Because there is no Admin backend, deletion covers the schema explicitly allowed by rules rather than dynamically discovering arbitrary subcollections.
 - The web production environment file is local, gitignored operational state. It must be backed up securely outside the repository or reconstructed from Firebase and App Check settings.
+- CSV is an interchange/report export, not disaster recovery: it omits preferences,
+  categories and their stable IDs, budgets, migration metadata, and deletion state.
+  A safe full restore is specified in `docs/local-backup-plan.md`; it is deliberately
+  not partially implemented.
+- Android does not currently query GitHub for updates. Users discover updates on the
+  repository Releases page. A future opt-in checker should query only the latest
+  stable release, cache success for at least 24 hours, fail silently on network/API
+  errors, compare the embedded versionCode, and open (never install) the HTTPS release
+  page. This is useful but not a security substitute for checksum/provenance checks.
 
 ## Useful commands
 

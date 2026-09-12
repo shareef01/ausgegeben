@@ -100,9 +100,10 @@ class AusgegebenApplication : Application(), Configuration.Provider {
                     }
             }
         } catch (e: Exception) {
-            // App Check is deliberately unenforced project-wide (see docs/maintenance.md): sideloaded
-            // GitHub APKs cannot pass Play Integrity, and enforcement is per-service anyway.
-            // A failed install must not crash launch — the rules are the actual boundary.
+            // A provider failure must not crash launch during the monitoring phase.
+            // Before Firestore enforcement, verify valid-request metrics for the GitHub-
+            // signed APK and configure Play Integrity to allow unrecognized versions;
+            // see FIREBASE_SETUP.md. Rules remain the authorization boundary.
             Log.w(TAG, "App Check provider install failed — continuing without it", e)
         }
     }
