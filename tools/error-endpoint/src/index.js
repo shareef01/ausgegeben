@@ -15,6 +15,10 @@ const APP_CHECK_JWKS = 'https://firebaseappcheck.googleapis.com/v1/jwks';
 const JWKS_CACHE_SECONDS = 6 * 60 * 60;
 let jwksCache = null;
 
+function resetJwksCacheForTests() {
+  jwksCache = null;
+}
+
 function corsHeaders(origin) {
   return {
     'Access-Control-Allow-Origin': origin,
@@ -31,8 +35,8 @@ function decodeBase64Url(value) {
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));
 }
 
-async function readJwks(fetcher, nowSeconds) {
-  if (jwksCache && jwksCache.expiresAt > nowSeconds) return jwksCache.keys;
+async function readJwks(fetcher, nowSeconds, forceRefresh = false) {
+  if (!forceRefresh && jwksCache && jwksCache.expiresAt > nowSeconds) return jwksCache.keys;
   const response = await fetcher(APP_CHECK_JWKS);
   if (!response.ok) throw new Error('jwks_fetch_failed');
   const body = await response.json();
@@ -59,8 +63,15 @@ async function verifyAppCheckToken(token, env, fetcher = fetch, nowSeconds = Mat
     if (!Number.isFinite(claims.exp) || claims.exp <= nowSeconds) return false;
     if (!Number.isFinite(claims.iat) || claims.iat > nowSeconds + 60) return false;
 
-    const jwks = await readJwks(fetcher, nowSeconds);
-    const jwk = jwks.find((candidate) => candidate?.kid === header.kid);
+    let jwks = await readJwks(fetcher, nowSeconds);
+    let jwk = jwks.find((candidate) => candidate?.kid === header.kid);
+    // Firebase can rotate signing keys before our six-hour cache expires. Refresh
+    // once for an unknown kid, then fail closed; a forged token cannot trigger an
+    // unbounded fetch loop.
+    if (!jwk) {
+      jwks = await readJwks(fetcher, nowSeconds, true);
+      jwk = jwks.find((candidate) => candidate?.kid === header.kid);
+    }
     if (!jwk) return false;
     const key = await crypto.subtle.importKey(
       'jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify'],
@@ -223,7 +234,7 @@ function summarize(report) {
   };
 }
 
-export { logSafe, safeContext, summarize, verifyAppCheckToken };
+export { logSafe, resetJwksCacheForTests, safeContext, summarize, verifyAppCheckToken };
 
 export default {
   async fetch(request, env, ctx) {

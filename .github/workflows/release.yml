@@ -123,8 +123,8 @@ jobs:
       - run: npm ci
         working-directory: web
 
-      # The rules are the actual security boundary (App Check is unenforced by
-      # design), so shipping a client without re-proving them is the wrong order.
+      # Rules remain the authorization boundary even when App Check is enforced;
+      # App Check reduces abuse but does not authorize a user or validate writes.
       - run: npm run test:rules
         working-directory: web
 
@@ -154,6 +154,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -229,6 +231,36 @@ jobs:
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
           echo "code=$CODE" >> "$GITHUB_OUTPUT"
 
+      # Semver ordering alone is not sufficient evidence: the installability
+      # boundary is the versionCode embedded in APKs users already downloaded.
+      - name: Require a versionCode newer than every published APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_CODE: ${{ steps.version.outputs.code }}
+        run: |
+          TMP_DIR=$(mktemp -d)
+          trap 'rm -rf "$TMP_DIR"' EXIT
+          MAX_RELEASED_CODE=0
+          ASSET_NUMBER=0
+          while IFS= read -r ASSET_URL; do
+            [ -z "$ASSET_URL" ] && continue
+            ASSET_NUMBER=$((ASSET_NUMBER + 1))
+            APK="$TMP_DIR/released-$ASSET_NUMBER.apk"
+            gh api -H "Accept: application/octet-stream" "$ASSET_URL" > "$APK"
+            CODE=$(apkanalyzer manifest version-code "$APK")
+            if ! echo "$CODE" | grep -qE '^[0-9]+$'; then
+              echo "::error::Could not read a numeric versionCode from published asset $ASSET_URL"
+              exit 1
+            fi
+            [ "$CODE" -gt "$MAX_RELEASED_CODE" ] && MAX_RELEASED_CODE="$CODE"
+          done < <(gh api --paginate "repos/${{ github.repository }}/releases" \
+            --jq '.[] | select(.draft == false) | .assets[]? | select(.name | endswith(".apk")) | .url')
+          if [ "$NEW_CODE" -le "$MAX_RELEASED_CODE" ]; then
+            echo "::error::versionCode $NEW_CODE must be greater than published maximum $MAX_RELEASED_CODE"
+            exit 1
+          fi
+          echo "versionCode $NEW_CODE is newer than published maximum $MAX_RELEASED_CODE"
+
       - name: Build signed release APK
         env:
           AUSGEGEBEN_STOREFILE: release.jks
@@ -295,6 +327,17 @@ jobs:
           echo "signing certificate matches the pinned fingerprint ($ACTUAL)"
           mv "$APK" "ausgegeben-${{ steps.version.outputs.name }}.apk"
 
+      - name: Verify release metadata and create checksum
+        run: |
+          APK="ausgegeben-${{ steps.version.outputs.name }}.apk"
+          PACKAGE=$(apkanalyzer manifest application-id "$APK")
+          VERSION_NAME=$(apkanalyzer manifest version-name "$APK")
+          VERSION_CODE=$(apkanalyzer manifest version-code "$APK")
+          [ "$PACKAGE" = "com.aus.ausgegeben" ] || { echo "::error::Unexpected package $PACKAGE"; exit 1; }
+          [ "$VERSION_NAME" = "${{ steps.version.outputs.name }}" ] || { echo "::error::APK versionName $VERSION_NAME disagrees with tag"; exit 1; }
+          [ "$VERSION_CODE" = "${{ steps.version.outputs.code }}" ] || { echo "::error::APK versionCode $VERSION_CODE disagrees with derived code"; exit 1; }
+          sha256sum "$APK" > SHA256SUMS
+
       # Signing is finished and verified, so the keystore has no further use in this
       # job. Shred it *now* rather than at the end: the emulator step below is a
       # third-party action, and leaving decrypted signing material on disk across it
@@ -334,17 +377,24 @@ jobs:
             adb shell pidof com.aus.ausgegeben > /dev/null || { echo "::error::release APK crashed on launch"; adb logcat -d | grep -iE 'FATAL|AndroidRuntime' | tail -20; exit 1; }
             echo "release APK survived first launch (pid $(adb shell pidof com.aus.ausgegeben | tr -d '\r'))"
 
+      - name: Attest release APK provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: ausgegeben-${{ steps.version.outputs.name }}.apk
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "${{ github.event.inputs.tag || github.ref_name }}" \
             "ausgegeben-${{ steps.version.outputs.name }}.apk" \
+            SHA256SUMS \
             --title "Ausgegeben ${{ steps.version.outputs.name }}" \
             --generate-notes \
             --notes-start-tag "$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo '')" \
-            || gh release create "${{ github.event.inputs.tag || github.ref_name }}" \
+          || gh release create "${{ github.event.inputs.tag || github.ref_name }}" \
                  "ausgegeben-${{ steps.version.outputs.name }}.apk" \
+                 SHA256SUMS \
                  --title "Ausgegeben ${{ steps.version.outputs.name }}" \
                  --generate-notes
 
