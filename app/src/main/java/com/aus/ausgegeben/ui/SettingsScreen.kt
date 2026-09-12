@@ -57,6 +57,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+@Suppress("LocalContextGetResourceValueCall")
 fun SettingsScreen(
     repository: AppRepository,
     preferenceManager: PreferenceManager,
