@@ -81,6 +81,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
   const [deletionPending, setDeletionPending] = useState(false);
   const [reportErrors, setReportErrors] = useState(() => readErrorReportingEnabled());
   const [persistentStorage, setPersistentStorage] = useState(() => isPersistentStorageEnabled());
+  const [persistentAuth, setPersistentAuth] = useState(() => authService.isPersistentAuth());
   const budgetInputRef = useRef<HTMLInputElement>(null);
   const parsedBudget = parseAmount(budgetInput, currency);
   // Upper bound mirrors firestore.rules' validPreferences (< 1e9): without it a
@@ -334,6 +335,29 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
                     .then(() => {
                       setPersistentStorage(enabled);
                       window.location.reload();
+                    })
+                    .catch(() => useToastStore.getState().show(t('settingsLocalCleanupFailed')));
+                }}
+              />
+            </label>
+            <label className="settings-row settings-row--static settings-row--toggle">
+              <span className="settings-row__icon-tile" data-tint="neutral">
+                <IconSettings width={18} height={18} strokeWidth={2} />
+              </span>
+              <div className="settings-row__label">
+                <div className="settings-row__title">{t('settingsPersistentAuth')}</div>
+                <div className="settings-row__sub">{t('settingsPersistentAuthSub')}</div>
+              </div>
+              <input
+                type="checkbox"
+                className="settings-row__toggle"
+                checked={persistentAuth}
+                aria-label={t('settingsPersistentAuth')}
+                onChange={(event) => {
+                  const enabled = event.target.checked;
+                  void authService.setPersistentAuth(enabled)
+                    .then(() => {
+                      setPersistentAuth(enabled);
                     })
                     .catch(() => useToastStore.getState().show(t('settingsLocalCleanupFailed')));
                 }}
