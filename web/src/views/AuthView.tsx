@@ -4,7 +4,7 @@ import { authService } from '@/services/authService';
 import { useTranslation } from '@/i18n';
 import { AppBrandIcon } from '@/components/AppBrandIcon';
 import { IosSegmentedControl } from '@/components/IosSegmentedControl';
-import { IconEye, IconEyeOff } from '@/components/Icons';
+import { IconCheck, IconEye, IconEyeOff } from '@/components/Icons';
 
 export function AuthView() {
   const { t } = useTranslation();
@@ -189,15 +189,21 @@ export function AuthView() {
             </div>
           ) : null}
 
-          <label className="auth-page__remember">
+          <label
+            htmlFor="auth-remember-me"
+            className={`auth-page__remember ${rememberMe ? 'auth-page__remember--checked' : ''} ${!firebaseReady || busy ? 'auth-page__remember--disabled' : ''}`}
+          >
             <input
               type="checkbox"
               id="auth-remember-me"
-              className="auth-page__remember-input"
+              className="sr-only"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
               disabled={!firebaseReady || busy}
             />
+            <span className="auth-page__custom-checkbox" aria-hidden="true">
+              <IconCheck className="auth-page__custom-checkbox-icon" width={13} height={13} strokeWidth={3} />
+            </span>
             <span className="auth-page__remember-text">
               <span className="auth-page__remember-title">{t('authRememberMe')}</span>
               <span className="auth-page__remember-sub">{t('authRememberMeSub')}</span>
