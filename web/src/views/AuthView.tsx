@@ -14,6 +14,7 @@ export function AuthView() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -46,9 +47,9 @@ export function AuthView() {
     setBusy(true);
     try {
       if (tab === 'signin') {
-        await authService.signInWithEmail(email, password);
+        await authService.signInWithEmail(email, password, rememberMe);
       } else {
-        await authService.signUpWithEmail(email, password);
+        await authService.signUpWithEmail(email, password, rememberMe);
         setInfo(t('authVerifyEmailSent'));
       }
     } catch (e) {
@@ -187,6 +188,21 @@ export function AuthView() {
               ) : null}
             </div>
           ) : null}
+
+          <label className="auth-page__remember">
+            <input
+              type="checkbox"
+              id="auth-remember-me"
+              className="auth-page__remember-input"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              disabled={!firebaseReady || busy}
+            />
+            <span className="auth-page__remember-text">
+              <span className="auth-page__remember-title">{t('authRememberMe')}</span>
+              <span className="auth-page__remember-sub">{t('authRememberMeSub')}</span>
+            </span>
+          </label>
 
           {error ? <p className="auth-page__error" role="alert">{error}</p> : null}
           {info ? <p className="auth-page__info" role="status" aria-live="polite">{info}</p> : null}

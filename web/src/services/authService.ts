@@ -11,8 +11,12 @@ import {
 } from 'firebase/auth';
 import {
   clearLocalFirestoreCache,
+  clearResidualAuthStorage,
   getFirebaseAuth,
   isFirebaseConfigured,
+  isPersistentAuthEnabled,
+  setAuthPersistenceTarget,
+  setPersistentAuthEnabled,
 } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
 import { expenseRepository, invalidateAllExpensesCache } from '@/repositories/expenseRepository';
@@ -66,17 +70,32 @@ export const authService = {
     }
   },
 
-  async signInWithEmail(email: string, password: string): Promise<void> {
+  async signInWithEmail(email: string, password: string, rememberMe = false): Promise<void> {
     const auth = getFirebaseAuth();
     if (!auth) throw new Error('firebase_not_configured');
+    await setAuthPersistenceTarget(auth, rememberMe);
     await signInWithEmailAndPassword(auth, email.trim(), password);
   },
 
-  async signUpWithEmail(email: string, password: string): Promise<void> {
+  async signUpWithEmail(email: string, password: string, rememberMe = false): Promise<void> {
     const auth = getFirebaseAuth();
     if (!auth) throw new Error('firebase_not_configured');
+    await setAuthPersistenceTarget(auth, rememberMe);
     const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
     await sendEmailVerification(cred.user);
+  },
+
+  async setPersistentAuth(enabled: boolean): Promise<void> {
+    const auth = getFirebaseAuth();
+    if (auth) {
+      await setAuthPersistenceTarget(auth, enabled);
+    } else {
+      setPersistentAuthEnabled(enabled);
+    }
+  },
+
+  isPersistentAuth(): boolean {
+    return isPersistentAuthEnabled();
   },
 
   async sendPasswordResetEmail(email: string): Promise<void> {
@@ -111,6 +130,8 @@ export const authService = {
     const uid = auth?.currentUser?.uid;
     if (auth) await signOut(auth);
     if (uid) await clearExpenseSubmissionJournal(uid);
+    setPersistentAuthEnabled(false);
+    clearResidualAuthStorage();
     useAuthStore.getState().setUser(null);
     usePreferencesStore.getState().resetPreferences();
     // The all-time scan is memoised in module scope; drop it so the next person
@@ -159,6 +180,8 @@ export const authService = {
       }
     }
 
+    setPersistentAuthEnabled(false);
+    clearResidualAuthStorage();
     await clearExpenseSubmissionJournal(user.uid);
     useAuthStore.getState().setUser(null);
     usePreferencesStore.getState().resetPreferences();

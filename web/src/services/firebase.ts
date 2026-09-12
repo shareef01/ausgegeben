@@ -1,5 +1,15 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app';
-import { connectAuthEmulator, getAuth, type Auth } from 'firebase/auth';
+import {
+  browserLocalPersistence,
+  browserSessionPersistence,
+  connectAuthEmulator,
+  indexedDBLocalPersistence,
+  initializeAuth,
+  inMemoryPersistence,
+  setPersistence,
+  type Auth,
+  type Persistence,
+} from 'firebase/auth';
 import {
   clearIndexedDbPersistence,
   connectFirestoreEmulator,
@@ -41,6 +51,7 @@ let firestore: Firestore | null = null;
 let appCheck: AppCheck | null = null;
 const CACHE_CLEAR_MESSAGE = 'clear-firestore-cache';
 const PERSISTENT_STORAGE_KEY = 'ausgegeben-trusted-device-persistence';
+const PERSISTENT_AUTH_KEY = 'ausgegeben-trusted-device-auth';
 const cacheChannel = typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined'
   ? new BroadcastChannel('ausgegeben-firestore-lifecycle')
   : null;
@@ -86,11 +97,23 @@ export function getFirebaseApp(): FirebaseApp | null {
   return app;
 }
 
+export function getAuthPersistenceHierarchy(isPersistent = isPersistentAuthEnabled()): Persistence[] {
+  return isPersistent
+    ? [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence, inMemoryPersistence]
+    : [browserSessionPersistence, indexedDBLocalPersistence, browserLocalPersistence, inMemoryPersistence];
+}
+
+export function resetFirebaseAuthForTests(): void {
+  auth = null;
+}
+
 export function getFirebaseAuth(): Auth | null {
   const firebaseApp = getFirebaseApp();
   if (!firebaseApp) return null;
   if (!auth) {
-    auth = getAuth(firebaseApp);
+    auth = initializeAuth(firebaseApp, {
+      persistence: getAuthPersistenceHierarchy(),
+    });
     if (useEmulators) {
       connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
     }
@@ -181,4 +204,65 @@ export async function setPersistentStorageEnabled(enabled: boolean): Promise<voi
     throw new Error('persistent_storage_preference_failed');
   }
   if (!enabled) await clearLocalFirestoreCache();
+}
+
+/**
+ * Authentication persistence is session-based by default so shared computers
+ * do not retain an active account session after closing the browser.
+ * Persistent auth across restarts is opt-in and independent from Firestore storage cache.
+ */
+export function isPersistentAuthEnabled(): boolean {
+  try {
+    return localStorage.getItem(PERSISTENT_AUTH_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export function setPersistentAuthEnabled(enabled: boolean): void {
+  try {
+    if (enabled) {
+      localStorage.setItem(PERSISTENT_AUTH_KEY, 'true');
+    } else {
+      localStorage.removeItem(PERSISTENT_AUTH_KEY);
+    }
+  } catch {
+    // Ignore storage quota or access errors
+  }
+}
+
+/**
+ * Purges residual Firebase Auth keys from web storage so that no account
+ * tokens remain in localStorage when operating in session-only mode or after signing out.
+ */
+export function clearResidualAuthStorage(): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith('firebase:authUser') || key.startsWith('firebase:appName'))) {
+        keysToRemove.push(key);
+      }
+    }
+    for (const key of keysToRemove) {
+      localStorage.removeItem(key);
+    }
+  } catch {
+    // Ignore storage access errors
+  }
+}
+
+/**
+ * Applies the requested persistence target to the active Auth instance.
+ */
+export async function setAuthPersistenceTarget(authInstance: Auth, persistent: boolean): Promise<void> {
+  const target = persistent
+    ? (typeof indexedDB !== 'undefined' ? indexedDBLocalPersistence : browserLocalPersistence)
+    : browserSessionPersistence;
+  await setPersistence(authInstance, target);
+  setPersistentAuthEnabled(persistent);
+  if (!persistent) {
+    clearResidualAuthStorage();
+  }
 }
