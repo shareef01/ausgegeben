@@ -15,6 +15,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref }}
+  cancel-in-progress: false
+
 jobs:
   # A tag is not evidence. `git tag` on any commit used to publish an APK without
   # running a single test — CI runs on pushes to main and pull requests, so a tag

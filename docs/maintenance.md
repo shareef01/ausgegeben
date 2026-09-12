@@ -53,6 +53,20 @@ explicitly accepted.
 
 The web client still requires a reCAPTCHA Enterprise site key in production. An unenforced App Check token request can log a harmless 403; that is not an authorization failure from Firestore.
 
+### App Check provider quotas and token TTL
+
+To maintain operation strictly within free tiers without introducing billing accounts or unexpected service degradation, monitor provider-specific limits:
+
+- **Play Integrity Standard API (Android):**
+  Provides approximately 10,000 requests/day per app across all installs without billing. Because the APK is distributed outside Google Play, each attested client requests verdicts directly via the Standard API.
+- **reCAPTCHA Enterprise (Web):**
+  Includes 10,000 assessments per month at no cost under the free tier.
+- **Token TTL and Assessment Frequency:**
+  The default App Check token TTL is 1 hour (`3600s`). The Firebase SDK automatically caches and refreshes tokens before expiration.
+  - Decreasing TTL increases verification freshness but multiplies provider assessment volume, risking daily/monthly quota exhaustion.
+  - Increasing TTL saves quota but extends the window during which a compromised or revoked environment can continue issuing requests.
+  - Maintain the default 1-hour token TTL unless production metrics demonstrate a compelling operational requirement.
+
 ### Android distribution
 
 Android releases are published through GitHub Releases, not Google Play. Pushing a semantic version tag such as `v2.0.5` starts `.github/workflows/release.yml`. The workflow derives `versionCode` from the tag (`v1.2.3` becomes `10203`), rejects it unless it exceeds the code inside every previously published APK, runs the test gates, signs the APK, verifies package/version/certificate metadata, launches the signed release on an emulator, creates `SHA256SUMS` and GitHub build provenance, and publishes both files.
