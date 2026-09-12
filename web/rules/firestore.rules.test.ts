@@ -320,6 +320,30 @@ describe('firestore.rules', () => {
     await assertFails(setDoc(doc(unverified, categoryPath('alice', 'c2')), validCategory));
   });
 
+  it('allows normal clock skew but rejects future-pinned expense/category updatedAt values', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    const nearFuture = Date.now() + 4 * 60 * 1000;
+    const farFuture = Date.now() + 10 * 60 * 1000;
+
+    await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'near')), {
+      ...validCategory,
+      updatedAt: nearFuture,
+    }));
+    await assertSucceeds(setDoc(doc(db, expensePath('alice', 'near')), {
+      ...validExpense,
+      categoryId: 'near',
+      updatedAt: nearFuture,
+    }));
+    await assertFails(setDoc(doc(db, categoryPath('alice', 'far-number')), {
+      ...validCategory,
+      updatedAt: farFuture,
+    }));
+    await assertFails(setDoc(doc(db, categoryPath('alice', 'far-timestamp')), {
+      ...validCategory,
+      updatedAt: Timestamp.fromMillis(farFuture),
+    }));
+  });
+
   it('deletion barrier blocks new references and retargeting while legacy categories remain usable', async () => {
     const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
     await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'active')), validCategory));

@@ -1,0 +1,43 @@
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: "/"
+    schedule:
+      interval: monthly
+    groups:
+      android-build:
+        patterns: ["com.android.*", "org.jetbrains.kotlin.*", "com.google.devtools.ksp"]
+      firebase-android:
+        patterns: ["com.google.firebase:*", "com.google.gms.google-services"]
+      androidx:
+        patterns: ["androidx.*"]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: "/web"
+    schedule:
+      interval: monthly
+    groups:
+      web-runtime:
+        dependency-type: production
+      web-tooling:
+        dependency-type: development
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: "/tools/error-endpoint"
+    schedule:
+      interval: monthly
+    groups:
+      worker-tooling:
+        patterns: ["*"]
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+    open-pull-requests-limit: 3

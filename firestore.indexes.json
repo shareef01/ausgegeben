@@ -35,5 +35,12 @@
         { "fieldPath": "amount", "order": "ASCENDING" }
       ]
     }
+  ],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "expenses",
+      "fieldPath": "note",
+      "indexes": []
+    }
   ]
 }
