@@ -298,6 +298,79 @@ describe('firestore.rules', () => {
     await assertFails(setDoc(doc(db, expensePath('alice')), { ...validExpense, sneaky: true }));
   });
 
+  describe('expense idempotency key immutability and legacy compatibility (GO-4)', () => {
+    it('accepts creating expense with legacy random ID and idempotencyKey', async () => {
+      const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+      await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'cat-1')), validCategory));
+      await assertSucceeds(
+        setDoc(doc(db, expensePath('alice', 'c8a2b53e-436f-47cf-8bc1-54da9d71c4c9')), {
+          ...validExpense,
+          idempotencyKey: 'idem-uuid-v4-client-key',
+        }),
+      );
+    });
+
+    it('accepts creating expense with deterministic SHA document ID and idempotencyKey', async () => {
+      const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+      await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'cat-1')), validCategory));
+      await assertSucceeds(
+        setDoc(doc(db, expensePath('alice', 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855')), {
+          ...validExpense,
+          idempotencyKey: 'idem-modern-client-key',
+        }),
+      );
+    });
+
+    it('preserves idempotencyKey on update of legacy random-ID doc, allowing note/amount updates and rejecting key changes/removals', async () => {
+      const legacyDocId = 'random-legacy-uuid-1';
+      const originalKey = 'original-idempotency-key-1';
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        const admin = ctx.firestore();
+        await setDoc(doc(admin, categoryPath('alice', 'cat-1')), validCategory);
+        await setDoc(doc(admin, expensePath('alice', legacyDocId)), {
+          ...validExpense,
+          idempotencyKey: originalKey,
+        });
+      });
+
+      const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+      const expenseRef = doc(db, expensePath('alice', legacyDocId));
+
+      // Ordinary note update succeeds (merge update omitting key preserves it)
+      await assertSucceeds(updateDoc(expenseRef, { note: 'updated note without resending key' }));
+
+      // Amount update succeeds if other schema rules satisfied
+      await assertSucceeds(updateDoc(expenseRef, { amount: 42.50 }));
+
+      // Explicitly preserving the same key succeeds
+      await assertSucceeds(updateDoc(expenseRef, { note: 'same key', idempotencyKey: originalKey }));
+
+      // Same document -> key change rejected
+      await assertFails(updateDoc(expenseRef, { idempotencyKey: 'changed-idempotency-key' }));
+
+      // Same document -> key removal rejected
+      await assertFails(updateDoc(expenseRef, { idempotencyKey: deleteField() }));
+    });
+
+    it('allows normal update of legacy keyless doc and rejects injecting idempotencyKey on update', async () => {
+      const keylessDocId = 'random-keyless-legacy-doc';
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        const admin = ctx.firestore();
+        await setDoc(doc(admin, categoryPath('alice', 'cat-1')), validCategory);
+        await setDoc(doc(admin, expensePath('alice', keylessDocId)), validExpense);
+      });
+
+      const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+      const expenseRef = doc(db, expensePath('alice', keylessDocId));
+
+      // Normal update succeeds
+      await assertSucceeds(updateDoc(expenseRef, { note: 'normal keyless update' }));
+
+      // Injecting idempotencyKey on update rejected
+      await assertFails(updateDoc(expenseRef, { idempotencyKey: 'injected-key-on-update' }));
+    });
+  });
+
   it('rejects expense dateMillis outside allowed range', async () => {
     const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
     await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'cat-1')), validCategory));
@@ -516,6 +589,53 @@ describe('firestore.rules', () => {
     );
   });
 
+  describe('reminder time integer validation (GO-2)', () => {
+    it('accepts valid integer reminder hours and minutes within range', async () => {
+      const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+      const validHours = [0, 14, 23];
+      const validMinutes = [0, 30, 59];
+
+      for (let i = 0; i < validHours.length; i++) {
+        await assertSucceeds(
+          setDoc(doc(db, prefsPath('alice')), {
+            ...validPreferences,
+            reminderHour: validHours[i],
+            reminderMinute: validMinutes[i],
+            updatedAt: Date.now() + i,
+          }),
+        );
+      }
+    });
+
+    it('rejects fractional or out-of-range reminder hours', async () => {
+      const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+      const invalidHours = [14.5, -1, 24];
+
+      for (const badHour of invalidHours) {
+        await assertFails(
+          setDoc(doc(db, prefsPath('alice')), {
+            ...validPreferences,
+            reminderHour: badHour,
+          }),
+        );
+      }
+    });
+
+    it('rejects fractional or out-of-range reminder minutes', async () => {
+      const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+      const invalidMinutes = [12.25, -1, 60];
+
+      for (const badMinute of invalidMinutes) {
+        await assertFails(
+          setDoc(doc(db, prefsPath('alice')), {
+            ...validPreferences,
+            reminderMinute: badMinute,
+          }),
+        );
+      }
+    });
+  });
+
   it('rejects expense amounts outside the allowed range', async () => {
     const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
     await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'cat-1')), validCategory));
@@ -527,6 +647,97 @@ describe('firestore.rules', () => {
     await assertFails(
       setDoc(doc(db, expensePath('alice')), { ...validExpense, amount: 1000000000 }),
     );
+  });
+
+  describe('money precision and cent validation (GO-1)', () => {
+    it('accepts legitimate two-decimal cent values across all magnitudes', async () => {
+      const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+      await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'cat-1')), validCategory));
+
+      const validCentAmounts = [
+        0.01,
+        0.29,
+        0.58,
+        1.10,
+        1.15,
+        2.30,
+        19.99,
+        562955273.31,
+        562955273.32,
+        562955273.35,
+        999999999.99,
+      ];
+
+      for (let i = 0; i < validCentAmounts.length; i++) {
+        const amount = validCentAmounts[i];
+        await assertSucceeds(
+          setDoc(doc(db, expensePath('alice', `e-valid-${i}`)), {
+            ...validExpense,
+            amount,
+          }),
+        );
+      }
+    });
+
+    it('rejects invalid sub-cent or non-positive amounts', async () => {
+      const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+      await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'cat-1')), validCategory));
+
+      const invalidAmounts = [
+        0,
+        -1,
+        0.001,
+        1.001,
+        1.234,
+        19.991,
+        19.999,
+        562955273.325,
+      ];
+
+      for (let i = 0; i < invalidAmounts.length; i++) {
+        const amount = invalidAmounts[i];
+        await assertFails(
+          setDoc(doc(db, expensePath('alice', `e-invalid-${i}`)), {
+            ...validExpense,
+            amount,
+          }),
+        );
+      }
+    });
+
+    /**
+     * IEEE-754 spacing increases with magnitude; low-value tests alone do not
+     * validate the cent rule across the permitted amount range. A deterministic
+     * sweep across low, medium, large, and very large magnitudes ensures the
+     * precision epsilon remains robust and prevents anyone from simplifying
+     * back to exact float equality.
+     */
+    it('deterministic sweep across low, medium, large, and very large magnitudes', async () => {
+      const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+      await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'cat-1')), validCategory));
+
+      const sweepAmounts = [
+        // Low values
+        0.07, 0.14, 0.28, 0.57, 0.99, 1.05, 3.14, 7.89,
+        // Medium values
+        12.34, 42.50, 99.95, 123.45, 999.99,
+        // Large values (including powers of two)
+        10485.76, 65535.99, 100000.50, 167772.16, 500000.75,
+        // Very large values
+        16777216.01, 33554432.25, 134217728.50, 268435456.75, 536870912.15,
+        900000000.99,
+      ];
+
+      for (let i = 0; i < sweepAmounts.length; i++) {
+        const amount = sweepAmounts[i];
+        await assertSucceeds(
+          setDoc(doc(db, expensePath('alice', `e-sweep-${i}`)), {
+            ...validExpense,
+            amount,
+          }),
+        );
+      }
+    });
   });
 
   it('rejects expense whose transactionType mismatches category', async () => {
@@ -679,6 +890,122 @@ describe('firestore.rules', () => {
     await assertFails(updateDoc(doc(secondClient, categoryPath('alice', 'cat-1')), {
       name: 'still frozen',
     }));
+  });
+
+  describe('account deletion timestamp window and lifecycle (GO-3)', () => {
+    it('allows deletion marker within valid time window (current, -4m, +30s)', async () => {
+      const db = testEnv.authenticatedContext('alice', recentAuthClaims(false)).firestore();
+      const markerRef = doc(db, 'users/alice/meta/accountDeletion');
+
+      // A. Approximately current server time -> ALLOW
+      await assertSucceeds(
+        setDoc(markerRef, {
+          pendingDeletion: true,
+          state: 'deleting',
+          startedAt: Date.now(),
+        }),
+      );
+
+      // B. Approximately 4 minutes in the past -> ALLOW
+      await assertSucceeds(
+        setDoc(markerRef, {
+          pendingDeletion: true,
+          state: 'deleting',
+          startedAt: Date.now() - 240_000,
+        }),
+      );
+
+      // E. Approximately +30 seconds in the future -> ALLOW
+      await assertSucceeds(
+        setDoc(markerRef, {
+          pendingDeletion: true,
+          state: 'deleting',
+          startedAt: Date.now() + 30_000,
+        }),
+      );
+    });
+
+    it('rejects deletion marker outside valid time window (stale startedAt=1, -10m, +2m)', async () => {
+      const db = testEnv.authenticatedContext('alice', recentAuthClaims(false)).firestore();
+      const markerRef = doc(db, 'users/alice/meta/accountDeletion');
+
+      // C. startedAt = 1 -> DENY
+      await assertFails(
+        setDoc(markerRef, {
+          pendingDeletion: true,
+          state: 'deleting',
+          startedAt: 1,
+        }),
+      );
+
+      // D. Approximately 10 minutes in the past -> DENY
+      await assertFails(
+        setDoc(markerRef, {
+          pendingDeletion: true,
+          state: 'deleting',
+          startedAt: Date.now() - 600_000,
+        }),
+      );
+
+      // F. Approximately +2 minutes in the future -> DENY
+      await assertFails(
+        setDoc(markerRef, {
+          pendingDeletion: true,
+          state: 'deleting',
+          startedAt: Date.now() + 120_000,
+        }),
+      );
+    });
+
+    it('enforces recent authentication requirement on deletion marker', async () => {
+      const freshAuth = testEnv.authenticatedContext('alice', recentAuthClaims(false)).firestore();
+      const staleAuth = testEnv.authenticatedContext('alice', {
+        email_verified: false,
+        auth_time: Math.floor(Date.now() / 1000) - 301,
+      }).firestore();
+      const markerRef = 'users/alice/meta/accountDeletion';
+
+      await assertFails(
+        setDoc(doc(staleAuth, markerRef), {
+          pendingDeletion: true,
+          state: 'deleting',
+          startedAt: Date.now(),
+        }),
+      );
+      await assertSucceeds(
+        setDoc(doc(freshAuth, markerRef), {
+          pendingDeletion: true,
+          state: 'deleting',
+          startedAt: Date.now(),
+        }),
+      );
+    });
+
+    it('enforces post-tombstone lifecycle: freeze mutations, allow cleanup delete, deny tombstone delete', async () => {
+      // Seed category and existing expense with rules disabled
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        const admin = ctx.firestore();
+        await setDoc(doc(admin, categoryPath('alice', 'cat-1')), validCategory);
+        await setDoc(doc(admin, expensePath('alice', 'existing')), validExpense);
+        await setDoc(doc(admin, 'users/alice/meta/accountDeletion'), {
+          pendingDeletion: true,
+          state: 'deleting',
+          startedAt: Date.now(),
+        });
+      });
+
+      const client = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+
+      // H. Expense create & update -> DENY
+      await assertFails(setDoc(doc(client, expensePath('alice', 'new-exp')), validExpense));
+      await assertFails(updateDoc(doc(client, expensePath('alice', 'existing')), { note: 'modified' }));
+
+      // I. Expense delete -> ALLOW where cleanup requires it
+      await assertSucceeds(deleteDoc(doc(client, expensePath('alice', 'existing'))));
+
+      // J. Tombstone client delete -> DENY
+      await assertFails(deleteDoc(doc(client, 'users/alice/meta/accountDeletion')));
+    });
   });
 
   it('rejects meta docs other than dedupe or accountDeletion', async () => {
