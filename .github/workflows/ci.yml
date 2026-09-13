@@ -183,7 +183,11 @@ jobs:
   # check-runs exist, so publish a combined status for compatible clients.
   status:
     needs: [android, instrumentation, web, rules, telemetry]
-    if: always()
+    if: |
+      always() && (
+        github.event_name != 'pull_request' ||
+        github.event.pull_request.head.repo.full_name == github.repository
+      )
     runs-on: ubuntu-latest
     permissions:
       statuses: write

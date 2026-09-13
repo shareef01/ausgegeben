@@ -135,7 +135,7 @@ service cloud.firestore {
         // Currency values are cent-granular. This is enforced at the trust boundary,
         // so a raw Firebase client cannot inject sub-cent values that make totals and
         // exports disagree after floating-point accumulation.
-        && d.amount * 100 == math.round(d.amount * 100)
+        && math.abs(d.amount * 100 - math.round(d.amount * 100)) < 0.0001
         && validDateMillis(d.dateMillis)
         && d.categoryId is string
         && d.categoryId.size() > 0
@@ -149,6 +149,13 @@ service cloud.firestore {
         && (!('idempotencyKey' in d)
           || (d.idempotencyKey is string && d.idempotencyKey.size() < 128))
         && (!('id' in d) || (d.id is string && d.id.size() <= 64));
+    }
+
+    function preservesExpenseIdempotencyKey() {
+      return ('idempotencyKey' in resource.data)
+        ? ('idempotencyKey' in request.resource.data
+            && request.resource.data.idempotencyKey == resource.data.idempotencyKey)
+        : !('idempotencyKey' in request.resource.data);
     }
 
     // Categories came from the same legacy backend as expenses and carry the same
@@ -276,7 +283,7 @@ service cloud.firestore {
         && d.pendingDeletion == true
         && d.state == 'deleting'
         && d.startedAt is number
-        && d.startedAt > 0
+        && d.startedAt >= request.time.toMillis() - 300000
         && d.startedAt <= request.time.toMillis() + 60000;
     }
 
@@ -303,10 +310,10 @@ service cloud.firestore {
         && d.themeMode is string
         && validThemeMode(d.themeMode)
         && d.dailyReminder is bool
-        && d.reminderHour is number
+        && d.reminderHour is int
         && d.reminderHour >= 0
         && d.reminderHour <= 23
-        && d.reminderMinute is number
+        && d.reminderMinute is int
         && d.reminderMinute >= 0
         && d.reminderMinute <= 59
         && d.analyticsPeriod is string
@@ -342,10 +349,18 @@ service cloud.firestore {
 
       match /expenses/{expenseId} {
         allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId)
+        allow create: if isOwner(userId)
           && accountAcceptsWrites(userId)
           && isEmailVerified()
           && validExpense()
+          && exists(/databases/$(database)/documents/users/$(userId)/categories/$(request.resource.data.categoryId))
+          && expenseCategoryAcceptsReferences(userId)
+          && expenseCategoryTypeMatches(userId);
+        allow update: if isOwner(userId)
+          && accountAcceptsWrites(userId)
+          && isEmailVerified()
+          && validExpense()
+          && preservesExpenseIdempotencyKey()
           && exists(/databases/$(database)/documents/users/$(userId)/categories/$(request.resource.data.categoryId))
           && expenseCategoryAcceptsReferences(userId)
           && expenseCategoryTypeMatches(userId);
