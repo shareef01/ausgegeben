@@ -168,15 +168,16 @@ class AppRepository @Inject constructor(
         ) { u, _ -> u }
             .flatMapLatest { u -> if (u == null) flowOf(signedOutValue) else build(u) }
 
-    private fun catCol(uid: String) = firestore.collection("users").document(uid).collection("categories")
-    private fun expCol(uid: String) = firestore.collection("users").document(uid).collection("expenses")
-    private fun metaCol(uid: String) = firestore.collection("users").document(uid).collection("meta")
+    private fun userCol(uid: String, name: String) = firestore.collection("users").document(uid).collection(name)
+    private fun catCol(uid: String) = userCol(uid, FirestorePaths.CATEGORIES_COLLECTION)
+    private fun expCol(uid: String) = userCol(uid, FirestorePaths.EXPENSES_COLLECTION)
+    private fun metaCol(uid: String) = userCol(uid, FirestorePaths.META_COLLECTION)
     private fun settingsPrefsDoc(uid: String) =
-        firestore.collection("users").document(uid).collection("settings").document("preferences")
+        userCol(uid, FirestorePaths.SETTINGS_COLLECTION).document(FirestorePaths.PREFERENCES_DOC)
     private fun catDoc(uid: String, id: String) = catCol(uid).document(id)
     private fun expDoc(uid: String, id: String) = expCol(uid).document(id)
-    private fun dedupeMarkerDoc(uid: String) = metaCol(uid).document("dedupe")
-    private fun accountDeletionDoc(uid: String) = metaCol(uid).document("accountDeletion")
+    private fun dedupeMarkerDoc(uid: String) = metaCol(uid).document(FirestorePaths.DEDUPE_DOC)
+    private fun accountDeletionDoc(uid: String) = metaCol(uid).document(FirestorePaths.ACCOUNT_DELETION_DOC)
 
     /** True when wipe finished but Auth delete failed — blocks re-seeding empty accounts. */
     override suspend fun isAccountDeletionPending(): Boolean {
@@ -218,6 +219,16 @@ class AppRepository @Inject constructor(
                 Log.w(TAG, "ensureSeeded skipped: account deletion incomplete")
                 return
             }
+            // A process may have died between a submission's Firestore write landing and
+            // its journal entry being cleared. Reconcile rather than resubmit: this never
+            // attempts a write, so it can only ever forget bookkeeping for an operation
+            // that already succeeded, never collide with a later, unrelated submission.
+            // See DATA-1.
+            runSuspendCatching {
+                preferenceManager.reconcilePendingExpenseSubmissions { operationId ->
+                    expDoc(u, expenseDocumentId(operationId)).get(Source.SERVER).await().exists()
+                }
+            }.onFailure { e -> Log.w(TAG, "pending submission reconciliation failed", e) }
             val marker = dedupeMarkerDoc(u).get().await()
             var snap = catCol(u).get().await()
             if (!snap.isEmpty) {
@@ -682,24 +693,29 @@ class AppRepository @Inject constructor(
      * explicitly use SERVER so an offline or incomplete cache can never be mistaken for
      * an empty account before Firebase Auth is irreversibly deleted.
      */
+    // DEL-1: iterates the shared FirestorePaths registry rather than an independent,
+    // hand-maintained list — a new deletable collection/doc added there is picked up
+    // here automatically, and FirestorePathsTest fails if a new path is ever added to
+    // the registry without being classified as deletable or intentionally retained.
     override suspend fun deleteAllUserData(): Result<Unit> = runSuspendCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
-        deleteCollectionBatched(expCol(u))
-        deleteCollectionBatched(catCol(u))
-        settingsPrefsDoc(u).delete().await()
-        dedupeMarkerDoc(u).delete().await()
+        for (name in FirestorePaths.DELETABLE_USER_COLLECTIONS) {
+            deleteCollectionBatched(userCol(u, name))
+        }
+        val docRefs = FirestorePaths.DELETABLE_USER_DOCS.map { userCol(u, it.collection).document(it.id) }
+        for (ref in docRefs) {
+            ref.delete().await()
+        }
 
-        check(expCol(u).limit(1).get(Source.SERVER).await().isEmpty) {
-            "Expense deletion verification failed"
+        for (name in FirestorePaths.DELETABLE_USER_COLLECTIONS) {
+            check(userCol(u, name).limit(1).get(Source.SERVER).await().isEmpty) {
+                "$name deletion verification failed"
+            }
         }
-        check(catCol(u).limit(1).get(Source.SERVER).await().isEmpty) {
-            "Category deletion verification failed"
-        }
-        check(!settingsPrefsDoc(u).get(Source.SERVER).await().exists()) {
-            "Settings deletion verification failed"
-        }
-        check(!dedupeMarkerDoc(u).get(Source.SERVER).await().exists()) {
-            "Metadata deletion verification failed"
+        for (ref in docRefs) {
+            check(!ref.get(Source.SERVER).await().exists()) {
+                "${ref.path} deletion verification failed"
+            }
         }
     }
 

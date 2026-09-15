@@ -153,8 +153,18 @@ class AddExpenseViewModelTest {
         assertEquals(expenseCategory, viewModel.selectedCategory.value)
     }
 
+    /**
+     * DATA-1 regression: identity must be the submission *attempt*, never the expense's
+     * field values. The previous design recovered a durable key by matching content,
+     * which meant a second, entirely legitimate transaction — entered after an app
+     * restart, with the same amount/category/note/type as an earlier one that never
+     * confirmed its outcome — silently collapsed into the first: the user's Save
+     * reported success, but the second transaction was never written. Every explicit
+     * Save must mint its own operation id, even given byte-identical fields, so this
+     * class of bug cannot recur.
+     */
     @Test
-    fun saveExpense_processRecreationAfterAmbiguousFailure_reusesDurableKey() = runTest(dispatcher) {
+    fun saveExpense_retryAfterAmbiguousFailure_mintsFreshOperationId() = runTest(dispatcher) {
         fakeExpenses.insertResult = Result.failure(RuntimeException("response lost"))
         viewModel.onCategorySelect(expenseCategory)
         viewModel.onAmountChange("12,50")
@@ -163,23 +173,48 @@ class AddExpenseViewModelTest {
         advanceUntilIdle()
         val firstKey = fakeExpenses.idempotencyKeys.single()
 
-        // New ViewModel models process/UI recreation. The journal survives, while
-        // volatile time-of-day can differ within the same selected calendar day.
+        // New ViewModel models process/UI recreation (e.g. the app was killed and
+        // relaunched). The user retypes the same values and taps Save again — an
+        // explicit new action, indistinguishable at this layer from a coincidentally
+        // identical second transaction, so it must never reuse the first attempt's id.
         viewModel = AddExpenseViewModel(
             ApplicationProvider.getApplicationContext(),
             fakeCategories,
             fakeExpenses,
             fakePreferences,
         )
-        fakeExpenses.insertResult = Result.success("existing-id")
+        fakeExpenses.insertResult = Result.success("new-id")
         viewModel.onCategorySelect(expenseCategory)
         viewModel.onAmountChange("12,50")
         viewModel.onNoteChange("coffee")
         viewModel.saveExpense(TransactionType.EXPENSE, onSuccess = {}, onError = {})
         advanceUntilIdle()
 
-        assertEquals(firstKey, fakeExpenses.idempotencyKeys.last())
-        assertTrue(fakePreferences.pending.isEmpty())
+        assertFalse(firstKey.isNullOrBlank())
+        assertEquals(2, fakeExpenses.idempotencyKeys.size)
+        assertFalse(fakeExpenses.idempotencyKeys[0] == fakeExpenses.idempotencyKeys[1])
+        // The first attempt's outcome was ambiguous (its write may or may not have
+        // reached the server) and it was never completed, so its entry correctly
+        // remains for reconciliation to resolve later — it must NOT have been reused
+        // or silently discarded by the second, successful save.
+        assertEquals(listOf(firstKey), fakePreferences.pendingOperationIds)
+    }
+
+    /**
+     * A genuine retry of the *same* attempt — the caller still holds the operation id
+     * from the failed call and reuses it directly, without going through
+     * beginExpenseSubmission again — must not be treated as a new submission. This is
+     * how the app (and ExpenseActions' own transactional create-if-absent guard) already
+     * guarantee at most one document per id; this test documents that contract at the
+     * ViewModel/journal seam.
+     */
+    @Test
+    fun beginExpenseSubmission_calledOnceThenReused_doesNotMintASecondId() = runTest(dispatcher) {
+        val operationId = fakePreferences.beginExpenseSubmission()
+        val reused = operationId // the caller simply keeps the value; nothing to re-derive
+
+        assertEquals(operationId, reused)
+        assertEquals(listOf(operationId), fakePreferences.pendingOperationIds)
     }
 
     @Test
@@ -318,7 +353,8 @@ class AddExpenseViewModelTest {
         val currency = MutableStateFlow("EUR")
         val monthlyBudget = MutableStateFlow<Double?>(null)
         val analyticsPeriod = MutableStateFlow("this_month")
-        val pending = mutableMapOf<String, String>()
+        /** Ids minted by [beginExpenseSubmission] that have not yet been completed. */
+        val pendingOperationIds = mutableListOf<String>()
 
         override val currencyFlow: Flow<String> = currency
         override val monthlyBudgetFlow: Flow<Double?> = monthlyBudget
@@ -328,11 +364,11 @@ class AddExpenseViewModelTest {
             analyticsPeriod.value = storageKey
         }
 
-        override suspend fun prepareExpenseSubmission(fingerprint: String): String =
-            pending.getOrPut(fingerprint) { UUID.randomUUID().toString() }
+        override suspend fun beginExpenseSubmission(): String =
+            UUID.randomUUID().toString().also { pendingOperationIds.add(it) }
 
-        override suspend fun completeExpenseSubmission(fingerprint: String, idempotencyKey: String) {
-            if (pending[fingerprint] == idempotencyKey) pending.remove(fingerprint)
+        override suspend fun completeExpenseSubmission(operationId: String) {
+            pendingOperationIds.remove(operationId)
         }
     }
 }

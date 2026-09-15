@@ -16,7 +16,21 @@ interface TransactionPreferences {
     val analyticsPeriodFlow: Flow<String>
     suspend fun updateAnalyticsPeriodKey(storageKey: String)
 
-    /** Durable in [PreferenceManager]; default keeps narrow test fakes source-compatible. */
-    suspend fun prepareExpenseSubmission(fingerprint: String): String = UUID.randomUUID().toString()
-    suspend fun completeExpenseSubmission(fingerprint: String, idempotencyKey: String) = Unit
+    /**
+     * Mint and durably persist a fresh operation id for one explicit user submission.
+     * Never derived from the expense's field values, so two distinct Save taps always
+     * get two distinct ids even given byte-identical fields — see DATA-1. Default keeps
+     * narrow test fakes source-compatible.
+     */
+    suspend fun beginExpenseSubmission(): String = UUID.randomUUID().toString()
+
+    /** Forget a submission's bookkeeping once its outcome is known. */
+    suspend fun completeExpenseSubmission(operationId: String) = Unit
+
+    /**
+     * Resolve a pending entry left behind by a process death between a Firestore write
+     * acknowledging and [completeExpenseSubmission] running. Never attempts a write of
+     * its own — see [PreferenceManager.reconcilePendingExpenseSubmissions].
+     */
+    suspend fun reconcilePendingExpenseSubmissions(exists: suspend (String) -> Boolean) = Unit
 }

@@ -13,15 +13,27 @@ import type { Category, Expense } from '@/models/types';
 import { categoryWritePayload, expenseWritePayload } from '@/utils/firestorePayloads';
 import { expenseDocumentId } from '@/utils/idempotency';
 import { KeyedSingleFlight } from '@/utils/keyedSingleFlight';
+import { reconcilePendingExpenseSubmissions } from '@/services/expenseSubmissionJournal';
+import {
+  ACCOUNT_DELETION_DOC,
+  CATEGORIES_COLLECTION,
+  DEDUPE_DOC,
+  DELETABLE_USER_COLLECTIONS,
+  DELETABLE_USER_DOCS,
+  EXPENSES_COLLECTION,
+  META_COLLECTION,
+} from './firestorePaths';
 
 function uid(): string | null { return useAuthStore.getState().user?.uid ?? null; }
 function now() { return Date.now(); }
 function fs() { return getFirebaseFirestore(); }
-function catCol(u: string) { return collection(fs()!, 'users', u, 'categories'); }
-function expCol(u: string) { return collection(fs()!, 'users', u, 'expenses'); }
-function catDoc(u: string, id: string) { return doc(fs()!, 'users', u, 'categories', id); }
-function expDoc(u: string, id: string) { return doc(fs()!, 'users', u, 'expenses', id); }
-function metaDoc(u: string, id: string) { return doc(fs()!, 'users', u, 'meta', id); }
+function catCol(u: string) { return collection(fs()!, 'users', u, CATEGORIES_COLLECTION); }
+function expCol(u: string) { return collection(fs()!, 'users', u, EXPENSES_COLLECTION); }
+function catDoc(u: string, id: string) { return doc(fs()!, 'users', u, CATEGORIES_COLLECTION, id); }
+function expDoc(u: string, id: string) { return doc(fs()!, 'users', u, EXPENSES_COLLECTION, id); }
+function metaDoc(u: string, id: string) { return doc(fs()!, 'users', u, META_COLLECTION, id); }
+/** DEL-1: the one collection-name-to-Firestore-collection-reference mapping deleteAllUserData resolves through the shared registry. */
+function collectionRef(u: string, name: string) { return collection(fs()!, 'users', u, name); }
 
 /** Thrown when Firestore rules would reject expense writes for unverified accounts. */
 export class EmailNotVerifiedError extends Error {
@@ -419,7 +431,20 @@ export const expenseRepository = {
           console.warn('[ensureSeeded] skipped: account deletion incomplete');
           return;
         }
-        const markerRef = metaDoc(userId, 'dedupe');
+        // A process/tab may have died between a submission's Firestore write landing
+        // and its journal entry being cleared. Reconcile rather than resubmit: this
+        // never attempts a write, so it can only ever forget bookkeeping for an
+        // operation that already succeeded, never collide with a later, unrelated
+        // submission. See DATA-1.
+        try {
+          await reconcilePendingExpenseSubmissions(userId, async (operationId) => {
+            const id = await expenseDocumentId(operationId);
+            return (await getDoc(expDoc(userId, id))).exists();
+          });
+        } catch (err) {
+          console.warn('[ensureSeeded] pending submission reconciliation failed', err);
+        }
+        const markerRef = metaDoc(userId, DEDUPE_DOC);
         const marker = (await getDoc(markerRef)).data();
         // Android is the only UI that starts category type changes, but either client
         // must be able to finish one after the initiating process dies.
@@ -474,14 +499,14 @@ export const expenseRepository = {
   async isAccountDeletionPending(): Promise<boolean> {
     const userId = uid();
     if (!userId || !fs()) return false;
-    const snap = await getDoc(metaDoc(userId, 'accountDeletion'));
+    const snap = await getDoc(metaDoc(userId, ACCOUNT_DELETION_DOC));
     return snap.data()?.pendingDeletion === true;
   },
 
   async markAccountDeletionPending(): Promise<void> {
     const userId = uid();
     if (!userId) throw new Error('Not signed in');
-    await setDoc(metaDoc(userId, 'accountDeletion'), {
+    await setDoc(metaDoc(userId, ACCOUNT_DELETION_DOC), {
       pendingDeletion: true,
       state: 'deleting',
       startedAt: now(),
@@ -834,27 +859,30 @@ export const expenseRepository = {
    * emptiness checks are server-only: an offline/incomplete cache must never allow
    * the irreversible Firebase Auth deletion that follows.
    */
+  // DEL-1: iterates the shared firestorePaths registry rather than an independent,
+  // hand-maintained list — a new deletable collection/doc added there is picked up
+  // here automatically, and firestorePaths.test.ts fails if a new path is ever added
+  // to the registry without being classified as deletable or intentionally retained.
   async deleteAllUserData(): Promise<void> {
     const userId = uid();
     if (!userId) throw new Error('Not signed in');
-    await deleteCollectionBatched(expCol(userId));
-    await deleteCollectionBatched(catCol(userId));
-    const settings = doc(fs()!, 'users', userId, 'settings', 'preferences');
-    const dedupe = metaDoc(userId, 'dedupe');
-    await deleteDoc(settings);
-    await deleteDoc(dedupe);
+    for (const name of DELETABLE_USER_COLLECTIONS) {
+      await deleteCollectionBatched(collectionRef(userId, name));
+    }
+    const docRefs = DELETABLE_USER_DOCS.map((d) => doc(fs()!, 'users', userId, d.collection, d.id));
+    for (const ref of docRefs) {
+      await deleteDoc(ref);
+    }
 
-    if (!(await getDocsFromServer(query(expCol(userId), limit(1)))).empty) {
-      throw new Error('expense_deletion_verification_failed');
+    for (const name of DELETABLE_USER_COLLECTIONS) {
+      if (!(await getDocsFromServer(query(collectionRef(userId, name), limit(1)))).empty) {
+        throw new Error(`${name}_deletion_verification_failed`);
+      }
     }
-    if (!(await getDocsFromServer(query(catCol(userId), limit(1)))).empty) {
-      throw new Error('category_deletion_verification_failed');
-    }
-    if ((await getDocFromServer(settings)).exists()) {
-      throw new Error('settings_deletion_verification_failed');
-    }
-    if ((await getDocFromServer(dedupe)).exists()) {
-      throw new Error('metadata_deletion_verification_failed');
+    for (const ref of docRefs) {
+      if ((await getDocFromServer(ref)).exists()) {
+        throw new Error(`${ref.path}_deletion_verification_failed`);
+      }
     }
     emitDataChanged();
   },
@@ -887,7 +915,7 @@ const ORPHAN_PAGE_SIZE = 450;
 const ORPHAN_PAGES_PER_RUN = 10;
 
 async function sweepOrphanedExpenses(userId: string): Promise<void> {
-  const markerRef = metaDoc(userId, 'dedupe');
+  const markerRef = metaDoc(userId, DEDUPE_DOC);
   const initial = (await getDoc(markerRef)).data();
   let cursor = initial?.orphanRepairTargetVersion === ORPHAN_SCAN_VERSION &&
     typeof initial.orphanRepairCursorId === 'string'
