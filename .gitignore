@@ -59,6 +59,9 @@ web/.env.emulator
 web/.browser-key-rotation.json
 web/.vite/
 web/*.tsbuildinfo
+web/test-results/
+web/playwright-report/
+web/playwright/.cache/
 
 # Local tooling output
 .artifacts/

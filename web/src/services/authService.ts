@@ -10,11 +10,14 @@ import {
   signOut,
 } from 'firebase/auth';
 import {
+  broadcastSessionInvalidated,
   clearLocalFirestoreCache,
   clearResidualAuthStorage,
   getFirebaseAuth,
   isFirebaseConfigured,
   isPersistentAuthEnabled,
+  onSessionInvalidatedBroadcast,
+  resetPersistentStorageEnabled,
   setAuthPersistenceTarget,
   setPersistentAuthEnabled,
 } from '@/services/firebase';
@@ -24,7 +27,25 @@ import { usePreferencesStore } from '@/services/preferencesStore';
 import { clearExpenseSubmissionJournal } from '@/services/expenseSubmissionJournal';
 
 let unsubscribe: (() => void) | null = null;
+let unsubscribeSessionInvalidated: (() => void) | null = null;
 let readyFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * React to another tab's sign-out/account deletion (AUTH-2). This mirrors exactly the
+ * local in-memory state signOut()/deleteAccount() already set in the tab that initiated
+ * them — it deliberately does not call Firebase's own signOut() again (that tab's own
+ * Auth state is already correct) and does not touch the Firestore disk cache (the
+ * existing cache-clear broadcast already handles that independently). Setting the auth
+ * store's user to null is what actually stops further writes: every repository write
+ * function reads the uid from this store first and refuses before any Firestore call
+ * when it is absent, and the top-level app view unmounts the signed-in UI (detaching its
+ * listeners) the same way it does for a same-tab sign-out.
+ */
+function handleSessionInvalidatedElsewhere(): void {
+  useAuthStore.getState().setUser(null);
+  usePreferencesStore.getState().resetPreferences();
+  invalidateAllExpensesCache();
+}
 
 function markAuthReady(): void {
   if (readyFallbackTimer) {
@@ -59,11 +80,14 @@ export const authService = {
         useAuthStore.getState().setSyncError(null);
       }
     });
+    unsubscribeSessionInvalidated ??= onSessionInvalidatedBroadcast(handleSessionInvalidatedElsewhere);
   },
 
   stopListener(): void {
     unsubscribe?.();
     unsubscribe = null;
+    unsubscribeSessionInvalidated?.();
+    unsubscribeSessionInvalidated = null;
     if (readyFallbackTimer) {
       clearTimeout(readyFallbackTimer);
       readyFallbackTimer = null;
@@ -131,12 +155,21 @@ export const authService = {
     if (auth) await signOut(auth);
     if (uid) await clearExpenseSubmissionJournal(uid);
     setPersistentAuthEnabled(false);
+    // Consent to durable, on-disk Firestore caching does not carry from one account to
+    // the next on a shared browser. See AUTH-1 — without this, the next person to sign
+    // in on this browser silently inherited disk-backed caching they never opted into.
+    resetPersistentStorageEnabled();
     clearResidualAuthStorage();
     useAuthStore.getState().setUser(null);
     usePreferencesStore.getState().resetPreferences();
     // The all-time scan is memoised in module scope; drop it so the next person
     // on a shared browser cannot be served the previous account's transactions.
     invalidateAllExpensesCache();
+    // Tell every other open tab this account signed out (AUTH-2) — session-only
+    // persistence has no built-in cross-tab signal, so without this a tab that did not
+    // itself sign out could keep rendering as authenticated and keep writing to
+    // Firestore indefinitely.
+    broadcastSessionInvalidated();
     await clearLocalFirestoreCache();
   },
 
@@ -181,11 +214,17 @@ export const authService = {
     }
 
     setPersistentAuthEnabled(false);
+    // See AUTH-1: reset the "trusted device" preference too, not just the auth
+    // persistence flag, so a deleted account's opt-in cannot carry to whoever signs
+    // into this browser next.
+    resetPersistentStorageEnabled();
     clearResidualAuthStorage();
     await clearExpenseSubmissionJournal(user.uid);
     useAuthStore.getState().setUser(null);
     usePreferencesStore.getState().resetPreferences();
     invalidateAllExpensesCache();
+    // See AUTH-2: tell every other open tab this account is gone.
+    broadcastSessionInvalidated();
     try {
       await clearLocalFirestoreCache();
     } catch (error) {

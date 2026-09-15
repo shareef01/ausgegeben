@@ -17,12 +17,24 @@ vi.mock('firebase/auth', () => ({
 }));
 
 describe('authService persistence integration', () => {
+  const storageValues = new Map<string, string>();
+
   beforeEach(() => {
     vi.clearAllMocks();
+    storageValues.clear();
+    // signOut/deleteAccount now also reset the trusted-device storage flag (AUTH-1),
+    // which reads/writes localStorage directly — stub it so that path is exercised
+    // rather than silently no-op'd by a missing global in this Node test environment.
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => storageValues.get(key) ?? null,
+      setItem: (key: string, value: string) => storageValues.set(key, value),
+      removeItem: (key: string) => storageValues.delete(key),
+    });
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('signs in with default session persistence when rememberMe is false', async () => {
@@ -52,5 +64,17 @@ describe('authService persistence integration', () => {
 
     expect(setPersistentSpy).toHaveBeenCalledWith(false);
     expect(clearResidualSpy).toHaveBeenCalled();
+  });
+
+  // AUTH-1: a "trusted device" flag left on after sign-out silently opts whoever signs
+  // in next on this browser into durable, on-disk Firestore caching.
+  it('resets the trusted-device storage preference on signOut', async () => {
+    await firebaseServices.setPersistentStorageEnabled(true);
+    expect(firebaseServices.isPersistentStorageEnabled()).toBe(true);
+    vi.spyOn(firebaseServices, 'getFirebaseAuth').mockReturnValue({ currentUser: { uid: 'u1' } } as any);
+
+    await authService.signOut();
+
+    expect(firebaseServices.isPersistentStorageEnabled()).toBe(false);
   });
 });

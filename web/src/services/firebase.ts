@@ -63,6 +63,46 @@ cacheChannel?.addEventListener('message', (event) => {
   });
 });
 
+/**
+ * Cross-tab session invalidation (AUTH-2).
+ *
+ * Under the default session-only persistence, Firebase Auth's own `browserSessionPersistence`
+ * has no cross-tab sync (sessionStorage cannot be shared between windows, and the SDK
+ * documents this — its `_addListener` is a deliberate no-op). A tab that did not itself
+ * call signOut/deleteAccount never observes the change via `onAuthStateChanged`, so it can
+ * keep rendering as signed in and keep issuing Firestore writes indefinitely.
+ *
+ * This channel is a fallback specifically for that gap, independent of which persistence
+ * mode is active — if `BroadcastChannel` is unsupported, tabs sharing `browserLocalPersistence`
+ * or `indexedDBLocalPersistence` still get Firebase's own built-in cross-tab sync for free;
+ * only session-only tabs on such a browser would miss the signal.
+ */
+const AUTH_LIFECYCLE_MESSAGE = 'session-invalidated';
+const authLifecycleChannel = typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined'
+  ? new BroadcastChannel('ausgegeben-auth-lifecycle')
+  : null;
+
+/** Tell every other tab that this tab just signed out or deleted its account. */
+export function broadcastSessionInvalidated(): void {
+  authLifecycleChannel?.postMessage(AUTH_LIFECYCLE_MESSAGE);
+}
+
+/**
+ * Run `handler` whenever another tab broadcasts a sign-out/account deletion. Returns an
+ * unsubscribe function. A no-op subscription (immediately-returned no-op unsubscribe) when
+ * `BroadcastChannel` is unsupported — callers relying on this for a browser matrix that
+ * requires it should pair it with the `storage` event on `PERSISTENT_AUTH_KEY`/session
+ * cookies as an additional fallback; not needed for this app's supported browsers.
+ */
+export function onSessionInvalidatedBroadcast(handler: () => void): () => void {
+  if (!authLifecycleChannel) return () => {};
+  const listener = (event: MessageEvent) => {
+    if (event.data === AUTH_LIFECYCLE_MESSAGE) handler();
+  };
+  authLifecycleChannel.addEventListener('message', listener);
+  return () => authLifecycleChannel.removeEventListener('message', listener);
+}
+
 export function getFirebaseApp(): FirebaseApp | null {
   if (!isFirebaseConfigured()) return null;
   if (!app) {
@@ -204,6 +244,25 @@ export async function setPersistentStorageEnabled(enabled: boolean): Promise<voi
     throw new Error('persistent_storage_preference_failed');
   }
   if (!enabled) await clearLocalFirestoreCache();
+}
+
+/**
+ * Best-effort reset of the "trusted device" preference — never throws, matching
+ * setPersistentAuthEnabled's pattern. Callers that need the stricter, error-surfacing
+ * behavior (the explicit Settings toggle) should use setPersistentStorageEnabled
+ * instead; this is for sign-out/account deletion, which must remain robust even when
+ * storage access itself is failing.
+ *
+ * Consent to durable, on-disk Firestore caching must not carry from one account to the
+ * next on a shared browser — see AUTH-1. Does not itself clear the Firestore cache;
+ * callers already do that separately via clearLocalFirestoreCache().
+ */
+export function resetPersistentStorageEnabled(): void {
+  try {
+    localStorage.removeItem(PERSISTENT_STORAGE_KEY);
+  } catch {
+    // Ignore storage quota or access errors.
+  }
 }
 
 /**
