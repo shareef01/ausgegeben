@@ -287,8 +287,39 @@ jobs:
               break
             fi
           done
+
+          # The legacy commit-status API caps "description" at 140 characters — a
+          # hard GitHub API limit, not a style choice. A per-job breakdown here
+          # fit when this job tracked five dependencies and broke the instant a
+          # sixth and seventh (browser_security, workflow_validation) were added.
+          # Keep this a short, fixed literal whose length can never depend on how
+          # many jobs `needs:` above lists, so adding another job here can never
+          # silently break this API call again. The real per-job breakdown is not
+          # lost: it's in this step's own summary below, and GitHub's native
+          # check-runs — what branch protection and the PR UI actually read —
+          # already show every job's true result independently of this legacy call.
+          if [ "$state" = success ]; then
+            description="CI: all required jobs passed"
+          else
+            description="CI: one or more required jobs failed"
+          fi
+
+          {
+            echo "### Combined CI status: $state"
+            echo
+            echo "| Job | Result |"
+            echo "|---|---|"
+            echo "| android | ${{ needs.android.result }} |"
+            echo "| instrumentation | ${{ needs.instrumentation.result }} |"
+            echo "| web | ${{ needs.web.result }} |"
+            echo "| rules | ${{ needs.rules.result }} |"
+            echo "| telemetry | ${{ needs.telemetry.result }} |"
+            echo "| browser_security | ${{ needs.browser_security.result }} |"
+            echo "| workflow_validation | ${{ needs.workflow_validation.result }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
           gh api "repos/${{ github.repository }}/statuses/${{ github.sha }}" \
             -f state="$state" \
             -f context="CI" \
-            -f description="android=${{ needs.android.result }}; instrumentation=${{ needs.instrumentation.result }}; web=${{ needs.web.result }}; rules=${{ needs.rules.result }}; telemetry=${{ needs.telemetry.result }}; browser_security=${{ needs.browser_security.result }}; workflow_validation=${{ needs.workflow_validation.result }}" \
+            -f description="$description" \
             -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
