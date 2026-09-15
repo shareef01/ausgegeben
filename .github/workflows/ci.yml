@@ -41,7 +41,17 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      # No `with.packages` override before this fix defaulted to "tools platform-tools"
+      # (see this action's action.yml at the pinned SHA) — this job never calls adb
+      # (no device/emulator, only testProdDebugUnitTest/lintProdDebug/assembleProdDebug
+      # and the R8 release build below) and the legacy "tools" package no longer exists
+      # in Google's SDK repository, so requesting it made sdkmanager exit 1 before any
+      # Gradle step ran. compileSdk's platform and build-tools are downloaded on demand
+      # by AGP itself during the Gradle build (as they already were even under the old
+      # default, which never included them) — nothing needs to be pre-installed here.
       - uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
+        with:
+          packages: ''
 
       - run: chmod +x gradlew
 
