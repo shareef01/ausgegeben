@@ -6,6 +6,7 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.aus.ausgegeben.data.FirestoreClient
+import com.aus.ausgegeben.data.FirestorePaths
 import com.aus.ausgegeben.data.PreferenceManager
 import com.aus.ausgegeben.data.auth.AuthRepository
 import com.aus.ausgegeben.util.localDayStartMillis
@@ -45,7 +46,7 @@ class DailyReminderWorker @AssistedInject constructor(
             // Spark budget; sumMonthExpenses is the query that needed the aggregate,
             // because it runs on every save over a whole month.
             val loggedToday = firestoreClient.get().collection("users").document(uid)
-                .collection("expenses")
+                .collection(FirestorePaths.EXPENSES_COLLECTION)
                 .whereGreaterThanOrEqualTo("dateMillis", dayStart)
                 .whereLessThan("dateMillis", dayEnd)
                 .get().await().documents
