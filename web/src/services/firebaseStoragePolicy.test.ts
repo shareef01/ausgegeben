@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { isPersistentStorageEnabled, setPersistentStorageEnabled } from './firebase';
+import {
+  isPersistentStorageEnabled,
+  resetPersistentStorageEnabled,
+  setPersistentStorageEnabled,
+} from './firebase';
 
 describe('trusted-device storage policy', () => {
   const values = new Map<string, string>();
@@ -24,5 +28,26 @@ describe('trusted-device storage policy', () => {
     expect(isPersistentStorageEnabled()).toBe(true);
     await setPersistentStorageEnabled(false);
     expect(isPersistentStorageEnabled()).toBe(false);
+  });
+
+  // AUTH-1: a device-wide flag that survives sign-out silently opts the next account
+  // into durable, on-disk Firestore caching without their consent.
+  it('resetPersistentStorageEnabled clears the preference (best-effort)', async () => {
+    await setPersistentStorageEnabled(true);
+    expect(isPersistentStorageEnabled()).toBe(true);
+
+    resetPersistentStorageEnabled();
+
+    expect(isPersistentStorageEnabled()).toBe(false);
+  });
+
+  it('resetPersistentStorageEnabled never throws, even if storage access fails', () => {
+    vi.stubGlobal('localStorage', {
+      getItem: () => { throw new Error('storage disabled'); },
+      setItem: () => { throw new Error('storage disabled'); },
+      removeItem: () => { throw new Error('storage disabled'); },
+    });
+
+    expect(() => resetPersistentStorageEnabled()).not.toThrow();
   });
 });
