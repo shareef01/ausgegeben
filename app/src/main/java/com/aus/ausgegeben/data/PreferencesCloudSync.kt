@@ -63,8 +63,8 @@ class PreferencesCloudSync @Inject constructor(
         val ref = firestore
             .collection("users")
             .document(uid)
-            .collection("settings")
-            .document("preferences")
+            .collection(FirestorePaths.SETTINGS_COLLECTION)
+            .document(FirestorePaths.PREFERENCES_DOC)
 
         registration = ref.addSnapshotListener { snap, error ->
             if (error != null) {
@@ -167,8 +167,8 @@ class PreferencesCloudSync @Inject constructor(
             val ref = firestore
                 .collection("users")
                 .document(uid)
-                .collection("settings")
-                .document("preferences")
+                .collection(FirestorePaths.SETTINGS_COLLECTION)
+                .document(FirestorePaths.PREFERENCES_DOC)
             val result = firestore.runTransaction { transaction ->
                 val remote = parseRemote(transaction.get(ref).data)
                 // Firestore retries this callback when another device commits first.

@@ -5,13 +5,12 @@ import { useAuthStore } from '@/services/authStore';
 import type { AppPreferences, SyncedPreferences, ThemeMode } from '@/models/types';
 import { normalizeAnalyticsPeriodKey } from '@/utils/periodUtils';
 import { prefsLwwAction } from '@/services/prefsLww';
+import { PREFERENCES_DOC, SETTINGS_COLLECTION } from '@/repositories/firestorePaths';
 
 export const PREFS_SYNC_ERROR_PERMISSION = 'permission';
 export const PREFS_SYNC_ERROR_NETWORK = 'network';
 export const PREFS_SYNC_ERROR_GENERIC = 'generic';
 
-const PREFS_COLLECTION = 'settings';
-const PREFS_DOC = 'preferences';
 const PREFS_READY_TIMEOUT_MS = 8_000;
 
 const VALID_LOCALES = new Set(['en', 'de']);
@@ -40,7 +39,7 @@ let lastWrittenAt = 0;
 let pushInFlight: Promise<void> | null = null;
 
 function prefsRef(uid: string) {
-  return doc(getFirebaseFirestore()!, 'users', uid, PREFS_COLLECTION, PREFS_DOC);
+  return doc(getFirebaseFirestore()!, 'users', uid, SETTINGS_COLLECTION, PREFERENCES_DOC);
 }
 
 function canWritePreferences(): boolean {
