@@ -22,8 +22,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.math.BigDecimal
-import java.security.MessageDigest
 import javax.inject.Inject
 
 @HiltViewModel
@@ -152,16 +150,20 @@ class AddExpenseViewModel @Inject constructor(
                         excludeIdForBudget = editingId
                         saveError = result.exceptionOrNull()
                     } else {
-                        // Persist the key before Firestore. A commit followed by a lost
-                        // response/process death will recover it from DataStore on retry.
-                        val fingerprint = expenseSubmissionFingerprint(expense)
-                        val idempotencyKey = preferenceManager.prepareExpenseSubmission(fingerprint)
-                        val result = expenseActions.insertExpense(expense, idempotencyKey)
+                        // A fresh operation id per explicit Save tap — never derived from
+                        // the field values — so two genuinely distinct transactions can
+                        // never be collapsed into one, even if every field happens to
+                        // match (DATA-1). Persisted before Firestore is called so a crash
+                        // between the write landing and this journal entry being cleared
+                        // is reconciled (not resubmitted) on next sign-in; see
+                        // AppRepository.ensureSeeded().
+                        val operationId = preferenceManager.beginExpenseSubmission()
+                        val result = expenseActions.insertExpense(expense, operationId)
                         excludeIdForBudget = result.getOrNull().orEmpty()
                         saveError = result.exceptionOrNull()
                         if (saveError == null) {
                             runSuspendCatching {
-                                preferenceManager.completeExpenseSubmission(fingerprint, idempotencyKey)
+                                preferenceManager.completeExpenseSubmission(operationId)
                             }.onFailure { e ->
                                 // The financial write is already acknowledged. Leaving the
                                 // journal makes a retry dedupe; it must not become a false save error.
@@ -228,24 +230,4 @@ class AddExpenseViewModel @Inject constructor(
         _dateMillis.value = System.currentTimeMillis()
         _loadedTransactionType.value = TransactionType.EXPENSE
     }
-}
-
-/** Stable across process restarts and independent of locale-specific input formatting. */
-internal fun expenseSubmissionFingerprint(expense: Expense): String {
-    val amount = BigDecimal.valueOf(expense.amount).stripTrailingZeros().toPlainString()
-    val fields = listOf(
-        amount,
-        // Time-of-day is volatile after a process restart. Day identity preserves a
-        // genuine retry while separating intentionally back/forward-dated entries.
-        Math.floorDiv(expense.dateMillis, 86_400_000L).toString(),
-        expense.categoryId,
-        expense.note,
-        expense.transactionType,
-    )
-    val canonical = buildString {
-        fields.forEach { value -> append(value.length).append(':').append(value) }
-    }
-    return MessageDigest.getInstance("SHA-256")
-        .digest(canonical.toByteArray(Charsets.UTF_8))
-        .joinToString("") { byte -> "%02x".format(byte) }
 }

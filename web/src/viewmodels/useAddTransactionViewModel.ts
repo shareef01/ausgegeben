@@ -7,8 +7,8 @@ import { usePreferencesStore } from '@/services/preferencesStore';
 import { useTranslation } from '@/i18n';
 import { useAuthStore } from '@/services/authStore';
 import {
+  beginExpenseSubmission,
   completeExpenseSubmission,
-  prepareExpenseSubmission,
 } from '@/services/expenseSubmissionJournal';
 
 export interface AddTransactionForm {
@@ -62,6 +62,75 @@ export function isStoredCategorySelectable(
   return selectableCategoriesFor(cats, type).some((c) => c.id === categoryId);
 }
 
+/**
+ * Writes one expense — a new document (minting a fresh operation id) or an update to
+ * `expenseId` — and best-effort clears its journal entry on success. Exported so
+ * regression tests exercise the exact write path `save()` uses (including against a
+ * real Firestore emulator), separate from the React-only concerns (`saving`/`error`
+ * state, i18n) that stay in the hook.
+ */
+export async function writeExpense(params: {
+  uid: string | undefined;
+  expenseId?: string;
+  payload: Omit<Expense, 'id'>;
+}): Promise<string> {
+  const { uid, expenseId, payload } = params;
+  if (expenseId) {
+    await expenseRepository.updateExpense({ ...payload, id: expenseId });
+    return expenseId;
+  }
+  if (!uid) throw new Error('Not signed in');
+  // A fresh operation id per explicit Save tap — never derived from the field
+  // values — so two genuinely distinct transactions can never be collapsed into
+  // one, even if every field happens to match. Persisted before Firestore is
+  // called so a crash between the write landing and this journal entry being
+  // cleared is reconciled (not resubmitted) on next sign-in; see ensureSeeded().
+  const prepared = await beginExpenseSubmission(uid);
+  const savedId = await expenseRepository.insertExpense(payload, prepared.operationId);
+  try {
+    await completeExpenseSubmission(prepared);
+  } catch (journalError) {
+    // The financial write is already acknowledged. Keeping the journal is safer
+    // than reporting a false save failure: a retry will resolve to the same doc.
+    console.warn('[useAddTransactionViewModel] could not clear submission journal', journalError);
+  }
+  return savedId;
+}
+
+/**
+ * Runs `fn` only if `guardRef.current` is not already true, claiming it synchronously
+ * first — before `fn`'s first `await` — so a second, overlapping call (e.g. a rapid
+ * double-tap on Save, invoked before React has committed `setSaving(true)`) is
+ * rejected before it ever mints an operation id or touches Firestore. React state
+ * cannot provide this lock on its own: a `setState` update is not synchronously
+ * visible to another invocation made in the same event turn (B2).
+ *
+ * `guardRef` must be scoped to one mounted add-transaction flow (created once via
+ * `useRef`, never a module-level value) — a shared guard would serialize unrelated
+ * flows against each other. It only ever suppresses a genuinely *overlapping* call on
+ * the same flow; once `fn` has settled (success or failure) the guard is released in
+ * `finally`, so a later, sequential call — even an explicit resubmission with an
+ * identical payload — is always allowed. That boundary is deliberate: this guards
+ * against accidental double-invocation, not against the user intentionally entering
+ * two identical transactions one after another (DATA-1 already covers that; see
+ * expenseSubmissionJournal.ts) — do not fold content-based checks into this guard.
+ *
+ * Exported so tests exercise this exact mechanism directly, including against a real
+ * Firestore emulator, rather than a re-implementation of it.
+ */
+export async function runExclusive<T>(
+  guardRef: { current: boolean },
+  fn: () => Promise<T>,
+): Promise<{ ok: true; value: T } | { ok: false; reason: 'overlapping' }> {
+  if (guardRef.current) return { ok: false, reason: 'overlapping' };
+  guardRef.current = true;
+  try {
+    return { ok: true, value: await fn() };
+  } finally {
+    guardRef.current = false;
+  }
+}
+
 export function useAddTransactionViewModel(expenseId?: string) {
   const { t } = useTranslation();
   const [form, setForm] = useState<AddTransactionForm>(defaultForm);
@@ -89,6 +158,16 @@ export function useAddTransactionViewModel(expenseId?: string) {
 
   /** Stored category exists but is not selectable (deleted, or the '0' sentinel). */
   const [categoryUnresolved, setCategoryUnresolved] = useState(false);
+
+  /**
+   * Synchronous re-entrancy guard for `save()` (B2). Checked and claimed by
+   * `runExclusive` before `save`'s first `await`, so a second overlapping
+   * invocation — e.g. two Save taps queued before this component re-renders with
+   * `saving=true` — is rejected before it can mint an operation id or write to
+   * Firestore. Deliberately a `useRef`, not a module-level value: it must be scoped
+   * to this one mounted add-transaction flow, never shared across instances.
+   */
+  const savingRef = useRef(false);
 
   const load = useCallback(async () => {
     setLoadFailed(false);
@@ -220,8 +299,6 @@ export function useAddTransactionViewModel(expenseId?: string) {
       setError(t('errorChooseCategory'));
       return { ok: false };
     }
-    setSaving(true);
-    setError(null);
     const payload: Omit<Expense, 'id'> = {
       amount,
       categoryId: form.categoryId,
@@ -229,47 +306,46 @@ export function useAddTransactionViewModel(expenseId?: string) {
       dateMillis: form.dateMillis,
       transactionType: form.transactionType,
     };
-    try {
-      let savedId: string;
-      if (expenseId) {
-        await expenseRepository.updateExpense({ ...payload, id: expenseId });
-        savedId = expenseId;
-      } else {
-        const uid = useAuthStore.getState().user?.uid;
-        if (!uid) throw new Error('Not signed in');
-        // Persist before Firestore. If the commit lands but its response is lost and
-        // the tab/process dies, the same normalized submission recovers the same key.
-        const prepared = await prepareExpenseSubmission(uid, payload);
-        savedId = await expenseRepository.insertExpense(payload, prepared.idempotencyKey);
-        try {
-          await completeExpenseSubmission(prepared);
-        } catch (journalError) {
-          // The financial write is already acknowledged. Keeping the journal is safer
-          // than reporting a false save failure: a retry will resolve to the same doc.
-          console.warn('[useAddTransactionViewModel] could not clear submission journal', journalError);
-        }
-      }
-      // Budget check is best-effort — a failed projection must not look like a failed save.
-      let budgetAlert: string | undefined;
+    // Everything from here down runs inside runExclusive's guard (B2): a second,
+    // overlapping call to save() reaching this point while this one is still in
+    // flight is rejected before it is ever invoked — it never touches setSaving,
+    // never mints an operation id, never calls Firestore. This deliberately does
+    // NOT reject a later, sequential save (even an identical one) — the guard is
+    // released in runExclusive's finally the moment this attempt settles.
+    const attempt = await runExclusive(savingRef, async (): Promise<SaveResult> => {
+      setSaving(true);
+      setError(null);
       try {
-        budgetAlert = await checkBudgetAlert(form.transactionType, amount, savedId);
+        const uid = useAuthStore.getState().user?.uid;
+        const savedId = await writeExpense({ uid, expenseId, payload });
+        // Budget check is best-effort — a failed projection must not look like a failed save.
+        let budgetAlert: string | undefined;
+        try {
+          budgetAlert = await checkBudgetAlert(form.transactionType, amount, savedId);
+        } catch (err) {
+          console.error('[useAddTransactionViewModel] budget check failed', err);
+          budgetAlert = t('errorBudgetCheckFailed');
+        }
+        return { ok: true, budgetAlert };
       } catch (err) {
-        console.error('[useAddTransactionViewModel] budget check failed', err);
-        budgetAlert = t('errorBudgetCheckFailed');
+        console.error('[useAddTransactionViewModel] save failed', err);
+        if (err instanceof Error && err.message === 'EXPENSE_NOT_FOUND') {
+          setLoadFailed(true);
+          setError(t('errorLoadFailed'));
+        } else {
+          setError(err instanceof EmailNotVerifiedError ? t('authVerifyRequired') : t('errorSaveFailed'));
+        }
+        return { ok: false };
+      } finally {
+        setSaving(false);
       }
-      return { ok: true, budgetAlert };
-      } catch (err) {
-      console.error('[useAddTransactionViewModel] save failed', err);
-      if (err instanceof Error && err.message === 'EXPENSE_NOT_FOUND') {
-        setLoadFailed(true);
-        setError(t('errorLoadFailed'));
-      } else {
-        setError(err instanceof EmailNotVerifiedError ? t('authVerifyRequired') : t('errorSaveFailed'));
-      }
-      return { ok: false };
-    } finally {
-      setSaving(false);
-    }
+    });
+    // attempt can only be `{ ok: false, reason: 'overlapping' }` here, never a
+    // Firestore/validation failure — those are already turned into `SaveResult`
+    // values inside the guarded callback above. An overlapping, redundant
+    // invocation reports failure quietly: the in-flight attempt it collided with
+    // owns showing success or failure for this logical save.
+    return attempt.ok ? attempt.value : { ok: false };
   };
 
   const reloadCategories = useCallback(async () => {

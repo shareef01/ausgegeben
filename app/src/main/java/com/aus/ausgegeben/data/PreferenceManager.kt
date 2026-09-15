@@ -1,6 +1,7 @@
 package com.aus.ausgegeben.data
 
 import android.content.Context
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.map
 import java.io.IOException
 import com.aus.ausgegeben.ui.theme.ThemeMode
 import com.aus.ausgegeben.util.AnalyticsPeriod
+import com.aus.ausgegeben.util.ExportUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -47,8 +49,7 @@ class PreferenceManager @Inject constructor(
         val LANGUAGE = stringPreferencesKey("language")
         /** LWW clock shared with web (`users/{uid}/settings/preferences.updatedAt`). */
         val PREFERENCES_UPDATED_AT = stringPreferencesKey("preferences_updated_at")
-        val PENDING_EXPENSE_FINGERPRINT = stringPreferencesKey("pending_expense_fingerprint_enc")
-        val PENDING_EXPENSE_IDEMPOTENCY_KEY = stringPreferencesKey("pending_expense_idempotency_key_enc")
+        val PENDING_EXPENSE_OPERATION_ID = stringPreferencesKey("pending_expense_operation_id_enc")
         val PENDING_EXPENSE_CREATED_AT = stringPreferencesKey("pending_expense_created_at_enc")
         // Legacy plaintext keys (migrated into sealed blobs on first read/write).
         val LEGACY_ONBOARDING = booleanPreferencesKey("onboarding_complete")
@@ -370,46 +371,79 @@ class PreferenceManager @Inject constructor(
             preferences.remove(PreferencesKeys.LEGACY_REMINDER_HOUR)
             preferences.remove(PreferencesKeys.REMINDER_MINUTE)
             preferences.remove(PreferencesKeys.LEGACY_REMINDER_MINUTE)
-            preferences.remove(PreferencesKeys.PENDING_EXPENSE_FINGERPRINT)
-            preferences.remove(PreferencesKeys.PENDING_EXPENSE_IDEMPOTENCY_KEY)
+            preferences.remove(PreferencesKeys.PENDING_EXPENSE_OPERATION_ID)
             preferences.remove(PreferencesKeys.PENDING_EXPENSE_CREATED_AT)
+        }
+        // See STOR-1: a CSV export is app-private cache, not DataStore, but this is the
+        // one function both sign-out and account deletion already call to clear local
+        // account state, so it closes both paths with a single edit. Best-effort: a
+        // cache-delete failure here must never prevent the caller's subsequent
+        // Firestore offline-cache clear from running.
+        runCatching { ExportUtils.clearExportCache(context) }
+            .onFailure { e -> Log.w(TAG, "clearExportCache failed", e) }
+    }
+
+    /**
+     * Mint and durably persist a fresh operation id for one explicit user submission.
+     *
+     * Identity here is a single submission *attempt*, never the semantic contents of an
+     * expense: two transactions with identical amount/category/note/type entered seconds
+     * apart are two legitimate, independent records. This always mints a new id and never
+     * looks at (or is passed) the expense's field values, so two calls always identify two
+     * distinct operations — see DATA-1. A genuine retry of the *same* attempt (e.g. a
+     * transient-error retry still inside the same save() call) simply reuses the id the
+     * caller already has; nothing here needs to be re-consulted for that case.
+     *
+     * Only one pending operation is tracked at a time: the ViewModel layer already
+     * disables the Save action while a submission is in flight, so at most one attempt
+     * per app process can ever be pending here.
+     */
+    override suspend fun beginExpenseSubmission(): String {
+        val operationId = UUID.randomUUID().toString()
+        val now = System.currentTimeMillis()
+        context.dataStore.edit { preferences ->
+            preferences.putSealed(PreferencesKeys.PENDING_EXPENSE_OPERATION_ID, operationId)
+            preferences.putSealed(PreferencesKeys.PENDING_EXPENSE_CREATED_AT, now.toString())
+        }
+        return operationId
+    }
+
+    /** Forget a submission's bookkeeping once its outcome (success or otherwise) is known. */
+    override suspend fun completeExpenseSubmission(operationId: String) {
+        context.dataStore.edit { preferences ->
+            val storedId = crypto.open(preferences[PreferencesKeys.PENDING_EXPENSE_OPERATION_ID])
+            if (storedId == operationId) {
+                preferences.remove(PreferencesKeys.PENDING_EXPENSE_OPERATION_ID)
+                preferences.remove(PreferencesKeys.PENDING_EXPENSE_CREATED_AT)
+            }
         }
     }
 
     /**
-     * Atomically recover or mint the key before Firestore is called. Only an opaque
-     * SHA-256 fingerprint and UUID are stored, sealed with the existing Keystore helper.
+     * Resolve a pending entry left behind by a process death between a Firestore write
+     * acknowledging and [completeExpenseSubmission] running.
+     *
+     * [exists] is asked whether that exact operation's document is already present
+     * server-side. If so, the write already succeeded — the entry is only bookkeeping now
+     * and is removed. This never attempts a write itself: it cannot resubmit a transaction
+     * whose write never reached the server (the field values were deliberately never
+     * persisted here), so such an entry is left alone until it ages past the cleanup grace
+     * period, then dropped. Either outcome is safe: a genuinely new, later submission
+     * always mints its own fresh id via [beginExpenseSubmission] and can never be matched
+     * against — let alone collapsed into — a leftover entry from here.
      */
-    override suspend fun prepareExpenseSubmission(fingerprint: String): String {
-        var prepared = UUID.randomUUID().toString()
-        val now = System.currentTimeMillis()
-        context.dataStore.edit { preferences ->
-            val storedFingerprint = crypto.open(preferences[PreferencesKeys.PENDING_EXPENSE_FINGERPRINT])
-            val storedKey = crypto.open(preferences[PreferencesKeys.PENDING_EXPENSE_IDEMPOTENCY_KEY])
-            val createdAt = crypto.open(preferences[PreferencesKeys.PENDING_EXPENSE_CREATED_AT])
-                ?.toLongOrNull()
-            val age = createdAt?.let { now - it }
-            if (storedFingerprint == fingerprint && !storedKey.isNullOrBlank() &&
-                age != null && age >= 0 && age <= PENDING_EXPENSE_TTL_MS
-            ) {
-                prepared = storedKey
-            } else {
-                preferences.putSealed(PreferencesKeys.PENDING_EXPENSE_FINGERPRINT, fingerprint)
-                preferences.putSealed(PreferencesKeys.PENDING_EXPENSE_IDEMPOTENCY_KEY, prepared)
-                preferences.putSealed(PreferencesKeys.PENDING_EXPENSE_CREATED_AT, now.toString())
-            }
-        }
-        return prepared
-    }
+    override suspend fun reconcilePendingExpenseSubmissions(exists: suspend (String) -> Boolean) {
+        val snapshot = context.dataStore.data.first()
+        val storedId = crypto.open(snapshot[PreferencesKeys.PENDING_EXPENSE_OPERATION_ID]) ?: return
+        val createdAt = crypto.open(snapshot[PreferencesKeys.PENDING_EXPENSE_CREATED_AT])?.toLongOrNull()
+        val stale = createdAt == null || System.currentTimeMillis() - createdAt > PENDING_EXPENSE_TTL_MS
+        val alreadyWritten = runCatching { exists(storedId) }.getOrDefault(false)
+        if (!alreadyWritten && !stale) return // may still be genuinely in flight; leave it
 
-    /** Clear only the acknowledged generation, never a newer concurrent submission. */
-    override suspend fun completeExpenseSubmission(fingerprint: String, idempotencyKey: String) {
         context.dataStore.edit { preferences ->
-            val storedFingerprint = crypto.open(preferences[PreferencesKeys.PENDING_EXPENSE_FINGERPRINT])
-            val storedKey = crypto.open(preferences[PreferencesKeys.PENDING_EXPENSE_IDEMPOTENCY_KEY])
-            if (storedFingerprint == fingerprint && storedKey == idempotencyKey) {
-                preferences.remove(PreferencesKeys.PENDING_EXPENSE_FINGERPRINT)
-                preferences.remove(PreferencesKeys.PENDING_EXPENSE_IDEMPOTENCY_KEY)
+            val current = crypto.open(preferences[PreferencesKeys.PENDING_EXPENSE_OPERATION_ID])
+            if (current == storedId) {
+                preferences.remove(PreferencesKeys.PENDING_EXPENSE_OPERATION_ID)
                 preferences.remove(PreferencesKeys.PENDING_EXPENSE_CREATED_AT)
             }
         }
@@ -427,6 +461,12 @@ class PreferenceManager @Inject constructor(
     }
 
     companion object {
+        private const val TAG = "PreferenceManager"
+
+        // Purely a cleanup grace period — see reconcilePendingExpenseSubmissions. An
+        // entry younger than this is left alone on the chance its write is still in
+        // flight; it is never reused to identify a submission, so this value cannot
+        // reintroduce or fix a correctness bug (DATA-1).
         private const val PENDING_EXPENSE_TTL_MS = 24 * 60 * 60 * 1000L
     }
 }
