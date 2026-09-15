@@ -60,7 +60,7 @@
     <string name="record_period_this_month">dieser monat</string>
     <string name="record_period_all_time">gesamt</string>
     <string name="record_delete_title">transaktion löschen?</string>
-    <string name="record_delete_message">dies kann nicht rückgängig gemacht werden.</string>
+    <string name="record_delete_message">du kannst dies über die erscheinende leiste rückgängig machen.</string>
     <string name="record_delete_confirm">löschen</string>
     <string name="record_delete_cancel">abbrechen</string>
     <string name="record_swipe_delete">löschen</string>
@@ -126,13 +126,13 @@
     <string name="settings_sign_out_subtitle">sitzung auf diesem gerät beenden</string>
     <string name="settings_sign_out_confirm">abmelden? du musst dich erneut anmelden, um auf deine cloud-daten zuzugreifen.</string>
     <string name="settings_delete_account">konto löschen</string>
-    <string name="settings_delete_account_confirm">konto und alle cloud-daten dauerhaft löschen? das kann nicht rückgängig gemacht werden.</string>
+    <string name="settings_delete_account_confirm">konto sowie alle ausgaben, kategorien und einstellungen dauerhaft löschen? das kann nicht rückgängig gemacht werden.</string>
     <string name="settings_delete_account_ok">konto gelöscht</string>
     <string name="settings_delete_account_failed">konto konnte nicht gelöscht werden</string>
     <string name="settings_delete_account_incomplete">cloud-daten wurden gelöscht, aber die anmeldung konnte nicht entfernt werden. tippe erneut auf konto löschen, um abzuschließen.</string>
     <string name="settings_delete_account_needs_reauth">melde dich erneut an und lösche dann dein konto</string>
     <string name="settings_deletion_pending_title">löschung unvollständig</string>
-    <string name="settings_deletion_pending">die löschung dieses kontos ist unvollständig. die cloud-daten sind bereits gelöscht. schließe die löschung ab oder behalte das konto und starte neu.</string>
+    <string name="settings_deletion_pending">die löschung dieses kontos ist unvollständig. die cloud-daten sind bereits gelöscht, und die löschung kann nicht abgebrochen werden — schließe sie ab, um auch die anmeldung zu entfernen.</string>
     <string name="settings_deletion_finish">löschung abschließen</string>
     <string name="settings_delete_account_password">gib zum bestätigen dein passwort ein</string>
     <string name="settings_delete_account_too_many_attempts">zu viele versuche. versuche es später erneut.</string>

@@ -23,9 +23,10 @@ import com.aus.ausgegeben.ui.theme.AppSpacing
 /**
  * Shown when a previous delete-account attempt wiped the cloud data but could not
  * remove the login. Such an account cannot record anything — seeding is blocked while
- * the marker is set — so it needs a visible way out on the device the app ships on.
- * The web client has offered both exits for some time; Android offered neither, which
- * left retrying the delete (or signing in on the web) as the only escape.
+ * the marker is set — and finishing the deletion is the only way out: the deletion
+ * marker is a permanent server-side write-freeze with no client permission to clear it
+ * (see firestore.rules and docs/maintenance.md), so there is no "keep the account"
+ * path on either platform, on the web or here (DOC-4).
  */
 @Composable
 fun AccountDeletionPendingBanner(
@@ -83,8 +84,8 @@ fun AccountDeletionPendingBanner(
                 horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm),
             ) {
                 // AppTextButton sizes itself from padding alone and can land under the
-                // 48dp floor. These two buttons are the only way out of an account that
-                // cannot record anything, so the target is pinned locally rather than by
+                // 48dp floor. This button is the only way out of an account that cannot
+                // record anything, so the target is pinned locally rather than by
                 // changing the shared component and reflowing every other caller.
                 AppTextButton(
                     onClick = onFinishDeleting,
