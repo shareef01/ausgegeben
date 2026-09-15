@@ -116,6 +116,54 @@ describe('errorSink', () => {
     expect(() => createEndpointSink(URL_UNDER_TEST)(report())).not.toThrow();
   });
 
+  // TEL-1: redaction is credential-shaped, not a PII/financial-data filter. These pin
+  // the two real regex bugs that are now fixed, and explicitly document the two known,
+  // accepted gaps (structural prevention — keeping field data out of throw sites in
+  // the first place, not chasing every possible secret-shaped regex — is the actual
+  // defense; see scripts/check-telemetry-throw-sites.mjs).
+  describe('redaction bypass strings (TEL-1)', () => {
+    it('redacts a multi-word secret in full, not just its first token (fixed)', () => {
+      const payload = buildPayload(report({
+        error: new Error('password: correct horse battery staple'),
+      }));
+      expect(payload.error.message).not.toContain('horse battery staple');
+    });
+
+    it('redacts a JWT with an empty trailing (unsigned) segment (fixed)', () => {
+      const payload = buildPayload(report({
+        error: new Error('token was eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.'),
+      }));
+      expect(payload.error.message).not.toContain('eyJhbGciOiJIUzI1NiJ9');
+      expect(payload.error.message).toContain('[JWT REDACTED]');
+    });
+
+    it('does NOT redact a bare-hostname email like admin@localhost (known, accepted gap)', () => {
+      const payload = buildPayload(report({ error: new Error('sent from admin@localhost') }));
+      // Documenting current behavior, not asserting it is desirable — the email regex
+      // requires a dotted TLD by design, matching the shape of a real email address.
+      expect(payload.error.message).toContain('admin@localhost');
+    });
+
+    it('does NOT redact credential-shaped keys outside the fixed keyword list, e.g. sid= (known, accepted gap)', () => {
+      const payload = buildPayload(report({ error: new Error('sid=abc123 x-api-key=sk_live_1') }));
+      // Documenting current behavior — chasing every possible key name is the "endless
+      // regexes" this design deliberately avoids; see the module doc comment on redact().
+      expect(payload.error.message).toContain('sid=abc123');
+      expect(payload.error.message).toContain('sk_live_1');
+    });
+
+    it('does not redact ordinary financial free text — it is not credential-shaped (known, accepted gap)', () => {
+      const payload = buildPayload(report({
+        error: new Error('refund of $4,532.10 to merchant "Acme Corp" invoice INV-2024-0088'),
+      }));
+      // This is exactly why structural prevention matters more here than more regexes:
+      // no regex over the message string can distinguish "safe free text" from "a
+      // leaked note/merchant name" — the fix is never putting one there. See the
+      // exhaustive throw-site audit referenced in redact()'s doc comment.
+      expect(payload.error.message).toContain('Acme Corp');
+    });
+  });
+
   it('does not attach the sink when error reporting is opted out', () => {
     const storage = new Map<string, string>();
     vi.stubGlobal('localStorage', {

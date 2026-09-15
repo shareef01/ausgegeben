@@ -37,12 +37,31 @@ interface SerializedError {
 const TEXT_LIMIT = 500;
 const STACK_LIMIT = 4_000;
 
+/**
+ * Credential-shaped redaction — this is NOT a PII or financial-data filter. It only
+ * recognizes tokens/secrets/emails by their own shape; ordinary free text (a merchant
+ * name, a note, an amount) has no such shape and passes through untouched. That gap is
+ * closed structurally instead, by keeping user-entered field values out of
+ * error.message/.stack in the first place (see the throw sites this ships next to, and
+ * `scripts/check-telemetry-throw-sites.mjs`, which fails CI if a future one smuggles
+ * interpolated field data into a thrown Error) — not by chasing every possible
+ * secret-shaped regex here. See TEL-1.
+ */
 function redact(value: unknown, limit: number): string {
   return String(value ?? '')
     .replace(/Bearer\s+[A-Za-z0-9._~+\/-]+=*/gi, 'Bearer [REDACTED]')
-    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, '[JWT REDACTED]')
+    // The final segment (signature) is optional: an unsigned/`alg:none` JWT has an
+    // empty third segment, which `+` (one-or-more) previously failed to match. No
+    // trailing \b either: a `\b` immediately after an empty match preceded by the
+    // literal "." separator is not a real word-boundary transition (the character
+    // before is already non-word, and there is nothing after at end-of-string), so it
+    // silently failed to match a trailing-dot JWT even with `*`.
+    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g, '[JWT REDACTED]')
     .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '[EMAIL REDACTED]')
-    .replace(/(password|refresh[_-]?token|access[_-]?token|authorization|cookie|secret)\s*[:=]\s*[^\s,;]+/gi, '$1=[REDACTED]')
+    // Consume to the next field separator (or end of string), not just to the next
+    // space — `password: correct horse battery staple` previously redacted only
+    // "correct" and shipped the rest of the passphrase unredacted.
+    .replace(/(password|refresh[_-]?token|access[_-]?token|authorization|cookie|secret)\s*[:=]\s*[^,;\n]+/gi, '$1=[REDACTED]')
     .slice(0, limit);
 }
 
