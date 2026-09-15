@@ -14,10 +14,27 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Fast, dependency-free checks over the workflow files themselves — catches a
+  # regression like CI-3 (an unescaped GitHub Actions expression reaching a shell
+  # command) without needing any of the heavier jobs below to even start.
+  workflow_validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: release.yml tag-validation regression test (CI-3)
+        run: bash scripts/test-release-tag-validation.sh
+
   android:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # Verifies the committed gradle-wrapper.jar's checksum against Gradle's own
+      # published list before any of it executes (CI-2) — distributionSha256Sum in
+      # gradle-wrapper.properties only checks the downloaded Gradle *distribution*; it
+      # has no way to verify the wrapper jar binary that is already committed to git.
+      - uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
@@ -62,6 +79,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
@@ -131,6 +150,12 @@ jobs:
       - run: npm run lint:css
         working-directory: web
 
+      # TEL-1: fails if a repository/service throw site dumps a whole object's
+      # contents into an Error message, which no telemetry redaction regex can
+      # distinguish from safe free text.
+      - run: npm run lint:telemetry
+        working-directory: web
+
       - run: npm run build
         working-directory: web
 
@@ -179,10 +204,58 @@ jobs:
       - run: npm run test:emulator
         working-directory: web
 
+  # Real-browser regression coverage for auth/session lifecycle guarantees no unit test
+  # can actually verify (mocking the Firebase SDK and browser storage tests the mock,
+  # not the browser) — see AUTH-1, AUTH-2, TEST-1. `.env.emulator` is gitignored (it is
+  # local dev convenience, not a secret — every value in it is a fake/demo placeholder)
+  # so it is regenerated here rather than committed.
+  browser_security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          # firebase-tools Firestore emulator requires JDK 21+
+          java-version: 21
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci
+        working-directory: web
+
+      - name: Write emulator-only Firebase config
+        run: |
+          cat > web/.env.emulator <<'EOF'
+          VITE_FIREBASE_API_KEY=fake-api-key
+          VITE_FIREBASE_AUTH_DOMAIN=localhost
+          VITE_FIREBASE_PROJECT_ID=demo-ausgegeben
+          VITE_FIREBASE_APP_ID=1:0:web:0
+          VITE_FIREBASE_USE_EMULATORS=true
+          EOF
+
+      - run: npx playwright install --with-deps chromium
+        working-directory: web
+
+      - run: npm run test:e2e
+        working-directory: web
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: failure()
+        with:
+          name: playwright-report
+          path: web/playwright-report/
+          retention-days: 7
+
   # Legacy commit-status API stays "pending" with zero statuses when only
   # check-runs exist, so publish a combined status for compatible clients.
   status:
-    needs: [android, instrumentation, web, rules, telemetry]
+    needs: [android, instrumentation, web, rules, telemetry, browser_security, workflow_validation]
     if: |
       always() && (
         github.event_name != 'pull_request' ||
@@ -198,7 +271,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           state=success
-          for result in "${{ needs.android.result }}" "${{ needs.instrumentation.result }}" "${{ needs.web.result }}" "${{ needs.rules.result }}" "${{ needs.telemetry.result }}"; do
+          for result in "${{ needs.android.result }}" "${{ needs.instrumentation.result }}" "${{ needs.web.result }}" "${{ needs.rules.result }}" "${{ needs.telemetry.result }}" "${{ needs.browser_security.result }}" "${{ needs.workflow_validation.result }}"; do
             if [ "$result" != "success" ]; then
               state=failure
               break
@@ -207,5 +280,5 @@ jobs:
           gh api "repos/${{ github.repository }}/statuses/${{ github.sha }}" \
             -f state="$state" \
             -f context="CI" \
-            -f description="android=${{ needs.android.result }}; instrumentation=${{ needs.instrumentation.result }}; web=${{ needs.web.result }}; rules=${{ needs.rules.result }}; telemetry=${{ needs.telemetry.result }}" \
+            -f description="android=${{ needs.android.result }}; instrumentation=${{ needs.instrumentation.result }}; web=${{ needs.web.result }}; rules=${{ needs.rules.result }}; telemetry=${{ needs.telemetry.result }}; browser_security=${{ needs.browser_security.result }}; workflow_validation=${{ needs.workflow_validation.result }}" \
             -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

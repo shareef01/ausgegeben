@@ -31,6 +31,10 @@ jobs:
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
 
+      # See CI-2 in ci.yml's `android` job for why this matters even here, on a tag
+      # ref: a tampered wrapper jar committed to the repository would still execute.
+      - uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
@@ -53,6 +57,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
@@ -170,6 +176,10 @@ jobs:
           # fallback command on every single release.
           fetch-depth: 0
 
+      # This is the job holding the signing secrets — a tampered wrapper jar reaching
+      # `./gradlew assembleProdRelease` below would execute with them present (CI-2).
+      - uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
@@ -213,7 +223,16 @@ jobs:
         run: |
           TAG="$TAG_INPUT"
           NAME="${TAG#v}"
-          if ! echo "$NAME" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+          # Bash's [[ =~ ]] anchors against the WHOLE string by default, unlike grep
+          # (even with -E), which matches per LINE: a multi-line workflow_dispatch
+          # input whose first line alone was a valid version could satisfy
+          # `echo "$NAME" | grep -qE '^...$'` while smuggling attacker-controlled text
+          # on later lines into $NAME, which then reached an unescaped GitHub Actions
+          # expression interpolated directly into a shell command further down this
+          # workflow. A real tag pushed via `git tag` can never contain a newline (git
+          # itself rejects it), so this only ever mattered for the workflow_dispatch
+          # input path — CI-3.
+          if [[ ! "$NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::Tag '$TAG' is not vMAJOR.MINOR.PATCH"
             exit 1
           fi
@@ -271,10 +290,12 @@ jobs:
           AUSGEGEBEN_STOREPASSWORD: ${{ secrets.AUSGEGEBEN_STOREPASSWORD }}
           AUSGEGEBEN_KEYALIAS: ${{ secrets.AUSGEGEBEN_KEYALIAS }}
           AUSGEGEBEN_KEYPASSWORD: ${{ secrets.AUSGEGEBEN_KEYPASSWORD }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
         run: |
           ./gradlew assembleProdRelease --no-daemon \
-            -PausgegebenVersionName=${{ steps.version.outputs.name }} \
-            -PausgegebenVersionCode=${{ steps.version.outputs.code }}
+            -PausgegebenVersionName="$VERSION_NAME" \
+            -PausgegebenVersionCode="$VERSION_CODE"
 
       # `apksigner verify` only proves the APK carries a valid signature — it says
       # nothing about *which* key produced it, and exits 0 for any self-signed cert.
@@ -283,6 +304,8 @@ jobs:
       # existing install: users are stranded on the old version with no upgrade path
       # and no error message that explains why. So pin the fingerprint and compare.
       - name: Verify the APK is signed by the expected key
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.name }}
         run: |
           APK=app/build/outputs/apk/prod/release/app-prod-release.apk
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
@@ -329,17 +352,20 @@ jobs:
             exit 1
           fi
           echo "signing certificate matches the pinned fingerprint ($ACTUAL)"
-          mv "$APK" "ausgegeben-${{ steps.version.outputs.name }}.apk"
+          mv "$APK" "ausgegeben-$VERSION_NAME.apk"
 
       - name: Verify release metadata and create checksum
+        env:
+          EXPECTED_VERSION_NAME: ${{ steps.version.outputs.name }}
+          EXPECTED_VERSION_CODE: ${{ steps.version.outputs.code }}
         run: |
-          APK="ausgegeben-${{ steps.version.outputs.name }}.apk"
+          APK="ausgegeben-$EXPECTED_VERSION_NAME.apk"
           PACKAGE=$(apkanalyzer manifest application-id "$APK")
           VERSION_NAME=$(apkanalyzer manifest version-name "$APK")
           VERSION_CODE=$(apkanalyzer manifest version-code "$APK")
           [ "$PACKAGE" = "com.aus.ausgegeben" ] || { echo "::error::Unexpected package $PACKAGE"; exit 1; }
-          [ "$VERSION_NAME" = "${{ steps.version.outputs.name }}" ] || { echo "::error::APK versionName $VERSION_NAME disagrees with tag"; exit 1; }
-          [ "$VERSION_CODE" = "${{ steps.version.outputs.code }}" ] || { echo "::error::APK versionCode $VERSION_CODE disagrees with derived code"; exit 1; }
+          [ "$VERSION_NAME" = "$EXPECTED_VERSION_NAME" ] || { echo "::error::APK versionName $VERSION_NAME disagrees with tag"; exit 1; }
+          [ "$VERSION_CODE" = "$EXPECTED_VERSION_CODE" ] || { echo "::error::APK versionCode $VERSION_CODE disagrees with derived code"; exit 1; }
           sha256sum "$APK" > SHA256SUMS
 
       # Signing is finished and verified, so the keystore has no further use in this
@@ -365,6 +391,11 @@ jobs:
       # execute new third-party code here without any change to this repository.
       - name: Launch the release APK on an emulator
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        env:
+          # `with.script` is spliced by the action, not this workflow's own `run:` —
+          # still routed through env: rather than direct interpolation for the same
+          # reason as elsewhere in this file (CI-3).
+          VERSION_NAME: ${{ steps.version.outputs.name }}
         with:
           api-level: 29
           target: google_apis
@@ -375,7 +406,7 @@ jobs:
           # across invocations and fails with a syntax error before ever checking the
           # app. Every check must fit on one line.
           script: |
-            adb install "ausgegeben-${{ steps.version.outputs.name }}.apk"
+            adb install "ausgegeben-$VERSION_NAME.apk"
             adb shell am start -n com.aus.ausgegeben/.MainActivity
             sleep 12
             adb shell pidof com.aus.ausgegeben > /dev/null || { echo "::error::release APK crashed on launch"; adb logcat -d | grep -iE 'FATAL|AndroidRuntime' | tail -20; exit 1; }
@@ -389,17 +420,28 @@ jobs:
       - name: Publish release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Never interpolate a GitHub Actions expression directly into a `run:` shell
+          # command (CI-3) — the runner splices each expression into the script as raw,
+          # unescaped text before bash ever parses it. Routing untrusted values
+          # through `env:` instead means bash sees them only as an already-quoted
+          # variable expansion. RELEASE_TAG is validated shape-only by the "Derive
+          # version from tag" step above (now whole-string-anchored); this is
+          # defense-in-depth so a future change to that validation cannot reopen an
+          # injection here even if it weakens the check upstream.
+          RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+          APK_NAME: ausgegeben-${{ steps.version.outputs.name }}.apk
+          RELEASE_TITLE: Ausgegeben ${{ steps.version.outputs.name }}
         run: |
-          gh release create "${{ github.event.inputs.tag || github.ref_name }}" \
-            "ausgegeben-${{ steps.version.outputs.name }}.apk" \
+          gh release create "$RELEASE_TAG" \
+            "$APK_NAME" \
             SHA256SUMS \
-            --title "Ausgegeben ${{ steps.version.outputs.name }}" \
+            --title "$RELEASE_TITLE" \
             --generate-notes \
             --notes-start-tag "$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo '')" \
-          || gh release create "${{ github.event.inputs.tag || github.ref_name }}" \
-                 "ausgegeben-${{ steps.version.outputs.name }}.apk" \
+          || gh release create "$RELEASE_TAG" \
+                 "$APK_NAME" \
                  SHA256SUMS \
-                 --title "Ausgegeben ${{ steps.version.outputs.name }}" \
+                 --title "$RELEASE_TITLE" \
                  --generate-notes
 
       # Covers the failure paths that never reach the early shred above.
