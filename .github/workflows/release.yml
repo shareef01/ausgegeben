@@ -40,7 +40,14 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      # See ci.yml's `android` job for why `packages: ''` replaces this action's
+      # default ("tools platform-tools", which no longer resolves — the legacy
+      # "tools" package was removed from Google's SDK repository). This job never
+      # calls adb; compileSdk's platform and build-tools are downloaded on demand by
+      # AGP itself during the Gradle build.
       - uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
+        with:
+          packages: ''
 
       - run: chmod +x gradlew
 
@@ -185,7 +192,17 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      # See ci.yml's `android` job for why `packages: ''` replaces this action's
+      # default ("tools platform-tools", which no longer resolves — the legacy
+      # "tools" package was removed from Google's SDK repository). The APK build and
+      # `apksigner verify` below only need compileSdk's platform and build-tools,
+      # which AGP downloads on demand; the on-device smoke test further down runs
+      # inside reactivecircus/android-emulator-runner's own step, which provisions
+      # its own independent SDK/emulator/platform-tools and does not depend on
+      # anything installed here.
       - uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
+        with:
+          packages: ''
 
       - run: chmod +x gradlew
 
