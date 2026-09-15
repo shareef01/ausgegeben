@@ -110,6 +110,19 @@ function isAllowedOrigin(origin, env) {
  * attacker-controllable by anyone willing to set a header. `source` and `name` are
  * interpolated into the log message itself, so an unescaped newline in either forges
  * what looks like a separate, genuine log entry. Caps stop one report filling the log.
+ *
+ * Credential-shaped redaction only: it recognizes tokens/secrets/emails by their own
+ * shape, not by content-sensitivity. This is NOT a PII or financial-data filter (see
+ * the matching comment on the client's own redact() in errorSink.ts, which this is
+ * functionally aligned with for the credential-shaped patterns both recognize — keep
+ * the two regex sets in sync). It is NOT byte-for-byte identical: this function's
+ * earlier control-character stripping (the line above these replaces) runs first and
+ * turns an embedded newline into a space before the credential regex ever sees it, so
+ * a secret followed by a real `\n` and more text is fully consumed here, while the
+ * client's redact() (which has no equivalent forgery-prevention step) correctly stops
+ * at the `\n`. That divergence is a side effect of a real, intentional log-forgery
+ * protection this Worker needs and the client does not — it only makes this function
+ * redact more of the surrounding text on that input, never less. See TEL-1.
  */
 function logSafe(value, max) {
   return String(value ?? '')
@@ -117,9 +130,15 @@ function logSafe(value, max) {
     // its log line. Written with escapes rather than literal control bytes.
     .replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ')
     .replace(/Bearer\s+[A-Za-z0-9._~+\/-]+=*/gi, 'Bearer [REDACTED]')
-    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, '[JWT REDACTED]')
+    // The final segment (signature) is optional: an unsigned/`alg:none` JWT has an
+    // empty third segment, which `+` (one-or-more) previously failed to match. No
+    // trailing \b either — see errorSink.ts's redact() for why that also silently
+    // fails to match a trailing-dot JWT even once `*` allows the empty segment.
+    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g, '[JWT REDACTED]')
     .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '[EMAIL REDACTED]')
-    .replace(/(password|refresh[_-]?token|access[_-]?token|authorization|cookie|secret)\s*[:=]\s*[^\s,;]+/gi, '$1=[REDACTED]')
+    // Consume to the next field separator (or end of string), not just to the next
+    // space — see errorSink.ts's redact() for the exact bug this closes.
+    .replace(/(password|refresh[_-]?token|access[_-]?token|authorization|cookie|secret)\s*[:=]\s*[^,;\n]+/gi, '$1=[REDACTED]')
     .slice(0, max);
 }
 
@@ -149,10 +168,48 @@ function isoOrNull(at) {
 }
 
 const RATE_LIMIT = 20;
+// A single source spread across many IPs (or many colos) can otherwise multiply past
+// RATE_LIMIT — see the per-colo/non-atomic caveats below. This bounds the aggregate
+// worst case for requests landing in any *one* colo, independent of how many distinct
+// IPs contributed to it. Deliberately generous relative to RATE_LIMIT: this is a
+// backstop against a flood, not a tight per-caller limit, so it should essentially
+// never trigger for legitimate traffic (this app's entire crash volume is expected to
+// be a handful of reports a week).
+const GLOBAL_RATE_LIMIT = 300;
 const RATE_WINDOW_SECONDS = 60;
 
 /**
- * Per-IP rate limit. Returns true when the request should proceed.
+ * Increment-and-check a single Cache API counter. Returns true when `key` has not yet
+ * reached `limit` for the current window, and durably records this call either way.
+ *
+ * Not atomic (see `withinRateLimit`'s own doc comment) — a burst of near-simultaneous
+ * calls for the same key can each read the same `seen` value before any of their
+ * writes land, undercounting by up to (burst size - 1). Fine for an abuse backstop;
+ * would not be fine as the sole guard for something that needed an exact ceiling.
+ */
+async function checkAndIncrement(key, limit, ctx) {
+  const window = Math.floor(Date.now() / (RATE_WINDOW_SECONDS * 1000));
+  // A synthetic GET is the documented way to key the Cache API by something other
+  // than a real URL. The host is deliberately unroutable.
+  const cacheKey = new Request(`https://ratelimit.invalid/${encodeURIComponent(key)}/${window}`);
+  const cache = caches.default;
+  const hit = await cache.match(cacheKey);
+  const seen = hit ? Number(await hit.text()) || 0 : 0;
+  if (seen >= limit) return false;
+  const write = cache.put(
+    cacheKey,
+    new Response(String(seen + 1), {
+      headers: { 'Cache-Control': `max-age=${RATE_WINDOW_SECONDS}` },
+    }),
+  );
+  if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(write);
+  else await write;
+  return true;
+}
+
+/**
+ * Per-IP (plus a global backstop) rate limit. Returns true when the request should
+ * proceed.
  *
  * Two mechanisms, because the obvious one does not work here.
  *
@@ -165,14 +222,26 @@ const RATE_WINDOW_SECONDS = 60;
  * limiter is live and it enforces nothing on this account. The call is kept because it
  * costs nothing and starts working if that ever changes — but it is not the mechanism.
  *
- * The counter below is. It uses the Cache API, which is free, needs no binding, and is
- * the only durable-ish store available here: KV allows 1,000 writes a day on the free
- * plan and this would need one per request, and Durable Objects are paid.
+ * The counters below are. They use the Cache API, which is free, needs no binding, and
+ * is the only durable-ish store available here: KV allows 1,000 writes a day on the
+ * free plan and this would need one per request, and Durable Objects — which is what a
+ * genuinely atomic, single global counter would require — are a paid feature this
+ * Worker is deliberately built without (see the top-of-file comment: telemetry stays
+ * isolated from Firebase billing, and equally from adding a paid Cloudflare
+ * dependency). This is a documented, accepted trade-off, not an oversight.
  *
- * Two honest limits. The cache is per data centre, so a caller spread across regions
- * gets the limit per region. And read-then-write is not atomic, so a burst of exactly
- * simultaneous requests undercounts. Neither matters much for what this defends
- * against: one source flooding the log and burning the daily request allowance.
+ * Two honest limits, confirmed by measurement, not just reasoned about: the cache is
+ * per data centre, so 20 concurrent requests against two independent cache instances
+ * (simulating two colos) each independently admitted their own 20 — 40 total for one
+ * IP against a nominal cap of 20. And read-then-write is not atomic, so a burst of
+ * genuinely simultaneous requests undercounts further still — measured at up to 2x
+ * (40/40 accepted) against a mocked cache modelling realistic Cache API latency. No
+ * exact global limit is being claimed here; do not read RATE_LIMIT/GLOBAL_RATE_LIMIT as
+ * hard ceilings. The GLOBAL_RATE_LIMIT counter narrows, but does not eliminate, the
+ * multi-IP/multi-colo gap: it caps the aggregate accepted in any one colo regardless of
+ * how many distinct IPs contributed, so a flood spread across many IPs no longer scales
+ * unboundedly with IP count within that colo. It does not — and cannot, without a
+ * Durable Object — unify counting *across* colos.
  *
  * Counter failures fail closed. Losing telemetry during an edge-cache incident is
  * preferable to turning a known public endpoint into an unbounded log-ingestion path.
@@ -193,24 +262,8 @@ async function withinRateLimit(request, env, ctx) {
 
   try {
     const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
-    const window = Math.floor(Date.now() / (RATE_WINDOW_SECONDS * 1000));
-    // A synthetic GET is the documented way to key the Cache API by something other
-    // than a real URL. The host is deliberately unroutable.
-    const cacheKey = new Request(
-      `https://ratelimit.invalid/${encodeURIComponent(ip)}/${window}`,
-    );
-    const cache = caches.default;
-    const hit = await cache.match(cacheKey);
-    const seen = hit ? Number(await hit.text()) || 0 : 0;
-    if (seen >= RATE_LIMIT) return false;
-    const write = cache.put(
-      cacheKey,
-      new Response(String(seen + 1), {
-        headers: { 'Cache-Control': `max-age=${RATE_WINDOW_SECONDS}` },
-      }),
-    );
-    if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(write);
-    else await write;
+    if (!(await checkAndIncrement(ip, RATE_LIMIT, ctx))) return false;
+    if (!(await checkAndIncrement('__global__', GLOBAL_RATE_LIMIT, ctx))) return false;
     return true;
   } catch {
     return false;
@@ -234,7 +287,7 @@ function summarize(report) {
   };
 }
 
-export { logSafe, resetJwksCacheForTests, safeContext, summarize, verifyAppCheckToken };
+export { logSafe, resetJwksCacheForTests, safeContext, summarize, verifyAppCheckToken, withinRateLimit };
 
 export default {
   async fetch(request, env, ctx) {

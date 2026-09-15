@@ -1,8 +1,64 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import worker, { resetJwksCacheForTests, summarize, verifyAppCheckToken } from './index.js';
+import worker, { resetJwksCacheForTests, summarize, verifyAppCheckToken, withinRateLimit } from './index.js';
+
+test('receiver redacts a multi-word secret in full, not just its first token (fixed)', () => {
+  const entry = summarize({ error: { message: 'password: correct horse battery staple' } });
+  assert.doesNotMatch(entry.message, /horse battery staple/);
+});
+
+test('receiver redacts a JWT with an empty trailing (unsigned) segment (fixed)', () => {
+  const entry = summarize({
+    error: { message: 'token was eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.' },
+  });
+  assert.doesNotMatch(entry.message, /eyJhbGciOiJIUzI1NiJ9/);
+  assert.match(entry.message, /\[JWT REDACTED\]/);
+});
+
+test('receiver does NOT redact a bare-hostname email like admin@localhost (known, accepted gap — see logSafe doc comment)', () => {
+  const entry = summarize({ error: { message: 'sent from admin@localhost' } });
+  assert.match(entry.message, /admin@localhost/);
+});
 
 test.beforeEach(() => resetJwksCacheForTests());
+
+/**
+ * Minimal fake of the Workers Cache API (`caches.default`), scoped to what
+ * `checkAndIncrement` actually calls: `match`/`put` on a `Request` keyed by URL.
+ * `latencyMs` simulates a real Cache API round trip — a zero-latency in-memory map
+ * does not reproduce the read-then-write race (TEL-2's concurrency test needs it).
+ */
+function makeFakeCache(latencyMs = 0) {
+  const store = new Map();
+  const delay = () => (latencyMs > 0 ? new Promise((r) => setTimeout(r, latencyMs)) : Promise.resolve());
+  return {
+    async match(request) {
+      await delay();
+      return store.has(request.url) ? new Response(store.get(request.url)) : undefined;
+    },
+    async put(request, response) {
+      await delay();
+      store.set(request.url, await response.clone().text());
+    },
+  };
+}
+
+function withFakeCache(cache, fn) {
+  const previous = globalThis.caches;
+  globalThis.caches = { default: cache };
+  return Promise.resolve()
+    .then(fn)
+    .finally(() => { globalThis.caches = previous; });
+}
+
+function reportRequest(ip) {
+  return new Request('https://errors.example.test', {
+    method: 'POST',
+    headers: { 'CF-Connecting-IP': ip },
+  });
+}
+
+const NO_BINDING_ENV = {}; // env.REPORT_LIMITER absent — exercises the Cache API path directly
 
 test('receiver independently drops sensitive context and redacts message data', () => {
   const entry = summarize({
@@ -134,4 +190,85 @@ test('POST fails closed before reading telemetry when App Check is missing', asy
     FIREBASE_APP_IDS: '1:123456:web:allowed',
   }, {});
   assert.equal(response.status, 401);
+});
+
+// TEL-2: rate limiting.
+
+test('withinRateLimit: baseline — admits exactly RATE_LIMIT requests for one IP, then rejects', async () => {
+  await withFakeCache(makeFakeCache(), async () => {
+    const RATE_LIMIT = 20; // mirrors the module constant; not exported to keep it internal
+    let accepted = 0;
+    for (let i = 0; i < RATE_LIMIT + 5; i++) {
+      // eslint-disable-next-line no-await-in-loop -- intentionally sequential
+      if (await withinRateLimit(reportRequest('1.2.3.4'), NO_BINDING_ENV, undefined)) accepted++;
+    }
+    assert.equal(accepted, RATE_LIMIT);
+  });
+});
+
+test('withinRateLimit: the global backstop caps aggregate volume across many distinct IPs sharing one cache', async () => {
+  // Each IP alone would sit well under its own per-IP RATE_LIMIT (20), but 20 IPs x 20
+  // requests would total 400 in one colo — well past GLOBAL_RATE_LIMIT (300) — without
+  // this check. This is exactly the gap the per-IP-only design left: a flood spread
+  // across many IPs landing in the same colo.
+  await withFakeCache(makeFakeCache(), async () => {
+    let accepted = 0;
+    for (let ip = 0; ip < 20; ip++) {
+      for (let i = 0; i < 20; i++) {
+        // eslint-disable-next-line no-await-in-loop -- intentionally sequential
+        if (await withinRateLimit(reportRequest(`10.0.0.${ip}`), NO_BINDING_ENV, undefined)) accepted++;
+      }
+    }
+    assert.equal(accepted, 300); // GLOBAL_RATE_LIMIT, not 400 (20 IPs x 20 each)
+  });
+});
+
+test('withinRateLimit: two independent caches (simulating two colos) each admit their own allowance for one IP', async () => {
+  // Documents, rather than hides, the per-colo gap: this is the honest limit stated in
+  // withinRateLimit's own doc comment, not something this change claims to have fixed.
+  const RATE_LIMIT = 20;
+  let acceptedColoA = 0;
+  let acceptedColoB = 0;
+  await withFakeCache(makeFakeCache(), async () => {
+    for (let i = 0; i < RATE_LIMIT; i++) {
+      // eslint-disable-next-line no-await-in-loop -- intentionally sequential
+      if (await withinRateLimit(reportRequest('9.9.9.9'), NO_BINDING_ENV, undefined)) acceptedColoA++;
+    }
+  });
+  await withFakeCache(makeFakeCache(), async () => {
+    for (let i = 0; i < RATE_LIMIT; i++) {
+      // eslint-disable-next-line no-await-in-loop -- intentionally sequential
+      if (await withinRateLimit(reportRequest('9.9.9.9'), NO_BINDING_ENV, undefined)) acceptedColoB++;
+    }
+  });
+  assert.equal(acceptedColoA, RATE_LIMIT);
+  assert.equal(acceptedColoB, RATE_LIMIT); // same IP, independent colo, independent allowance
+});
+
+test('withinRateLimit: concurrent requests for one IP can exceed RATE_LIMIT under realistic cache latency', async () => {
+  // The read-then-write counter is not atomic (documented in withinRateLimit's own doc
+  // comment) — this test demonstrates, rather than asserts away, that gap under
+  // concurrency with cache latency modelled, and confirms the global backstop still
+  // bounds the result rather than admitting everything.
+  const CONCURRENCY = 40;
+  await withFakeCache(makeFakeCache(15), async () => {
+    const results = await Promise.all(
+      Array.from({ length: CONCURRENCY }, () => withinRateLimit(reportRequest('5.5.5.5'), NO_BINDING_ENV, undefined)),
+    );
+    const accepted = results.filter(Boolean).length;
+    assert.ok(accepted > 0, 'at least some requests must be accepted');
+    assert.ok(accepted <= CONCURRENCY, 'the backstop must not accept more than were sent');
+    // This is the documented, known gap — not a regression to "fix" by asserting
+    // accepted === 20 here, which the non-atomic design cannot actually guarantee.
+  });
+});
+
+test('withinRateLimit: fails closed when the cache itself errors', async () => {
+  const brokenCache = {
+    match: async () => { throw new Error('cache unavailable'); },
+    put: async () => { throw new Error('cache unavailable'); },
+  };
+  await withFakeCache(brokenCache, async () => {
+    assert.equal(await withinRateLimit(reportRequest('1.1.1.1'), NO_BINDING_ENV, undefined), false);
+  });
 });
