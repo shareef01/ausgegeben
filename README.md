@@ -49,7 +49,7 @@ Every screenshot is generated from a verified demo account against local Firebas
 - Records expenses, income, and transfers with notes and custom categories
 - Breaks down spending by category and visualizes cash flow over time
 - Tracks a monthly spending limit and highlights budget progress
-- Searches, duplicates, soft-deletes, restores, and exports transactions to CSV (with a versioned JSON backup format for disaster recovery)
+- Searches and duplicates transactions, deletes with a brief undo window, and exports to CSV (a versioned JSON backup format exists for future disaster-recovery tooling — see `docs/local-backup-plan.md` — but there is no restore/import path yet, so the export today is a reporting format, not a substitute for a backup)
 - Synchronizes data and preferences between Android and the web
 - Supports English and German, multiple currencies, and several light and dark themes
 - Works offline through Firestore's local cache, with browser persistence controlled per device

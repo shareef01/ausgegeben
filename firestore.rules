@@ -34,9 +34,11 @@ service cloud.firestore {
     }
 
     function accountAcceptsWrites(userId) {
-      // Valid clients never persist a false marker: "keep account" deletes it. Using
-      // existence as the lock also avoids evaluating get().data for a missing document,
-      // which Firestore Rules treats as an evaluation error rather than an empty map.
+      // The marker's mere existence is the lock — not its field values — which also
+      // avoids evaluating get().data for a missing document (Firestore Rules treats
+      // that as an evaluation error, not an empty map). This tombstone is permanent
+      // (see the meta/{docId} block below): no client can ever remove it once created,
+      // by design (DOC-4/DOC-5) — there is no "keep the account" path that clears it.
       return !exists(/databases/$(database)/documents/users/$(userId)/meta/accountDeletion);
     }
 

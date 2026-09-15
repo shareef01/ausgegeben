@@ -59,7 +59,7 @@
     <string name="record_period_this_month">This month</string>
     <string name="record_period_all_time">All time</string>
     <string name="record_delete_title">Delete transaction?</string>
-    <string name="record_delete_message">This cannot be undone. Swipe again if you tapped by mistake.</string>
+    <string name="record_delete_message">You can undo this from the snackbar that appears.</string>
     <string name="record_delete_confirm">Delete</string>
     <string name="record_delete_cancel">Cancel</string>
     <string name="record_swipe_delete">Delete</string>
@@ -127,13 +127,13 @@
     <string name="settings_sign_out_subtitle">End this session on this device</string>
     <string name="settings_sign_out_confirm">Sign out? You\'ll need to sign in again to access your cloud data.</string>
     <string name="settings_delete_account">Delete account</string>
-    <string name="settings_delete_account_confirm">Permanently delete your account and all cloud data? This cannot be undone.</string>
+    <string name="settings_delete_account_confirm">Permanently delete your account and all your expenses, categories, and preferences? This cannot be undone.</string>
     <string name="settings_delete_account_ok">Account deleted</string>
     <string name="settings_delete_account_failed">Could not delete account</string>
     <string name="settings_delete_account_incomplete">Cloud data was erased but the login could not be removed. Try Delete account again to finish.</string>
     <string name="settings_delete_account_needs_reauth">Sign in again, then delete your account</string>
     <string name="settings_deletion_pending_title">Deletion unfinished</string>
-    <string name="settings_deletion_pending">This account is part-way through deletion. Its cloud data is already gone. Finish deleting it, or keep the account and start fresh.</string>
+    <string name="settings_deletion_pending">This account is part-way through deletion. Its cloud data is already gone, and the deletion cannot be cancelled — finish deleting it to remove the login as well.</string>
     <string name="settings_deletion_finish">Finish deleting</string>
     <string name="settings_delete_account_password">Enter your password to confirm</string>
     <string name="settings_delete_account_too_many_attempts">Too many attempts. Try again later.</string>
