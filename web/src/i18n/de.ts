@@ -145,7 +145,7 @@ export const de: Record<TranslationKey, string> = {
   settingsSyncErrorGeneric: 'cloud-sync ist vorübergehend nicht verfügbar. bitte erneut versuchen.',
   settingsSyncRetry: 'sync erneut versuchen',
   settingsDeleteAccount: 'konto löschen',
-  settingsDeleteAccountConfirm: 'konto und alle cloud-daten dauerhaft löschen? das kann nicht rückgängig gemacht werden.',
+  settingsDeleteAccountConfirm: 'konto sowie alle ausgaben, kategorien und einstellungen dauerhaft löschen? das kann nicht rückgängig gemacht werden.',
   settingsDeleteAccountFailed: 'konto konnte nicht gelöscht werden',
   settingsDeleteAccountNeedsReauth: 'melde dich erneut an und lösche dann dein konto',
   settingsDeleteAccountPassword: 'gib zum bestätigen dein passwort ein',
@@ -154,7 +154,7 @@ export const de: Record<TranslationKey, string> = {
   settingsDeleteAccountIncomplete:
     'cloud-daten wurden gelöscht, aber die anmeldung konnte nicht entfernt werden. tippe erneut auf konto löschen, um abzuschließen.',
   settingsDeletionPending:
-    'die löschung dieses kontos ist unvollständig. die cloud-daten sind bereits gelöscht. schließe die löschung ab oder behalte das konto und starte neu.',
+    'die löschung dieses kontos ist unvollständig. die cloud-daten sind bereits gelöscht, und die löschung kann nicht abgebrochen werden — schließe sie ab, um auch die anmeldung zu entfernen.',
   settingsDeletionFinish: 'löschung abschließen',
   settingsVersionSubtitle: 'version {version}',
   settingsVersion: 'version',
@@ -162,7 +162,7 @@ export const de: Record<TranslationKey, string> = {
   settingsData: 'daten',
   settingsAbout: 'über',
   settingsErrorReporting: 'absturzberichte senden',
-  settingsErrorReportingSub: 'wenn aktiv, gehen unbehandelte fehler (meldung, stack, seitenpfad, browser) an einen eigenen endpunkt — nie beträge oder kontodaten',
+  settingsErrorReportingSub: 'wenn aktiv, gehen unbehandelte fehler (meldung, stack, seitenpfad, browser) an einen eigenen endpunkt — dein konto wird nie mitgeschickt, bekannte geheimnisse werden vorher entfernt',
   onboardingGetStarted: 'loslegen',
   onboardingNext: 'weiter',
   onboardingSkip: 'überspringen',

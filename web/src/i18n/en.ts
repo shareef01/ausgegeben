@@ -143,7 +143,7 @@ export const en = {
   settingsSyncErrorGeneric: 'cloud sync is temporarily unavailable. please try again.',
   settingsSyncRetry: 'retry sync',
   settingsDeleteAccount: 'delete account',
-  settingsDeleteAccountConfirm: 'permanently delete your account and all cloud data? this cannot be undone.',
+  settingsDeleteAccountConfirm: 'permanently delete your account and all your expenses, categories, and preferences? this cannot be undone.',
   settingsDeleteAccountFailed: 'could not delete account',
   settingsDeleteAccountNeedsReauth: 'sign in again, then delete your account',
   settingsDeleteAccountPassword: 'enter your password to confirm',
@@ -152,7 +152,7 @@ export const en = {
   settingsDeleteAccountIncomplete:
     'cloud data was erased but the login could not be removed. try delete account again to finish.',
   settingsDeletionPending:
-    'this account is part-way through deletion. its cloud data is already gone. finish deleting it, or keep the account and start fresh.',
+    'this account is part-way through deletion. its cloud data is already gone, and the deletion cannot be cancelled — finish deleting it to remove the login as well.',
   settingsDeletionFinish: 'finish deleting',
   settingsVersionSubtitle: 'version {version}',
   settingsVersion: 'version',
@@ -160,7 +160,7 @@ export const en = {
   settingsData: 'data',
   settingsAbout: 'about',
   settingsErrorReporting: 'send crash reports',
-  settingsErrorReportingSub: 'when enabled, unhandled errors (message, stack, page path, browser) go to a first-party endpoint — never amounts or account data',
+  settingsErrorReportingSub: 'when enabled, unhandled errors (message, stack, page path, browser) go to a first-party endpoint — your account is never attached, and known secrets are redacted first',
   onboardingGetStarted: 'get started',
   onboardingNext: 'next',
   onboardingSkip: 'skip',
