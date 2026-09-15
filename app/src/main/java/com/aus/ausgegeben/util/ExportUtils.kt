@@ -128,4 +128,15 @@ object ExportUtils {
 
     private val FORMULA_TRIGGERS = charArrayOf('=', '+', '-', '@', '\t', '\r')
     private const val EXPORT_TIMEOUT_MS = 15_000L
+
+    /**
+     * Deletes any CSV export left in the app-private cache (STOR-1). Neither sign-out
+     * nor account deletion touched this directory before: `exportCsv` only clears a
+     * *previous* export at the start of the *next* one, so a full copy of the user's
+     * transaction history could outlive the account that authorized it. Call this from
+     * the same place both flows already clear other local account state.
+     */
+    fun clearExportCache(context: Context) {
+        File(context.cacheDir, "exports").deleteRecursively()
+    }
 }
