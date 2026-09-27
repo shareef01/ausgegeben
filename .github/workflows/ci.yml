@@ -331,7 +331,12 @@ jobs:
             echo "| workflow_validation | ${{ needs.workflow_validation.result }} |"
           } >> "$GITHUB_STEP_SUMMARY"
 
-          gh api "repos/${{ github.repository }}/statuses/${{ github.sha }}" \
+          # The aggregate status must land on the PR HEAD commit, not github.sha: on
+          # pull_request events github.sha is the ephemeral merge-ref commit, which
+          # rulesets/branch protection never consult — posting there leaves the
+          # required `CI` status permanently pending on the head commit (SUPPLY-1).
+          # Push events have no pull_request context and fall through to github.sha.
+          gh api "repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha || github.sha }}" \
             -f state="$state" \
             -f context="CI" \
             -f description="$description" \
