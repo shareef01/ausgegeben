@@ -131,8 +131,12 @@ test.describe('AUTH-1: trusted-device persistence does not leak across accounts'
 
 // AUTH-2: session-only persistence has no built-in cross-tab signal, so a tab that did
 // not itself sign out kept rendering as authenticated indefinitely.
-test.describe('AUTH-2: cross-tab logout propagation', () => {
-  test('signing out in one tab invalidates another open tab sharing the same session', async ({ context }) => {
+// AUTH-3: the invalidation in the receiving tab must also remove that tab's own
+// Firebase Auth session — under session-only persistence the initiating tab cannot
+// reach the receiving tab's sessionStorage copy, so a merely-visual invalidation would
+// resurrect the user on the next reload of that tab.
+test.describe('AUTH-2/AUTH-3: cross-tab logout propagation', () => {
+  test('signing out in one tab invalidates another open tab sharing the same session, and survives a reload', async ({ context }) => {
     const email = `crosstab-${test.info().workerIndex}@example.com`;
     await createVerifiedUser(email, PASSWORD);
 
@@ -156,6 +160,28 @@ test.describe('AUTH-2: cross-tab logout propagation', () => {
     // Tab B never triggered sign-out itself, and is never reloaded here — it must react
     // to the broadcast on its own within a bounded time.
     await expect(tabB.locator('#auth-email')).toBeVisible({ timeout: 5_000 });
+    await expect(tabB.locator('#app-main')).toHaveCount(0);
+
+    // The store-level invalidation is synchronous, but tab B's local Firebase signOut
+    // (which removes this tab's persisted session copy) is not — wait for the storage
+    // to be actually cleared before reloading, or the reload would race the cleanup
+    // and the test would be flaky rather than green/red on the real behavior.
+    await expect.poll(() =>
+      tabB.evaluate(() => {
+        for (let i = 0; i < sessionStorage.length; i++) {
+          const key = sessionStorage.key(i);
+          if (key?.startsWith('firebase:authUser')) return true;
+        }
+        return false;
+      }),
+      { timeout: 5_000 },
+    ).toBe(false);
+
+    // AUTH-3: the invalidation must not be merely visual/in-memory. Before the fix,
+    // this reload let onAuthStateChanged restore the user from tab B's own
+    // sessionStorage copy and land back in the authenticated app.
+    await tabB.reload();
+    await expect(tabB.locator('#auth-email')).toBeVisible({ timeout: 15_000 });
     await expect(tabB.locator('#app-main')).toHaveCount(0);
   });
 });

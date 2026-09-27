@@ -17,10 +17,12 @@ interface TransactionPreferences {
     suspend fun updateAnalyticsPeriodKey(storageKey: String)
 
     /**
-     * Mint and durably persist a fresh operation id for one explicit user submission.
-     * Never derived from the expense's field values, so two distinct Save taps always
-     * get two distinct ids even given byte-identical fields — see DATA-1. Default keeps
-     * narrow test fakes source-compatible.
+     * Mint and durably persist a fresh operation id for one explicit user submission,
+     * appending it to the multi-entry journal of unresolved attempts (DATA-2). Never
+     * derived from the expense's field values, so two distinct Save taps always get two
+     * distinct ids even given byte-identical fields — see DATA-1 — and beginning a new
+     * submission never overwrites an earlier one that has not resolved yet. Default
+     * keeps narrow test fakes source-compatible.
      */
     suspend fun beginExpenseSubmission(): String = UUID.randomUUID().toString()
 
@@ -28,9 +30,10 @@ interface TransactionPreferences {
     suspend fun completeExpenseSubmission(operationId: String) = Unit
 
     /**
-     * Resolve a pending entry left behind by a process death between a Firestore write
-     * acknowledging and [completeExpenseSubmission] running. Never attempts a write of
-     * its own — see [PreferenceManager.reconcilePendingExpenseSubmissions].
+     * Resolve every pending entry left behind by a process death between a Firestore
+     * write acknowledging and [completeExpenseSubmission] running. Never attempts a
+     * write of its own and checks each operation independently — see
+     * [PreferenceManager.reconcilePendingExpenseSubmissions].
      */
     suspend fun reconcilePendingExpenseSubmissions(exists: suspend (String) -> Boolean) = Unit
 }

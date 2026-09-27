@@ -5,6 +5,8 @@ import androidx.test.core.app.ApplicationProvider
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.CategoryActions
 import com.aus.ausgegeben.data.ExpenseActions
+import com.aus.ausgegeben.data.PendingExpenseJournal
+import com.aus.ausgegeben.data.PendingExpenseOperation
 import com.aus.ausgegeben.data.TransactionPreferences
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
@@ -20,6 +22,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -217,6 +220,47 @@ class AddExpenseViewModelTest {
         assertEquals(listOf(operationId), fakePreferences.pendingOperationIds)
     }
 
+    // DATA-2: beginning a second submission while the first is unresolved must never
+    // overwrite the first's bookkeeping, and completing the second must leave the
+    // first pending for reconciliation. The old single-slot production journal lost A
+    // the moment B began; the old fake (a plain list) masked that at this seam.
+    @Test
+    fun journal_aPending_bBeginsAndCompletes_aStaysPendingForReconciliation() = runTest(dispatcher) {
+        val a = fakePreferences.beginExpenseSubmission()
+        val b = fakePreferences.beginExpenseSubmission()
+        assertNotEquals(a, b)
+
+        fakePreferences.completeExpenseSubmission(b)
+
+        assertEquals("A's bookkeeping must survive B's completion", listOf(a), fakePreferences.pendingOperationIds)
+    }
+
+    @Test
+    fun journal_reconciliation_resolvesEachOperationIndependently() = runTest(dispatcher) {
+        val a = fakePreferences.beginExpenseSubmission()
+        val b = fakePreferences.beginExpenseSubmission()
+
+        // Only A's write landed remotely (B may still be in flight).
+        val checked = mutableListOf<String>()
+        fakePreferences.reconcilePendingExpenseSubmissions { operationId ->
+            checked += operationId
+            operationId == a
+        }
+
+        assertEquals("each unresolved operation is checked independently", setOf(a, b), checked.toSet())
+        assertEquals("A is resolved away, B stays pending", listOf(b), fakePreferences.pendingOperationIds)
+    }
+
+    @Test
+    fun journal_lateCompletionOfTheEarlierOperation_neverClearsTheLaterOne() = runTest(dispatcher) {
+        val a = fakePreferences.beginExpenseSubmission()
+        val b = fakePreferences.beginExpenseSubmission()
+
+        fakePreferences.completeExpenseSubmission(a)
+
+        assertEquals(listOf(b), fakePreferences.pendingOperationIds)
+    }
+
     @Test
     fun saveExpense_emailNotVerified_mapsToVerifyMessage() = runTest(dispatcher) {
         fakeExpenses.insertResult = Result.failure(IllegalStateException("EMAIL_NOT_VERIFIED"))
@@ -348,13 +392,24 @@ class AddExpenseViewModelTest {
      * StandardTestDispatcher's advanceUntilIdle() has no way to fast-forward through that,
      * so a ViewModel depending on the concrete class hangs forever instead of failing fast
      * (found live: every saveExpense test hung until TransactionPreferences was extracted).
+     *
+     * The journal semantics below are implemented through the SAME storage-agnostic
+     * policy object as the production [com.aus.ausgegeben.data.PreferenceManager]
+     * ([com.aus.ausgegeben.data.PendingExpenseJournal]) — only the backing storage
+     * differs (in-memory list vs sealed DataStore set). A fake must never support
+     * semantics production lacks: the original single-slot production journal was
+     * masked in tests by exactly such a stronger-than-production fake (DATA-2).
      */
     private class FakeTransactionPreferences : TransactionPreferences {
         val currency = MutableStateFlow("EUR")
         val monthlyBudget = MutableStateFlow<Double?>(null)
         val analyticsPeriod = MutableStateFlow("this_month")
-        /** Ids minted by [beginExpenseSubmission] that have not yet been completed. */
-        val pendingOperationIds = mutableListOf<String>()
+
+        /** Every unresolved submission attempt, mirroring production's durable journal. */
+        var journal: List<PendingExpenseOperation> = emptyList()
+            private set
+
+        val pendingOperationIds: List<String> get() = journal.map { it.operationId }
 
         override val currencyFlow: Flow<String> = currency
         override val monthlyBudgetFlow: Flow<Double?> = monthlyBudget
@@ -364,11 +419,25 @@ class AddExpenseViewModelTest {
             analyticsPeriod.value = storageKey
         }
 
-        override suspend fun beginExpenseSubmission(): String =
-            UUID.randomUUID().toString().also { pendingOperationIds.add(it) }
+        override suspend fun beginExpenseSubmission(): String {
+            val operationId = UUID.randomUUID().toString()
+            journal = PendingExpenseJournal.append(
+                journal,
+                PendingExpenseOperation(operationId, System.currentTimeMillis()),
+            )
+            return operationId
+        }
 
         override suspend fun completeExpenseSubmission(operationId: String) {
-            pendingOperationIds.remove(operationId)
+            journal = PendingExpenseJournal.complete(journal, operationId)
+        }
+
+        override suspend fun reconcilePendingExpenseSubmissions(exists: suspend (String) -> Boolean) {
+            val resolved = PendingExpenseJournal.resolvedForRemoval(journal, System.currentTimeMillis(), exists)
+            if (resolved.isNotEmpty()) {
+                val resolvedIds = resolved.map { it.operationId }.toSet()
+                journal = journal.filterNot { it.operationId in resolvedIds }
+            }
         }
     }
 }

@@ -12,6 +12,7 @@
  * firebase.json CSP — the default policy allows same-origin only.
  */
 import {
+  installGlobalErrorHandlers,
   reportError,
   setErrorBuffering,
   setErrorSink,
@@ -171,4 +172,22 @@ export function applyErrorReportingPreference(enabled: boolean): void {
     return;
   }
   installConfiguredErrorSink();
+}
+
+/**
+ * Startup wiring (PRIV-1): apply the persisted reporting preference BEFORE anything can
+ * enter the replay buffer, then install the global handlers, then attach the configured
+ * sink. Buffering defaults to enabled, so a user with a persisted opt-out used to
+ * accumulate startup errors in the pending buffer until they enabled reporting — at
+ * which point those pre-enable errors were replayed to the endpoint. An opt-out that
+ * defers transmission rather than suppressing it is not an opt-out.
+ *
+ * Returns the handlers' uninstall function so tests (or a future re-bootstrap) can
+ * detach them again.
+ */
+export function installStartupErrorHandling(target?: EventTarget): () => void {
+  applyErrorReportingPreference(readErrorReportingEnabled());
+  // Branch rather than pass `target` through: an explicit undefined would evaluate the
+  // `window` default parameter, which does not exist in the node test environment.
+  return target ? installGlobalErrorHandlers(target) : installGlobalErrorHandlers();
 }

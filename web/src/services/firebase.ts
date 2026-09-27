@@ -137,10 +137,23 @@ export function getFirebaseApp(): FirebaseApp | null {
   return app;
 }
 
+/**
+ * The persistence hierarchy is searched in order for an existing session, and any
+ * user found in a lower entry is migrated up to the first entry. The non-persistent
+ * hierarchy therefore contains only non-durable persistences (AUTH-4): including the
+ * IndexedDB/localStorage options as fallbacks would let initialization discover a
+ * leftover durable session and pull it back in even though the user never opted into
+ * persistent auth on this load. browserSessionPersistence is available in every
+ * supported browser; inMemoryPersistence is the last resort for environments where
+ * even sessionStorage is unavailable (or blocked), which degrades to per-load-only
+ * auth rather than silently regaining durable storage.
+ *
+ * The persistent (explicit opt-in) hierarchy keeps its durable-first ordering.
+ */
 export function getAuthPersistenceHierarchy(isPersistent = isPersistentAuthEnabled()): Persistence[] {
   return isPersistent
     ? [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence, inMemoryPersistence]
-    : [browserSessionPersistence, indexedDBLocalPersistence, browserLocalPersistence, inMemoryPersistence];
+    : [browserSessionPersistence, inMemoryPersistence];
 }
 
 export function resetFirebaseAuthForTests(): void {

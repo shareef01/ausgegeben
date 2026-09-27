@@ -31,20 +31,51 @@ let unsubscribeSessionInvalidated: (() => void) | null = null;
 let readyFallbackTimer: ReturnType<typeof setTimeout> | null = null;
 
 /**
- * React to another tab's sign-out/account deletion (AUTH-2). This mirrors exactly the
- * local in-memory state signOut()/deleteAccount() already set in the tab that initiated
- * them — it deliberately does not call Firebase's own signOut() again (that tab's own
- * Auth state is already correct) and does not touch the Firestore disk cache (the
- * existing cache-clear broadcast already handles that independently). Setting the auth
- * store's user to null is what actually stops further writes: every repository write
- * function reads the uid from this store first and refuses before any Firestore call
- * when it is absent, and the top-level app view unmounts the signed-in UI (detaching its
- * listeners) the same way it does for a same-tab sign-out.
+ * Remove this tab's own Firebase Auth session without broadcasting again (AUTH-3).
+ *
+ * Under the default session-only persistence the originating tab's signOut() never
+ * touches this tab's sessionStorage copy — sessionStorage is per-tab — so without an
+ * explicit local signOut here, a reload of this tab would let onAuthStateChanged
+ * restore the user out of storage that the initiating tab could not reach.
+ *
+ * The signOut must not re-broadcast (this handler would then run in every other tab,
+ * which would broadcast again — an endless ping-pong between open tabs), and it must
+ * not clear the Firestore cache: the originating tab's signOut()/deleteAccount()
+ * already coordinates that on the shared cache-clear channel. The journal for this
+ * account is also already cleared there (the journal's IndexedDB store is shared
+ * origin-wide), so re-clearing it from this tab would only race the same deletions.
+ *
+ * Firebase serializes initialization (including a still-in-flight session restore
+ * from storage) and signOut() on one internal operations queue, so a broadcast that
+ * arrives mid-initialization cannot be overridden by the restore completing after
+ * this signOut — the signed-out state always wins.
+ */
+async function clearFirebaseAuthSessionLocally(): Promise<void> {
+  const auth = getFirebaseAuth();
+  if (!auth) return;
+  await signOut(auth);
+}
+
+/**
+ * React to another tab's sign-out/account deletion (AUTH-2). This mirrors the local
+ * in-memory state signOut()/deleteAccount() set in the tab that initiated them, and —
+ * unlike those initiating paths, which have already changed their own Auth state —
+ * additionally removes this tab's underlying Firebase Auth session (AUTH-3). Setting
+ * the auth store's user to null is what immediately stops further writes: every
+ * repository write function reads the uid from this store first and refuses before
+ * any Firestore call when it is absent, and the top-level app view unmounts the
+ * signed-in UI (detaching its listeners) the same way it does for a same-tab sign-out.
  */
 function handleSessionInvalidatedElsewhere(): void {
   useAuthStore.getState().setUser(null);
   usePreferencesStore.getState().resetPreferences();
   invalidateAllExpensesCache();
+  void clearFirebaseAuthSessionLocally().catch((error) => {
+    // Failure here leaves this tab's durable session copy behind (a reload could
+    // restore it) — make that visible instead of silently ignoring it, matching how
+    // broadcast-triggered cache clearing reports failures.
+    console.warn('[auth] cross-tab invalidation could not clear this tab\u2019s Firebase Auth session', error);
+  });
 }
 
 function markAuthReady(): void {
