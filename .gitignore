@@ -60,9 +60,16 @@ web/.browser-key-rotation.json
 web/.vite/
 web/*.tsbuildinfo
 
-# Local tooling output
+# Local tooling and agent workspaces
 .artifacts/
 .reasonix/
+.agent/
+.claude/*.local.json
+
+# Test runner output and reports
+test-results/
+playwright-report/
+blob-report/
 
 # Wrangler local state — caches the Cloudflare account id and name
 tools/error-endpoint/.wrangler/
