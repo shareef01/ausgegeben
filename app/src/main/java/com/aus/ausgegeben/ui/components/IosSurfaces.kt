@@ -323,7 +323,7 @@ fun IosSegmentedControl(
                 ) {
                     if (iconOnly) {
                         Icon(
-                            imageVector = icons!![index],
+                            imageVector = icons[index],
                             contentDescription = null,
                             tint = if (selected) MaterialTheme.colorScheme.onSurface else readableSecondaryColor(),
                             modifier = Modifier.size(20.dp),

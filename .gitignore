@@ -63,9 +63,16 @@ web/test-results/
 web/playwright-report/
 web/playwright/.cache/
 
-# Local tooling output
+# Local tooling and agent workspaces
 .artifacts/
 .reasonix/
+.agent/
+.claude/*.local.json
+
+# Test runner output and reports
+test-results/
+playwright-report/
+blob-report/
 
 # Wrangler local state — caches the Cloudflare account id and name
 tools/error-endpoint/.wrangler/
