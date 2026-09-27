@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -25,7 +26,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import java.util.UUID
 
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
+// internal for tests (seeding pre-migration legacy state); production code must go
+// through PreferenceManager, never this store directly.
+internal val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
 @Singleton
 class PreferenceManager @Inject constructor(
@@ -49,6 +52,14 @@ class PreferenceManager @Inject constructor(
         val LANGUAGE = stringPreferencesKey("language")
         /** LWW clock shared with web (`users/{uid}/settings/preferences.updatedAt`). */
         val PREFERENCES_UPDATED_AT = stringPreferencesKey("preferences_updated_at")
+        /**
+         * Durable journal of EVERY unresolved submission attempt (DATA-2). Members are
+         * sealed `operationId|createdAt` blobs — the set key itself carries no user
+         * data, only opaque ciphertexts.
+         */
+        val PENDING_EXPENSE_OPERATIONS = stringSetPreferencesKey("pending_expense_operations_enc")
+        // Legacy single-slot journal keys (pre-DATA-2); migrated into the set above on
+        // the first journal access so an upgraded install keeps its pending state.
         val PENDING_EXPENSE_OPERATION_ID = stringPreferencesKey("pending_expense_operation_id_enc")
         val PENDING_EXPENSE_CREATED_AT = stringPreferencesKey("pending_expense_created_at_enc")
         // Legacy plaintext keys (migrated into sealed blobs on first read/write).
@@ -76,6 +87,34 @@ class PreferenceManager @Inject constructor(
         default: Int,
     ): Int {
         this[key]?.let { return crypto.openInt(it, default) }
+        return this[legacy] ?: default
+    }
+
+    // Strict variants for [snapshotSyncedPreferences]: a present-but-unreadable sealed
+    // value must THROW, not silently become its default — the snapshot is pushed to the
+    // cloud, where a defaulted value would overwrite the user's real synced data
+    // (STOR-2). Display-facing flows keep using the lenient variants above.
+
+    private fun Preferences.strictSealedString(key: Preferences.Key<String>, default: String): String {
+        val stored = this[key] ?: return default
+        return crypto.openStrict(stored) ?: default
+    }
+
+    private fun Preferences.strictSealedBoolean(
+        key: Preferences.Key<String>,
+        legacy: Preferences.Key<Boolean>,
+        default: Boolean,
+    ): Boolean {
+        this[key]?.let { return crypto.openBooleanStrict(it, default) }
+        return this[legacy] ?: default
+    }
+
+    private fun Preferences.strictSealedInt(
+        key: Preferences.Key<String>,
+        legacy: Preferences.Key<Int>,
+        default: Int,
+    ): Int {
+        this[key]?.let { return crypto.openIntStrict(it, default) }
         return this[legacy] ?: default
     }
 
@@ -173,6 +212,15 @@ class PreferenceManager @Inject constructor(
         return hour to minute
     }
 
+    /**
+     * Build the local preference snapshot for cloud sync.
+     *
+     * STOR-2: this snapshot is PUSHED to the cloud, so a present-but-unreadable sealed
+     * value throws [PrefsCrypto.SealedValueUnreadableException] instead of silently
+     * becoming its default — pushing defaults would overwrite the user's real synced
+     * data. Callers must refuse the push on that exception and surface a sync error.
+     * Display-facing flows intentionally keep using the lenient variants.
+     */
     suspend fun snapshotSyncedPreferences(): SyncedPreferences {
         val prefs = context.dataStore.data.first()
         val theme = prefs[PreferencesKeys.THEME_MODE]?.let { ThemeMode.fromStorageKey(it) }
@@ -182,37 +230,41 @@ class PreferenceManager @Inject constructor(
                 null -> ThemeMode.SYSTEM
             }
         return SyncedPreferences(
-            currency = prefs.sealedString(PreferencesKeys.CURRENCY, "EUR"),
+            currency = prefs.strictSealedString(PreferencesKeys.CURRENCY, "EUR"),
             locale = prefs[PreferencesKeys.LANGUAGE] ?: "en",
             themeMode = theme.storageKey,
-            onboardingComplete = prefs.sealedBoolean(
+            onboardingComplete = prefs.strictSealedBoolean(
                 PreferencesKeys.ONBOARDING_COMPLETE,
                 PreferencesKeys.LEGACY_ONBOARDING,
                 false,
             ),
-            dailyReminder = prefs.sealedBoolean(
+            dailyReminder = prefs.strictSealedBoolean(
                 PreferencesKeys.DAILY_REMINDER,
                 PreferencesKeys.LEGACY_DAILY_REMINDER,
                 true,
             ),
-            reminderHour = prefs.sealedInt(
+            reminderHour = prefs.strictSealedInt(
                 PreferencesKeys.REMINDER_HOUR,
                 PreferencesKeys.LEGACY_REMINDER_HOUR,
                 19,
             ),
-            reminderMinute = prefs.sealedInt(
+            reminderMinute = prefs.strictSealedInt(
                 PreferencesKeys.REMINDER_MINUTE,
                 PreferencesKeys.LEGACY_REMINDER_MINUTE,
                 0,
             ),
-            analyticsPeriod = prefs.sealedString(
+            analyticsPeriod = prefs.strictSealedString(
                 PreferencesKeys.ANALYTICS_PERIOD,
                 AnalyticsPeriod.THIS_MONTH.storageKey,
             ),
-            monthlyBudget = crypto.open(prefs[PreferencesKeys.MONTHLY_BUDGET])
-                ?.toDoubleOrNull()
-                ?.takeIf { it > 0 },
-            updatedAt = crypto.open(prefs[PreferencesKeys.PREFERENCES_UPDATED_AT])?.toLongOrNull() ?: 0L,
+            monthlyBudget = prefs[PreferencesKeys.MONTHLY_BUDGET]?.let { stored ->
+                crypto.openStrict(stored)
+                    ?.toDoubleOrNull()
+                    ?.takeIf { it > 0 }
+            },
+            updatedAt = prefs[PreferencesKeys.PREFERENCES_UPDATED_AT]?.let { stored ->
+                crypto.openStrict(stored)?.toLongOrNull()
+            } ?: 0L,
         )
     }
 
@@ -270,6 +322,158 @@ class PreferenceManager @Inject constructor(
 
     private fun MutablePreferences.putSealedInt(key: Preferences.Key<String>, value: Int) {
         this[key] = crypto.sealInt(value)
+    }
+
+    // ---- Pending expense submission journal (DATA-2) -------------------------------
+    //
+    // A durable multi-entry journal of unresolved submission attempts, backed by a
+    // DataStore string-set of sealed "operationId|createdAt" members. The behavioral
+    // policy (append/complete/reconcile decisions) lives in [PendingExpenseJournal],
+    // shared verbatim with test fakes so the two cannot drift.
+
+    private fun Preferences.pendingExpenseEntries(): List<PendingExpenseOperation> =
+        (this[PreferencesKeys.PENDING_EXPENSE_OPERATIONS] ?: emptySet()).mapNotNull { it.openJournalEntry() }
+
+    private fun String.openJournalEntry(): PendingExpenseOperation? {
+        val plain = crypto.open(this) ?: return null
+        val separator = plain.indexOf(ENTRY_FIELD_SEPARATOR)
+        if (separator <= 0) return null
+        val operationId = plain.take(separator)
+        val createdAt = plain.substring(separator + 1).toLongOrNull() ?: return null
+        if (operationId.isBlank()) return null
+        return PendingExpenseOperation(operationId, createdAt)
+    }
+
+    private fun PendingExpenseOperation.sealJournalEntry(): String =
+        crypto.seal("$operationId$ENTRY_FIELD_SEPARATOR$createdAt")
+
+    private fun MutablePreferences.putPendingExpenseEntries(entries: List<PendingExpenseOperation>) {
+        if (entries.isEmpty()) {
+            remove(PreferencesKeys.PENDING_EXPENSE_OPERATIONS)
+        } else {
+            this[PreferencesKeys.PENDING_EXPENSE_OPERATIONS] = entries.map { it.sealJournalEntry() }.toSet()
+        }
+    }
+
+    /** The legacy single-slot entry, if one is still present and readable. */
+    private fun Preferences.legacyPendingExpenseEntry(): PendingExpenseOperation? {
+        val operationId = crypto.open(this[PreferencesKeys.PENDING_EXPENSE_OPERATION_ID])
+        if (operationId.isNullOrBlank()) return null
+        // A missing/unreadable timestamp must not instantly age the entry out: give it
+        // a full grace period rather than silently losing the pending state.
+        val createdAt = crypto.open(this[PreferencesKeys.PENDING_EXPENSE_CREATED_AT])
+            ?.toLongOrNull() ?: System.currentTimeMillis()
+        return PendingExpenseOperation(operationId, createdAt)
+    }
+
+    /**
+     * Normalize journal storage inside an edit: fold the legacy single-slot entry into
+     * the multi-entry set (preserving its original createdAt) and drop corrupted
+     * members — an entry that cannot be decrypted can never be reconciled, and keeping
+     * it would make every later read silently re-observe it. Returns the current
+     * entries after normalization.
+     */
+    private fun MutablePreferences.normalizePendingExpenseJournal(): List<PendingExpenseOperation> {
+        val raw = this[PreferencesKeys.PENDING_EXPENSE_OPERATIONS] ?: emptySet()
+        val entries = raw.mapNotNull { it.openJournalEntry() }
+        if (entries.size != raw.size) putPendingExpenseEntries(entries)
+
+        val legacy = legacyPendingExpenseEntry()
+        if (legacy != null) {
+            remove(PreferencesKeys.PENDING_EXPENSE_OPERATION_ID)
+            remove(PreferencesKeys.PENDING_EXPENSE_CREATED_AT)
+            if (entries.none { it.operationId == legacy.operationId }) {
+                putPendingExpenseEntries(PendingExpenseJournal.append(entries, legacy))
+                return entries + legacy
+            }
+        }
+        return entries
+    }
+
+    /**
+     * Mint and durably persist a fresh operation id for one explicit user submission.
+     *
+     * Identity here is a single submission *attempt*, never the expense's field values:
+     * two transactions with identical amount/category/note/type entered seconds apart
+     * are two legitimate, independent records. This always mints a new id and never
+     * looks at (or is passed) the expense's field values, so two calls always identify
+     * two distinct operations — see DATA-1. A genuine retry of the *same* attempt (e.g.
+     * a transient-error retry still inside the same save() call) simply reuses the id
+     * the caller already has; nothing here needs to be re-consulted for that case.
+     *
+     * The journal is multi-entry (DATA-2): beginning B never overwrites an unresolved
+     * A. A single-slot journal would make A unreconcilable the moment B began, even
+     * though A's write may have already landed (or may land later).
+     */
+    override suspend fun beginExpenseSubmission(): String {
+        val operationId = UUID.randomUUID().toString()
+        val now = System.currentTimeMillis()
+        context.dataStore.edit { preferences ->
+            val entries = preferences.normalizePendingExpenseJournal()
+            preferences.putPendingExpenseEntries(
+                PendingExpenseJournal.append(entries, PendingExpenseOperation(operationId, now)),
+            )
+        }
+        return operationId
+    }
+
+    /**
+     * Forget exactly one submission's bookkeeping once its outcome (success or
+     * otherwise) is known. A late completion of an earlier attempt never erases a
+     * newer, still-unresolved operation.
+     */
+    override suspend fun completeExpenseSubmission(operationId: String) {
+        context.dataStore.edit { preferences ->
+            val entries = preferences.normalizePendingExpenseJournal()
+            val updated = PendingExpenseJournal.complete(entries, operationId)
+            if (updated.size != entries.size) {
+                preferences.putPendingExpenseEntries(updated)
+            }
+        }
+    }
+
+    /**
+     * Resolve pending entries left behind by a process death between a Firestore write
+     * acknowledging and [completeExpenseSubmission] running.
+     *
+     * Every unresolved entry is enumerated (DATA-2) and asked independently — via
+     * [exists] — whether that exact operation's document is already present
+     * server-side. If so, the write already succeeded and the entry is only bookkeeping
+     * now; it is removed. This never attempts a write itself: it cannot resubmit a
+     * transaction whose write never reached the server (the field values were
+     * deliberately never persisted here), so such an entry is left alone until it ages
+     * past the cleanup grace period, then dropped. Either outcome is safe: a genuinely
+     * new, later submission always mints its own fresh id via [beginExpenseSubmission]
+     * and can never be matched against — let alone collapsed into — a leftover entry
+     * from here.
+     */
+    override suspend fun reconcilePendingExpenseSubmissions(exists: suspend (String) -> Boolean) {
+        val snapshot = context.dataStore.data.first()
+        // Enumerate from the snapshot, folding in a legacy single-slot entry that no
+        // edit has migrated yet, so an upgraded install's first reconciliation still
+        // sees and resolves it.
+        val legacy = snapshot.legacyPendingExpenseEntry()
+        val pending = snapshot.pendingExpenseEntries().let { entries ->
+            if (legacy != null && entries.none { it.operationId == legacy.operationId }) {
+                entries + legacy
+            } else {
+                entries
+            }
+        }
+        if (pending.isEmpty()) return
+
+        val resolved = PendingExpenseJournal.resolvedForRemoval(pending, System.currentTimeMillis(), exists)
+        if (resolved.isEmpty()) return
+
+        context.dataStore.edit { preferences ->
+            val current = preferences.normalizePendingExpenseJournal()
+            val updated = current.filterNot { entry ->
+                resolved.any { it.operationId == entry.operationId }
+            }
+            if (updated.size != current.size) {
+                preferences.putPendingExpenseEntries(updated)
+            }
+        }
     }
 
     private suspend fun touchEdit(block: MutablePreferences.() -> Unit) {
@@ -371,6 +575,9 @@ class PreferenceManager @Inject constructor(
             preferences.remove(PreferencesKeys.LEGACY_REMINDER_HOUR)
             preferences.remove(PreferencesKeys.REMINDER_MINUTE)
             preferences.remove(PreferencesKeys.LEGACY_REMINDER_MINUTE)
+            // The whole pending-submission journal — new multi-entry set and any
+            // legacy single-slot leftovers (DATA-2).
+            preferences.remove(PreferencesKeys.PENDING_EXPENSE_OPERATIONS)
             preferences.remove(PreferencesKeys.PENDING_EXPENSE_OPERATION_ID)
             preferences.remove(PreferencesKeys.PENDING_EXPENSE_CREATED_AT)
         }
@@ -381,72 +588,6 @@ class PreferenceManager @Inject constructor(
         // Firestore offline-cache clear from running.
         runCatching { ExportUtils.clearExportCache(context) }
             .onFailure { e -> Log.w(TAG, "clearExportCache failed", e) }
-    }
-
-    /**
-     * Mint and durably persist a fresh operation id for one explicit user submission.
-     *
-     * Identity here is a single submission *attempt*, never the semantic contents of an
-     * expense: two transactions with identical amount/category/note/type entered seconds
-     * apart are two legitimate, independent records. This always mints a new id and never
-     * looks at (or is passed) the expense's field values, so two calls always identify two
-     * distinct operations — see DATA-1. A genuine retry of the *same* attempt (e.g. a
-     * transient-error retry still inside the same save() call) simply reuses the id the
-     * caller already has; nothing here needs to be re-consulted for that case.
-     *
-     * Only one pending operation is tracked at a time: the ViewModel layer already
-     * disables the Save action while a submission is in flight, so at most one attempt
-     * per app process can ever be pending here.
-     */
-    override suspend fun beginExpenseSubmission(): String {
-        val operationId = UUID.randomUUID().toString()
-        val now = System.currentTimeMillis()
-        context.dataStore.edit { preferences ->
-            preferences.putSealed(PreferencesKeys.PENDING_EXPENSE_OPERATION_ID, operationId)
-            preferences.putSealed(PreferencesKeys.PENDING_EXPENSE_CREATED_AT, now.toString())
-        }
-        return operationId
-    }
-
-    /** Forget a submission's bookkeeping once its outcome (success or otherwise) is known. */
-    override suspend fun completeExpenseSubmission(operationId: String) {
-        context.dataStore.edit { preferences ->
-            val storedId = crypto.open(preferences[PreferencesKeys.PENDING_EXPENSE_OPERATION_ID])
-            if (storedId == operationId) {
-                preferences.remove(PreferencesKeys.PENDING_EXPENSE_OPERATION_ID)
-                preferences.remove(PreferencesKeys.PENDING_EXPENSE_CREATED_AT)
-            }
-        }
-    }
-
-    /**
-     * Resolve a pending entry left behind by a process death between a Firestore write
-     * acknowledging and [completeExpenseSubmission] running.
-     *
-     * [exists] is asked whether that exact operation's document is already present
-     * server-side. If so, the write already succeeded — the entry is only bookkeeping now
-     * and is removed. This never attempts a write itself: it cannot resubmit a transaction
-     * whose write never reached the server (the field values were deliberately never
-     * persisted here), so such an entry is left alone until it ages past the cleanup grace
-     * period, then dropped. Either outcome is safe: a genuinely new, later submission
-     * always mints its own fresh id via [beginExpenseSubmission] and can never be matched
-     * against — let alone collapsed into — a leftover entry from here.
-     */
-    override suspend fun reconcilePendingExpenseSubmissions(exists: suspend (String) -> Boolean) {
-        val snapshot = context.dataStore.data.first()
-        val storedId = crypto.open(snapshot[PreferencesKeys.PENDING_EXPENSE_OPERATION_ID]) ?: return
-        val createdAt = crypto.open(snapshot[PreferencesKeys.PENDING_EXPENSE_CREATED_AT])?.toLongOrNull()
-        val stale = createdAt == null || System.currentTimeMillis() - createdAt > PENDING_EXPENSE_TTL_MS
-        val alreadyWritten = runCatching { exists(storedId) }.getOrDefault(false)
-        if (!alreadyWritten && !stale) return // may still be genuinely in flight; leave it
-
-        context.dataStore.edit { preferences ->
-            val current = crypto.open(preferences[PreferencesKeys.PENDING_EXPENSE_OPERATION_ID])
-            if (current == storedId) {
-                preferences.remove(PreferencesKeys.PENDING_EXPENSE_OPERATION_ID)
-                preferences.remove(PreferencesKeys.PENDING_EXPENSE_CREATED_AT)
-            }
-        }
     }
 
     /** Ensure local LWW clock is non-zero before first cloud seed. */
@@ -463,11 +604,8 @@ class PreferenceManager @Inject constructor(
     companion object {
         private const val TAG = "PreferenceManager"
 
-        // Purely a cleanup grace period — see reconcilePendingExpenseSubmissions. An
-        // entry younger than this is left alone on the chance its write is still in
-        // flight; it is never reused to identify a submission, so this value cannot
-        // reintroduce or fix a correctness bug (DATA-1).
-        private const val PENDING_EXPENSE_TTL_MS = 24 * 60 * 60 * 1000L
+        /** Journal member encoding: sealed "operationId|createdAt" (UUIDs contain no '|'). */
+        private const val ENTRY_FIELD_SEPARATOR = '|'
     }
 }
 

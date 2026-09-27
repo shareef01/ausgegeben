@@ -8,7 +8,7 @@ import {
   setPersistentAuthEnabled,
   setPersistentStorageEnabled,
 } from './firebase';
-import { browserSessionPersistence, indexedDBLocalPersistence } from 'firebase/auth';
+import { browserLocalPersistence, browserSessionPersistence, inMemoryPersistence, indexedDBLocalPersistence } from 'firebase/auth';
 
 describe('Firebase Auth persistence policy & shared-device privacy', () => {
   const store = new Map<string, string>();
@@ -47,6 +47,30 @@ describe('Firebase Auth persistence policy & shared-device privacy', () => {
     setPersistentAuthEnabled(false);
     expect(isPersistentAuthEnabled()).toBe(false);
     expect(getAuthPersistenceHierarchy()[0]).toBe(browserSessionPersistence);
+  });
+
+  // AUTH-4: the non-persistent hierarchy previously fell back through the durable
+  // persistences, so initialization could discover a leftover durable session (e.g. a
+  // remember-me record whose flag was lost or cleared without a Firebase signOut) and
+  // restore the user even though the user never opted into persistent auth on this
+  // load. Only non-durable persistences may appear there. Exact-array equality pins
+  // both the ordering and the absence of every durable entry; note the node build of
+  // firebase/auth aliases the browser persistences to inMemoryPersistence, where this
+  // still fails for the old implementation because the hierarchy had four entries.
+  it('never falls back to durable persistence in the non-persistent hierarchy', () => {
+    expect(getAuthPersistenceHierarchy(/* isPersistent */ false)).toEqual([
+      browserSessionPersistence,
+      inMemoryPersistence,
+    ]);
+  });
+
+  it('keeps durable persistence first in the explicit opt-in hierarchy', () => {
+    const hierarchy = getAuthPersistenceHierarchy(/* isPersistent */ true);
+    expect(hierarchy[0]).toBe(indexedDBLocalPersistence);
+    expect(hierarchy).toHaveLength(4);
+    expect(hierarchy).toContain(browserLocalPersistence);
+    expect(hierarchy).toContain(browserSessionPersistence);
+    expect(hierarchy).toContain(inMemoryPersistence);
   });
 
   it('purges residual firebase auth keys from localStorage when clearResidualAuthStorage is invoked', () => {

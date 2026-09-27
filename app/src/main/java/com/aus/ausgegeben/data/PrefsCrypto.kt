@@ -16,8 +16,36 @@ import javax.crypto.spec.GCMParameterSpec
  *
  * Theme/language stay plaintext in DataStore (device chrome). Account-scoped
  * values (budget, currency, sync clocks, reminders, …) are stored as
- * `enc:…` blobs. If the Keystore is unavailable (e.g. some unit-test hosts),
- * values are stored and read as plaintext so the app still functions.
+ * `enc:…` blobs.
+ *
+ * ## Fail-open behavior (STOR-2) — documented downgrade, not an accident
+ *
+ * If sealing is impossible, values are stored and read as plaintext so the app still
+ * works. This is a deliberate availability-over-confidentiality trade-off: failing
+ * closed here would brick preference access — and with it app start — for any user
+ * whose Keystore became temporarily unavailable (some devices return errors for the
+ * Keystore while the user has not yet unlocked the device after a reboot).
+ *
+ * The three downgrade cases, and what each means:
+ *
+ * 1. **Keystore unavailable** (this `secretKey` stays null). EXPECTED on unit-test
+ *    hosts (Robolectric has no Android Keystore) and harmless there — nothing sensitive
+ *    is persisted for real. On a production device this is a real degradation: sealed
+ *    values written earlier can no longer be decrypted ([open] returns null for them)
+ *    and new values are written as plaintext. Both are reported at ERROR level on a
+ *    real device, WARNING level under a test host.
+ * 2. **Cipher failure during [seal]** — logged, value stored as plaintext. The next
+ *    successful write of the same key re-seals it.
+ * 3. **Decrypt failure during [open]** — logged, returns null. Callers substitute
+ *    their documented default for display; the undecryptable blob itself is left
+ *    untouched on disk.
+ *
+ * Because of (1)–(3), a value WITHOUT the `enc:` prefix is always passed through
+ * unchanged by [open] — it may be legacy plaintext or a documented downgrade. Callers
+ * that would REWRITE a defaulted value elsewhere (cloud preference sync) must use the
+ * strict variants instead: substituting a default for an unreadable value and pushing
+ * it to the cloud would silently destroy the user's real synced data. See
+ * [openStrict] and [SealedValueUnreadableException].
  *
  * Firestore offline cache cannot be app-encrypted by the Firebase SDK;
  * [android:allowBackup=false] and platform file-based encryption remain the
@@ -25,7 +53,8 @@ import javax.crypto.spec.GCMParameterSpec
  */
 class PrefsCrypto {
     private val secretKey: SecretKey? = runCatching { getOrCreateKey() }.getOrElse { e ->
-        Log.w(TAG, "Prefs Keystore unavailable; sensitive prefs stay plaintext", e)
+        val message = "Prefs Keystore unavailable; sensitive prefs stay plaintext"
+        if (isTestHost) Log.w(TAG, message, e) else Log.e(TAG, message, e)
         null
     }
 
@@ -79,6 +108,42 @@ class PrefsCrypto {
             else -> default
         }
 
+    /**
+     * Like [open], but distinguishes "value absent" from "value present but unreadable":
+     * returns null only for a null/empty [stored], passes non-sealed values through
+     * unchanged (legacy plaintext or a documented downgrade), and throws
+     * [SealedValueUnreadableException] when an `enc:` blob exists but cannot be
+     * decrypted — either the ciphertext is corrupted or the Keystore key that produced
+     * it is gone.
+     *
+     * Callers that would REWRITE a defaulted value elsewhere (e.g. cloud preference
+     * sync) must use this instead of [open]: substituting a default for an unreadable
+     * value and writing it back would silently destroy the user's real data (STOR-2).
+     */
+    fun openStrict(stored: String?): String? {
+        if (stored.isNullOrEmpty()) return stored
+        if (!stored.startsWith(PREFIX)) return stored
+        return open(stored) ?: throw SealedValueUnreadableException()
+    }
+
+    fun openIntStrict(stored: String?, default: Int): Int =
+        openStrict(stored)?.toIntOrNull() ?: default
+
+    /** A sealed value exists but cannot be decrypted — see [openStrict]. */
+    class SealedValueUnreadableException : IllegalStateException(
+        "sealed preference value is present but cannot be decrypted",
+    )
+
+    fun openBooleanStrict(stored: String?, default: Boolean): Boolean =
+        when (openStrict(stored)) {
+            "1" -> true
+            "0" -> false
+            // null (absent), "" and any legacy plaintext that is not 0/1 fall back to
+            // the default, exactly like [openBoolean]; only an unreadable `enc:` blob
+            // throws (inside [openStrict]).
+            else -> default
+        }
+
     fun sealInt(value: Int): String = seal(value.toString())
 
     fun openInt(stored: String?, default: Int): Int =
@@ -100,6 +165,10 @@ class PrefsCrypto {
         )
         return generator.generateKey()
     }
+
+    /** Robolectric/unit-test hosts have no Android Keystore; there the downgrade is expected. */
+    private val isTestHost: Boolean
+        get() = android.os.Build.FINGERPRINT?.startsWith("robolectric", ignoreCase = true) == true
 
     companion object {
         private const val TAG = "PrefsCrypto"

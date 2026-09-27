@@ -54,6 +54,22 @@ class PreferencesCloudSync @Inject constructor(
      */
     val preferencesReady: StateFlow<Boolean> = _preferencesReady.asStateFlow()
 
+    /**
+     * STOR-2: a sealed preference that exists locally but cannot be decrypted must
+     * never be pushed to the cloud as its default — that would overwrite the user's
+     * real synced values. [PreferenceManager.snapshotSyncedPreferences] throws
+     * [PrefsCrypto.SealedValueUnreadableException] for that case; refuse the push and
+     * surface a sync error instead of letting the exception kill the collecting
+     * coroutine.
+     */
+    private suspend fun snapshotForPush(): SyncedPreferences? = try {
+        preferenceManager.snapshotSyncedPreferences()
+    } catch (e: PrefsCrypto.SealedValueUnreadableException) {
+        Log.w(TAG, "local preferences unreadable; refusing to push defaults", e)
+        _syncError.value = SYNC_ERROR_GENERIC
+        null
+    }
+
     fun start(uid: String, scope: CoroutineScope) {
         if (activeUid == uid && registration != null) return
         stop()
@@ -77,14 +93,13 @@ class PreferencesCloudSync @Inject constructor(
                 try {
                     val localAt = preferenceManager.preferencesUpdatedAt()
                     if (snap == null || !snap.exists()) {
-                        writeRemote(uid, preferenceManager.snapshotSyncedPreferences())
+                        snapshotForPush()?.let { writeRemote(uid, it) }
                         return@launch
                     }
                     val remote = parseRemote(snap.data) ?: return@launch
                     when (prefsLwwAction(remote.updatedAt, localAt)) {
                         PrefsLwwAction.APPLY_REMOTE -> applyRemote(remote)
-                        PrefsLwwAction.PUSH_LOCAL ->
-                            writeRemote(uid, preferenceManager.snapshotSyncedPreferences())
+                        PrefsLwwAction.PUSH_LOCAL -> snapshotForPush()?.let { writeRemote(uid, it) }
                         PrefsLwwAction.HOLD -> _syncError.value = null
                     }
                 } finally {
@@ -97,7 +112,7 @@ class PreferencesCloudSync @Inject constructor(
             preferenceManager.preferencesUpdatedAtFlow.collectLatest { at ->
                 if (suppressPush || activeUid != uid) return@collectLatest
                 if (at <= lastWrittenAt) return@collectLatest
-                writeRemote(uid, preferenceManager.snapshotSyncedPreferences())
+                snapshotForPush()?.let { writeRemote(uid, it) }
             }
         }
     }
@@ -120,7 +135,7 @@ class PreferencesCloudSync @Inject constructor(
         val scope = activeScope ?: return
         scope.launch(Dispatchers.IO) {
             lastWrittenAt = 0L
-            writeRemote(uid, preferenceManager.snapshotSyncedPreferences())
+            snapshotForPush()?.let { writeRemote(uid, it) }
         }
     }
 
@@ -160,7 +175,7 @@ class PreferencesCloudSync @Inject constructor(
         var payload = prefs
         if (payload.updatedAt <= 0L) {
             val stamped = preferenceManager.ensurePreferencesTimestamp()
-            payload = preferenceManager.snapshotSyncedPreferences().copy(updatedAt = stamped)
+            payload = snapshotForPush()?.copy(updatedAt = stamped) ?: return
         }
         if (payload.updatedAt == lastWrittenAt) return
         try {

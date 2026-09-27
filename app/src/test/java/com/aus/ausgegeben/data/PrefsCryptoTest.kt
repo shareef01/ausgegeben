@@ -2,6 +2,8 @@ package com.aus.ausgegeben.data
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -38,5 +40,40 @@ class PrefsCryptoTest {
         } else {
             assertEquals("secret-budget", sealed)
         }
+    }
+
+    // STOR-2: strict open distinguishes "value absent" from "value present but
+    // unreadable", so callers that REWRITE values (cloud preference sync) can refuse
+    // instead of pushing a defaulted value over the user's real data.
+    @Test
+    fun openStrict_passesThroughAbsentAndLegacyPlaintextValues() {
+        val crypto = PrefsCrypto()
+        assertNull(crypto.openStrict(null))
+        assertEquals("", crypto.openStrict(""))
+        assertEquals("EUR", crypto.openStrict("EUR"))
+    }
+
+    @Test
+    fun openStrict_throws_whenSealedValueIsPresentButUnreadable() {
+        val crypto = PrefsCrypto()
+        // On a test host the Keystore is unavailable, so ANY enc: blob is unreadable;
+        // on a production device this models corrupted ciphertext or a lost key —
+        // either way the strict contract is the same: throw, never silently default.
+        assertThrows(PrefsCrypto.SealedValueUnreadableException::class.java) {
+            crypto.openStrict("enc:not-valid-ciphertext")
+        }
+        assertThrows(PrefsCrypto.SealedValueUnreadableException::class.java) {
+            crypto.openBooleanStrict("enc:not-valid-ciphertext", true)
+        }
+        assertThrows(PrefsCrypto.SealedValueUnreadableException::class.java) {
+            crypto.openIntStrict("enc:not-valid-ciphertext", 0)
+        }
+    }
+
+    @Test
+    fun openBooleanAndIntStrict_defaultOnAbsentValues() {
+        val crypto = PrefsCrypto()
+        assertTrue(crypto.openBooleanStrict(null, true))
+        assertEquals(19, crypto.openIntStrict(null, 19))
     }
 }
