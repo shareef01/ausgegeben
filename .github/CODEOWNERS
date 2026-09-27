@@ -1,0 +1,4 @@
+# Single-maintainer project: route all review requests to the owner.
+# Automatic review assignment only — the main branch ruleset does not require
+# code-owner approval (a sole maintainer cannot approve their own PR).
+* @shareef01
