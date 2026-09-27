@@ -25,6 +25,19 @@ jobs:
       - name: release.yml tag-validation regression test (CI-3)
         run: bash scripts/test-release-tag-validation.sh
 
+  # GOV-1: review the dependency changes a PR introduces against the Advisory DB /
+  # OSV before it can merge. Only critical vulnerabilities fail the job — high and
+  # below stay visible in the summary without blocking, matching the existing
+  # npm-audit gate policy (high+ fails, moderate is surfaced).
+  dependency_review:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
+        with:
+          fail-on-severity: critical
+
   android:
     runs-on: ubuntu-latest
     steps:

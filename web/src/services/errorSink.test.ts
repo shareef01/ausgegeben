@@ -4,9 +4,11 @@ import {
   buildPayload,
   createEndpointSink,
   installConfiguredErrorSink,
+  installStartupErrorHandling,
 } from '@/services/errorSink';
 import { writeErrorReportingEnabled } from '@/services/errorReportPreference';
 import {
+  getRecentErrors,
   reportError,
   resetErrorReporter,
   setErrorSink,
@@ -224,5 +226,80 @@ describe('error reporting opt-out (AUS-109)', () => {
     const sent: unknown[] = [];
     setErrorSink((r) => sent.push(r));
     expect(sent).toHaveLength(1);
+  });
+});
+
+// PRIV-1: buffering defaults to enabled, and the old startup sequence installed the
+// global handlers before consulting the persisted preference — so with reporting opted
+// out, startup errors still entered the pending replay buffer and were transmitted the
+// moment the user later enabled reporting. The persisted preference must gate the
+// buffer before anything can be captured.
+describe('startup error handling (PRIV-1)', () => {
+  let storage: Map<string, string>;
+
+  beforeEach(() => {
+    resetErrorReporter();
+    storage = new Map();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value);
+      },
+      removeItem: (key: string) => {
+        storage.delete(key);
+      },
+    });
+    vi.stubGlobal('navigator', { userAgent: 'test-agent' });
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(null, { status: 200 }))));
+    vi.stubEnv('VITE_ERROR_REPORT_URL', URL_UNDER_TEST);
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    resetErrorReporter();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('never buffers or transmits a startup error captured while a persisted opt-out is active', async () => {
+    writeErrorReportingEnabled(false);
+    const target = new EventTarget();
+    const remove = installStartupErrorHandling(target);
+
+    // A startup error while the user is still opted out.
+    target.dispatchEvent(
+      Object.assign(new Event('error'), { error: new Error('startup crash while opted out') }),
+    );
+    expect(getRecentErrors()).toHaveLength(0);
+
+    // The user later enables reporting in Settings (which persists the preference and
+    // applies it). Nothing captured before this moment may reach the endpoint.
+    writeErrorReportingEnabled(true);
+    applyErrorReportingPreference(true);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetch).not.toHaveBeenCalled();
+
+    // The reporting pipeline itself is live after the opt-in — an error from after it
+    // is transmitted, proving the earlier silence is suppression, not breakage.
+    reportError('manual', new Error('after opting in'));
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    const body = JSON.parse(String(vi.mocked(fetch).mock.calls[0]?.[1]?.body));
+    expect(body.error.message).toBe('after opting in');
+
+    remove();
+  });
+
+  it('still replays an early pre-sink error when reporting was enabled from startup', async () => {
+    // Module-level side effects can report before the startup wiring runs; with
+    // reporting enabled (the default) such an error must survive buffering and ship.
+    reportError('manual', new Error('pre-main early crash'));
+
+    installStartupErrorHandling(new EventTarget());
+
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    const body = JSON.parse(String(vi.mocked(fetch).mock.calls[0]?.[1]?.body));
+    expect(body.error.message).toBe('pre-main early crash');
   });
 });
