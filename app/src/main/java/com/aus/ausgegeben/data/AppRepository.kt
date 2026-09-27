@@ -46,7 +46,6 @@ import kotlinx.coroutines.tasks.await
 import java.util.UUID
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.math.round
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -685,7 +684,7 @@ class AppRepository @Inject constructor(
     }
 
     override suspend fun duplicateExpense(expense: Expense): Result<Unit> {
-        return insertExpense(expense.copy(id = "", dateMillis = System.currentTimeMillis())).map { Unit }
+        return insertExpense(expense.copy(id = "", dateMillis = System.currentTimeMillis())).map { }
     }
 
     /**

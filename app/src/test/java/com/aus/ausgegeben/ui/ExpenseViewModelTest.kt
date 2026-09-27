@@ -1,7 +1,6 @@
 package com.aus.ausgegeben.ui
 
 import android.app.Application
-import androidx.test.core.app.ApplicationProvider
 import com.aus.ausgegeben.data.CategoryActions
 import com.aus.ausgegeben.data.ExpenseActions
 import com.aus.ausgegeben.data.TransactionPreferences
