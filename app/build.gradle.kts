@@ -145,6 +145,9 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
+            // Recovery tests recreate the default Firebase app and clear the real
+            // DataStore delegate. JUnit4 methods and Gradle test classes run serially.
+            all { it.maxParallelForks = 1 }
         }
     }
     sourceSets {

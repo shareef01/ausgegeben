@@ -227,6 +227,50 @@ jobs:
       - run: npm run test:emulator
         working-directory: web
 
+  # Real Android Firebase SDK + durable recovery journal, with production rules.
+  # Robolectric uses localhost; this job needs no AVD or KVM.
+  android_recovery_integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
+        with:
+          packages: ''
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+      - name: Configure Android build without backend credentials
+        run: |
+          cp app/google-services.ci.json app/google-services.json
+          chmod +x gradlew
+      - name: Test XML gate and process ownership
+        run: exec python3 -B scripts/test_firestore_recovery_runner.py
+      - name: Run canonical recovery integration suite
+        run: exec bash scripts/run-firestore-recovery-tests.sh
+      - name: Run recovery scenarios and adversarial runner acceptance
+        run: exec python3 -B scripts/test_firestore_recovery_runner.py --integration
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: failure()
+        with:
+          name: android-recovery-integration
+          path: |
+            app/build/reports/tests/testProdDebugUnitTest/
+            app/build/test-results/testProdDebugUnitTest/
+            app/build/recovery-runs/
+            app/build/recovery-acceptance/
+            firestore-debug.log
+          retention-days: 7
+
   # Real-browser regression coverage for auth/session lifecycle guarantees no unit test
   # can actually verify (mocking the Firebase SDK and browser storage tests the mock,
   # not the browser) — see AUTH-1, AUTH-2, TEST-1. `.env.emulator` is gitignored (it is
@@ -278,7 +322,7 @@ jobs:
   # Legacy commit-status API stays "pending" with zero statuses when only
   # check-runs exist, so publish a combined status for compatible clients.
   status:
-    needs: [android, instrumentation, web, rules, telemetry, browser_security, workflow_validation]
+    needs: [android, android_recovery_integration, instrumentation, web, rules, telemetry, browser_security, workflow_validation]
     if: |
       always() && (
         github.event_name != 'pull_request' ||
@@ -294,7 +338,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           state=success
-          for result in "${{ needs.android.result }}" "${{ needs.instrumentation.result }}" "${{ needs.web.result }}" "${{ needs.rules.result }}" "${{ needs.telemetry.result }}" "${{ needs.browser_security.result }}" "${{ needs.workflow_validation.result }}"; do
+          for result in "${{ needs.android.result }}" "${{ needs.android_recovery_integration.result }}" "${{ needs.instrumentation.result }}" "${{ needs.web.result }}" "${{ needs.rules.result }}" "${{ needs.telemetry.result }}" "${{ needs.browser_security.result }}" "${{ needs.workflow_validation.result }}"; do
             if [ "$result" != "success" ]; then
               state=failure
               break
@@ -323,6 +367,7 @@ jobs:
             echo "| Job | Result |"
             echo "|---|---|"
             echo "| android | ${{ needs.android.result }} |"
+            echo "| android_recovery_integration | ${{ needs.android_recovery_integration.result }} |"
             echo "| instrumentation | ${{ needs.instrumentation.result }} |"
             echo "| web | ${{ needs.web.result }} |"
             echo "| rules | ${{ needs.rules.result }} |"
