@@ -39,3 +39,10 @@ fun List<Expense>.filterByQuery(
             categoryNames[expense.categoryId]?.lowercase(Locale.ROOT)?.contains(q) == true
     }
 }
+
+fun List<Expense>.filterByCategory(
+    categoryId: String?
+): List<Expense> {
+    if (categoryId.isNullOrEmpty()) return this
+    return filter { it.categoryId == categoryId }
+}

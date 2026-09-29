@@ -11,10 +11,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -200,8 +206,251 @@ class ExpenseViewModelTest {
         job.cancel()
     }
 
+    @Test
+    fun categoryFilter_updatesUiStateAndFiltersPagedExpenses() = runTest(dispatcher) {
+        backgroundScope.launch { viewModel.uiState.collect {} }
+        viewModel.uiState.first { !it.isLoading }
+        val expense2 = Expense(id = "e2", amount = 5.0, dateMillis = System.currentTimeMillis(), categoryId = "c2", note = "train")
+        fakeExpenses.expenses.value = listOf(expense, expense2)
+        val job = launch { viewModel.pagedExpenses.collect {} }
+        advanceUntilIdle()
+
+        // Initially both are emitted
+        assertEquals(2, viewModel.pagedExpenses.first().size)
+
+        viewModel.setCategoryFilter("c1")
+        advanceUntilIdle()
+        assertEquals("c1", viewModel.uiState.value.toolbar.categoryFilter)
+        val paged = viewModel.pagedExpenses.first()
+        assertEquals(1, paged.size)
+        assertEquals("e1", paged.first().id)
+
+        viewModel.setCategoryFilter(null)
+        advanceUntilIdle()
+        assertEquals(null, viewModel.uiState.value.toolbar.categoryFilter)
+        assertEquals(2, viewModel.pagedExpenses.first().size)
+
+        job.cancel()
+    }
+
+    @Test
+    fun setTypeFilter_resetsIncompatibleCategoryFilter() = runTest(dispatcher) {
+        backgroundScope.launch { viewModel.uiState.collect {} }
+        viewModel.uiState.first { !it.isLoading }
+        val expenseCat = Category(id = "c1", name = "Groceries", iconName = "cart", colorInt = 1, transactionType = "expense")
+        val incomeCat = Category(id = "c2", name = "Salary", iconName = "cash", colorInt = 2, transactionType = "income")
+        fakeCategories.categoriesFlow.value = listOf(expenseCat, incomeCat)
+        advanceUntilIdle()
+
+        viewModel.setCategoryFilter("c1")
+        advanceUntilIdle()
+        assertEquals("c1", viewModel.uiState.value.toolbar.categoryFilter)
+
+        // Switching to EXPENSE should keep c1 (compatible)
+        viewModel.setTypeFilter(TransactionTypeFilter.EXPENSE)
+        advanceUntilIdle()
+        assertEquals("c1", viewModel.uiState.value.toolbar.categoryFilter)
+
+        // Switching to INCOME should reset c1 to null (incompatible)
+        viewModel.setTypeFilter(TransactionTypeFilter.INCOME)
+        advanceUntilIdle()
+        assertEquals(null, viewModel.uiState.value.toolbar.categoryFilter)
+    }
+
+    @Test
+    fun construction_onImmediateMain_initializesCategoryFlowBeforeCollecting() = runTest(dispatcher) {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        ExpenseViewModel(fakeCategories, fakeExpenses, fakePreferences)
+    }
+
+    @Test
+    fun categoryFilter_composesWithPeriodTypeAndSearch_clearPreservesOtherFilters() = runTest(dispatcher) {
+        val march = java.time.LocalDate.of(2026, 3, 15).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        fakeExpenses.expenses.value = listOf(
+            expense.copy(id = "match", dateMillis = march),
+            expense.copy(id = "otherCategory", dateMillis = march, categoryId = "c2"),
+            expense.copy(id = "otherMonth", dateMillis = march + 40L * 86400000),
+            expense.copy(id = "otherType", dateMillis = march, transactionType = "income"),
+            expense.copy(id = "otherNote", dateMillis = march, note = "bread"),
+        )
+        backgroundScope.launch { viewModel.uiState.collect {} }
+        viewModel.uiState.first { !it.isLoading }
+        viewModel.setListPeriod("month:2026-03")
+        viewModel.setTypeFilter(TransactionTypeFilter.EXPENSE)
+        viewModel.setSearchQuery("milk")
+        viewModel.setCategoryFilter("c1")
+        advanceUntilIdle()
+        assertEquals(listOf("match"), viewModel.pagedExpenses.first().map { it.id })
+        viewModel.setCategoryFilter(null)
+        advanceUntilIdle()
+        assertEquals(listOf("match", "otherCategory"), viewModel.pagedExpenses.first().map { it.id })
+        assertEquals("month:2026-03", viewModel.uiState.value.toolbar.listPeriod)
+        assertEquals(TransactionTypeFilter.EXPENSE, viewModel.uiState.value.toolbar.typeFilter)
+        assertEquals("milk", viewModel.uiState.value.toolbar.searchQuery)
+        // Missing metadata never substitutes a category with the same display name.
+        viewModel.setCategoryFilter("c1")
+        fakeCategories.categoriesFlow.value = emptyList()
+        advanceUntilIdle()
+        assertEquals(listOf("match"), viewModel.pagedExpenses.first().map { it.id })
+        viewModel.setCategoryFilter("deleted")
+        advanceUntilIdle()
+        assertTrue(viewModel.pagedExpenses.first().isEmpty())
+    }
+
+    @Test
+    fun compatibleVisibleCategory_isNotClearedByLaggingSnapshot() = runTest(dispatcher) {
+        val cold = ColdCategoryFlow()
+        val vm = ExpenseViewModel(fakeCategories.withFlow(cold.values), fakeExpenses, fakePreferences)
+        backgroundScope.launch { vm.uiState.collect {} }
+        vm.uiState.first { !it.isLoading }
+
+        // Old design: leave its first (private cache) subscription empty while
+        // the presentation subscriptions receive c1. Shared design: deliver c1
+        // to the sole subscription. No timing assumptions or sleeps.
+        val ids = cold.activeIds()
+        val presentationIds = if (ids.size == 1) ids else ids.drop(1)
+        presentationIds.forEach { cold.emitTo(it, listOf(category)) }
+        vm.uiState.first { it.data.categories == listOf(category) }
+        vm.setCategoryFilter("c1")
+        vm.uiState.first { it.toolbar.categoryFilter == "c1" }
+        vm.setTypeFilter(TransactionTypeFilter.EXPENSE)
+        vm.uiState.first { it.toolbar.typeFilter == TransactionTypeFilter.EXPENSE }
+        assertEquals("c1", vm.uiState.value.toolbar.categoryFilter)
+        assertEquals(1, cold.activeIds().size)
+    }
+
+    @Test
+    fun typeCompatibility_usesPublishedMetadataAfterChange() = runTest(dispatcher) {
+        val cold = ColdCategoryFlow(listOf(category))
+        val vm = ExpenseViewModel(fakeCategories.withFlow(cold.values), fakeExpenses, fakePreferences)
+        backgroundScope.launch { vm.uiState.collect {} }
+        vm.uiState.first { it.data.categories == listOf(category) }
+        vm.setCategoryFilter("c1")
+        vm.uiState.first { it.toolbar.categoryFilter == "c1" }
+        val income = category.copy(transactionType = "income")
+        cold.emitToAll(listOf(income))
+        vm.uiState.first { it.data.categories == listOf(income) }
+        assertEquals("c1", vm.uiState.value.toolbar.categoryFilter)
+        vm.setTypeFilter(TransactionTypeFilter.EXPENSE)
+        vm.uiState.first { it.toolbar.typeFilter == TransactionTypeFilter.EXPENSE }
+        assertEquals(null, vm.uiState.value.toolbar.categoryFilter)
+        vm.setCategoryFilter("c1")
+        vm.setTypeFilter(TransactionTypeFilter.INCOME)
+        vm.uiState.first { it.toolbar.typeFilter == TransactionTypeFilter.INCOME }
+        assertEquals("c1", vm.uiState.value.toolbar.categoryFilter)
+    }
+
+    @Test
+    fun missingCategory_isRetainedForAllAndClearedForSpecificType() = runTest(dispatcher) {
+        val cold = ColdCategoryFlow()
+        val vm = ExpenseViewModel(fakeCategories.withFlow(cold.values), fakeExpenses, fakePreferences)
+        backgroundScope.launch { vm.uiState.collect {} }
+        vm.uiState.first { !it.isLoading }
+        vm.setCategoryFilter("missing")
+        vm.setTypeFilter(TransactionTypeFilter.ALL)
+        vm.uiState.first { it.toolbar.categoryFilter == "missing" }
+        vm.setTypeFilter(TransactionTypeFilter.EXPENSE)
+        vm.uiState.first { it.toolbar.typeFilter == TransactionTypeFilter.EXPENSE }
+        assertEquals(null, vm.uiState.value.toolbar.categoryFilter)
+    }
+
+    @Test
+    fun categoryListener_stopsWhenRecordHasNoCollectors() = runTest(dispatcher) {
+        val cold = ColdCategoryFlow(listOf(category))
+        val vm = ExpenseViewModel(fakeCategories.withFlow(cold.values), fakeExpenses, fakePreferences)
+        runCurrent()
+        assertEquals(0, cold.activeIds().size)
+        val job = backgroundScope.launch { vm.uiState.collect {} }
+        vm.uiState.first { !it.isLoading }
+        assertEquals(1, cold.activeIds().size)
+        job.cancel()
+        runCurrent()
+        advanceTimeBy(5_001)
+        runCurrent()
+        assertEquals(0, cold.activeIds().size)
+    }
+
+    @Test
+    fun categoryListener_resubscribesAndSelection_survivesSubscriberRestart() = runTest(dispatcher) {
+        val cold = ColdCategoryFlow(listOf(category))
+        val vm = ExpenseViewModel(fakeCategories.withFlow(cold.values), fakeExpenses, fakePreferences)
+        val job = backgroundScope.launch { vm.uiState.collect {} }
+        vm.uiState.first { it.data.categories == listOf(category) }
+        val originalSubscription = cold.opened.receive()
+        vm.setCategoryFilter("c1")
+        vm.setSearchQuery("milk")
+        vm.uiState.first { it.toolbar.categoryFilter == "c1" && it.toolbar.searchQuery == "milk" }
+        job.cancel()
+        runCurrent()
+        advanceTimeBy(5_001)
+        runCurrent()
+        assertEquals(0, cold.activeIds().size)
+
+        val renamed = category.copy(name = "Updated groceries")
+        cold.initialSnapshot = listOf(renamed)
+        backgroundScope.launch { vm.uiState.collect {} }
+        val restartedSubscription = cold.opened.receive()
+        assertTrue(restartedSubscription > originalSubscription)
+        vm.uiState.first { it.data.categories == listOf(renamed) }
+        assertEquals(1, cold.activeIds().size)
+        assertEquals("c1", vm.uiState.value.toolbar.categoryFilter)
+        assertEquals("milk", vm.uiState.value.toolbar.searchQuery)
+    }
+
+    @Test
+    fun categoryListener_multipleDownstreamCollectorsShareOneUpstream() = runTest(dispatcher) {
+        val cold = ColdCategoryFlow(listOf(category))
+        val vm = ExpenseViewModel(fakeCategories.withFlow(cold.values), fakeExpenses, fakePreferences)
+        val first = backgroundScope.launch { vm.uiState.collect {} }
+        val second = backgroundScope.launch { vm.uiState.collect {} }
+        val rows = backgroundScope.launch { vm.pagedExpenses.collect {} }
+        vm.uiState.first { !it.isLoading }
+        runCurrent()
+        assertEquals(1, cold.activeIds().size)
+        first.cancel()
+        second.cancel()
+        runCurrent()
+        advanceTimeBy(5_001)
+        runCurrent()
+        assertEquals(1, cold.activeIds().size) // Rows still consume category names.
+        rows.cancel()
+        runCurrent()
+        assertEquals(0, cold.activeIds().size)
+    }
+
+    private fun CategoryActions.withFlow(categories: Flow<List<Category>>): CategoryActions =
+        object : CategoryActions by this {
+            override val allCategories = categories
+        }
+
+    /** Each collector has an independently controllable channel, like a cold listener. */
+    private class ColdCategoryFlow(@Volatile var initialSnapshot: List<Category> = emptyList()) {
+        private val nextId = java.util.concurrent.atomic.AtomicInteger()
+        private val channels = java.util.concurrent.ConcurrentHashMap<Int, Channel<List<Category>>>()
+        val opened = Channel<Int>(Channel.UNLIMITED)
+        val values: Flow<List<Category>> = flow {
+            val id = nextId.incrementAndGet()
+            val channel = Channel<List<Category>>(Channel.UNLIMITED)
+            channels[id] = channel
+            opened.trySend(id).getOrThrow()
+            try {
+                emit(initialSnapshot)
+                for (snapshot in channel) emit(snapshot)
+            } finally {
+                channels.remove(id)
+                channel.close()
+            }
+        }
+
+        fun activeIds(): List<Int> = channels.keys().toList().sorted()
+        fun emitTo(id: Int, snapshot: List<Category>) {
+            channels.getValue(id).trySend(snapshot).getOrThrow()
+        }
+        fun emitToAll(snapshot: List<Category>) = activeIds().forEach { emitTo(it, snapshot) }
+    }
+
     private class FakeCategoryActions : CategoryActions {
-        private val categoriesFlow = MutableStateFlow<List<Category>>(emptyList())
+        val categoriesFlow = MutableStateFlow<List<Category>>(emptyList())
         override val allCategories: Flow<List<Category>> = categoriesFlow
 
         override suspend fun insertCategory(category: Category) = Result.success("id")
@@ -223,9 +472,8 @@ class ExpenseViewModelTest {
         var deleteResult: Result<Unit> = Result.success(Unit)
         var lastDeletedId: String? = null
 
-        // The exact date range is irrelevant to these tests — always serve the same
-        // seeded list regardless of which period the ViewModel queries for.
-        override fun getExpensesInRange(startMillis: Long, endMillis: Long): Flow<List<Expense>> = expenses
+        override fun getExpensesInRange(startMillis: Long, endMillis: Long): Flow<List<Expense>> =
+            expenses.map { list -> list.filter { it.dateMillis >= startMillis && it.dateMillis < endMillis } }
 
         override suspend fun insertExpense(expense: Expense, idempotencyKey: String?) = Result.success("id")
         override suspend fun updateExpense(expense: Expense) = Result.success(Unit)
