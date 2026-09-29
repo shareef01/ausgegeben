@@ -3,7 +3,7 @@ import type { Category, Expense, RecordListPeriod, RecordUiState, TransactionTyp
 import { expenseRepository, EmailNotVerifiedError } from '@/repositories/expenseRepository';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useToastStore } from '@/services/toastStore';
-import { useTranslation, getLocale, localeTag } from '@/i18n';
+import { useTranslation, getLocale, localeTag, type Locale } from '@/i18n';
 import { thisMonthRange, analyticsDateRangeMillis } from '@/utils/periodUtils';
 import { computeDayTotals, topExpenseCategoryName } from '@/utils/analytics';
 import { duplicateExpensePayload } from '@/utils/duplicateExpense';
@@ -11,13 +11,62 @@ import { duplicateExpensePayload } from '@/utils/duplicateExpense';
 const SEARCH_DEBOUNCE_MS = 300;
 const DATA_CHANGED_EVENT = 'ausgegeben:data-changed';
 
+export function resolveCompatibleCategoryFilter(
+  currentCategoryId: string | null,
+  nextType: TransactionTypeFilter,
+  categories: Category[],
+): string | null {
+  if (!currentCategoryId) return null;
+  if (nextType === 'all') return currentCategoryId;
+  const currentCat = categories.find((c) => c.id === currentCategoryId);
+  return currentCat && currentCat.transactionType === nextType ? currentCategoryId : null;
+}
+
+export function filterRecordExpenses(params: {
+  expenses: Expense[];
+  typeFilter: TransactionTypeFilter;
+  categoryIdFilter: string | null;
+  searchQuery: string;
+  categories: Category[];
+  locale?: Locale;
+}): Expense[] {
+  const { expenses, typeFilter, categoryIdFilter, searchQuery, categories, locale } = params;
+  let list = expenses;
+
+  if (typeFilter !== 'all') {
+    list = list.filter((e) => e.transactionType === typeFilter);
+  }
+
+  if (categoryIdFilter) {
+    list = list.filter((e) => e.categoryId === categoryIdFilter);
+  }
+
+  const tag = locale ? localeTag(locale) : localeTag(getLocale());
+  const sq = searchQuery.trim().toLocaleLowerCase(tag);
+  if (sq) {
+    const catMap = new Map(categories.map((c) => [c.id, c]));
+    list = list.filter((e) => {
+      const cat = catMap.get(e.categoryId);
+      return (
+        e.note.toLocaleLowerCase(tag).includes(sq) ||
+        String(e.amount).includes(sq) ||
+        (cat?.name.toLocaleLowerCase(tag).includes(sq) ?? false)
+      );
+    });
+  }
+
+  return list;
+}
+
 export function useRecordViewModel() {
+  const locale = usePreferencesStore((s) => s.locale);
   const monthlyBudget = usePreferencesStore((s) => s.monthlyBudget);
   const { t } = useTranslation();
   const showToast = useToastStore((s) => s.show);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<TransactionTypeFilter>('all');
+  const [categoryIdFilter, setCategoryIdFilterState] = useState<string | null>(null);
   const [listPeriod, setListPeriod] = useState<RecordListPeriod>('this_month');
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -197,26 +246,15 @@ export function useRecordViewModel() {
   );
 
   const filteredExpenses = useMemo(() => {
-    let list = summaryExpenses;
-
-    if (typeFilter !== 'all') {
-      list = list.filter(e => e.transactionType === typeFilter);
-    }
-
-    const tag = localeTag(getLocale());
-    const sq = debouncedSearch.trim().toLocaleLowerCase(tag);
-    if (sq) {
-      const catMap = new Map(categories.map(c => [c.id, c]));
-      list = list.filter(e => {
-        const cat = catMap.get(e.categoryId);
-        return e.note.toLocaleLowerCase(tag).includes(sq) ||
-          String(e.amount).includes(sq) ||
-          (cat?.name.toLocaleLowerCase(tag).includes(sq) ?? false);
-      });
-    }
-
-    return list;
-  }, [summaryExpenses, typeFilter, debouncedSearch, categories]);
+    return filterRecordExpenses({
+      expenses: summaryExpenses,
+      typeFilter,
+      categoryIdFilter,
+      searchQuery: debouncedSearch,
+      categories,
+      locale,
+    });
+  }, [summaryExpenses, typeFilter, categoryIdFilter, debouncedSearch, categories, locale]);
 
   const dayTotalsByLabel = useMemo(() => {
     const totals = computeDayTotals(summaryExpenses);
@@ -235,12 +273,24 @@ export function useRecordViewModel() {
     return topExpenseCategoryName(monthExpenses, names);
   }, [monthExpenses, categories]);
 
+  const handleSetTypeFilter = useCallback((nextType: TransactionTypeFilter) => {
+    setTypeFilter(nextType);
+    setCategoryIdFilterState((currentCatId) =>
+      resolveCompatibleCategoryFilter(currentCatId, nextType, categories),
+    );
+  }, [categories]);
+
+  const setCategoryIdFilter = useCallback((id: string | null) => {
+    setCategoryIdFilterState(id);
+  }, []);
+
   const uiState: RecordUiState = useMemo(() => ({
     expenses: filteredExpenses,
     summaryExpenses,
     categories,
     searchQuery,
     typeFilter,
+    categoryIdFilter,
     listPeriod,
     topExpenseCategoryName: topExpenseCategory,
     monthlyBudget,
@@ -249,7 +299,7 @@ export function useRecordViewModel() {
     loading,
     loadError,
     dataTruncated,
-  }), [filteredExpenses, summaryExpenses, categories, searchQuery, typeFilter, listPeriod, topExpenseCategory, monthlyBudget, monthExpenses, dayTotalsByLabel, loading, loadError, dataTruncated]);
+  }), [filteredExpenses, summaryExpenses, categories, searchQuery, typeFilter, categoryIdFilter, listPeriod, topExpenseCategory, monthlyBudget, monthExpenses, dayTotalsByLabel, loading, loadError, dataTruncated]);
 
   const requestDelete = useCallback(async (id: string) => {
     if (!id || softDeletedIdsRef.current.has(id)) return;
@@ -310,7 +360,8 @@ export function useRecordViewModel() {
     monthSpent,
     viewingCurrentMonth,
     setSearchQuery,
-    setTypeFilter,
+    setTypeFilter: handleSetTypeFilter,
+    setCategoryIdFilter,
     setListPeriod,
     requestDelete,
     duplicateExpense,

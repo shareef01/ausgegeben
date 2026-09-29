@@ -336,6 +336,8 @@
     <string name="desc_transfer_row">%1$s transfer of %2$s. %3$s</string>
     <string name="desc_finance_summary">Finance summary for %1$s. Net balance %2$s. Total earned %3$s. Total spent %4$s.</string>
     <string name="record_filter">Filter by type</string>
+    <string name="record_category_filter">Filter by category</string>
+    <string name="filter_all_categories">All categories</string>
     <string name="record_pick_month">Pick a month</string>
     <string name="record_clear_month_filter">Back to this month</string>
     <string name="record_gesture_hints">Swipe left to delete · Swipe right to edit · Long-press to duplicate</string>
