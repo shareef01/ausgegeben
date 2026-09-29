@@ -32,6 +32,26 @@ class RecordFilterTest {
         assertEquals(1, filtered.size)
         assertEquals("Coffee shop", filtered.first().note)
     }
+
+    @Test
+    fun filterByCategory_matchesCategoryId() {
+        val items = listOf(
+            Expense(id = "1", amount = 10.0, dateMillis = 0L, categoryId = "cat1", note = "", transactionType = "expense"),
+            Expense(id = "2", amount = 20.0, dateMillis = 0L, categoryId = "cat2", note = "", transactionType = "expense"),
+        )
+        // Null or empty means no selection; other strings are exact IDs.
+        assertEquals(2, items.filterByCategory(null).size)
+        assertEquals(2, items.filterByCategory("").size)
+        assertTrue(items.filterByCategory("   ").isEmpty())
+
+        // Matching category ID
+        val filtered = items.filterByCategory("cat1")
+        assertEquals(1, filtered.size)
+        assertEquals("cat1", filtered.first().categoryId)
+
+        // Non-matching category ID returns empty
+        assertTrue(items.filterByCategory("cat99").isEmpty())
+    }
 }
 
 class TransactionTypeTest {

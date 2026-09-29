@@ -23,7 +23,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
   const { t } = useTranslation();
   const currency = usePreferencesStore((s) => s.currency);
   const locale = usePreferencesStore((s) => s.locale);
-  const { uiState, monthSpent, viewingCurrentMonth, setSearchQuery, setTypeFilter, setListPeriod, requestDelete, duplicateExpense, reload } = useRecordViewModel();
+  const { uiState, monthSpent, viewingCurrentMonth, setSearchQuery, setTypeFilter, setCategoryIdFilter, setListPeriod, requestDelete, duplicateExpense, reload } = useRecordViewModel();
   const haptics = useHaptics();
   const periodOptions = useMemo(() => recordPeriodOptions(locale, t), [locale, t]);
   const selectedPeriod = useMemo(
@@ -33,12 +33,22 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
   const periodLabel = selectedPeriod.label;
   const [searchFocused, setSearchFocused] = useState(false);
   const hasQuery = uiState.searchQuery.length > 0;
-  const filtersActive = hasQuery || uiState.typeFilter !== 'all';
+  const hasCategoryFilter = Boolean(uiState.categoryIdFilter);
+  const filtersActive = hasQuery || uiState.typeFilter !== 'all' || hasCategoryFilter;
 
   const clearFilters = useCallback(() => {
     setSearchQuery('');
     setTypeFilter('all');
-  }, [setSearchQuery, setTypeFilter]);
+    setCategoryIdFilter(null);
+  }, [setSearchQuery, setTypeFilter, setCategoryIdFilter]);
+
+  const availableCategories = useMemo(() => {
+    return uiState.categories.filter((cat) => {
+      if (cat.id === '0') return false;
+      if (uiState.typeFilter === 'all') return true;
+      return cat.transactionType === uiState.typeFilter;
+    });
+  }, [uiState.categories, uiState.typeFilter]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, Expense[]>();
@@ -155,6 +165,64 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
               value={uiState.typeFilter}
               onChange={setTypeFilter}
             />
+
+            {(availableCategories.length > 0 || hasCategoryFilter) && (
+              <>
+                <hr className="record-filters__divider" />
+                <div
+                  className="record-category-filter"
+                  role="group"
+                  aria-label={t('recordCategoryFilter')}
+                >
+                  <button
+                    type="button"
+                    className={`record-category-chip ${uiState.categoryIdFilter === null ? 'record-category-chip--active' : ''}`}
+                    onClick={() => {
+                      haptics.light();
+                      setCategoryIdFilter(null);
+                    }}
+                    aria-pressed={uiState.categoryIdFilter === null}
+                  >
+                    <span>{t('filterAllCategories')}</span>
+                  </button>
+                  {hasCategoryFilter && !availableCategories.some((cat) => cat.id === uiState.categoryIdFilter) && (
+                    <button
+                      type="button"
+                      className="record-category-chip record-category-chip--active"
+                      aria-pressed="true"
+                      onClick={() => setCategoryIdFilter(null)}
+                    >
+                      <span className="record-category-chip__name">
+                        {uiState.categories.find((cat) => cat.id === uiState.categoryIdFilter)?.name ?? t('recordUnknownCategory')}
+                      </span>
+                    </button>
+                  )}
+                  {availableCategories.map((cat) => {
+                    const isSelected = uiState.categoryIdFilter === cat.id;
+                    const hex = colorIntToHex(cat.colorInt);
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        className={`record-category-chip ${isSelected ? 'record-category-chip--active' : ''}`}
+                        onClick={() => {
+                          haptics.light();
+                          setCategoryIdFilter(isSelected ? null : cat.id);
+                        }}
+                        aria-pressed={isSelected}
+                      >
+                        <span
+                          className="record-category-chip__dot"
+                          style={{ backgroundColor: hex }}
+                          aria-hidden="true"
+                        />
+                        <span className="record-category-chip__name">{cat.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
         </aside>
 

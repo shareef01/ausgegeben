@@ -68,6 +68,8 @@ export const en = {
   filterIncome: 'income',
   filterTransfer: 'transfer',
   recordTypeFilter: 'transaction type',
+  recordCategoryFilter: 'category filter',
+  filterAllCategories: 'all categories',
   summaryEarned: 'earned',
   summarySpent: 'spent',
   summaryBalance: 'balance',

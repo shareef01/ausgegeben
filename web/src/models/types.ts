@@ -47,6 +47,7 @@ export interface RecordUiState {
   categories: Category[];
   searchQuery: string;
   typeFilter: TransactionTypeFilter;
+  categoryIdFilter: string | null;
   listPeriod: RecordListPeriod;
   /** Calendar-month top expense category name (Android Record chip parity). */
   topExpenseCategoryName: string | null;

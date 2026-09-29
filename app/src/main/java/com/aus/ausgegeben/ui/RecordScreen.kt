@@ -8,6 +8,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,6 +40,9 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -47,6 +51,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aus.ausgegeben.R
+import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.ui.components.*
 import com.aus.ausgegeben.ui.theme.*
@@ -208,6 +213,9 @@ fun RecordScreen(
                             onListPeriod = viewModel::setListPeriod,
                             typeFilter = uiState.toolbar.typeFilter,
                             onTypeFilter = viewModel::setTypeFilter,
+                            categories = categories,
+                            categoryFilter = uiState.toolbar.categoryFilter,
+                            onCategoryFilter = viewModel::setCategoryFilter,
                             searchQuery = uiState.toolbar.searchQuery,
                             onSearchChange = viewModel::setSearchQuery,
                             isSearchExpanded = isSearchExpanded,
@@ -369,6 +377,7 @@ fun RecordScreen(
                     else -> {
                     val isSearching = uiState.toolbar.searchQuery.isNotBlank()
                     val hasActiveFilters = uiState.toolbar.typeFilter != TransactionTypeFilter.ALL ||
+                        uiState.toolbar.categoryFilter != null ||
                         uiState.toolbar.listPeriod != RecordListPeriod.THIS_MONTH.key
                     val isConstrained = isSearching || hasActiveFilters
                     item(key = "empty") {
@@ -392,6 +401,7 @@ fun RecordScreen(
                                 isSearching -> ({ viewModel.setSearchQuery("") })
                                 hasActiveFilters -> ({
                                     viewModel.setTypeFilter(TransactionTypeFilter.ALL)
+                                    viewModel.setCategoryFilter(null)
                                     viewModel.setListPeriod(RecordListPeriod.THIS_MONTH.key)
                                 })
                                 else -> onAddTransaction
@@ -439,6 +449,9 @@ private fun RecordListToolbar(
     onListPeriod: (String) -> Unit,
     typeFilter: TransactionTypeFilter,
     onTypeFilter: (TransactionTypeFilter) -> Unit,
+    categories: List<Category> = emptyList(),
+    categoryFilter: String? = null,
+    onCategoryFilter: (String?) -> Unit = {},
     searchQuery: String,
     onSearchChange: (String) -> Unit,
     isSearchExpanded: Boolean,
@@ -683,6 +696,108 @@ private fun RecordListToolbar(
                 TransactionTypeFilter.entries.getOrNull(index)?.let(onTypeFilter)
             },
             icons = typeFilterIcons,
+        )
+
+        val availableCategories = remember(categories, typeFilter) {
+            categories.filter { cat ->
+                cat.id != "0" && (typeFilter == TransactionTypeFilter.ALL || cat.transactionType == typeFilter.name.lowercase(Locale.ROOT))
+            }
+        }
+
+        if (availableCategories.isNotEmpty() || categoryFilter != null) {
+            val categoryFilterLabel = stringResource(R.string.record_category_filter)
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = categoryFilterLabel },
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                contentPadding = PaddingValues(vertical = 2.dp),
+            ) {
+                item(key = "cat_filter_all") {
+                    val isAllSelected = categoryFilter == null
+                    CategoryFilterChip(
+                        label = stringResource(R.string.filter_all_categories),
+                        isSelected = isAllSelected,
+                        color = null,
+                        onClick = { onCategoryFilter(null) }
+                    )
+                }
+                if (categoryFilter != null && availableCategories.none { it.id == categoryFilter }) {
+                    item(key = "cat_filter_missing") {
+                        CategoryFilterChip(
+                            label = categories.find { it.id == categoryFilter }?.name
+                                ?: stringResource(R.string.record_unknown_category),
+                            isSelected = true,
+                            color = null,
+                            onClick = { onCategoryFilter(null) },
+                        )
+                    }
+                }
+                items(availableCategories, key = { "cat_filter_id_${it.id}" }) { cat ->
+                    val isSelected = categoryFilter == cat.id
+                    CategoryFilterChip(
+                        label = cat.name,
+                        isSelected = isSelected,
+                        color = Color(cat.colorInt),
+                        onClick = { onCategoryFilter(if (isSelected) null else cat.id) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CategoryFilterChip(
+    label: String,
+    isSelected: Boolean,
+    color: Color?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val haptics = rememberAppHaptics()
+    val shape = RoundedCornerShape(AppRadius.pill)
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val borderColor = if (isSelected) primaryColor.copy(alpha = 0.55f) else appDividerColor()
+    val backgroundColor = if (isSelected) {
+        primaryColor.copy(alpha = 0.14f)
+    } else {
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f)
+    }
+    val textColor = if (isSelected) primaryColor else MaterialTheme.colorScheme.onSurfaceVariant
+
+    Row(
+        modifier = modifier
+            .widthIn(max = 240.dp)
+            .heightIn(min = 48.dp)
+            .semantics { selected = isSelected; role = Role.Button }
+            .clip(shape)
+            .background(backgroundColor)
+            .border(0.5.dp, borderColor, shape)
+            .smoothClickable {
+                haptics.light()
+                onClick()
+            }
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        if (color != null) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(color)
+            )
+        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
+            ),
+            color = textColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
