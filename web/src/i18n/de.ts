@@ -70,6 +70,8 @@ export const de: Record<TranslationKey, string> = {
   filterIncome: 'einnahme',
   filterTransfer: 'transfer',
   recordTypeFilter: 'transaktionstyp',
+  recordCategoryFilter: 'kategoriefilter',
+  filterAllCategories: 'alle kategorien',
   summaryEarned: 'einnahmen',
   summarySpent: 'ausgaben',
   summaryBalance: 'saldo',

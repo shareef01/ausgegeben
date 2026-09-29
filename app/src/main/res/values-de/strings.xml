@@ -339,6 +339,8 @@
     <string name="desc_transfer_row">%1$s Transfer von %2$s. %3$s</string>
     <string name="desc_finance_summary">Finanzübersicht für %1$s. Netto-Saldo %2$s. Gesamteinnahmen %3$s. Gesamtausgaben %4$s.</string>
     <string name="record_filter">Nach Typ filtern</string>
+    <string name="record_category_filter">Nach Kategorie filtern</string>
+    <string name="filter_all_categories">Alle Kategorien</string>
     <string name="record_pick_month">monat wählen</string>
     <string name="record_clear_month_filter">zurück zu diesem monat</string>
     <string name="record_gesture_hints">Nach links wischen zum Löschen · Nach rechts wischen zum Bearbeiten · Lange drücken zum Duplizieren</string>

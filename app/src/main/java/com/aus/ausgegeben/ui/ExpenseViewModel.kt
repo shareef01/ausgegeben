@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.Locale
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
@@ -55,6 +56,7 @@ data class RecordData(
 data class RecordToolbarState(
     val searchQuery: String = "",
     val typeFilter: TransactionTypeFilter = TransactionTypeFilter.ALL,
+    val categoryFilter: String? = null,
     val listPeriod: String = RecordListPeriod.THIS_MONTH.key,
 )
 
@@ -69,14 +71,16 @@ class ExpenseViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     private val _debouncedSearch = _searchQuery.debounce(250)
     private val _typeFilter = MutableStateFlow(TransactionTypeFilter.ALL)
+    private val _categoryFilter = MutableStateFlow<String?>(null)
     private val _listPeriod = MutableStateFlow(RecordListPeriod.THIS_MONTH.key)
     /** Hidden until snackbar undo expires — Firestore delete runs in [commitSoftDelete]. */
     private val _softDeletedIds = MutableStateFlow<Set<String>>(emptySet())
-
     // 1. Base data flows
     private val currencyFlow = preferenceManager.currencyFlow.distinctUntilChanged()
     private val budgetFlow = preferenceManager.monthlyBudgetFlow.distinctUntilChanged()
-    private val categoriesFlow = categoryActions.allCategories.distinctUntilChanged()
+    private val categoriesShared: Flow<List<Category>> = categoryActions.allCategories
+        .distinctUntilChanged()
+        .shareIn(viewModelScope, SharingStarted.WhileSubscribed(), replay = 1)
 
     private fun Flow<List<Expense>>.excludingSoftDeleted(): Flow<List<Expense>> =
         combine(this, _softDeletedIds) { expenses, hidden ->
@@ -123,7 +127,7 @@ class ExpenseViewModel @Inject constructor(
     // Week listener dropped: daysLoggedThisWeek is unused in UI; top category uses month only.
     private val insightsFlow = combine(
         monthExpensesShared,
-        categoriesFlow,
+        categoriesShared,
     ) { month, cats ->
         val categoryNames = cats.associate { it.id to it.name }
         computeSpendingInsights(month, emptyList(), categoryNames)
@@ -136,11 +140,11 @@ class ExpenseViewModel @Inject constructor(
         .flowOn(Dispatchers.Default)
 
     val uiState: StateFlow<RecordUiState> = combine(
-        combine(listExpensesShared, categoriesFlow, monthExpensesShared, budgetFlow, currencyFlow) { list, cats, month, budget, curr ->
+        combine(listExpensesShared, categoriesShared, monthExpensesShared, budgetFlow, currencyFlow) { list, cats, month, budget, curr ->
             RecordData(list, cats, month, budget, curr)
         },
-        combine(_searchQuery, _typeFilter, _listPeriod) { query, filter, period ->
-            RecordToolbarState(query, filter, period)
+        combine(_searchQuery, _typeFilter, _categoryFilter, _listPeriod) { query, filter, catFilter, period ->
+            RecordToolbarState(query, filter, catFilter, period)
         },
         insightsFlow,
         dayTotalsFlow,
@@ -162,20 +166,22 @@ class ExpenseViewModel @Inject constructor(
         initialValue = RecordUiState(),
     )
 
-    // Period data from [listExpensesShared]; type + search filtered here (web parity).
+    // Period data from [listExpensesShared]; type + category + search filtered here (web parity).
     val pagedExpenses: Flow<List<Expense>> = combine(
         listExpensesShared,
         _typeFilter,
+        _categoryFilter,
         _debouncedSearch,
-        categoriesFlow,
-    ) { expenses, filter, query, categories ->
+        categoriesShared,
+    ) { expenses, filter, catFilter, query, categories ->
         val typed = if (filter == TransactionTypeFilter.ALL) {
             expenses
         } else {
             expenses.filter { filter.matches(it) }
         }
+        val categoryFiltered = typed.filterByCategory(catFilter)
         val categoryNames = categories.associate { it.id to it.name }
-        typed.filterByQuery(query, categoryNames)
+        categoryFiltered.filterByQuery(query, categoryNames)
     }
 
     fun setSearchQuery(query: String) {
@@ -184,6 +190,19 @@ class ExpenseViewModel @Inject constructor(
 
     fun setTypeFilter(filter: TransactionTypeFilter) {
         _typeFilter.value = filter
+        if (filter != TransactionTypeFilter.ALL) {
+            val current = _categoryFilter.value
+            if (current != null) {
+                val cat = uiState.value.data.categories.find { it.id == current }
+                if (cat == null || cat.transactionType != filter.name.lowercase(Locale.ROOT)) {
+                    _categoryFilter.value = null
+                }
+            }
+        }
+    }
+
+    fun setCategoryFilter(categoryId: String?) {
+        _categoryFilter.value = categoryId
     }
 
     fun setListPeriod(period: String) {
