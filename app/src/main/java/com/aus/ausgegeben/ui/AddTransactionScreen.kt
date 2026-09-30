@@ -95,6 +95,7 @@ fun AddTransactionScreen(
     viewModel: AddExpenseViewModel,
     categoryViewModel: CategoryViewModel,
     currencyCode: String = "EUR",
+    currentUid: String? = null,
     onTransactionSaved: (wasEditing: Boolean) -> Unit,
     onBack: () -> Unit,
     onValidationError: (String) -> Unit,
@@ -330,7 +331,8 @@ fun AddTransactionScreen(
                                         haptics.medium()
                                         onValidationError(it)
                                     },
-                                    onBudgetAlert = onBudgetAlert
+                                    onBudgetAlert = onBudgetAlert,
+                                    currentUid = currentUid
                                 )
                             },
                         )

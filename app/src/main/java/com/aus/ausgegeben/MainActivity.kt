@@ -135,6 +135,13 @@ fun MainApp(
 
     val overlay = rememberAppOverlayState(addViewModel, expenseViewModel)
 
+    LaunchedEffect(currentUser?.uid) {
+        if (overlay.overlayStack.isNotEmpty()) {
+            addViewModel.resetForm()
+            overlay.closeOverlay()
+        }
+    }
+
     // Keyed on the time too, so a reminder-time change synced from another device
     // (which doesn't toggle dailyReminder) still reschedules the local WorkManager job.
     LaunchedEffect(dailyReminder, reminderHour, reminderMinute) {
@@ -360,7 +367,7 @@ fun MainApp(
                             dataError = listenerError,
                             onRetryDataError = { repository.retryListeners() },
                             onAddTransaction = overlay::openAddFlow,
-                            onExpenseClick = overlay::openEditFlow,
+                            onExpenseClick = { expense -> overlay.openEditFlow(expense, currentUser?.uid) },
                             onExpenseDeleted = { expense ->
                                 scope.launch {
                                     val result = snackbarHostState.showSnackbar(
@@ -432,6 +439,7 @@ fun MainApp(
                                 viewModel = addViewModel,
                                 categoryViewModel = categoryViewModel,
                                 currencyCode = currency,
+                                currentUid = currentUser?.uid,
                                 onTransactionSaved = { wasEditing ->
                                     overlay.closeOverlay()
                                     showSnackbar(if (wasEditing) updatedMessage else savedMessage)
