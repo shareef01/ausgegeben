@@ -331,6 +331,158 @@ class AddExpenseViewModelTest {
         assertFalse(viewModel.isEditing)
     }
 
+    @Test
+    fun andE1_editStateInitializedFromExistingTransaction() = runTest(dispatcher) {
+        val existing = Expense(id = "e1", amount = 15.5, dateMillis = 1700000000000L, categoryId = "c1", note = "Groceries", transactionType = "expense")
+        viewModel.loadForEdit(existing, listOf(expenseCategory), ownerUid = "user-1")
+        advanceUntilIdle()
+
+        assertEquals("e1", viewModel.editingExpenseId.value)
+        assertEquals("user-1", viewModel.editingOwnerUid.value)
+        assertEquals("15,50", viewModel.amount.value)
+        assertEquals("Groceries", viewModel.note.value)
+        assertEquals(1700000000000L, viewModel.dateMillis.value)
+        assertEquals(expenseCategory, viewModel.selectedCategory.value)
+        assertEquals(TransactionType.EXPENSE, viewModel.loadedTransactionType.value)
+        assertTrue(viewModel.isEditing)
+    }
+
+    @Test
+    fun andE2_saveProducesRepositoryUpdateWithSameId() = runTest(dispatcher) {
+        val existing = Expense(id = "e1", amount = 10.0, dateMillis = 1000L, categoryId = "c1", note = "Orig", transactionType = "expense")
+        viewModel.loadForEdit(existing, listOf(expenseCategory))
+        advanceUntilIdle()
+        viewModel.onAmountChange("25,00")
+        viewModel.onNoteChange("Updated Note")
+
+        var succeeded = false
+        viewModel.saveExpense(TransactionType.EXPENSE, onSuccess = { succeeded = true }, onError = {})
+        advanceUntilIdle()
+
+        assertTrue(succeeded)
+        assertTrue(fakeExpenses.updateCalled)
+        assertFalse(fakeExpenses.insertCalled)
+        assertEquals("e1", fakeExpenses.lastUpdated?.id)
+        assertEquals(25.0, fakeExpenses.lastUpdated?.amount)
+        assertEquals("Updated Note", fakeExpenses.lastUpdated?.note)
+    }
+
+    @Test
+    fun andE3_validationRejectsZeroAmountOnEdit() = runTest(dispatcher) {
+        val existing = Expense(id = "e1", amount = 10.0, dateMillis = 1000L, categoryId = "c1", note = "Orig", transactionType = "expense")
+        viewModel.loadForEdit(existing, listOf(expenseCategory))
+        advanceUntilIdle()
+        viewModel.onAmountChange("0")
+
+        var error: String? = null
+        viewModel.saveExpense(TransactionType.EXPENSE, onSuccess = {}, onError = { error = it })
+        advanceUntilIdle()
+
+        assertEquals(appString(R.string.error_amount_required), error)
+        assertFalse(fakeExpenses.updateCalled)
+        assertFalse(fakeExpenses.insertCalled)
+    }
+
+    @Test
+    fun andE4_categoryTypeMismatchRejectsEditSave() = runTest(dispatcher) {
+        val existing = Expense(id = "e1", amount = 10.0, dateMillis = 1000L, categoryId = "c1", note = "Orig", transactionType = "expense")
+        viewModel.loadForEdit(existing, listOf(expenseCategory))
+        advanceUntilIdle()
+        viewModel.onCategorySelect(incomeCategory)
+
+        var error: String? = null
+        viewModel.saveExpense(TransactionType.EXPENSE, onSuccess = {}, onError = { error = it })
+        advanceUntilIdle()
+
+        assertTrue(error.orEmpty().isNotEmpty())
+        assertFalse(fakeExpenses.updateCalled)
+    }
+
+    @Test
+    fun andE5_missingOrDeletedCategoryLeavesSelectionNullAndBlocksSave() = runTest(dispatcher) {
+        val existingWithDeletedCat = Expense(id = "e1", amount = 10.0, dateMillis = 1000L, categoryId = "deleted-cat", note = "Orig", transactionType = "expense")
+        viewModel.loadForEdit(existingWithDeletedCat, listOf(expenseCategory))
+        advanceUntilIdle()
+
+        assertNull(viewModel.selectedCategory.value)
+
+        var error: String? = null
+        viewModel.saveExpense(TransactionType.EXPENSE, onSuccess = {}, onError = { error = it })
+        advanceUntilIdle()
+
+        assertEquals(appString(R.string.error_select_category), error)
+        assertFalse(fakeExpenses.updateCalled)
+    }
+
+    @Test
+    fun andE6_saveErrorPreservesFormStateAndResetsSaving() = runTest(dispatcher) {
+        fakeExpenses.updateResult = Result.failure(RuntimeException("NETWORK_TIMEOUT"))
+        val existing = Expense(id = "e1", amount = 10.0, dateMillis = 1000L, categoryId = "c1", note = "Orig", transactionType = "expense")
+        viewModel.loadForEdit(existing, listOf(expenseCategory))
+        advanceUntilIdle()
+        viewModel.onAmountChange("30,00")
+        viewModel.onNoteChange("Pending save")
+
+        var error: String? = null
+        var succeeded = false
+        viewModel.saveExpense(TransactionType.EXPENSE, onSuccess = { succeeded = true }, onError = { error = it })
+        advanceUntilIdle()
+
+        assertFalse(succeeded)
+        assertEquals(appString(R.string.auth_error_generic), error)
+        assertFalse(viewModel.isSaving.value)
+        assertEquals("30,00", viewModel.amount.value)
+        assertEquals("Pending save", viewModel.note.value)
+        assertEquals("e1", viewModel.editingExpenseId.value)
+    }
+
+    @Test
+    fun andE7_secondSaveWhileFirstUnresolvedIsRejected() = runTest(dispatcher) {
+        val existing = Expense(id = "e1", amount = 10.0, dateMillis = 1000L, categoryId = "c1", note = "Orig", transactionType = "expense")
+        viewModel.loadForEdit(existing, listOf(expenseCategory))
+        advanceUntilIdle()
+
+        // First save claims lock
+        viewModel.saveExpense(TransactionType.EXPENSE, onSuccess = {}, onError = {})
+        // Immediate second save before idle is rejected
+        var secondSaveTriggered = false
+        viewModel.saveExpense(TransactionType.EXPENSE, onSuccess = { secondSaveTriggered = true }, onError = {})
+        advanceUntilIdle()
+
+        assertFalse(secondSaveTriggered)
+        assertTrue(fakeExpenses.updateCalled)
+    }
+
+    @Test
+    fun andE8_deletedTransactionDoesNotResurrect() = runTest(dispatcher) {
+        fakeExpenses.updateResult = Result.failure(IllegalStateException("EXPENSE_NOT_FOUND"))
+        val existing = Expense(id = "e1", amount = 10.0, dateMillis = 1000L, categoryId = "c1", note = "Orig", transactionType = "expense")
+        viewModel.loadForEdit(existing, listOf(expenseCategory))
+        advanceUntilIdle()
+
+        var error: String? = null
+        viewModel.saveExpense(TransactionType.EXPENSE, onSuccess = {}, onError = { error = it })
+        advanceUntilIdle()
+
+        assertEquals(appString(R.string.snackbar_transaction_not_found), error)
+        assertFalse(fakeExpenses.insertCalled)
+    }
+
+    @Test
+    fun andE9_authChangeAbortsMutation() = runTest(dispatcher) {
+        val existing = Expense(id = "e1", amount = 10.0, dateMillis = 1000L, categoryId = "c1", note = "Orig", transactionType = "expense")
+        viewModel.loadForEdit(existing, listOf(expenseCategory), ownerUid = "user-a")
+        advanceUntilIdle()
+
+        var error: String? = null
+        viewModel.saveExpense(TransactionType.EXPENSE, onSuccess = {}, onError = { error = it }, currentUid = "user-b")
+        advanceUntilIdle()
+
+        assertEquals(appString(R.string.auth_error_generic), error)
+        assertFalse(fakeExpenses.updateCalled)
+        assertFalse(fakeExpenses.insertCalled)
+    }
+
     private fun appString(id: Int): String =
         ApplicationProvider.getApplicationContext<Application>().getString(id)
 
