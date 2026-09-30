@@ -43,8 +43,8 @@ class AppOverlayState(
         overlayStack.add(Route.AddTransaction)
     }
 
-    fun openEditFlow(expense: Expense) {
-        addViewModel.loadForEdit(expense, expenseViewModel.uiState.value.data.categories)
+    fun openEditFlow(expense: Expense, ownerUid: String? = null) {
+        addViewModel.loadForEdit(expense, expenseViewModel.uiState.value.data.categories, ownerUid)
         overlayStack.clear()
         overlayStack.add(Route.AddTransaction)
     }

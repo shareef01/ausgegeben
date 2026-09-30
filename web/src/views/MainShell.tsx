@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense, type JSX } from 'react';
+import { useState, useEffect, lazy, Suspense, type JSX } from 'react';
 import { useCssProps } from '@/utils/cssVars';
 import { RecordView } from '@/views/RecordView';
 // Lazy-loaded so their code (and the charts Insights pulls in) is split into
@@ -28,6 +28,11 @@ export function MainShell() {
   const [tab, setTab] = useState<Tab>('record');
   const [txnOverlay, setTxnOverlay] = useState<TxnOverlay>(null);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
+
+  useEffect(() => {
+    setTxnOverlay(null);
+    setCategoriesOpen(false);
+  }, [user?.uid]);
   const [visitedTabs, setVisitedTabs] = useState<Set<Tab>>(() => new Set(['record']));
   const [verifyDismissed, setVerifyDismissed] = useState(false);
   const [verifyBusy, setVerifyBusy] = useState(false);

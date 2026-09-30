@@ -75,11 +75,11 @@ export async function writeExpense(params: {
   payload: Omit<Expense, 'id'>;
 }): Promise<string> {
   const { uid, expenseId, payload } = params;
+  if (!uid) throw new Error('Not signed in');
   if (expenseId) {
     await expenseRepository.updateExpense({ ...payload, id: expenseId });
     return expenseId;
   }
-  if (!uid) throw new Error('Not signed in');
   // A fresh operation id per explicit Save tap — never derived from the field
   // values — so two genuinely distinct transactions can never be collapsed into
   // one, even if every field happens to match. Persisted before Firestore is
@@ -168,9 +168,11 @@ export function useAddTransactionViewModel(expenseId?: string) {
    * to this one mounted add-transaction flow, never shared across instances.
    */
   const savingRef = useRef(false);
+  const editorOwnerUid = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     setLoadFailed(false);
+    editorOwnerUid.current = useAuthStore.getState().user?.uid ?? null;
     try {
       const CATEGORY_TIMEOUT_MS = 8000;
       const catsPromise = expenseRepository.getAllCategories();
@@ -297,6 +299,15 @@ export function useAddTransactionViewModel(expenseId?: string) {
       // at a deleted one. Refuse rather than substituting — writing a guessed category
       // here is a silent edit to data the user never touched (Android parity).
       setError(t('errorChooseCategory'));
+      return { ok: false };
+    }
+    const currentUid = useAuthStore.getState().user?.uid;
+    if (!currentUid) {
+      setError(t('authErrorGeneric'));
+      return { ok: false };
+    }
+    if (expenseId && editorOwnerUid.current && editorOwnerUid.current !== currentUid) {
+      setError(t('authErrorGeneric'));
       return { ok: false };
     }
     const payload: Omit<Expense, 'id'> = {

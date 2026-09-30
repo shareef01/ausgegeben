@@ -714,7 +714,9 @@ export const expenseRepository = {
   },
 
   async updateExpense(expense: Expense): Promise<void> {
-    const userId = uid(); if (!userId || !expense.id) return;
+    const userId = uid();
+    if (!userId) throw new Error('Not signed in');
+    if (!expense.id) throw new Error('EXPENSE_NOT_FOUND');
     requireVerifiedEmail();
     const existing = await getDoc(expDoc(userId, expense.id));
     if (!existing.exists()) {

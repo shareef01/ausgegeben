@@ -140,4 +140,24 @@ describe('B2: overlapping save() invocations are rejected without a content-base
     const { items } = await expenseRepository.getAllExpensesCapped();
     expect(items).toHaveLength(2); // both legitimate, identical-content transactions exist
   });
+
+  it('Test 5: writeExpense with expenseId updates existing document without creating a duplicate', async () => {
+    const savedId = await writeExpense({ uid: TEST_UID, payload: draft() });
+    const { items: beforeItems } = await expenseRepository.getAllExpensesCapped();
+    expect(beforeItems).toHaveLength(1);
+    expect(beforeItems[0].amount).toBe(4.5);
+
+    const updatedId = await writeExpense({
+      uid: TEST_UID,
+      expenseId: savedId,
+      payload: { ...draft(), amount: 9.99, note: 'Updated note' },
+    });
+    expect(updatedId).toBe(savedId);
+
+    const { items: afterItems } = await expenseRepository.getAllExpensesCapped();
+    expect(afterItems).toHaveLength(1);
+    expect(afterItems[0].id).toBe(savedId);
+    expect(afterItems[0].amount).toBe(9.99);
+    expect(afterItems[0].note).toBe('Updated note');
+  });
 });

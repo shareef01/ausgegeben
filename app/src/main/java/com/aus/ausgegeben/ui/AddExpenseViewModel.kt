@@ -51,6 +51,9 @@ class AddExpenseViewModel @Inject constructor(
     private val _editingExpenseId = MutableStateFlow<String?>(null)
     val editingExpenseId = _editingExpenseId.asStateFlow()
 
+    private val _editingOwnerUid = MutableStateFlow<String?>(null)
+    val editingOwnerUid = _editingOwnerUid.asStateFlow()
+
     private val _loadedTransactionType = MutableStateFlow(TransactionType.EXPENSE)
     val loadedTransactionType = _loadedTransactionType.asStateFlow()
 
@@ -92,8 +95,9 @@ class AddExpenseViewModel @Inject constructor(
         _dateMillis.value = dayStart + timeOfDayMillis
     }
 
-    fun loadForEdit(expense: Expense, categories: List<Category>) {
+    fun loadForEdit(expense: Expense, categories: List<Category>, ownerUid: String? = null) {
         _editingExpenseId.value = expense.id
+        _editingOwnerUid.value = ownerUid
         _note.value = expense.note
         _dateMillis.value = expense.dateMillis
         _selectedCategory.value = categories.find { it.id == expense.categoryId }
@@ -108,26 +112,40 @@ class AddExpenseViewModel @Inject constructor(
         type: TransactionType,
         onSuccess: () -> Unit,
         onError: (String) -> Unit,
-        onBudgetAlert: ((String) -> Unit)? = null
+        onBudgetAlert: ((String) -> Unit)? = null,
+        currentUid: String? = null
     ) {
-        if (_isSaving.value) return // SECURE: Idempotency check
+        if (!_isSaving.compareAndSet(expect = false, update = true)) return // SECURE: Idempotency check
 
         val category = _selectedCategory.value
         val app = getApplication<Application>()
+        val boundUid = _editingOwnerUid.value
+        if (boundUid != null && currentUid != null && boundUid != currentUid) {
+            _isSaving.value = false
+            onError(app.getString(R.string.auth_error_generic))
+            return
+        }
+
         when {
-            category == null -> onError(app.getString(R.string.error_select_category))
-            category.transactionType != type.storageKey -> onError(
-                app.getString(
-                    R.string.error_category_type_mismatch,
-                    TransactionType.fromKey(category.transactionType).localizedLabel(app)
+            category == null -> {
+                _isSaving.value = false
+                onError(app.getString(R.string.error_select_category))
+            }
+            category.transactionType != type.storageKey -> {
+                _isSaving.value = false
+                onError(
+                    app.getString(
+                        R.string.error_category_type_mismatch,
+                        TransactionType.fromKey(category.transactionType).localizedLabel(app)
+                    )
                 )
-            )
+            }
             else -> viewModelScope.launch {
                 try {
-                    _isSaving.value = true
                     val currency = preferenceManager.currencyFlow.first()
                     val amt = CurrencyUtils.parseAmount(_amount.value, currency) ?: 0.0
                     if (amt <= 0) {
+                        _isSaving.value = false
                         onError(app.getString(R.string.error_amount_required))
                         return@launch
                     }
@@ -224,6 +242,7 @@ class AddExpenseViewModel @Inject constructor(
 
     fun resetForm() {
         _editingExpenseId.value = null
+        _editingOwnerUid.value = null
         _amount.value = "0"
         _note.value = ""
         _selectedCategory.value = null
