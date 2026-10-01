@@ -100,6 +100,11 @@
     <string name="settings_export_truncated_confirm">Only the latest 5000 transactions will be included. Older rows will be missing. Continue?</string>
     <string name="settings_export_truncated_continue">Export anyway</string>
     <string name="settings_export_failed">Export failed</string>
+    <string name="settings_export_backup">Export JSON backup</string>
+    <string name="settings_export_backup_subtitle">Complete account data for portability</string>
+    <string name="settings_export_backup_ok">Backup ready to share</string>
+    <string name="settings_export_backup_truncated">Backup ready (latest 5000 rows)</string>
+    <string name="settings_export_backup_truncated_confirm">Only the latest 5000 transactions will be included in the backup. Older rows will be missing. Continue?</string>
     <string name="data_truncated_notice">Showing the latest 5,000 transactions — older rows are hidden</string>
     <string name="settings_version">Version</string>
     <string name="settings_support">Contact Support</string>

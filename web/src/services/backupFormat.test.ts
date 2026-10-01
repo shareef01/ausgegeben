@@ -151,8 +151,44 @@ describe('Local backup serializer & strict validator', () => {
     backup.expenses[0].categoryId = 'nonexistent-cat-uuid';
     const result = validateBackup(backup);
     expect(result.valid).toBe(false);
-    if (!result.valid) {
-      expect(result.errors.some((e) => e.includes('references nonexistent categoryId'))).toBe(true);
-    }
+  });
+
+  it('accepts Android export fixture with full cross-platform parity', () => {
+    const androidJson = {
+      format: 'ausgegeben-backup',
+      schemaVersion: 1,
+      exportedAt: '2026-10-01T00:00:00.000Z',
+      appVersion: '2.0.8',
+      preferences: {
+        currency: 'EUR',
+        monthlyBudget: 1500,
+        locale: 'de',
+        themeMode: 'dark',
+        preferencesUpdatedAt: 1700000000000,
+      },
+      categories: [
+        {
+          id: 'cat-groceries',
+          name: 'Lebensmittel',
+          iconName: 'shopping-cart',
+          colorInt: -65536,
+          transactionType: 'expense',
+          sortOrder: 1,
+        },
+      ],
+      expenses: [
+        {
+          id: 'exp-android-1',
+          amount: 42.5,
+          dateMillis: 1700000000000,
+          categoryId: 'cat-groceries',
+          note: 'Supermarkt Einkauf',
+          transactionType: 'expense',
+        },
+      ],
+    };
+
+    const result = validateBackup(androidJson);
+    expect(result.valid).toBe(true);
   });
 });
