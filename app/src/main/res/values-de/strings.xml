@@ -101,6 +101,11 @@
     <string name="settings_export_truncated_confirm">nur die neuesten 5000 buchungen werden enthalten. ältere zeilen fehlen. fortfahren?</string>
     <string name="settings_export_truncated_continue">trotzdem exportieren</string>
     <string name="settings_export_failed">export fehlgeschlagen</string>
+    <string name="settings_export_backup">als json-backup exportieren</string>
+    <string name="settings_export_backup_subtitle">vollständige kontodaten zur sicherung</string>
+    <string name="settings_export_backup_ok">backup bereit zum teilen</string>
+    <string name="settings_export_backup_truncated">backup bereit (neueste 5000 zeilen)</string>
+    <string name="settings_export_backup_truncated_confirm">nur die neuesten 5000 buchungen werden im backup enthalten. ältere zeilen fehlen. fortfahren?</string>
     <string name="data_truncated_notice">zeige die neuesten 5.000 transaktionen — ältere einträge sind ausgeblendet</string>
     <string name="settings_version">version</string>
     <string name="settings_support">support kontaktieren</string>

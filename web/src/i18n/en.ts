@@ -88,6 +88,7 @@ export const en = {
   settingsLanguage: 'language',
   settingsCategories: 'category management',
   settingsExport: 'export to csv',
+  settingsExportBackup: 'export json backup',
   settingsOffline: 'not signed in',
   settingsOfflineSub: 'sign in required to use ausgegeben',
   settingsSignIn: 'sign in / create account',
@@ -245,6 +246,11 @@ export const en = {
   settingsExportTruncatedConfirm:
     'only the latest 5000 transactions will be included. older rows will be missing. continue?',
   settingsExportTruncatedContinue: 'export anyway',
+  settingsExportBackupSub: 'complete account data for portability',
+  settingsExportBackupOk: 'backup ready',
+  settingsExportBackupTruncated: 'backup ready (latest 5000 rows)',
+  settingsExportBackupTruncatedConfirm:
+    'only the latest 5000 transactions will be included in the backup. older rows will be missing. continue?',
   dataTruncatedNotice: 'showing the latest 5,000 transactions — older rows are hidden',
   settingsExportFailed: 'export failed',
   settingsRemindersPhoneOnly: 'daily reminders are managed in the android app',
