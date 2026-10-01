@@ -105,6 +105,78 @@ object ExportUtils {
         }
     }
 
+    /**
+     * Build and share a versioned JSON backup of complete account state. When the soft cap
+     * truncates history and [allowTruncated] is false, returns [Result.needsConfirm]
+     * without opening the share sheet.
+     */
+    suspend fun exportBackupJson(
+        context: Context,
+        repository: AppRepository,
+        preferenceManager: com.aus.ausgegeben.data.PreferenceManager,
+        allowTruncated: Boolean = false,
+    ): Result {
+        return withContext(Dispatchers.IO) {
+            try {
+                val expenses = withTimeoutOrNull(EXPORT_TIMEOUT_MS) {
+                    repository.allExpenses.first()
+                } ?: return@withContext Result(success = false)
+                val truncated = repository.dataTruncated.value
+                if (truncated && !allowTruncated) {
+                    return@withContext Result(success = false, truncated = true, needsConfirm = true)
+                }
+                val categories = withTimeoutOrNull(EXPORT_TIMEOUT_MS) {
+                    repository.allCategories.first()
+                } ?: return@withContext Result(success = false)
+
+                val currency = preferenceManager.currencyFlow.first()
+                val monthlyBudget = preferenceManager.monthlyBudgetFlow.first()
+                val locale = preferenceManager.languageFlow.first()
+                val themeMode = preferenceManager.themeModeFlow.first()
+                val prefsUpdatedAt = preferenceManager.preferencesUpdatedAt()
+
+                val prefs = BackupFormat.BackupPreferences(
+                    currency = currency,
+                    monthlyBudget = monthlyBudget,
+                    locale = locale,
+                    themeMode = themeMode.storageKey,
+                    preferencesUpdatedAt = prefsUpdatedAt.takeIf { it > 0 },
+                )
+
+                val json = BackupFormat.createBackupJson(
+                    preferences = prefs,
+                    categories = categories,
+                    expenses = expenses,
+                    appVersion = com.aus.ausgegeben.BuildConfig.VERSION_NAME,
+                )
+
+                val exportDir = File(context.cacheDir, "exports").apply { mkdirs() }
+                exportDir.listFiles()?.forEach { runCatching { it.delete() } }
+                val file = File(exportDir, "ausgegeben_backup.json")
+                file.writeText(json, Charsets.UTF_8)
+
+                val uri = FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    file
+                )
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = "application/json"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                withContext(Dispatchers.Main) {
+                    context.startActivity(Intent.createChooser(intent, context.getString(R.string.settings_export_backup)))
+                }
+                Result(success = true, truncated = truncated)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                Result(success = false)
+            }
+        }
+    }
+
     private fun csvEscape(value: String): String = csvEscapeField(value)
 
     /**

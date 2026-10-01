@@ -27,6 +27,7 @@ import { useToastStore } from '@/services/toastStore';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { createBackup, type AusgegebenBackup } from '@/services/backupFormat';
 import packageJson from '../../package.json';
 import { useCssProps } from '@/utils/cssVars';
 import { applyErrorReportingPreference } from '@/services/errorSink';
@@ -74,6 +75,8 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
   const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
   const [showExportTruncatedConfirm, setShowExportTruncatedConfirm] = useState(false);
   const [pendingExportCsv, setPendingExportCsv] = useState<string | null>(null);
+  const [showExportBackupTruncatedConfirm, setShowExportBackupTruncatedConfirm] = useState(false);
+  const [pendingExportBackup, setPendingExportBackup] = useState<AusgegebenBackup | null>(null);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
@@ -153,6 +156,45 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
         return;
       }
       downloadCsv(csv, false);
+    } catch {
+      useToastStore.getState().show(t('settingsExportFailed'));
+    }
+  };
+
+  const downloadBackup = (backup: AusgegebenBackup, truncated: boolean) => {
+    const json = JSON.stringify(backup, null, 2);
+    const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ausgegeben-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    useToastStore.getState().show(truncated ? t('settingsExportBackupTruncated') : t('settingsExportBackupOk'));
+  };
+
+  const exportBackup = async () => {
+    try {
+      const { items: expenses, truncated } = await expenseRepository.getAllExpensesCapped(5_000);
+      const categories = await expenseRepository.getAllCategories();
+      const backup = createBackup({
+        preferences: {
+          currency,
+          monthlyBudget,
+          locale,
+          themeMode,
+          preferencesUpdatedAt: usePreferencesStore.getState().preferencesUpdatedAt,
+        },
+        categories,
+        expenses,
+        appVersion: packageJson.version,
+      });
+      if (truncated) {
+        setPendingExportBackup(backup);
+        setShowExportBackupTruncatedConfirm(true);
+        return;
+      }
+      downloadBackup(backup, false);
     } catch {
       useToastStore.getState().show(t('settingsExportFailed'));
     }
@@ -317,6 +359,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
           <Section title={t('settingsData')}>
             <SettingsRow icon={IconLayers} iconTint="accent" title={t('settingsCategories')} subtitle={t('settingsCategoriesSub')} onClick={onManageCategories} />
             <SettingsRow icon={IconDownload} iconTint="neutral" title={t('settingsExport')} subtitle={t('settingsExportSub')} onClick={() => void exportData()} />
+            <SettingsRow icon={IconShield} iconTint="accent" title={t('settingsExportBackup')} subtitle={t('settingsExportBackupSub')} onClick={() => void exportBackup()} />
             <label className="settings-row settings-row--static settings-row--toggle">
               <span className="settings-row__icon-tile" data-tint="neutral">
                 <IconSettings width={18} height={18} strokeWidth={2} />
@@ -432,6 +475,25 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
         onCancel={() => {
           setShowExportTruncatedConfirm(false);
           setPendingExportCsv(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={showExportBackupTruncatedConfirm}
+        title={t('settingsExportBackup')}
+        message={t('settingsExportBackupTruncatedConfirm')}
+        confirmLabel={t('settingsExportTruncatedContinue')}
+        cancelLabel={t('actionCancel')}
+        destructive={false}
+        onConfirm={() => {
+          const backup = pendingExportBackup;
+          setShowExportBackupTruncatedConfirm(false);
+          setPendingExportBackup(null);
+          if (backup) downloadBackup(backup, true);
+        }}
+        onCancel={() => {
+          setShowExportBackupTruncatedConfirm(false);
+          setPendingExportBackup(null);
         }}
       />
 

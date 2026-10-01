@@ -18,6 +18,7 @@ import com.aus.ausgegeben.ui.theme.*
 fun SettingsManagementSection(
     onNavigateToCategories: () -> Unit,
     onExportCsv: () -> Unit,
+    onExportBackup: () -> Unit,
 ) {
     Column {
         GroupedSectionLabel(text = stringResource(R.string.settings_section_management))
@@ -42,6 +43,14 @@ fun SettingsManagementSection(
                     title = stringResource(R.string.settings_export_csv).lowercase(),
                     subtitle = stringResource(R.string.settings_export_subtitle).lowercase(),
                     onClick = onExportCsv,
+                )
+                IosSeparator(insetStart = 56.dp)
+                SettingsActionRow(
+                    icon = Icons.Rounded.Backup,
+                    tint = settingsIconTintMuted(),
+                    title = stringResource(R.string.settings_export_backup).lowercase(),
+                    subtitle = stringResource(R.string.settings_export_backup_subtitle).lowercase(),
+                    onClick = onExportBackup,
                 )
             }
         }
