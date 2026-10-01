@@ -11,6 +11,7 @@ import {
   IconCheck,
   IconSettings,
   IconShield,
+  IconUpload,
 } from '@/components/Icons';
 import type { SVGProps } from 'react';
 import { usePreferencesStore } from '@/services/preferencesStore';
@@ -27,7 +28,8 @@ import { useToastStore } from '@/services/toastStore';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { createBackup, type AusgegebenBackup } from '@/services/backupFormat';
+import { createBackup, type AusgegebenBackup, type BackupSummary } from '@/services/backupFormat';
+import { readAndValidateBackupFile, restoreBackup } from '@/services/backupRestore';
 import packageJson from '../../package.json';
 import { useCssProps } from '@/utils/cssVars';
 import { applyErrorReportingPreference } from '@/services/errorSink';
@@ -77,6 +79,14 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
   const [pendingExportCsv, setPendingExportCsv] = useState<string | null>(null);
   const [showExportBackupTruncatedConfirm, setShowExportBackupTruncatedConfirm] = useState(false);
   const [pendingExportBackup, setPendingExportBackup] = useState<AusgegebenBackup | null>(null);
+  const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
+  const [pendingRestore, setPendingRestore] = useState<{
+    backup: AusgegebenBackup;
+    summary: BackupSummary;
+    fileUid: string;
+  } | null>(null);
+  const [restoringBackup, setRestoringBackup] = useState(false);
+  const restoreFileInputRef = useRef<HTMLInputElement>(null);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
@@ -197,6 +207,59 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
       downloadBackup(backup, false);
     } catch {
       useToastStore.getState().show(t('settingsExportFailed'));
+    }
+  };
+
+  const handleRestoreFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const currentUser = useAuthStore.getState().user;
+    if (!currentUser) return;
+    try {
+      const { backup, summary } = await readAndValidateBackupFile(file);
+      setPendingRestore({ backup, summary, fileUid: currentUser.uid });
+      setShowRestoreConfirm(true);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg === 'BACKUP_FILE_TOO_LARGE') {
+        useToastStore.getState().show(t('settingsRestoreFileTooLarge'));
+      } else if (msg.startsWith('VALIDATION_FAILED')) {
+        useToastStore.getState().show(
+          t('settingsRestoreInvalid', { error: msg.replace('VALIDATION_FAILED: ', '') }),
+        );
+      } else {
+        useToastStore.getState().show(t('settingsRestoreInvalid', { error: msg || 'malformed' }));
+      }
+    }
+  };
+
+  const executeRestore = async () => {
+    if (!pendingRestore) return;
+    setRestoringBackup(true);
+    try {
+      const res = await restoreBackup(pendingRestore.backup, pendingRestore.fileUid);
+      setShowRestoreConfirm(false);
+      setPendingRestore(null);
+      useToastStore.getState().show(
+        t('settingsRestoreSuccess', {
+          expenses: String(res.expensesRestored),
+          categories: String(res.categoriesRestored),
+        }),
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg === 'AUTH_ACCOUNT_CHANGED') {
+        useToastStore.getState().show(t('settingsRestoreAuthChanged'));
+      } else if (msg.startsWith('CATEGORY_TYPE_CONFLICT')) {
+        useToastStore.getState().show(t('settingsRestoreConflict'));
+      } else {
+        useToastStore.getState().show(t('settingsRestoreFailed'));
+      }
+      setShowRestoreConfirm(false);
+      setPendingRestore(null);
+    } finally {
+      setRestoringBackup(false);
     }
   };
 
@@ -360,6 +423,14 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
             <SettingsRow icon={IconLayers} iconTint="accent" title={t('settingsCategories')} subtitle={t('settingsCategoriesSub')} onClick={onManageCategories} />
             <SettingsRow icon={IconDownload} iconTint="neutral" title={t('settingsExport')} subtitle={t('settingsExportSub')} onClick={() => void exportData()} />
             <SettingsRow icon={IconShield} iconTint="accent" title={t('settingsExportBackup')} subtitle={t('settingsExportBackupSub')} onClick={() => void exportBackup()} />
+            <SettingsRow icon={IconUpload} iconTint="neutral" title={t('settingsRestoreBackup')} subtitle={t('settingsRestoreBackupSub')} onClick={() => restoreFileInputRef.current?.click()} />
+            <input
+              ref={restoreFileInputRef}
+              type="file"
+              accept=".json,application/json"
+              style={{ display: 'none' }}
+              onChange={(e) => void handleRestoreFileSelected(e)}
+            />
             <label className="settings-row settings-row--static settings-row--toggle">
               <span className="settings-row__icon-tile" data-tint="neutral">
                 <IconSettings width={18} height={18} strokeWidth={2} />
@@ -494,6 +565,44 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
         onCancel={() => {
           setShowExportBackupTruncatedConfirm(false);
           setPendingExportBackup(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={showRestoreConfirm}
+        title={t('settingsRestoreBackup')}
+        confirmDisabled={restoringBackup}
+        message={
+          pendingRestore ? (
+            <div className="flex flex-col gap-2">
+              <p className="confirm-dialog__message">
+                {t('settingsRestoreBackupSummary', {
+                  expenses: String(pendingRestore.summary.expenseCount),
+                  categories: String(pendingRestore.summary.categoryCount),
+                  currency: pendingRestore.summary.currency,
+                })}
+              </p>
+              {pendingRestore.summary.monthlyBudget ? (
+                <p className="confirm-dialog__message">
+                  {t('settingsRestoreBackupBudget', {
+                    budget: formatAmount(pendingRestore.summary.monthlyBudget, pendingRestore.summary.currency),
+                  })}
+                </p>
+              ) : null}
+              <p className="confirm-dialog__message font-medium">
+                {t('settingsRestoreBackupExplain')}
+              </p>
+            </div>
+          ) : null
+        }
+        confirmLabel={t('settingsRestoreBackup')}
+        cancelLabel={t('actionCancel')}
+        onConfirm={() => void executeRestore()}
+        onCancel={() => {
+          if (!restoringBackup) {
+            setShowRestoreConfirm(false);
+            setPendingRestore(null);
+          }
         }}
       />
 

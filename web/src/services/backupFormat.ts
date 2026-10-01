@@ -42,9 +42,31 @@ export interface AusgegebenBackup {
   expenses: BackupExpense[];
 }
 
+export interface BackupSummary {
+  schemaVersion: number;
+  appVersion: string;
+  exportedAt: string;
+  expenseCount: number;
+  categoryCount: number;
+  currency: string;
+  monthlyBudget: number | null;
+}
+
 export type ValidationResult =
   | { valid: true; backup: AusgegebenBackup }
   | { valid: false; errors: string[] };
+
+export function summarizeBackup(backup: AusgegebenBackup): BackupSummary {
+  return {
+    schemaVersion: backup.schemaVersion,
+    appVersion: backup.appVersion,
+    exportedAt: backup.exportedAt,
+    expenseCount: backup.expenses.length,
+    categoryCount: backup.categories.length,
+    currency: backup.preferences.currency,
+    monthlyBudget: backup.preferences.monthlyBudget ?? null,
+  };
+}
 
 const ALLOWED_TOP_LEVEL_KEYS = new Set([
   'format',

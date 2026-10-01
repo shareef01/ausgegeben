@@ -253,6 +253,19 @@ export const de: Record<TranslationKey, string> = {
   settingsExportBackupTruncated: 'backup bereit (neueste 5000 zeilen)',
   settingsExportBackupTruncatedConfirm:
     'nur die neuesten 5000 buchungen werden im backup enthalten. ältere zeilen fehlen. fortfahren?',
+  settingsRestoreBackup: 'JSON-Backup wiederherstellen',
+  settingsRestoreBackupSub: 'daten aus einer versionierten JSON-sicherung importieren',
+  settingsRestoreBackupExplain:
+    'Vorhandene übereinstimmende Einträge werden aktualisiert. Andere aktuelle Daten bleiben unverändert.',
+  settingsRestoreBackupSummary:
+    'Sicherung enthält {expenses} Ausgaben und {categories} Kategorien. Währung: {currency}.',
+  settingsRestoreBackupBudget: 'Monatliches Budget: {budget}.',
+  settingsRestoreSuccess: 'Sicherung wiederhergestellt: {expenses} Ausgaben, {categories} Kategorien',
+  settingsRestoreInvalid: 'Ungültige Sicherungsdatei: {error}',
+  settingsRestoreFileTooLarge: 'Sicherungsdatei überschreitet das Größenlimit (max. 10 MB)',
+  settingsRestoreConflict: 'Kategoriekonflikt: Transaktionstyp stimmt nicht überein',
+  settingsRestoreAuthChanged: 'Authentifizierungssitzung geändert. Wiederherstellung abgebrochen.',
+  settingsRestoreFailed: 'Wiederherstellung der Sicherung fehlgeschlagen',
   dataTruncatedNotice: 'zeige die neuesten 5.000 transaktionen — ältere einträge sind ausgeblendet',
   settingsExportFailed: 'export fehlgeschlagen',
   settingsRemindersPhoneOnly: 'tägliche erinnerungen werden in der android-app verwaltet',

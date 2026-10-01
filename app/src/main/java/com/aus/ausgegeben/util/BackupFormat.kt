@@ -230,4 +230,130 @@ object BackupFormat {
 
         return ValidationResult(valid = errors.isEmpty(), errors = errors)
     }
+
+    data class BackupSummary(
+        val schemaVersion: Int,
+        val appVersion: String,
+        val exportedAt: String,
+        val expenseCount: Int,
+        val categoryCount: Int,
+        val currency: String,
+        val monthlyBudget: Double?,
+    )
+
+    data class ParsedCategory(
+        val id: String,
+        val name: String,
+        val iconName: String,
+        val colorInt: Int,
+        val transactionType: String,
+        val sortOrder: Int,
+        val updatedAt: Long? = null,
+    )
+
+    data class ParsedExpense(
+        val id: String,
+        val amount: Double,
+        val dateMillis: Long,
+        val categoryId: String,
+        val note: String,
+        val transactionType: String,
+        val updatedAt: Long? = null,
+    )
+
+    data class ParsedBackup(
+        val schemaVersion: Int,
+        val appVersion: String,
+        val exportedAt: String,
+        val preferences: BackupPreferences,
+        val categories: List<ParsedCategory>,
+        val expenses: List<ParsedExpense>,
+    )
+
+    fun parseBackup(jsonString: String): ParsedBackup? {
+        val validation = validateBackupJson(jsonString)
+        if (!validation.valid) return null
+
+        val root = try {
+            JSONObject(jsonString)
+        } catch (_: Exception) {
+            return null
+        }
+
+        val schemaVersion = root.optInt("schemaVersion", CURRENT_SCHEMA_VERSION)
+        val appVersion = root.optString("appVersion", "")
+        val exportedAt = root.optString("exportedAt", "")
+
+        val prefsObj = root.optJSONObject("preferences") ?: JSONObject()
+        val budget = if (prefsObj.has("monthlyBudget") && !prefsObj.isNull("monthlyBudget")) {
+            prefsObj.optDouble("monthlyBudget").takeIf { it > 0.0 }
+        } else null
+        val prefs = BackupPreferences(
+            currency = prefsObj.optString("currency", "EUR"),
+            monthlyBudget = budget,
+            locale = prefsObj.optString("locale", "en"),
+            themeMode = prefsObj.optString("themeMode", "system"),
+            preferencesUpdatedAt = if (prefsObj.has("preferencesUpdatedAt")) prefsObj.optLong("preferencesUpdatedAt") else null,
+        )
+
+        val categories = mutableListOf<ParsedCategory>()
+        val categoriesArr = root.optJSONArray("categories")
+        if (categoriesArr != null) {
+            for (i in 0 until categoriesArr.length()) {
+                val cat = categoriesArr.optJSONObject(i) ?: continue
+                categories.add(
+                    ParsedCategory(
+                        id = cat.optString("id"),
+                        name = cat.optString("name"),
+                        iconName = cat.optString("iconName"),
+                        colorInt = cat.optInt("colorInt"),
+                        transactionType = cat.optString("transactionType"),
+                        sortOrder = cat.optInt("sortOrder"),
+                        updatedAt = if (cat.has("updatedAt")) cat.optLong("updatedAt") else null,
+                    )
+                )
+            }
+        }
+
+        val expenses = mutableListOf<ParsedExpense>()
+        val expensesArr = root.optJSONArray("expenses")
+        if (expensesArr != null) {
+            for (i in 0 until expensesArr.length()) {
+                val exp = expensesArr.optJSONObject(i) ?: continue
+                expenses.add(
+                    ParsedExpense(
+                        id = exp.optString("id"),
+                        amount = exp.optDouble("amount"),
+                        dateMillis = exp.optLong("dateMillis"),
+                        categoryId = exp.optString("categoryId"),
+                        note = exp.optString("note"),
+                        transactionType = exp.optString("transactionType"),
+                        updatedAt = if (exp.has("updatedAt")) exp.optLong("updatedAt") else null,
+                    )
+                )
+            }
+        }
+
+        return ParsedBackup(
+            schemaVersion = schemaVersion,
+            appVersion = appVersion,
+            exportedAt = exportedAt,
+            preferences = prefs,
+            categories = categories,
+            expenses = expenses,
+        )
+    }
+
+    fun parseBackupSummary(jsonString: String): BackupSummary? {
+        val parsed = parseBackup(jsonString) ?: return null
+        return BackupSummary(
+            schemaVersion = parsed.schemaVersion,
+            appVersion = parsed.appVersion,
+            exportedAt = parsed.exportedAt,
+            expenseCount = parsed.expenses.size,
+            categoryCount = parsed.categories.size,
+            currency = parsed.preferences.currency,
+            monthlyBudget = parsed.preferences.monthlyBudget,
+        )
+    }
 }
