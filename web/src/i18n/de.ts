@@ -90,6 +90,7 @@ export const de: Record<TranslationKey, string> = {
   settingsLanguage: 'sprache',
   settingsCategories: 'kategorien verwalten',
   settingsExport: 'als csv exportieren',
+  settingsExportBackup: 'als json-backup exportieren',
   settingsOffline: 'nicht angemeldet',
   settingsOfflineSub: 'anmeldung erforderlich, um ausgegeben zu nutzen',
   settingsSignIn: 'anmelden / konto erstellen',
@@ -247,6 +248,11 @@ export const de: Record<TranslationKey, string> = {
   settingsExportTruncatedConfirm:
     'nur die neuesten 5000 buchungen werden enthalten. ältere zeilen fehlen. fortfahren?',
   settingsExportTruncatedContinue: 'trotzdem exportieren',
+  settingsExportBackupSub: 'vollständige kontodaten zur sicherung',
+  settingsExportBackupOk: 'backup bereit',
+  settingsExportBackupTruncated: 'backup bereit (neueste 5000 zeilen)',
+  settingsExportBackupTruncatedConfirm:
+    'nur die neuesten 5000 buchungen werden im backup enthalten. ältere zeilen fehlen. fortfahren?',
   dataTruncatedNotice: 'zeige die neuesten 5.000 transaktionen — ältere einträge sind ausgeblendet',
   settingsExportFailed: 'export fehlgeschlagen',
   settingsRemindersPhoneOnly: 'tägliche erinnerungen werden in der android-app verwaltet',
