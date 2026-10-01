@@ -30,6 +30,7 @@ import {
   X,
   Shield,
   Lock,
+  Upload,
 } from 'lucide-react';
 
 /** Consistent stroke for all UI chrome icons */
@@ -99,6 +100,10 @@ export function IconLayers(props: IconProps) {
 
 export function IconDownload(props: IconProps) {
   return <Download strokeWidth={STROKE} {...props} />;
+}
+
+export function IconUpload(props: IconProps) {
+  return <Upload strokeWidth={STROKE} {...props} />;
 }
 
 export function IconCalendar(props: IconProps) {
