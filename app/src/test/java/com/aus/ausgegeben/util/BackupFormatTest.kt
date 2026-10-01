@@ -222,4 +222,117 @@ class BackupFormatTest {
         assertFalse(result.valid)
         assertTrue(result.errors.any { it.contains("references nonexistent categoryId") })
     }
+
+    @Test
+    fun parseBackup_and_parseBackupSummary_extractValidData() {
+        val prefs = BackupFormat.BackupPreferences(
+            currency = "EUR",
+            monthlyBudget = 1200.0,
+            locale = "de",
+            themeMode = "dark",
+            preferencesUpdatedAt = 1700000000000L,
+        )
+        val json = BackupFormat.createBackupJson(
+            preferences = prefs,
+            categories = sampleCategories,
+            expenses = sampleExpenses,
+            appVersion = "2.0.8",
+            exportedAt = "2026-10-01T00:00:00Z",
+        )
+
+        val summary = BackupFormat.parseBackupSummary(json)
+        org.junit.Assert.assertNotNull(summary)
+        assertEquals(1, summary!!.schemaVersion)
+        assertEquals(2, summary.expenseCount)
+        assertEquals(2, summary.categoryCount)
+        assertEquals("EUR", summary.currency)
+        assertEquals(1200.0, summary.monthlyBudget!!, 0.001)
+
+        val parsed = BackupFormat.parseBackup(json)
+        org.junit.Assert.assertNotNull(parsed)
+        assertEquals(1, parsed!!.schemaVersion)
+        assertEquals("2.0.8", parsed.appVersion)
+        assertEquals(2, parsed.categories.size)
+        assertEquals(2, parsed.expenses.size)
+        assertEquals("EUR", parsed.preferences.currency)
+        assertEquals(1200.0, parsed.preferences.monthlyBudget!!, 0.001)
+        assertEquals("cat-groceries", parsed.categories[0].id)
+        assertEquals("Groceries", parsed.categories[0].name)
+        assertEquals("exp-1", parsed.expenses[0].id)
+        assertEquals(42.5, parsed.expenses[0].amount, 0.001)
+    }
+
+    @Test
+    fun parseBackup_acceptsWebExportedBackup() {
+        val webJson = """
+            {
+              "format": "ausgegeben-backup",
+              "schemaVersion": 1,
+              "appVersion": "2.0.8-web",
+              "exportedAt": "2026-10-01T02:00:00.000Z",
+              "preferences": {
+                "currency": "EUR",
+                "monthlyBudget": 2000.0,
+                "locale": "en",
+                "themeMode": "system",
+                "preferencesUpdatedAt": 1700000050000
+              },
+              "categories": [
+                {
+                  "id": "web-cat-food",
+                  "name": "Food & Dining",
+                  "iconName": "restaurant",
+                  "colorInt": -16744448,
+                  "transactionType": "expense",
+                  "sortOrder": 0,
+                  "updatedAt": 1700000000000
+                }
+              ],
+              "expenses": [
+                {
+                  "id": "web-exp-lunch",
+                  "amount": 15.5,
+                  "dateMillis": 1700000060000,
+                  "categoryId": "web-cat-food",
+                  "note": "Lunch with team",
+                  "transactionType": "expense",
+                  "updatedAt": 1700000060000
+                }
+              ]
+            }
+        """.trimIndent()
+
+        val validation = BackupFormat.validateBackupJson(webJson)
+        assertTrue(validation.errors.joinToString(), validation.valid)
+
+        val parsed = BackupFormat.parseBackup(webJson)
+        org.junit.Assert.assertNotNull(parsed)
+        assertEquals(1, parsed!!.categories.size)
+        assertEquals("web-cat-food", parsed.categories[0].id)
+        assertEquals(1, parsed.expenses.size)
+        assertEquals("web-exp-lunch", parsed.expenses[0].id)
+        assertEquals(15.5, parsed.expenses[0].amount, 0.001)
+        assertEquals("EUR", parsed.preferences.currency)
+    }
+
+    @Test
+    fun parseBackup_rejectsInvalidJsonOrFutureVersion() {
+        val invalidJson = "{ not real json }"
+        org.junit.Assert.assertNull(BackupFormat.parseBackup(invalidJson))
+        org.junit.Assert.assertNull(BackupFormat.parseBackupSummary(invalidJson))
+
+        val futureVersionJson = """
+            {
+              "format": "ausgegeben-backup",
+              "schemaVersion": 999,
+              "appVersion": "3.0.0",
+              "exportedAt": "2026-10-01T00:00:00Z",
+              "preferences": { "currency": "EUR" },
+              "categories": [],
+              "expenses": []
+            }
+        """.trimIndent()
+        org.junit.Assert.assertNull(BackupFormat.parseBackup(futureVersionJson))
+        org.junit.Assert.assertNull(BackupFormat.parseBackupSummary(futureVersionJson))
+    }
 }

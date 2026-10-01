@@ -1,5 +1,7 @@
 package com.aus.ausgegeben.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -51,6 +53,8 @@ import com.aus.ausgegeben.ui.theme.*
 import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.ExportUtils
 import com.aus.ausgegeben.notification.ReminderScheduler
+import com.aus.ausgegeben.util.BackupFormat
+import com.aus.ausgegeben.util.RestoreUtils
 import com.aus.ausgegeben.util.formatRelativeTimestamp
 import com.aus.ausgegeben.util.rememberAppHaptics
 import kotlinx.coroutines.launch
@@ -102,6 +106,10 @@ fun SettingsScreen(
     var showDeleteAccountConfirm by remember { mutableStateOf(false) }
     var showExportTruncatedConfirm by remember { mutableStateOf(false) }
     var pendingExportIsBackup by remember { mutableStateOf(false) }
+    var showRestoreConfirm by remember { mutableStateOf(false) }
+    var pendingRestore by remember { mutableStateOf<Pair<BackupFormat.ParsedBackup, BackupFormat.BackupSummary>?>(null) }
+    var pendingRestoreUid by remember { mutableStateOf<String?>(null) }
+    var isRestoring by remember { mutableStateOf(false) }
     var deletingAccount by remember { mutableStateOf(false) }
     var deletePassword by remember { mutableStateOf("") }
     var deleteAccountError by remember { mutableStateOf<String?>(null) }
@@ -156,6 +164,46 @@ fun SettingsScreen(
                 ),
             )
         }
+    }
+
+    val restoreLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: android.net.Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val uid = currentUser?.uid
+        if (uid == null) {
+            onShowMessage(context.getString(R.string.settings_sign_in))
+            return@rememberLauncherForActivityResult
+        }
+        scope.launch {
+            val result = RestoreUtils.readAndValidateBackupUri(context.contentResolver, uri)
+            when (result) {
+                is RestoreUtils.ReadResult.Success -> {
+                    pendingRestore = result.backup to result.summary
+                    pendingRestoreUid = uid
+                    showRestoreConfirm = true
+                }
+                is RestoreUtils.ReadResult.FileTooLarge -> {
+                    haptics.light()
+                    onShowMessage(context.getString(R.string.settings_restore_file_too_large))
+                }
+                is RestoreUtils.ReadResult.InvalidJson,
+                is RestoreUtils.ReadResult.ValidationError,
+                is RestoreUtils.ReadResult.IoError -> {
+                    haptics.light()
+                    onShowMessage(context.getString(R.string.settings_restore_invalid))
+                }
+            }
+        }
+    }
+
+    fun onRestoreBackup() {
+        if (currentUser == null) {
+            onShowMessage(context.getString(R.string.settings_sign_in))
+            onRequestSignIn()
+            return
+        }
+        restoreLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream", "*/*"))
     }
 
     Box(modifier = modifier.fillMaxSize().background(AppAurora.background())) {
@@ -247,6 +295,7 @@ fun SettingsScreen(
                         onNavigateToCategories = onNavigateToCategories,
                         onExportCsv = ::exportCsv,
                         onExportBackup = ::exportBackup,
+                        onRestoreBackup = ::onRestoreBackup,
                     )
                 }
                 val aboutSection: @Composable () -> Unit = {
@@ -481,6 +530,126 @@ fun SettingsScreen(
             dismissButton = {
                 AppTextButton(
                     onClick = { showExportTruncatedConfirm = false },
+                    text = stringResource(R.string.action_cancel).lowercase(),
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                )
+            },
+        )
+    }
+
+    if (showRestoreConfirm && pendingRestore != null) {
+        val (backup, summary) = pendingRestore!!
+        AppAlertDialog(
+            onDismissRequest = {
+                if (!isRestoring) {
+                    showRestoreConfirm = false
+                    pendingRestore = null
+                    pendingRestoreUid = null
+                }
+            },
+            title = {
+                Text(
+                    text = stringResource(R.string.settings_restore_backup_title).lowercase(),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AppDialogBodyText(stringResource(R.string.settings_restore_backup_explain))
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        stringResource(
+                            R.string.settings_restore_backup_summary,
+                            summary.expenseCount,
+                            summary.categoryCount,
+                            summary.currency
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    if (summary.monthlyBudget != null) {
+                        Text(
+                            stringResource(
+                                R.string.settings_restore_backup_budget,
+                                CurrencyUtils.formatAmount(summary.monthlyBudget, summary.currency)
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = readableSecondaryColor(),
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                AppButton(
+                    enabled = !isRestoring,
+                    onClick = {
+                        val targetUid = pendingRestoreUid
+                        if (targetUid == null || currentUser?.uid != targetUid) {
+                            showRestoreConfirm = false
+                            pendingRestore = null
+                            pendingRestoreUid = null
+                            haptics.light()
+                            onShowMessage(context.getString(R.string.settings_restore_auth_changed))
+                            return@AppButton
+                        }
+                        isRestoring = true
+                        scope.launch {
+                            try {
+                                val result = repository.restoreBackup(backup, targetUid)
+                                isRestoring = false
+                                showRestoreConfirm = false
+                                pendingRestore = null
+                                pendingRestoreUid = null
+                                result.onSuccess { restored ->
+                                    haptics.success()
+                                    onShowMessage(
+                                        context.getString(
+                                            R.string.settings_restore_success,
+                                            restored.expensesRestored,
+                                            restored.categoriesRestored,
+                                        )
+                                    )
+                                }.onFailure { ex ->
+                                    haptics.light()
+                                    val msg = if (ex.message?.contains("CONFLICT") == true) {
+                                        context.getString(R.string.settings_restore_conflict)
+                                    } else {
+                                        context.getString(R.string.settings_restore_failed)
+                                    }
+                                    onShowMessage(msg)
+                                }
+                            } catch (e: Exception) {
+                                isRestoring = false
+                                showRestoreConfirm = false
+                                pendingRestore = null
+                                pendingRestoreUid = null
+                                haptics.light()
+                                val msg = if (e.message?.contains("CONFLICT") == true) {
+                                    context.getString(R.string.settings_restore_conflict)
+                                } else {
+                                    context.getString(R.string.settings_restore_failed)
+                                }
+                                onShowMessage(msg)
+                            }
+                        }
+                    },
+                ) {
+                    Text(
+                        stringResource(
+                            if (isRestoring) R.string.state_loading
+                            else R.string.settings_restore_backup_action
+                        ).lowercase()
+                    )
+                }
+            },
+            dismissButton = {
+                AppTextButton(
+                    enabled = !isRestoring,
+                    onClick = {
+                        showRestoreConfirm = false
+                        pendingRestore = null
+                        pendingRestoreUid = null
+                    },
                     text = stringResource(R.string.action_cancel).lowercase(),
                     contentColor = MaterialTheme.colorScheme.onSurface,
                 )

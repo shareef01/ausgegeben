@@ -10,11 +10,14 @@ import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.data.auth.AuthRepository
 import com.aus.ausgegeben.util.AnalyticsPeriod
+import com.aus.ausgegeben.util.BackupFormat
 import com.aus.ausgegeben.util.CategoryDedupe
 import com.aus.ausgegeben.util.CurrencyUtils
+import com.aus.ausgegeben.util.RestoreUtils
 import com.aus.ausgegeben.util.dateRangeMillis
 import com.aus.ausgegeben.util.expenseDocumentId
 import com.aus.ausgegeben.util.runSuspendCatching
+import kotlin.math.roundToLong
 import com.google.firebase.firestore.AggregateField
 import com.google.firebase.firestore.AggregateSource
 import com.google.firebase.firestore.DocumentSnapshot
@@ -685,6 +688,120 @@ class AppRepository @Inject constructor(
 
     override suspend fun duplicateExpense(expense: Expense): Result<Unit> {
         return insertExpense(expense.copy(id = "", dateMillis = System.currentTimeMillis())).map { }
+    }
+
+    suspend fun restoreBackup(
+        backup: BackupFormat.ParsedBackup,
+        expectedUid: String,
+    ): Result<RestoreUtils.RestoreResult> = runSuspendCatching {
+        val u = uid() ?: throw IllegalStateException("Not signed in")
+        if (u != expectedUid) {
+            throw IllegalStateException("AUTH_ACCOUNT_CHANGED")
+        }
+        requireVerifiedEmail()
+
+        // Pre-flight check: query categories to detect conflicting transactionType
+        val existingCatsSnap = catCol(u).get().await()
+        val existingCatsById = existingCatsSnap.documents.associate { it.id to it.getString("transactionType") }
+
+        for (c in backup.categories) {
+            val existingType = existingCatsById[c.id]
+            if (existingType != null && existingType != c.transactionType) {
+                throw IllegalStateException("CATEGORY_TYPE_CONFLICT: ${c.name}")
+            }
+        }
+
+        // 1. Categories in chunks of 400
+        val categoryChunks = backup.categories.chunked(400)
+        for (chunk in categoryChunks) {
+            val batch = firestore.batch()
+            for (c in chunk) {
+                val ref = catDoc(u, c.id)
+                val payload = buildMap<String, Any> {
+                    put("name", c.name.trim().take(50))
+                    put("iconName", c.iconName.take(50))
+                    put("colorInt", c.colorInt.toLong())
+                    put("transactionType", c.transactionType)
+                    put("sortOrder", c.sortOrder)
+                    put("updatedAt", c.updatedAt ?: System.currentTimeMillis())
+                    put("id", c.id)
+                }
+                batch.set(ref, payload, SetOptions.merge())
+            }
+            batch.commit().await()
+        }
+
+        // 2. Expenses in chunks of 400
+        val expenseChunks = backup.expenses.chunked(400)
+        for (chunk in expenseChunks) {
+            val batch = firestore.batch()
+            for (e in chunk) {
+                val ref = expDoc(u, e.id)
+                val roundedAmount = (e.amount * 100.0).roundToLong() / 100.0
+                val payload = buildMap<String, Any> {
+                    put("amount", roundedAmount)
+                    put("dateMillis", e.dateMillis)
+                    put("categoryId", e.categoryId)
+                    put("note", e.note.take(200))
+                    put("transactionType", e.transactionType)
+                    put("updatedAt", e.updatedAt ?: System.currentTimeMillis())
+                    put("id", e.id)
+                }
+                batch.set(ref, payload, SetOptions.merge())
+            }
+            batch.commit().await()
+        }
+
+        // 3. Preferences
+        val newTimestamp = maxOf(System.currentTimeMillis(), (backup.preferences.preferencesUpdatedAt ?: 0L) + 1L)
+        val validCurrencies = setOf("EUR", "USD", "GBP", "CHF")
+        val validLocales = setOf("en", "de")
+        val validThemes = setOf(
+            "light", "dark", "system", "amoled", "midnight",
+            "ocean", "forest", "sunset", "lavender", "soft_light"
+        )
+        val cur = if (backup.preferences.currency in validCurrencies) backup.preferences.currency else "EUR"
+        val loc = if (backup.preferences.locale in validLocales) backup.preferences.locale else "en"
+        val theme = if (backup.preferences.themeMode in validThemes) backup.preferences.themeMode else "system"
+        val budget = backup.preferences.monthlyBudget?.takeIf { it > 0.0 && it < 1_000_000_000.0 }
+
+        val syncedPrefs = SyncedPreferences(
+            currency = cur,
+            locale = loc,
+            themeMode = theme,
+            onboardingComplete = true,
+            dailyReminder = true,
+            reminderHour = 19,
+            reminderMinute = 0,
+            analyticsPeriod = "this_month",
+            monthlyBudget = budget,
+            updatedAt = newTimestamp,
+        )
+
+        settingsPrefsDoc(u).set(
+            buildMap<String, Any?> {
+                put("currency", cur)
+                put("locale", loc)
+                put("themeMode", theme)
+                put("onboardingComplete", true)
+                put("dailyReminder", true)
+                put("reminderHour", 19)
+                put("reminderMinute", 0)
+                put("analyticsPeriod", "this_month")
+                put("monthlyBudget", budget)
+                put("updatedAt", newTimestamp)
+            },
+            SetOptions.merge()
+        ).await()
+
+        preferenceManager.applySyncedPreferences(syncedPrefs)
+
+        RestoreUtils.RestoreResult(
+            success = true,
+            expensesRestored = backup.expenses.size,
+            categoriesRestored = backup.categories.size,
+            preferencesRestored = true,
+        )
     }
 
     /**

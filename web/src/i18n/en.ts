@@ -251,6 +251,19 @@ export const en = {
   settingsExportBackupTruncated: 'backup ready (latest 5000 rows)',
   settingsExportBackupTruncatedConfirm:
     'only the latest 5000 transactions will be included in the backup. older rows will be missing. continue?',
+  settingsRestoreBackup: 'restore JSON backup',
+  settingsRestoreBackupSub: 'import data from a versioned JSON backup',
+  settingsRestoreBackupExplain:
+    'Existing matching items will be updated. Other current data will remain unchanged.',
+  settingsRestoreBackupSummary:
+    'Backup contains {expenses} expenses and {categories} categories. Currency: {currency}.',
+  settingsRestoreBackupBudget: 'Monthly budget: {budget}.',
+  settingsRestoreSuccess: 'Backup restored: {expenses} expenses, {categories} categories',
+  settingsRestoreInvalid: 'Invalid backup file: {error}',
+  settingsRestoreFileTooLarge: 'Backup file exceeds size limit (max 10 MB)',
+  settingsRestoreConflict: 'Category conflict: conflicting transaction type',
+  settingsRestoreAuthChanged: 'Authentication session changed. Restore aborted.',
+  settingsRestoreFailed: 'Failed to restore backup',
   dataTruncatedNotice: 'showing the latest 5,000 transactions — older rows are hidden',
   settingsExportFailed: 'export failed',
   settingsRemindersPhoneOnly: 'daily reminders are managed in the android app',
