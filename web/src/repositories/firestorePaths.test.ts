@@ -12,6 +12,8 @@ import {
   INTENTIONALLY_RETAINED_USER_DOCS,
   META_COLLECTION,
   PREFERENCES_DOC,
+  RESTORE_OPERATION_DOC,
+  RESTORE_SNAPSHOT_COLLECTION,
   SETTINGS_COLLECTION,
 } from './firestorePaths';
 
@@ -25,6 +27,7 @@ describe('firestorePaths registry (DEL-1)', () => {
     // named docs), so they are declared directly rather than as {collection, id} pairs.
     expect(DELETABLE_USER_COLLECTIONS).toContain(CATEGORIES_COLLECTION);
     expect(DELETABLE_USER_COLLECTIONS).toContain(EXPENSES_COLLECTION);
+    expect(DELETABLE_USER_COLLECTIONS).toContain(RESTORE_SNAPSHOT_COLLECTION);
   });
 
   it('classifies every named single-document constant as exactly one of deletable or intentionally retained', () => {
@@ -32,6 +35,7 @@ describe('firestorePaths registry (DEL-1)', () => {
       { collection: SETTINGS_COLLECTION, id: PREFERENCES_DOC, label: 'settings/preferences' },
       { collection: META_COLLECTION, id: DEDUPE_DOC, label: 'meta/dedupe' },
       { collection: META_COLLECTION, id: ACCOUNT_DELETION_DOC, label: 'meta/accountDeletion' },
+      { collection: META_COLLECTION, id: RESTORE_OPERATION_DOC, label: 'meta/restoreOperation' },
     ];
 
     for (const doc of namedDocs) {
@@ -93,7 +97,7 @@ describe('firestorePaths registry (DEL-1)', () => {
     const subcollections = collectionMatches.filter((name) => name !== 'users');
 
     expect(new Set(subcollections)).toEqual(
-      new Set([CATEGORIES_COLLECTION, EXPENSES_COLLECTION, SETTINGS_COLLECTION, META_COLLECTION]),
+      new Set([CATEGORIES_COLLECTION, EXPENSES_COLLECTION, SETTINGS_COLLECTION, META_COLLECTION, RESTORE_SNAPSHOT_COLLECTION]),
     );
 
     // Every `docId == '...'` literal anywhere in the file — these are the only doc ids
@@ -101,6 +105,6 @@ describe('firestorePaths registry (DEL-1)', () => {
     const docIdLiterals = new Set(
       [...rules.matchAll(/docId == '([\w-]+)'/g)].map((m) => m[1]),
     );
-    expect(docIdLiterals).toEqual(new Set([PREFERENCES_DOC, DEDUPE_DOC, ACCOUNT_DELETION_DOC]));
+    expect(docIdLiterals).toEqual(new Set([PREFERENCES_DOC, DEDUPE_DOC, ACCOUNT_DELETION_DOC, RESTORE_OPERATION_DOC]));
   });
 });
