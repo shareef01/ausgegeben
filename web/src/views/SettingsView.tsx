@@ -12,12 +12,13 @@ import {
   IconSettings,
   IconShield,
   IconUpload,
+  IconAlertTriangle,
 } from '@/components/Icons';
 import type { SVGProps } from 'react';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
-import { preferencesSync, PREFS_SYNC_ERROR_NETWORK, PREFS_SYNC_ERROR_PERMISSION } from '@/services/preferencesSync';
+import { preferencesSync, toSyncedPreferences, PREFS_SYNC_ERROR_NETWORK, PREFS_SYNC_ERROR_PERMISSION } from '@/services/preferencesSync';
 import { useTranslation, type Locale, type TranslationKey } from '@/i18n';
 import { currencyLabel, formatAmount, formatAmountForInput, parseAmount, SUPPORTED_CURRENCIES } from '@/utils/currency';
 import type { ThemeMode } from '@/models/types';
@@ -30,6 +31,17 @@ import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { createBackup, type AusgegebenBackup, type BackupSummary } from '@/services/backupFormat';
 import { readAndValidateBackupFile, restoreBackup } from '@/services/backupRestore';
+import {
+  executeReplace,
+  getRestoreOperation,
+  resumeReplace,
+  rollbackReplace,
+  dismissCompletedOperation,
+  planReplace,
+  computeBackupFingerprint,
+  type RestoreOperationDoc,
+  type ReplacePlan,
+} from '@/services/backupReplace';
 import packageJson from '../../package.json';
 import { useCssProps } from '@/utils/cssVars';
 import { applyErrorReportingPreference } from '@/services/errorSink';
@@ -87,6 +99,15 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
   } | null>(null);
   const [restoringBackup, setRestoringBackup] = useState(false);
   const restoreFileInputRef = useRef<HTMLInputElement>(null);
+  const [showReplaceConfirm, setShowReplaceConfirm] = useState(false);
+  const [pendingReplace, setPendingReplace] = useState<{
+    backup: AusgegebenBackup;
+    plan: ReplacePlan;
+    fileUid: string;
+  } | null>(null);
+  const [replacingBackup, setReplacingBackup] = useState(false);
+  const [unresolvedOp, setUnresolvedOp] = useState<RestoreOperationDoc | null>(null);
+  const replaceFileInputRef = useRef<HTMLInputElement>(null);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
@@ -123,6 +144,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
   useEffect(() => {
     if (!user) {
       setDeletionPending(false);
+      setUnresolvedOp(null);
       return;
     }
     let active = true;
@@ -133,6 +155,13 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
       })
       .catch(() => {
         if (active) setDeletionPending(false);
+      });
+    void getRestoreOperation(user.uid)
+      .then((op) => {
+        if (active) setUnresolvedOp(op);
+      })
+      .catch(() => {
+        if (active) setUnresolvedOp(null);
       });
     return () => {
       active = false;
@@ -263,6 +292,117 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
     }
   };
 
+  const handleReplaceFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const currentUser = useAuthStore.getState().user;
+    if (!currentUser) return;
+    try {
+      const { backup } = await readAndValidateBackupFile(file);
+      const { items: currentExpenses } = await expenseRepository.getAllExpensesCapped(5_000);
+      const currentCategories = await expenseRepository.getAllCategories();
+      const plan = planReplace({
+        backup,
+        currentExpenses,
+        currentCategories,
+        currentPreferences: toSyncedPreferences(usePreferencesStore.getState()),
+      });
+      if (plan.conflicts.length > 0) {
+        useToastStore.getState().show(t('settingsRestoreConflict'));
+        return;
+      }
+      if (unresolvedOp && unresolvedOp.phase !== 'COMPLETED' && unresolvedOp.phase !== 'ROLLED_BACK') {
+        const fingerprint = await computeBackupFingerprint(backup);
+        if (fingerprint !== unresolvedOp.backupFingerprint) {
+          useToastStore.getState().show(t('settingsReplaceFailed', { error: 'FINGERPRINT_MISMATCH' }));
+          return;
+        }
+      }
+      setPendingReplace({ backup, plan, fileUid: currentUser.uid });
+      setShowReplaceConfirm(true);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg === 'BACKUP_FILE_TOO_LARGE') {
+        useToastStore.getState().show(t('settingsRestoreFileTooLarge'));
+      } else if (msg.startsWith('VALIDATION_FAILED')) {
+        useToastStore.getState().show(
+          t('settingsRestoreInvalid', { error: msg.replace('VALIDATION_FAILED: ', '') }),
+        );
+      } else {
+        useToastStore.getState().show(t('settingsRestoreInvalid', { error: msg || 'malformed' }));
+      }
+    }
+  };
+
+  const executeReplaceAction = async () => {
+    if (!pendingReplace) return;
+    setReplacingBackup(true);
+    try {
+      const isResume = Boolean(unresolvedOp && unresolvedOp.phase !== 'COMPLETED' && unresolvedOp.phase !== 'ROLLED_BACK');
+      if (isResume && unresolvedOp) {
+        await resumeReplace(unresolvedOp, pendingReplace.backup, pendingReplace.fileUid);
+      } else {
+        await executeReplace(pendingReplace.backup, pendingReplace.fileUid);
+      }
+      const op = await getRestoreOperation(pendingReplace.fileUid);
+      setUnresolvedOp(op);
+      setShowReplaceConfirm(false);
+      setPendingReplace(null);
+      useToastStore.getState().show(t('settingsReplaceSuccess'));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'failed';
+      useToastStore.getState().show(t('settingsReplaceFailed', { error: msg }));
+      setShowReplaceConfirm(false);
+      setPendingReplace(null);
+      if (user) {
+        void getRestoreOperation(user.uid).then(setUnresolvedOp);
+      }
+    } finally {
+      setReplacingBackup(false);
+    }
+  };
+
+  const handleResumeReplace = () => {
+    if (!unresolvedOp || !user) return;
+    if (unresolvedOp.initiatorPlatform && unresolvedOp.initiatorPlatform !== 'web') {
+      useToastStore.getState().show(t('settingsReplaceForeignPlatform', { platform: unresolvedOp.initiatorPlatform }));
+      return;
+    }
+    replaceFileInputRef.current?.click();
+  };
+
+  const handleRollbackReplace = async () => {
+    if (!unresolvedOp || !user) return;
+    if (unresolvedOp.initiatorPlatform && unresolvedOp.initiatorPlatform !== 'web') {
+      useToastStore.getState().show(t('settingsReplaceForeignPlatform', { platform: unresolvedOp.initiatorPlatform }));
+      return;
+    }
+    setReplacingBackup(true);
+    try {
+      await rollbackReplace(unresolvedOp, user.uid);
+      const op = await getRestoreOperation(user.uid);
+      setUnresolvedOp(op);
+      useToastStore.getState().show(t('settingsReplaceRollbackSuccess'));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'failed';
+      useToastStore.getState().show(t('settingsReplaceRollbackFailed', { error: msg }));
+      void getRestoreOperation(user.uid).then(setUnresolvedOp);
+    } finally {
+      setReplacingBackup(false);
+    }
+  };
+
+  const handleDismissOperation = async () => {
+    if (!user) return;
+    try {
+      await dismissCompletedOperation(user.uid);
+      setUnresolvedOp(null);
+    } catch {
+      // ignore
+    }
+  };
+
   const displayName = user?.displayName?.trim()
     || user?.email?.split('@')[0]
     || t('settingsCloudAccount');
@@ -307,6 +447,55 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
               >
                 {t('settingsDeletionFinish')}
               </button>
+            </div>
+          </div>
+        ) : null}
+
+        {user && unresolvedOp ? (
+          <div className="settings-replace-unresolved" role="alert">
+            <p className="settings-replace-unresolved__text">
+              {unresolvedOp.phase === 'COMPLETED'
+                ? t('settingsReplaceSuccess')
+                : unresolvedOp.phase === 'ROLLED_BACK'
+                  ? t('settingsReplaceRollbackSuccess')
+                  : unresolvedOp.initiatorPlatform && unresolvedOp.initiatorPlatform !== 'web'
+                    ? t('settingsReplaceForeignPlatform', { platform: unresolvedOp.initiatorPlatform })
+                    : `${t('settingsReplaceUnresolvedBanner')} (${unresolvedOp.phase})`}
+            </p>
+            <div className="settings-replace-unresolved__actions">
+              {unresolvedOp.phase === 'COMPLETED' || unresolvedOp.phase === 'ROLLED_BACK' ? (
+                <button
+                  type="button"
+                  className="settings-replace-unresolved__action"
+                  disabled={replacingBackup}
+                  onClick={() => void handleDismissOperation()}
+                >
+                  {t('settingsReplaceDismiss')}
+                </button>
+              ) : (!unresolvedOp.initiatorPlatform || unresolvedOp.initiatorPlatform === 'web') ? (
+                <>
+                  {unresolvedOp.phase !== 'ROLLING_BACK' && (
+                    <button
+                      type="button"
+                      className="settings-replace-unresolved__action settings-replace-unresolved__action--primary"
+                      disabled={replacingBackup}
+                      onClick={() => handleResumeReplace()}
+                    >
+                      {t('settingsReplaceResume')}
+                    </button>
+                  )}
+                  {unresolvedOp.snapshotMeta ? (
+                    <button
+                      type="button"
+                      className="settings-replace-unresolved__action settings-replace-unresolved__action--destructive"
+                      disabled={replacingBackup}
+                      onClick={() => void handleRollbackReplace()}
+                    >
+                      {t('settingsReplaceRollback')}
+                    </button>
+                  ) : null}
+                </>
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -423,13 +612,45 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
             <SettingsRow icon={IconLayers} iconTint="accent" title={t('settingsCategories')} subtitle={t('settingsCategoriesSub')} onClick={onManageCategories} />
             <SettingsRow icon={IconDownload} iconTint="neutral" title={t('settingsExport')} subtitle={t('settingsExportSub')} onClick={() => void exportData()} />
             <SettingsRow icon={IconShield} iconTint="accent" title={t('settingsExportBackup')} subtitle={t('settingsExportBackupSub')} onClick={() => void exportBackup()} />
-            <SettingsRow icon={IconUpload} iconTint="neutral" title={t('settingsRestoreBackup')} subtitle={t('settingsRestoreBackupSub')} onClick={() => restoreFileInputRef.current?.click()} />
+            <SettingsRow
+              icon={IconUpload}
+              iconTint="neutral"
+              title={t('settingsRestoreBackup')}
+              subtitle={t('settingsRestoreBackupSub')}
+              onClick={() => {
+                if (unresolvedOp && unresolvedOp.phase !== 'COMPLETED' && unresolvedOp.phase !== 'ROLLED_BACK') {
+                  useToastStore.getState().show(t('settingsReplaceUnresolvedBanner'));
+                  return;
+                }
+                restoreFileInputRef.current?.click();
+              }}
+            />
             <input
               ref={restoreFileInputRef}
               type="file"
               accept=".json,application/json"
               style={{ display: 'none' }}
               onChange={(e) => void handleRestoreFileSelected(e)}
+            />
+            <SettingsRow
+              icon={IconAlertTriangle}
+              iconTint="expense"
+              title={t('settingsReplaceBackup')}
+              subtitle={t('settingsReplaceBackupSub')}
+              onClick={() => {
+                if (unresolvedOp && unresolvedOp.phase !== 'COMPLETED' && unresolvedOp.phase !== 'ROLLED_BACK') {
+                  useToastStore.getState().show(t('settingsReplaceUnresolvedBanner'));
+                  return;
+                }
+                replaceFileInputRef.current?.click();
+              }}
+            />
+            <input
+              ref={replaceFileInputRef}
+              type="file"
+              accept=".json,application/json"
+              style={{ display: 'none' }}
+              onChange={(e) => void handleReplaceFileSelected(e)}
             />
             <label className="settings-row settings-row--static settings-row--toggle">
               <span className="settings-row__icon-tile" data-tint="neutral">
@@ -602,6 +823,39 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
           if (!restoringBackup) {
             setShowRestoreConfirm(false);
             setPendingRestore(null);
+          }
+        }}
+      />
+
+      <ConfirmDialog
+        open={showReplaceConfirm}
+        title={t('settingsReplaceBackupTitle')}
+        confirmDisabled={replacingBackup}
+        destructive={true}
+        message={
+          pendingReplace ? (
+            <div className="flex flex-col gap-2">
+              <p className="confirm-dialog__message">
+                {t('settingsReplaceBackupExplain')}
+              </p>
+              <div className="confirm-dialog__message confirm-dialog__preflight">
+                {t('settingsReplaceBackupPreflight', {
+                  backupExpenses: String(pendingReplace.plan.counts.backupExpenseCount),
+                  backupCategories: String(pendingReplace.plan.counts.backupCategoryCount),
+                  toDelete: String(pendingReplace.plan.counts.expensesToDeleteCount),
+                  toUpsertCategories: String(pendingReplace.plan.counts.categoriesToUpsertCount),
+                })}
+              </div>
+            </div>
+          ) : null
+        }
+        confirmLabel={t('settingsReplaceBackupTitle')}
+        cancelLabel={t('actionCancel')}
+        onConfirm={() => void executeReplaceAction()}
+        onCancel={() => {
+          if (!replacingBackup) {
+            setShowReplaceConfirm(false);
+            setPendingReplace(null);
           }
         }}
       />

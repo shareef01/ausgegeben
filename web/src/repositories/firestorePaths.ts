@@ -26,6 +26,8 @@ export const PREFERENCES_DOC = 'preferences';
 export const META_COLLECTION = 'meta';
 export const DEDUPE_DOC = 'dedupe';
 export const ACCOUNT_DELETION_DOC = 'accountDeletion';
+export const RESTORE_SNAPSHOT_COLLECTION = 'restoreSnapshot';
+export const RESTORE_OPERATION_DOC = 'restoreOperation';
 
 interface UserDocPath {
   collection: string;
@@ -36,12 +38,14 @@ interface UserDocPath {
 export const DELETABLE_USER_COLLECTIONS: readonly string[] = [
   CATEGORIES_COLLECTION,
   EXPENSES_COLLECTION,
+  RESTORE_SNAPSHOT_COLLECTION,
 ];
 
 /** Every per-user single document (not a whole collection) that deleteAllUserData wipes. */
 export const DELETABLE_USER_DOCS: readonly UserDocPath[] = [
   { collection: SETTINGS_COLLECTION, id: PREFERENCES_DOC },
   { collection: META_COLLECTION, id: DEDUPE_DOC },
+  { collection: META_COLLECTION, id: RESTORE_OPERATION_DOC },
 ];
 
 /**
