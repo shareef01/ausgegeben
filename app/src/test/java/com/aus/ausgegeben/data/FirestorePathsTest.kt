@@ -16,6 +16,7 @@ class FirestorePathsTest {
     fun `classifies every whole-collection constant as deletable`() {
         assertTrue(FirestorePaths.CATEGORIES_COLLECTION in FirestorePaths.DELETABLE_USER_COLLECTIONS)
         assertTrue(FirestorePaths.EXPENSES_COLLECTION in FirestorePaths.DELETABLE_USER_COLLECTIONS)
+        assertTrue(FirestorePaths.RESTORE_SNAPSHOT_COLLECTION in FirestorePaths.DELETABLE_USER_COLLECTIONS)
     }
 
     @Test
@@ -24,6 +25,7 @@ class FirestorePathsTest {
             FirestorePaths.UserDocPath(FirestorePaths.SETTINGS_COLLECTION, FirestorePaths.PREFERENCES_DOC),
             FirestorePaths.UserDocPath(FirestorePaths.META_COLLECTION, FirestorePaths.DEDUPE_DOC),
             FirestorePaths.UserDocPath(FirestorePaths.META_COLLECTION, FirestorePaths.ACCOUNT_DELETION_DOC),
+            FirestorePaths.UserDocPath(FirestorePaths.META_COLLECTION, FirestorePaths.RESTORE_OPERATION_DOC),
         )
         for (doc in namedDocs) {
             val deletable = doc in FirestorePaths.DELETABLE_USER_DOCS
@@ -95,6 +97,7 @@ class FirestorePathsTest {
                 FirestorePaths.EXPENSES_COLLECTION,
                 FirestorePaths.SETTINGS_COLLECTION,
                 FirestorePaths.META_COLLECTION,
+                FirestorePaths.RESTORE_SNAPSHOT_COLLECTION,
             ),
             subcollections,
         )
@@ -107,6 +110,7 @@ class FirestorePathsTest {
                 FirestorePaths.PREFERENCES_DOC,
                 FirestorePaths.DEDUPE_DOC,
                 FirestorePaths.ACCOUNT_DELETION_DOC,
+                FirestorePaths.RESTORE_OPERATION_DOC,
             ),
             docIdLiterals,
         )

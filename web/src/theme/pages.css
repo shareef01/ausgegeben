@@ -169,6 +169,64 @@
   cursor: not-allowed;
 }
 
+.settings-replace-unresolved {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--color-expense) 35%, transparent);
+  background: color-mix(in srgb, var(--color-expense) 10%, transparent);
+}
+
+.settings-replace-unresolved__text {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--color-on-background);
+}
+
+.settings-replace-unresolved__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.settings-replace-unresolved__action {
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--color-outline) 40%, transparent);
+  background: transparent;
+  color: var(--color-on-background);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.settings-replace-unresolved__action--primary {
+  border-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
+  color: var(--color-primary);
+}
+
+.settings-replace-unresolved__action--destructive {
+  border-color: color-mix(in srgb, var(--color-expense) 40%, transparent);
+  color: var(--color-expense);
+}
+
+.settings-replace-unresolved__action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.confirm-dialog__preflight {
+  white-space: pre-line;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--color-on-surface-variant);
+}
+
 .data-truncated-notice {
   margin: 0 0 16px;
   padding: 12px 16px;

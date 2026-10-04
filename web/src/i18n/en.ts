@@ -264,6 +264,23 @@ export const en = {
   settingsRestoreConflict: 'Category conflict: conflicting transaction type',
   settingsRestoreAuthChanged: 'Authentication session changed. Restore aborted.',
   settingsRestoreFailed: 'Failed to restore backup',
+  settingsReplaceBackup: 'replace current data with backup',
+  settingsReplaceBackupSub: 'replace current data with a versioned JSON backup',
+  settingsReplaceBackupTitle: 'replace current data',
+  settingsReplaceBackupExplain:
+    'This will replace your current data with the backup contents. An automatic safety snapshot will be created before any changes begin.',
+  settingsReplaceBackupPreflight:
+    'Backup transactions: {backupExpenses}\nBackup categories: {backupCategories}\n\nCurrent transactions to remove: {toDelete}\nCurrent categories affected: {toUpsertCategories}\n\nA recovery snapshot will be created before changes begin.',
+  settingsReplaceSuccess: 'Data replaced successfully',
+  settingsReplaceFailed: 'Failed to replace data: {error}',
+  settingsReplaceUnresolvedBanner: 'A previous backup replacement did not finish.',
+  settingsReplaceResume: 'resume replacement',
+  settingsReplaceRollback: 'restore previous data',
+  settingsReplaceDismiss: 'dismiss',
+  settingsReplaceRollbackSuccess: 'Previous data restored from safety snapshot',
+  settingsReplaceRollbackFailed: 'Failed to restore previous data: {error}',
+  settingsReplaceForeignPlatform:
+    'A replacement was initiated on {platform}. Please use that device to resume or rollback.',
   dataTruncatedNotice: 'showing the latest 5,000 transactions — older rows are hidden',
   settingsExportFailed: 'export failed',
   settingsRemindersPhoneOnly: 'daily reminders are managed in the android app',
