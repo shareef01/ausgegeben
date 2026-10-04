@@ -330,6 +330,54 @@ service cloud.firestore {
         && (!('onboardingComplete' in d) || d.onboardingComplete is bool);
     }
 
+    function validRestoreOperation() {
+      let d = request.resource.data;
+      return d.keys().hasOnly([
+          'operationId', 'ownerUid', 'mode', 'backupFingerprint', 'phase',
+          'createdAt', 'updatedAt', 'plannedCounts', 'progress', 'snapshotMeta',
+          'error', 'failedFromPhase', 'initiatorPlatform'
+        ])
+        && d.keys().hasAll(['operationId', 'ownerUid', 'mode', 'backupFingerprint', 'phase', 'createdAt', 'updatedAt'])
+        && d.operationId is string && d.operationId.size() > 0 && d.operationId.size() <= 64
+        && d.ownerUid == request.auth.uid
+        && d.mode == 'replace'
+        && d.backupFingerprint is string && d.backupFingerprint.size() > 0 && d.backupFingerprint.size() <= 128
+        && d.phase in [
+          'PREPARING', 'SNAPSHOT_READY', 'APPLYING', 'VERIFYING',
+          'COMPLETED', 'ROLLING_BACK', 'ROLLED_BACK', 'FAILED_RECOVERABLE'
+        ]
+        && d.createdAt is number && d.createdAt > 0
+        && d.updatedAt is number && d.updatedAt > 0
+        && (!('initiatorPlatform' in d) || d.initiatorPlatform in ['web', 'android'])
+        && (!('error' in d) || (d.error is string && d.error.size() <= 1000))
+        && (!('failedFromPhase' in d) || d.failedFromPhase in [
+          'PREPARING', 'SNAPSHOT_READY', 'APPLYING', 'VERIFYING',
+          'COMPLETED', 'ROLLING_BACK', 'ROLLED_BACK', 'FAILED_RECOVERABLE'
+        ])
+        && (!('plannedCounts' in d) || d.plannedCounts is map)
+        && (!('progress' in d) || d.progress is map)
+        && (!('snapshotMeta' in d) || d.snapshotMeta is map);
+    }
+
+    function validSnapshotDoc() {
+      let d = request.resource.data;
+      return d.keys().hasOnly([
+          'operationId', 'ownerUid', 'createdAt', 'chunkIndex', 'chunkCount',
+          'totalExpenses', 'totalCategories', 'expenses', 'categories', 'preferences'
+        ])
+        && d.keys().hasAll(['operationId', 'ownerUid', 'createdAt'])
+        && d.operationId is string && d.operationId.size() > 0 && d.operationId.size() <= 64
+        && d.ownerUid == request.auth.uid
+        && d.createdAt is number && d.createdAt > 0
+        && (!('chunkIndex' in d) || (d.chunkIndex is int && d.chunkIndex >= 0))
+        && (!('chunkCount' in d) || (d.chunkCount is int && d.chunkCount >= 0))
+        && (!('totalExpenses' in d) || (d.totalExpenses is int && d.totalExpenses >= 0))
+        && (!('totalCategories' in d) || (d.totalCategories is int && d.totalCategories >= 0))
+        && (!('expenses' in d) || d.expenses is list)
+        && (!('categories' in d) || d.categories is list)
+        && (!('preferences' in d) || d.preferences is map);
+    }
+
     match /users/{userId} {
       allow read, write: if false;
 
@@ -409,6 +457,29 @@ service cloud.firestore {
           && docId == 'accountDeletion'
           && hasRecentAuthentication()
           && validAccountDeletion();
+        allow create: if isOwner(userId)
+          && docId == 'restoreOperation'
+          && accountAcceptsWrites(userId)
+          && isEmailVerified()
+          && validRestoreOperation();
+        allow update: if isOwner(userId)
+          && docId == 'restoreOperation'
+          && accountAcceptsWrites(userId)
+          && isEmailVerified()
+          && validRestoreOperation()
+          && request.resource.data.ownerUid == resource.data.ownerUid
+          && (resource.data.phase in ['COMPLETED', 'ROLLED_BACK']
+              || request.resource.data.operationId == resource.data.operationId);
+        allow delete: if docId == 'restoreOperation' && canDeleteOwned(userId);
+      }
+
+      match /restoreSnapshot/{chunkId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && accountAcceptsWrites(userId)
+          && isEmailVerified()
+          && validSnapshotDoc();
+        allow delete: if canDeleteOwned(userId);
       }
     }
   }

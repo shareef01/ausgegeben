@@ -28,16 +28,23 @@ object FirestorePaths {
     const val META_COLLECTION = "meta"
     const val DEDUPE_DOC = "dedupe"
     const val ACCOUNT_DELETION_DOC = "accountDeletion"
+    const val RESTORE_SNAPSHOT_COLLECTION = "restoreSnapshot"
+    const val RESTORE_OPERATION_DOC = "restoreOperation"
 
     data class UserDocPath(val collection: String, val id: String)
 
     /** Every per-user subcollection whose documents deleteAllUserData wipes in full. */
-    val DELETABLE_USER_COLLECTIONS: List<String> = listOf(CATEGORIES_COLLECTION, EXPENSES_COLLECTION)
+    val DELETABLE_USER_COLLECTIONS: List<String> = listOf(
+        CATEGORIES_COLLECTION,
+        EXPENSES_COLLECTION,
+        RESTORE_SNAPSHOT_COLLECTION,
+    )
 
     /** Every per-user single document (not a whole collection) that deleteAllUserData wipes. */
     val DELETABLE_USER_DOCS: List<UserDocPath> = listOf(
         UserDocPath(SETTINGS_COLLECTION, PREFERENCES_DOC),
         UserDocPath(META_COLLECTION, DEDUPE_DOC),
+        UserDocPath(META_COLLECTION, RESTORE_OPERATION_DOC),
     )
 
     /**

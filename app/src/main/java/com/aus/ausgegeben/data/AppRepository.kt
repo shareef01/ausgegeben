@@ -14,6 +14,7 @@ import com.aus.ausgegeben.util.BackupFormat
 import com.aus.ausgegeben.util.CategoryDedupe
 import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.RestoreUtils
+import com.aus.ausgegeben.util.ReplacePlanner
 import com.aus.ausgegeben.util.dateRangeMillis
 import com.aus.ausgegeben.util.expenseDocumentId
 import com.aus.ausgegeben.util.runSuspendCatching
@@ -96,6 +97,9 @@ class AppRepository @Inject constructor(
     // sign-in and MainActivity's post-auth-gateway LaunchedEffect) can't both observe an
     // empty categories collection and both batch-insert the default set.
     private val ensureSeededMutex = Mutex()
+
+    // In-process lock per UID to prevent concurrent replace runs on same device
+    private val activeReplaceOperations = ConcurrentHashMap.newKeySet<String>()
 
     /** Which realtime listeners are currently broken. See [markListenerFailed]. */
     private enum class ListenerSource { CATEGORIES, EXPENSES_IN_RANGE, ALL_EXPENSES }
@@ -180,6 +184,9 @@ class AppRepository @Inject constructor(
     private fun expDoc(uid: String, id: String) = expCol(uid).document(id)
     private fun dedupeMarkerDoc(uid: String) = metaCol(uid).document(FirestorePaths.DEDUPE_DOC)
     private fun accountDeletionDoc(uid: String) = metaCol(uid).document(FirestorePaths.ACCOUNT_DELETION_DOC)
+    private fun restoreOpDoc(uid: String) = metaCol(uid).document(FirestorePaths.RESTORE_OPERATION_DOC)
+    private fun snapshotCol(uid: String) = userCol(uid, FirestorePaths.RESTORE_SNAPSHOT_COLLECTION)
+    private fun snapshotDoc(uid: String, id: String) = snapshotCol(uid).document(id)
 
     /** True when wipe finished but Auth delete failed — blocks re-seeding empty accounts. */
     override suspend fun isAccountDeletionPending(): Boolean {
@@ -802,6 +809,755 @@ class AppRepository @Inject constructor(
             categoriesRestored = backup.categories.size,
             preferencesRestored = true,
         )
+    }
+
+    suspend fun planReplace(backup: BackupFormat.ParsedBackup): Result<ReplacePlanner.ReplacePlan> = runSuspendCatching {
+        val u = uid() ?: throw IllegalStateException("Not signed in")
+        val expSnap = expCol(u).get().await()
+        val currentExpenses = expSnap.documents.mapNotNull { expenseFromDoc(it) }
+
+        val catSnap = catCol(u).get().await()
+        val currentCategories = catSnap.documents.mapNotNull { categoryFromDoc(it) }
+
+        val prefDoc = settingsPrefsDoc(u).get().await()
+        val currentPrefs = if (prefDoc.exists()) {
+            SyncedPreferences(
+                currency = prefDoc.getString("currency") ?: "EUR",
+                locale = prefDoc.getString("locale") ?: "en",
+                themeMode = prefDoc.getString("themeMode") ?: "system",
+                onboardingComplete = prefDoc.getBoolean("onboardingComplete") ?: true,
+                dailyReminder = prefDoc.getBoolean("dailyReminder") ?: true,
+                reminderHour = (prefDoc.getLong("reminderHour") ?: 19L).toInt(),
+                reminderMinute = (prefDoc.getLong("reminderMinute") ?: 0L).toInt(),
+                analyticsPeriod = prefDoc.getString("analyticsPeriod") ?: "this_month",
+                monthlyBudget = prefDoc.getDouble("monthlyBudget"),
+                updatedAt = prefDoc.getLong("updatedAt") ?: System.currentTimeMillis(),
+            )
+        } else null
+
+        ReplacePlanner.planReplace(
+            currentExpenses = currentExpenses,
+            currentCategories = currentCategories,
+            currentPreferences = currentPrefs,
+            backup = backup,
+        )
+    }
+
+    suspend fun getRestoreOperation(expectedUid: String? = null): ReplacePlanner.RestoreOperationDoc? {
+        val u = expectedUid ?: uid() ?: return null
+        val snap = restoreOpDoc(u).get().await()
+        if (!snap.exists()) return null
+        val phaseStr = snap.getString("phase") ?: return null
+        val phase = try {
+            ReplacePlanner.RestorePhase.valueOf(phaseStr)
+        } catch (_: Exception) {
+            return null
+        }
+        val countsMap = snap.get("plannedCounts") as? Map<*, *>
+        val plannedCounts = if (countsMap != null) {
+            ReplacePlanner.PlannedCounts(
+                backupExpenseCount = (countsMap["backupExpenseCount"] as? Number)?.toInt() ?: 0,
+                backupCategoryCount = (countsMap["backupCategoryCount"] as? Number)?.toInt() ?: 0,
+                expensesToUpsertCount = (countsMap["expensesToUpsertCount"] as? Number)?.toInt() ?: 0,
+                expensesToDeleteCount = (countsMap["expensesToDeleteCount"] as? Number)?.toInt() ?: 0,
+                categoriesToUpsertCount = (countsMap["categoriesToUpsertCount"] as? Number)?.toInt() ?: 0,
+                categoriesPreservedCount = (countsMap["categoriesPreservedCount"] as? Number)?.toInt() ?: 0,
+            )
+        } else null
+
+        val progressMap = snap.get("progress") as? Map<*, *>
+        val progress = if (progressMap != null) {
+            ReplacePlanner.RestoreJournalProgress(
+                step = progressMap["step"] as? String,
+                batchIndex = (progressMap["batchIndex"] as? Number)?.toInt(),
+                totalBatches = (progressMap["totalBatches"] as? Number)?.toInt(),
+                lastProcessedId = progressMap["lastProcessedId"] as? String,
+            )
+        } else null
+
+        val snapMetaMap = snap.get("snapshotMeta") as? Map<*, *>
+        val snapshotMeta = if (snapMetaMap != null) {
+            ReplacePlanner.SnapshotMeta(
+                chunkCount = (snapMetaMap["chunkCount"] as? Number)?.toInt() ?: 1,
+                totalExpenses = (snapMetaMap["totalExpenses"] as? Number)?.toInt() ?: 0,
+                totalCategories = (snapMetaMap["totalCategories"] as? Number)?.toInt() ?: 0,
+            )
+        } else null
+
+        return ReplacePlanner.RestoreOperationDoc(
+            operationId = snap.getString("operationId") ?: "",
+            ownerUid = snap.getString("ownerUid") ?: u,
+            mode = snap.getString("mode") ?: "replace",
+            backupFingerprint = snap.getString("backupFingerprint") ?: "",
+            phase = phase,
+            createdAt = snap.getLong("createdAt") ?: 0L,
+            updatedAt = snap.getLong("updatedAt") ?: 0L,
+            plannedCounts = plannedCounts,
+            progress = progress,
+            snapshotMeta = snapshotMeta,
+            error = snap.getString("error"),
+            failedFromPhase = snap.getString("failedFromPhase")?.let {
+                try { ReplacePlanner.RestorePhase.valueOf(it) } catch (_: Exception) { null }
+            },
+            initiatorPlatform = snap.getString("initiatorPlatform") ?: "android",
+        )
+    }
+
+    private suspend fun setRestoreOperation(u: String, op: ReplacePlanner.RestoreOperationDoc) {
+        val payload = buildMap<String, Any?> {
+            put("operationId", op.operationId)
+            put("ownerUid", op.ownerUid)
+            put("mode", op.mode)
+            put("backupFingerprint", op.backupFingerprint)
+            put("phase", op.phase.name)
+            put("createdAt", op.createdAt)
+            put("updatedAt", op.updatedAt)
+            put("initiatorPlatform", op.initiatorPlatform)
+            op.error?.let { put("error", it.take(500)) }
+            op.failedFromPhase?.let { put("failedFromPhase", it.name) }
+            op.plannedCounts?.let { counts ->
+                put(
+                    "plannedCounts",
+                    mapOf(
+                        "backupExpenseCount" to counts.backupExpenseCount,
+                        "backupCategoryCount" to counts.backupCategoryCount,
+                        "expensesToUpsertCount" to counts.expensesToUpsertCount,
+                        "expensesToDeleteCount" to counts.expensesToDeleteCount,
+                        "categoriesToUpsertCount" to counts.categoriesToUpsertCount,
+                        "categoriesPreservedCount" to counts.categoriesPreservedCount,
+                    ),
+                )
+            }
+            op.progress?.let { prog ->
+                put(
+                    "progress",
+                    buildMap<String, Any?> {
+                        prog.step?.let { put("step", it) }
+                        prog.batchIndex?.let { put("batchIndex", it) }
+                        prog.totalBatches?.let { put("totalBatches", it) }
+                        prog.lastProcessedId?.let { put("lastProcessedId", it) }
+                    },
+                )
+            }
+            op.snapshotMeta?.let { meta ->
+                put(
+                    "snapshotMeta",
+                    mapOf(
+                        "chunkCount" to meta.chunkCount,
+                        "totalExpenses" to meta.totalExpenses,
+                        "totalCategories" to meta.totalCategories,
+                    ),
+                )
+            }
+        }
+        restoreOpDoc(u).set(payload).await()
+    }
+
+    private suspend fun deleteSafetySnapshot(u: String) {
+        val col = snapshotCol(u)
+        val snap = col.get().await()
+        if (snap.isEmpty) return
+        val batch = firestore.batch()
+        snap.documents.forEach { batch.delete(it.reference) }
+        batch.commit().await()
+    }
+
+    private suspend fun createSafetySnapshot(
+        u: String,
+        operationId: String,
+        expenses: List<Expense>,
+        categories: List<Category>,
+        preferences: SyncedPreferences?,
+    ): ReplacePlanner.SnapshotMeta {
+        val now = System.currentTimeMillis()
+        val chunkSize = 200
+        val chunkCount = if (expenses.isEmpty()) 1 else (expenses.size + chunkSize - 1) / chunkSize
+
+        val metaPayload = buildMap<String, Any?> {
+            put("operationId", operationId)
+            put("ownerUid", u)
+            put("createdAt", now)
+            put("chunkCount", chunkCount)
+            put("totalExpenses", expenses.size)
+            put("totalCategories", categories.size)
+            put(
+                "preferences",
+                preferences?.let {
+                    buildMap<String, Any?> {
+                        put("currency", it.currency)
+                        put("locale", it.locale)
+                        put("themeMode", it.themeMode)
+                        put("onboardingComplete", it.onboardingComplete)
+                        put("dailyReminder", it.dailyReminder)
+                        put("reminderHour", it.reminderHour)
+                        put("reminderMinute", it.reminderMinute)
+                        put("analyticsPeriod", it.analyticsPeriod)
+                        put("monthlyBudget", it.monthlyBudget)
+                        put("updatedAt", it.updatedAt)
+                    }
+                } ?: emptyMap<String, Any>(),
+            )
+            put(
+                "categories",
+                categories.map { c ->
+                    mapOf(
+                        "id" to c.id,
+                        "name" to c.name,
+                        "iconName" to c.iconName,
+                        "colorInt" to c.colorInt.toLong(),
+                        "transactionType" to c.transactionType,
+                        "sortOrder" to c.sortOrder.toLong(),
+                        "updatedAt" to now,
+                    )
+                },
+            )
+        }
+        snapshotDoc(u, "meta").set(metaPayload).await()
+
+        for (i in 0 until chunkCount) {
+            val chunkExpenses = expenses.drop(i * chunkSize).take(chunkSize)
+            val chunkPayload = mapOf(
+                "operationId" to operationId,
+                "ownerUid" to u,
+                "createdAt" to now,
+                "chunkIndex" to i,
+                "chunkCount" to chunkCount,
+                "expenses" to chunkExpenses.map { e ->
+                    mapOf(
+                        "id" to e.id,
+                        "amount" to e.amount,
+                        "dateMillis" to e.dateMillis,
+                        "categoryId" to e.categoryId,
+                        "note" to e.note,
+                        "transactionType" to e.transactionType,
+                        "updatedAt" to now,
+                    )
+                },
+            )
+            snapshotDoc(u, "chunk_$i").set(chunkPayload).await()
+        }
+
+        val checkMeta = snapshotDoc(u, "meta").get().await()
+        if (!checkMeta.exists()) {
+            throw IllegalStateException("SNAPSHOT_VERIFICATION_FAILED: meta missing")
+        }
+
+        return ReplacePlanner.SnapshotMeta(
+            chunkCount = chunkCount,
+            totalExpenses = expenses.size,
+            totalCategories = categories.size,
+        )
+    }
+
+    private data class SnapshotData(
+        val operationId: String,
+        val expenses: List<Expense>,
+        val categories: List<Category>,
+        val preferences: SyncedPreferences?,
+    )
+
+    private suspend fun readSafetySnapshot(u: String): SnapshotData {
+        val metaSnap = snapshotDoc(u, "meta").get().await()
+        if (!metaSnap.exists()) {
+            throw IllegalStateException("SNAPSHOT_NOT_FOUND")
+        }
+        val operationId = metaSnap.getString("operationId") ?: ""
+        val chunkCount = (metaSnap.getLong("chunkCount") ?: 1L).toInt()
+
+        val rawCategories = metaSnap.get("categories") as? List<Map<String, Any?>> ?: emptyList()
+        val categories = rawCategories.mapNotNull { m ->
+            val name = (m["name"] as? String)?.trim().orEmpty()
+            if (name.isEmpty()) null
+            else Category(
+                id = (m["id"] as? String).orEmpty(),
+                name = name,
+                iconName = (m["iconName"] as? String) ?: "shopping_bag",
+                colorInt = ((m["colorInt"] as? Number)?.toLong() ?: 0xff6a9fd4).toInt(),
+                transactionType = (m["transactionType"] as? String) ?: "expense",
+                sortOrder = ((m["sortOrder"] as? Number)?.toInt() ?: 0),
+            )
+        }
+
+        val rawPrefs = metaSnap.get("preferences") as? Map<String, Any?>
+        val preferences = if (rawPrefs != null && rawPrefs.isNotEmpty()) {
+            SyncedPreferences(
+                currency = (rawPrefs["currency"] as? String) ?: "EUR",
+                locale = (rawPrefs["locale"] as? String) ?: "en",
+                themeMode = (rawPrefs["themeMode"] as? String) ?: "system",
+                onboardingComplete = (rawPrefs["onboardingComplete"] as? Boolean) ?: true,
+                dailyReminder = (rawPrefs["dailyReminder"] as? Boolean) ?: true,
+                reminderHour = ((rawPrefs["reminderHour"] as? Number)?.toInt()) ?: 19,
+                reminderMinute = ((rawPrefs["reminderMinute"] as? Number)?.toInt()) ?: 0,
+                analyticsPeriod = (rawPrefs["analyticsPeriod"] as? String) ?: "this_month",
+                monthlyBudget = (rawPrefs["monthlyBudget"] as? Number)?.toDouble(),
+                updatedAt = (rawPrefs["updatedAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
+            )
+        } else null
+
+        val expenses = mutableListOf<Expense>()
+        for (i in 0 until chunkCount) {
+            val chunkSnap = snapshotDoc(u, "chunk_$i").get().await()
+            if (chunkSnap.exists()) {
+                val rawExpenses = chunkSnap.get("expenses") as? List<Map<String, Any?>> ?: emptyList()
+                for (m in rawExpenses) {
+                    val id = (m["id"] as? String).orEmpty()
+                    if (id.isNotEmpty()) {
+                        expenses.add(
+                            Expense(
+                                id = id,
+                                amount = (m["amount"] as? Number)?.toDouble() ?: 0.0,
+                                dateMillis = (m["dateMillis"] as? Number)?.toLong() ?: 0L,
+                                categoryId = (m["categoryId"] as? String) ?: UNCATEGORIZED_ID,
+                                note = (m["note"] as? String) ?: "",
+                                transactionType = (m["transactionType"] as? String) ?: "expense",
+                                deleted = false,
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+
+        return SnapshotData(
+            operationId = operationId,
+            expenses = expenses,
+            categories = categories,
+            preferences = preferences,
+        )
+    }
+
+    suspend fun executeReplace(
+        backup: BackupFormat.ParsedBackup,
+        expectedUid: String,
+        faultHooks: ReplacePlanner.ReplaceFaultHooks? = null,
+        isResume: Boolean = false,
+    ): Result<ReplacePlanner.ReplaceResult> = runSuspendCatching {
+        val u = uid() ?: throw IllegalStateException("Not signed in")
+        if (u != expectedUid) {
+            throw IllegalStateException("AUTH_ACCOUNT_CHANGED")
+        }
+        requireVerifiedEmail()
+
+        if (!activeReplaceOperations.add(expectedUid)) {
+            throw IllegalStateException("RESTORE_OPERATION_ALREADY_IN_PROGRESS")
+        }
+
+        var currentPhase = ReplacePlanner.RestorePhase.PREPARING
+        var operationId = "replace_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(6)}"
+
+        try {
+            val existingOp = getRestoreOperation(expectedUid)
+            if (!isResume && existingOp != null &&
+                existingOp.phase != ReplacePlanner.RestorePhase.COMPLETED &&
+                existingOp.phase != ReplacePlanner.RestorePhase.ROLLED_BACK
+            ) {
+                throw IllegalStateException("UNRESOLVED_RESTORE_OPERATION: ${existingOp.phase}")
+            }
+            if (!isResume && existingOp != null &&
+                (existingOp.phase == ReplacePlanner.RestorePhase.COMPLETED || existingOp.phase == ReplacePlanner.RestorePhase.ROLLED_BACK)
+            ) {
+                deleteSafetySnapshot(expectedUid)
+            }
+            if (isResume && existingOp != null) {
+                operationId = existingOp.operationId
+            }
+
+            // Load authoritative current state
+            val expSnap = expCol(expectedUid).get().await()
+            val currentExpenses = expSnap.documents.mapNotNull { expenseFromDoc(it) }
+
+            val catSnap = catCol(expectedUid).get().await()
+            val currentCategories = catSnap.documents.mapNotNull { categoryFromDoc(it) }
+
+            val prefDoc = settingsPrefsDoc(expectedUid).get().await()
+            val currentPrefs = if (prefDoc.exists()) {
+                SyncedPreferences(
+                    currency = prefDoc.getString("currency") ?: "EUR",
+                    locale = prefDoc.getString("locale") ?: "en",
+                    themeMode = prefDoc.getString("themeMode") ?: "system",
+                    onboardingComplete = prefDoc.getBoolean("onboardingComplete") ?: true,
+                    dailyReminder = prefDoc.getBoolean("dailyReminder") ?: true,
+                    reminderHour = (prefDoc.getLong("reminderHour") ?: 19L).toInt(),
+                    reminderMinute = (prefDoc.getLong("reminderMinute") ?: 0L).toInt(),
+                    analyticsPeriod = prefDoc.getString("analyticsPeriod") ?: "this_month",
+                    monthlyBudget = prefDoc.getDouble("monthlyBudget"),
+                    updatedAt = prefDoc.getLong("updatedAt") ?: System.currentTimeMillis(),
+                )
+            } else null
+
+            val plan = ReplacePlanner.planReplace(
+                currentExpenses = currentExpenses,
+                currentCategories = currentCategories,
+                currentPreferences = currentPrefs,
+                backup = backup,
+            )
+
+            if (plan.conflicts.isNotEmpty()) {
+                throw IllegalStateException("REPLACE_PLAN_CONFLICTS: ${plan.conflicts.joinToString("; ")}")
+            }
+
+            val fingerprint = ReplacePlanner.computeBackupFingerprint(backup)
+
+            val initialOp = ReplacePlanner.RestoreOperationDoc(
+                operationId = operationId,
+                ownerUid = expectedUid,
+                mode = "replace",
+                backupFingerprint = fingerprint,
+                phase = ReplacePlanner.RestorePhase.PREPARING,
+                createdAt = if (isResume && existingOp != null) existingOp.createdAt else System.currentTimeMillis(),
+                updatedAt = System.currentTimeMillis(),
+                plannedCounts = plan.counts,
+                initiatorPlatform = "android",
+            )
+            setRestoreOperation(expectedUid, initialOp)
+
+            var snapshotMeta = if (isResume && existingOp?.snapshotMeta != null) existingOp.snapshotMeta else null
+            if (snapshotMeta == null) {
+                snapshotMeta = createSafetySnapshot(
+                    u = expectedUid,
+                    operationId = operationId,
+                    expenses = currentExpenses,
+                    categories = currentCategories,
+                    preferences = currentPrefs,
+                )
+            }
+
+            if (faultHooks?.failAfterSnapshot == true) {
+                throw IllegalStateException("FAULT_INJECTED_AFTER_SNAPSHOT")
+            }
+
+            currentPhase = ReplacePlanner.RestorePhase.SNAPSHOT_READY
+            setRestoreOperation(
+                expectedUid,
+                initialOp.copy(
+                    phase = ReplacePlanner.RestorePhase.SNAPSHOT_READY,
+                    updatedAt = System.currentTimeMillis(),
+                    snapshotMeta = snapshotMeta,
+                ),
+            )
+
+            currentPhase = ReplacePlanner.RestorePhase.APPLYING
+            setRestoreOperation(
+                expectedUid,
+                initialOp.copy(
+                    phase = ReplacePlanner.RestorePhase.APPLYING,
+                    updatedAt = System.currentTimeMillis(),
+                    snapshotMeta = snapshotMeta,
+                    progress = ReplacePlanner.RestoreJournalProgress(step = "categories", batchIndex = 0),
+                ),
+            )
+
+            // 1. Categories in chunks of 400
+            val categoryChunks = plan.categoriesToUpsert.chunked(400)
+            var categoryBatchIndex = 0
+            for (chunk in categoryChunks) {
+                val batch = firestore.batch()
+                for (c in chunk) {
+                    val ref = catDoc(expectedUid, c.id)
+                    val payload = buildMap<String, Any> {
+                        put("name", c.name.trim().take(50))
+                        put("iconName", c.iconName.take(50))
+                        put("colorInt", c.colorInt.toLong())
+                        put("transactionType", c.transactionType)
+                        put("sortOrder", c.sortOrder)
+                        put("updatedAt", c.updatedAt ?: System.currentTimeMillis())
+                        put("id", c.id)
+                    }
+                    batch.set(ref, payload, SetOptions.merge())
+                }
+                batch.commit().await()
+                categoryBatchIndex++
+                if (faultHooks?.failAfterCategoryBatch == categoryBatchIndex) {
+                    throw IllegalStateException("FAULT_INJECTED_AFTER_CATEGORY_BATCH")
+                }
+            }
+
+            // 2. Expenses upsert in chunks of 400
+            val expenseUpsertChunks = plan.expensesToUpsert.chunked(400)
+            var expenseUpsertBatchIndex = 0
+            for (chunk in expenseUpsertChunks) {
+                val batch = firestore.batch()
+                for (e in chunk) {
+                    val ref = expDoc(expectedUid, e.id)
+                    val roundedAmount = (e.amount * 100.0).roundToLong() / 100.0
+                    val payload = buildMap<String, Any> {
+                        put("amount", roundedAmount)
+                        put("dateMillis", e.dateMillis)
+                        put("categoryId", e.categoryId)
+                        put("note", e.note.take(200))
+                        put("transactionType", e.transactionType)
+                        put("updatedAt", e.updatedAt ?: System.currentTimeMillis())
+                        put("id", e.id)
+                    }
+                    batch.set(ref, payload, SetOptions.merge())
+                }
+                batch.commit().await()
+                expenseUpsertBatchIndex++
+                if (faultHooks?.failAfterExpenseUpsertBatch == expenseUpsertBatchIndex) {
+                    throw IllegalStateException("FAULT_INJECTED_AFTER_EXPENSE_UPSERT_BATCH")
+                }
+            }
+
+            // 3. Stale expenses delete in chunks of 400
+            val expenseDeleteChunks = plan.expenseIdsToDelete.chunked(400)
+            var expenseDeleteBatchIndex = 0
+            for (chunk in expenseDeleteChunks) {
+                val batch = firestore.batch()
+                for (id in chunk) {
+                    batch.delete(expDoc(expectedUid, id))
+                }
+                batch.commit().await()
+                expenseDeleteBatchIndex++
+                if (faultHooks?.failAfterExpenseDeleteBatch == expenseDeleteBatchIndex) {
+                    throw IllegalStateException("FAULT_INJECTED_AFTER_EXPENSE_DELETE_BATCH")
+                }
+            }
+
+            // 4. Preferences update
+            if (faultHooks?.failBeforePreferences == true) {
+                throw IllegalStateException("FAULT_INJECTED_BEFORE_PREFERENCES")
+            }
+            val p = plan.preferencesToUpdate
+            val prefPayload = buildMap<String, Any?> {
+                put("currency", p.currency)
+                put("locale", p.locale)
+                put("themeMode", p.themeMode)
+                put("onboardingComplete", p.onboardingComplete)
+                put("dailyReminder", p.dailyReminder)
+                put("reminderHour", p.reminderHour)
+                put("reminderMinute", p.reminderMinute)
+                put("analyticsPeriod", p.analyticsPeriod)
+                put("monthlyBudget", p.monthlyBudget)
+                put("updatedAt", p.updatedAt)
+            }
+            settingsPrefsDoc(expectedUid).set(prefPayload, SetOptions.merge()).await()
+            preferenceManager.applySyncedPreferences(p)
+
+            // 5. Verification
+            currentPhase = ReplacePlanner.RestorePhase.VERIFYING
+            setRestoreOperation(
+                expectedUid,
+                initialOp.copy(
+                    phase = ReplacePlanner.RestorePhase.VERIFYING,
+                    updatedAt = System.currentTimeMillis(),
+                    snapshotMeta = snapshotMeta,
+                ),
+            )
+
+            if (faultHooks?.failDuringVerification == true) {
+                throw IllegalStateException("FAULT_INJECTED_DURING_VERIFICATION")
+            }
+
+            if (plan.expenseIdsToDelete.isNotEmpty()) {
+                val sampleId = plan.expenseIdsToDelete.first()
+                val checkDoc = expDoc(expectedUid, sampleId).get().await()
+                if (checkDoc.exists()) {
+                    throw IllegalStateException("REPLACE_VERIFICATION_FAILED: deleted expense still exists")
+                }
+            }
+
+            // 6. Completed
+            currentPhase = ReplacePlanner.RestorePhase.COMPLETED
+            setRestoreOperation(
+                expectedUid,
+                initialOp.copy(
+                    phase = ReplacePlanner.RestorePhase.COMPLETED,
+                    updatedAt = System.currentTimeMillis(),
+                    snapshotMeta = snapshotMeta,
+                ),
+            )
+
+            ReplacePlanner.ReplaceResult(
+                success = true,
+                operationId = operationId,
+                plan = plan,
+                phase = ReplacePlanner.RestorePhase.COMPLETED,
+            )
+        } catch (e: Throwable) {
+            val errorMsg = e.message ?: e.toString()
+            if (currentPhase != ReplacePlanner.RestorePhase.PREPARING) {
+                try {
+                    setRestoreOperation(
+                        expectedUid,
+                        ReplacePlanner.RestoreOperationDoc(
+                            operationId = operationId,
+                            ownerUid = expectedUid,
+                            mode = "replace",
+                            backupFingerprint = ReplacePlanner.computeBackupFingerprint(backup),
+                            phase = ReplacePlanner.RestorePhase.FAILED_RECOVERABLE,
+                            createdAt = System.currentTimeMillis(),
+                            updatedAt = System.currentTimeMillis(),
+                            error = errorMsg.take(500),
+                            failedFromPhase = currentPhase,
+                            initiatorPlatform = "android",
+                        ),
+                    )
+                } catch (_: Exception) {}
+            }
+            throw e
+        } finally {
+            activeReplaceOperations.remove(expectedUid)
+        }
+    }
+
+    suspend fun resumeReplace(
+        operation: ReplacePlanner.RestoreOperationDoc,
+        backup: BackupFormat.ParsedBackup,
+        expectedUid: String,
+        faultHooks: ReplacePlanner.ReplaceFaultHooks? = null,
+    ): Result<ReplacePlanner.ReplaceResult> {
+        if (operation.ownerUid != expectedUid) {
+            return Result.failure(IllegalStateException("AUTH_ACCOUNT_CHANGED"))
+        }
+        val currentFp = ReplacePlanner.computeBackupFingerprint(backup)
+        if (currentFp != operation.backupFingerprint) {
+            return Result.failure(IllegalStateException("FINGERPRINT_MISMATCH: Selected backup does not match the unfinished operation"))
+        }
+        return executeReplace(backup, expectedUid, faultHooks, isResume = true)
+    }
+
+    suspend fun rollbackReplace(
+        operation: ReplacePlanner.RestoreOperationDoc,
+        expectedUid: String,
+        faultHooks: ReplacePlanner.ReplaceFaultHooks? = null,
+    ): Result<Unit> = runSuspendCatching {
+        val u = uid() ?: throw IllegalStateException("Not signed in")
+        if (u != expectedUid || operation.ownerUid != expectedUid) {
+            throw IllegalStateException("AUTH_ACCOUNT_CHANGED")
+        }
+        requireVerifiedEmail()
+
+        if (!activeReplaceOperations.add(expectedUid)) {
+            throw IllegalStateException("RESTORE_OPERATION_ALREADY_IN_PROGRESS")
+        }
+
+        try {
+            setRestoreOperation(
+                expectedUid,
+                operation.copy(
+                    phase = ReplacePlanner.RestorePhase.ROLLING_BACK,
+                    updatedAt = System.currentTimeMillis(),
+                ),
+            )
+
+            if (faultHooks?.failDuringRollback == true) {
+                throw IllegalStateException("FAULT_INJECTED_DURING_ROLLBACK")
+            }
+
+            val snapshot = readSafetySnapshot(expectedUid)
+
+            // 1. Categories
+            for (chunk in snapshot.categories.chunked(400)) {
+                val batch = firestore.batch()
+                for (c in chunk) {
+                    val ref = catDoc(expectedUid, c.id)
+                    val payload = buildMap<String, Any> {
+                        put("name", c.name.trim().take(50))
+                        put("iconName", c.iconName.take(50))
+                        put("colorInt", c.colorInt.toLong())
+                        put("transactionType", c.transactionType)
+                        put("sortOrder", c.sortOrder)
+                        put("updatedAt", System.currentTimeMillis())
+                        put("id", c.id)
+                    }
+                    batch.set(ref, payload, SetOptions.merge())
+                }
+                batch.commit().await()
+            }
+
+            // 2. Expenses upsert
+            val snapshotExpenseIds = snapshot.expenses.map { it.id }.toSet()
+            for (chunk in snapshot.expenses.chunked(400)) {
+                val batch = firestore.batch()
+                for (e in chunk) {
+                    val ref = expDoc(expectedUid, e.id)
+                    val roundedAmount = (e.amount * 100.0).roundToLong() / 100.0
+                    val payload = buildMap<String, Any> {
+                        put("amount", roundedAmount)
+                        put("dateMillis", e.dateMillis)
+                        put("categoryId", e.categoryId)
+                        put("note", e.note.take(200))
+                        put("transactionType", e.transactionType)
+                        put("updatedAt", System.currentTimeMillis())
+                        put("id", e.id)
+                    }
+                    batch.set(ref, payload, SetOptions.merge())
+                }
+                batch.commit().await()
+            }
+
+            // 3. Delete expenses not in snapshot
+            val currentExpSnap = expCol(expectedUid).get().await()
+            val extraExpenseIds = currentExpSnap.documents
+                .filter { it.id !in snapshotExpenseIds }
+                .map { it.id }
+
+            for (chunk in extraExpenseIds.chunked(400)) {
+                val batch = firestore.batch()
+                for (id in chunk) {
+                    batch.delete(expDoc(expectedUid, id))
+                }
+                batch.commit().await()
+            }
+
+            // 4. Restore preferences
+            snapshot.preferences?.let { p ->
+                val newTimestamp = Math.max(System.currentTimeMillis(), p.updatedAt + 1L)
+                val restored = p.copy(updatedAt = newTimestamp)
+                val prefPayload = buildMap<String, Any?> {
+                    put("currency", restored.currency)
+                    put("locale", restored.locale)
+                    put("themeMode", restored.themeMode)
+                    put("onboardingComplete", restored.onboardingComplete)
+                    put("dailyReminder", restored.dailyReminder)
+                    put("reminderHour", restored.reminderHour)
+                    put("reminderMinute", restored.reminderMinute)
+                    put("analyticsPeriod", restored.analyticsPeriod)
+                    put("monthlyBudget", restored.monthlyBudget)
+                    put("updatedAt", restored.updatedAt)
+                }
+                settingsPrefsDoc(expectedUid).set(prefPayload, SetOptions.merge()).await()
+                preferenceManager.applySyncedPreferences(restored)
+            }
+
+            // 5. Update journal to ROLLED_BACK
+            setRestoreOperation(
+                expectedUid,
+                operation.copy(
+                    phase = ReplacePlanner.RestorePhase.ROLLED_BACK,
+                    updatedAt = System.currentTimeMillis(),
+                ),
+            )
+
+            // 6. Delete snapshot
+            deleteSafetySnapshot(expectedUid)
+        } catch (e: Throwable) {
+            val errorMsg = e.message ?: e.toString()
+            try {
+                setRestoreOperation(
+                    expectedUid,
+                    operation.copy(
+                        phase = ReplacePlanner.RestorePhase.FAILED_RECOVERABLE,
+                        updatedAt = System.currentTimeMillis(),
+                        error = "Rollback failed: $errorMsg".take(500),
+                        failedFromPhase = ReplacePlanner.RestorePhase.ROLLING_BACK,
+                    ),
+                )
+            } catch (_: Exception) {}
+            throw e
+        } finally {
+            activeReplaceOperations.remove(expectedUid)
+        }
+    }
+
+    suspend fun dismissCompletedOperation(expectedUid: String): Result<Unit> = runSuspendCatching {
+        val u = uid() ?: throw IllegalStateException("Not signed in")
+        if (u != expectedUid) {
+            throw IllegalStateException("AUTH_ACCOUNT_CHANGED")
+        }
+        requireVerifiedEmail()
+        restoreOpDoc(expectedUid).delete().await()
+        deleteSafetySnapshot(expectedUid)
     }
 
     /**

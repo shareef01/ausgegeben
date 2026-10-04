@@ -31,6 +31,8 @@ import {
   Shield,
   Lock,
   Upload,
+  AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
 
 /** Consistent stroke for all UI chrome icons */
@@ -162,4 +164,12 @@ export function IconShield(props: IconProps) {
 
 export function IconLock(props: IconProps) {
   return <Lock strokeWidth={STROKE} {...props} />;
+}
+
+export function IconAlertTriangle(props: IconProps) {
+  return <AlertTriangle strokeWidth={STROKE} {...props} />;
+}
+
+export function IconRefreshCw(props: IconProps) {
+  return <RefreshCw strokeWidth={STROKE} {...props} />;
 }

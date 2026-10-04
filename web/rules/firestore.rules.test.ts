@@ -1087,6 +1087,91 @@ describe('firestore.rules', () => {
     }
   });
 
+  describe('restoreOperation and restoreSnapshot', () => {
+    const validOp = {
+      operationId: 'op-123',
+      ownerUid: 'alice',
+      mode: 'replace',
+      backupFingerprint: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+      phase: 'PREPARING',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    it('allows verified owner to create, update, read, and delete restoreOperation', async () => {
+      const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+      const opRef = doc(db, 'users/alice/meta/restoreOperation');
+      await assertSucceeds(setDoc(opRef, validOp));
+      await assertSucceeds(getDoc(opRef));
+      await assertSucceeds(updateDoc(opRef, { phase: 'SNAPSHOT_READY', updatedAt: Date.now() }));
+      await assertSucceeds(deleteDoc(opRef));
+    });
+
+    it('rejects restoreOperation creation if unverified or wrong ownerUid', async () => {
+      const unverified = testEnv.authenticatedContext('alice', { email_verified: false }).firestore();
+      await assertFails(setDoc(doc(unverified, 'users/alice/meta/restoreOperation'), validOp));
+
+      const verified = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+      await assertFails(
+        setDoc(doc(verified, 'users/alice/meta/restoreOperation'), { ...validOp, ownerUid: 'bob' }),
+      );
+      await assertFails(
+        setDoc(doc(verified, 'users/alice/meta/restoreOperation'), { ...validOp, mode: 'merge' }),
+      );
+      await assertFails(
+        setDoc(doc(verified, 'users/alice/meta/restoreOperation'), { ...validOp, phase: 'INVALID_PHASE' }),
+      );
+    });
+
+    it('forbids mutating ownerUid or operationId on restoreOperation update', async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(doc(ctx.firestore(), 'users/alice/meta/restoreOperation'), validOp);
+      });
+      const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+      const opRef = doc(db, 'users/alice/meta/restoreOperation');
+      await assertFails(updateDoc(opRef, { ownerUid: 'bob' }));
+      await assertFails(updateDoc(opRef, { operationId: 'op-456' }));
+    });
+
+    it('allows verified owner to create, read, update, and delete restoreSnapshot docs', async () => {
+      const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+      const chunkRef = doc(db, 'users/alice/restoreSnapshot/chunk_0');
+      const validChunk = {
+        operationId: 'op-123',
+        ownerUid: 'alice',
+        createdAt: Date.now(),
+        chunkIndex: 0,
+        chunkCount: 1,
+        totalExpenses: 0,
+        totalCategories: 0,
+        expenses: [],
+      };
+      await assertSucceeds(setDoc(chunkRef, validChunk));
+      await assertSucceeds(getDoc(chunkRef));
+      await assertSucceeds(updateDoc(chunkRef, { totalExpenses: 1 }));
+      await assertSucceeds(deleteDoc(chunkRef));
+    });
+
+    it('rejects restoreSnapshot creation if unverified, wrong ownerUid, or extra fields', async () => {
+      const unverified = testEnv.authenticatedContext('alice', { email_verified: false }).firestore();
+      const validChunk = {
+        operationId: 'op-123',
+        ownerUid: 'alice',
+        createdAt: Date.now(),
+        chunkIndex: 0,
+      };
+      await assertFails(setDoc(doc(unverified, 'users/alice/restoreSnapshot/chunk_0'), validChunk));
+
+      const verified = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+      await assertFails(
+        setDoc(doc(verified, 'users/alice/restoreSnapshot/chunk_0'), { ...validChunk, ownerUid: 'bob' }),
+      );
+      await assertFails(
+        setDoc(doc(verified, 'users/alice/restoreSnapshot/chunk_0'), { ...validChunk, unexpected: true }),
+      );
+    });
+  });
+
   it('rejects unknown subcollections under the user document', async () => {
     const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
     await assertFails(setDoc(doc(db, 'users/alice/audit/entry1'), { anything: true }));
@@ -1133,6 +1218,33 @@ describe('firestore.rules', () => {
         docPath: 'users/alice/meta/dedupe',
         seed: { categoriesDeduped: true, ranAt: Date.UTC(2024, 5, 15) },
         update: { categoriesDeduped: false },
+      },
+      {
+        label: 'meta/restoreOperation',
+        collectionPath: 'users/alice/meta',
+        docPath: 'users/alice/meta/restoreOperation',
+        seed: {
+          operationId: 'op-1',
+          ownerUid: 'alice',
+          mode: 'replace',
+          backupFingerprint: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+          phase: 'PREPARING',
+          createdAt: Date.UTC(2024, 5, 15),
+          updatedAt: Date.UTC(2024, 5, 15),
+        },
+        update: { phase: 'SNAPSHOT_READY' },
+      },
+      {
+        label: 'restoreSnapshot/chunk_0',
+        collectionPath: 'users/alice/restoreSnapshot',
+        docPath: 'users/alice/restoreSnapshot/chunk_0',
+        seed: {
+          operationId: 'op-1',
+          ownerUid: 'alice',
+          createdAt: Date.UTC(2024, 5, 15),
+          chunkIndex: 0,
+        },
+        update: { chunkIndex: 1 },
       },
       /**
        * The most dangerous cell in this table. validAccountDeletion() deliberately

@@ -266,6 +266,23 @@ export const de: Record<TranslationKey, string> = {
   settingsRestoreConflict: 'Kategoriekonflikt: Transaktionstyp stimmt nicht überein',
   settingsRestoreAuthChanged: 'Authentifizierungssitzung geändert. Wiederherstellung abgebrochen.',
   settingsRestoreFailed: 'Wiederherstellung der Sicherung fehlgeschlagen',
+  settingsReplaceBackup: 'aktuelle daten durch backup ersetzen',
+  settingsReplaceBackupSub: 'aktuelle daten durch eine versionierte JSON-sicherung ersetzen',
+  settingsReplaceBackupTitle: 'aktuelle daten ersetzen',
+  settingsReplaceBackupExplain:
+    'Dies ersetzt Ihre aktuellen Daten durch den Inhalt der Sicherung. Vor Beginn der Änderungen wird automatisch ein Sicherheits-Snapshot erstellt.',
+  settingsReplaceBackupPreflight:
+    'Backup-Transaktionen: {backupExpenses}\nBackup-Kategorien: {backupCategories}\n\nZu entfernende aktuelle Transaktionen: {toDelete}\nBetroffene aktuelle Kategorien: {toUpsertCategories}\n\nVor Beginn der Änderungen wird ein Sicherheits-Snapshot erstellt.',
+  settingsReplaceSuccess: 'Daten erfolgreich ersetzt',
+  settingsReplaceFailed: 'Ersetzen der Daten fehlgeschlagen: {error}',
+  settingsReplaceUnresolvedBanner: 'Eine vorherige Backup-Ersetzung wurde nicht abgeschlossen.',
+  settingsReplaceResume: 'ersetzung fortsetzen',
+  settingsReplaceRollback: 'vorherige daten wiederherstellen',
+  settingsReplaceDismiss: 'verwerfen',
+  settingsReplaceRollbackSuccess: 'Vorherige Daten aus dem Sicherheits-Snapshot wiederhergestellt',
+  settingsReplaceRollbackFailed: 'Wiederherstellung der vorherigen Daten fehlgeschlagen: {error}',
+  settingsReplaceForeignPlatform:
+    'Eine Ersetzung wurde auf {platform} gestartet. Bitte setzen Sie die Ersetzung auf diesem Gerät fort oder führen Sie dort das Rollback durch.',
   dataTruncatedNotice: 'zeige die neuesten 5.000 transaktionen — ältere einträge sind ausgeblendet',
   settingsExportFailed: 'export fehlgeschlagen',
   settingsRemindersPhoneOnly: 'tägliche erinnerungen werden in der android-app verwaltet',
