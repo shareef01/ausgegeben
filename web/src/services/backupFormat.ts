@@ -1,7 +1,8 @@
+import { validCategoryBudget, type CategoryBudget } from '@/services/categoryBudgets';
 import type { Category, Expense, TransactionType } from '@/models/types';
 
 export const BACKUP_FORMAT_IDENTIFIER = 'ausgegeben-backup';
-export const CURRENT_BACKUP_SCHEMA_VERSION = 1;
+export const CURRENT_BACKUP_SCHEMA_VERSION = 2;
 
 export interface BackupPreferences {
   currency: string;
@@ -40,6 +41,7 @@ export interface AusgegebenBackup {
   preferences: BackupPreferences;
   categories: BackupCategory[];
   expenses: BackupExpense[];
+  categoryBudgets?: CategoryBudget[];
 }
 
 export interface BackupSummary {
@@ -76,6 +78,7 @@ const ALLOWED_TOP_LEVEL_KEYS = new Set([
   'preferences',
   'categories',
   'expenses',
+  'categoryBudgets',
 ]);
 
 const ALLOWED_TRANSACTION_TYPES = new Set<TransactionType>(['expense', 'income', 'transfer']);
@@ -89,6 +92,7 @@ export function createBackup(params: {
   categories: Category[];
   expenses: Expense[];
   appVersion: string;
+  categoryBudgets?: CategoryBudget[];
 }): AusgegebenBackup {
   const cleanCategories: BackupCategory[] = params.categories.map((c) => ({
     id: c.id,
@@ -138,6 +142,7 @@ export function createBackup(params: {
     },
     categories: cleanCategories,
     expenses: cleanExpenses,
+    categoryBudgets: params.categoryBudgets ?? [],
   };
 }
 
@@ -166,7 +171,7 @@ export function validateBackup(data: unknown): ValidationResult {
     errors.push(`Invalid format identifier: expected "${BACKUP_FORMAT_IDENTIFIER}", got "${String(root.format)}"`);
   }
 
-  if (root.schemaVersion !== CURRENT_BACKUP_SCHEMA_VERSION) {
+  if (root.schemaVersion !== 1 && root.schemaVersion !== 2) {
     errors.push(
       `Unsupported schema version: expected ${CURRENT_BACKUP_SCHEMA_VERSION}, got ${String(root.schemaVersion)}`,
     );
@@ -295,6 +300,20 @@ export function validateBackup(data: unknown): ValidationResult {
         errors.push(`Expense at index ${index} has invalid transactionType: "${String(e.transactionType)}"`);
       }
     });
+  }
+
+  if (root.schemaVersion === 1 && 'categoryBudgets' in root) errors.push('Schema v1 cannot contain categoryBudgets');
+  if (root.schemaVersion === 2) {
+    const seen = new Set<string>();
+    const expenseCategoryIds = new Set((Array.isArray(root.categories) ? root.categories as BackupCategory[] : []).filter(c => c && c.transactionType === 'expense').map(c => c.id));
+    if (!Array.isArray(root.categoryBudgets)) errors.push('categoryBudgets must be an array');
+    else for (const value of root.categoryBudgets) {
+      const b = value as CategoryBudget;
+      if (!b || typeof b !== 'object' || !validCategoryBudget(b) || Object.keys(b).some(k => !['categoryId','monthlyLimit','warningThresholdPercent','updatedAt'].includes(k))) { errors.push('Invalid category budget'); continue; }
+      if (seen.has(b.categoryId)) errors.push('Duplicate category budget');
+      seen.add(b.categoryId);
+      if (!expenseCategoryIds.has(b.categoryId)) errors.push('Budget requires expense category');
+    }
   }
 
   if (errors.length > 0) {

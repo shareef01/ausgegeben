@@ -2,6 +2,7 @@ package com.aus.ausgegeben.util
 
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
+import com.aus.ausgegeben.data.entity.CategoryBudget
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
@@ -9,7 +10,7 @@ import kotlin.math.roundToLong
 
 object BackupFormat {
     const val FORMAT_IDENTIFIER = "ausgegeben-backup"
-    const val CURRENT_SCHEMA_VERSION = 1
+    const val CURRENT_SCHEMA_VERSION = 2
 
     private val ALLOWED_TRANSACTION_TYPES = setOf("expense", "income", "transfer")
 
@@ -28,7 +29,7 @@ object BackupFormat {
 
     /**
      * Serializes account state into a standardized, versioned JSON backup matching
-     * schemaVersion 1 and Web backupFormat.
+     * schemaVersion 2 and Web backupFormat.
      *
      * Guaranteed to omit authentication credentials, Firebase tokens, encryption keys,
      * submission journals, and local transient state.
@@ -39,6 +40,7 @@ object BackupFormat {
         expenses: List<Expense>,
         appVersion: String,
         exportedAt: String = Instant.now().toString(),
+        categoryBudgets: List<CategoryBudget> = emptyList(),
     ): String {
         val root = JSONObject()
         root.put("format", FORMAT_IDENTIFIER)
@@ -90,6 +92,7 @@ object BackupFormat {
             expensesArr.put(expObj)
         }
         root.put("expenses", expensesArr)
+        root.put("categoryBudgets", JSONArray(categoryBudgets.map { JSONObject(it.payload() + ("categoryId" to it.categoryId)) }))
 
         return root.toString(2)
     }
@@ -112,7 +115,8 @@ object BackupFormat {
             "appVersion",
             "preferences",
             "categories",
-            "expenses"
+            "expenses",
+            "categoryBudgets"
         )
         val keys = root.keys()
         while (keys.hasNext()) {
@@ -126,7 +130,7 @@ object BackupFormat {
             errors.add("Invalid format identifier: expected \"$FORMAT_IDENTIFIER\"")
         }
 
-        if (root.optInt("schemaVersion") != CURRENT_SCHEMA_VERSION) {
+        if (root.opt("schemaVersion") !is Number || root.optDouble("schemaVersion") != root.optInt("schemaVersion").toDouble() || root.optInt("schemaVersion") !in setOf(1, 2)) {
             errors.add("Unsupported schema version: expected $CURRENT_SCHEMA_VERSION")
         }
 
@@ -228,6 +232,27 @@ object BackupFormat {
             }
         }
 
+        val version = root.optInt("schemaVersion")
+        if (version == 1 && root.has("categoryBudgets")) errors.add("Schema v1 cannot contain categoryBudgets")
+        if (version == 2) {
+            val arr = root.optJSONArray("categoryBudgets")
+            val seen = mutableSetOf<String>()
+            val budgetCategories = categoriesArr?.let { cats -> (0 until cats.length()).mapNotNull { cats.optJSONObject(it) }.associateBy { it.optString("id") } } ?: emptyMap()
+            if (arr == null) errors.add("categoryBudgets must be an array") else for (i in 0 until arr.length()) {
+                val b = arr.optJSONObject(i)
+                if (b == null) { errors.add("Invalid budget"); continue }
+                val keys = b.keys().asSequence().toSet()
+                val amount = b.optDouble("monthlyLimit", Double.NaN)
+                val threshold = b.optDouble("warningThresholdPercent", Double.NaN)
+                val updated = b.optDouble("updatedAt", Double.NaN)
+                val budget = CategoryBudget(b.optString("categoryId"), amount, threshold.toInt(), updated.toLong())
+                if (b.opt("categoryId") !is String || b.opt("monthlyLimit") !is Number || b.opt("warningThresholdPercent") !is Number || b.opt("updatedAt") !is Number || !budget.valid() || threshold != threshold.toInt().toDouble() || !updated.isFinite() || updated != updated.toLong().toDouble() || keys != setOf("categoryId","monthlyLimit","warningThresholdPercent","updatedAt")) errors.add("Invalid budget")
+                if (!seen.add(budget.categoryId)) errors.add("Duplicate budget")
+                val cat = budgetCategories[budget.categoryId]
+                if (cat?.optString("transactionType") != "expense") errors.add("Budget requires expense category")
+            }
+        }
+
         return ValidationResult(valid = errors.isEmpty(), errors = errors)
     }
 
@@ -268,6 +293,7 @@ object BackupFormat {
         val preferences: BackupPreferences,
         val categories: List<ParsedCategory>,
         val expenses: List<ParsedExpense>,
+        val categoryBudgets: List<CategoryBudget> = emptyList(),
     )
 
     fun parseBackup(jsonString: String): ParsedBackup? {
@@ -335,6 +361,7 @@ object BackupFormat {
         }
 
         return ParsedBackup(
+            categoryBudgets = root.optJSONArray("categoryBudgets")?.let { arr -> (0 until arr.length()).map { i -> val b = arr.getJSONObject(i); CategoryBudget(b.getString("categoryId"), b.getDouble("monthlyLimit"), b.getInt("warningThresholdPercent"), b.getLong("updatedAt")) } } ?: emptyList(),
             schemaVersion = schemaVersion,
             appVersion = appVersion,
             exportedAt = exportedAt,

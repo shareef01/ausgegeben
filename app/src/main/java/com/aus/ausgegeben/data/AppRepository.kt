@@ -537,6 +537,7 @@ class AppRepository @Inject constructor(
                 latest.pendingTransactionType == targetType &&
                 latest.transactionType == currentType
             ) {
+                if (targetType != "expense") transaction.delete(budgetCol(u).document(desired.id))
                 transaction.set(ref, finalized, SetOptions.merge())
             } else if (latest.migrationState != CATEGORY_MIGRATION_STATE &&
                 latest.transactionType != targetType
@@ -597,6 +598,75 @@ class AppRepository @Inject constructor(
     }
 
     // ── Expenses ──
+
+    private suspend fun applyBudgetCollection(u: String, budgets: List<com.aus.ausgegeben.data.entity.CategoryBudget>, replace: Boolean) {
+        check(uid() == u) { "AUTH_ACCOUNT_CHANGED" }
+        if (replace) {
+            val ids = budgets.map { it.categoryId }.toSet()
+            for (budget in getCategoryBudgets(u).filter { it.categoryId !in ids }) {
+                check(uid() == u) { "AUTH_ACCOUNT_CHANGED" }
+                commitCategoryBudget(u, budget.categoryId, null, null, checkRevision = false)
+            }
+        }
+        for (budget in budgets) {
+            commitCategoryBudget(u, budget.categoryId, budget, null, checkRevision = false)
+        }
+    }
+
+    data class BudgetSnapshot(
+        val budgets: List<com.aus.ausgegeben.data.entity.CategoryBudget> = emptyList(),
+        val incomplete: Boolean = true,
+        val error: Boolean = false,
+    )
+    private fun budgetCol(u: String) = userCol(u, FirestorePaths.CATEGORY_BUDGETS_COLLECTION)
+    private fun budgetFromDoc(d: com.google.firebase.firestore.DocumentSnapshot) = com.aus.ausgegeben.data.entity.CategoryBudget(
+        d.id, d.getDouble("monthlyLimit") ?: 0.0,
+        (d.getLong("warningThresholdPercent") ?: 80).toInt(), d.getLong("updatedAt") ?: 0,
+    )
+    suspend fun getCategoryBudgets(u: String): List<com.aus.ausgegeben.data.entity.CategoryBudget> {
+        check(uid() == u) { "AUTH_ACCOUNT_CHANGED" }
+        val snapshot = budgetCol(u).get(Source.SERVER).await()
+        check(uid() == u) { "AUTH_ACCOUNT_CHANGED" }
+        return snapshot.documents.map(::budgetFromDoc)
+    }
+    override val categoryBudgets: Flow<BudgetSnapshot> = perUserFlow(BudgetSnapshot()) { u ->
+        callbackFlow {
+            val active = java.util.concurrent.atomic.AtomicBoolean(true)
+            val sub = budgetCol(u).addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE) { snap, error ->
+                if (active.get() && uid() == u) {
+                    trySend(if (snap != null) BudgetSnapshot(snap.documents.map(::budgetFromDoc), snap.metadata.isFromCache)
+                        else BudgetSnapshot(error = error != null))
+                }
+            }
+            awaitClose { active.set(false); sub.remove() }
+        }
+    }
+    suspend fun saveCategoryBudget(
+        u: String, categoryId: String,
+        budget: com.aus.ausgegeben.data.entity.CategoryBudget?, expectedAt: Long?,
+    ): Result<Unit> = runSuspendCatching {
+        requireVerifiedEmail()
+        commitCategoryBudget(u, categoryId, budget, expectedAt, checkRevision = true)
+    }
+
+    private suspend fun commitCategoryBudget(
+        u: String, categoryId: String,
+        budget: com.aus.ausgegeben.data.entity.CategoryBudget?, expectedAt: Long?, checkRevision: Boolean,
+    ) {
+        check(uid() == u) { "AUTH_ACCOUNT_CHANGED" }
+        require(budget == null || (budget.valid() && budget.categoryId == categoryId)) { "INVALID_BUDGET" }
+        val ref = budgetCol(u).document(categoryId)
+        ref.get(Source.SERVER).await() // Never queue offline edits, including restore removals.
+        firestore.runTransaction { tx ->
+            check(uid() == u) { "AUTH_ACCOUNT_CHANGED" }
+            val old = tx.get(ref)
+            val revision = old.getLong("updatedAt")
+            if (checkRevision) check(revision == expectedAt) { "BUDGET_CONFLICT" }
+            if (budget == null) tx.delete(ref)
+            else tx.set(ref, budget.copy(updatedAt = maxOf(System.currentTimeMillis(), (revision ?: 0) + 1)).payload())
+            Unit
+        }.await()
+    }
 
     override fun getExpensesInRange(startMillis: Long, endMillis: Long): Flow<List<Expense>> =
         perUserFlow(emptyList()) { u ->
@@ -784,6 +854,8 @@ class AppRepository @Inject constructor(
         val cur = if (backup.preferences.currency in validCurrencies) backup.preferences.currency else "EUR"
         val loc = if (backup.preferences.locale in validLocales) backup.preferences.locale else "en"
         val theme = if (backup.preferences.themeMode in validThemes) backup.preferences.themeMode else "system"
+        applyBudgetCollection(expectedUid, backup.categoryBudgets, false)
+
         val budget = backup.preferences.monthlyBudget?.takeIf { it > 0.0 && it < 1_000_000_000.0 }
 
         val syncedPrefs = SyncedPreferences(
@@ -994,6 +1066,7 @@ class AppRepository @Inject constructor(
             put("chunkCount", chunkCount)
             put("totalExpenses", expenses.size)
             put("totalCategories", categories.size)
+            put("categoryBudgets", getCategoryBudgets(u).map { it.payload() + ("categoryId" to it.categoryId) })
             put(
                 "preferences",
                 preferences?.let {
@@ -1068,10 +1141,11 @@ class AppRepository @Inject constructor(
         val expenses: List<Expense>,
         val categories: List<Category>,
         val preferences: SyncedPreferences?,
+        val categoryBudgets: List<com.aus.ausgegeben.data.entity.CategoryBudget>?,
     )
 
     private suspend fun readSafetySnapshot(u: String): SnapshotData {
-        val metaSnap = snapshotDoc(u, "meta").get().await()
+        val metaSnap = snapshotDoc(u, "meta").get(Source.SERVER).await()
         if (!metaSnap.exists()) {
             throw IllegalStateException("SNAPSHOT_NOT_FOUND")
         }
@@ -1110,7 +1184,8 @@ class AppRepository @Inject constructor(
 
         val expenses = mutableListOf<Expense>()
         for (i in 0 until chunkCount) {
-            val chunkSnap = snapshotDoc(u, "chunk_$i").get().await()
+            val chunkSnap = snapshotDoc(u, "chunk_$i").get(Source.SERVER).await()
+            check(chunkSnap.exists() && chunkSnap.getString("operationId") == operationId) { "SNAPSHOT_CHUNK_MISSING_OR_CHANGED" }
             if (chunkSnap.exists()) {
                 val rawExpenses = chunkSnap.get("expenses") as? List<Map<String, Any?>> ?: emptyList()
                 for (m in rawExpenses) {
@@ -1132,7 +1207,9 @@ class AppRepository @Inject constructor(
             }
         }
 
+        val budgets = (metaSnap.get("categoryBudgets") as? List<Map<String, Any?>>)?.map { m -> com.aus.ausgegeben.data.entity.CategoryBudget(m["categoryId"] as String, (m["monthlyLimit"] as Number).toDouble(), (m["warningThresholdPercent"] as Number).toInt(), (m["updatedAt"] as Number).toLong()) }
         return SnapshotData(
+            categoryBudgets = budgets,
             operationId = operationId,
             expenses = expenses,
             categories = categories,
@@ -1332,6 +1409,7 @@ class AppRepository @Inject constructor(
                 throw IllegalStateException("FAULT_INJECTED_BEFORE_PREFERENCES")
             }
             val p = plan.preferencesToUpdate
+            if (backup.schemaVersion == 2) applyBudgetCollection(expectedUid, backup.categoryBudgets, true)
             val prefPayload = buildMap<String, Any?> {
                 put("currency", p.currency)
                 put("locale", p.locale)
@@ -1441,6 +1519,9 @@ class AppRepository @Inject constructor(
         }
         requireVerifiedEmail()
 
+        val snapshot = readSafetySnapshot(expectedUid)
+        check(snapshot.operationId == operation.operationId) { "SNAPSHOT_OPERATION_MISMATCH" }
+
         if (!activeReplaceOperations.add(expectedUid)) {
             throw IllegalStateException("RESTORE_OPERATION_ALREADY_IN_PROGRESS")
         }
@@ -1457,8 +1538,6 @@ class AppRepository @Inject constructor(
             if (faultHooks?.failDuringRollback == true) {
                 throw IllegalStateException("FAULT_INJECTED_DURING_ROLLBACK")
             }
-
-            val snapshot = readSafetySnapshot(expectedUid)
 
             // 1. Categories
             for (chunk in snapshot.categories.chunked(400)) {
@@ -1513,6 +1592,8 @@ class AppRepository @Inject constructor(
                 }
                 batch.commit().await()
             }
+
+            snapshot.categoryBudgets?.let { applyBudgetCollection(expectedUid, it, true) }
 
             // 4. Restore preferences
             snapshot.preferences?.let { p ->
@@ -1925,7 +2006,7 @@ class AppRepository @Inject constructor(
                 linked = expenseDocsForCategory(u, fromCategoryId)
                 if (linked.isNotEmpty()) throw CategoryInUseException()
             }
-            source.delete().await()
+            firestore.runBatch { batch -> batch.delete(budgetCol(u).document(fromCategoryId)); batch.delete(source) }.await()
         } catch (cancelled: CancellationException) {
             reopenCategoryAfterFailedDelete(source)
             throw cancelled

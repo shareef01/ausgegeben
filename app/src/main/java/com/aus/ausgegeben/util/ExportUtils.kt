@@ -118,6 +118,7 @@ object ExportUtils {
     ): Result {
         return withContext(Dispatchers.IO) {
             try {
+                val backupUid = repository.currentRecordAccountId ?: error("Not signed in")
                 val expenses = withTimeoutOrNull(EXPORT_TIMEOUT_MS) {
                     repository.allExpenses.first()
                 } ?: return@withContext Result(success = false)
@@ -148,8 +149,10 @@ object ExportUtils {
                     categories = categories,
                     expenses = expenses,
                     appVersion = com.aus.ausgegeben.BuildConfig.VERSION_NAME,
+                    categoryBudgets = repository.getCategoryBudgets(backupUid),
                 )
 
+                check(repository.currentRecordAccountId == backupUid) { "AUTH_ACCOUNT_CHANGED" }
                 val exportDir = File(context.cacheDir, "exports").apply { mkdirs() }
                 exportDir.listFiles()?.forEach { runCatching { it.delete() } }
                 val file = File(exportDir, "ausgegeben_backup.json")
@@ -166,6 +169,7 @@ object ExportUtils {
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
                 withContext(Dispatchers.Main) {
+                    check(repository.currentRecordAccountId == backupUid) { "AUTH_ACCOUNT_CHANGED" }
                     context.startActivity(Intent.createChooser(intent, context.getString(R.string.settings_export_backup)))
                 }
                 Result(success = true, truncated = truncated)

@@ -97,7 +97,7 @@ describe('firestorePaths registry (DEL-1)', () => {
     const subcollections = collectionMatches.filter((name) => name !== 'users');
 
     expect(new Set(subcollections)).toEqual(
-      new Set([CATEGORIES_COLLECTION, EXPENSES_COLLECTION, SETTINGS_COLLECTION, META_COLLECTION, RESTORE_SNAPSHOT_COLLECTION]),
+      new Set(['categoryBudgets', CATEGORIES_COLLECTION, EXPENSES_COLLECTION, SETTINGS_COLLECTION, META_COLLECTION, RESTORE_SNAPSHOT_COLLECTION]),
     );
 
     // Every `docId == '...'` literal anywhere in the file — these are the only doc ids

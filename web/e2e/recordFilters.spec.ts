@@ -95,6 +95,8 @@ test('Records composite filters, reactive results, clear and account boundary', 
     const path = '/src/services/toastStore.ts';
     const { useToastStore } = await import(/* @vite-ignore */ path);
     (window as unknown as { delayedDelete: unknown }).delayedDelete = useToastStore.getState().onDismiss;
+    // Keep the captured commit pending while navigation/sign-in takes longer than the toast timeout.
+    useToastStore.getState().dismiss({ skipDismissCallback: true });
   });
   await page.getByRole('button', { name: en.navSettings }).click();
   await page.getByRole('button', { name: en.settingsSignOut, exact: true }).click();

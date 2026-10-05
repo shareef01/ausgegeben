@@ -77,6 +77,7 @@ describe('backupReplace on real Firestore emulator with rules enforced', () => {
     return {
       format: BACKUP_FORMAT_IDENTIFIER,
       schemaVersion: CURRENT_BACKUP_SCHEMA_VERSION,
+      categoryBudgets: [],
       exportedAt: '2026-10-01T00:00:00.000Z',
       appVersion: '2.0.8',
       preferences: {
@@ -384,4 +385,54 @@ describe('backupReplace on real Firestore emulator with rules enforced', () => {
     const mergeSnap = await getDoc(doc(db, 'users', TEST_UID, 'expenses', 'merge-exp-0'));
     expect(mergeSnap.exists()).toBe(true);
   });
+
+  it('preserves budgets for v1 merge/replace and restores exact v2 budget values after rollback', async () => {
+    const { categoryBudgetRepository: repo } = await import('@/services/categoryBudgets');
+    const initial=createTestBackup(); initial.schemaVersion=1; delete initial.categoryBudgets;
+    await restoreBackup(initial,TEST_UID);
+    const b={categoryId:'cat-food',monthlyLimit:400,warningThresholdPercent:80,updatedAt:Date.now()};
+    await repo.save(TEST_UID,b,'cat-food',null);
+    await restoreBackup(initial,TEST_UID);
+    expect((await repo.getAll(TEST_UID))[0].monthlyLimit).toBe(400);
+    await executeReplace(initial,TEST_UID);
+    expect((await repo.getAll(TEST_UID))[0].monthlyLimit).toBe(400);
+    const modern=createTestBackup();
+    modern.categories.push({...modern.categories[0],id:'new-budget-cat',name:'New budget'});
+    modern.categoryBudgets=[{...b,monthlyLimit:250,warningThresholdPercent:75},{...b,categoryId:'new-budget-cat',monthlyLimit:100}];
+    await executeReplace(modern,TEST_UID);
+    expect((await repo.getAll(TEST_UID)).find(x=>x.categoryId==='cat-food')?.monthlyLimit).toBe(250);
+    expect(await repo.getAll(TEST_UID)).toHaveLength(2);
+    const op=await getRestoreOperation(TEST_UID);
+    await rollbackReplace(op!,TEST_UID);
+    expect((await repo.getAll(TEST_UID)).map(({updatedAt,...value})=>value)).toEqual([{categoryId:'cat-food',monthlyLimit:400,warningThresholdPercent:80}]);
+    const empty=createTestBackup();
+    await executeReplace(empty,TEST_UID);
+    expect(await repo.getAll(TEST_UID)).toEqual([]);
+    const emptyOp=(await getRestoreOperation(TEST_UID))!;
+    await expect(rollbackReplace({...emptyOp,operationId:'stale-operation'},TEST_UID)).rejects.toThrow('SNAPSHOT_OPERATION_MISMATCH');
+    const {disableNetwork,enableNetwork}=await import('firebase/firestore');
+    const db=enforcedFirestore();
+    await disableNetwork(db);
+    try { await expect(rollbackReplace(emptyOp,TEST_UID)).rejects.toThrow(); }
+    finally { await enableNetwork(db); }
+    expect((await getRestoreOperation(TEST_UID))?.phase).toBe('COMPLETED');
+    expect(await repo.getAll(TEST_UID)).toEqual([]);
+    await rollbackReplace(emptyOp,TEST_UID);
+    expect((await repo.getAll(TEST_UID))[0].monthlyLimit).toBe(400);
+  });
+  it('v2 merge upserts represented budgets and preserves omitted budgets', async () => {
+    const { categoryBudgetRepository: repo } = await import('@/services/categoryBudgets');
+    const base=createTestBackup();
+    base.categories.push({...base.categories[0],id:'other-budget-cat',name:'Other'});
+    await restoreBackup(base,TEST_UID);
+    const b={categoryId:'other-budget-cat',monthlyLimit:300,warningThresholdPercent:90,updatedAt:Date.now()};
+    await repo.save(TEST_UID,b,b.categoryId,null);
+    base.categoryBudgets=[{...b,categoryId:'cat-food',monthlyLimit:250}];
+    await restoreBackup(base,TEST_UID);
+    expect((await repo.getAll(TEST_UID)).map(({updatedAt,...value})=>value)).toEqual([
+      {categoryId:'cat-food',monthlyLimit:250,warningThresholdPercent:90},
+      {categoryId:'other-budget-cat',monthlyLimit:300,warningThresholdPercent:90},
+    ]);
+  });
+
 });

@@ -1,8 +1,11 @@
+import { toMinorUnits } from '@/utils/money';
+import { categoryBudgetRepository, type CategoryBudget } from '@/services/categoryBudgets';
 import {
   collection,
   deleteDoc,
   doc,
   getDoc,
+  getDocFromServer,
   getDocs,
   setDoc,
   writeBatch,
@@ -119,7 +122,8 @@ export async function computeBackupFingerprint(backup: AusgegebenBackup): Promis
     .sort()
     .join(';');
   const canonicalPrefs = `${backup.preferences.currency},${backup.preferences.monthlyBudget ?? 'null'},${backup.preferences.locale ?? ''},${backup.preferences.themeMode ?? ''}`;
-  const raw = `v1:${backup.exportedAt}:${canonicalExpenses}:${canonicalCategories}:${canonicalPrefs}`;
+  const budgetPart = backup.schemaVersion === 2 ? ':' + JSON.stringify([...(backup.categoryBudgets ?? [])].sort((a,b) => a.categoryId < b.categoryId ? -1 : a.categoryId > b.categoryId ? 1 : 0).map(b => [b.categoryId, toMinorUnits(b.monthlyLimit), b.warningThresholdPercent])) : '';
+  const raw = `v${backup.schemaVersion}:${backup.exportedAt}:${canonicalExpenses}:${canonicalCategories}:${canonicalPrefs}${budgetPart}`;
 
   if (typeof crypto !== 'undefined' && crypto.subtle) {
     const msgBuffer = new TextEncoder().encode(raw);
@@ -149,7 +153,7 @@ export function planReplace(params: {
   const { currentExpenses, currentCategories, currentPreferences, backup } = params;
   const conflicts: string[] = [];
 
-  if (backup.schemaVersion !== 1) {
+  if (backup.schemaVersion !== 1 && backup.schemaVersion !== 2) {
     conflicts.push(`UNSUPPORTED_SCHEMA_VERSION: ${backup.schemaVersion}`);
   }
 
@@ -233,6 +237,7 @@ export async function createSafetySnapshot(
   expenses: Expense[],
   categories: Category[],
   preferences: SyncedPreferences | null,
+  categoryBudgets?: CategoryBudget[],
 ): Promise<{ chunkCount: number; totalExpenses: number; totalCategories: number }> {
   const db = getFirebaseFirestore();
   if (!db) throw new Error('FIRESTORE_UNAVAILABLE');
@@ -250,6 +255,7 @@ export async function createSafetySnapshot(
     totalExpenses: expenses.length,
     totalCategories: categories.length,
     preferences: preferences ?? {},
+    ...(categoryBudgets ? { categoryBudgets } : {}),
     categories: categories.map((c) => ({
       id: c.id,
       name: c.name,
@@ -304,12 +310,13 @@ export async function readSafetySnapshot(userId: string): Promise<{
   expenses: Expense[];
   categories: Category[];
   preferences: SyncedPreferences | null;
+  categoryBudgets?: CategoryBudget[];
 }> {
   const db = getFirebaseFirestore();
   if (!db) throw new Error('FIRESTORE_UNAVAILABLE');
 
   const metaRef = doc(db, 'users', userId, RESTORE_SNAPSHOT_COLLECTION, 'meta');
-  const metaSnap = await getDoc(metaRef);
+  const metaSnap = await getDocFromServer(metaRef);
   if (!metaSnap.exists()) {
     throw new Error('SNAPSHOT_NOT_FOUND');
   }
@@ -318,12 +325,14 @@ export async function readSafetySnapshot(userId: string): Promise<{
     chunkCount: number;
     categories?: Category[];
     preferences?: SyncedPreferences;
+    categoryBudgets?: CategoryBudget[];
   };
 
   const allExpenses: Expense[] = [];
   for (let i = 0; i < metaData.chunkCount; i++) {
     const chunkRef = doc(db, 'users', userId, RESTORE_SNAPSHOT_COLLECTION, `chunk_${i}`);
-    const chunkSnap = await getDoc(chunkRef);
+    const chunkSnap = await getDocFromServer(chunkRef);
+    if (!chunkSnap.exists() || chunkSnap.data().operationId !== metaData.operationId) throw new Error('SNAPSHOT_CHUNK_MISSING_OR_CHANGED');
     if (chunkSnap.exists()) {
       const data = chunkSnap.data() as { expenses?: Expense[] };
       if (data.expenses) {
@@ -333,6 +342,7 @@ export async function readSafetySnapshot(userId: string): Promise<{
   }
 
   return {
+    categoryBudgets: metaData.categoryBudgets,
     operationId: metaData.operationId,
     expenses: allExpenses,
     categories: metaData.categories ?? [],
@@ -509,6 +519,7 @@ export async function executeReplace(
         currentExpenses,
         currentCategories,
         currentPrefs,
+        await categoryBudgetRepository.getAll(expectedUid),
       );
     }
 
@@ -611,6 +622,8 @@ export async function executeReplace(
         throw new Error('FAULT_INJECTED_AFTER_EXPENSE_DELETE_BATCH');
       }
     }
+
+    if (backup.schemaVersion === 2) await replaceBudgetCollection(expectedUid, backup.categoryBudgets ?? []);
 
     // 12. Apply preferences
     if (faultHooks?.failBeforePreferences) {
@@ -727,6 +740,9 @@ export async function rollbackReplace(
   const db = getFirebaseFirestore();
   if (!db) throw new Error('FIRESTORE_UNAVAILABLE');
 
+  const snapshot = await readSafetySnapshot(expectedUid);
+  if (snapshot.operationId !== operation.operationId) throw new Error('SNAPSHOT_OPERATION_MISMATCH');
+
   if (activeOperationsByUid.has(expectedUid)) {
     throw new Error('RESTORE_OPERATION_ALREADY_IN_PROGRESS');
   }
@@ -743,9 +759,6 @@ export async function rollbackReplace(
     if (faultHooks?.failDuringRollback) {
       throw new Error('FAULT_INJECTED_DURING_ROLLBACK');
     }
-
-    // 2. Read safety snapshot
-    const snapshot = await readSafetySnapshot(expectedUid);
 
     // 3. Upsert snapshot categories
     for (let i = 0; i < snapshot.categories.length; i += RESTORE_BATCH_CHUNK_SIZE) {
@@ -811,6 +824,8 @@ export async function rollbackReplace(
       await batch.commit();
     }
 
+    if (snapshot.categoryBudgets) await replaceBudgetCollection(expectedUid, snapshot.categoryBudgets);
+
     // 6. Restore preferences
     if (snapshot.preferences) {
       const prefRef = doc(db, 'users', expectedUid, SETTINGS_COLLECTION, PREFERENCES_DOC);
@@ -857,4 +872,15 @@ export async function rollbackReplace(
 export async function dismissCompletedOperation(userId: string): Promise<void> {
   await deleteRestoreOperation(userId);
   await deleteSafetySnapshot(userId);
+}
+
+async function replaceBudgetCollection(uid: string, budgets: CategoryBudget[]) {
+  const current = await categoryBudgetRepository.getAll(uid);
+  const desired = new Set(budgets.map(b => b.categoryId));
+  for (const budget of current) if (!desired.has(budget.categoryId)) {
+    await categoryBudgetRepository.restore(uid, null, budget.categoryId);
+  }
+  for (const budget of budgets) {
+    await categoryBudgetRepository.restore(uid, budget, budget.categoryId);
+  }
 }

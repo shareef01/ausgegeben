@@ -16,6 +16,7 @@ describe('backupRestore unit tests', () => {
   const validBackup: AusgegebenBackup = {
     format: BACKUP_FORMAT_IDENTIFIER,
     schemaVersion: CURRENT_BACKUP_SCHEMA_VERSION,
+    categoryBudgets: [],
     exportedAt: '2026-10-01T00:00:00.000Z',
     appVersion: '2.0.8',
     preferences: {

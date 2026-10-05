@@ -57,6 +57,7 @@ fun BillsScreen(
     dataError: String? = null,
     onRetryDataError: () -> Unit = {},
     onAddTransaction: () -> Unit = {},
+    onManageBudgets: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -143,6 +144,10 @@ fun BillsScreen(
                     }
                 }
 
+                item(key = "category_budgets") {
+                    val current = AnalyticsPeriod.THIS_MONTH.dateRangeMillis()
+                    if (analyticsDateRangeMillis(uiState.periodKey) == current) CategoryBudgetProgressSection(uiState.categoryBudgetProgress, uiState.budgetIncomplete, currencyCode, onManageBudgets)
+                }
                 if (uiState.isLoading) {
                     item(key = "loading") {
                         AppLoadingState()

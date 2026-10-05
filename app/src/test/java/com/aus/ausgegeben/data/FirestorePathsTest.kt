@@ -93,6 +93,7 @@ class FirestorePathsTest {
 
         assertEquals(
             setOf(
+                FirestorePaths.CATEGORY_BUDGETS_COLLECTION,
                 FirestorePaths.CATEGORIES_COLLECTION,
                 FirestorePaths.EXPENSES_COLLECTION,
                 FirestorePaths.SETTINGS_COLLECTION,

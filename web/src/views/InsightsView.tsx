@@ -1,3 +1,4 @@
+import { CategoryBudgetInsights } from '@/components/CategoryBudgets';
 import { useMemo } from 'react';
 import { EmptyState, LoadingListSkeleton, PageTitle } from '@/components/ui';
 import { DonutChart, segmentColor } from '@/components/DonutChart';
@@ -18,10 +19,10 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { IconInsights } from '@/components/Icons';
 import { useCssProps } from '@/utils/cssVars';
 
-export function InsightsView({ onAdd }: { onAdd?: () => void }) {
+export function InsightsView({ onAdd, onManageBudgets }: { onAdd?: () => void; onManageBudgets?: () => void }) {
   const { t } = useTranslation();
   const currency = usePreferencesStore((s) => s.currency);
-  const { uiState, categories, periodOptions, setAnalyticsPeriod, reload } = useInsightsViewModel();
+  const { uiState, categories, budgetExpenses, budgetIncomplete, showCategoryBudgets, periodOptions, setAnalyticsPeriod, reload } = useInsightsViewModel();
   const haptics = useHaptics();
   const hasData =
     uiState.totalExpenses > 0 ||
@@ -65,6 +66,7 @@ export function InsightsView({ onAdd }: { onAdd?: () => void }) {
         </aside>
 
         <div className="content-col">
+          {showCategoryBudgets && <CategoryBudgetInsights categories={categories} expenses={budgetExpenses} incomplete={budgetIncomplete} onManage={onManageBudgets} />}
           {loading ? (
             <LoadingListSkeleton rows={8} />
           ) : !hasData && uiState.loadError ? (

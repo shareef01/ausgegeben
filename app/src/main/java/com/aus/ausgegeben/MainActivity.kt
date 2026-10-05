@@ -130,7 +130,7 @@ fun MainApp(
     val addViewModel: AddExpenseViewModel = hiltViewModel(activity)
     val categoryViewModel: CategoryViewModel = hiltViewModel(activity)
     val expenseViewModel: ExpenseViewModel = hiltViewModel(activity, key = "records:${currentUser?.uid}")
-    val insightsViewModel: InsightsViewModel = hiltViewModel(activity)
+    val insightsViewModel: InsightsViewModel = hiltViewModel(activity, key = "insights:${currentUser?.uid}")
     val authViewModel: AuthViewModel = hiltViewModel(activity)
 
     val overlay = rememberAppOverlayState(addViewModel, expenseViewModel)
@@ -400,13 +400,16 @@ fun MainApp(
                         }
                     },
                     billsContent = {
-                        BillsScreen(
-                            viewModel = insightsViewModel,
-                            currencyCode = currency,
-                            dataError = listenerError,
-                            onRetryDataError = { repository.retryListeners() },
-                            onAddTransaction = overlay::openAddFlow,
-                        )
+                        key(currentUser?.uid) {
+                            BillsScreen(
+                                viewModel = insightsViewModel,
+                                currencyCode = currency,
+                                dataError = listenerError,
+                                onRetryDataError = { repository.retryListeners() },
+                                onAddTransaction = overlay::openAddFlow,
+                                onManageBudgets = { overlay.selectedTab = Route.Settings },
+                            )
+                        }
                     },
                     settingsContent = {
                         SettingsScreen(
