@@ -11,12 +11,12 @@ export function getLocale(): Locale {
   return usePreferencesStore.getState().locale;
 }
 
-export function t(key: TranslationKey, params?: Record<string, string>): string {
+export function t(key: TranslationKey, params?: Record<string, string | number>): string {
   const locale = getLocale();
   let text = catalogs[locale][key] ?? catalogs.en[key] ?? key;
   if (params) {
     for (const [k, v] of Object.entries(params)) {
-      text = text.replace(`{${k}}`, v);
+      text = text.replace(`{${k}}`, String(v));
     }
   }
   return text;
@@ -29,11 +29,11 @@ export function useTranslation() {
   // previously caused those effects to re-run on every render, e.g. re-fetching
   // categories and resetting the Add Transaction form on every keystroke.
   const translate = useCallback(
-    (key: TranslationKey, params?: Record<string, string>) => {
+    (key: TranslationKey, params?: Record<string, string | number>) => {
       let text = catalogs[locale][key] ?? catalogs.en[key] ?? key;
       if (params) {
         for (const [k, v] of Object.entries(params)) {
-          text = text.replace(`{${k}}`, v);
+          text = text.replace(`{${k}}`, String(v));
         }
       }
       return text;

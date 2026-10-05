@@ -1906,6 +1906,129 @@
 }
 
 /* ═══════════════════════════════════════════════════
+ *  RECORD FILTERS — composite header, controls, amount, sort
+ * ═══════════════════════════════════════════════════ */
+
+.record-filters-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.record-filters-header__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-on-surface-variant);
+}
+
+.record-filter-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 9999px;
+  background: var(--color-primary);
+  color: var(--color-on-primary, #ffffff);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.record-clear-btn {
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  color: var(--color-primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 6px;
+  text-transform: capitalize;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.record-clear-btn:hover {
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+.record-filter-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.record-filter-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-on-surface-variant);
+}
+
+.record-amount-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.record-amount-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.record-amount-input {
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--color-outline) 36%, transparent);
+  background: color-mix(in srgb, var(--color-on-surface) 4%, var(--color-surface));
+  color: var(--color-on-surface);
+  font-size: 0.8125rem;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.record-amount-input:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+.record-amount-separator {
+  color: var(--color-on-surface-variant);
+  font-weight: 600;
+}
+
+.record-sort-select {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--color-outline) 36%, transparent);
+  background: color-mix(in srgb, var(--color-on-surface) 4%, var(--color-surface));
+  color: var(--color-on-surface);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.record-sort-select:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+/* ═══════════════════════════════════════════════════
  *  TRANSACTION LIST — divider between rows
  *  ═══════════════════════════════════════════════════ */
 

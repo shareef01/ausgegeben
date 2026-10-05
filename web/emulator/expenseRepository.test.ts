@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { collection, doc, getDoc, getDocs, setDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, setDoc, writeBatch, updateDoc, deleteDoc, disableNetwork, enableNetwork } from 'firebase/firestore';
 import {
   emulatorFirestore,
   resetHarness,
@@ -462,4 +462,55 @@ describe('write allowlists', () => {
     expect(data?.deleted).toBeUndefined();
     expect(data?.sneaky).toBeUndefined();
   });
+});
+
+
+describe('Records complete corpus', () => {
+  it('finds a target beyond the ordinary cap, scopes dates, and reacts to edits/adds/deletes', async () => {
+    await seedCategory({ id: 'search-cat', name: 'Food' });
+    for (let first = 0; first < 5002; first += 400) {
+      const batch = writeBatch(emulatorFirestore());
+      for (let i = first; i < Math.min(first + 400, 5002); i++) {
+        batch.set(doc(expCol(), `search-${i}`), { amount: 12.5, dateMillis: i + 1,
+          categoryId: 'search-cat', note: i === 0 ? 'old coffee' : 'other', transactionType: 'expense' });
+      }
+      await batch.commit();
+    }
+    await setDoc(doc(emulatorFirestore(), 'users', 'other-user', 'expenses', 'secret'), {
+      amount: 12.5, dateMillis: 1, categoryId: 'search-cat', note: 'secret coffee', transactionType: 'expense' });
+    const capped = await expenseRepository.getAllExpensesCapped(5000);
+    expect(capped.truncated).toBe(true);
+    expect(capped.items.some(e => e.id === 'search-0')).toBe(false);
+    let rows: import('@/models/types').Expense[] = [];
+    let incomplete = true;
+    let failed = false;
+    const stop = expenseRepository.onRecordExpenses(null, null, (items, error, cached) => {
+      rows = items; incomplete = cached; failed = error;
+    });
+    try {
+      await vi.waitFor(() => { expect(incomplete).toBe(false); expect(rows).toHaveLength(5002); }, { timeout: 15000 });
+      const { filterRecordExpenses } = await import('@/viewmodels/useRecordViewModel');
+      const search = () => filterRecordExpenses({ expenses: rows, typeFilter: 'expense', searchQuery: 'coffee',
+        categoryIdsFilter: ['search-cat'], minAmount: 12.5, maxAmount: 12.5, categories: [] }).map(e => e.id);
+      expect(search()).toEqual(['search-0']);
+      await disableNetwork(emulatorFirestore());
+      await vi.waitFor(() => expect(incomplete).toBe(true), { timeout: 15000 });
+      expect(search()).toEqual(['search-0']);
+      await enableNetwork(emulatorFirestore());
+      await vi.waitFor(() => expect(incomplete).toBe(false), { timeout: 15000 });
+      expect(failed).toBe(false);
+      await expect(expenseRepository.deleteExpense('search-0', 'previous-user')).rejects.toThrow('AUTH_ACCOUNT_CHANGED');
+      await expect(expenseRepository.insertExpense({ amount: 1, dateMillis: 1, categoryId: 'search-cat', note: 'stale', transactionType: 'expense' }, undefined, 'previous-user')).rejects.toThrow('AUTH_ACCOUNT_CHANGED');
+      await updateDoc(doc(expCol(), 'search-0'), { note: 'tea' });
+      await vi.waitFor(() => expect(search()).toEqual([]));
+      await setDoc(doc(expCol(), 'new-match'), { amount: 12.5, dateMillis: 6000, categoryId: 'search-cat', note: 'coffee', transactionType: 'expense' });
+      await vi.waitFor(() => expect(search()).toEqual(['new-match']));
+      await deleteDoc(doc(expCol(), 'new-match'));
+      await vi.waitFor(() => expect(search()).toEqual([]));
+    } finally { stop(); await enableNetwork(emulatorFirestore()); }
+    let rangeRows: import('@/models/types').Expense[] = [];
+    const stopRange = expenseRepository.onRecordExpenses(1, 3, (items, error, cached) => { if (!error && !cached) rangeRows = items; });
+    try { await vi.waitFor(() => expect(rangeRows.map(e => e.id)).toEqual(['search-1', 'search-0'])); }
+    finally { stopRange(); }
+  }, 60000);
 });
