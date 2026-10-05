@@ -1,15 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Category, Expense, RecordListPeriod, RecordUiState, TransactionTypeFilter } from '@/models/types';
+import type { Category, Expense, RecordListPeriod, RecordUiState, TransactionTypeFilter, TransactionSortOrder } from '@/models/types';
 import { expenseRepository, EmailNotVerifiedError } from '@/repositories/expenseRepository';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useToastStore } from '@/services/toastStore';
-import { useTranslation, getLocale, localeTag, type Locale } from '@/i18n';
+import { useTranslation, type Locale } from '@/i18n';
 import { thisMonthRange, analyticsDateRangeMillis } from '@/utils/periodUtils';
 import { computeDayTotals, topExpenseCategoryName } from '@/utils/analytics';
 import { duplicateExpensePayload } from '@/utils/duplicateExpense';
 
-const SEARCH_DEBOUNCE_MS = 300;
-const DATA_CHANGED_EVENT = 'ausgegeben:data-changed';
+import { toMinorUnits } from '@/utils/money';
+import { parseAmount } from '@/utils/currency';
+import { useAuthStore } from '@/services/authStore';
+
+
+export function parseRecordAmount(input: string, currency = 'EUR'): number | null {
+  if (!/^\d+(?:[.,]\d{1,2})?$/.test(input.trim())) return null;
+  const amount = parseAmount(input.trim(), currency);
+  return amount != null && Number.isSafeInteger(toMinorUnits(amount)) ? amount : null;
+}
 
 export function resolveCompatibleCategoryFilter(
   currentCategoryId: string | null,
@@ -22,36 +30,119 @@ export function resolveCompatibleCategoryFilter(
   return currentCat && currentCat.transactionType === nextType ? currentCategoryId : null;
 }
 
+export function resolveCompatibleCategoryFilters(
+  currentCategoryIds: string[],
+  nextType: TransactionTypeFilter,
+  categories: Category[],
+): string[] {
+  if (!currentCategoryIds.length) return [];
+  const catMap = new Map(categories.map((c) => [c.id, c]));
+  if (nextType === 'all') {
+    return currentCategoryIds.filter((id) => catMap.has(id));
+  }
+  return currentCategoryIds.filter((id) => {
+    const cat = catMap.get(id);
+    return cat && cat.transactionType === nextType;
+  });
+}
+
 export function filterRecordExpenses(params: {
   expenses: Expense[];
   typeFilter: TransactionTypeFilter;
-  categoryIdFilter: string | null;
-  searchQuery: string;
+  categoryIdFilter?: string | null;
+  categoryIdsFilter?: string[];
+  searchQuery?: string;
+  minAmount?: number | null;
+  maxAmount?: number | null;
+  sortOrder?: import('@/models/types').TransactionSortOrder;
   categories: Category[];
   locale?: Locale;
 }): Expense[] {
-  const { expenses, typeFilter, categoryIdFilter, searchQuery, categories, locale } = params;
+  const {
+    expenses,
+    typeFilter,
+    categoryIdFilter,
+    categoryIdsFilter,
+    searchQuery = '',
+    minAmount,
+    maxAmount,
+    sortOrder = 'date_desc',
+    categories,
+  } = params;
+  for (const bound of [minAmount, maxAmount]) {
+    if (bound != null && (!Number.isFinite(bound) || bound < 0 || !Number.isSafeInteger(toMinorUnits(bound)))) return [];
+  }
   let list = expenses;
 
+  // 1. Transaction Type Filter
   if (typeFilter !== 'all') {
     list = list.filter((e) => e.transactionType === typeFilter);
   }
 
-  if (categoryIdFilter) {
-    list = list.filter((e) => e.categoryId === categoryIdFilter);
+  // 2. Category Filter (multi-select with single fallback)
+  const selectedCats = categoryIdsFilter ?? (categoryIdFilter ? [categoryIdFilter] : []);
+  if (selectedCats.length > 0) {
+    const catSet = new Set(selectedCats);
+    list = list.filter((e) => catSet.has(e.categoryId));
   }
 
-  const tag = locale ? localeTag(locale) : localeTag(getLocale());
-  const sq = searchQuery.trim().toLocaleLowerCase(tag);
+  // 3. Amount Range (minor units to prevent float precision issues)
+  const hasMin = minAmount != null && !isNaN(minAmount) && minAmount >= 0;
+  const hasMax = maxAmount != null && !isNaN(maxAmount) && maxAmount >= 0;
+  if (hasMin || hasMax) {
+    const minMinor = hasMin ? toMinorUnits(minAmount) : null;
+    const maxMinor = hasMax ? toMinorUnits(maxAmount) : null;
+
+    if (minMinor != null && maxMinor != null && minMinor > maxMinor) {
+      return []; // Invalid range: min > max produces empty result
+    }
+
+    list = list.filter((e) => {
+      const eMinor = toMinorUnits(e.amount);
+      if (minMinor != null && eMinor < minMinor) return false;
+      if (maxMinor != null && eMinor > maxMinor) return false;
+      return true;
+    });
+  }
+
+  // 4. Text Search
+  const sq = searchQuery.trim().toLowerCase();
   if (sq) {
     const catMap = new Map(categories.map((c) => [c.id, c]));
     list = list.filter((e) => {
       const cat = catMap.get(e.categoryId);
       return (
-        e.note.toLocaleLowerCase(tag).includes(sq) ||
-        String(e.amount).includes(sq) ||
-        (cat?.name.toLocaleLowerCase(tag).includes(sq) ?? false)
+        e.note.toLowerCase().includes(sq) ||
+        (cat?.name.toLowerCase().includes(sq) ?? false)
       );
+    });
+  }
+
+  // 5. Deterministic Sorting with Tie-breaking (only when sortOrder is provided)
+  if (sortOrder) {
+    return [...list].sort((a, b) => {
+      const aMinor = toMinorUnits(a.amount);
+      const bMinor = toMinorUnits(b.amount);
+      switch (sortOrder) {
+        case 'date_asc': {
+          if (a.dateMillis !== b.dateMillis) return a.dateMillis - b.dateMillis;
+          return (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+        }
+        case 'amount_desc': {
+          if (bMinor !== aMinor) return bMinor - aMinor;
+          if (b.dateMillis !== a.dateMillis) return b.dateMillis - a.dateMillis;
+          return (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+        }
+        case 'amount_asc': {
+          if (aMinor !== bMinor) return aMinor - bMinor;
+          if (b.dateMillis !== a.dateMillis) return b.dateMillis - a.dateMillis;
+          return (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+        }
+        case 'date_desc': {
+          if (b.dateMillis !== a.dateMillis) return b.dateMillis - a.dateMillis;
+          return (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+        }
+      }
     });
   }
 
@@ -64,9 +155,23 @@ export function useRecordViewModel() {
   const { t } = useTranslation();
   const showToast = useToastStore((s) => s.show);
   const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const normalizedSearch = searchQuery.trim();
+  const userId = useAuthStore(s => s.user?.uid);
+  const owner = useRef(userId);
+  const currency = usePreferencesStore(s => s.currency);
+  const [reloadEpoch, setReloadEpoch] = useState(0);
   const [typeFilter, setTypeFilter] = useState<TransactionTypeFilter>('all');
-  const [categoryIdFilter, setCategoryIdFilterState] = useState<string | null>(null);
+  const [categoryIdsFilter, setCategoryIdsFilterState] = useState<string[]>([]);
+  const [minAmountInput, setMinAmountInput] = useState('');
+  const [maxAmountInput, setMaxAmountInput] = useState('');
+  const minAmount = minAmountInput.trim() ? parseRecordAmount(minAmountInput, currency) : null;
+  const maxAmount = maxAmountInput.trim() ? parseRecordAmount(maxAmountInput, currency) : null;
+  const amountError = (!!minAmountInput.trim() && (minAmount == null || minAmount < 0))
+    || (!!maxAmountInput.trim() && (maxAmount == null || maxAmount < 0))
+    || (minAmount != null && maxAmount != null && toMinorUnits(minAmount) > toMinorUnits(maxAmount));
+  const setMinAmount = (value: number | null) => setMinAmountInput(value == null ? '' : String(value));
+  const setMaxAmount = (value: number | null) => setMaxAmountInput(value == null ? '' : String(value));
+  const [sortOrder, setSortOrder] = useState<TransactionSortOrder>('date_desc');
   const [listPeriod, setListPeriod] = useState<RecordListPeriod>('this_month');
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -82,11 +187,6 @@ export function useRecordViewModel() {
   const softDeletedIdsRef = useRef(softDeletedIds);
   softDeletedIdsRef.current = softDeletedIds;
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedSearch(searchQuery), SEARCH_DEBOUNCE_MS);
-    return () => window.clearTimeout(timer);
-  }, [searchQuery]);
-
   const viewingCurrentMonth = useMemo(() => {
     return listPeriod === 'this_month'
       || listPeriod === `month:${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
@@ -99,20 +199,29 @@ export function useRecordViewModel() {
 
   // Categories (small collection) + period-scoped expenses
   useEffect(() => {
+    let alive = true;
+    const switched = owner.current !== userId;
+    owner.current = userId;
+    setPeriodExpenses([]);
+    setMonthBudgetExpenses([]);
+    if (switched) { setCategories([]); resetFilters(); }
+    if (switched) setSoftDeletedIds(new Set());
     setLoading(true);
     setLoadError(false);
-    setDataTruncated(false);
+    setDataTruncated(true);
     let catsReady = false;
     let listReady = false;
     let budgetReady = viewingCurrentMonth;
     let catsError = false;
     let listError = false;
-    const syncLoadError = () => setLoadError(catsError || listError);
+    let budgetError = false;
+    const syncLoadError = () => setLoadError(catsError || listError || budgetError);
     const tryReady = () => {
       if (catsReady && listReady && budgetReady) setLoading(false);
     };
 
     const unsubCats = expenseRepository.onCategoriesChanged((cats, error) => {
+      if (!alive || useAuthStore.getState().user?.uid !== userId) return;
       if (error) {
         catsError = true;
       } else {
@@ -124,108 +233,45 @@ export function useRecordViewModel() {
       tryReady();
     });
 
-    let unsubList = () => {};
     let unsubBudget = () => {};
-
-    if (listRange) {
-      unsubList = expenseRepository.onExpensesInRange(listRange[0], listRange[1], (exps, error) => {
-        if (error) {
-          listError = true;
-        } else {
-          listError = false;
-          setPeriodExpenses(exps);
-          setDataTruncated(false);
-          if (viewingCurrentMonth) setMonthBudgetExpenses(exps);
-        }
-        syncLoadError();
-        listReady = true;
-        tryReady();
-      });
-    } else {
-      // all_time: one-shot fetch (no perpetual full-collection listener)
-      const loadAll = () => {
-        void expenseRepository.getAllExpensesCapped(5_000).then(({ items: exps, truncated }) => {
-          listError = false;
-          setPeriodExpenses(exps);
-          setDataTruncated(truncated);
-          syncLoadError();
-          listReady = true;
-          tryReady();
-        }).catch((err) => {
-          console.error('[useRecordViewModel] getAllExpenses failed', err);
-          listError = true;
-          setPeriodExpenses([]);
-          setDataTruncated(false);
-          syncLoadError();
-          listReady = true;
-          tryReady();
-        });
-      };
-      loadAll();
-
-      const onDataChanged = () => {
-        void expenseRepository.getAllExpensesCapped(5_000).then(({ items: exps, truncated }) => {
-          listError = false;
-          setPeriodExpenses(exps);
-          setDataTruncated(truncated);
-          syncLoadError();
-        }).catch((err) => {
-          console.error('[useRecordViewModel] getAllExpenses refresh failed', err);
-          listError = true;
-          syncLoadError();
-        });
-      };
-      window.addEventListener(DATA_CHANGED_EVENT, onDataChanged);
-      unsubList = () => window.removeEventListener(DATA_CHANGED_EVENT, onDataChanged);
-    }
+    const unsubList = expenseRepository.onRecordExpenses(listRange?.[0] ?? null, listRange?.[1] ?? null, (exps, error, incomplete) => {
+      if (!alive || useAuthStore.getState().user?.uid !== userId) return;
+      listError = error;
+      setPeriodExpenses(exps);
+      setDataTruncated(incomplete);
+      if (viewingCurrentMonth) setMonthBudgetExpenses(exps);
+      syncLoadError();
+      listReady = true;
+      tryReady();
+    });
 
     if (!viewingCurrentMonth) {
       const [start, end] = thisMonthRange();
       unsubBudget = expenseRepository.onExpensesInRange(start, end, (exps, error) => {
+        if (!alive || useAuthStore.getState().user?.uid !== userId) return;
         if (!error) setMonthBudgetExpenses(exps);
-        if (error) {
-          listError = true;
-          syncLoadError();
-        }
+        budgetError = !!error;
+        syncLoadError();
         budgetReady = true;
         tryReady();
       });
     }
 
     return () => {
+      alive = false;
       unsubCats();
       unsubList();
       unsubBudget();
     };
-  }, [listPeriod, listRange, viewingCurrentMonth]);
+  }, [userId, listPeriod, listRange, viewingCurrentMonth, reloadEpoch]);
 
-  const reload = useCallback(async () => {
-    setLoading(true);
-    setLoadError(false);
-    try {
-      const cats = await expenseRepository.getAllCategories();
-      setCategories(cats);
-      if (listRange) {
-        const exps = await expenseRepository.getExpensesInRange(listRange[0], listRange[1]);
-        setPeriodExpenses(exps);
-        setDataTruncated(false);
-        if (viewingCurrentMonth) setMonthBudgetExpenses(exps);
-      } else {
-        const { items, truncated } = await expenseRepository.getAllExpensesCapped(5_000);
-        setPeriodExpenses(items);
-        setDataTruncated(truncated);
-      }
-      if (!viewingCurrentMonth) {
-        const [start, end] = thisMonthRange();
-        setMonthBudgetExpenses(await expenseRepository.getExpensesInRange(start, end));
-      }
-    } catch (err) {
-      console.error('[useRecordViewModel] reload failed', err);
-      setLoadError(true);
-    } finally {
-      setLoading(false);
+  useEffect(() => () => {
+    if (useAuthStore.getState().user?.uid !== userId) {
+      useToastStore.getState().dismiss({ skipDismissCallback: true });
     }
-  }, [listRange, viewingCurrentMonth]);
+  }, [userId]);
+
+  const reload = useCallback(async () => { setReloadEpoch(v => v + 1); }, []);
 
   const monthExpenses = useMemo(
     () => monthBudgetExpenses.filter((e) => !softDeletedIds.has(e.id)),
@@ -247,14 +293,27 @@ export function useRecordViewModel() {
 
   const filteredExpenses = useMemo(() => {
     return filterRecordExpenses({
-      expenses: summaryExpenses,
+      expenses: amountError ? [] : summaryExpenses,
       typeFilter,
-      categoryIdFilter,
-      searchQuery: debouncedSearch,
+      categoryIdsFilter,
+      searchQuery: normalizedSearch,
+      minAmount,
+      maxAmount,
+      sortOrder,
       categories,
       locale,
     });
-  }, [summaryExpenses, typeFilter, categoryIdFilter, debouncedSearch, categories, locale]);
+  }, [amountError, summaryExpenses, typeFilter, categoryIdsFilter, normalizedSearch, minAmount, maxAmount, sortOrder, categories, locale]);
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (normalizedSearch.trim()) count++;
+    if (typeFilter !== 'all') count++;
+    if (categoryIdsFilter.length > 0) count++;
+    if (minAmountInput.trim() || maxAmountInput.trim()) count++;
+    if (sortOrder !== 'date_desc') count++;
+    return count;
+  }, [normalizedSearch, typeFilter, categoryIdsFilter, minAmount, maxAmount, minAmountInput, maxAmountInput, sortOrder]);
 
   const dayTotalsByLabel = useMemo(() => {
     const totals = computeDayTotals(summaryExpenses);
@@ -273,35 +332,68 @@ export function useRecordViewModel() {
     return topExpenseCategoryName(monthExpenses, names);
   }, [monthExpenses, categories]);
 
+  useEffect(() => {
+    setCategoryIdsFilterState(ids => {
+      const next = resolveCompatibleCategoryFilters(ids, typeFilter, categories);
+      return next.length === ids.length ? ids : next;
+    });
+  }, [categories, typeFilter]);
+
   const handleSetTypeFilter = useCallback((nextType: TransactionTypeFilter) => {
     setTypeFilter(nextType);
-    setCategoryIdFilterState((currentCatId) =>
-      resolveCompatibleCategoryFilter(currentCatId, nextType, categories),
+    setCategoryIdsFilterState((currentCatIds) =>
+      resolveCompatibleCategoryFilters(currentCatIds, nextType, categories),
     );
   }, [categories]);
 
   const setCategoryIdFilter = useCallback((id: string | null) => {
-    setCategoryIdFilterState(id);
+    setCategoryIdsFilterState(id ? [id] : []);
+  }, []);
+
+  const setCategoryIdsFilter = useCallback((ids: string[]) => {
+    setCategoryIdsFilterState(ids);
+  }, []);
+
+  const toggleCategoryIdFilter = useCallback((id: string) => {
+    setCategoryIdsFilterState((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
+    );
+  }, []);
+
+  const resetFilters = useCallback(() => {
+    setSearchQuery('');
+    setTypeFilter('all');
+    setCategoryIdsFilterState([]);
+    setMinAmountInput('');
+    setMaxAmountInput('');
+    setSortOrder('date_desc');
   }, []);
 
   const uiState: RecordUiState = useMemo(() => ({
-    expenses: filteredExpenses,
-    summaryExpenses,
-    categories,
+    expenses: owner.current === userId ? filteredExpenses : [],
+    summaryExpenses: owner.current === userId ? summaryExpenses : [],
+    categories: owner.current === userId ? categories : [],
     searchQuery,
     typeFilter,
-    categoryIdFilter,
+    categoryIdFilter: categoryIdsFilter.length === 1 ? categoryIdsFilter[0] : null,
+    categoryIdsFilter,
+    minAmountFilter: minAmount,
+    maxAmountFilter: maxAmount,
+    sortOrder,
+    activeFilterCount,
     listPeriod,
     topExpenseCategoryName: topExpenseCategory,
     monthlyBudget,
-    monthExpenses,
+    monthExpenses: owner.current === userId ? monthExpenses : [],
     dayTotalsByLabel,
-    loading,
+    loading: owner.current !== userId || loading,
     loadError,
     dataTruncated,
-  }), [filteredExpenses, summaryExpenses, categories, searchQuery, typeFilter, categoryIdFilter, listPeriod, topExpenseCategory, monthlyBudget, monthExpenses, dayTotalsByLabel, loading, loadError, dataTruncated]);
+  }), [filteredExpenses, summaryExpenses, categories, searchQuery, typeFilter, categoryIdsFilter, minAmount, maxAmount, sortOrder, activeFilterCount, listPeriod, topExpenseCategory, monthlyBudget, monthExpenses, dayTotalsByLabel, loading, loadError, dataTruncated, userId]);
 
   const requestDelete = useCallback(async (id: string) => {
+    const deletingUid = userId;
+    if (!deletingUid || useAuthStore.getState().user?.uid !== deletingUid) return;
     if (!id || softDeletedIdsRef.current.has(id)) return;
     // Soft-hide immediately; commit to Firestore only if the toast is not undone.
     setSoftDeletedIds((prev) => new Set(prev).add(id));
@@ -309,6 +401,7 @@ export function useRecordViewModel() {
       t('recordDeleted'),
       t('actionUndo'),
       () => {
+        if (useAuthStore.getState().user?.uid !== deletingUid) return;
         setSoftDeletedIds((prev) => {
           const next = new Set(prev);
           next.delete(id);
@@ -316,7 +409,9 @@ export function useRecordViewModel() {
         });
       },
       () => {
-        void expenseRepository.deleteExpense(id).then((deleted) => {
+        if (useAuthStore.getState().user?.uid !== deletingUid) return;
+        void expenseRepository.deleteExpense(id, deletingUid).then((deleted) => {
+          if (useAuthStore.getState().user?.uid !== deletingUid) return;
           setSoftDeletedIds((prev) => {
             const next = new Set(prev);
             next.delete(id);
@@ -326,6 +421,7 @@ export function useRecordViewModel() {
             showToast(t('errorDeleteFailed'));
           }
         }).catch((err) => {
+          if (useAuthStore.getState().user?.uid !== deletingUid) return;
           console.error('[useRecordViewModel] delete commit failed', err);
           setSoftDeletedIds((prev) => {
             const next = new Set(prev);
@@ -336,9 +432,10 @@ export function useRecordViewModel() {
         });
       },
     );
-  }, [showToast, t]);
+  }, [userId, showToast, t]);
 
   const duplicateExpense = useCallback(async (expense: Expense) => {
+    if (!userId || useAuthStore.getState().user?.uid !== userId) return;
     try {
       // Narrow payload, mirroring Android's expensePayload(): the source doc
       // may carry legacy fields that must never be written, and its
@@ -347,21 +444,30 @@ export function useRecordViewModel() {
       await expenseRepository.insertExpense({
         ...duplicateExpensePayload(expense),
         dateMillis: Date.now(),
-      });
+      }, undefined, userId);
+      if (useAuthStore.getState().user?.uid !== userId) return;
       showToast(t('recordDuplicated'));
     } catch (err) {
+      if (useAuthStore.getState().user?.uid !== userId) return;
       console.error('[useRecordViewModel] duplicate failed', err);
       showToast(err instanceof EmailNotVerifiedError ? t('authVerifyRequired') : t('errorDuplicateFailed'));
     }
-  }, [showToast, t]);
+  }, [userId, showToast, t]);
 
   return {
     uiState,
+    minAmountInput, maxAmountInput, setMinAmountInput, setMaxAmountInput, amountError,
     monthSpent,
     viewingCurrentMonth,
     setSearchQuery,
     setTypeFilter: handleSetTypeFilter,
     setCategoryIdFilter,
+    setCategoryIdsFilter,
+    toggleCategoryIdFilter,
+    setMinAmount,
+    setMaxAmount,
+    setSortOrder,
+    resetFilters,
     setListPeriod,
     requestDelete,
     duplicateExpense,

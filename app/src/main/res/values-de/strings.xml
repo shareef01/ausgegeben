@@ -46,7 +46,7 @@
     <string name="settings_version_subtitle">ausgegeben · v%1$s</string>
 
     <!-- Record -->
-    <string name="record_search_placeholder">notizen, kategorien, beträge suchen</string>
+    <string name="record_search_placeholder">Notizen oder Kategorien suchen</string>
     <string name="record_clear_search">suche löschen</string>
     <string name="record_clear_filters">filter zurücksetzen</string>
     <string name="record_no_matches_title">keine treffer</string>
@@ -432,4 +432,14 @@
     <string name="cat_freelance">Freelance</string>
     <string name="cat_refunds">Rückerstattung</string>
     <string name="cat_transfer">Transfer</string>
+    <string name="record_filters">Filter</string>
+    <string name="record_min_amount">Mindestbetrag</string>
+    <string name="record_max_amount">Höchstbetrag</string>
+    <string name="record_amount_error">Gültige nicht negative Beträge eingeben; Minimum darf Maximum nicht überschreiten.</string>
+    <string name="record_sort">Sortieren nach</string>
+    <string name="record_sort_newest">Neueste zuerst</string>
+    <string name="record_sort_oldest">Älteste zuerst</string>
+    <string name="record_sort_highest">Höchster Betrag</string>
+    <string name="record_sort_lowest">Niedrigster Betrag</string>
+    <string name="record_cache_incomplete">Cache-Ergebnisse sind möglicherweise unvollständig. Verbinde dich, um den gesamten gewählten Verlauf zu durchsuchen.</string>
 </resources>

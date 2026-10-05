@@ -129,7 +129,7 @@ fun MainApp(
     // ── ViewModels ──────────────────────────────────────────────
     val addViewModel: AddExpenseViewModel = hiltViewModel(activity)
     val categoryViewModel: CategoryViewModel = hiltViewModel(activity)
-    val expenseViewModel: ExpenseViewModel = hiltViewModel(activity)
+    val expenseViewModel: ExpenseViewModel = hiltViewModel(activity, key = "records:${currentUser?.uid}")
     val insightsViewModel: InsightsViewModel = hiltViewModel(activity)
     val authViewModel: AuthViewModel = hiltViewModel(activity)
 
@@ -361,41 +361,43 @@ fun MainApp(
                         }
                     },
                     recordContent = {
-                        RecordScreen(
-                            viewModel = expenseViewModel,
-                            currencyCode = currency,
-                            dataError = listenerError,
-                            onRetryDataError = { repository.retryListeners() },
-                            onAddTransaction = overlay::openAddFlow,
-                            onExpenseClick = { expense -> overlay.openEditFlow(expense, currentUser?.uid) },
-                            onExpenseDeleted = { expense ->
-                                scope.launch {
-                                    val result = snackbarHostState.showSnackbar(
-                                        message = deletedMessage,
-                                        actionLabel = undoLabel,
-                                        duration = SnackbarDuration.Short
-                                    )
-                                    if (result == SnackbarResult.ActionPerformed) {
-                                        expenseViewModel.undoSoftDelete(expense)
-                                    } else {
-                                        expenseViewModel.commitSoftDelete(expense) { success, error ->
-                                            if (!success) {
-                                                showSnackbar(failureMessage(deleteFailedMessage, error))
+                        androidx.compose.runtime.key(currentUser?.uid) {
+                            RecordScreen(
+                                viewModel = expenseViewModel,
+                                currencyCode = currency,
+                                dataError = listenerError,
+                                onRetryDataError = { repository.retryListeners() },
+                                onAddTransaction = overlay::openAddFlow,
+                                onExpenseClick = { expense -> overlay.openEditFlow(expense, currentUser?.uid) },
+                                onExpenseDeleted = { expense ->
+                                    scope.launch {
+                                        val result = snackbarHostState.showSnackbar(
+                                            message = deletedMessage,
+                                            actionLabel = undoLabel,
+                                            duration = SnackbarDuration.Short
+                                        )
+                                        if (result == SnackbarResult.ActionPerformed) {
+                                            expenseViewModel.undoSoftDelete(expense)
+                                        } else {
+                                            expenseViewModel.commitSoftDelete(expense) { success, error ->
+                                                if (!success) {
+                                                    showSnackbar(failureMessage(deleteFailedMessage, error))
+                                                }
                                             }
                                         }
                                     }
+                                },
+                                onExpenseDeleteFailed = { error ->
+                                    showSnackbar(failureMessage(deleteFailedMessage, error))
+                                },
+                                onExpenseDuplicated = {
+                                    showSnackbar(duplicatedMessage)
+                                },
+                                onExpenseDuplicateFailed = { error ->
+                                    showSnackbar(failureMessage(duplicateFailedMessage, error))
                                 }
-                            },
-                            onExpenseDeleteFailed = { error ->
-                                showSnackbar(failureMessage(deleteFailedMessage, error))
-                            },
-                            onExpenseDuplicated = {
-                                showSnackbar(duplicatedMessage)
-                            },
-                            onExpenseDuplicateFailed = { error ->
-                                showSnackbar(failureMessage(duplicateFailedMessage, error))
-                            }
-                        )
+                            )
+                        }
                     },
                     billsContent = {
                         BillsScreen(

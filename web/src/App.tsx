@@ -120,5 +120,5 @@ export function App(): JSX.Element {
     );
   }
 
-  return <MainShell />;
+  return <MainShell key={user.uid} />;
 }

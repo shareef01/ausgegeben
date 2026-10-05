@@ -22,7 +22,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flatMapLatest
@@ -41,7 +40,7 @@ data class RecordUiState(
     val insights: SpendingInsights = SpendingInsights(),
     val dayTotalsByDay: Map<Long, Pair<Double, Double>> = emptyMap(),
     val isLoading: Boolean = true,
-    /** True when all-time list hit the soft row cap (latest N only). */
+    /** True while cache coverage has not been confirmed by a server snapshot. */
     val dataTruncated: Boolean = false,
 )
 
@@ -58,6 +57,7 @@ data class RecordToolbarState(
     val typeFilter: TransactionTypeFilter = TransactionTypeFilter.ALL,
     val categoryFilter: String? = null,
     val listPeriod: String = RecordListPeriod.THIS_MONTH.key,
+    val composite: CompositeRecordFilter = CompositeRecordFilter(),
 )
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
@@ -68,10 +68,12 @@ class ExpenseViewModel @Inject constructor(
     private val preferenceManager: TransactionPreferences,
 ) : ViewModel() {
 
+    private val ownerUid = expenseActions.currentRecordAccountId
+    private fun ownerIsCurrent() = ownerUid == null || expenseActions.currentRecordAccountId == ownerUid
+
     private val _searchQuery = MutableStateFlow("")
-    private val _debouncedSearch = _searchQuery.debounce(250)
     private val _typeFilter = MutableStateFlow(TransactionTypeFilter.ALL)
-    private val _categoryFilter = MutableStateFlow<String?>(null)
+    private val _composite = MutableStateFlow(CompositeRecordFilter())
     private val _listPeriod = MutableStateFlow(RecordListPeriod.THIS_MONTH.key)
     /** Hidden until snackbar undo expires — Firestore delete runs in [commitSoftDelete]. */
     private val _softDeletedIds = MutableStateFlow<Set<String>>(emptySet())
@@ -79,6 +81,12 @@ class ExpenseViewModel @Inject constructor(
     private val currencyFlow = preferenceManager.currencyFlow.distinctUntilChanged()
     private val budgetFlow = preferenceManager.monthlyBudgetFlow.distinctUntilChanged()
     private val categoriesShared: Flow<List<Category>> = categoryActions.allCategories
+        .map { cats ->
+            val valid = cats.filter { _typeFilter.value == TransactionTypeFilter.ALL ||
+                it.transactionType == _typeFilter.value.name.lowercase(Locale.ROOT) }.map { it.id }.toSet()
+            setCategoryFilters(_composite.value.categoryIds.intersect(valid))
+            cats
+        }
         .distinctUntilChanged()
         .shareIn(viewModelScope, SharingStarted.WhileSubscribed(), replay = 1)
 
@@ -96,7 +104,7 @@ class ExpenseViewModel @Inject constructor(
         flowOf(AnalyticsPeriod.THIS_MONTH.dateRangeMillis())
             .flatMapLatest { range ->
                 if (range == null) expenseActions.allExpenses
-                else expenseActions.getExpensesInRange(range.first, range.second)
+                else expenseActions.getRecordExpensesInRange(range.first, range.second)
             }
             .excludingSoftDeleted()
             .distinctUntilChanged()
@@ -114,9 +122,9 @@ class ExpenseViewModel @Inject constructor(
             } else {
                 val range = recordListDateRangeMillis(periodKey)
                 val base = if (range == null) {
-                    expenseActions.allExpenses
+                    expenseActions.recordExpenses
                 } else {
-                    expenseActions.getExpensesInRange(range.first, range.second)
+                    expenseActions.getRecordExpensesInRange(range.first, range.second)
                 }
                 base.excludingSoftDeleted()
             }
@@ -143,14 +151,13 @@ class ExpenseViewModel @Inject constructor(
         combine(listExpensesShared, categoriesShared, monthExpensesShared, budgetFlow, currencyFlow) { list, cats, month, budget, curr ->
             RecordData(list, cats, month, budget, curr)
         },
-        combine(_searchQuery, _typeFilter, _categoryFilter, _listPeriod) { query, filter, catFilter, period ->
-            RecordToolbarState(query, filter, catFilter, period)
+        combine(_searchQuery, _typeFilter, _listPeriod, _composite) { query, filter, period, composite ->
+            RecordToolbarState(query, filter, composite.categoryIds.singleOrNull(), period, composite)
         },
         insightsFlow,
         dayTotalsFlow,
-        // Reported by the listener, which alone sees the untrimmed row count. Re-deriving it
-        // from the emitted list size raised a false banner at exactly the cap.
-        expenseActions.dataTruncated,
+        // Snapshot metadata provides an honest offline coverage indication.
+        expenseActions.recordIncomplete,
     ) { data, toolbar, insights, totals, truncated ->
         RecordUiState(
             data,
@@ -158,7 +165,7 @@ class ExpenseViewModel @Inject constructor(
             insights,
             totals,
             isLoading = false,
-            dataTruncated = toolbar.listPeriod == RecordListPeriod.ALL_TIME.key && truncated,
+            dataTruncated = truncated,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -168,20 +175,32 @@ class ExpenseViewModel @Inject constructor(
 
     // Period data from [listExpensesShared]; type + category + search filtered here (web parity).
     val pagedExpenses: Flow<List<Expense>> = combine(
-        listExpensesShared,
-        _typeFilter,
-        _categoryFilter,
-        _debouncedSearch,
-        categoriesShared,
-    ) { expenses, filter, catFilter, query, categories ->
-        val typed = if (filter == TransactionTypeFilter.ALL) {
-            expenses
-        } else {
-            expenses.filter { filter.matches(it) }
+        listExpensesShared, _searchQuery, _typeFilter, _composite,
+        combine(categoriesShared, currencyFlow) { cats, currency -> cats to currency },
+    ) { expenses, query, type, filter, metadata ->
+        filterRecords(expenses, query, type, filter, metadata.first.associate { it.id to it.name }, metadata.second)
+    }.flowOn(Dispatchers.Default)
+
+    init {
+        viewModelScope.launch {
+            expenseActions.recordAccountId.distinctUntilChanged().collect { clearFilters(); _softDeletedIds.value = emptySet() }
         }
-        val categoryFiltered = typed.filterByCategory(catFilter)
-        val categoryNames = categories.associate { it.id to it.name }
-        categoryFiltered.filterByQuery(query, categoryNames)
+    }
+
+    fun toggleCategory(id: String) {
+        val ids = _composite.value.categoryIds
+        setCategoryFilters(if (id in ids) ids - id else ids + id)
+    }
+    fun setCategoryFilters(ids: Set<String>) {
+        _composite.value = _composite.value.copy(categoryIds = ids)
+    }
+    fun setMinAmount(input: String) { _composite.value = _composite.value.copy(minInput = input) }
+    fun setMaxAmount(input: String) { _composite.value = _composite.value.copy(maxInput = input) }
+    fun setSort(sort: RecordSort) { _composite.value = _composite.value.copy(sort = sort) }
+    fun clearFilters() {
+        _searchQuery.value = ""
+        _typeFilter.value = TransactionTypeFilter.ALL
+        _composite.value = CompositeRecordFilter()
     }
 
     fun setSearchQuery(query: String) {
@@ -190,19 +209,13 @@ class ExpenseViewModel @Inject constructor(
 
     fun setTypeFilter(filter: TransactionTypeFilter) {
         _typeFilter.value = filter
-        if (filter != TransactionTypeFilter.ALL) {
-            val current = _categoryFilter.value
-            if (current != null) {
-                val cat = uiState.value.data.categories.find { it.id == current }
-                if (cat == null || cat.transactionType != filter.name.lowercase(Locale.ROOT)) {
-                    _categoryFilter.value = null
-                }
-            }
-        }
+        val valid = uiState.value.data.categories.filter { filter == TransactionTypeFilter.ALL ||
+            it.transactionType == filter.name.lowercase(Locale.ROOT) }.map { it.id }.toSet()
+        setCategoryFilters(_composite.value.categoryIds.intersect(valid))
     }
 
     fun setCategoryFilter(categoryId: String?) {
-        _categoryFilter.value = categoryId
+        setCategoryFilters(categoryId?.let { setOf(it) } ?: emptySet())
     }
 
     fun setListPeriod(period: String) {
@@ -211,14 +224,16 @@ class ExpenseViewModel @Inject constructor(
 
     fun duplicateExpense(expense: Expense, onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
         viewModelScope.launch {
-            val result = expenseActions.duplicateExpense(expense)
+            if (!ownerIsCurrent()) { onResult(false, null); return@launch }
+            val result = if (ownerUid == null) expenseActions.duplicateExpense(expense)
+                else expenseActions.duplicateRecordExpense(expense, ownerUid)
             onResult(result.isSuccess, result.exceptionOrNull()?.message?.takeIf { it == "EMAIL_NOT_VERIFIED" })
         }
     }
 
     /** Hide locally; call [commitSoftDelete] after the undo window closes. */
     fun softDelete(expense: Expense): Boolean {
-        if (expense.id.isBlank()) return false
+        if (expense.id.isBlank() || !ownerIsCurrent()) return false
         _softDeletedIds.value = _softDeletedIds.value + expense.id
         return true
     }
@@ -234,7 +249,9 @@ class ExpenseViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            val result = expenseActions.deleteExpense(expense)
+            if (!ownerIsCurrent()) { onResult(false, null); return@launch }
+            val result = if (ownerUid == null) expenseActions.deleteExpense(expense)
+                else expenseActions.deleteRecordExpense(expense, ownerUid)
             // Always unhide: success means gone from Firestore; failure shows the row again.
             _softDeletedIds.value = _softDeletedIds.value - expense.id
             onResult(result.isSuccess, result.exceptionOrNull()?.message?.takeIf { it == "EMAIL_NOT_VERIFIED" })

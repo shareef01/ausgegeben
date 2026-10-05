@@ -405,6 +405,18 @@ export const expenseRepository = {
     }
   },
 
+  /** Records-only corpus: no cap and no listener per filter. */
+  onRecordExpenses(start: number | null, end: number | null,
+    cb: (items: Expense[], error: boolean, incomplete: boolean) => void): Unsubscribe {
+    const userId = uid();
+    if (!userId) { cb([], false, false); return () => {}; }
+    const constraints = start == null || end == null ? [] : [where('dateMillis', '>=', start), where('dateMillis', '<', end)];
+    return onSnapshot(query(expCol(userId), ...constraints, orderBy('dateMillis', 'desc')),
+      { includeMetadataChanges: true },
+      snap => cb(snap.docs.map(d => ({ ...d.data(), id: d.id } as Expense)).filter(e => e.deleted !== true), false, snap.metadata.fromCache),
+      () => cb([], true, true));
+  },
+
   async getAllCategories(): Promise<Category[]> {
     const userId = uid(); if (!userId) return [];
     const snap = await getDocs(query(catCol(userId), orderBy('sortOrder')));
@@ -673,8 +685,9 @@ export const expenseRepository = {
 
   // A keyed create derives remote identity from the key. The transaction makes the
   // existing-document check and create one atomic operation across tabs/devices/clients.
-  async insertExpense(expense: Omit<Expense, 'id'>, idempotencyKey?: string): Promise<string> {
+  async insertExpense(expense: Omit<Expense, 'id'>, idempotencyKey?: string, expectedUid?: string): Promise<string> {
     const userId = uid(); if (!userId) throw new Error('Not signed in');
+    if (expectedUid != null && userId !== expectedUid) throw new Error('AUTH_ACCOUNT_CHANGED');
     requireVerifiedEmail();
     if (idempotencyKey) {
       // Historical releases used random document ids. Find those first so upgrading a
@@ -730,8 +743,9 @@ export const expenseRepository = {
     emitDataChanged();
   },
 
-  async deleteExpense(id: string): Promise<Expense | null> {
+  async deleteExpense(id: string, expectedUid?: string): Promise<Expense | null> {
     const userId = uid(); if (!userId) return null;
+    if (expectedUid != null && userId !== expectedUid) throw new Error('AUTH_ACCOUNT_CHANGED');
     requireVerifiedEmail();
     const exp = await this.getExpenseById(id);
     if (!exp) return null;
