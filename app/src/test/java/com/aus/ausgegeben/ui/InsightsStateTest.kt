@@ -169,4 +169,55 @@ class InsightsStateTest {
 
         assertFalse(insightsStatesEquivalent(state, other))
     }
+
+    @Test
+    fun buildInsightsState_computesComparisonAndPaceWhenMonthly() {
+        val current = listOf(expense("c1", 100.0, "expense"))
+        val prior = listOf(expense("c1", 50.0, "expense"))
+        val state = buildInsightsState(
+            currency = "EUR",
+            categories = listOf(groceries),
+            scoped = current,
+            periodKey = "month:2026-05",
+            truncated = false,
+            priorExpenses = prior,
+            monthlyBudget = 200.0,
+        )
+
+        val comparison = state.comparison
+        org.junit.Assert.assertNotNull(comparison)
+        assertTrue(comparison!!.hasPriorData)
+        assertEquals(50.0, comparison.expenseDelta, 0.01)
+        assertEquals(100.0, comparison.expensePercentageDelta ?: 0.0, 0.01)
+
+        val pace = state.pace
+        org.junit.Assert.assertNotNull(pace)
+        assertEquals(200.0, pace!!.budget ?: 0.0, 0.01)
+
+        assertEquals(1, state.categoryMovers.size)
+        assertEquals("Groceries", state.categoryMovers[0].categoryName)
+        assertEquals(50.0, state.categoryMovers[0].delta, 0.01)
+    }
+
+    @Test
+    fun buildInsightsState_allTime_computesAllTimeAveragesAndNullPace() {
+        val expenses = listOf(
+            expense("c1", 100.0, "expense"),
+            expense("c3", 500.0, "income"),
+        )
+        val state = buildInsightsState(
+            currency = "EUR",
+            categories = listOf(groceries, salary),
+            scoped = expenses,
+            periodKey = AnalyticsPeriod.ALL_TIME.storageKey,
+            truncated = false,
+        )
+
+        org.junit.Assert.assertNull(state.pace)
+        org.junit.Assert.assertNull(state.comparison)
+        val averages = state.allTimeAverages
+        org.junit.Assert.assertNotNull(averages)
+        assertEquals(100.0, averages!!.averageMonthlyExpenses, 0.01)
+        assertEquals(500.0, averages.averageMonthlyIncome, 0.01)
+    }
 }
