@@ -13,6 +13,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
 import com.google.firebase.firestore.MemoryCacheSettings
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.tasks.await
 import org.robolectric.Shadows
@@ -534,6 +536,13 @@ class FirestoreEmulatorRecoveryTest {
         assertEquals(1, remote.size)
         assertEquals(operationId, fieldString(remote[expenseDocumentId(operationId)]!!, "idempotencyKey"))
         assertTrue(pendingJournalIds().isEmpty())
+        // Records uses a fresh uncapped SDK listener and a half-open date query.
+        val target = expenseDocumentId(operationId)
+        val records = withTimeout(15000) { repository.recordExpenses.first { it.any { e -> e.id == target } } }
+        assertEquals(listOf(target), records.map { it.id })
+        val date = records.single().dateMillis
+        val inRange = withTimeout(15000) { repository.getRecordExpensesInRange(date, date + 1).first { it.isNotEmpty() } }
+        assertEquals(listOf(target), inRange.map { it.id })
     }
 
     // ---- INT-5 -------------------------------------------------------------------
@@ -615,6 +624,11 @@ class FirestoreEmulatorRecoveryTest {
         )
         assertTrue("accounts must have distinct UIDs", userAUid != uid)
         assertEquals("user B starts with no remote expenses", 0, remoteExpenses().size)
+        assertTrue(repository.deleteRecordExpense(expense("old A action").copy(id = expenseDocumentId(operationId)), userAUid).isFailure)
+        assertTrue(repository.duplicateRecordExpense(expense("old A action"), userAUid).isFailure)
+        assertEquals("stale record actions must not write B", 0, remoteExpenses().size)
+        val bRecords = withTimeout(15000) { repository.recordExpenses.first { !repository.recordIncomplete.value } }
+        assertTrue("Records must not expose user A to user B", bRecords.isEmpty())
         repository.ensureSeeded()
         categoryId = firstSeededCategoryId()
         assertTrue(pendingJournalIds().isEmpty())

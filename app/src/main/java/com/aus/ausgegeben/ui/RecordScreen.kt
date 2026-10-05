@@ -96,8 +96,15 @@ fun RecordScreen(
     val categoryById = remember(categories) { categories.associateBy { it.id } }
     
     // Performance: Pre-calculate groupings for 120Hz scrolling
-    val grouped = remember(allExpenses) { allExpenses.groupBy { localDayStartMillis(it.dateMillis) } }
-    val sortedDays = remember(grouped) { grouped.keys.sortedDescending() }
+    val grouped = remember(allExpenses, uiState.toolbar.composite.sort) {
+        if (uiState.toolbar.composite.sort == RecordSort.AMOUNT_ASC || uiState.toolbar.composite.sort == RecordSort.AMOUNT_DESC)
+            allExpenses.mapIndexed { index, e -> -index.toLong() to listOf(e) }.toMap()
+        else allExpenses.groupBy { localDayStartMillis(it.dateMillis) }
+    }
+    val sortedDays = remember(grouped, uiState.toolbar.composite.sort) {
+        if (uiState.toolbar.composite.sort == RecordSort.DATE_ASC) grouped.keys.sorted()
+        else grouped.keys.sortedDescending()
+    }
     var expensePendingDelete by remember { mutableStateOf<Expense?>(null) }
 
     // Date headers follow the UI language, not the currency's home locale
@@ -128,7 +135,8 @@ fun RecordScreen(
     val haptics = rememberAppHaptics()
     val isWide = isWideScreen()
     
-    var isSearchExpanded by remember { mutableStateOf(false) }
+    var isSearchExpanded by remember { mutableStateOf(true) }
+    var showFilters by remember { mutableStateOf(false) }
 
     // Pillar 1: Ambient Aurora Wrap
     Box(modifier = modifier.fillMaxSize().background(AppAurora.background())) {
@@ -213,14 +221,17 @@ fun RecordScreen(
                             onListPeriod = viewModel::setListPeriod,
                             typeFilter = uiState.toolbar.typeFilter,
                             onTypeFilter = viewModel::setTypeFilter,
-                            categories = categories,
-                            categoryFilter = uiState.toolbar.categoryFilter,
+                            categories = emptyList(),
+                            categoryFilter = null,
                             onCategoryFilter = viewModel::setCategoryFilter,
                             searchQuery = uiState.toolbar.searchQuery,
                             onSearchChange = viewModel::setSearchQuery,
                             isSearchExpanded = isSearchExpanded,
                             onSearchToggle = { isSearchExpanded = it },
                         )
+                        TextButton(onClick = { showFilters = true }) {
+                            Text(stringResource(R.string.record_filters) + " (${uiState.toolbar.composite.activeCount + (if (uiState.toolbar.typeFilter != TransactionTypeFilter.ALL) 1 else 0) + (if (uiState.toolbar.searchQuery.isNotBlank()) 1 else 0)})")
+                        }
                         HorizontalDivider(
                             thickness = 0.5.dp,
                             color = RecordAuroraTokens.hairline(),
@@ -232,9 +243,7 @@ fun RecordScreen(
 
                 if (uiState.dataTruncated && !uiState.isLoading) {
                     item(key = "truncated") {
-                        DataTruncatedBanner(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                        )
+                        Text(stringResource(R.string.record_cache_incomplete), modifier = Modifier.padding(16.dp))
                     }
                 }
 
@@ -294,7 +303,7 @@ fun RecordScreen(
 
                     sortedDays.forEach { dayStart ->
                         val dayExpenses = grouped[dayStart] ?: emptyList()
-                        val dateLabel = dateFormat.format(Date(dayStart))
+                        val dateLabel = dateFormat.format(Date(dayExpenses.first().dateMillis))
                         
                         stickyHeader(key = "header-$dayStart") {
                             Box(modifier = Modifier.fillMaxWidth().background(AppAurora.background())) {
@@ -377,14 +386,15 @@ fun RecordScreen(
                     else -> {
                     val isSearching = uiState.toolbar.searchQuery.isNotBlank()
                     val hasActiveFilters = uiState.toolbar.typeFilter != TransactionTypeFilter.ALL ||
-                        uiState.toolbar.categoryFilter != null ||
+                        uiState.toolbar.composite.activeCount > 0 ||
                         uiState.toolbar.listPeriod != RecordListPeriod.THIS_MONTH.key
                     val isConstrained = isSearching || hasActiveFilters
                     item(key = "empty") {
                         EmptyStateMessage(
                             icon = if (isConstrained) Icons.Rounded.SearchOff else Icons.AutoMirrored.Rounded.List,
                             title = stringResource(
-                                if (isConstrained) R.string.record_no_matches_title else R.string.record_empty_title
+                                if (uiState.dataTruncated) R.string.record_cache_incomplete
+                                else if (isConstrained) R.string.record_no_matches_title else R.string.record_empty_title
                             ),
                             subtitle = stringResource(
                                 if (isConstrained) R.string.record_no_matches_subtitle else R.string.record_empty_subtitle
@@ -392,24 +402,56 @@ fun RecordScreen(
                             hint = if (isConstrained) null else stringResource(R.string.record_gesture_hints),
                             actionLabel = stringResource(
                                 when {
-                                    isSearching -> R.string.record_clear_search
+                                    isSearching -> R.string.record_clear_filters
                                     hasActiveFilters -> R.string.record_clear_filters
                                     else -> R.string.record_empty_action
                                 }
                             ),
-                            onAction = when {
-                                isSearching -> ({ viewModel.setSearchQuery("") })
-                                hasActiveFilters -> ({
-                                    viewModel.setTypeFilter(TransactionTypeFilter.ALL)
-                                    viewModel.setCategoryFilter(null)
-                                    viewModel.setListPeriod(RecordListPeriod.THIS_MONTH.key)
-                                })
-                                else -> onAddTransaction
-                            },
+                            onAction = if (isConstrained) ({ viewModel.clearFilters() }) else onAddTransaction,
                         )
                     }
                     }
                 }
+            }
+        }
+    }
+
+    if (showFilters) {
+        ModalBottomSheet(onDismissRequest = { showFilters = false }) {
+            val filter = uiState.toolbar.composite
+            LazyColumn(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                item { Text(stringResource(R.string.record_filters), style = MaterialTheme.typography.titleLarge) }
+                item { TextButton(onClick = viewModel::clearFilters) { Text(stringResource(R.string.record_clear_filters)) } }
+                item { Text(stringResource(R.string.record_category_filter)) }
+                items(categories.filter { it.id != "0" && (uiState.toolbar.typeFilter == TransactionTypeFilter.ALL ||
+                    it.transactionType == uiState.toolbar.typeFilter.name.lowercase(Locale.ROOT)) }, key = { it.id }) { cat ->
+                    FilterChip(selected = cat.id in filter.categoryIds, onClick = { viewModel.toggleCategory(cat.id) }, label = { Text(cat.name) })
+                }
+                item {
+                    OutlinedTextField(value = filter.minInput, onValueChange = viewModel::setMinAmount,
+                        label = { Text(stringResource(R.string.record_min_amount)) }, singleLine = true,
+                        isError = filter.bounds(currencyCode) == null,
+                        keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal, imeAction = ImeAction.Next))
+                }
+                item {
+                    OutlinedTextField(value = filter.maxInput, onValueChange = viewModel::setMaxAmount,
+                        label = { Text(stringResource(R.string.record_max_amount)) }, singleLine = true,
+                        isError = filter.bounds(currencyCode) == null,
+                        keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal, imeAction = ImeAction.Done))
+                }
+                if (filter.bounds(currencyCode) == null) item { Text(stringResource(R.string.record_amount_error), color = MaterialTheme.colorScheme.error) }
+                item { Text(stringResource(R.string.record_sort)) }
+                items(RecordSort.entries) { sort ->
+                    val label = when (sort) {
+                        RecordSort.DATE_DESC -> R.string.record_sort_newest
+                        RecordSort.DATE_ASC -> R.string.record_sort_oldest
+                        RecordSort.AMOUNT_DESC -> R.string.record_sort_highest
+                        RecordSort.AMOUNT_ASC -> R.string.record_sort_lowest
+                    }
+                    FilterChip(selected = filter.sort == sort, onClick = { viewModel.setSort(sort) }, label = { Text(stringResource(label)) })
+                }
+                item { Spacer(Modifier.height(24.dp)) }
             }
         }
     }
@@ -458,6 +500,8 @@ private fun RecordListToolbar(
     onSearchToggle: (Boolean) -> Unit,
 ) {
     val context = LocalContext.current
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val searchLabel = stringResource(R.string.record_search)
     val typeFilterLabels = remember(context) { TransactionTypeFilter.entries.map { it.localizedLabel(context) } }
     val typeFilterIcons = remember {
         listOf(
@@ -632,14 +676,14 @@ private fun RecordListToolbar(
                             BasicTextField(
                                 value = searchQuery,
                                 onValueChange = onSearchChange,
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.weight(1f).semantics { contentDescription = searchLabel },
                                 singleLine = true,
                                 textStyle = MaterialTheme.typography.bodyMedium.copy(
                                     color = MaterialTheme.colorScheme.onSurface,
                                 ),
                                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                                keyboardActions = KeyboardActions(onSearch = { }),
+                                keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
                                 decorationBox = { inner ->
                                     if (searchQuery.isEmpty()) {
                                         Text(
