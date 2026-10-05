@@ -7,7 +7,13 @@ import { useInsightsViewModel } from '@/viewmodels/useInsightsViewModel';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useTranslation } from '@/i18n';
 import { formatAmount, formatCompactAmount } from '@/utils/currency';
-import type { Category } from '@/models/types';
+import type {
+  Category,
+  PeriodComparison,
+  SpendingPace,
+  CategoryMover,
+  AllTimeAverages,
+} from '@/models/types';
 import { useHaptics } from '@/hooks/useHaptics';
 import { IconInsights } from '@/components/Icons';
 import { useCssProps } from '@/utils/cssVars';
@@ -104,6 +110,23 @@ export function InsightsView({ onAdd }: { onAdd?: () => void }) {
             />
           ) : (
             <div className="insights-main">
+              {uiState.pace || uiState.comparison ? (
+                <div className="insights-metrics-grid">
+                  {uiState.pace ? <SpendingPaceCard pace={uiState.pace} currency={currency} /> : null}
+                  {uiState.comparison ? (
+                    <PeriodComparisonCard comparison={uiState.comparison} currency={currency} />
+                  ) : null}
+                </div>
+              ) : null}
+
+              {uiState.allTimeAverages ? (
+                <AllTimeAveragesCard averages={uiState.allTimeAverages} currency={currency} />
+              ) : null}
+
+              {uiState.categoryMovers && uiState.categoryMovers.length > 0 ? (
+                <CategoryMoversCard movers={uiState.categoryMovers} currency={currency} />
+              ) : null}
+
               <div className="insights-breakdown">
                 {uiState.expensesByCategory.size > 0 ? (
                   <CategoryCard title={t('filterExpense')} map={uiState.expensesByCategory} categories={categories} currency={currency} accent="var(--color-expense)" />
@@ -260,6 +283,212 @@ function CashFlowCard({ trend, currency }: { trend: { label: string; income: num
         <CashFlowLegend />
       </div>
       <CashFlowChart trend={trend} currency={currency} />
+    </div>
+  );
+}
+
+function SpendingPaceCard({ pace, currency }: { pace: SpendingPace; currency: string }) {
+  const { t } = useTranslation();
+  const pct = Math.min(Math.round((pace.daysElapsed / pace.daysInMonth) * 100), 100);
+  const isOverBudget = pace.projectedOverBudget !== null && pace.projectedOverBudget > 0;
+  const isCompleted = pace.daysElapsed >= pace.daysInMonth;
+
+  return (
+    <div className="insights-metric-card card">
+      <div className="insights-metric-card__header">
+        <span className="insights-metric-card__title">{t('insightsPaceTitle')}</span>
+        {isCompleted ? (
+          <span className="insights-badge insights-badge--neutral">{t('insightsMonthCompleted')}</span>
+        ) : isOverBudget ? (
+          <span className="insights-badge insights-badge--alert">
+            {t('insightsProjectedOverBudget', { amount: formatAmount(pace.projectedOverBudget!, currency) })}
+          </span>
+        ) : pace.budget ? (
+          <span className="insights-badge insights-badge--success">{t('insightsOnTrackBudget')}</span>
+        ) : (
+          <span className="insights-badge insights-badge--neutral">
+            {t('insightsDaysElapsed', { day: String(pace.daysElapsed), total: String(pace.daysInMonth) })}
+          </span>
+        )}
+      </div>
+
+      <div className="insights-metric-card__grid">
+        <div className="insights-metric-card__stat">
+          <span className="insights-metric-card__stat-label">{t('insightsDailyAverage')}</span>
+          <span className="insights-metric-card__stat-val">{formatAmount(pace.dailyAverage, currency)}</span>
+        </div>
+        <div className="insights-metric-card__stat">
+          <span className="insights-metric-card__stat-label">{t('insightsProjectedTotal')}</span>
+          <span className="insights-metric-card__stat-val insights-metric-card__stat-val--accent">
+            {formatAmount(pace.projectedTotal, currency)}
+          </span>
+        </div>
+      </div>
+
+      <div className="insights-metric-card__progress">
+        <div
+          className="insights-metric-card__bar"
+          role="progressbar"
+          aria-valuenow={pct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={t('insightsDaysElapsed', { day: String(pace.daysElapsed), total: String(pace.daysInMonth) })}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function PeriodComparisonCard({ comparison, currency }: { comparison: PeriodComparison; currency: string }) {
+  const { t } = useTranslation();
+
+  if (!comparison.hasPriorData) {
+    return (
+      <div className="insights-metric-card card">
+        <div className="insights-metric-card__header">
+          <span className="insights-metric-card__title">{t('insightsComparisonTitle')}</span>
+          <span className="insights-badge insights-badge--neutral">{t('insightsNoPriorPeriod')}</span>
+        </div>
+        <p className="insights-metric-card__hint">{t('billsEmptySubtitle')}</p>
+      </div>
+    );
+  }
+
+  const expDelta = comparison.expenseDelta;
+  const isExpLess = expDelta < 0;
+  const isExpMore = expDelta > 0;
+  const expTone = isExpLess ? 'success' : isExpMore ? 'alert' : 'neutral';
+  const expSign = isExpMore ? '+' : isExpLess ? '-' : '';
+  const expPctStr =
+    comparison.expensePercentageDelta != null
+      ? ` (${comparison.expensePercentageDelta > 0 ? '+' : ''}${comparison.expensePercentageDelta}%)`
+      : '';
+
+  const netDelta = comparison.netDelta;
+  const netTone = netDelta >= 0 ? 'success' : 'alert';
+
+  return (
+    <div className="insights-metric-card card">
+      <div className="insights-metric-card__header">
+        <span className="insights-metric-card__title">{t('insightsComparisonTitle')}</span>
+        <span className={`insights-badge insights-badge--${expTone}`}>
+          {isExpLess
+            ? t('insightsFavorableLess')
+            : isExpMore
+            ? t('insightsUnfavorableMore')
+            : t('chartTotal')}
+          {expPctStr}
+        </span>
+      </div>
+
+      <div className="insights-metric-card__grid">
+        <div className="insights-metric-card__stat">
+          <span className="insights-metric-card__stat-label">{t('summarySpent')}</span>
+          <span className={`insights-metric-card__stat-val insights-metric-card__stat-val--${expTone}`}>
+            {expSign}
+            {formatAmount(Math.abs(expDelta), currency)}
+          </span>
+        </div>
+
+        <div className="insights-metric-card__stat">
+          <span className="insights-metric-card__stat-label">{t('billsNet')}</span>
+          <span className={`insights-metric-card__stat-val insights-metric-card__stat-val--${netTone}`}>
+            {netDelta >= 0 ? '+' : '-'}
+            {formatAmount(Math.abs(netDelta), currency)}
+          </span>
+        </div>
+      </div>
+
+      <div className="insights-metric-card__footnote">
+        {netDelta >= 0
+          ? t('insightsNetImprovement', { amount: formatAmount(Math.abs(netDelta), currency) })
+          : t('insightsNetDecline', { amount: formatAmount(Math.abs(netDelta), currency) })}
+      </div>
+    </div>
+  );
+}
+
+function CategoryMoversCard({ movers, currency }: { movers: CategoryMover[]; currency: string }) {
+  const { t } = useTranslation();
+
+  if (movers.length === 0) return null;
+
+  return (
+    <div className="insights-movers-card card">
+      <div className="insights-movers-card__header">
+        <div>
+          <span className="insights-movers-card__title">{t('insightsMoversTitle')}</span>
+          <span className="insights-movers-card__subtitle">{t('insightsMoversSubtitle')}</span>
+        </div>
+      </div>
+      <ul className="insights-movers-card__list">
+        {movers.map((m) => {
+          const isDecrease = m.delta < 0;
+          const tone = isDecrease ? 'success' : 'alert';
+          const sign = m.delta > 0 ? '+' : '-';
+          const pctStr =
+            m.percentageDelta != null
+              ? ` (${m.percentageDelta > 0 ? '+' : ''}${m.percentageDelta}%)`
+              : '';
+
+          return (
+            <li key={m.categoryId} className="insights-movers-card__row">
+              <span
+                className="insights-category-card__dot"
+                style={{ '--dot-color': segmentColor(m.colorInt, 0) } as React.CSSProperties}
+                aria-hidden
+              />
+              <span className="insights-movers-card__name">{m.categoryName}</span>
+              <span className="insights-movers-card__shift">
+                {formatAmount(m.priorAmount, currency)} → {formatAmount(m.currentAmount, currency)}
+              </span>
+              <span className={`insights-badge insights-badge--${tone}`}>
+                {sign}
+                {formatAmount(Math.abs(m.delta), currency)}
+                {pctStr}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function AllTimeAveragesCard({ averages, currency }: { averages: AllTimeAverages; currency: string }) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="insights-averages-card card">
+      <div className="insights-averages-card__header">
+        <span className="insights-averages-card__title">{t('insightsAllTimeAveragesTitle')}</span>
+        <span className="insights-badge insights-badge--neutral">
+          {t('insightsAcrossMonths', { count: String(averages.monthsCount) })}
+        </span>
+      </div>
+      <div className="insights-averages-card__grid">
+        <div className="insights-metric-card__stat">
+          <span className="insights-metric-card__stat-label">{t('insightsAvgMonthlyExpenses')}</span>
+          <span className="insights-metric-card__stat-val">{formatAmount(averages.averageMonthlyExpenses, currency)}</span>
+        </div>
+        <div className="insights-metric-card__stat">
+          <span className="insights-metric-card__stat-label">{t('insightsAvgMonthlyIncome')}</span>
+          <span className="insights-metric-card__stat-val">{formatAmount(averages.averageMonthlyIncome, currency)}</span>
+        </div>
+        <div className="insights-metric-card__stat">
+          <span className="insights-metric-card__stat-label">{t('insightsAvgMonthlyNet')}</span>
+          <span
+            className={`insights-metric-card__stat-val ${
+              averages.averageMonthlyNet >= 0
+                ? 'insights-metric-card__stat-val--success'
+                : 'insights-metric-card__stat-val--alert'
+            }`}
+          >
+            {formatAmount(averages.averageMonthlyNet, currency)}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
