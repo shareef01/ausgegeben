@@ -102,7 +102,7 @@ class AppRepository @Inject constructor(
     private val activeReplaceOperations = ConcurrentHashMap.newKeySet<String>()
 
     /** Which realtime listeners are currently broken. See [markListenerFailed]. */
-    private enum class ListenerSource { CATEGORIES, EXPENSES_IN_RANGE, ALL_EXPENSES }
+    private enum class ListenerSource { CATEGORIES, EXPENSES_IN_RANGE, ALL_EXPENSES, RECORD_EXPENSES }
 
     private val failedListeners = ConcurrentHashMap.newKeySet<ListenerSource>()
 
@@ -634,8 +634,12 @@ class AppRepository @Inject constructor(
      * an offline write replayed after restart had nothing stopping it from landing
      * twice. The key survives all three because it is stored on the document.
      */
-    override suspend fun insertExpense(expense: Expense, idempotencyKey: String?): Result<String> = runSuspendCatching {
+    override suspend fun insertExpense(expense: Expense, idempotencyKey: String?): Result<String> =
+        insertExpenseScoped(expense, idempotencyKey, null)
+
+    private suspend fun insertExpenseScoped(expense: Expense, idempotencyKey: String?, expectedUid: String?): Result<String> = runSuspendCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
+        check(expectedUid == null || u == expectedUid) { "AUTH_ACCOUNT_CHANGED" }
         requireVerifiedEmail()
         if (idempotencyKey != null) {
             // Historical releases used random ids. Return an existing legacy row before
@@ -692,6 +696,16 @@ class AppRepository @Inject constructor(
         requireVerifiedEmail()
         expDoc(u, expense.id).delete().await()
     }
+
+    override suspend fun deleteRecordExpense(expense: Expense, expectedUid: String): Result<Unit> = runSuspendCatching {
+        val u = uid() ?: throw IllegalStateException("Not signed in")
+        check(u == expectedUid) { "AUTH_ACCOUNT_CHANGED" }
+        requireVerifiedEmail()
+        expDoc(u, expense.id).delete().await()
+    }
+
+    override suspend fun duplicateRecordExpense(expense: Expense, expectedUid: String): Result<Unit> =
+        insertExpenseScoped(expense.copy(id = "", dateMillis = System.currentTimeMillis()), null, expectedUid).map { }
 
     override suspend fun duplicateExpense(expense: Expense): Result<Unit> {
         return insertExpense(expense.copy(id = "", dateMillis = System.currentTimeMillis())).map { }
@@ -1665,6 +1679,55 @@ class AppRepository @Inject constructor(
         }
 
         return roundAmount(kotlin.math.max(0.0, total))
+    }
+
+    private val _recordIncomplete = MutableStateFlow(true)
+    override val recordIncomplete: StateFlow<Boolean> = _recordIncomplete.asStateFlow()
+    override val currentRecordAccountId: String? get() = authRepository.currentUserId
+    override val recordAccountId: Flow<String?> = authRepository.authState.map { it?.uid }.distinctUntilChanged()
+
+    /** Dedicated uncapped Records corpus; analytics/export keep their existing cap. */
+    override val recordExpenses: Flow<List<Expense>> = observeRecordExpenses(null, null)
+    override fun getRecordExpensesInRange(start: Long, end: Long): Flow<List<Expense>> = observeRecordExpenses(start, end)
+    private val incompleteRecordQueries = mutableSetOf<String>()
+    private val failedRecordQueries = mutableSetOf<String>()
+    @Synchronized private fun markRecordFailed(key: String, failed: Boolean) {
+        if (failed) failedRecordQueries.add(key) else failedRecordQueries.remove(key)
+        if (failedRecordQueries.isEmpty()) markListenerHealthy(ListenerSource.RECORD_EXPENSES)
+        else markListenerFailed(ListenerSource.RECORD_EXPENSES)
+    }
+    @Synchronized private fun markRecordIncomplete(key: String, incomplete: Boolean) {
+        if (incomplete) incompleteRecordQueries.add(key) else incompleteRecordQueries.remove(key)
+        _recordIncomplete.value = incompleteRecordQueries.isNotEmpty()
+    }
+    private fun observeRecordExpenses(start: Long?, end: Long?): Flow<List<Expense>> = perUserFlow(emptyList()) { u ->
+        callbackFlow {
+            val key = java.util.UUID.randomUUID().toString()
+            val active = java.util.concurrent.atomic.AtomicBoolean(true)
+            markRecordIncomplete(key, true)
+            trySend(emptyList())
+            val base = if (start == null || end == null) expCol(u) else expCol(u)
+                .whereGreaterThanOrEqualTo("dateMillis", start).whereLessThan("dateMillis", end)
+            val sub = base.orderBy("dateMillis", Query.Direction.DESCENDING)
+                .addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE) { snap, error ->
+                    if (!active.get() || authRepository.currentUserId != u) return@addSnapshotListener
+                    if (error != null) {
+                        markRecordIncomplete(key, true)
+                        markRecordFailed(key, true)
+                    }
+                    if (snap != null) {
+                        markRecordIncomplete(key, snap.metadata.isFromCache)
+                        markRecordFailed(key, false)
+                        trySend(snap.documents.mapNotNull { expenseFromDoc(it)?.takeIf { e -> !e.deleted } })
+                    }
+                }
+            awaitClose {
+                active.set(false)
+                sub.remove()
+                markRecordIncomplete(key, false)
+                markRecordFailed(key, false)
+            }
+        }
     }
 
     override val allExpenses: Flow<List<Expense>> = perUserFlow(emptyList()) { u ->

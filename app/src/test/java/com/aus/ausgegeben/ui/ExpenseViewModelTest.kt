@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -265,6 +266,7 @@ class ExpenseViewModelTest {
 
     @Test
     fun categoryFilter_composesWithPeriodTypeAndSearch_clearPreservesOtherFilters() = runTest(dispatcher) {
+        fakeCategories.categoriesFlow.value = listOf(category)
         val march = java.time.LocalDate.of(2026, 3, 15).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
         fakeExpenses.expenses.value = listOf(
             expense.copy(id = "match", dateMillis = march),
@@ -287,11 +289,12 @@ class ExpenseViewModelTest {
         assertEquals("month:2026-03", viewModel.uiState.value.toolbar.listPeriod)
         assertEquals(TransactionTypeFilter.EXPENSE, viewModel.uiState.value.toolbar.typeFilter)
         assertEquals("milk", viewModel.uiState.value.toolbar.searchQuery)
-        // Missing metadata never substitutes a category with the same display name.
+        // Category deletion removes the unavailable selection and preserves other criteria.
         viewModel.setCategoryFilter("c1")
         fakeCategories.categoriesFlow.value = emptyList()
         advanceUntilIdle()
-        assertEquals(listOf("match"), viewModel.pagedExpenses.first().map { it.id })
+        assertEquals(emptySet<String>(), viewModel.uiState.value.toolbar.composite.categoryIds)
+        assertEquals(listOf("match", "otherCategory"), viewModel.pagedExpenses.first().map { it.id })
         viewModel.setCategoryFilter("deleted")
         advanceUntilIdle()
         assertTrue(viewModel.pagedExpenses.first().isEmpty())
@@ -341,14 +344,14 @@ class ExpenseViewModelTest {
     }
 
     @Test
-    fun missingCategory_isRetainedForAllAndClearedForSpecificType() = runTest(dispatcher) {
+    fun missingCategory_isClearedWhenChangingType() = runTest(dispatcher) {
         val cold = ColdCategoryFlow()
         val vm = ExpenseViewModel(fakeCategories.withFlow(cold.values), fakeExpenses, fakePreferences)
         backgroundScope.launch { vm.uiState.collect {} }
         vm.uiState.first { !it.isLoading }
         vm.setCategoryFilter("missing")
         vm.setTypeFilter(TransactionTypeFilter.ALL)
-        vm.uiState.first { it.toolbar.categoryFilter == "missing" }
+        vm.uiState.first { it.toolbar.categoryFilter == null }
         vm.setTypeFilter(TransactionTypeFilter.EXPENSE)
         vm.uiState.first { it.toolbar.typeFilter == TransactionTypeFilter.EXPENSE }
         assertEquals(null, vm.uiState.value.toolbar.categoryFilter)
@@ -413,9 +416,77 @@ class ExpenseViewModelTest {
         advanceTimeBy(5_001)
         runCurrent()
         assertEquals(1, cold.activeIds().size) // Rows still consume category names.
-        rows.cancel()
+        rows.cancelAndJoin()
         runCurrent()
         assertEquals(0, cold.activeIds().size)
+    }
+
+    @Test
+    fun compositeSearch_discoversBeyondCap_andUpdatesReactively() = runTest(dispatcher) {
+        fakeCategories.categoriesFlow.value = listOf(category)
+        val target = expense.copy(id = "old-match", dateMillis = 1, note = "Coffee", amount = 12.50)
+        fakeExpenses.expenses.value = (1..5001).map { expense.copy(id = "row$it", note = "other", dateMillis = 10000L + it) } + target
+        backgroundScope.launch { viewModel.uiState.collect {} }
+        backgroundScope.launch { viewModel.pagedExpenses.collect {} }
+        viewModel.uiState.first { !it.isLoading }
+        viewModel.setListPeriod("all_time")
+        viewModel.setSearchQuery(" COFF ")
+        viewModel.setCategoryFilters(setOf("c1"))
+        viewModel.setMinAmount("12,50")
+        viewModel.setMaxAmount("12.50")
+        viewModel.setSort(RecordSort.AMOUNT_ASC)
+        advanceUntilIdle()
+        assertEquals(listOf("old-match"), viewModel.pagedExpenses.first().map { it.id })
+        fakeExpenses.expenses.value = fakeExpenses.expenses.value.map { if (it.id == target.id) it.copy(note = "tea") else it }
+        advanceUntilIdle()
+        assertTrue(viewModel.pagedExpenses.first().isEmpty())
+        fakeExpenses.expenses.value = fakeExpenses.expenses.value + target.copy(id = "new-match")
+        advanceUntilIdle()
+        assertEquals(listOf("new-match"), viewModel.pagedExpenses.first().map { it.id })
+        viewModel.clearFilters()
+        advanceUntilIdle()
+        assertEquals(5003, viewModel.pagedExpenses.first().size)
+        assertEquals(RecordListPeriod.ALL_TIME.key, viewModel.uiState.value.toolbar.listPeriod)
+    }
+
+    @Test
+    fun multiCategoryTypeCompatibility_andDeletionKeepOtherCriteria() = runTest(dispatcher) {
+        val income = category.copy(id = "salary", transactionType = "income")
+        fakeCategories.categoriesFlow.value = listOf(category, income)
+        backgroundScope.launch { viewModel.uiState.collect {} }
+        viewModel.uiState.first { !it.isLoading }
+        viewModel.setCategoryFilters(setOf("c1", "salary"))
+        viewModel.setSearchQuery("coffee")
+        viewModel.setTypeFilter(TransactionTypeFilter.EXPENSE)
+        advanceUntilIdle()
+        assertEquals(setOf("c1"), viewModel.uiState.value.toolbar.composite.categoryIds)
+        fakeCategories.categoriesFlow.value = listOf(income)
+        advanceUntilIdle()
+        assertEquals(emptySet<String>(), viewModel.uiState.value.toolbar.composite.categoryIds)
+        assertEquals("coffee", viewModel.uiState.value.toolbar.searchQuery)
+    }
+
+    @Test
+    fun delayedDeleteAndDuplicate_cannotWriteAfterAccountSwitch() = runTest(dispatcher) {
+        val owner = MutableStateFlow<String?>("user-a")
+        val actions = object : ExpenseActions by fakeExpenses {
+            override val currentRecordAccountId: String? get() = owner.value
+            override val recordAccountId: Flow<String?> = owner
+        }
+        val vm = ExpenseViewModel(fakeCategories, actions, fakePreferences)
+        runCurrent()
+        assertTrue(vm.softDelete(expense))
+        owner.value = "user-b"
+        advanceUntilIdle()
+        var deleted: Boolean? = null
+        var duplicated: Boolean? = null
+        vm.commitSoftDelete(expense) { result, _ -> deleted = result }
+        vm.duplicateExpense(expense) { result, _ -> duplicated = result }
+        advanceUntilIdle()
+        assertEquals(false, deleted)
+        assertEquals(false, duplicated)
+        assertEquals(null, fakeExpenses.lastDeletedId)
+        assertFalse(vm.softDelete(expense))
     }
 
     private fun CategoryActions.withFlow(categories: Flow<List<Category>>): CategoryActions =

@@ -26,8 +26,8 @@ export async function createVerifiedUser(email: string, password: string): Promi
     `${AUTH_EMULATOR}/identitytoolkit.googleapis.com/v1/accounts:update?key=${API_KEY}`,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idToken: signUpJson.idToken, emailVerified: true }),
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer owner' },
+      body: JSON.stringify({ localId: signUpJson.localId, emailVerified: true }),
     },
   );
   if (!updateRes.ok) {

@@ -10,7 +10,7 @@ import { useRecordViewModel } from '@/viewmodels/useRecordViewModel';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useTranslation, type Locale } from '@/i18n';
 import { formatDateLabel, dayKey } from '@/utils/periodUtils';
-import type { Expense, Category, TransactionTypeFilter } from '@/models/types';
+import type { Expense, Category, TransactionTypeFilter, TransactionSortOrder } from '@/models/types';
 import { formatAmount, colorIntToHex } from '@/utils/currency';
 import { useHaptics } from '@/hooks/useHaptics';
 
@@ -23,7 +23,22 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
   const { t } = useTranslation();
   const currency = usePreferencesStore((s) => s.currency);
   const locale = usePreferencesStore((s) => s.locale);
-  const { uiState, monthSpent, viewingCurrentMonth, setSearchQuery, setTypeFilter, setCategoryIdFilter, setListPeriod, requestDelete, duplicateExpense, reload } = useRecordViewModel();
+  const {
+    uiState,
+    monthSpent,
+    viewingCurrentMonth,
+    setSearchQuery,
+    setTypeFilter,
+    setCategoryIdsFilter,
+    toggleCategoryIdFilter,
+    minAmountInput, maxAmountInput, setMinAmountInput, setMaxAmountInput, amountError,
+    setSortOrder,
+    resetFilters,
+    setListPeriod,
+    requestDelete,
+    duplicateExpense,
+    reload,
+  } = useRecordViewModel();
   const haptics = useHaptics();
   const periodOptions = useMemo(() => recordPeriodOptions(locale, t), [locale, t]);
   const selectedPeriod = useMemo(
@@ -32,15 +47,12 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
   );
   const periodLabel = selectedPeriod.label;
   const [searchFocused, setSearchFocused] = useState(false);
-  const hasQuery = uiState.searchQuery.length > 0;
-  const hasCategoryFilter = Boolean(uiState.categoryIdFilter);
-  const filtersActive = hasQuery || uiState.typeFilter !== 'all' || hasCategoryFilter;
+  const handleMinAmountChange = setMinAmountInput;
+  const handleMaxAmountChange = setMaxAmountInput;
+  const clearFilters = resetFilters;
 
-  const clearFilters = useCallback(() => {
-    setSearchQuery('');
-    setTypeFilter('all');
-    setCategoryIdFilter(null);
-  }, [setSearchQuery, setTypeFilter, setCategoryIdFilter]);
+  const hasQuery = uiState.searchQuery.length > 0;
+  const filtersActive = uiState.activeFilterCount > 0;
 
   const availableCategories = useMemo(() => {
     return uiState.categories.filter((cat) => {
@@ -53,13 +65,14 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
   const grouped = useMemo(() => {
     const map = new Map<string, Expense[]>();
     for (const e of uiState.expenses) {
-      const key = dayKey(e.dateMillis);
+      const key = uiState.sortOrder.startsWith('amount') ? e.id : dayKey(e.dateMillis);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(e);
     }
     return [...map.entries()].map(([key, items]) => {
       const [dayIncome, dayExpense] = uiState.dayTotalsByLabel[key] ?? [0, 0];
       return {
+        key,
         label: formatDateLabel(items[0].dateMillis, locale),
         items,
         dayIncome,
@@ -67,7 +80,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
       };
     });
     // Period day totals stay unfiltered (Android parity); list rows stay search/type-filtered.
-  }, [uiState.expenses, uiState.dayTotalsByLabel, locale]);
+  }, [uiState.expenses, uiState.dayTotalsByLabel, uiState.sortOrder, locale]);
 
   const catMap = useMemo(() => new Map(uiState.categories.map((c) => [c.id, c])), [uiState.categories]);
 
@@ -109,6 +122,27 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
           </div>
 
           <div className="card record-filters">
+            <div className="record-filters-header">
+              <div className="record-filters-header__title">
+                <span>{t('filterTitle')}</span>
+                {uiState.activeFilterCount > 0 && (
+                  <span className="record-filter-badge" aria-label={t('filterActiveCount', { count: uiState.activeFilterCount })}>
+                    {uiState.activeFilterCount}
+                  </span>
+                )}
+              </div>
+              {uiState.activeFilterCount > 0 && (
+                <button
+                  type="button"
+                  className="record-clear-btn"
+                  onClick={clearFilters}
+                  aria-label={t('recordClearFilters')}
+                >
+                  {t('recordClearFilters')}
+                </button>
+              )}
+            </div>
+
             <PremiumPeriodSelector
               options={periodOptions}
               selected={selectedPeriod}
@@ -166,7 +200,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
               onChange={setTypeFilter}
             />
 
-            {(availableCategories.length > 0 || hasCategoryFilter) && (
+            {(availableCategories.length > 0 || uiState.categoryIdsFilter.length > 0) && (
               <>
                 <hr className="record-filters__divider" />
                 <div
@@ -176,29 +210,35 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
                 >
                   <button
                     type="button"
-                    className={`record-category-chip ${uiState.categoryIdFilter === null ? 'record-category-chip--active' : ''}`}
+                    className={`record-category-chip ${uiState.categoryIdsFilter.length === 0 ? 'record-category-chip--active' : ''}`}
                     onClick={() => {
                       haptics.light();
-                      setCategoryIdFilter(null);
+                      setCategoryIdsFilter([]);
                     }}
-                    aria-pressed={uiState.categoryIdFilter === null}
+                    aria-pressed={uiState.categoryIdsFilter.length === 0}
                   >
                     <span>{t('filterAllCategories')}</span>
                   </button>
-                  {hasCategoryFilter && !availableCategories.some((cat) => cat.id === uiState.categoryIdFilter) && (
-                    <button
-                      type="button"
-                      className="record-category-chip record-category-chip--active"
-                      aria-pressed="true"
-                      onClick={() => setCategoryIdFilter(null)}
-                    >
-                      <span className="record-category-chip__name">
-                        {uiState.categories.find((cat) => cat.id === uiState.categoryIdFilter)?.name ?? t('recordUnknownCategory')}
-                      </span>
-                    </button>
-                  )}
+                  {uiState.categoryIdsFilter.map((id) => {
+                    if (availableCategories.some((cat) => cat.id === id)) return null;
+                    const catName = uiState.categories.find((cat) => cat.id === id)?.name ?? t('recordUnknownCategory');
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        className="record-category-chip record-category-chip--active"
+                        aria-pressed="true"
+                        onClick={() => {
+                          haptics.light();
+                          toggleCategoryIdFilter(id);
+                        }}
+                      >
+                        <span className="record-category-chip__name">{catName}</span>
+                      </button>
+                    );
+                  })}
                   {availableCategories.map((cat) => {
-                    const isSelected = uiState.categoryIdFilter === cat.id;
+                    const isSelected = uiState.categoryIdsFilter.includes(cat.id);
                     const hex = colorIntToHex(cat.colorInt);
                     return (
                       <button
@@ -207,7 +247,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
                         className={`record-category-chip ${isSelected ? 'record-category-chip--active' : ''}`}
                         onClick={() => {
                           haptics.light();
-                          setCategoryIdFilter(isSelected ? null : cat.id);
+                          toggleCategoryIdFilter(cat.id);
                         }}
                         aria-pressed={isSelected}
                       >
@@ -223,6 +263,60 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
                 </div>
               </>
             )}
+
+            <hr className="record-filters__divider" />
+
+            <div className="record-filter-section">
+              <span className="record-filter-label">{t('filterAmountRange')}</span>
+              <div className="record-amount-range">
+                <div className="record-amount-field">
+                  <label htmlFor="record-min-amount" className="sr-only">{t('filterMinAmount')}</label>
+                  <input
+                    id="record-min-amount"
+                    type="text"
+                    inputMode="decimal"
+                    aria-invalid={amountError}
+                    placeholder={t('filterMinAmount')}
+                    className="record-amount-input"
+                    value={minAmountInput}
+                    onChange={(e) => handleMinAmountChange(e.target.value)}
+                  />
+                </div>
+                <span className="record-amount-separator" aria-hidden="true">–</span>
+                <div className="record-amount-field">
+                  <label htmlFor="record-max-amount" className="sr-only">{t('filterMaxAmount')}</label>
+                  <input
+                    id="record-max-amount"
+                    type="text"
+                    inputMode="decimal"
+                    aria-invalid={amountError}
+                    placeholder={t('filterMaxAmount')}
+                    className="record-amount-input"
+                    value={maxAmountInput}
+                    onChange={(e) => handleMaxAmountChange(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <hr className="record-filters__divider" />
+
+            <div className="record-filter-section">
+              {amountError && <p role="alert">{t('filterAmountError')}</p>}
+              <label htmlFor="record-sort-select" className="record-filter-label">{t('filterSortBy')}</label>
+              <select
+                id="record-sort-select"
+                className="record-sort-select"
+                value={uiState.sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as TransactionSortOrder)}
+                aria-label={t('filterSortBy')}
+              >
+                <option value="date_desc">{t('sortNewestFirst')}</option>
+                <option value="date_asc">{t('sortOldestFirst')}</option>
+                <option value="amount_desc">{t('sortHighestAmount')}</option>
+                <option value="amount_asc">{t('sortLowestAmount')}</option>
+              </select>
+            </div>
           </div>
         </aside>
 
@@ -255,13 +349,13 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
               ) : null}
               {uiState.dataTruncated ? (
                 <p className="data-truncated-notice" role="status">
-                  {t('dataTruncatedNotice')}
+                  {t('recordCacheIncomplete')}
                 </p>
               ) : null}
               {uiState.expenses.length === 0 ? (
             filtersActive ? (
               <EmptyState
-                title={t('recordNoMatchesTitle')}
+                title={uiState.dataTruncated ? t('recordCacheIncomplete') : t('recordNoMatchesTitle')}
                 subtitle={t('recordNoMatchesSubtitle')}
                 action={
                   <button type="button" className="btn btn-secondary" onClick={clearFilters}>
@@ -271,7 +365,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
               />
             ) : (
               <EmptyState
-                title={t('recordEmptyTitle')}
+                title={uiState.dataTruncated ? t('recordCacheIncomplete') : t('recordEmptyTitle')}
                 subtitle={t('recordEmptySubtitle')}
                 hint={t('recordEmptyHint')}
                 action={
@@ -285,8 +379,8 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
             )
           ) : (
             <div className="transaction-list-bare txn-sections">
-              {grouped.map(({ label, items, dayIncome, dayExpense }) => (
-                <section key={label} className="transaction-list-bare__section">
+              {grouped.map(({ key, label, items, dayIncome, dayExpense }) => (
+                <section key={key} className="transaction-list-bare__section">
                   <div className="txn-day-header transaction-list-bare__day">
                     <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-on-surface-variant">{label}</span>
                     {(dayIncome > 0 || dayExpense > 0) ? (

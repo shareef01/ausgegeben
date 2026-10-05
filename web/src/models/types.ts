@@ -39,6 +39,8 @@ export interface CashFlowPoint {
   expense: number;
 }
 
+export type TransactionSortOrder = 'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc';
+
 export interface RecordUiState {
   /** Search/type-filtered rows for the transaction list. */
   expenses: Expense[];
@@ -48,6 +50,11 @@ export interface RecordUiState {
   searchQuery: string;
   typeFilter: TransactionTypeFilter;
   categoryIdFilter: string | null;
+  categoryIdsFilter: string[];
+  minAmountFilter: number | null;
+  maxAmountFilter: number | null;
+  sortOrder: TransactionSortOrder;
+  activeFilterCount: number;
   listPeriod: RecordListPeriod;
   /** Calendar-month top expense category name (Android Record chip parity). */
   topExpenseCategoryName: string | null;
@@ -57,7 +64,7 @@ export interface RecordUiState {
   dayTotalsByLabel: Record<string, [number, number]>;
   loading: boolean;
   loadError?: boolean;
-  /** True when all-time list is capped at the latest 5,000 rows. */
+  /** True while the Records snapshot is from cache and coverage is unconfirmed. */
   dataTruncated?: boolean;
 }
 
