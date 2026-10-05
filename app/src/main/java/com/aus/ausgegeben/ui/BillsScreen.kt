@@ -39,6 +39,7 @@ import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.ui.components.*
 import com.aus.ausgegeben.ui.theme.*
 import com.aus.ausgegeben.util.*
+import kotlin.math.abs
 
 private object BillsAuroraTokens {
     @Composable
@@ -224,6 +225,90 @@ fun BillsScreen(
                                         )
                                     }
                                 }
+                            }
+                        }
+                    }
+
+                    if (uiState.pace != null || uiState.comparison != null) {
+                        item(key = "smart-metrics") {
+                            val revealAlpha = remember(entranceKey) { Animatable(0f) }
+                            LaunchedEffect(entranceKey) {
+                                revealAlpha.animateTo(1f, tween(420, delayMillis = 60))
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .graphicsLayer { alpha = revealAlpha.value }
+                                    .fillMaxWidth()
+                                    .padding(horizontal = AppSpacing.md, vertical = 6.dp)
+                            ) {
+                                if (isWide && uiState.pace != null && uiState.comparison != null) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                    ) {
+                                        Box(modifier = Modifier.weight(1f)) {
+                                            SpendingPaceCard(
+                                                pace = uiState.pace!!,
+                                                currencyCode = currencyCode
+                                            )
+                                        }
+                                        Box(modifier = Modifier.weight(1f)) {
+                                            PeriodComparisonCard(
+                                                comparison = uiState.comparison!!,
+                                                currencyCode = currencyCode
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        uiState.pace?.let {
+                                            SpendingPaceCard(pace = it, currencyCode = currencyCode)
+                                        }
+                                        uiState.comparison?.let {
+                                            PeriodComparisonCard(comparison = it, currencyCode = currencyCode)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (uiState.allTimeAverages != null) {
+                        item(key = "all-time-averages") {
+                            val revealAlpha = remember(entranceKey) { Animatable(0f) }
+                            LaunchedEffect(entranceKey) {
+                                revealAlpha.animateTo(1f, tween(420, delayMillis = 60))
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .graphicsLayer { alpha = revealAlpha.value }
+                                    .fillMaxWidth()
+                                    .padding(horizontal = AppSpacing.md, vertical = 6.dp)
+                            ) {
+                                AllTimeAveragesCard(
+                                    averages = uiState.allTimeAverages!!,
+                                    currencyCode = currencyCode
+                                )
+                            }
+                        }
+                    }
+
+                    if (uiState.categoryMovers.isNotEmpty()) {
+                        item(key = "category-movers") {
+                            val revealAlpha = remember(entranceKey) { Animatable(0f) }
+                            LaunchedEffect(entranceKey) {
+                                revealAlpha.animateTo(1f, tween(420, delayMillis = 80))
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .graphicsLayer { alpha = revealAlpha.value }
+                                    .fillMaxWidth()
+                                    .padding(horizontal = AppSpacing.md, vertical = 6.dp)
+                            ) {
+                                CategoryMoversCard(
+                                    movers = uiState.categoryMovers,
+                                    currencyCode = currencyCode
+                                )
                             }
                         }
                     }
@@ -629,6 +714,412 @@ private fun CategoryMetricRow(
                 fontFeatureSettings = "tnum",
                 color = MaterialTheme.colorScheme.onSurface,
             ),
+        )
+    }
+}
+
+@Composable
+private fun SpendingPaceCard(
+    pace: SpendingPace,
+    currencyCode: String,
+    modifier: Modifier = Modifier,
+) {
+    val pct = (pace.daysElapsed.toFloat() / pace.daysInMonth.toFloat()).coerceIn(0f, 1f)
+    val overBudget = pace.projectedOverBudget
+    val isCompleted = pace.daysElapsed >= pace.daysInMonth
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .appGlassCard()
+            .padding(16.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.insights_pace_title).uppercase(),
+                    style = BillsAuroraTokens.labelStyle(),
+                )
+                if (isCompleted) {
+                    InsightsBadge(
+                        text = stringResource(R.string.insights_month_completed),
+                        backgroundColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else if (overBudget != null && overBudget > 0) {
+                    InsightsBadge(
+                        text = stringResource(
+                            R.string.insights_projected_over_budget,
+                            CurrencyUtils.formatAmount(overBudget, currencyCode)
+                        ),
+                        backgroundColor = financeExpenseColor().copy(alpha = 0.15f),
+                        contentColor = financeExpenseColor(),
+                    )
+                } else if (pace.budget != null) {
+                    InsightsBadge(
+                        text = stringResource(R.string.insights_on_track_budget),
+                        backgroundColor = financeIncomeColor().copy(alpha = 0.15f),
+                        contentColor = financeIncomeColor(),
+                    )
+                } else {
+                    InsightsBadge(
+                        text = stringResource(
+                            R.string.insights_days_elapsed,
+                            pace.daysElapsed,
+                            pace.daysInMonth
+                        ),
+                        backgroundColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.insights_daily_average),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = BillsAuroraTokens.slate(),
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = CurrencyUtils.formatAmount(pace.dailyAverage, currencyCode),
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontFeatureSettings = "tnum"
+                        ),
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.insights_projected_total),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = BillsAuroraTokens.slate(),
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = CurrencyUtils.formatAmount(pace.projectedTotal, currencyCode),
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontFeatureSettings = "tnum",
+                            color = MaterialTheme.colorScheme.primary
+                        ),
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(pct)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(MaterialTheme.colorScheme.primary)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PeriodComparisonCard(
+    comparison: PeriodComparison,
+    currencyCode: String,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .appGlassCard()
+            .padding(16.dp)
+    ) {
+        if (!comparison.hasPriorData) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.insights_comparison_title).uppercase(),
+                        style = BillsAuroraTokens.labelStyle(),
+                    )
+                    InsightsBadge(
+                        text = stringResource(R.string.insights_no_prior_period),
+                        backgroundColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.bills_empty_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = BillsAuroraTokens.slate(),
+                )
+            }
+        } else {
+            val expDelta = comparison.expenseDelta
+            val isExpLess = expDelta < 0
+            val isExpMore = expDelta > 0
+            val expColor = if (isExpLess) financeIncomeColor() else if (isExpMore) financeExpenseColor() else MaterialTheme.colorScheme.onSurface
+            val expSign = if (isExpMore) "+" else if (isExpLess) "-" else ""
+            val expPctStr = if (comparison.expensePercentageDelta != null) {
+                " (${if (comparison.expensePercentageDelta > 0) "+" else ""}${comparison.expensePercentageDelta}%)"
+            } else ""
+
+            val netDelta = comparison.netDelta
+            val netColor = if (netDelta >= 0) financeIncomeColor() else financeExpenseColor()
+
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.insights_comparison_title).uppercase(),
+                        style = BillsAuroraTokens.labelStyle(),
+                    )
+                    InsightsBadge(
+                        text = (if (isExpLess) stringResource(R.string.insights_favorable_less)
+                        else if (isExpMore) stringResource(R.string.insights_unfavorable_more)
+                        else stringResource(R.string.chart_total_label)) + expPctStr,
+                        backgroundColor = expColor.copy(alpha = 0.15f),
+                        contentColor = expColor,
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.summary_spent),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = BillsAuroraTokens.slate(),
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = "$expSign${CurrencyUtils.formatAmount(abs(expDelta), currencyCode)}",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontFeatureSettings = "tnum",
+                                color = expColor
+                            ),
+                        )
+                    }
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.chart_net_label),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = BillsAuroraTokens.slate(),
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = "${if (netDelta >= 0) "+" else "-"}${CurrencyUtils.formatAmount(abs(netDelta), currencyCode)}",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontFeatureSettings = "tnum",
+                                color = netColor
+                            ),
+                        )
+                    }
+                }
+
+                Text(
+                    text = if (netDelta >= 0) {
+                        stringResource(R.string.insights_net_improved, CurrencyUtils.formatAmount(abs(netDelta), currencyCode))
+                    } else {
+                        stringResource(R.string.insights_net_declined, CurrencyUtils.formatAmount(abs(netDelta), currencyCode))
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = BillsAuroraTokens.slate(),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CategoryMoversCard(
+    movers: List<CategoryMover>,
+    currencyCode: String,
+    modifier: Modifier = Modifier,
+) {
+    if (movers.isEmpty()) return
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .appGlassCard()
+            .padding(16.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column {
+                Text(
+                    text = stringResource(R.string.insights_movers_title).uppercase(),
+                    style = BillsAuroraTokens.labelStyle(),
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = stringResource(R.string.insights_movers_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = BillsAuroraTokens.slate(),
+                )
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f))
+            ) {
+                movers.forEachIndexed { index, mover ->
+                    if (index > 0) {
+                        HorizontalDivider(
+                            thickness = 0.5.dp,
+                            color = appDividerColor(),
+                        )
+                    }
+                    val isDecrease = mover.delta < 0
+                    val toneColor = if (isDecrease) financeIncomeColor() else financeExpenseColor()
+                    val sign = if (mover.delta > 0) "+" else "-"
+                    val pctStr = if (mover.percentageDelta != null) {
+                        " (${if (mover.percentageDelta > 0) "+" else ""}${mover.percentageDelta}%)"
+                    } else ""
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(Color(mover.colorInt))
+                        )
+                        Text(
+                            text = mover.categoryName,
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            text = "${CurrencyUtils.formatAmount(mover.priorAmount, currencyCode)} → ${CurrencyUtils.formatAmount(mover.currentAmount, currencyCode)}",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFeatureSettings = "tnum"
+                            ),
+                            color = BillsAuroraTokens.slate(),
+                        )
+                        InsightsBadge(
+                            text = "$sign${CurrencyUtils.formatAmount(abs(mover.delta), currencyCode)}$pctStr",
+                            backgroundColor = toneColor.copy(alpha = 0.15f),
+                            contentColor = toneColor,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AllTimeAveragesCard(
+    averages: AllTimeAverages,
+    currencyCode: String,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .appGlassCard()
+            .padding(16.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.insights_all_time_averages_title).uppercase(),
+                    style = BillsAuroraTokens.labelStyle(),
+                )
+                InsightsBadge(
+                    text = stringResource(R.string.insights_across_months, averages.monthsCount),
+                    backgroundColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                StatCard(
+                    label = stringResource(R.string.insights_avg_monthly_expenses),
+                    value = CurrencyUtils.formatAmount(averages.averageMonthlyExpenses, currencyCode),
+                    color = financeExpenseColor(),
+                    modifier = Modifier.weight(1f)
+                )
+                StatCard(
+                    label = stringResource(R.string.insights_avg_monthly_net),
+                    value = CurrencyUtils.formatAmount(averages.averageMonthlyNet, currencyCode),
+                    color = if (averages.averageMonthlyNet >= 0) financeIncomeColor() else financeExpenseColor(),
+                    modifier = Modifier.weight(1f)
+                )
+                StatCard(
+                    label = stringResource(R.string.insights_avg_monthly_income),
+                    value = CurrencyUtils.formatAmount(averages.averageMonthlyIncome, currencyCode),
+                    color = financeIncomeColor(),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InsightsBadge(
+    text: String,
+    backgroundColor: Color,
+    contentColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(backgroundColor)
+            .padding(horizontal = 8.dp, vertical = 3.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            style = TextStyle(
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                fontFeatureSettings = "tnum",
+                color = contentColor
+            ),
+            maxLines = 1
         )
     }
 }

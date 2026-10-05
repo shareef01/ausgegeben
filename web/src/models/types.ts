@@ -61,6 +61,44 @@ export interface RecordUiState {
   dataTruncated?: boolean;
 }
 
+export interface PeriodComparison {
+  hasPriorData: boolean;
+  priorExpenses: number;
+  priorIncome: number;
+  expenseDelta: number; // current - prior
+  expensePercentageDelta: number | null; // null if prior === 0
+  incomeDelta: number; // current - prior
+  incomePercentageDelta: number | null;
+  netDelta: number; // (currentNet) - (priorNet)
+}
+
+export interface SpendingPace {
+  daysElapsed: number;
+  daysInMonth: number;
+  dailyAverage: number;
+  projectedTotal: number;
+  budget: number | null;
+  projectedOverBudget: number | null;
+}
+
+export interface CategoryMover {
+  categoryId: string;
+  categoryName: string;
+  iconName: string;
+  colorInt: number;
+  currentAmount: number;
+  priorAmount: number;
+  delta: number;
+  percentageDelta: number | null;
+}
+
+export interface AllTimeAverages {
+  monthsCount: number;
+  averageMonthlyExpenses: number;
+  averageMonthlyIncome: number;
+  averageMonthlyNet: number;
+}
+
 export interface InsightsUiState {
   periodKey: string;
   periodLabel: string;
@@ -71,6 +109,10 @@ export interface InsightsUiState {
   incomeByCategory: Map<string, number>;
   transfersByCategory: Map<string, number>;
   cashFlowTrend: CashFlowPoint[];
+  comparison?: PeriodComparison | null;
+  pace?: SpendingPace | null;
+  categoryMovers?: CategoryMover[];
+  allTimeAverages?: AllTimeAverages | null;
   loading: boolean;
   loadError?: boolean;
   /** True when all-time analytics used a capped expense fetch. */

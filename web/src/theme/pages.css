@@ -1277,6 +1277,239 @@
   color: color-mix(in srgb, var(--color-on-background) 82%, transparent);
 }
 
+/* ── Smart Insights Metrics & Movers ── */
+.insights-metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 640px) {
+  .insights-metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+}
+
+.insights-metric-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px 16px !important;
+  border-radius: 1.25rem !important;
+  background: var(--glass-bg-elevated);
+  border: 1px solid var(--surface-border);
+}
+
+.insights-metric-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.insights-metric-card__title {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-on-surface-variant);
+}
+
+.insights-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.insights-badge--success {
+  background: color-mix(in srgb, var(--color-income, #2e7d32) 16%, transparent);
+  color: var(--color-income, #2e7d32);
+}
+
+.insights-badge--alert {
+  background: color-mix(in srgb, var(--color-expense, #c62828) 16%, transparent);
+  color: var(--color-expense, #c62828);
+}
+
+.insights-badge--neutral {
+  background: color-mix(in srgb, var(--color-on-surface) 10%, transparent);
+  color: var(--color-on-surface-variant);
+}
+
+.insights-metric-card__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.insights-metric-card__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.insights-metric-card__stat-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-on-surface-variant);
+}
+
+.insights-metric-card__stat-val {
+  font-size: 1.125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-on-background);
+}
+
+.insights-metric-card__stat-val--success {
+  color: var(--color-income, #2e7d32);
+}
+
+.insights-metric-card__stat-val--alert {
+  color: var(--color-expense, #c62828);
+}
+
+.insights-metric-card__stat-val--accent {
+  color: var(--color-primary);
+}
+
+.insights-metric-card__progress {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-on-surface) 10%, transparent);
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+.insights-metric-card__bar {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-primary);
+  transition: width 0.3s ease;
+}
+
+.insights-metric-card__footnote {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-on-surface-variant);
+}
+
+.insights-metric-card__hint {
+  font-size: 0.8125rem;
+  color: var(--color-on-surface-variant);
+  margin: 0;
+}
+
+.insights-movers-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px 16px !important;
+  border-radius: 1.25rem !important;
+  background: var(--glass-bg-elevated);
+  border: 1px solid var(--surface-border);
+}
+
+.insights-movers-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.insights-movers-card__title {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-on-surface-variant);
+}
+
+.insights-movers-card__subtitle {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-on-surface-variant);
+  margin-top: 2px;
+}
+
+.insights-movers-card__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--color-on-surface) 3.5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-outline) 35%, transparent);
+  overflow: hidden;
+}
+
+.insights-movers-card__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+}
+
+.insights-movers-card__row + .insights-movers-card__row {
+  border-top: 1px solid var(--hairline-divider, rgba(255, 255, 255, 0.06));
+}
+
+.insights-movers-card__name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.insights-movers-card__shift {
+  font-size: 0.75rem;
+  color: var(--color-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.insights-averages-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px 16px !important;
+  border-radius: 1.25rem !important;
+  background: var(--glass-bg-elevated);
+  border: 1px solid var(--surface-border);
+}
+
+.insights-averages-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.insights-averages-card__title {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-on-surface-variant);
+}
+
+.insights-averages-card__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
 @media (min-width: 768px) {
   .content-col {
     padding-bottom: 88px;

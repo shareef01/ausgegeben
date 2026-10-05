@@ -2,8 +2,21 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Category, InsightsUiState, Expense } from '@/models/types';
 import { expenseRepository } from '@/repositories/expenseRepository';
 import { usePreferencesStore } from '@/services/preferencesStore';
-import { computeCashFlowTrend, groupByCategory } from '@/utils/analytics';
-import { analyticsDateRangeMillis, analyticsPeriodOptions, normalizeAnalyticsPeriodKey } from '@/utils/periodUtils';
+import {
+  computeAllTimeAverages,
+  computeCashFlowTrend,
+  computeCategoryMovers,
+  computePeriodComparison,
+  computeSpendingPace,
+  computeTotals,
+  groupByCategory,
+} from '@/utils/analytics';
+import {
+  analyticsDateRangeMillis,
+  analyticsPeriodOptions,
+  normalizeAnalyticsPeriodKey,
+  previousPeriodRange,
+} from '@/utils/periodUtils';
 
 const DATA_CHANGED_EVENT = 'ausgegeben:data-changed';
 
@@ -14,8 +27,10 @@ export function useInsightsViewModel() {
   const periodKey = useMemo(() => normalizeAnalyticsPeriodKey(storedPeriodKey), [storedPeriodKey]);
   const setAnalyticsPeriod = usePreferencesStore((s) => s.setAnalyticsPeriod);
   const locale = usePreferencesStore((s) => s.locale);
+  const monthlyBudget = usePreferencesStore((s) => s.monthlyBudget);
   const [categories, setCategories] = useState<Category[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [priorExpenses, setPriorExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [dataTruncated, setDataTruncated] = useState(false);
@@ -28,6 +43,7 @@ export function useInsightsViewModel() {
   );
 
   const range = useMemo(() => analyticsDateRangeMillis(periodKey), [periodKey]);
+  const priorPeriod = useMemo(() => previousPeriodRange(periodKey), [periodKey]);
 
   // Live categories + period-scoped expenses (Spark-safe: no full-collection listener)
   useEffect(() => {
@@ -60,6 +76,7 @@ export function useInsightsViewModel() {
     });
 
     let unsubExps = () => {};
+    let unsubPrior = () => {};
 
     if (range) {
       unsubExps = expenseRepository.onExpensesInRange(range[0], range[1], (items, error) => {
@@ -74,7 +91,24 @@ export function useInsightsViewModel() {
         expsReady = true;
         tryReady();
       });
+
+      if (priorPeriod) {
+        unsubPrior = expenseRepository.onExpensesInRange(
+          priorPeriod.rangeMillis[0],
+          priorPeriod.rangeMillis[1],
+          (items, error) => {
+            if (error) {
+              setPriorExpenses([]);
+            } else {
+              setPriorExpenses(items);
+            }
+          },
+        );
+      } else {
+        setPriorExpenses([]);
+      }
     } else {
+      setPriorExpenses([]);
       const loadAll = () => {
         void expenseRepository.getAllExpensesCapped(5_000).then(({ items, truncated }) => {
           expsError = false;
@@ -101,8 +135,9 @@ export function useInsightsViewModel() {
     return () => {
       unsubCats();
       unsubExps();
+      unsubPrior();
     };
-  }, [range, periodKey]);
+  }, [range, priorPeriod, periodKey]);
 
   const reload = useCallback(async (showSkeleton = false) => {
     if (showSkeleton || !initialLoadDone.current) setLoading(true);
@@ -110,12 +145,23 @@ export function useInsightsViewModel() {
     try {
       const cats = await expenseRepository.getAllCategories();
       if (range) {
-        const items = await expenseRepository.getExpensesInRange(range[0], range[1]);
-        setExpenses(items);
+        if (priorPeriod) {
+          const [items, priorItems] = await Promise.all([
+            expenseRepository.getExpensesInRange(range[0], range[1]),
+            expenseRepository.getExpensesInRange(priorPeriod.rangeMillis[0], priorPeriod.rangeMillis[1]),
+          ]);
+          setExpenses(items);
+          setPriorExpenses(priorItems);
+        } else {
+          const items = await expenseRepository.getExpensesInRange(range[0], range[1]);
+          setExpenses(items);
+          setPriorExpenses([]);
+        }
         setDataTruncated(false);
       } else {
         const { items, truncated } = await expenseRepository.getAllExpensesCapped(5_000);
         setExpenses(items);
+        setPriorExpenses([]);
         setDataTruncated(truncated);
       }
       setCategories(cats);
@@ -126,37 +172,67 @@ export function useInsightsViewModel() {
       setLoading(false);
       initialLoadDone.current = true;
     }
-  }, [range]);
+  }, [range, priorPeriod]);
 
   const uiState: InsightsUiState = useMemo(() => {
     const expensesByCategory = groupByCategory(expenses, 'expense');
     const incomeByCategory = groupByCategory(expenses, 'income');
     const transfersByCategory = groupByCategory(expenses, 'transfer');
 
-    let totalExpenses = 0;
-    let totalIncome = 0;
-    let totalTransfers = 0;
-    for (const e of expenses) {
-      if (e.transactionType === 'expense') totalExpenses += e.amount;
-      else if (e.transactionType === 'income') totalIncome += e.amount;
-      else totalTransfers += e.amount;
-    }
+    const currentTotals = computeTotals(expenses);
+    const priorTotals = computeTotals(priorExpenses);
+
+    const comparison = range
+      ? computePeriodComparison(
+          currentTotals.totalExpenses,
+          currentTotals.totalIncome,
+          priorTotals.totalExpenses,
+          priorTotals.totalIncome,
+          priorExpenses.length > 0,
+        )
+      : null;
+
+    const pace = range
+      ? computeSpendingPace(currentTotals.totalExpenses, range, Date.now(), monthlyBudget)
+      : null;
+
+    const priorExpensesByCategory = groupByCategory(priorExpenses, 'expense');
+    const categoryMovers = range
+      ? computeCategoryMovers(expensesByCategory, priorExpensesByCategory, categories, 3)
+      : [];
+
+    const allTimeAverages = !range ? computeAllTimeAverages(expenses) : null;
 
     return {
       periodKey,
       periodLabel: selectedOption.label,
-      totalExpenses: Math.round(totalExpenses * 100) / 100,
-      totalIncome: Math.round(totalIncome * 100) / 100,
-      totalTransfers: Math.round(totalTransfers * 100) / 100,
+      totalExpenses: currentTotals.totalExpenses,
+      totalIncome: currentTotals.totalIncome,
+      totalTransfers: currentTotals.totalTransfers,
       expensesByCategory,
       incomeByCategory,
       transfersByCategory,
       cashFlowTrend: computeCashFlowTrend(expenses, periodKey),
+      comparison,
+      pace,
+      categoryMovers,
+      allTimeAverages,
       loading,
       loadError,
       dataTruncated,
     };
-  }, [expenses, periodKey, selectedOption.label, loading, loadError, dataTruncated]);
+  }, [
+    expenses,
+    priorExpenses,
+    categories,
+    range,
+    monthlyBudget,
+    periodKey,
+    selectedOption.label,
+    loading,
+    loadError,
+    dataTruncated,
+  ]);
 
   return { uiState, categories, periodOptions, setAnalyticsPeriod, reload };
 }

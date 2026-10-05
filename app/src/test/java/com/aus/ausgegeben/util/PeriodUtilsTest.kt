@@ -77,4 +77,26 @@ class PeriodUtilsTest {
         
         assertNull(AnalyticsPeriod.ALL_TIME.dateRangeMillis(now))
     }
+
+    @Test
+    fun previousPeriodRange_returnsPrecedingMonthRange() {
+        val prev = previousPeriodRange("month:2026-06")
+        assertNotNull(prev)
+        assertEquals("month:2026-05", prev!!.first)
+        val cal = Calendar.getInstance().apply { timeInMillis = prev.second.first }
+        assertEquals(2026, cal.get(Calendar.YEAR))
+        assertEquals(Calendar.MAY, cal.get(Calendar.MONTH))
+
+        // Year boundary
+        val prevJan = previousPeriodRange("month:2026-01")
+        assertNotNull(prevJan)
+        assertEquals("month:2025-12", prevJan!!.first)
+        val calJan = Calendar.getInstance().apply { timeInMillis = prevJan.second.first }
+        assertEquals(2025, calJan.get(Calendar.YEAR))
+        assertEquals(Calendar.DECEMBER, calJan.get(Calendar.MONTH))
+
+        // All time and invalid
+        assertNull(previousPeriodRange("all_time"))
+        assertNull(previousPeriodRange("invalid"))
+    }
 }

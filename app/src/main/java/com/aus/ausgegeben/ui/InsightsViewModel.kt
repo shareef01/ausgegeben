@@ -7,12 +7,21 @@ import com.aus.ausgegeben.data.ExpenseActions
 import com.aus.ausgegeben.data.TransactionPreferences
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
+import com.aus.ausgegeben.util.AllTimeAverages
 import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.util.CashFlowPoint
+import com.aus.ausgegeben.util.CategoryMover
 import com.aus.ausgegeben.util.CurrencyUtils
+import com.aus.ausgegeben.util.PeriodComparison
+import com.aus.ausgegeben.util.SpendingPace
 import com.aus.ausgegeben.util.analyticsDateRangeMillis
 import com.aus.ausgegeben.util.analyticsPeriodOptionFromStorage
+import com.aus.ausgegeben.util.computeAllTimeAverages
 import com.aus.ausgegeben.util.computeCashFlowTrend
+import com.aus.ausgegeben.util.computeCategoryMovers
+import com.aus.ausgegeben.util.computePeriodComparison
+import com.aus.ausgegeben.util.computeSpendingPace
+import com.aus.ausgegeben.util.previousPeriodRange
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,6 +31,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -39,6 +49,10 @@ data class InsightsUiState(
     val incomeByCategory: Map<Category, Double> = emptyMap(),
     val transfersByCategory: Map<Category, Double> = emptyMap(),
     val cashFlowTrend: List<CashFlowPoint> = emptyList(),
+    val comparison: PeriodComparison? = null,
+    val pace: SpendingPace? = null,
+    val categoryMovers: List<CategoryMover> = emptyList(),
+    val allTimeAverages: AllTimeAverages? = null,
     val isLoading: Boolean = true,
     /** True when all-time analytics used a soft-capped expense fetch. */
     val dataTruncated: Boolean = false,
@@ -54,23 +68,43 @@ class InsightsViewModel @Inject constructor(
     private val _periodKey = MutableStateFlow(AnalyticsPeriod.THIS_MONTH.storageKey)
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val periodExpensesFlow = _periodKey.flatMapLatest { periodKey ->
+    private val scopedAndPriorExpensesFlow = _periodKey.flatMapLatest { periodKey ->
         val range = analyticsDateRangeMillis(periodKey)
-        if (range == null) {
+        val prior = previousPeriodRange(periodKey)
+        val currentFlow = if (range == null) {
             expenseActions.allExpenses
         } else {
             expenseActions.getExpensesInRange(range.first, range.second)
         }
+        val priorFlow = if (prior == null) {
+            flowOf(emptyList())
+        } else {
+            expenseActions.getExpensesInRange(prior.second.first, prior.second.second)
+        }
+        combine(currentFlow, priorFlow) { current, previous -> current to previous }
     }
 
-    val uiState: StateFlow<InsightsUiState> = combine(
+    private val prefsTupleFlow = combine(
         preferenceManager.currencyFlow,
+        preferenceManager.monthlyBudgetFlow
+    ) { currency, budget -> currency to budget }
+
+    val uiState: StateFlow<InsightsUiState> = combine(
+        prefsTupleFlow,
         categoryActions.allCategories,
-        periodExpensesFlow,
+        scopedAndPriorExpensesFlow,
         _periodKey,
         expenseActions.dataTruncated,
-    ) { currency, categories, scopedExpenses, periodKey, truncated ->
-        buildInsightsState(currency, categories, scopedExpenses, periodKey, truncated)
+    ) { (currency, monthlyBudget), categories, (scopedExpenses, priorExpenses), periodKey, truncated ->
+        buildInsightsState(
+            currency = currency,
+            categories = categories,
+            scoped = scopedExpenses,
+            priorExpenses = priorExpenses,
+            periodKey = periodKey,
+            monthlyBudget = monthlyBudget,
+            truncated = truncated,
+        )
     }
         .flowOn(Dispatchers.Default)
         .distinctUntilChanged { previous, current ->
@@ -123,6 +157,9 @@ internal fun buildInsightsState(
     scoped: List<Expense>,
     periodKey: String,
     truncated: Boolean,
+    priorExpenses: List<Expense> = emptyList(),
+    monthlyBudget: Double? = null,
+    nowMillis: Long = System.currentTimeMillis(),
 ): InsightsUiState {
     val categoryById = categories.associateBy { it.id }
 
@@ -171,9 +208,66 @@ internal fun buildInsightsState(
             category to CurrencyUtils.fromMinorUnits(amount)
         }.toMap()
 
+    val range = analyticsDateRangeMillis(periodKey, nowMillis)
+
+    val comparison: PeriodComparison?
+    val pace: SpendingPace?
+    val categoryMovers: List<CategoryMover>
+    val allTimeAverages: AllTimeAverages?
+
+    if (range != null) {
+        var priorTotalExpenses = 0L
+        var priorTotalIncome = 0L
+        val priorExpenseTotals = mutableMapOf<String, Long>()
+
+        for (expense in priorExpenses) {
+            when {
+                expense.isIncome() -> {
+                    priorTotalIncome += CurrencyUtils.toMinorUnits(expense.amount)
+                }
+                expense.isExpense() -> {
+                    val minor = CurrencyUtils.toMinorUnits(expense.amount)
+                    priorTotalExpenses += minor
+                    priorExpenseTotals[expense.categoryId] =
+                        (priorExpenseTotals[expense.categoryId] ?: 0L) + minor
+                }
+            }
+        }
+
+        comparison = computePeriodComparison(
+            currentExpenses = CurrencyUtils.fromMinorUnits(totalExpenses),
+            currentIncome = CurrencyUtils.fromMinorUnits(totalIncome),
+            priorExpenses = CurrencyUtils.fromMinorUnits(priorTotalExpenses),
+            priorIncome = CurrencyUtils.fromMinorUnits(priorTotalIncome),
+            hasPriorData = priorExpenses.isNotEmpty(),
+        )
+
+        pace = computeSpendingPace(
+            currentExpenses = CurrencyUtils.fromMinorUnits(totalExpenses),
+            rangeMillis = range,
+            nowMillis = nowMillis,
+            monthlyBudget = monthlyBudget,
+        )
+
+        val currentCatMap = expenseTotals.mapValues { CurrencyUtils.fromMinorUnits(it.value) }
+        val priorCatMap = priorExpenseTotals.mapValues { CurrencyUtils.fromMinorUnits(it.value) }
+        categoryMovers = computeCategoryMovers(
+            currentExpensesMap = currentCatMap,
+            priorExpensesMap = priorCatMap,
+            categories = categories,
+            maxMovers = 3,
+        )
+        allTimeAverages = null
+    } else {
+        comparison = null
+        pace = null
+        categoryMovers = emptyList()
+        allTimeAverages = computeAllTimeAverages(scoped)
+    }
+
     return InsightsUiState(
         periodKey = periodKey,
-        periodLabel = analyticsPeriodOptionFromStorage(periodKey).label,
+        periodLabel = analyticsPeriodOptionFromStorage(periodKey, nowMillis).label,
         totalExpenses = CurrencyUtils.fromMinorUnits(totalExpenses),
         totalIncome = CurrencyUtils.fromMinorUnits(totalIncome),
         totalTransfers = CurrencyUtils.fromMinorUnits(totalTransfers),
@@ -181,7 +275,11 @@ internal fun buildInsightsState(
         expensesByCategory = mapTotals(expenseTotals),
         incomeByCategory = mapTotals(incomeTotals),
         transfersByCategory = mapTotals(transferTotals),
-        cashFlowTrend = scoped.computeCashFlowTrend(periodKey),
+        cashFlowTrend = scoped.computeCashFlowTrend(periodKey, nowMillis),
+        comparison = comparison,
+        pace = pace,
+        categoryMovers = categoryMovers,
+        allTimeAverages = allTimeAverages,
         isLoading = false,
         // Reported by the listener; re-deriving from scoped.size could not tell a
         // complete result of exactly the cap from a truncated one.
@@ -197,6 +295,10 @@ internal fun insightsStatesEquivalent(previous: InsightsUiState, current: Insigh
         previous.totalIncome != current.totalIncome ||
         previous.totalTransfers != current.totalTransfers ||
         previous.dataTruncated != current.dataTruncated ||
+        previous.comparison != current.comparison ||
+        previous.pace != current.pace ||
+        previous.categoryMovers != current.categoryMovers ||
+        previous.allTimeAverages != current.allTimeAverages ||
         previous.cashFlowTrend != current.cashFlowTrend
     ) {
         return false

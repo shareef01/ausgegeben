@@ -5,6 +5,7 @@ import {
   dayKey,
   formatRelativeTimestamp,
   normalizeAnalyticsPeriodKey,
+  previousPeriodRange,
   thisMonthRange,
 } from '@/utils/periodUtils';
 
@@ -66,5 +67,21 @@ describe('periodUtils', () => {
     const now = new Date(2026, 5, 10, 15, 30).getTime();
     const earlier = new Date(2026, 5, 10, 9, 0).getTime();
     expect(formatRelativeTimestamp(earlier, 'en', now)).toMatch(/^today,/);
+  });
+
+  it('previousPeriodRange handles month keys and year rollover', () => {
+    const priorJune = previousPeriodRange('month:2026-06', JUNE_2026);
+    expect(priorJune).not.toBeNull();
+    expect(priorJune?.storageKey).toBe('month:2026-05');
+    expect(new Date(priorJune!.rangeMillis[0]).getMonth()).toBe(4);
+
+    const priorJan = previousPeriodRange('month:2026-01', JUNE_2026);
+    expect(priorJan).not.toBeNull();
+    expect(priorJan?.storageKey).toBe('month:2025-12');
+    expect(new Date(priorJan!.rangeMillis[0]).getFullYear()).toBe(2025);
+    expect(new Date(priorJan!.rangeMillis[0]).getMonth()).toBe(11);
+
+    expect(previousPeriodRange('all_time', JUNE_2026)).toBeNull();
+    expect(previousPeriodRange('this_month', JUNE_2026)?.storageKey).toBe('month:2026-05');
   });
 });

@@ -157,6 +157,40 @@ fun analyticsDateRangeMillis(
     return analyticsPeriodOptionFromStorage(storageKey, nowMillis).rangeMillis
 }
 
+fun previousPeriodRange(
+    storageKey: String,
+    nowMillis: Long = System.currentTimeMillis()
+): Pair<String, Pair<Long, Long>>? {
+    if (storageKey == AnalyticsPeriod.ALL_TIME.storageKey) return null
+    val key = when (storageKey) {
+        AnalyticsPeriod.THIS_MONTH.storageKey -> {
+            val cal = Calendar.getInstance().apply { timeInMillis = nowMillis }
+            monthStorageKey(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH))
+        }
+        AnalyticsPeriod.LAST_MONTH.storageKey -> {
+            val cal = Calendar.getInstance().apply {
+                timeInMillis = nowMillis
+                add(Calendar.MONTH, -1)
+            }
+            monthStorageKey(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH))
+        }
+        else -> storageKey
+    }
+    if (!key.startsWith("month:")) return null
+    val parts = key.removePrefix("month:").split("-")
+    val year = parts.getOrNull(0)?.toIntOrNull() ?: return null
+    val month = parts.getOrNull(1)?.toIntOrNull() ?: return null
+    if (month < 1 || month > 12) return null
+    val (priorYear, priorMonth) = if (month == 1) {
+        (year - 1) to 12
+    } else {
+        year to (month - 1)
+    }
+    val priorKey = monthStorageKey(priorYear, priorMonth - 1)
+    val priorRange = monthRange(priorYear, priorMonth - 1)
+    return priorKey to priorRange
+}
+
 fun AnalyticsPeriod.displayTitle(nowMillis: Long = System.currentTimeMillis()): String = when (this) {
     AnalyticsPeriod.THIS_MONTH -> monthTitle(nowMillis)
     AnalyticsPeriod.LAST_MONTH -> {
@@ -167,7 +201,7 @@ fun AnalyticsPeriod.displayTitle(nowMillis: Long = System.currentTimeMillis()): 
     AnalyticsPeriod.ALL_TIME -> "All time"
 }
 
-private fun monthRange(year: Int, month: Int): Pair<Long, Long> {
+internal fun monthRange(year: Int, month: Int): Pair<Long, Long> {
     val start = Calendar.getInstance().apply {
         set(year, month, 1, 0, 0, 0)
         set(Calendar.MILLISECOND, 0)

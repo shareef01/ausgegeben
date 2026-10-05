@@ -361,6 +361,28 @@
     <string name="chart_wealth_trend_delta_up">+%1$s in diesem zeitraum</string>
     <string name="chart_wealth_trend_delta_down">-%1$s in diesem zeitraum</string>
 
+    <!-- Smart Insights Comparison, Pace, Movers, und Durchschnitte -->
+    <string name="insights_comparison_title">Ggü. Vormonat</string>
+    <string name="insights_no_prior_period">Erster erfasster Monat</string>
+    <string name="insights_favorable_less">weniger ausgegeben</string>
+    <string name="insights_unfavorable_more">mehr ausgegeben</string>
+    <string name="insights_net_improved">Saldo um %1$s verbessert</string>
+    <string name="insights_net_declined">Saldo um %1$s gesunken</string>
+    <string name="insights_pace_title">Ausgabentempo</string>
+    <string name="insights_daily_average">Tagesdurchschnitt</string>
+    <string name="insights_projected_total">Prognose Monatsende</string>
+    <string name="insights_days_elapsed">Tag %1$d von %2$d</string>
+    <string name="insights_projected_over_budget">Voraussichtlich %1$s über Budget</string>
+    <string name="insights_on_track_budget">Im Budgetplan</string>
+    <string name="insights_month_completed">Monat abgeschlossen</string>
+    <string name="insights_movers_title">Größte Veränderungen</string>
+    <string name="insights_movers_subtitle">Kategorien mit den größten Abweichungen</string>
+    <string name="insights_all_time_averages_title">Monatsdurchschnitte</string>
+    <string name="insights_avg_monthly_expenses">Durchschn. Ausgaben</string>
+    <string name="insights_avg_monthly_income">Durchschn. Einnahmen</string>
+    <string name="insights_avg_monthly_net">Durchschn. Saldo</string>
+    <string name="insights_across_months">Über %1$d aktive Monate</string>
+
     <!-- Languages -->
     <string name="lang_english">englisch</string>
     <string name="lang_german">deutsch</string>

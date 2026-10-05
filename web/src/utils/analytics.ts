@@ -1,4 +1,12 @@
-import type { Expense, Category, CashFlowPoint } from '@/models/types';
+import type {
+  Expense,
+  Category,
+  CashFlowPoint,
+  PeriodComparison,
+  SpendingPace,
+  CategoryMover,
+  AllTimeAverages,
+} from '@/models/types';
 import { analyticsDateRangeMillis, dayKey } from '@/utils/periodUtils';
 import { getLocale, localeTag } from '@/i18n';
 import { fromMinorUnits, toMinorUnits } from '@/utils/money';
@@ -142,6 +150,192 @@ export function computeCashFlowTrend(expenses: Expense[], periodKey = 'all_time'
       expense: fromMinorUnits(entry?.expense ?? 0),
     };
   });
+}
+
+export function computePeriodComparison(
+  currentExpenses: number,
+  currentIncome: number,
+  priorExpenses: number,
+  priorIncome: number,
+  hasPriorData: boolean,
+): PeriodComparison {
+  if (!hasPriorData) {
+    return {
+      hasPriorData: false,
+      priorExpenses: 0,
+      priorIncome: 0,
+      expenseDelta: 0,
+      expensePercentageDelta: null,
+      incomeDelta: 0,
+      incomePercentageDelta: null,
+      netDelta: 0,
+    };
+  }
+
+  const currentExpMinor = toMinorUnits(currentExpenses);
+  const priorExpMinor = toMinorUnits(priorExpenses);
+  const currentIncMinor = toMinorUnits(currentIncome);
+  const priorIncMinor = toMinorUnits(priorIncome);
+
+  const expenseDelta = fromMinorUnits(currentExpMinor - priorExpMinor);
+  const incomeDelta = fromMinorUnits(currentIncMinor - priorIncMinor);
+  const currentNetMinor = currentIncMinor - currentExpMinor;
+  const priorNetMinor = priorIncMinor - priorExpMinor;
+  const netDelta = fromMinorUnits(currentNetMinor - priorNetMinor);
+
+  const expensePercentageDelta =
+    priorExpMinor > 0
+      ? Math.round(((currentExpMinor - priorExpMinor) / priorExpMinor) * 1000) / 10
+      : null;
+
+  const incomePercentageDelta =
+    priorIncMinor > 0
+      ? Math.round(((currentIncMinor - priorIncMinor) / priorIncMinor) * 1000) / 10
+      : null;
+
+  return {
+    hasPriorData: true,
+    priorExpenses: fromMinorUnits(priorExpMinor),
+    priorIncome: fromMinorUnits(priorIncMinor),
+    expenseDelta,
+    expensePercentageDelta,
+    incomeDelta,
+    incomePercentageDelta,
+    netDelta,
+  };
+}
+
+export function computeSpendingPace(
+  currentExpenses: number,
+  rangeMillis: [number, number] | null,
+  nowMillis = Date.now(),
+  monthlyBudget: number | null = null,
+): SpendingPace | null {
+  if (!rangeMillis) return null;
+  const [start, end] = rangeMillis;
+  const daysInMonth = Math.round((end - start) / 86_400_000);
+  if (daysInMonth <= 0) return null;
+
+  let daysElapsed: number;
+  let dailyAverage: number;
+  let projectedTotal: number;
+
+  const currentExpMinor = toMinorUnits(currentExpenses);
+
+  if (nowMillis >= end) {
+    // Past month: entire month elapsed
+    daysElapsed = daysInMonth;
+    dailyAverage = fromMinorUnits(Math.round(currentExpMinor / daysInMonth));
+    projectedTotal = currentExpenses;
+  } else if (nowMillis < start) {
+    // Future month
+    daysElapsed = 0;
+    dailyAverage = 0;
+    projectedTotal = 0;
+  } else {
+    // Active current month
+    const d = new Date(nowMillis);
+    const dayOfMonth = d.getDate();
+    daysElapsed = Math.min(Math.max(dayOfMonth, 1), daysInMonth);
+    const dailyAverageMinor = Math.round(currentExpMinor / daysElapsed);
+    dailyAverage = fromMinorUnits(dailyAverageMinor);
+    projectedTotal = fromMinorUnits(dailyAverageMinor * daysInMonth);
+  }
+
+  const budget = monthlyBudget && monthlyBudget > 0 ? monthlyBudget : null;
+  let projectedOverBudget: number | null = null;
+  if (budget !== null) {
+    const projectedMinor = toMinorUnits(projectedTotal);
+    const budgetMinor = toMinorUnits(budget);
+    if (projectedMinor > budgetMinor) {
+      projectedOverBudget = fromMinorUnits(projectedMinor - budgetMinor);
+    }
+  }
+
+  return {
+    daysElapsed,
+    daysInMonth,
+    dailyAverage,
+    projectedTotal,
+    budget,
+    projectedOverBudget,
+  };
+}
+
+export function computeCategoryMovers(
+  currentExpensesMap: Map<string, number>,
+  priorExpensesMap: Map<string, number>,
+  categories: Category[],
+  maxMovers = 3,
+): CategoryMover[] {
+  const categoryById = new Map(categories.map((c) => [c.id, c]));
+  const allCategoryIds = new Set([
+    ...currentExpensesMap.keys(),
+    ...priorExpensesMap.keys(),
+  ]);
+
+  const movers: CategoryMover[] = [];
+
+  for (const catId of allCategoryIds) {
+    const current = currentExpensesMap.get(catId) ?? 0;
+    const prior = priorExpensesMap.get(catId) ?? 0;
+    const currentMinor = toMinorUnits(current);
+    const priorMinor = toMinorUnits(prior);
+    const deltaMinor = currentMinor - priorMinor;
+    if (deltaMinor === 0) continue;
+
+    const delta = fromMinorUnits(deltaMinor);
+    const percentageDelta =
+      priorMinor > 0
+        ? Math.round(((currentMinor - priorMinor) / priorMinor) * 1000) / 10
+        : null;
+
+    const cat = categoryById.get(catId);
+    movers.push({
+      categoryId: catId,
+      categoryName: cat?.name ?? '?',
+      iconName: cat?.iconName ?? 'help',
+      colorInt: cat?.colorInt ?? 0xff7eb0e8,
+      currentAmount: current,
+      priorAmount: prior,
+      delta,
+      percentageDelta,
+    });
+  }
+
+  // Largest absolute shift first
+  movers.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  return movers.slice(0, maxMovers);
+}
+
+export function computeAllTimeAverages(expenses: Expense[]): AllTimeAverages | null {
+  const billable = expenses.filter((e) => !isTransfer(e));
+  if (billable.length === 0) return null;
+
+  const months = new Set<number>();
+  let totalExpensesMinor = 0;
+  let totalIncomeMinor = 0;
+
+  for (const e of billable) {
+    months.add(monthBucketStart(e.dateMillis));
+    const minor = toMinorUnits(e.amount);
+    if (isExpense(e)) totalExpensesMinor += minor;
+    else if (isIncome(e)) totalIncomeMinor += minor;
+  }
+
+  const monthsCount = Math.max(months.size, 1);
+  const avgExp = fromMinorUnits(Math.round(totalExpensesMinor / monthsCount));
+  const avgInc = fromMinorUnits(Math.round(totalIncomeMinor / monthsCount));
+  const avgNet = fromMinorUnits(
+    Math.round((totalIncomeMinor - totalExpensesMinor) / monthsCount),
+  );
+
+  return {
+    monthsCount,
+    averageMonthlyExpenses: avgExp,
+    averageMonthlyIncome: avgInc,
+    averageMonthlyNet: avgNet,
+  };
 }
 
 /**

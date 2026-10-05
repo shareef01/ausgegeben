@@ -80,6 +80,25 @@ export function analyticsDateRangeMillis(storageKey: string, now = Date.now()): 
   return thisMonthRange(now);
 }
 
+export function previousPeriodRange(
+  storageKey: string,
+  now = Date.now(),
+): { storageKey: string; rangeMillis: [number, number] } | null {
+  if (storageKey === 'all_time') return null;
+  const normalized = normalizeAnalyticsPeriodKey(storageKey, now);
+  if (!normalized.startsWith('month:')) return null;
+  const [, ym] = normalized.split('month:');
+  const [y, m] = ym.split('-').map(Number);
+  if (!y || !m) return null;
+  const priorYear = m === 1 ? y - 1 : y;
+  const priorMonth = m === 1 ? 12 : m - 1;
+  const priorKey = monthStorageKey(priorYear, priorMonth - 1);
+  return {
+    storageKey: priorKey,
+    rangeMillis: monthRange(priorYear, priorMonth - 1),
+  };
+}
+
 export function formatDateLabel(millis: number, locale?: Locale): string {
   return new Intl.DateTimeFormat(resolveLocale(locale), { weekday: 'short', day: '2-digit', month: 'short' }).format(new Date(millis));
 }

@@ -361,6 +361,29 @@
     <string name="chart_cash_flow_subtitle">Income %1$s · Spending %2$s</string>
     <string name="chart_wealth_trend_delta_up">+%1$s this period</string>
     <string name="chart_wealth_trend_delta_down">-%1$s this period</string>
+
+    <!-- Smart Insights Comparison, Pace, Movers, and Averages -->
+    <string name="insights_comparison_title">vs previous month</string>
+    <string name="insights_no_prior_period">First recorded month</string>
+    <string name="insights_favorable_less">less spent</string>
+    <string name="insights_unfavorable_more">more spent</string>
+    <string name="insights_net_improved">Net improved by %1$s</string>
+    <string name="insights_net_declined">Net down by %1$s</string>
+    <string name="insights_pace_title">Spending pace</string>
+    <string name="insights_daily_average">Daily average</string>
+    <string name="insights_projected_total">Projected total</string>
+    <string name="insights_days_elapsed">Day %1$d of %2$d</string>
+    <string name="insights_projected_over_budget">Projected %1$s over budget</string>
+    <string name="insights_on_track_budget">On track for budget</string>
+    <string name="insights_month_completed">Month completed</string>
+    <string name="insights_movers_title">Top shifts vs last month</string>
+    <string name="insights_movers_subtitle">Categories with largest changes</string>
+    <string name="insights_all_time_averages_title">Monthly averages</string>
+    <string name="insights_avg_monthly_expenses">Avg. spending</string>
+    <string name="insights_avg_monthly_income">Avg. income</string>
+    <string name="insights_avg_monthly_net">Avg. net</string>
+    <string name="insights_across_months">Across %1$d active months</string>
+
     <string name="record_most_spent_on">Most spent on %1$s</string>
     <string name="desc_income_row">%1$s income of %2$s. %3$s</string>
     <string name="desc_expense_row">%1$s expense of %2$s. %3$s</string>
