@@ -1,0 +1,45 @@
+{
+  "format": "ausgegeben-backup",
+  "schemaVersion": 2,
+  "exportedAt": "2026-10-05T00:00:00Z",
+  "appVersion": "2.0.9",
+  "preferences": {
+    "currency": "EUR",
+    "monthlyBudget": 1000,
+    "locale": "en",
+    "themeMode": "system"
+  },
+  "categories": [
+    {
+      "id": "food",
+      "name": "Food",
+      "iconName": "restaurant",
+      "colorInt": 0,
+      "transactionType": "expense",
+      "sortOrder": 0
+    },
+    {
+      "id": "transport",
+      "name": "Transport",
+      "iconName": "directions_bus",
+      "colorInt": 0,
+      "transactionType": "expense",
+      "sortOrder": 1
+    }
+  ],
+  "expenses": [],
+  "categoryBudgets": [
+    {
+      "categoryId": "food",
+      "monthlyLimit": 999999999.99,
+      "warningThresholdPercent": 100,
+      "updatedAt": 1
+    },
+    {
+      "categoryId": "transport",
+      "monthlyLimit": 12.34,
+      "warningThresholdPercent": 37,
+      "updatedAt": 2
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import { thisMonthRange } from '@/utils/periodUtils';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Category, InsightsUiState, Expense } from '@/models/types';
 import { expenseRepository } from '@/repositories/expenseRepository';
@@ -33,6 +34,7 @@ export function useInsightsViewModel() {
   const [priorExpenses, setPriorExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [budgetIncomplete,setBudgetIncomplete] = useState(true);
   const [dataTruncated, setDataTruncated] = useState(false);
   const initialLoadDone = useRef(false);
 
@@ -47,6 +49,8 @@ export function useInsightsViewModel() {
 
   // Live categories + period-scoped expenses (Spark-safe: no full-collection listener)
   useEffect(() => {
+    let alive = true;
+    setBudgetIncomplete(true);
     if (!initialLoadDone.current) setLoading(true);
     setLoadError(false);
     setDataTruncated(false);
@@ -64,6 +68,7 @@ export function useInsightsViewModel() {
     };
 
     const unsubCats = expenseRepository.onCategoriesChanged((cats, error) => {
+      if (!alive) return;
       if (error) {
         catsError = true;
       } else {
@@ -79,7 +84,9 @@ export function useInsightsViewModel() {
     let unsubPrior = () => {};
 
     if (range) {
-      unsubExps = expenseRepository.onExpensesInRange(range[0], range[1], (items, error) => {
+      unsubExps = expenseRepository.onRecordExpenses(range[0], range[1], (items, error, incomplete) => {
+        if (!alive) return;
+        setBudgetIncomplete(incomplete);
         if (error) {
           expsError = true;
         } else {
@@ -97,6 +104,7 @@ export function useInsightsViewModel() {
           priorPeriod.rangeMillis[0],
           priorPeriod.rangeMillis[1],
           (items, error) => {
+            if (!alive) return;
             if (error) {
               setPriorExpenses([]);
             } else {
@@ -111,6 +119,7 @@ export function useInsightsViewModel() {
       setPriorExpenses([]);
       const loadAll = () => {
         void expenseRepository.getAllExpensesCapped(5_000).then(({ items, truncated }) => {
+          if (!alive) return;
           expsError = false;
           setExpenses(items);
           setDataTruncated(truncated);
@@ -118,6 +127,7 @@ export function useInsightsViewModel() {
           expsReady = true;
           tryReady();
         }).catch((err) => {
+          if (!alive) return;
           console.error('[useInsightsViewModel] getAllExpenses failed', err);
           expsError = true;
           // Keep last good expenses (parity with Record all-time refresh).
@@ -133,6 +143,7 @@ export function useInsightsViewModel() {
     }
 
     return () => {
+      alive = false;
       unsubCats();
       unsubExps();
       unsubPrior();
@@ -234,5 +245,7 @@ export function useInsightsViewModel() {
     dataTruncated,
   ]);
 
-  return { uiState, categories, periodOptions, setAnalyticsPeriod, reload };
+  const currentMonth = thisMonthRange();
+  const showCategoryBudgets = range?.[0] === currentMonth[0] && range?.[1] === currentMonth[1];
+  return { uiState, categories, budgetExpenses: expenses, budgetIncomplete, showCategoryBudgets, periodOptions, setAnalyticsPeriod, reload };
 }

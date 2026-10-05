@@ -410,11 +410,14 @@ fun SettingsScreen(
                     )
                 }
                 val budgetSection: @Composable () -> Unit = {
+                    Column {
                     SettingsBudgetSection(
                         monthlyBudget = monthlyBudget,
                         currency = currency,
                         onShowBudgetDialog = { showBudgetDialog = true },
                     )
+                    key(currentUser?.uid) { currentUser?.uid?.let { CategoryBudgetManager(repository, it, currency, monthlyBudget) } }
+                    }
                 }
                 val accountSection: @Composable () -> Unit = {
                     SettingsAccountSection(
@@ -703,6 +706,7 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
+                    if (summary.schemaVersion == 1) Text(stringResource(R.string.category_budget_v1))
                     if (summary.monthlyBudget != null) {
                         Text(
                             stringResource(

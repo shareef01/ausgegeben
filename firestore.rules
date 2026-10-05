@@ -363,7 +363,7 @@ service cloud.firestore {
       let d = request.resource.data;
       return d.keys().hasOnly([
           'operationId', 'ownerUid', 'createdAt', 'chunkIndex', 'chunkCount',
-          'totalExpenses', 'totalCategories', 'expenses', 'categories', 'preferences'
+          'totalExpenses', 'totalCategories', 'expenses', 'categories', 'preferences', 'categoryBudgets'
         ])
         && d.keys().hasAll(['operationId', 'ownerUid', 'createdAt'])
         && d.operationId is string && d.operationId.size() > 0 && d.operationId.size() <= 64
@@ -375,11 +375,33 @@ service cloud.firestore {
         && (!('totalCategories' in d) || (d.totalCategories is int && d.totalCategories >= 0))
         && (!('expenses' in d) || d.expenses is list)
         && (!('categories' in d) || d.categories is list)
+        && (!('categoryBudgets' in d) || d.categoryBudgets is list)
         && (!('preferences' in d) || d.preferences is map);
     }
 
     match /users/{userId} {
       allow read, write: if false;
+
+      match /categoryBudgets/{categoryId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isEmailVerified()
+          && accountAcceptsWrites(userId)
+          && request.resource.data.keys().hasOnly(['monthlyLimit', 'warningThresholdPercent', 'updatedAt'])
+          && request.resource.data.keys().hasAll(['monthlyLimit', 'warningThresholdPercent', 'updatedAt'])
+          && request.resource.data.monthlyLimit is number
+          && request.resource.data.monthlyLimit > 0 && request.resource.data.monthlyLimit < 1000000000
+          && math.abs(request.resource.data.monthlyLimit * 100 - math.round(request.resource.data.monthlyLimit * 100)) < 0.0001
+          && request.resource.data.warningThresholdPercent is int
+          && request.resource.data.warningThresholdPercent >= 1 && request.resource.data.warningThresholdPercent <= 100
+          && request.resource.data.updatedAt is int && request.resource.data.updatedAt > 0
+          && request.resource.data.updatedAt < request.time.toMillis() + 300000
+          && (!exists(/databases/$(database)/documents/users/$(userId)/categoryBudgets/$(categoryId))
+            || request.resource.data.updatedAt > resource.data.updatedAt)
+          && getAfter(/databases/$(database)/documents/users/$(userId)/categories/$(categoryId)).data.transactionType == 'expense'
+          && getAfter(/databases/$(database)/documents/users/$(userId)/categories/$(categoryId)).data.get('deletionState', '') != 'deleting'
+          && getAfter(/databases/$(database)/documents/users/$(userId)/categories/$(categoryId)).data.get('migrationState', '') != 'migrating';
+        allow delete: if canDeleteOwned(userId);
+      }
 
       match /categories/{categoryId} {
         allow read: if isOwner(userId);
@@ -390,11 +412,14 @@ service cloud.firestore {
         allow update: if isOwner(userId)
           && accountAcceptsWrites(userId)
           && isEmailVerified()
-          && validCategoryUpdate();
+          && validCategoryUpdate()
+          && (request.resource.data.transactionType == 'expense'
+            || !existsAfter(/databases/$(database)/documents/users/$(userId)/categoryBudgets/$(categoryId)));
         // Deletes require verification, except during account wipe after
         // meta/accountDeletion.pendingDeletion is set.
         allow delete: if canDeleteOwned(userId)
-          && (accountDeletionPending(userId) || resource.data.deletionState == 'deleting');
+          && (accountDeletionPending(userId) || (resource.data.deletionState == 'deleting'
+            && !existsAfter(/databases/$(database)/documents/users/$(userId)/categoryBudgets/$(categoryId))));
       }
 
       match /expenses/{expenseId} {
