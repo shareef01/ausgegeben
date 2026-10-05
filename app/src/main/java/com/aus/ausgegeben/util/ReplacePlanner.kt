@@ -92,7 +92,8 @@ object ReplacePlanner {
             .sorted()
             .joinToString(";")
         val canonicalPrefs = "${backup.preferences.currency},${backup.preferences.monthlyBudget ?: "null"},${backup.preferences.locale},${backup.preferences.themeMode}"
-        val raw = "v1:${backup.exportedAt}:$canonicalExpenses:$canonicalCategories:$canonicalPrefs"
+        val budgetPart = if (backup.schemaVersion == 2) ":" + org.json.JSONArray(backup.categoryBudgets.sortedBy { it.categoryId }.map { listOf(it.categoryId, CurrencyUtils.toMinorUnits(it.monthlyLimit), it.warningThresholdPercent) }).toString() else ""
+        val raw = "v${backup.schemaVersion}:${backup.exportedAt}:$canonicalExpenses:$canonicalCategories:$canonicalPrefs$budgetPart"
 
         val md = MessageDigest.getInstance("SHA-256")
         val bytes = md.digest(raw.toByteArray(Charsets.UTF_8))
@@ -107,7 +108,7 @@ object ReplacePlanner {
     ): ReplacePlan {
         val conflicts = mutableListOf<String>()
 
-        if (backup.schemaVersion != 1) {
+        if (backup.schemaVersion !in setOf(1,2)) {
             conflicts.add("UNSUPPORTED_SCHEMA_VERSION: ${backup.schemaVersion}")
         }
 

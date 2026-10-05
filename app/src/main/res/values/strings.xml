@@ -442,4 +442,25 @@
     <string name="record_sort_highest">Highest amount</string>
     <string name="record_sort_lowest">Lowest amount</string>
     <string name="record_cache_incomplete">Cached results may be incomplete. Connect to search the full selected history.</string>
+    <string name="category_budget_title">Category budgets</string>
+    <string name="category_budget_repeat">Limits repeat each calendar month. Currency changes do not convert amounts.</string>
+    <string name="category_budget_limit">Monthly limit</string>
+    <string name="category_budget_threshold">Warning threshold (%)</string>
+    <string name="category_budget_empty">No category budgets configured</string>
+    <string name="category_budget_remove">Remove budget</string>
+    <string name="category_budget_invalid">Enter a positive amount with at most two decimals and a whole threshold from 1 to 100.</string>
+    <string name="category_budget_conflict">Could not save. Check connection and reload the latest budget before retrying.</string>
+    <string name="category_budget_allocated">Allocated</string>
+    <string name="category_budget_unallocated">Unallocated</string>
+    <string name="category_budget_above">Above global budget</string>
+    <string name="category_budget_remaining">Remaining</string>
+    <string name="category_budget_overspent">Overspent</string>
+    <string name="category_budget_spent">Spent / limit</string>
+    <string name="category_budget_warning">Warning threshold reached</string>
+    <string name="category_budget_reached">Budget reached</string>
+    <string name="category_budget_over">Budget exceeded</string>
+    <string name="category_budget_normal">Below warning threshold</string>
+    <string name="category_budget_incomplete">Cached progress may be incomplete. Reconnect to confirm spending and limits.</string>
+    <string name="category_budget_current">Progress uses the current calendar month only. Manage limits in Settings.</string>
+    <string name="category_budget_v1">Older backups preserve existing category budgets.</string>
 </resources>

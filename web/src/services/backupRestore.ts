@@ -1,3 +1,4 @@
+import { categoryBudgetRepository } from '@/services/categoryBudgets';
 import { collection, doc, getDocs, setDoc, writeBatch } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
@@ -148,6 +149,10 @@ export async function restoreBackup(
       );
     }
     await batch.commit();
+  }
+
+  for (const budget of backup.categoryBudgets ?? []) {
+    await categoryBudgetRepository.restore(expectedUid, budget, budget.categoryId);
   }
 
   // 3. Restore preferences

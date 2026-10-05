@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 
 /** Narrow expense surface used by the expense-related ViewModels (easy to fake in unit tests). */
 interface ExpenseActions {
+    val categoryBudgets: Flow<AppRepository.BudgetSnapshot> get() = kotlinx.coroutines.flow.flowOf(AppRepository.BudgetSnapshot(incomplete = false))
     fun getRecordExpensesInRange(start: Long, end: Long): Flow<List<Expense>> = getExpensesInRange(start, end)
     val recordExpenses: Flow<List<Expense>> get() = allExpenses
     val recordIncomplete: StateFlow<Boolean> get() = kotlinx.coroutines.flow.MutableStateFlow(false)

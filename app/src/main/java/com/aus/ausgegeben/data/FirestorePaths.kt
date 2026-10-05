@@ -21,6 +21,7 @@ package com.aus.ausgegeben.data
  * docs/maintenance.md) — that is intentional, not an oversight.
  */
 object FirestorePaths {
+    const val CATEGORY_BUDGETS_COLLECTION = "categoryBudgets"
     const val CATEGORIES_COLLECTION = "categories"
     const val EXPENSES_COLLECTION = "expenses"
     const val SETTINGS_COLLECTION = "settings"
@@ -35,6 +36,7 @@ object FirestorePaths {
 
     /** Every per-user subcollection whose documents deleteAllUserData wipes in full. */
     val DELETABLE_USER_COLLECTIONS: List<String> = listOf(
+        CATEGORY_BUDGETS_COLLECTION,
         CATEGORIES_COLLECTION,
         EXPENSES_COLLECTION,
         RESTORE_SNAPSHOT_COLLECTION,

@@ -442,4 +442,25 @@
     <string name="record_sort_highest">Höchster Betrag</string>
     <string name="record_sort_lowest">Niedrigster Betrag</string>
     <string name="record_cache_incomplete">Cache-Ergebnisse sind möglicherweise unvollständig. Verbinde dich, um den gesamten gewählten Verlauf zu durchsuchen.</string>
+    <string name="category_budget_title">Kategoriebudgets</string>
+    <string name="category_budget_repeat">Limits gelten jeden Kalendermonat. Währungsänderungen rechnen Beträge nicht um.</string>
+    <string name="category_budget_limit">Monatliches Limit</string>
+    <string name="category_budget_threshold">Warnschwelle (%)</string>
+    <string name="category_budget_empty">Keine Kategoriebudgets eingerichtet</string>
+    <string name="category_budget_remove">Budget entfernen</string>
+    <string name="category_budget_invalid">Positiven Betrag mit höchstens zwei Dezimalstellen und ganze Warnschwelle von 1 bis 100 eingeben.</string>
+    <string name="category_budget_conflict">Speichern fehlgeschlagen. Verbindung prüfen und aktuelles Budget vor erneutem Versuch laden.</string>
+    <string name="category_budget_allocated">Zugewiesen</string>
+    <string name="category_budget_unallocated">Nicht zugewiesen</string>
+    <string name="category_budget_above">Über dem Gesamtbudget</string>
+    <string name="category_budget_remaining">Verbleibend</string>
+    <string name="category_budget_overspent">Überschritten um</string>
+    <string name="category_budget_spent">Ausgegeben / Limit</string>
+    <string name="category_budget_warning">Warnschwelle erreicht</string>
+    <string name="category_budget_reached">Budget erreicht</string>
+    <string name="category_budget_over">Budget überschritten</string>
+    <string name="category_budget_normal">Unter der Warnschwelle</string>
+    <string name="category_budget_incomplete">Zwischengespeicherter Fortschritt kann unvollständig sein. Erneut verbinden, um Ausgaben und Limits zu bestätigen.</string>
+    <string name="category_budget_current">Fortschritt gilt nur für den aktuellen Kalendermonat. Limits in Einstellungen verwalten.</string>
+    <string name="category_budget_v1">Ältere Sicherungen behalten bestehende Kategoriebudgets bei.</string>
 </resources>

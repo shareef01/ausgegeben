@@ -242,7 +242,7 @@ class BackupFormatTest {
 
         val summary = BackupFormat.parseBackupSummary(json)
         org.junit.Assert.assertNotNull(summary)
-        assertEquals(1, summary!!.schemaVersion)
+        assertEquals(BackupFormat.CURRENT_SCHEMA_VERSION, summary!!.schemaVersion)
         assertEquals(2, summary.expenseCount)
         assertEquals(2, summary.categoryCount)
         assertEquals("EUR", summary.currency)
@@ -250,7 +250,7 @@ class BackupFormatTest {
 
         val parsed = BackupFormat.parseBackup(json)
         org.junit.Assert.assertNotNull(parsed)
-        assertEquals(1, parsed!!.schemaVersion)
+        assertEquals(BackupFormat.CURRENT_SCHEMA_VERSION, parsed!!.schemaVersion)
         assertEquals("2.0.8", parsed.appVersion)
         assertEquals(2, parsed.categories.size)
         assertEquals(2, parsed.expenses.size)
