@@ -3,6 +3,8 @@ import { en } from '../src/i18n/en';
 import { createVerifiedUser, resetAuthEmulator, resetFirestoreEmulator, signIn } from './helpers';
 
 test.beforeEach(async () => { await resetAuthEmulator(); await resetFirestoreEmulator(); });
+test.use({ reducedMotion: 'no-preference' });
+
 test('category budget management and current-month warning progress', async ({ page }) => {
   await createVerifiedUser('budgets@example.com', 'correct horse battery staple');
   await createVerifiedUser('budgets-b@example.com', 'correct horse battery staple');
@@ -33,6 +35,14 @@ test('category budget management and current-month warning progress', async ({ p
   });
   await page.getByRole('button', { name: en.navSettings, exact: true }).click();
   const manager = page.getByRole('region', { name: en.categoryBudgetTitle });
+  // Pin the tab animation's final transform: fixed modals must remain viewport-bound.
+  await page.locator('.tab-panel--active').evaluate(node => { (node as HTMLElement).style.animation = 'none'; (node as HTMLElement).style.transform = 'translate3d(0,0,0)'; });
+  await page.getByRole('button', { name: en.settingsSignOut, exact: true }).click();
+  const overlayBounds = await page.locator('.overlay--confirm').boundingBox();
+  expect(Math.round(overlayBounds!.height)).toBe(page.viewportSize()!.height);
+  await expect(page.getByRole('alertdialog').getByRole('button', { name: en.settingsSignOut })).toBeInViewport();
+  await page.getByRole('alertdialog').getByRole('button', { name: en.actionCancel }).click();
+
   await manager.getByRole('button', { name, exact: true }).click();
   await manager.getByLabel(en.categoryBudgetLimit).fill('100.001');
   await expect(manager.getByRole('button', { name: en.actionSave, exact: true })).toBeDisabled();
@@ -82,7 +92,10 @@ test('category budget management and current-month warning progress', async ({ p
   await manager.getByLabel(en.categoryBudgetLimit).fill('100');
   await manager.getByRole('button', { name: en.actionSave, exact: true }).click();
   await expect(manager.getByLabel(en.categoryBudgetLimit)).toHaveCount(0);
-  await page.evaluate(async () => { const path = '/src/services/authService.ts'; const { authService } = await import(/* @vite-ignore */ path); await authService.signOut(); });
+  await page.getByRole('button', { name: en.settingsSignOut, exact: true }).click();
+  const signOutButton = page.getByRole('alertdialog').getByRole('button', { name: en.settingsSignOut });
+  await expect(signOutButton).toBeInViewport();
+  await signOutButton.click();
   await expect.poll(() => page.evaluate(() => (window as unknown as { budgetMetrics: { budgetActive: number } }).budgetMetrics.budgetActive)).toBe(0);
   await page.locator('#auth-email').fill('budgets-b@example.com');
   await page.locator('#auth-password').fill('correct horse battery staple');

@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useTranslation } from '@/i18n';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
@@ -40,7 +41,9 @@ export function ConfirmDialog({
   const confirmText = confirmLabel ?? t('actionDelete');
   const cancelText = cancelLabel ?? t('actionCancel');
 
-  return (
+  // Animated tabs establish a containing block for fixed descendants.
+  // Keep confirmations attached to the viewport, even on long Settings pages.
+  return createPortal(
     <div
       className="overlay overlay--confirm"
       onClick={(e) => { e.stopPropagation(); onCancel(); }}
@@ -76,6 +79,7 @@ export function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
