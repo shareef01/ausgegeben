@@ -268,7 +268,7 @@ describe('backupReplace planner and fingerprinting', () => {
   it('rejects unsupported schema versions', () => {
     const invalidSchemaBackup: AusgegebenBackup = {
       ...sampleBackup,
-      schemaVersion: 2 as unknown as 1,
+      schemaVersion: 3,
     };
 
     const plan = planReplace({
@@ -281,4 +281,12 @@ describe('backupReplace planner and fingerprinting', () => {
     expect(plan.conflicts.length).toBeGreaterThan(0);
     expect(plan.conflicts[0]).toContain('UNSUPPORTED_SCHEMA_VERSION');
   });
+});
+
+it('v2 budget fingerprint distinguishes delimiter-bearing identities from several budgets', async () => {
+  const b={categoryId:'a',monthlyLimit:100,warningThresholdPercent:80,updatedAt:1};
+  const base={...sampleBackup,schemaVersion:2,categories:['a','b','a,100,80;b'].map(id=>({...sampleBackup.categories[0],id,transactionType:'expense' as const}))};
+  const two={...base,categoryBudgets:[b,{...b,categoryId:'b',monthlyLimit:200}]};
+  const one={...base,categoryBudgets:[{...b,categoryId:'a,100,80;b',monthlyLimit:200}]};
+  expect(await computeBackupFingerprint(one)).not.toBe(await computeBackupFingerprint(two));
 });

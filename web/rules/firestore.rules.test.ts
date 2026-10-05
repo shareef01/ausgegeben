@@ -13,11 +13,12 @@ import {
   getDocs,
   setDoc,
   Timestamp,
+  writeBatch,
   updateDoc,
 } from 'firebase/firestore';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 const RULES_PATH = resolve(process.cwd(), '../firestore.rules');
 const PROJECT_ID = 'demo-ausgegeben-rules';
@@ -1341,4 +1342,81 @@ describe('firestore.rules', () => {
       await assertFails(deleteDoc(doc(bob, categoryPath('alice', 'cat-1'))));
     });
   });
+});
+
+
+describe('category budget trust boundary', () => {
+  const payload = () => ({ monthlyLimit: 12.34, warningThresholdPercent: 80, updatedAt: Date.now() });
+  async function setup(type = 'expense') {
+    await testEnv.withSecurityRulesDisabled(async ctx => { await setDoc(doc(ctx.firestore(), categoryPath('alice','food')), {...validCategory, transactionType:type}); });
+    return testEnv.authenticatedContext('alice', recentAuthClaims(true)).firestore();
+  }
+  it('allows owner CRUD, rejects stale updates and isolates reads', async () => {
+    const db = await setup(), ref = doc(db,'users/alice/categoryBudgets/food');
+    const b = payload();
+    await assertSucceeds(setDoc(ref,b));
+    await assertSucceeds(getDoc(ref));
+    await assertFails(setDoc(ref,b));
+    await assertSucceeds(setDoc(ref,{...b,monthlyLimit:25,updatedAt:b.updatedAt+1}));
+    const other=testEnv.authenticatedContext('bob',recentAuthClaims(true)).firestore();
+    await assertFails(getDoc(doc(other,'users/alice/categoryBudgets/food')));
+    await assertFails(setDoc(doc(other,'users/alice/categoryBudgets/food'),payload()));
+    await assertSucceeds(deleteDoc(ref));
+  });
+  it.each(['income','transfer','missing'])('rejects %s category', async type => {
+    const db=await setup(type);await assertFails(setDoc(doc(db,'users/alice/categoryBudgets/'+(type==='missing'?'absent':'food')),payload()));
+  });
+  it.each([{monthlyLimit:0},{monthlyLimit:-1},{monthlyLimit:12.345},{monthlyLimit:1e9},{warningThresholdPercent:0},{warningThresholdPercent:101},{warningThresholdPercent:80.5},{extra:true},{updatedAt:Date.now()+600000}])('rejects invalid payload %j', async override => {
+    const db=await setup();await assertFails(setDoc(doc(db,'users/alice/categoryBudgets/food'),{...payload(),...override}));
+  });
+  it('prevents a category delete from orphaning its budget', async () => {
+    const db=await setup();await setDoc(doc(db,'users/alice/categoryBudgets/food'),payload());
+    await updateDoc(doc(db,categoryPath('alice','food')),{deletionState:'deleting'});
+    await assertFails(deleteDoc(doc(db,categoryPath('alice','food'))));
+  });
+});
+
+describe('category budget barriers', () => {
+  const b = () => ({ monthlyLimit: 100, warningThresholdPercent: 80, updatedAt: Date.now() });
+  it.each([{deletionState:'deleting'},{migrationState:'migrating',pendingTransactionType:'income'}])('rejects writes behind %j', async marker => {
+    await testEnv.withSecurityRulesDisabled(async ctx => { await setDoc(doc(ctx.firestore(),categoryPath('alice','food')), {...validCategory,...marker}); });
+    const db = testEnv.authenticatedContext('alice',recentAuthClaims(true)).firestore();
+    await assertFails(setDoc(doc(db,'users/alice/categoryBudgets/food'),b()));
+  });
+  it('denies unverified and frozen-account budget writes', async () => {
+    await testEnv.withSecurityRulesDisabled(async ctx => { await setDoc(doc(ctx.firestore(),categoryPath('alice','food')),validCategory); });
+    const unverified = testEnv.authenticatedContext('alice',recentAuthClaims(false)).firestore();
+    await assertFails(setDoc(doc(unverified,'users/alice/categoryBudgets/food'),b()));
+    await testEnv.withSecurityRulesDisabled(async ctx => { await setDoc(doc(ctx.firestore(),'users/alice/meta/accountDeletion'),{pendingDeletion:true,state:'deleting'}); });
+    const owner = testEnv.authenticatedContext('alice',recentAuthClaims(true)).firestore();
+    await assertFails(setDoc(doc(owner,'users/alice/categoryBudgets/food'),b()));
+  });
+  it('allows final category and budget deletion in one batch', async () => {
+    await testEnv.withSecurityRulesDisabled(async ctx => { await setDoc(doc(ctx.firestore(),categoryPath('alice','food')), {...validCategory,deletionState:'deleting'}); await setDoc(doc(ctx.firestore(),'users/alice/categoryBudgets/food'),b()); });
+    const db = testEnv.authenticatedContext('alice',recentAuthClaims(true)).firestore();
+    const batch=writeBatch(db);batch.delete(doc(db,'users/alice/categoryBudgets/food'));batch.delete(doc(db,categoryPath('alice','food')));
+    await assertSucceeds(batch.commit());
+  });
+});
+
+it.each(['income','transfer'])('preserves a paused budget and requires atomic cleanup on final migration to %s', async target => {
+  await testEnv.withSecurityRulesDisabled(async ctx => { await setDoc(doc(ctx.firestore(),categoryPath('alice','food')),validCategory); });
+  const db=testEnv.authenticatedContext('alice',recentAuthClaims(true)).firestore();
+  const ref=doc(db,'users/alice/categoryBudgets/food');
+  const budget={monthlyLimit:100,warningThresholdPercent:80,updatedAt:Date.now()};
+  await setDoc(ref,budget);
+  await updateDoc(doc(db,categoryPath('alice','food')),{migrationState:'migrating',pendingTransactionType:target});
+  expect((await getDoc(ref)).exists()).toBe(true);
+  await assertFails(setDoc(ref,{...budget,monthlyLimit:200,updatedAt:budget.updatedAt+1}));
+  const final={transactionType:target,migrationState:deleteField(),pendingTransactionType:deleteField()};
+  await assertFails(updateDoc(doc(db,categoryPath('alice','food')),final));
+  const batch=writeBatch(db);batch.delete(ref);batch.update(doc(db,categoryPath('alice','food')),final);
+  await assertSucceeds(batch.commit());
+});
+
+it('allows a budget for a valid existing category identity longer than 64 characters', async () => {
+  const id='legacy-'+ 'x'.repeat(80);
+  const db=testEnv.authenticatedContext('alice',recentAuthClaims(true)).firestore();
+  await assertSucceeds(setDoc(doc(db,categoryPath('alice',id)),validCategory));
+  await assertSucceeds(setDoc(doc(db,'users/alice/categoryBudgets/'+id),{monthlyLimit:100,warningThresholdPercent:80,updatedAt:Date.now()}));
 });

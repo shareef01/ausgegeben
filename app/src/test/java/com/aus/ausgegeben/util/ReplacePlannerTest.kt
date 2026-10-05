@@ -9,6 +9,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ReplacePlannerTest {
+    @Test fun delimiterBearingBudgetIdsCannotCollide() {
+        val one = sampleBackup.copy(schemaVersion = 2, categoryBudgets = listOf(com.aus.ausgegeben.data.entity.CategoryBudget("a,100,80;b", 200.0, 80, 1)))
+        val two = one.copy(categoryBudgets = listOf(com.aus.ausgegeben.data.entity.CategoryBudget("a", 100.0, 80, 1), com.aus.ausgegeben.data.entity.CategoryBudget("b", 200.0, 80, 1)))
+        assertNotEquals(ReplacePlanner.computeBackupFingerprint(one), ReplacePlanner.computeBackupFingerprint(two))
+    }
+
 
     private val sampleCategories = listOf(
         Category(
@@ -239,7 +245,7 @@ class ReplacePlannerTest {
 
     @Test
     fun `rejects unsupported schema versions`() {
-        val invalidSchemaBackup = sampleBackup.copy(schemaVersion = 2)
+        val invalidSchemaBackup = sampleBackup.copy(schemaVersion = 3)
 
         val plan = ReplacePlanner.planReplace(
             currentExpenses = sampleExpenses,

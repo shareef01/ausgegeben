@@ -58,7 +58,7 @@ export function MainShell() {
         onAdd={() => setTxnOverlay({ type: 'add' })}
       />
     ),
-    insights: <InsightsView onAdd={() => setTxnOverlay({ type: 'add' })} />,
+    insights: <InsightsView onAdd={() => setTxnOverlay({ type: 'add' })} onManageBudgets={() => selectTab('settings')} />,
     settings: <SettingsView onManageCategories={() => setCategoriesOpen(true)} />,
   };
 

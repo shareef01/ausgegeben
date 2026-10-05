@@ -1,3 +1,4 @@
+import { CATEGORY_BUDGETS_COLLECTION } from '@/repositories/firestorePaths';
 import {
   collection, doc, setDoc, deleteDoc, getDoc, getDocs, getDocsFromServer,
   getDocFromServer, query, where, orderBy, limit,
@@ -298,6 +299,7 @@ async function resumeCategoryTypeMigrations(userId: string): Promise<void> {
       if (latest.migrationState === 'migrating' &&
           latest.pendingTransactionType === target &&
           latest.transactionType === data.transactionType) {
+        if (target !== 'expense') transaction.delete(doc(fs()!, 'users', userId, CATEGORY_BUDGETS_COLLECTION, category.id));
         transaction.update(category.ref, {
           transactionType: target,
           migrationState: deleteField(),
@@ -333,7 +335,10 @@ async function deleteCategoryInto(userId: string, id: string, targetId?: string)
       linked = await expenseDocsForCategory(userId, id);
       if (linked.length > 0) throw new CategoryInUseError();
     }
-    await deleteDoc(source);
+    const finalBatch = writeBatch(fs()!);
+    finalBatch.delete(doc(fs()!, 'users', userId, CATEGORY_BUDGETS_COLLECTION, id));
+    finalBatch.delete(source);
+    await finalBatch.commit();
   } catch (error) {
     // Recovery is identity-safe: only this source document is reopened. If the cleanup
     // itself cannot reach Firestore, the next delete resumes from `deleting`.

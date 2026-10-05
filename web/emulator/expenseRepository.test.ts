@@ -1,3 +1,4 @@
+import 'fake-indexeddb/auto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { collection, doc, getDoc, getDocs, setDoc, writeBatch, updateDoc, deleteDoc, disableNetwork, enableNetwork } from 'firebase/firestore';
 import {
@@ -341,7 +342,13 @@ describe('account deletion marker', () => {
       marker: true,
     });
 
+    for (const id of ['cat-1','cat-2','cat-3']) {
+      if (id !== 'cat-1') await seedCategory({id,name:id});
+      await setDoc(doc(emulatorFirestore(), `users/${TEST_UID}/categoryBudgets/${id}`), {monthlyLimit:100,warningThresholdPercent:80,updatedAt:Date.now()});
+    }
+    expect((await getDocs(collection(emulatorFirestore(),'users',TEST_UID,'categoryBudgets'))).size).toBe(3);
     await expenseRepository.deleteAllUserData();
+    expect((await getDocs(collection(emulatorFirestore(),'users',TEST_UID,'categoryBudgets'))).empty).toBe(true);
 
     expect((await getDocs(expCol())).empty).toBe(true);
     expect((await getDocs(catCol())).empty).toBe(true);
@@ -513,4 +520,57 @@ describe('Records complete corpus', () => {
     try { await vi.waitFor(() => expect(rangeRows.map(e => e.id)).toEqual(['search-1', 'search-0'])); }
     finally { stopRange(); }
   }, 60000);
+});
+
+
+describe('Category budget lifecycle', () => {
+  it('streams create/update/remove and suppresses callbacks after owner changes and cleanup', async () => {
+    const {categoryBudgetRepository:repo}=await import('@/services/categoryBudgets');
+    await seedCategory({id:'budget-cat',name:'Food'});
+    await seedCategory({id:'offline-new',name:'New'});
+    const b={categoryId:'budget-cat',monthlyLimit:100,warningThresholdPercent:80,updatedAt:Date.now()};
+    let rows:import('@/services/categoryBudgets').CategoryBudget[]=[]; let calls=0;
+    const stop=repo.observe(TEST_UID,value=>{rows=value;calls++;});
+    try {
+      await repo.save(TEST_UID,b,b.categoryId,null);
+      await vi.waitFor(()=>expect(rows).toHaveLength(1));
+      await disableNetwork(emulatorFirestore());
+      try {
+        await expect(repo.getAll(TEST_UID)).rejects.toThrow();
+        await expect(repo.save(TEST_UID,{...b,categoryId:'offline-new'},'offline-new',null)).rejects.toThrow();
+        await expect(repo.save(TEST_UID,{...b,monthlyLimit:999},b.categoryId,rows[0].updatedAt)).rejects.toThrow();
+        await expect(repo.save(TEST_UID,null,b.categoryId,rows[0].updatedAt)).rejects.toThrow();
+        await expect(repo.restore(TEST_UID,{...b,categoryId:'offline-new'},'offline-new')).rejects.toThrow();
+        await expect(repo.restore(TEST_UID,{...b,monthlyLimit:999},b.categoryId)).rejects.toThrow();
+        await expect(repo.restore(TEST_UID,null,b.categoryId)).rejects.toThrow();
+      }
+      finally { await enableNetwork(emulatorFirestore()); }
+      expect((await repo.getAll(TEST_UID))[0].monthlyLimit).toBe(100);
+      const revision=rows[0].updatedAt;
+      await repo.save(TEST_UID,{...b,monthlyLimit:200},b.categoryId,revision);
+      await vi.waitFor(()=>expect(rows[0].monthlyLimit).toBe(200));
+      await expect(repo.save(TEST_UID,b,b.categoryId,revision)).rejects.toThrow('BUDGET_CONFLICT');
+      signOutTestUser();const before=calls;
+      await updateDoc(doc(emulatorFirestore(),'users',TEST_UID,'categoryBudgets',b.categoryId),{monthlyLimit:300});
+      await new Promise(resolve=>setTimeout(resolve,100));expect(calls).toBe(before);
+    } finally {stop();}
+    signInTestUser();
+    const latest=(await repo.getAll(TEST_UID))[0];
+    await repo.save(TEST_UID,null,b.categoryId,latest.updatedAt);
+    expect(await repo.getAll(TEST_UID)).toEqual([]);
+  });
+  it.each(['income','transfer'] as const)('deletes budgets atomically and removes them on resumed migration to %s', async target => {
+    const {categoryBudgetRepository:repo}=await import('@/services/categoryBudgets');
+    await seedCategory({id:'delete-budget',name:'Food'});
+    await repo.save(TEST_UID,{categoryId:'delete-budget',monthlyLimit:100,warningThresholdPercent:80,updatedAt:Date.now()},'delete-budget',null);
+    await expenseRepository.deleteCategory('delete-budget');expect(await repo.getAll(TEST_UID)).toEqual([]);
+    await seedCategory({id:'migrate-budget',name:'Food'});
+    await repo.save(TEST_UID,{categoryId:'migrate-budget',monthlyLimit:100,warningThresholdPercent:80,updatedAt:Date.now()},'migrate-budget',null);
+    await updateDoc(doc(catCol(),'migrate-budget'),{migrationState:'migrating',pendingTransactionType:target});
+    await setDoc(doc(emulatorFirestore(), `users/${TEST_UID}/meta/dedupe`), {categoriesDeduped:true,orphansScannedAt:Date.now(),orphanScanVersion:1});
+    expect(await repo.getAll(TEST_UID)).toHaveLength(1); // Interrupted migration retains its budget.
+    await expenseRepository.ensureSeeded();
+    expect(await repo.getAll(TEST_UID)).toEqual([]);
+    expect((await getDoc(doc(catCol(),'migrate-budget'))).data()?.transactionType).toBe(target);
+  });
 });

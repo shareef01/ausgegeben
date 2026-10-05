@@ -19,6 +19,7 @@
  * not be used to "fix" it by adding it to the deletable set.
  */
 
+export const CATEGORY_BUDGETS_COLLECTION = 'categoryBudgets';
 export const CATEGORIES_COLLECTION = 'categories';
 export const EXPENSES_COLLECTION = 'expenses';
 export const SETTINGS_COLLECTION = 'settings';
@@ -36,6 +37,7 @@ interface UserDocPath {
 
 /** Every per-user subcollection whose documents deleteAllUserData wipes in full. */
 export const DELETABLE_USER_COLLECTIONS: readonly string[] = [
+  CATEGORY_BUDGETS_COLLECTION,
   CATEGORIES_COLLECTION,
   EXPENSES_COLLECTION,
   RESTORE_SNAPSHOT_COLLECTION,

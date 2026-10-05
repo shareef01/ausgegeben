@@ -1,3 +1,5 @@
+import { CategoryBudgetManager } from '@/components/CategoryBudgets';
+import { categoryBudgetRepository } from '@/services/categoryBudgets';
 import { useState, type ReactNode, type ComponentType, useRef, useCallback, useEffect } from 'react';
 import { PageTitle } from '@/components/ui';
 import {
@@ -213,10 +215,15 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
   };
 
   const exportBackup = async () => {
+    const exportUid = useAuthStore.getState().user?.uid;
+    if (!exportUid) return;
     try {
       const { items: expenses, truncated } = await expenseRepository.getAllExpensesCapped(5_000);
       const categories = await expenseRepository.getAllCategories();
+      const categoryBudgets = await categoryBudgetRepository.getAll(exportUid);
+      if (useAuthStore.getState().user?.uid !== exportUid) throw new Error('AUTH_ACCOUNT_CHANGED');
       const backup = createBackup({
+        categoryBudgets,
         preferences: {
           currency,
           monthlyBudget,
@@ -608,6 +615,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
             )}
           </Section>
 
+          <CategoryBudgetManager />
           <Section title={t('settingsData')}>
             <SettingsRow icon={IconLayers} iconTint="accent" title={t('settingsCategories')} subtitle={t('settingsCategoriesSub')} onClick={onManageCategories} />
             <SettingsRow icon={IconDownload} iconTint="neutral" title={t('settingsExport')} subtitle={t('settingsExportSub')} onClick={() => void exportData()} />
@@ -803,6 +811,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
                   currency: pendingRestore.summary.currency,
                 })}
               </p>
+              {pendingRestore.backup.schemaVersion === 1 && <p>{t('categoryBudgetV1')}</p>}
               {pendingRestore.summary.monthlyBudget ? (
                 <p className="confirm-dialog__message">
                   {t('settingsRestoreBackupBudget', {

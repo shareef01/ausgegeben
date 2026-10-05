@@ -39,6 +39,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
 data class InsightsUiState(
+    val budgetCategories: List<Category> = emptyList(),
+    val budgetExpenses: List<Expense> = emptyList(),
+    val categoryBudgetProgress: List<com.aus.ausgegeben.data.entity.CategoryBudgetProgress> = emptyList(),
+    val budgetIncomplete: Boolean = true,
     val periodKey: String = AnalyticsPeriod.THIS_MONTH.storageKey,
     val periodLabel: String = "",
     val totalExpenses: Double = 0.0,
@@ -74,7 +78,7 @@ class InsightsViewModel @Inject constructor(
         val currentFlow = if (range == null) {
             expenseActions.allExpenses
         } else {
-            expenseActions.getExpensesInRange(range.first, range.second)
+            expenseActions.getRecordExpensesInRange(range.first, range.second)
         }
         val priorFlow = if (prior == null) {
             flowOf(emptyList())
@@ -89,7 +93,7 @@ class InsightsViewModel @Inject constructor(
         preferenceManager.monthlyBudgetFlow
     ) { currency, budget -> currency to budget }
 
-    val uiState: StateFlow<InsightsUiState> = combine(
+    private val baseState: StateFlow<InsightsUiState> = combine(
         prefsTupleFlow,
         categoryActions.allCategories,
         scopedAndPriorExpensesFlow,
@@ -115,6 +119,10 @@ class InsightsViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = InsightsUiState()
         )
+
+    val uiState: StateFlow<InsightsUiState> = combine(baseState, expenseActions.categoryBudgets, expenseActions.recordIncomplete) { state, budgets, incomplete ->
+        state.copy(categoryBudgetProgress = com.aus.ausgegeben.data.entity.categoryBudgetProgress(budgets.budgets, state.budgetCategories, state.budgetExpenses), budgetIncomplete = incomplete || budgets.incomplete || budgets.error)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InsightsUiState())
 
     init {
         viewModelScope.launch {
@@ -266,6 +274,8 @@ internal fun buildInsightsState(
     }
 
     return InsightsUiState(
+        budgetCategories = categories,
+        budgetExpenses = scoped,
         periodKey = periodKey,
         periodLabel = analyticsPeriodOptionFromStorage(periodKey, nowMillis).label,
         totalExpenses = CurrencyUtils.fromMinorUnits(totalExpenses),
@@ -289,6 +299,8 @@ internal fun buildInsightsState(
 
 internal fun insightsStatesEquivalent(previous: InsightsUiState, current: InsightsUiState): Boolean {
     if (previous.periodKey != current.periodKey ||
+        previous.budgetCategories != current.budgetCategories ||
+        previous.budgetExpenses != current.budgetExpenses ||
         previous.periodLabel != current.periodLabel ||
         previous.currency != current.currency ||
         previous.totalExpenses != current.totalExpenses ||
