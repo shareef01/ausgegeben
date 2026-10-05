@@ -30,6 +30,7 @@ const DEFAULT_ICON = 'category';
 type CategoryAction = 'add' | 'update' | 'delete' | 'dedupe';
 
 function categoryErrorMessage(err: unknown, action: CategoryAction, t: (key: TranslationKey) => string): string {
+  if (err instanceof Error && err.message === 'CATEGORY_HAS_RECURRING') return t('recurringCategoryBlocked');
   if (err instanceof EmailNotVerifiedError) return t('authVerifyRequired');
   switch (action) {
     case 'add': return t('categoryErrorAddFailed');

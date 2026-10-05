@@ -444,6 +444,7 @@ class AppRepository @Inject constructor(
         val snapshot = ref.get().await()
         val persisted = categoryFromDoc(snapshot)
             ?: throw IllegalStateException("CATEGORY_NOT_FOUND")
+        check(desired.transactionType == persisted.transactionType || (snapshot.getLong("recurringTemplateCount") ?: 0) == 0L) { "CATEGORY_HAS_RECURRING" }
         val pendingType = persisted.pendingTransactionType
             .takeIf { persisted.migrationState == CATEGORY_MIGRATION_STATE }
 
@@ -1990,6 +1991,7 @@ class AppRepository @Inject constructor(
 
     private suspend fun deleteCategoryInto(u: String, fromCategoryId: String, toCategoryId: String?) {
         val source = catDoc(u, fromCategoryId)
+        check((source.get(com.google.firebase.firestore.Source.SERVER).await().getLong("recurringTemplateCount") ?: 0) == 0L) { "CATEGORY_HAS_RECURRING" }
         source.set(
             mapOf("deletionState" to "deleting", "updatedAt" to System.currentTimeMillis()),
             SetOptions.merge(),

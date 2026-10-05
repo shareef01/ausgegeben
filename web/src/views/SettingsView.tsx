@@ -1,6 +1,7 @@
 import { CategoryBudgetManager } from '@/components/CategoryBudgets';
 import { categoryBudgetRepository } from '@/services/categoryBudgets';
 import { useState, type ReactNode, type ComponentType, useRef, useCallback, useEffect } from 'react';
+import { RecurringManager } from '@/components/RecurringManager';
 import { PageTitle } from '@/components/ui';
 import {
   IconChevronRight,
@@ -617,6 +618,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
 
           <CategoryBudgetManager />
           <Section title={t('settingsData')}>
+            <RecurringManager />
             <SettingsRow icon={IconLayers} iconTint="accent" title={t('settingsCategories')} subtitle={t('settingsCategoriesSub')} onClick={onManageCategories} />
             <SettingsRow icon={IconDownload} iconTint="neutral" title={t('settingsExport')} subtitle={t('settingsExportSub')} onClick={() => void exportData()} />
             <SettingsRow icon={IconShield} iconTint="accent" title={t('settingsExportBackup')} subtitle={t('settingsExportBackupSub')} onClick={() => void exportBackup()} />

@@ -22,6 +22,8 @@ package com.aus.ausgegeben.data
  */
 object FirestorePaths {
     const val CATEGORY_BUDGETS_COLLECTION = "categoryBudgets"
+    const val RECURRING_COLLECTION = "recurringTransactions"
+    const val OCCURRENCES_COLLECTION = "recurringOccurrences"
     const val CATEGORIES_COLLECTION = "categories"
     const val EXPENSES_COLLECTION = "expenses"
     const val SETTINGS_COLLECTION = "settings"
@@ -37,6 +39,8 @@ object FirestorePaths {
     /** Every per-user subcollection whose documents deleteAllUserData wipes in full. */
     val DELETABLE_USER_COLLECTIONS: List<String> = listOf(
         CATEGORY_BUDGETS_COLLECTION,
+        RECURRING_COLLECTION,
+        OCCURRENCES_COLLECTION,
         CATEGORIES_COLLECTION,
         EXPENSES_COLLECTION,
         RESTORE_SNAPSHOT_COLLECTION,

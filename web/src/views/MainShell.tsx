@@ -15,12 +15,14 @@ import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { useRecurringSync } from '@/services/recurringStore';
 import { preferencesSync } from '@/services/preferencesSync';
 
 type Tab = 'record' | 'insights' | 'settings';
 type TxnOverlay = null | { type: 'add' } | { type: 'edit'; expenseId: string };
 
 export function MainShell() {
+  useRecurringSync();
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const isDesktop = useMediaQuery('(min-width: 768px)');

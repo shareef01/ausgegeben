@@ -21,6 +21,8 @@
 
 export const CATEGORY_BUDGETS_COLLECTION = 'categoryBudgets';
 export const CATEGORIES_COLLECTION = 'categories';
+export const RECURRING_COLLECTION = 'recurringTransactions';
+export const OCCURRENCES_COLLECTION = 'recurringOccurrences';
 export const EXPENSES_COLLECTION = 'expenses';
 export const SETTINGS_COLLECTION = 'settings';
 export const PREFERENCES_DOC = 'preferences';
@@ -38,6 +40,8 @@ interface UserDocPath {
 /** Every per-user subcollection whose documents deleteAllUserData wipes in full. */
 export const DELETABLE_USER_COLLECTIONS: readonly string[] = [
   CATEGORY_BUDGETS_COLLECTION,
+  RECURRING_COLLECTION,
+  OCCURRENCES_COLLECTION,
   CATEGORIES_COLLECTION,
   EXPENSES_COLLECTION,
   RESTORE_SNAPSHOT_COLLECTION,

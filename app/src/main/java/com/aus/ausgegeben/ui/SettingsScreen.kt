@@ -64,6 +64,7 @@ import kotlinx.coroutines.launch
 @Composable
 @Suppress("LocalContextGetResourceValueCall")
 fun SettingsScreen(
+    recurringViewModel: RecurringViewModel,
     repository: AppRepository,
     preferenceManager: PreferenceManager,
     authRepository: AuthRepository,
@@ -77,6 +78,7 @@ fun SettingsScreen(
     onRequestSignIn: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val recurringCategories by repository.allCategories.collectAsStateWithLifecycle(initialValue = emptyList())
     val isWide = isWideScreen()
     val themeMode by preferenceManager.themeModeFlow.collectAsStateWithLifecycle(initialValue = ThemeMode.SYSTEM)
     val currency by preferenceManager.currencyFlow.collectAsStateWithLifecycle(initialValue = "EUR")
@@ -316,6 +318,8 @@ fun SettingsScreen(
                 contentPadding = tabScreenListBottomPadding()
             ) {
                 item { ScreenTitle(title = stringResource(R.string.screen_settings)) }
+
+                item { RecurringManager(recurringViewModel, recurringCategories, currentUser?.uid, currentUser?.isEmailVerified == true) }
 
                 if (unresolvedOp != null &&
                     unresolvedOp!!.phase != ReplacePlanner.RestorePhase.COMPLETED &&
