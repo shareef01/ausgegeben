@@ -11,6 +11,8 @@ updates:
         patterns: ["com.google.firebase:*", "com.google.gms.google-services"]
       androidx:
         patterns: ["androidx.*"]
+      kotlinx-coroutines:
+        patterns: ["org.jetbrains.kotlinx:kotlinx-coroutines*"]
     open-pull-requests-limit: 5
 
   - package-ecosystem: npm
