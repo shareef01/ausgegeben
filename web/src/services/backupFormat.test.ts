@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   BACKUP_FORMAT_IDENTIFIER,
@@ -190,5 +192,23 @@ describe('Local backup serializer & strict validator', () => {
 
     const result = validateBackup(androidJson);
     expect(result.valid).toBe(true);
+  });
+
+  it.each(['shared-v3-empty', 'shared-v3-multiple'])('imports cross-platform v3 fixture %s', (name) => {
+    const fixture = JSON.parse(readFileSync(resolve(process.cwd(), '../test-fixtures/recurring-transactions/' + name + '.json'), 'utf8'));
+    expect(validateBackup(fixture).valid).toBe(true);
+  });
+
+  it.each(['shared-v3-empty', 'shared-v3-multiple'])('Web exporter matches the shared v3 golden %s', (name) => {
+    const fixture = JSON.parse(readFileSync(resolve(process.cwd(), '../test-fixtures/recurring-transactions/' + name + '.json'), 'utf8'));
+    const exported = createBackup({
+      preferences: fixture.preferences,
+      categories: fixture.categories,
+      expenses: fixture.expenses,
+      categoryBudgets: fixture.categoryBudgets,
+      recurring: fixture.recurring,
+      appVersion: fixture.appVersion,
+    });
+    expect({ ...exported, exportedAt: fixture.exportedAt }).toEqual(fixture);
   });
 });

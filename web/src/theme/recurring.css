@@ -1,0 +1,6 @@
+.recurring-panel { background: var(--color-surface); color: var(--color-on-surface); padding: 24px; border-radius: 24px; width: min(640px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; }
+.recurring-form { display: grid; gap: 12px; margin-block: 16px; }
+.recurring-form label { display: grid; gap: 4px; }
+.recurring-form input, .recurring-form select { min-height: 48px; width: 100%; background: var(--color-surface-variant); color: var(--color-on-surface); border: 1px solid var(--color-outline); border-radius: 8px; padding: 8px; }
+.recurring-row { padding-block: 16px; border-bottom: 1px solid var(--color-outline); }
+.recurring-panel button { min-height: 48px; margin: 4px; }

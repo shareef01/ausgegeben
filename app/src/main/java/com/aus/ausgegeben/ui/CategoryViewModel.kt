@@ -57,6 +57,7 @@ class CategoryViewModel @Inject constructor(
             return app.getString(R.string.category_error_unwritable, error.categoryNames)
         }
         return when (error.message) {
+            "CATEGORY_HAS_RECURRING" -> app.getString(R.string.recurring_category_blocked)
             "EMAIL_NOT_VERIFIED" -> app.getString(R.string.auth_verify_required)
             else -> app.getString(fallbackResId)
         }

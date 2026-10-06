@@ -37,7 +37,7 @@ class CategoryBudgetsTest {
         assertEquals(0.0,categoryBudgetProgress(listOf(budget),listOf(category),listOf(Expense(amount=25.0,categoryId="food",dateMillis=1,transactionType="income",note=""))).single().spent,0.0)
     }
     @Test fun exportsV2AndReadsV1WithoutBudgets() {
-        val json=BackupFormat.createBackupJson(BackupFormat.BackupPreferences("EUR",null),listOf(category),emptyList(),"test",categoryBudgets=listOf(budget))
+        val json=BackupFormat.createBackupJson(BackupFormat.BackupPreferences("EUR",null),listOf(category),emptyList(),"test",categoryBudgets=listOf(budget),schemaVersion=2)
         assertEquals(listOf(budget),BackupFormat.parseBackup(json)!!.categoryBudgets)
         val old=JSONObject(json);old.put("schemaVersion",1);old.remove("categoryBudgets")
         assertTrue(BackupFormat.validateBackupJson(old.toString()).valid)
@@ -50,7 +50,7 @@ class CategoryBudgetsTest {
         listOf("android-v2","shared-v2-empty","shared-v2-multiple").forEach { name ->
             val fixture=BackupFormat.parseBackup(File(root,"test-fixtures/category-budgets/$name.json").readText())!!
             val cats=fixture.categories.map { Category(it.id,it.name,it.iconName,it.colorInt,it.transactionType,it.sortOrder) }
-            val json=BackupFormat.createBackupJson(fixture.preferences,cats,emptyList(),fixture.appVersion,exportedAt=fixture.exportedAt,categoryBudgets=fixture.categoryBudgets)
+            val json=BackupFormat.createBackupJson(fixture.preferences,cats,emptyList(),fixture.appVersion,exportedAt=fixture.exportedAt,categoryBudgets=fixture.categoryBudgets,schemaVersion=fixture.schemaVersion)
             assertEquals(fixture,BackupFormat.parseBackup(json))
         }
     }

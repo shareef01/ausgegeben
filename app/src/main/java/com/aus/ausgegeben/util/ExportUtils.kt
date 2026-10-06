@@ -150,6 +150,7 @@ object ExportUtils {
                     expenses = expenses,
                     appVersion = com.aus.ausgegeben.BuildConfig.VERSION_NAME,
                     categoryBudgets = repository.getCategoryBudgets(backupUid),
+                    recurring = repository.getRecurringBackupSection(backupUid),
                 )
 
                 check(repository.currentRecordAccountId == backupUid) { "AUTH_ACCOUNT_CHANGED" }

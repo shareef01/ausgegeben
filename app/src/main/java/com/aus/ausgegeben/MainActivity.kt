@@ -132,6 +132,9 @@ fun MainApp(
     val expenseViewModel: ExpenseViewModel = hiltViewModel(activity, key = "records:${currentUser?.uid}")
     val insightsViewModel: InsightsViewModel = hiltViewModel(activity, key = "insights:${currentUser?.uid}")
     val authViewModel: AuthViewModel = hiltViewModel(activity)
+    val recurringViewModel: RecurringViewModel = hiltViewModel(activity, key = "recurring:${currentUser?.uid}")
+    val recurringSnapshot by recurringViewModel.snapshot.collectAsStateWithLifecycle()
+    LaunchedEffect(currentUser?.uid, currentUser?.isEmailVerified, isOnline) { if(isOnline) recurringViewModel.synchronize() }
 
     val overlay = rememberAppOverlayState(addViewModel, expenseViewModel)
 
@@ -251,6 +254,11 @@ fun MainApp(
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, recurringViewModel) {
+        val observer=androidx.lifecycle.LifecycleEventObserver { _, event -> if(event==androidx.lifecycle.Lifecycle.Event.ON_RESUME) recurringViewModel.synchronize() }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     AppScreen {
         val primary = MaterialTheme.colorScheme.primary
@@ -413,6 +421,7 @@ fun MainApp(
                     },
                     settingsContent = {
                         SettingsScreen(
+                            recurringViewModel = recurringViewModel,
                             repository = repository,
                             preferenceManager = preferenceManager,
                             authRepository = authRepository,
