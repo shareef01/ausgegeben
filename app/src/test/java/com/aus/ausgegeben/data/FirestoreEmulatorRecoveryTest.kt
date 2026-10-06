@@ -581,15 +581,19 @@ class FirestoreEmulatorRecoveryTest {
         assertEquals(12.34, first.monthlyLimit, 0.0)
         assertTrue(repository.saveCategoryBudget(uid, cat.id, budget.copy(monthlyLimit = 25.0), first.updatedAt).isSuccess)
         assertTrue(repository.saveCategoryBudget(uid, cat.id, budget, first.updatedAt).isFailure)
-        // Both schema versions exercise the production Android restore/snapshot paths.
+        // All three schema versions exercise the production Android restore/snapshot paths.
         val format = com.aus.ausgegeben.util.BackupFormat
         val prefs = com.aus.ausgegeben.util.BackupFormat.BackupPreferences("EUR", null)
         val modernJson = format.createBackupJson(prefs, listOf(cat), emptyList(), "test", categoryBudgets = emptyList())
-        val legacyJson = JSONObject(modernJson).apply { put("schemaVersion", 1); remove("categoryBudgets") }.toString()
+        val legacyJson = JSONObject(modernJson).apply { put("schemaVersion", 1); remove("categoryBudgets"); remove("recurring") }.toString()
         val legacy = format.parseBackup(legacyJson)!!
         assertTrue(repository.restoreBackup(legacy, uid).isSuccess)
         assertEquals(25.0, repository.getCategoryBudgets(uid).single().monthlyLimit, 0.0)
         assertTrue(repository.executeReplace(legacy, uid).isSuccess)
+        assertEquals(25.0, repository.getCategoryBudgets(uid).single().monthlyLimit, 0.0)
+        val v2Json = JSONObject(modernJson).apply { put("schemaVersion", 2); remove("recurring") }.toString()
+        val v2 = format.parseBackup(v2Json)!!
+        assertTrue(repository.restoreBackup(v2, uid).isSuccess)
         assertEquals(25.0, repository.getCategoryBudgets(uid).single().monthlyLimit, 0.0)
         val newCat = cat.copy(id = "restore-created-budget", name = "New budget")
         val modern = format.parseBackup(format.createBackupJson(prefs, listOf(cat, newCat), emptyList(), "test", categoryBudgets = listOf(budget.copy(monthlyLimit = 50.0), budget.copy(categoryId = newCat.id))))!!
