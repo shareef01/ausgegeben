@@ -68,6 +68,7 @@ web/playwright/.cache/
 .reasonix/
 .agent/
 .claude/*.local.json
+scratch/
 
 # Test runner output and reports
 test-results/
