@@ -1,5 +1,8 @@
 import { toMinorUnits } from '@/utils/money';
 import { categoryBudgetRepository, type CategoryBudget } from '@/services/categoryBudgets';
+import { recurringRepository } from '@/services/recurringRepository';
+import type { RecurringTemplate } from '@/services/recurrence';
+import type { OccurrenceReceipt, RecurringBackupSection } from '@/services/recurringBackupSection';
 import {
   collection,
   deleteDoc,
@@ -122,8 +125,34 @@ export async function computeBackupFingerprint(backup: AusgegebenBackup): Promis
     .sort()
     .join(';');
   const canonicalPrefs = `${backup.preferences.currency},${backup.preferences.monthlyBudget ?? 'null'},${backup.preferences.locale ?? ''},${backup.preferences.themeMode ?? ''}`;
-  const budgetPart = backup.schemaVersion === 2 ? ':' + JSON.stringify([...(backup.categoryBudgets ?? [])].sort((a,b) => a.categoryId < b.categoryId ? -1 : a.categoryId > b.categoryId ? 1 : 0).map(b => [b.categoryId, toMinorUnits(b.monthlyLimit), b.warningThresholdPercent])) : '';
-  const raw = `v${backup.schemaVersion}:${backup.exportedAt}:${canonicalExpenses}:${canonicalCategories}:${canonicalPrefs}${budgetPart}`;
+  const budgetPart = backup.schemaVersion >= 2 ? ':' + JSON.stringify([...(backup.categoryBudgets ?? [])].sort((a,b) => a.categoryId < b.categoryId ? -1 : a.categoryId > b.categoryId ? 1 : 0).map(b => [b.categoryId, toMinorUnits(b.monthlyLimit), b.warningThresholdPercent])) : '';
+  const recurringPart = backup.schemaVersion >= 3 && backup.recurring ? ':' + JSON.stringify([
+    [...(backup.recurring.templates ?? [])].sort((a,b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0).map(t => [
+      t.id,
+      toMinorUnits(t.amount),
+      t.categoryId,
+      t.note,
+      t.transactionType,
+      t.frequency,
+      t.interval,
+      t.startDate,
+      t.endDate,
+      t.timeZone,
+      t.enabled,
+      t.nextIndex,
+      t.nextDate,
+      t.createdAt,
+      t.updatedAt,
+    ]),
+    [...(backup.recurring.receipts ?? [])].sort((a,b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0).map(r => [
+      r.id,
+      r.templateId,
+      r.scheduledDate,
+      r.expenseId,
+      r.createdAt,
+    ]),
+  ]) : '';
+  const raw = `v${backup.schemaVersion}:${backup.exportedAt}:${canonicalExpenses}:${canonicalCategories}:${canonicalPrefs}${budgetPart}${recurringPart}`;
 
   if (typeof crypto !== 'undefined' && crypto.subtle) {
     const msgBuffer = new TextEncoder().encode(raw);
@@ -153,7 +182,7 @@ export function planReplace(params: {
   const { currentExpenses, currentCategories, currentPreferences, backup } = params;
   const conflicts: string[] = [];
 
-  if (backup.schemaVersion !== 1 && backup.schemaVersion !== 2) {
+  if (backup.schemaVersion !== 1 && backup.schemaVersion !== 2 && backup.schemaVersion !== 3) {
     conflicts.push(`UNSUPPORTED_SCHEMA_VERSION: ${backup.schemaVersion}`);
   }
 
@@ -172,6 +201,15 @@ export function planReplace(params: {
   for (const e of backup.expenses) {
     if (e.categoryId !== '0' && !backupCatMap.has(e.categoryId) && !currentCatMap.has(e.categoryId)) {
       conflicts.push(`CATEGORY_ORPHAN_REFERENCE: Expense ${e.id} references non-existent category ${e.categoryId}`);
+    }
+  }
+
+  // Check foreign key references from backup recurring templates
+  if (backup.schemaVersion === 3 && backup.recurring) {
+    for (const t of backup.recurring.templates) {
+      if (!backupCatMap.has(t.categoryId) && !currentCatMap.has(t.categoryId)) {
+        conflicts.push(`CATEGORY_ORPHAN_REFERENCE: Recurring template ${t.id} references non-existent category ${t.categoryId}`);
+      }
     }
   }
 
@@ -238,6 +276,8 @@ export async function createSafetySnapshot(
   categories: Category[],
   preferences: SyncedPreferences | null,
   categoryBudgets?: CategoryBudget[],
+  recurringTemplates?: RecurringTemplate[],
+  recurringReceipts?: OccurrenceReceipt[],
 ): Promise<{ chunkCount: number; totalExpenses: number; totalCategories: number }> {
   const db = getFirebaseFirestore();
   if (!db) throw new Error('FIRESTORE_UNAVAILABLE');
@@ -256,6 +296,8 @@ export async function createSafetySnapshot(
     totalCategories: categories.length,
     preferences: preferences ?? {},
     ...(categoryBudgets ? { categoryBudgets } : {}),
+    ...(recurringTemplates ? { recurringTemplates } : {}),
+    ...(recurringReceipts ? { recurringReceipts } : {}),
     categories: categories.map((c) => ({
       id: c.id,
       name: c.name,
@@ -311,6 +353,8 @@ export async function readSafetySnapshot(userId: string): Promise<{
   categories: Category[];
   preferences: SyncedPreferences | null;
   categoryBudgets?: CategoryBudget[];
+  recurringTemplates?: RecurringTemplate[];
+  recurringReceipts?: OccurrenceReceipt[];
 }> {
   const db = getFirebaseFirestore();
   if (!db) throw new Error('FIRESTORE_UNAVAILABLE');
@@ -326,6 +370,8 @@ export async function readSafetySnapshot(userId: string): Promise<{
     categories?: Category[];
     preferences?: SyncedPreferences;
     categoryBudgets?: CategoryBudget[];
+    recurringTemplates?: RecurringTemplate[];
+    recurringReceipts?: OccurrenceReceipt[];
   };
 
   const allExpenses: Expense[] = [];
@@ -343,6 +389,8 @@ export async function readSafetySnapshot(userId: string): Promise<{
 
   return {
     categoryBudgets: metaData.categoryBudgets,
+    recurringTemplates: metaData.recurringTemplates,
+    recurringReceipts: metaData.recurringReceipts,
     operationId: metaData.operationId,
     expenses: allExpenses,
     categories: metaData.categories ?? [],
@@ -520,6 +568,8 @@ export async function executeReplace(
         currentCategories,
         currentPrefs,
         await categoryBudgetRepository.getAll(expectedUid),
+        await recurringRepository.getAll(expectedUid),
+        await recurringRepository.getAllReceipts(expectedUid),
       );
     }
 
@@ -623,7 +673,8 @@ export async function executeReplace(
       }
     }
 
-    if (backup.schemaVersion === 2) await replaceBudgetCollection(expectedUid, backup.categoryBudgets ?? []);
+    if (backup.schemaVersion >= 2) await replaceBudgetCollection(expectedUid, backup.categoryBudgets ?? []);
+    if (backup.schemaVersion === 3 && backup.recurring) await replaceRecurringCollection(expectedUid, backup.recurring);
 
     // 12. Apply preferences
     if (faultHooks?.failBeforePreferences) {
@@ -825,6 +876,12 @@ export async function rollbackReplace(
     }
 
     if (snapshot.categoryBudgets) await replaceBudgetCollection(expectedUid, snapshot.categoryBudgets);
+    if (snapshot.recurringTemplates) {
+      await replaceRecurringCollection(expectedUid, {
+        templates: snapshot.recurringTemplates,
+        receipts: snapshot.recurringReceipts ?? [],
+      });
+    }
 
     // 6. Restore preferences
     if (snapshot.preferences) {
@@ -883,4 +940,16 @@ async function replaceBudgetCollection(uid: string, budgets: CategoryBudget[]) {
   for (const budget of budgets) {
     await categoryBudgetRepository.restore(uid, budget, budget.categoryId);
   }
+}
+
+async function replaceRecurringCollection(uid: string, section: RecurringBackupSection) {
+  const current = await recurringRepository.getAll(uid);
+  const desired = new Set(section.templates.map(t => t.id));
+  for (const t of current) if (!desired.has(t.id)) {
+    await recurringRepository.restoreTemplate(uid, null, t.id);
+  }
+  for (const t of section.templates) {
+    await recurringRepository.restoreTemplate(uid, t, t.id);
+  }
+  await recurringRepository.restoreReceipts(uid, section.receipts);
 }

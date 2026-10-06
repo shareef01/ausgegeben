@@ -1,0 +1,36 @@
+{
+  "format": "ausgegeben-backup",
+  "schemaVersion": 3,
+  "exportedAt": "2026-10-06T00:00:00Z",
+  "appVersion": "2.0.9",
+  "preferences": {
+    "currency": "EUR",
+    "monthlyBudget": 1000,
+    "locale": "en",
+    "themeMode": "system"
+  },
+  "categories": [
+    {
+      "id": "food",
+      "name": "Food",
+      "iconName": "restaurant",
+      "colorInt": 0,
+      "transactionType": "expense",
+      "sortOrder": 0
+    },
+    {
+      "id": "salary",
+      "name": "Salary",
+      "iconName": "attach_money",
+      "colorInt": 0,
+      "transactionType": "income",
+      "sortOrder": 1
+    }
+  ],
+  "expenses": [],
+  "categoryBudgets": [],
+  "recurring": {
+    "templates": [],
+    "receipts": []
+  }
+}

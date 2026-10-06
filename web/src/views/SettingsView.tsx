@@ -1,6 +1,7 @@
 import { CategoryBudgetManager } from '@/components/CategoryBudgets';
 import { categoryBudgetRepository } from '@/services/categoryBudgets';
 import { useState, type ReactNode, type ComponentType, useRef, useCallback, useEffect } from 'react';
+import { RecurringManager } from '@/components/RecurringManager';
 import { PageTitle } from '@/components/ui';
 import {
   IconChevronRight,
@@ -32,6 +33,7 @@ import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { createBackup, type AusgegebenBackup, type BackupSummary } from '@/services/backupFormat';
+import { recurringRepository } from '@/services/recurringRepository';
 import { readAndValidateBackupFile, restoreBackup } from '@/services/backupRestore';
 import {
   executeReplace,
@@ -221,9 +223,15 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
       const { items: expenses, truncated } = await expenseRepository.getAllExpensesCapped(5_000);
       const categories = await expenseRepository.getAllCategories();
       const categoryBudgets = await categoryBudgetRepository.getAll(exportUid);
+      const recurringTemplates = await recurringRepository.getAll(exportUid);
+      const recurringReceipts = await recurringRepository.getAllReceipts(exportUid);
       if (useAuthStore.getState().user?.uid !== exportUid) throw new Error('AUTH_ACCOUNT_CHANGED');
       const backup = createBackup({
         categoryBudgets,
+        recurring: {
+          templates: recurringTemplates,
+          receipts: recurringReceipts,
+        },
         preferences: {
           currency,
           monthlyBudget,
@@ -617,6 +625,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
 
           <CategoryBudgetManager />
           <Section title={t('settingsData')}>
+            <RecurringManager />
             <SettingsRow icon={IconLayers} iconTint="accent" title={t('settingsCategories')} subtitle={t('settingsCategoriesSub')} onClick={onManageCategories} />
             <SettingsRow icon={IconDownload} iconTint="neutral" title={t('settingsExport')} subtitle={t('settingsExportSub')} onClick={() => void exportData()} />
             <SettingsRow icon={IconShield} iconTint="accent" title={t('settingsExportBackup')} subtitle={t('settingsExportBackupSub')} onClick={() => void exportBackup()} />

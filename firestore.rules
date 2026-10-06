@@ -179,7 +179,7 @@ service cloud.firestore {
       return d.keys().hasOnly([
           'name', 'iconName', 'colorInt', 'transactionType', 'sortOrder',
           'updatedAt', 'id', 'cloudId', 'deleted', 'deletionState',
-          'migrationState', 'pendingTransactionType'
+          'migrationState', 'pendingTransactionType', 'recurringTemplateCount', 'recurringMutationId'
         ])
         && validLegacyCategoryFields(d)
         && d.keys().hasAll(['name', 'iconName', 'colorInt', 'transactionType', 'sortOrder'])
@@ -198,6 +198,8 @@ service cloud.firestore {
         && d.sortOrder >= 0
         && d.sortOrder < 10000
         && validUpdatedAt(d)
+        && (!('recurringTemplateCount' in d) || (d.recurringTemplateCount is int && d.recurringTemplateCount >= 0 && d.recurringTemplateCount <= 10000))
+        && (!('recurringMutationId' in d) || recurringId(d.recurringMutationId))
         && (!('deletionState' in d) || d.deletionState == 'deleting')
         && (
           (!('migrationState' in d) && !('pendingTransactionType' in d))
@@ -213,6 +215,8 @@ service cloud.firestore {
     // silently flipping the category while leaving every linked expense inconsistent.
     function validCategoryCreate() {
       return validCategory()
+        && request.resource.data.get('recurringTemplateCount', 0) == 0
+        && !('recurringMutationId' in request.resource.data)
         && !('migrationState' in request.resource.data)
         && !('pendingTransactionType' in request.resource.data);
     }
@@ -363,7 +367,8 @@ service cloud.firestore {
       let d = request.resource.data;
       return d.keys().hasOnly([
           'operationId', 'ownerUid', 'createdAt', 'chunkIndex', 'chunkCount',
-          'totalExpenses', 'totalCategories', 'expenses', 'categories', 'preferences', 'categoryBudgets'
+          'totalExpenses', 'totalCategories', 'expenses', 'categories', 'preferences', 'categoryBudgets',
+          'recurringTemplates', 'recurringReceipts'
         ])
         && d.keys().hasAll(['operationId', 'ownerUid', 'createdAt'])
         && d.operationId is string && d.operationId.size() > 0 && d.operationId.size() <= 64
@@ -376,9 +381,56 @@ service cloud.firestore {
         && (!('expenses' in d) || d.expenses is list)
         && (!('categories' in d) || d.categories is list)
         && (!('categoryBudgets' in d) || d.categoryBudgets is list)
+        && (!('recurringTemplates' in d) || d.recurringTemplates is list)
+        && (!('recurringReceipts' in d) || d.recurringReceipts is list)
         && (!('preferences' in d) || d.preferences is map);
     }
 
+    function recurringId(id) {
+      return id is string && id.matches('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+    }
+    function recurringDate(d) {
+      return d is string && (d.matches('^20[0-9]{2}-((01|03|05|07|08|10|12)-(0[1-9]|[12][0-9]|3[01])|(04|06|09|11)-(0[1-9]|[12][0-9]|30)|02-(0[1-9]|1[0-9]|2[0-8]))$')
+        || d.matches('^20([02468][048]|[13579][26])-02-29$'));
+    }
+    function validRecurring(d) {
+      return d.keys().hasOnly(['amount','categoryId','note','transactionType','frequency','interval','startDate','endDate','timeZone','enabled','nextIndex','nextDate','createdAt','updatedAt'])
+        && d.keys().hasAll(['amount','categoryId','note','transactionType','frequency','interval','startDate','endDate','timeZone','enabled','nextIndex','nextDate','createdAt','updatedAt'])
+        && d.amount is number && d.amount > 0 && d.amount < 1000000000
+        && math.abs(d.amount * 100 - math.round(d.amount * 100)) < 0.0001
+        && d.categoryId is string && d.categoryId.size() > 0 && d.categoryId.size() < 64
+        && d.note is string && d.note.size() <= 2000 && d.transactionType in ['expense','income','transfer']
+        && d.frequency in ['daily','weekly','monthly','yearly'] && d.interval is int && d.interval >= 1 && d.interval <= 365
+        && recurringDate(d.startDate) && (d.endDate == null || recurringDate(d.endDate) && d.endDate >= d.startDate)
+        && d.timeZone is string && d.timeZone.size() <= 100 && d.timeZone.matches('^(UTC|[A-Za-z_]+(/[A-Za-z0-9_+.-]+){1,2})$')
+        && d.enabled is bool && d.nextIndex is int && d.nextIndex >= 0 && d.nextIndex <= 40000
+        && (d.nextDate == null || recurringDate(d.nextDate) && d.nextDate >= d.startDate && (d.endDate == null || d.nextDate <= d.endDate))
+        && d.createdAt is int && d.createdAt > 0 && d.updatedAt is int && d.updatedAt >= d.createdAt && d.updatedAt <= request.time.toMillis() + 300000;
+    }
+    function recurringCategoryEligible(u, d) {
+      let c = getAfter(/databases/$(database)/documents/users/$(u)/categories/$(d.categoryId)).data;
+      return c.transactionType == d.transactionType && c.get('deletionState','') != 'deleting' && c.get('migrationState','') != 'migrating';
+    }
+    function recurringCountDelta(u, cat, id, delta) {
+      let before = get(/databases/$(database)/documents/users/$(u)/categories/$(cat)).data;
+      let after = getAfter(/databases/$(database)/documents/users/$(u)/categories/$(cat)).data;
+      return after.get('recurringTemplateCount',0) == before.get('recurringTemplateCount',0) + delta && after.get('recurringMutationId','') == id;
+    }
+    function categoryRecurringCounterChanged(u, cat) {
+      let before = resource.data;
+      let after = request.resource.data;
+      let id = after.get('recurringMutationId','');
+      let path = /databases/$(database)/documents/users/$(u)/recurringTransactions/$(id);
+      let oldRef = exists(path) ? (get(path).data.categoryId == cat ? 1 : 0) : 0;
+      let newRef = existsAfter(path) ? (getAfter(path).data.categoryId == cat ? 1 : 0) : 0;
+      return oldRef != newRef && after.get('recurringTemplateCount',0) == before.get('recurringTemplateCount',0) + newRef - oldRef;
+    }
+    function categoryRecurringCounter(u, cat) {
+      let before = resource.data;
+      let after = request.resource.data;
+      return (after.get('recurringTemplateCount',0) == before.get('recurringTemplateCount',0) && after.get('recurringMutationId','') == before.get('recurringMutationId',''))
+        || (recurringId(after.get('recurringMutationId','')) && categoryRecurringCounterChanged(u, cat));
+    }
     match /users/{userId} {
       allow read, write: if false;
 
@@ -402,6 +454,30 @@ service cloud.firestore {
           && getAfter(/databases/$(database)/documents/users/$(userId)/categories/$(categoryId)).data.get('migrationState', '') != 'migrating';
         allow delete: if canDeleteOwned(userId);
       }
+      match /recurringTransactions/{id} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isEmailVerified() && accountAcceptsWrites(userId)
+          && recurringId(id) && validRecurring(request.resource.data) && recurringCategoryEligible(userId, request.resource.data)
+          && recurringCountDelta(userId, request.resource.data.categoryId, id, 1);
+        allow update: if isOwner(userId) && isEmailVerified() && accountAcceptsWrites(userId)
+          && recurringId(id) && validRecurring(request.resource.data) && recurringCategoryEligible(userId, request.resource.data)
+          && request.resource.data.createdAt == resource.data.createdAt && request.resource.data.timeZone == resource.data.timeZone
+          && request.resource.data.updatedAt > resource.data.updatedAt
+          && (request.resource.data.categoryId == resource.data.categoryId || (recurringCountDelta(userId,resource.data.categoryId,id,-1) && recurringCountDelta(userId,request.resource.data.categoryId,id,1)));
+        allow delete: if canDeleteOwned(userId) && (accountDeletionPending(userId) || recurringCountDelta(userId,resource.data.categoryId,id,-1));
+      }
+      match /recurringOccurrences/{occurrenceId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isEmailVerified() && accountAcceptsWrites(userId)
+          && request.resource.data.keys().hasOnly(['templateId','scheduledDate','expenseId','createdAt'])
+          && request.resource.data.keys().hasAll(['templateId','scheduledDate','expenseId','createdAt'])
+          && recurringId(request.resource.data.templateId) && recurringDate(request.resource.data.scheduledDate)
+          && occurrenceId == request.resource.data.templateId + '_' + request.resource.data.scheduledDate
+          && request.resource.data.expenseId is string && request.resource.data.expenseId.matches('^[0-9a-f]{64}$')
+          && request.resource.data.createdAt is int && request.resource.data.createdAt > 0 && request.resource.data.createdAt <= request.time.toMillis() + 300000;
+        allow update: if false;
+        allow delete: if isOwner(userId) && accountDeletionPending(userId);
+      }
 
       match /categories/{categoryId} {
         allow read: if isOwner(userId);
@@ -414,11 +490,14 @@ service cloud.firestore {
           && isEmailVerified()
           && validCategoryUpdate()
           && (request.resource.data.transactionType == 'expense'
-            || !existsAfter(/databases/$(database)/documents/users/$(userId)/categoryBudgets/$(categoryId)));
+            || !existsAfter(/databases/$(database)/documents/users/$(userId)/categoryBudgets/$(categoryId)))
+          && categoryRecurringCounter(userId, categoryId)
+          && ((request.resource.data.get('deletionState','') != 'deleting' && request.resource.data.get('migrationState','') != 'migrating') || request.resource.data.get('recurringTemplateCount',0) == 0);
         // Deletes require verification, except during account wipe after
         // meta/accountDeletion.pendingDeletion is set.
         allow delete: if canDeleteOwned(userId)
           && (accountDeletionPending(userId) || (resource.data.deletionState == 'deleting'
+            && resource.data.get('recurringTemplateCount',0) == 0
             && !existsAfter(/databases/$(database)/documents/users/$(userId)/categoryBudgets/$(categoryId))));
       }
 

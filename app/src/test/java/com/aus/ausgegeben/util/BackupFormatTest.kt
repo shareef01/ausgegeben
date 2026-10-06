@@ -335,4 +335,36 @@ class BackupFormatTest {
         org.junit.Assert.assertNull(BackupFormat.parseBackup(futureVersionJson))
         org.junit.Assert.assertNull(BackupFormat.parseBackupSummary(futureVersionJson))
     }
+
+    @Test
+    fun sharedV3FixturesContract() {
+        var root = java.io.File(".").absoluteFile
+        while (!java.io.File(root, "test-fixtures/recurring-transactions").exists() && root.parentFile != null) {
+            root = root.parentFile!!
+        }
+        listOf("shared-v3-empty", "shared-v3-multiple").forEach { name ->
+            val text = java.io.File(root, "test-fixtures/recurring-transactions/$name.json").readText()
+            val validation = BackupFormat.validateBackupJson(text)
+            assertTrue(name + ": " + validation.errors.joinToString(), validation.valid)
+
+            val parsed = BackupFormat.parseBackup(text)
+            org.junit.Assert.assertNotNull(name, parsed)
+            assertEquals(3, parsed!!.schemaVersion)
+            org.junit.Assert.assertNotNull(parsed.recurring)
+
+            val cats = parsed.categories.map { Category(it.id, it.name, it.iconName, it.colorInt, it.transactionType, it.sortOrder) }
+            val exps = parsed.expenses.map { Expense(id = it.id, amount = it.amount, dateMillis = it.dateMillis, categoryId = it.categoryId, note = it.note, transactionType = it.transactionType) }
+            val reExported = BackupFormat.createBackupJson(
+                preferences = parsed.preferences,
+                categories = cats,
+                expenses = exps,
+                appVersion = parsed.appVersion,
+                exportedAt = parsed.exportedAt,
+                categoryBudgets = parsed.categoryBudgets,
+                recurring = parsed.recurring!!,
+                schemaVersion = parsed.schemaVersion,
+            )
+            assertEquals(name, parsed, BackupFormat.parseBackup(reExported))
+        }
+    }
 }

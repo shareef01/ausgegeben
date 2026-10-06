@@ -92,8 +92,44 @@ object ReplacePlanner {
             .sorted()
             .joinToString(";")
         val canonicalPrefs = "${backup.preferences.currency},${backup.preferences.monthlyBudget ?: "null"},${backup.preferences.locale},${backup.preferences.themeMode}"
-        val budgetPart = if (backup.schemaVersion == 2) ":" + org.json.JSONArray(backup.categoryBudgets.sortedBy { it.categoryId }.map { listOf(it.categoryId, CurrencyUtils.toMinorUnits(it.monthlyLimit), it.warningThresholdPercent) }).toString() else ""
-        val raw = "v${backup.schemaVersion}:${backup.exportedAt}:$canonicalExpenses:$canonicalCategories:$canonicalPrefs$budgetPart"
+        val budgetPart = if (backup.schemaVersion >= 2) ":" + org.json.JSONArray(backup.categoryBudgets.sortedBy { it.categoryId }.map { listOf(it.categoryId, CurrencyUtils.toMinorUnits(it.monthlyLimit), it.warningThresholdPercent) }).toString() else ""
+        val recurringPart = if (backup.schemaVersion >= 3 && backup.recurring != null) {
+            val templatesArray = org.json.JSONArray()
+            backup.recurring.templates.sortedBy { it.id }.forEach { t ->
+                val tArr = org.json.JSONArray()
+                tArr.put(t.id)
+                tArr.put(CurrencyUtils.toMinorUnits(t.amount))
+                tArr.put(t.categoryId)
+                tArr.put(t.note)
+                tArr.put(t.transactionType)
+                tArr.put(t.frequency)
+                tArr.put(t.interval)
+                tArr.put(t.startDate)
+                tArr.put(t.endDate ?: org.json.JSONObject.NULL)
+                tArr.put(t.timeZone)
+                tArr.put(t.enabled)
+                tArr.put(t.nextIndex)
+                tArr.put(t.nextDate)
+                tArr.put(t.createdAt)
+                tArr.put(t.updatedAt)
+                templatesArray.put(tArr)
+            }
+            val receiptsArray = org.json.JSONArray()
+            backup.recurring.receipts.sortedBy { it.id }.forEach { r ->
+                val rArr = org.json.JSONArray()
+                rArr.put(r.id)
+                rArr.put(r.templateId)
+                rArr.put(r.scheduledDate)
+                rArr.put(r.expenseId)
+                rArr.put(r.createdAt)
+                receiptsArray.put(rArr)
+            }
+            val recurringArray = org.json.JSONArray()
+            recurringArray.put(templatesArray)
+            recurringArray.put(receiptsArray)
+            ":" + recurringArray.toString()
+        } else ""
+        val raw = "v${backup.schemaVersion}:${backup.exportedAt}:$canonicalExpenses:$canonicalCategories:$canonicalPrefs$budgetPart$recurringPart"
 
         val md = MessageDigest.getInstance("SHA-256")
         val bytes = md.digest(raw.toByteArray(Charsets.UTF_8))
@@ -108,7 +144,7 @@ object ReplacePlanner {
     ): ReplacePlan {
         val conflicts = mutableListOf<String>()
 
-        if (backup.schemaVersion !in setOf(1,2)) {
+        if (backup.schemaVersion !in setOf(1, 2, 3)) {
             conflicts.add("UNSUPPORTED_SCHEMA_VERSION: ${backup.schemaVersion}")
         }
 
@@ -125,6 +161,14 @@ object ReplacePlanner {
         for (e in backup.expenses) {
             if (e.categoryId != "0" && !backupCatMap.containsKey(e.categoryId) && !currentCatMap.containsKey(e.categoryId)) {
                 conflicts.add("CATEGORY_ORPHAN_REFERENCE: Expense ${e.id} references non-existent category ${e.categoryId}")
+            }
+        }
+
+        if (backup.schemaVersion == 3 && backup.recurring != null) {
+            for (t in backup.recurring.templates) {
+                if (!backupCatMap.containsKey(t.categoryId) && !currentCatMap.containsKey(t.categoryId)) {
+                    conflicts.add("CATEGORY_ORPHAN_REFERENCE: Recurring template ${t.id} references non-existent category ${t.categoryId}")
+                }
             }
         }
 

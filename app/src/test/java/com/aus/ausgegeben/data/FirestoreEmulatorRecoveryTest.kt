@@ -543,70 +543,103 @@ class FirestoreEmulatorRecoveryTest {
         val date = records.single().dateMillis
         val inRange = withTimeout(15000) { repository.getRecordExpensesInRange(date, date + 1).first { it.isNotEmpty() } }
         assertEquals(listOf(target), inRange.map { it.id })
-        val requestedCat = com.aus.ausgegeben.data.entity.Category(name="Budget test",iconName="restaurant",colorInt=0)
-        val cat = requestedCat.copy(id=repository.insertCategory(requestedCat).getOrThrow())
-        val budget = com.aus.ausgegeben.data.entity.CategoryBudget(cat.id,12.34,80)
-        val initialBudgetSave = repository.saveCategoryBudget(uid,cat.id,budget,null)
-        assertTrue("Budget save failed: ${initialBudgetSave.exceptionOrNull()}",initialBudgetSave.isSuccess)
+        // Rebuilt production graph also reconciles recurring commits with an empty cache.
+        val recurring = RecurringRepository(firestoreClient, authRepository)
+        val now = System.currentTimeMillis()
+        val template = com.aus.ausgegeben.data.entity.RecurringTemplate(
+            UUID.randomUUID().toString(), 15.0, categoryId, "INT-4 recurring", "expense", "monthly", 1,
+            "2024-01-31", "2024-01-31", "Europe/Berlin", true, 0, "2024-01-31", now, now
+        )
+        recurring.save(uid, template, null, now)
+        recurring.materialize(uid, template.id, now)
+        // Lost acknowledgement: no caller completion is stored. Recreate and retry.
+        buildProductionGraph()
+        val rebuilt = RecurringRepository(firestoreClient, authRepository)
+        assertEquals(0, rebuilt.reconcile(uid, now))
+        val key = com.aus.ausgegeben.data.entity.Recurrence.key(template.id, "2024-01-31")
+        suspend fun recurringRemote(): JSONArray {
+            val token = firebaseAuth.currentUser!!.getIdToken(false).await().token!!
+            val (code, text) = http("GET", expenseUrl(), headers = mapOf("Authorization" to "Bearer $token"))
+            assertEquals(200, code)
+            return JSONObject(text).getJSONArray("documents")
+        }
+        val occurrences = recurringRemote()
+        assertEquals(2, occurrences.length())
+        val generated = (0 until occurrences.length()).map { occurrences.getJSONObject(it) }.single { it.getString("name").endsWith("/" + expenseDocumentId(key)) }
+        assertEquals(key, fieldString(generated, "idempotencyKey"))
+        assertEquals(15.0, generated.getJSONObject("fields").getJSONObject("amount").getDouble("doubleValue"), 0.0)
+        val saved = rebuilt.getAll(uid).single()
+        rebuilt.remove(uid, saved.id, saved.updatedAt)
+        assertEquals(2, recurringRemote().length())
+
+        val requestedCat = com.aus.ausgegeben.data.entity.Category(name = "Budget test", iconName = "restaurant", colorInt = 0)
+        val cat = requestedCat.copy(id = repository.insertCategory(requestedCat).getOrThrow())
+        val budget = com.aus.ausgegeben.data.entity.CategoryBudget(cat.id, 12.34, 80)
+        val initialBudgetSave = repository.saveCategoryBudget(uid, cat.id, budget, null)
+        assertTrue("Budget save failed: ${initialBudgetSave.exceptionOrNull()}", initialBudgetSave.isSuccess)
         val first = withTimeout(15000) { repository.categoryBudgets.first { !it.incomplete && it.budgets.isNotEmpty() } }.budgets.single()
-        assertEquals(12.34,first.monthlyLimit,0.0)
-        assertTrue(repository.saveCategoryBudget(uid,cat.id,budget.copy(monthlyLimit=25.0),first.updatedAt).isSuccess)
-        assertTrue(repository.saveCategoryBudget(uid,cat.id,budget,first.updatedAt).isFailure)
-        // Both schema versions exercise the production Android restore/snapshot paths.
+        assertEquals(12.34, first.monthlyLimit, 0.0)
+        assertTrue(repository.saveCategoryBudget(uid, cat.id, budget.copy(monthlyLimit = 25.0), first.updatedAt).isSuccess)
+        assertTrue(repository.saveCategoryBudget(uid, cat.id, budget, first.updatedAt).isFailure)
+        // All three schema versions exercise the production Android restore/snapshot paths.
         val format = com.aus.ausgegeben.util.BackupFormat
-        val prefs = com.aus.ausgegeben.util.BackupFormat.BackupPreferences("EUR",null)
-        val modernJson = format.createBackupJson(prefs,listOf(cat),emptyList(),"test",categoryBudgets=emptyList())
-        val legacyJson = JSONObject(modernJson).apply { put("schemaVersion",1); remove("categoryBudgets") }.toString()
+        val prefs = com.aus.ausgegeben.util.BackupFormat.BackupPreferences("EUR", null)
+        val modernJson = format.createBackupJson(prefs, listOf(cat), emptyList(), "test", categoryBudgets = emptyList())
+        val legacyJson = JSONObject(modernJson).apply { put("schemaVersion", 1); remove("categoryBudgets"); remove("recurring") }.toString()
         val legacy = format.parseBackup(legacyJson)!!
-        assertTrue(repository.restoreBackup(legacy,uid).isSuccess)
-        assertEquals(25.0,repository.getCategoryBudgets(uid).single().monthlyLimit,0.0)
-        assertTrue(repository.executeReplace(legacy,uid).isSuccess)
-        assertEquals(25.0,repository.getCategoryBudgets(uid).single().monthlyLimit,0.0)
-        val newCat = cat.copy(id="restore-created-budget",name="New budget")
-        val modern = format.parseBackup(format.createBackupJson(prefs,listOf(cat,newCat),emptyList(),"test",categoryBudgets=listOf(budget.copy(monthlyLimit=50.0),budget.copy(categoryId=newCat.id))))!!
-        assertTrue(repository.restoreBackup(modern.copy(categoryBudgets=listOf(budget.copy(monthlyLimit=50.0))),uid).isSuccess)
-        assertEquals(50.0,repository.getCategoryBudgets(uid).single().monthlyLimit,0.0)
-        assertTrue(repository.saveCategoryBudget(uid,cat.id,budget.copy(monthlyLimit=25.0),repository.getCategoryBudgets(uid).single().updatedAt).isSuccess)
-        assertTrue(repository.executeReplace(modern,uid).isSuccess)
-        assertEquals(2,repository.getCategoryBudgets(uid).size)
-        assertEquals(50.0,repository.getCategoryBudgets(uid).first { it.categoryId==cat.id }.monthlyLimit,0.0)
-        assertTrue(repository.rollbackReplace(repository.getRestoreOperation(uid)!!,uid).isSuccess)
-        assertEquals(listOf(cat.id),repository.getCategoryBudgets(uid).map { it.categoryId })
-        assertEquals(25.0,repository.getCategoryBudgets(uid).single().monthlyLimit,0.0)
+        assertTrue(repository.restoreBackup(legacy, uid).isSuccess)
+        assertEquals(25.0, repository.getCategoryBudgets(uid).single().monthlyLimit, 0.0)
+        assertTrue(repository.executeReplace(legacy, uid).isSuccess)
+        assertEquals(25.0, repository.getCategoryBudgets(uid).single().monthlyLimit, 0.0)
+        val v2Json = JSONObject(modernJson).apply { put("schemaVersion", 2); remove("recurring") }.toString()
+        val v2 = format.parseBackup(v2Json)!!
+        assertTrue(repository.restoreBackup(v2, uid).isSuccess)
+        assertEquals(25.0, repository.getCategoryBudgets(uid).single().monthlyLimit, 0.0)
+        val newCat = cat.copy(id = "restore-created-budget", name = "New budget")
+        val modern = format.parseBackup(format.createBackupJson(prefs, listOf(cat, newCat), emptyList(), "test", categoryBudgets = listOf(budget.copy(monthlyLimit = 50.0), budget.copy(categoryId = newCat.id))))!!
+        assertTrue(repository.restoreBackup(modern.copy(categoryBudgets = listOf(budget.copy(monthlyLimit = 50.0))), uid).isSuccess)
+        assertEquals(50.0, repository.getCategoryBudgets(uid).single().monthlyLimit, 0.0)
+        assertTrue(repository.saveCategoryBudget(uid, cat.id, budget.copy(monthlyLimit = 25.0), repository.getCategoryBudgets(uid).single().updatedAt).isSuccess)
+        assertTrue(repository.executeReplace(modern, uid).isSuccess)
+        assertEquals(2, repository.getCategoryBudgets(uid).size)
+        assertEquals(50.0, repository.getCategoryBudgets(uid).first { it.categoryId == cat.id }.monthlyLimit, 0.0)
+        assertTrue(repository.rollbackReplace(repository.getRestoreOperation(uid)!!, uid).isSuccess)
+        assertEquals(listOf(cat.id), repository.getCategoryBudgets(uid).map { it.categoryId })
+        assertEquals(25.0, repository.getCategoryBudgets(uid).single().monthlyLimit, 0.0)
         val empty = format.parseBackup(modernJson)!!
-        assertTrue(repository.executeReplace(empty,uid).isSuccess)
+        assertTrue(repository.executeReplace(empty, uid).isSuccess)
         assertTrue(repository.getCategoryBudgets(uid).isEmpty())
-        val emptyOperation=repository.getRestoreOperation(uid)!!
-        assertTrue(repository.rollbackReplace(emptyOperation.copy(operationId="stale-operation"),uid).isFailure)
+        val emptyOperation = repository.getRestoreOperation(uid)!!
+        assertTrue(repository.rollbackReplace(emptyOperation.copy(operationId = "stale-operation"), uid).isFailure)
         db.disableNetwork().await()
-        try { assertTrue(repository.rollbackReplace(emptyOperation,uid).isFailure) }
+        try { assertTrue(repository.rollbackReplace(emptyOperation, uid).isFailure) }
         finally { db.enableNetwork().await() }
-        assertEquals(com.aus.ausgegeben.util.ReplacePlanner.RestorePhase.COMPLETED,repository.getRestoreOperation(uid)!!.phase)
+        assertEquals(com.aus.ausgegeben.util.ReplacePlanner.RestorePhase.COMPLETED, repository.getRestoreOperation(uid)!!.phase)
         assertTrue(repository.getCategoryBudgets(uid).isEmpty())
-        assertTrue(repository.rollbackReplace(emptyOperation,uid).isSuccess)
-        assertEquals(25.0,repository.getCategoryBudgets(uid).single().monthlyLimit,0.0)
+        assertTrue(repository.rollbackReplace(emptyOperation, uid).isSuccess)
+        assertEquals(25.0, repository.getCategoryBudgets(uid).single().monthlyLimit, 0.0)
         val onlineRevision = repository.getCategoryBudgets(uid).single().updatedAt
         db.disableNetwork().await()
         try {
             assertTrue(runCatching { repository.getCategoryBudgets(uid) }.isFailure)
-            assertTrue(repository.saveCategoryBudget(uid,newCat.id,budget.copy(categoryId=newCat.id),null).isFailure)
-            assertTrue(repository.saveCategoryBudget(uid,cat.id,budget,onlineRevision).isFailure)
-            assertTrue(repository.saveCategoryBudget(uid,cat.id,null,onlineRevision).isFailure)
+            assertTrue(repository.saveCategoryBudget(uid, newCat.id, budget.copy(categoryId = newCat.id), null).isFailure)
+            assertTrue(repository.saveCategoryBudget(uid, cat.id, budget, onlineRevision).isFailure)
+            assertTrue(repository.saveCategoryBudget(uid, cat.id, null, onlineRevision).isFailure)
         }
         finally { db.enableNetwork().await() }
-        assertEquals(25.0,repository.getCategoryBudgets(uid).single().monthlyLimit,0.0)
-        assertTrue(repository.updateCategory(cat.copy(transactionType="income")).isSuccess)
+        assertEquals(25.0, repository.getCategoryBudgets(uid).single().monthlyLimit, 0.0)
+        assertTrue(repository.updateCategory(cat.copy(transactionType = "income")).isSuccess)
         assertTrue(repository.getCategoryBudgets(uid).isEmpty())
-        assertTrue(repository.updateCategory(cat.copy(transactionType="expense")).isSuccess)
-        assertTrue(repository.saveCategoryBudget(uid,cat.id,budget,null).isSuccess)
-        assertTrue(repository.saveCategoryBudget(uid,cat.id,null,repository.getCategoryBudgets(uid).single().updatedAt).isSuccess)
+        assertTrue(repository.updateCategory(cat.copy(transactionType = "expense")).isSuccess)
+        assertTrue(repository.saveCategoryBudget(uid, cat.id, budget, null).isSuccess)
+        assertTrue(repository.saveCategoryBudget(uid, cat.id, null, repository.getCategoryBudgets(uid).single().updatedAt).isSuccess)
         assertTrue(repository.getCategoryBudgets(uid).isEmpty())
-        assertTrue(repository.saveCategoryBudget(uid,cat.id,budget,null).isSuccess)
-        assertTrue(repository.updateCategory(cat.copy(transactionType="transfer")).isSuccess)
+        assertTrue(repository.saveCategoryBudget(uid, cat.id, budget, null).isSuccess)
+        assertTrue(repository.updateCategory(cat.copy(transactionType = "transfer")).isSuccess)
         assertTrue(repository.getCategoryBudgets(uid).isEmpty())
-        val requestedDeleteCat=cat.copy(name="Delete budget")
-        val deleteCat=requestedDeleteCat.copy(id=repository.insertCategory(requestedDeleteCat).getOrThrow())
-        assertTrue(repository.saveCategoryBudget(uid,deleteCat.id,budget.copy(categoryId=deleteCat.id),null).isSuccess)
+        val requestedDeleteCat = cat.copy(name = "Delete budget")
+        val deleteCat = requestedDeleteCat.copy(id = repository.insertCategory(requestedDeleteCat).getOrThrow())
+        assertTrue(repository.saveCategoryBudget(uid, deleteCat.id, budget.copy(categoryId = deleteCat.id), null).isSuccess)
         assertTrue(repository.deleteCategory(deleteCat).isSuccess)
         assertTrue(repository.getCategoryBudgets(uid).isEmpty())
     }

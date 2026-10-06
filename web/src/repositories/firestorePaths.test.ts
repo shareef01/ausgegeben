@@ -3,6 +3,9 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import * as firestorePaths from './firestorePaths';
 import {
+  CATEGORY_BUDGETS_COLLECTION,
+  RECURRING_COLLECTION,
+  OCCURRENCES_COLLECTION,
   ACCOUNT_DELETION_DOC,
   CATEGORIES_COLLECTION,
   DEDUPE_DOC,
@@ -25,6 +28,9 @@ describe('firestorePaths registry (DEL-1)', () => {
   it('classifies every whole-collection constant as deletable', () => {
     // categories/ and expenses/ are deleted document-by-document (not as single
     // named docs), so they are declared directly rather than as {collection, id} pairs.
+    expect(DELETABLE_USER_COLLECTIONS).toContain(CATEGORY_BUDGETS_COLLECTION);
+    expect(DELETABLE_USER_COLLECTIONS).toContain(RECURRING_COLLECTION);
+    expect(DELETABLE_USER_COLLECTIONS).toContain(OCCURRENCES_COLLECTION);
     expect(DELETABLE_USER_COLLECTIONS).toContain(CATEGORIES_COLLECTION);
     expect(DELETABLE_USER_COLLECTIONS).toContain(EXPENSES_COLLECTION);
     expect(DELETABLE_USER_COLLECTIONS).toContain(RESTORE_SNAPSHOT_COLLECTION);
@@ -97,7 +103,16 @@ describe('firestorePaths registry (DEL-1)', () => {
     const subcollections = collectionMatches.filter((name) => name !== 'users');
 
     expect(new Set(subcollections)).toEqual(
-      new Set(['categoryBudgets', CATEGORIES_COLLECTION, EXPENSES_COLLECTION, SETTINGS_COLLECTION, META_COLLECTION, RESTORE_SNAPSHOT_COLLECTION]),
+      new Set([
+        CATEGORY_BUDGETS_COLLECTION,
+        RECURRING_COLLECTION,
+        OCCURRENCES_COLLECTION,
+        CATEGORIES_COLLECTION,
+        EXPENSES_COLLECTION,
+        SETTINGS_COLLECTION,
+        META_COLLECTION,
+        RESTORE_SNAPSHOT_COLLECTION,
+      ]),
     );
 
     // Every `docId == '...'` literal anywhere in the file — these are the only doc ids

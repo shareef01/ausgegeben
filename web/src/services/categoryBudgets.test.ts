@@ -42,7 +42,7 @@ describe('category budgets', () => {
     expect(categoryBudgetProgress([budget, { ...budget, categoryId: 'a' }], [category, c], []).map(p => p.categoryId)).toEqual(['a', 'food']);
   });
   it('exports v2 and accepts legacy v1 without a budget section', () => {
-    const backup = createBackup({ preferences: { currency: 'EUR', monthlyBudget: null }, categories: [category], expenses: [], appVersion: 'test', categoryBudgets: [budget] });
+    const backup = createBackup({ preferences: { currency: 'EUR', monthlyBudget: null }, categories: [category], expenses: [], appVersion: 'test', categoryBudgets: [budget], schemaVersion: 2 });
     expect(backup.schemaVersion).toBe(2);
     expect(validateBackup(backup).valid).toBe(true);
     const { categoryBudgets: omitted, ...legacy } = backup;
@@ -60,7 +60,7 @@ it.each(['android-v1','web-v1','android-v2','web-v2','shared-v2-empty','shared-v
 
 it.each(['web-v2','shared-v2-empty','shared-v2-multiple'])('Web exporter matches the shared golden %s consumed by Android', name => {
   const fixture = JSON.parse(readFileSync(resolve(process.cwd(), '../test-fixtures/category-budgets/'+name+'.json'), 'utf8'));
-  const exported = createBackup({ preferences: fixture.preferences, categories: fixture.categories, expenses: fixture.expenses, categoryBudgets: fixture.categoryBudgets, appVersion: fixture.appVersion });
+  const exported = createBackup({ preferences: fixture.preferences, categories: fixture.categories, expenses: fixture.expenses, categoryBudgets: fixture.categoryBudgets, appVersion: fixture.appVersion, schemaVersion: fixture.schemaVersion });
   expect({ ...exported, exportedAt: fixture.exportedAt }).toEqual(fixture);
 });
 

@@ -1,4 +1,5 @@
 import { categoryBudgetRepository } from '@/services/categoryBudgets';
+import { recurringRepository } from '@/services/recurringRepository';
 import { collection, doc, getDocs, setDoc, writeBatch } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
@@ -153,6 +154,13 @@ export async function restoreBackup(
 
   for (const budget of backup.categoryBudgets ?? []) {
     await categoryBudgetRepository.restore(expectedUid, budget, budget.categoryId);
+  }
+
+  if (backup.schemaVersion === 3 && backup.recurring) {
+    for (const template of backup.recurring.templates) {
+      await recurringRepository.restoreTemplate(expectedUid, template, template.id);
+    }
+    await recurringRepository.restoreReceipts(expectedUid, backup.recurring.receipts);
   }
 
   // 3. Restore preferences

@@ -17,6 +17,10 @@ describe('backupRestore unit tests', () => {
     format: BACKUP_FORMAT_IDENTIFIER,
     schemaVersion: CURRENT_BACKUP_SCHEMA_VERSION,
     categoryBudgets: [],
+    recurring: {
+      templates: [],
+      receipts: [],
+    },
     exportedAt: '2026-10-01T00:00:00.000Z',
     appVersion: '2.0.8',
     preferences: {

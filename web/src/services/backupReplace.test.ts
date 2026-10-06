@@ -268,7 +268,7 @@ describe('backupReplace planner and fingerprinting', () => {
   it('rejects unsupported schema versions', () => {
     const invalidSchemaBackup: AusgegebenBackup = {
       ...sampleBackup,
-      schemaVersion: 3,
+      schemaVersion: 4 as any,
     };
 
     const plan = planReplace({
@@ -281,6 +281,92 @@ describe('backupReplace planner and fingerprinting', () => {
     expect(plan.conflicts.length).toBeGreaterThan(0);
     expect(plan.conflicts[0]).toContain('UNSUPPORTED_SCHEMA_VERSION');
   });
+
+  it('supports schemaVersion 3 with recurring templates and receipts', () => {
+    const v3Backup: AusgegebenBackup = {
+      ...sampleBackup,
+      schemaVersion: 3,
+      recurring: {
+        templates: [
+          {
+            id: 'e2f5b5f8-3e4b-4f7a-9a2c-1d3e4f5a6b7c',
+            amount: 50.0,
+            categoryId: 'cat-1',
+            note: 'Gym subscription',
+            transactionType: 'expense',
+            frequency: 'monthly',
+            interval: 1,
+            startDate: '2026-01-01',
+            endDate: null,
+            timeZone: 'Europe/Berlin',
+            enabled: true,
+            nextIndex: 1,
+            nextDate: '2026-02-01',
+            createdAt: 1000,
+            updatedAt: 1000,
+          },
+        ],
+        receipts: [
+          {
+            id: 'e2f5b5f8-3e4b-4f7a-9a2c-1d3e4f5a6b7c_2026-01-01',
+            templateId: 'e2f5b5f8-3e4b-4f7a-9a2c-1d3e4f5a6b7c',
+            scheduledDate: '2026-01-01',
+            expenseId: 'a'.repeat(64),
+            createdAt: 1000,
+          },
+        ],
+      },
+    };
+
+    const plan = planReplace({
+      currentExpenses: sampleExpenses,
+      currentCategories: sampleCategories,
+      currentPreferences: samplePreferences,
+      backup: v3Backup,
+    });
+
+    expect(plan.conflicts).toHaveLength(0);
+  });
+
+  it('detects orphan category in v3 recurring template', () => {
+    const v3OrphanBackup: AusgegebenBackup = {
+      ...sampleBackup,
+      schemaVersion: 3,
+      recurring: {
+        templates: [
+          {
+            id: 'e2f5b5f8-3e4b-4f7a-9a2c-1d3e4f5a6b7c',
+            amount: 50.0,
+            categoryId: 'missing-category',
+            note: 'Gym',
+            transactionType: 'expense',
+            frequency: 'monthly',
+            interval: 1,
+            startDate: '2026-01-01',
+            endDate: null,
+            timeZone: 'Europe/Berlin',
+            enabled: true,
+            nextIndex: 1,
+            nextDate: '2026-02-01',
+            createdAt: 1000,
+            updatedAt: 1000,
+          },
+        ],
+        receipts: [],
+      },
+    };
+
+    const plan = planReplace({
+      currentExpenses: sampleExpenses,
+      currentCategories: sampleCategories,
+      currentPreferences: samplePreferences,
+      backup: v3OrphanBackup,
+    });
+
+    expect(plan.conflicts.length).toBeGreaterThan(0);
+    expect(plan.conflicts[0]).toContain('CATEGORY_ORPHAN_REFERENCE');
+    expect(plan.conflicts[0]).toContain('Recurring template');
+  });
 });
 
 it('v2 budget fingerprint distinguishes delimiter-bearing identities from several budgets', async () => {
@@ -289,4 +375,51 @@ it('v2 budget fingerprint distinguishes delimiter-bearing identities from severa
   const two={...base,categoryBudgets:[b,{...b,categoryId:'b',monthlyLimit:200}]};
   const one={...base,categoryBudgets:[{...b,categoryId:'a,100,80;b',monthlyLimit:200}]};
   expect(await computeBackupFingerprint(one)).not.toBe(await computeBackupFingerprint(two));
+});
+
+it('v3 recurring fingerprint is deterministic and sensitive to template and receipt changes', async () => {
+  const t1 = {
+    id: 'e2f5b5f8-3e4b-4f7a-9a2c-1d3e4f5a6b7c',
+    amount: 50.0,
+    categoryId: 'cat-1',
+    note: 'Gym',
+    transactionType: 'expense' as const,
+    frequency: 'monthly' as const,
+    interval: 1,
+    startDate: '2026-01-01',
+    endDate: null,
+    timeZone: 'Europe/Berlin',
+    enabled: true,
+    nextIndex: 1,
+    nextDate: '2026-02-01',
+    createdAt: 1000,
+    updatedAt: 1000,
+  };
+  const r1 = {
+    id: 'e2f5b5f8-3e4b-4f7a-9a2c-1d3e4f5a6b7c_2026-01-01',
+    templateId: 'e2f5b5f8-3e4b-4f7a-9a2c-1d3e4f5a6b7c',
+    scheduledDate: '2026-01-01',
+    expenseId: 'a'.repeat(64),
+    createdAt: 1000,
+  };
+  const v3A: AusgegebenBackup = {
+    ...sampleBackup,
+    schemaVersion: 3,
+    recurring: { templates: [t1], receipts: [r1] },
+  };
+  const v3B: AusgegebenBackup = {
+    ...sampleBackup,
+    schemaVersion: 3,
+    recurring: { templates: [t1], receipts: [r1] },
+  };
+  const fpA = await computeBackupFingerprint(v3A);
+  const fpB = await computeBackupFingerprint(v3B);
+  expect(fpA).toBe(fpB);
+
+  const v3Modified: AusgegebenBackup = {
+    ...sampleBackup,
+    schemaVersion: 3,
+    recurring: { templates: [{ ...t1, amount: 55.0 }], receipts: [r1] },
+  };
+  expect(await computeBackupFingerprint(v3Modified)).not.toBe(fpA);
 });

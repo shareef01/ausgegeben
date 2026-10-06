@@ -1,0 +1,23 @@
+import { initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing';
+import { readFileSync } from 'node:fs';
+import { doc,setDoc,getDocs,collection,type Firestore } from 'firebase/firestore';
+import { beforeAll,afterAll,beforeEach,it,expect } from 'vitest';
+import { createRecurringRepository } from '@/services/recurringRepository';
+import {useAuthStore} from '@/services/authStore';
+let env:RulesTestEnvironment;
+beforeAll(async()=>{env=await initializeTestEnvironment({projectId:'demo-recurring-enforced',firestore:{host:'127.0.0.1',port:8080,rules:readFileSync('../firestore.rules','utf8')}});});
+afterAll(async()=>{await env?.cleanup();});
+beforeEach(async()=>{await env.clearFirestore();useAuthStore.setState({user:{uid:'owner',email:'owner@example.com',emailVerified:true,displayName:null}});await env.withSecurityRulesDisabled(async c=>setDoc(doc(c.firestore(),'users/owner/categories/rent'),{name:'Rent',iconName:'home',colorInt:1,sortOrder:0,transactionType:'expense'}));});
+it('production transactions deduplicate across two clients under strict rules',async()=>{
+ const dbA=env.authenticatedContext('owner',{email_verified:true}).firestore() as unknown as Firestore;
+ const dbB=env.authenticatedContext('owner',{email_verified:true}).firestore() as unknown as Firestore;
+ const a=createRecurringRepository(dbA),b=createRecurringRepository(dbB),now=Date.now();
+ const t={id:'550e8400-e29b-41d4-a716-446655440000',amount:15,categoryId:'rent',note:'Rent',transactionType:'expense' as const,frequency:'monthly' as const,interval:1,startDate:'2024-01-31',endDate:'2024-01-31',timeZone:'Europe/Berlin',enabled:true,nextIndex:0,nextDate:'2024-01-31',createdAt:now,updatedAt:now};
+ await a.save('owner',t,null,now);
+ await Promise.all([a.materialize('owner',t.id,now),b.materialize('owner',t.id,now)]);
+ expect((await getDocs(collection(dbA,'users','owner','expenses'))).size).toBe(1);
+ expect((await getDocs(collection(dbB,'users','owner','recurringOccurrences'))).size).toBe(1);
+ expect(await a.reconcile('owner',now)).toBe(0);
+ const saved=(await a.getAll('owner'))[0];await b.remove('owner',saved.id,saved.updatedAt);
+ expect((await getDocs(collection(dbA,'users','owner','expenses'))).size).toBe(1);
+});

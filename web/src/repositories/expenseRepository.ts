@@ -322,6 +322,7 @@ function isPermissionDenied(error: unknown): boolean {
 
 async function deleteCategoryInto(userId: string, id: string, targetId?: string): Promise<void> {
   const source = catDoc(userId, id);
+  if (((await getDocFromServer(source)).data()?.recurringTemplateCount ?? 0) > 0) throw new Error('CATEGORY_HAS_RECURRING');
   await setDoc(source, { deletionState: 'deleting', updatedAt: now() }, { merge: true });
   try {
     let linked = await expenseDocsForCategory(userId, id);
@@ -576,6 +577,8 @@ export const expenseRepository = {
     if (!CategoryValidator.isValid(sanitizedName)) {
       throw new Error('INVALID_CATEGORY_NAME');
     }
+    const current = (await getDocFromServer(catDoc(userId, cat.id))).data();
+    if (current && current.transactionType !== cat.transactionType && (current.recurringTemplateCount ?? 0) > 0) throw new Error('CATEGORY_HAS_RECURRING');
     await setDoc(
       catDoc(userId, cat.id),
       categoryWritePayload({ ...cat, name: sanitizedName }, now()),
