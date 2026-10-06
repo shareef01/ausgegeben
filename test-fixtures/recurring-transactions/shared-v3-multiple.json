@@ -1,0 +1,76 @@
+{
+  "format": "ausgegeben-backup",
+  "schemaVersion": 3,
+  "exportedAt": "2026-10-06T00:00:00Z",
+  "appVersion": "2.0.9",
+  "preferences": {
+    "currency": "EUR",
+    "monthlyBudget": 1000,
+    "locale": "en",
+    "themeMode": "system"
+  },
+  "categories": [
+    {
+      "id": "food",
+      "name": "Food",
+      "iconName": "restaurant",
+      "colorInt": 0,
+      "transactionType": "expense",
+      "sortOrder": 0
+    },
+    {
+      "id": "salary",
+      "name": "Salary",
+      "iconName": "attach_money",
+      "colorInt": 0,
+      "transactionType": "income",
+      "sortOrder": 1
+    }
+  ],
+  "expenses": [],
+  "categoryBudgets": [
+    {
+      "categoryId": "food",
+      "monthlyLimit": 500,
+      "warningThresholdPercent": 80,
+      "updatedAt": 1
+    }
+  ],
+  "recurring": {
+    "templates": [
+      {
+        "id": "e2f5b5f8-3e4b-4f7a-9a2c-1d3e4f5a6b7c",
+        "amount": 29.99,
+        "categoryId": "food",
+        "note": "Weekly groceries",
+        "transactionType": "expense",
+        "frequency": "weekly",
+        "interval": 1,
+        "startDate": "2026-01-05",
+        "endDate": null,
+        "timeZone": "Europe/Berlin",
+        "enabled": true,
+        "nextIndex": 2,
+        "nextDate": "2026-01-19",
+        "createdAt": 1000,
+        "updatedAt": 1000
+      }
+    ],
+    "receipts": [
+      {
+        "id": "e2f5b5f8-3e4b-4f7a-9a2c-1d3e4f5a6b7c_2026-01-05",
+        "templateId": "e2f5b5f8-3e4b-4f7a-9a2c-1d3e4f5a6b7c",
+        "scheduledDate": "2026-01-05",
+        "expenseId": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "createdAt": 1000
+      },
+      {
+        "id": "e2f5b5f8-3e4b-4f7a-9a2c-1d3e4f5a6b7c_2026-01-12",
+        "templateId": "e2f5b5f8-3e4b-4f7a-9a2c-1d3e4f5a6b7c",
+        "scheduledDate": "2026-01-12",
+        "expenseId": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+        "createdAt": 2000
+      }
+    ]
+  }
+}

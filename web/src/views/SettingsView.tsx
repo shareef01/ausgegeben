@@ -33,6 +33,7 @@ import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { createBackup, type AusgegebenBackup, type BackupSummary } from '@/services/backupFormat';
+import { recurringRepository } from '@/services/recurringRepository';
 import { readAndValidateBackupFile, restoreBackup } from '@/services/backupRestore';
 import {
   executeReplace,
@@ -222,9 +223,15 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
       const { items: expenses, truncated } = await expenseRepository.getAllExpensesCapped(5_000);
       const categories = await expenseRepository.getAllCategories();
       const categoryBudgets = await categoryBudgetRepository.getAll(exportUid);
+      const recurringTemplates = await recurringRepository.getAll(exportUid);
+      const recurringReceipts = await recurringRepository.getAllReceipts(exportUid);
       if (useAuthStore.getState().user?.uid !== exportUid) throw new Error('AUTH_ACCOUNT_CHANGED');
       const backup = createBackup({
         categoryBudgets,
+        recurring: {
+          templates: recurringTemplates,
+          receipts: recurringReceipts,
+        },
         preferences: {
           currency,
           monthlyBudget,

@@ -1,9 +1,10 @@
-import { collection, doc, getDocFromServer, getDocsFromServer, onSnapshot, runTransaction, type Firestore } from 'firebase/firestore';
+import { collection, doc, getDocFromServer, getDocsFromServer, onSnapshot, runTransaction, writeBatch, type Firestore } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
 import { RECURRING_COLLECTION, OCCURRENCES_COLLECTION } from '@/repositories/firestorePaths';
 import { expenseDocumentId } from '@/utils/idempotency';
 import { expenseWritePayload } from '@/utils/firestorePayloads';
+import type { OccurrenceReceipt } from './recurringBackupSection';
 import { MAX_OCCURRENCES_PER_PASS, indexAfter, localDateAt, occurrenceDate, occurrenceKey, occurrenceMillis, receiptId, validTemplate, type RecurringTemplate } from './recurrence';
 
 function owned(uid: string) {
@@ -123,6 +124,83 @@ return {
       if (next) { templates[index] = next; count++; } else templates.splice(index, 1);
     }
     return count;
+  },
+  async getAllReceipts(uid: string): Promise<OccurrenceReceipt[]> {
+    owned(uid);
+    const snap = await getDocsFromServer(collection(db(), 'users', uid, OCCURRENCES_COLLECTION));
+    owned(uid);
+    return snap.docs.map(d => ({ ...d.data(), id: d.id } as OccurrenceReceipt));
+  },
+  async restoreReceipts(uid: string, receipts: OccurrenceReceipt[]) {
+    owned(uid);
+    if (!receipts.length) return;
+    const current = await this.getAllReceipts(uid);
+    const existing = new Set(current.map(r => r.id));
+    const toWrite = receipts.filter(r => !existing.has(r.id));
+    for (let i = 0; i < toWrite.length; i += 400) {
+      const chunk = toWrite.slice(i, i + 400);
+      const batch = writeBatch(db());
+      for (const r of chunk) {
+        batch.set(doc(db(), 'users', uid, OCCURRENCES_COLLECTION, r.id), {
+          templateId: r.templateId,
+          scheduledDate: r.scheduledDate,
+          expenseId: r.expenseId,
+          createdAt: r.createdAt,
+        });
+      }
+      await batch.commit();
+    }
+  },
+  async restoreTemplate(uid: string, template: RecurringTemplate | null, templateId: string) {
+    owned(uid);
+    const target = ref(uid, templateId);
+    await getDocFromServer(target);
+    await runTransaction(db(), async tx => {
+      owned(uid);
+      const old = await tx.get(target);
+      const previous = old.exists() ? ({ ...old.data(), id: old.id } as RecurringTemplate) : null;
+      if (!template) {
+        if (previous) {
+          const catRef = category(uid, previous.categoryId);
+          const cat = await tx.get(catRef);
+          owned(uid);
+          tx.update(catRef, {
+            recurringTemplateCount: Math.max(0, (cat.data()?.recurringTemplateCount ?? 0) - 1),
+            recurringMutationId: templateId,
+          });
+          tx.delete(target);
+        }
+        return;
+      }
+      if (!validTemplate(template)) throw new Error('INVALID_RECURRING_TEMPLATE');
+      const newCategory = category(uid, template.categoryId);
+      const newCat = await tx.get(newCategory);
+      eligible(newCat.data(), template.transactionType);
+      const oldCategory = previous && previous.categoryId !== template.categoryId ? category(uid, previous.categoryId) : null;
+      const oldCat = oldCategory ? await tx.get(oldCategory) : null;
+      owned(uid);
+      if (!previous || previous.categoryId !== template.categoryId) {
+        tx.update(newCategory, {
+          recurringTemplateCount: (newCat.data()?.recurringTemplateCount ?? 0) + 1,
+          recurringMutationId: template.id,
+        });
+      }
+      if (oldCategory) {
+        tx.update(oldCategory, {
+          recurringTemplateCount: Math.max(0, (oldCat!.data()?.recurringTemplateCount ?? 0) - 1),
+          recurringMutationId: template.id,
+        });
+      }
+      const nextCreatedAt = previous ? previous.createdAt : template.createdAt;
+      const nextUpdatedAt = Math.max(template.updatedAt, (previous?.updatedAt ?? 0) + 1, Date.now());
+      const { id, ...payload } = {
+        ...template,
+        createdAt: nextCreatedAt,
+        updatedAt: nextUpdatedAt,
+      };
+      void id;
+      tx.set(target, payload);
+    });
   },
 };
 

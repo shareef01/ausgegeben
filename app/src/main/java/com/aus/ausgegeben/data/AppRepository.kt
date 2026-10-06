@@ -50,6 +50,9 @@ import kotlinx.coroutines.tasks.await
 import java.util.UUID
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
+import com.aus.ausgegeben.util.RecurringBackupSection
+import com.aus.ausgegeben.util.OccurrenceReceipt
+import com.aus.ausgegeben.data.entity.RecurringTemplate
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -60,7 +63,14 @@ class AppRepository @Inject constructor(
     private val authRepository: AuthRepository,
     private val preferenceManager: PreferenceManager,
     private val firestoreClient: FirestoreClient,
+    private val recurringRepository: RecurringRepository,
 ) : CategoryActions, ExpenseActions, AccountActions {
+    constructor(
+        appContext: Context,
+        authRepository: AuthRepository,
+        preferenceManager: PreferenceManager,
+        firestoreClient: FirestoreClient,
+    ) : this(appContext, authRepository, preferenceManager, firestoreClient, RecurringRepository(firestoreClient, authRepository))
     private val firestore get() = firestoreClient.get()
     companion object {
         const val UNCATEGORIZED_ID = "0"
@@ -614,6 +624,33 @@ class AppRepository @Inject constructor(
         }
     }
 
+    private suspend fun applyRecurringCollection(u: String, section: RecurringBackupSection, replace: Boolean) {
+        check(uid() == u) { "AUTH_ACCOUNT_CHANGED" }
+        if (replace) {
+            val current = recurringRepository.getAll(u)
+            val desired = section.templates.map { it.id }.toSet()
+            for (t in current) {
+                if (t.id !in desired) {
+                    check(uid() == u) { "AUTH_ACCOUNT_CHANGED" }
+                    recurringRepository.restoreTemplate(u, null, t.id)
+                }
+            }
+        }
+        for (t in section.templates) {
+            check(uid() == u) { "AUTH_ACCOUNT_CHANGED" }
+            recurringRepository.restoreTemplate(u, t, t.id)
+        }
+        recurringRepository.restoreReceipts(u, section.receipts)
+    }
+
+    suspend fun getRecurringBackupSection(u: String): RecurringBackupSection {
+        check(uid() == u) { "AUTH_ACCOUNT_CHANGED" }
+        return RecurringBackupSection(
+            templates = recurringRepository.getAll(u),
+            receipts = recurringRepository.getReceipts(u),
+        )
+    }
+
     data class BudgetSnapshot(
         val budgets: List<com.aus.ausgegeben.data.entity.CategoryBudget> = emptyList(),
         val incomplete: Boolean = true,
@@ -855,7 +892,10 @@ class AppRepository @Inject constructor(
         val cur = if (backup.preferences.currency in validCurrencies) backup.preferences.currency else "EUR"
         val loc = if (backup.preferences.locale in validLocales) backup.preferences.locale else "en"
         val theme = if (backup.preferences.themeMode in validThemes) backup.preferences.themeMode else "system"
-        applyBudgetCollection(expectedUid, backup.categoryBudgets, false)
+        if (backup.schemaVersion >= 2) applyBudgetCollection(expectedUid, backup.categoryBudgets, false)
+        if (backup.schemaVersion == 3 && backup.recurring != null) {
+            applyRecurringCollection(expectedUid, backup.recurring, false)
+        }
 
         val budget = backup.preferences.monthlyBudget?.takeIf { it > 0.0 && it < 1_000_000_000.0 }
 
@@ -1060,6 +1100,7 @@ class AppRepository @Inject constructor(
         val chunkSize = 200
         val chunkCount = if (expenses.isEmpty()) 1 else (expenses.size + chunkSize - 1) / chunkSize
 
+        val currentRecurring = getRecurringBackupSection(u)
         val metaPayload = buildMap<String, Any?> {
             put("operationId", operationId)
             put("ownerUid", u)
@@ -1068,6 +1109,8 @@ class AppRepository @Inject constructor(
             put("totalExpenses", expenses.size)
             put("totalCategories", categories.size)
             put("categoryBudgets", getCategoryBudgets(u).map { it.payload() + ("categoryId" to it.categoryId) })
+            put("recurringTemplates", currentRecurring.templates.map { it.payload() + ("id" to it.id) })
+            put("recurringReceipts", currentRecurring.receipts.map { mapOf("id" to it.id, "templateId" to it.templateId, "scheduledDate" to it.scheduledDate, "expenseId" to it.expenseId, "createdAt" to it.createdAt) })
             put(
                 "preferences",
                 preferences?.let {
@@ -1143,6 +1186,8 @@ class AppRepository @Inject constructor(
         val categories: List<Category>,
         val preferences: SyncedPreferences?,
         val categoryBudgets: List<com.aus.ausgegeben.data.entity.CategoryBudget>?,
+        val recurringTemplates: List<RecurringTemplate>?,
+        val recurringReceipts: List<OccurrenceReceipt>?,
     )
 
     private suspend fun readSafetySnapshot(u: String): SnapshotData {
@@ -1209,8 +1254,22 @@ class AppRepository @Inject constructor(
         }
 
         val budgets = (metaSnap.get("categoryBudgets") as? List<Map<String, Any?>>)?.map { m -> com.aus.ausgegeben.data.entity.CategoryBudget(m["categoryId"] as String, (m["monthlyLimit"] as Number).toDouble(), (m["warningThresholdPercent"] as Number).toInt(), (m["updatedAt"] as Number).toLong()) }
+        val recurringTemplates = (metaSnap.get("recurringTemplates") as? List<Map<String, Any?>>)?.mapNotNull { m ->
+            val id = m["id"] as? String ?: return@mapNotNull null
+            runCatching { RecurringTemplate.from(id, m) }.getOrNull()
+        }
+        val recurringReceipts = (metaSnap.get("recurringReceipts") as? List<Map<String, Any?>>)?.mapNotNull { m ->
+            val id = m["id"] as? String ?: return@mapNotNull null
+            val templateId = m["templateId"] as? String ?: return@mapNotNull null
+            val scheduledDate = m["scheduledDate"] as? String ?: return@mapNotNull null
+            val expenseId = m["expenseId"] as? String ?: return@mapNotNull null
+            val createdAt = (m["createdAt"] as? Number)?.toLong() ?: 0L
+            OccurrenceReceipt(id, templateId, scheduledDate, expenseId, createdAt)
+        }
         return SnapshotData(
             categoryBudgets = budgets,
+            recurringTemplates = recurringTemplates,
+            recurringReceipts = recurringReceipts,
             operationId = operationId,
             expenses = expenses,
             categories = categories,
@@ -1409,8 +1468,11 @@ class AppRepository @Inject constructor(
             if (faultHooks?.failBeforePreferences == true) {
                 throw IllegalStateException("FAULT_INJECTED_BEFORE_PREFERENCES")
             }
+            if (backup.schemaVersion >= 2) applyBudgetCollection(expectedUid, backup.categoryBudgets, true)
+            if (backup.schemaVersion == 3 && backup.recurring != null) {
+                applyRecurringCollection(expectedUid, backup.recurring, true)
+            }
             val p = plan.preferencesToUpdate
-            if (backup.schemaVersion == 2) applyBudgetCollection(expectedUid, backup.categoryBudgets, true)
             val prefPayload = buildMap<String, Any?> {
                 put("currency", p.currency)
                 put("locale", p.locale)
@@ -1595,6 +1657,16 @@ class AppRepository @Inject constructor(
             }
 
             snapshot.categoryBudgets?.let { applyBudgetCollection(expectedUid, it, true) }
+            if (snapshot.recurringTemplates != null) {
+                applyRecurringCollection(
+                    expectedUid,
+                    RecurringBackupSection(
+                        templates = snapshot.recurringTemplates,
+                        receipts = snapshot.recurringReceipts ?: emptyList(),
+                    ),
+                    replace = true,
+                )
+            }
 
             // 4. Restore preferences
             snapshot.preferences?.let { p ->

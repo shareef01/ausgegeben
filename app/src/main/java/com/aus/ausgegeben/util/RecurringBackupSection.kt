@@ -8,7 +8,7 @@ import org.json.JSONArray
 data class OccurrenceReceipt(val id:String,val templateId:String,val scheduledDate:String,val expenseId:String,val createdAt:Long)
 data class RecurringBackupSection(val templates:List<RecurringTemplate>,val receipts:List<OccurrenceReceipt>) {
     fun serialize():String {
-        val json=JSONObject().put("templates",JSONArray(templates.map {JSONObject(it.payload()+mapOf("id" to it.id))}))
+        val json=JSONObject().put("templates",JSONArray(templates.map {JSONObject((it.payload()+("id" to it.id)).mapValues { (_, v) -> v ?: JSONObject.NULL })}))
             .put("receipts",JSONArray(receipts.map {JSONObject(mapOf("id" to it.id,"templateId" to it.templateId,"scheduledDate" to it.scheduledDate,"expenseId" to it.expenseId,"createdAt" to it.createdAt))}))
         parse(json.toString())
         return json.toString()

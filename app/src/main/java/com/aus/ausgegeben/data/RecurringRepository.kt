@@ -4,6 +4,7 @@ import com.aus.ausgegeben.data.auth.AuthRepository
 import com.aus.ausgegeben.data.entity.RecurringTemplate
 import com.aus.ausgegeben.data.entity.Recurrence
 import com.aus.ausgegeben.util.expenseDocumentId
+import com.aus.ausgegeben.util.OccurrenceReceipt
 import com.google.firebase.firestore.Source
 import com.google.firebase.firestore.MetadataChanges
 import kotlinx.coroutines.channels.awaitClose
@@ -103,5 +104,86 @@ class RecurringRepository @Inject constructor(private val client: FirestoreClien
             if(next != null) { rows[index]=next; count++ } else rows.removeAt(index)
         }
         return count
+    }
+    suspend fun getReceipts(u: String): List<OccurrenceReceipt> {
+        owned(u)
+        val snap = db.collection("users").document(u).collection(FirestorePaths.OCCURRENCES_COLLECTION).get(Source.SERVER).await()
+        owned(u)
+        return snap.documents.map { d ->
+            OccurrenceReceipt(
+                id = d.id,
+                templateId = d.getString("templateId").orEmpty(),
+                scheduledDate = d.getString("scheduledDate").orEmpty(),
+                expenseId = d.getString("expenseId").orEmpty(),
+                createdAt = d.getLong("createdAt") ?: 0L,
+            )
+        }
+    }
+    suspend fun restoreReceipts(u: String, receipts: List<OccurrenceReceipt>) {
+        owned(u)
+        if (receipts.isEmpty()) return
+        val current = getReceipts(u)
+        val existing = current.map { it.id }.toSet()
+        val toWrite = receipts.filter { it.id !in existing }
+        for (chunk in toWrite.chunked(400)) {
+            val batch = db.batch()
+            for (r in chunk) {
+                val ref = db.collection("users").document(u).collection(FirestorePaths.OCCURRENCES_COLLECTION).document(r.id)
+                batch.set(ref, mapOf(
+                    "templateId" to r.templateId,
+                    "scheduledDate" to r.scheduledDate,
+                    "expenseId" to r.expenseId,
+                    "createdAt" to r.createdAt,
+                ))
+            }
+            batch.commit().await()
+        }
+    }
+    suspend fun restoreTemplate(u: String, template: RecurringTemplate?, templateId: String) {
+        owned(u)
+        val target = templates(u).document(templateId)
+        target.get(Source.SERVER).await()
+        db.runTransaction { tx ->
+            owned(u)
+            val old = tx.get(target)
+            val previous = if (old.exists()) RecurringTemplate.from(old.id, old.data!!) else null
+            if (template == null) {
+                if (previous != null) {
+                    val catRef = category(u, previous.categoryId)
+                    val cat = tx.get(catRef)
+                    owned(u)
+                    tx.update(catRef, mapOf(
+                        "recurringTemplateCount" to maxOf(0, (cat.getLong("recurringTemplateCount") ?: 0) - 1),
+                        "recurringMutationId" to templateId,
+                    ))
+                    tx.delete(target)
+                }
+                return@runTransaction
+            }
+            require(template.valid()) { "INVALID_RECURRING_TEMPLATE" }
+            val newCategory = category(u, template.categoryId)
+            val newCat = tx.get(newCategory)
+            eligible(newCat.data, template.transactionType)
+            val oldCategory = previous?.takeIf { it.categoryId != template.categoryId }?.let { category(u, it.categoryId) }
+            val oldCat = oldCategory?.let { tx.get(it) }
+            owned(u)
+            if (previous == null || previous.categoryId != template.categoryId) {
+                tx.update(newCategory, mapOf(
+                    "recurringTemplateCount" to ((newCat.getLong("recurringTemplateCount") ?: 0) + 1),
+                    "recurringMutationId" to template.id,
+                ))
+            }
+            if (oldCategory != null) {
+                tx.update(oldCategory, mapOf(
+                    "recurringTemplateCount" to maxOf(0, (oldCat!!.getLong("recurringTemplateCount") ?: 0) - 1),
+                    "recurringMutationId" to template.id,
+                ))
+            }
+            val nextCreatedAt = previous?.createdAt ?: template.createdAt
+            val nextUpdatedAt = maxOf(template.updatedAt, (previous?.updatedAt ?: 0) + 1, System.currentTimeMillis())
+            val next = template.copy(createdAt = nextCreatedAt, updatedAt = nextUpdatedAt)
+            tx.set(target, next.payload())
+            Unit
+        }.await()
     }
 }
