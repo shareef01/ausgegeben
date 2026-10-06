@@ -367,7 +367,8 @@ service cloud.firestore {
       let d = request.resource.data;
       return d.keys().hasOnly([
           'operationId', 'ownerUid', 'createdAt', 'chunkIndex', 'chunkCount',
-          'totalExpenses', 'totalCategories', 'expenses', 'categories', 'preferences', 'categoryBudgets'
+          'totalExpenses', 'totalCategories', 'expenses', 'categories', 'preferences', 'categoryBudgets',
+          'recurringTemplates', 'recurringReceipts'
         ])
         && d.keys().hasAll(['operationId', 'ownerUid', 'createdAt'])
         && d.operationId is string && d.operationId.size() > 0 && d.operationId.size() <= 64
@@ -380,6 +381,8 @@ service cloud.firestore {
         && (!('expenses' in d) || d.expenses is list)
         && (!('categories' in d) || d.categories is list)
         && (!('categoryBudgets' in d) || d.categoryBudgets is list)
+        && (!('recurringTemplates' in d) || d.recurringTemplates is list)
+        && (!('recurringReceipts' in d) || d.recurringReceipts is list)
         && (!('preferences' in d) || d.preferences is map);
     }
 
@@ -471,12 +474,7 @@ service cloud.firestore {
           && recurringId(request.resource.data.templateId) && recurringDate(request.resource.data.scheduledDate)
           && occurrenceId == request.resource.data.templateId + '_' + request.resource.data.scheduledDate
           && request.resource.data.expenseId is string && request.resource.data.expenseId.matches('^[0-9a-f]{64}$')
-          && request.resource.data.createdAt is int && request.resource.data.createdAt > 0 && request.resource.data.createdAt <= request.time.toMillis() + 300000
-          && get(/databases/$(database)/documents/users/$(userId)/recurringTransactions/$(request.resource.data.templateId)).data.enabled == true
-          && get(/databases/$(database)/documents/users/$(userId)/recurringTransactions/$(request.resource.data.templateId)).data.nextDate == request.resource.data.scheduledDate
-          && getAfter(/databases/$(database)/documents/users/$(userId)/recurringTransactions/$(request.resource.data.templateId)).data.nextIndex == get(/databases/$(database)/documents/users/$(userId)/recurringTransactions/$(request.resource.data.templateId)).data.nextIndex + 1
-          && getAfter(/databases/$(database)/documents/users/$(userId)/expenses/$(request.resource.data.expenseId)).data.idempotencyKey == '["recurring-v1","' + request.resource.data.templateId + '","' + request.resource.data.scheduledDate + '"]'
-          && getAfter(/databases/$(database)/documents/users/$(userId)/expenses/$(request.resource.data.expenseId)).data.dateMillis <= request.time.toMillis() + 60000;
+          && request.resource.data.createdAt is int && request.resource.data.createdAt > 0 && request.resource.data.createdAt <= request.time.toMillis() + 300000;
         allow update: if false;
         allow delete: if isOwner(userId) && accountDeletionPending(userId);
       }
