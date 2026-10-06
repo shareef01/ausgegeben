@@ -1,8 +1,9 @@
 import { validCategoryBudget, type CategoryBudget } from '@/services/categoryBudgets';
+import { parseRecurringSection, type RecurringBackupSection } from '@/services/recurringBackupSection';
 import type { Category, Expense, TransactionType } from '@/models/types';
 
 export const BACKUP_FORMAT_IDENTIFIER = 'ausgegeben-backup';
-export const CURRENT_BACKUP_SCHEMA_VERSION = 2;
+export const CURRENT_BACKUP_SCHEMA_VERSION = 3;
 
 export interface BackupPreferences {
   currency: string;
@@ -42,6 +43,7 @@ export interface AusgegebenBackup {
   categories: BackupCategory[];
   expenses: BackupExpense[];
   categoryBudgets?: CategoryBudget[];
+  recurring?: RecurringBackupSection;
 }
 
 export interface BackupSummary {
@@ -79,6 +81,7 @@ const ALLOWED_TOP_LEVEL_KEYS = new Set([
   'categories',
   'expenses',
   'categoryBudgets',
+  'recurring',
 ]);
 
 const ALLOWED_TRANSACTION_TYPES = new Set<TransactionType>(['expense', 'income', 'transfer']);
@@ -93,7 +96,10 @@ export function createBackup(params: {
   expenses: Expense[];
   appVersion: string;
   categoryBudgets?: CategoryBudget[];
+  recurring?: RecurringBackupSection;
+  schemaVersion?: number;
 }): AusgegebenBackup {
+  const schemaVersion = params.schemaVersion ?? CURRENT_BACKUP_SCHEMA_VERSION;
   const cleanCategories: BackupCategory[] = params.categories.map((c) => ({
     id: c.id,
     name: c.name.trim().slice(0, 50),
@@ -121,9 +127,9 @@ export function createBackup(params: {
       ...(e.idempotencyKey ? { idempotencyKey: e.idempotencyKey.slice(0, 100) } : {}),
     }));
 
-  return {
+  const backup: AusgegebenBackup = {
     format: BACKUP_FORMAT_IDENTIFIER,
-    schemaVersion: CURRENT_BACKUP_SCHEMA_VERSION,
+    schemaVersion,
     exportedAt: new Date().toISOString(),
     appVersion: params.appVersion,
     preferences: {
@@ -142,8 +148,16 @@ export function createBackup(params: {
     },
     categories: cleanCategories,
     expenses: cleanExpenses,
-    categoryBudgets: params.categoryBudgets ?? [],
   };
+
+  if (schemaVersion >= 2) {
+    backup.categoryBudgets = params.categoryBudgets ?? [];
+  }
+  if (schemaVersion >= 3) {
+    backup.recurring = params.recurring ?? { templates: [], receipts: [] };
+  }
+
+  return backup;
 }
 
 /**
@@ -171,7 +185,7 @@ export function validateBackup(data: unknown): ValidationResult {
     errors.push(`Invalid format identifier: expected "${BACKUP_FORMAT_IDENTIFIER}", got "${String(root.format)}"`);
   }
 
-  if (root.schemaVersion !== 1 && root.schemaVersion !== 2) {
+  if (root.schemaVersion !== 1 && root.schemaVersion !== 2 && root.schemaVersion !== 3) {
     errors.push(
       `Unsupported schema version: expected ${CURRENT_BACKUP_SCHEMA_VERSION}, got ${String(root.schemaVersion)}`,
     );
@@ -302,8 +316,12 @@ export function validateBackup(data: unknown): ValidationResult {
     });
   }
 
-  if (root.schemaVersion === 1 && 'categoryBudgets' in root) errors.push('Schema v1 cannot contain categoryBudgets');
+  if (root.schemaVersion === 1) {
+    if ('categoryBudgets' in root) errors.push('Schema v1 cannot contain categoryBudgets');
+    if ('recurring' in root) errors.push('Schema v1 cannot contain recurring');
+  }
   if (root.schemaVersion === 2) {
+    if ('recurring' in root) errors.push('Schema v2 cannot contain recurring');
     const seen = new Set<string>();
     const expenseCategoryIds = new Set((Array.isArray(root.categories) ? root.categories as BackupCategory[] : []).filter(c => c && c.transactionType === 'expense').map(c => c.id));
     if (!Array.isArray(root.categoryBudgets)) errors.push('categoryBudgets must be an array');
@@ -313,6 +331,37 @@ export function validateBackup(data: unknown): ValidationResult {
       if (seen.has(b.categoryId)) errors.push('Duplicate category budget');
       seen.add(b.categoryId);
       if (!expenseCategoryIds.has(b.categoryId)) errors.push('Budget requires expense category');
+    }
+  }
+  if (root.schemaVersion === 3) {
+    const seen = new Set<string>();
+    const expenseCategoryIds = new Set((Array.isArray(root.categories) ? root.categories as BackupCategory[] : []).filter(c => c && c.transactionType === 'expense').map(c => c.id));
+    if (!Array.isArray(root.categoryBudgets)) errors.push('categoryBudgets must be an array');
+    else for (const value of root.categoryBudgets) {
+      const b = value as CategoryBudget;
+      if (!b || typeof b !== 'object' || !validCategoryBudget(b) || Object.keys(b).some(k => !['categoryId','monthlyLimit','warningThresholdPercent','updatedAt'].includes(k))) { errors.push('Invalid category budget'); continue; }
+      if (seen.has(b.categoryId)) errors.push('Duplicate category budget');
+      seen.add(b.categoryId);
+      if (!expenseCategoryIds.has(b.categoryId)) errors.push('Budget requires expense category');
+    }
+
+    if (!('recurring' in root)) {
+      errors.push('Schema v3 must contain recurring');
+    } else {
+      try {
+        const sec = parseRecurringSection(root.recurring);
+        const catMap = new Map((Array.isArray(root.categories) ? root.categories as BackupCategory[] : []).map(c => [c.id, c]));
+        for (const t of sec.templates) {
+          const cat = catMap.get(t.categoryId);
+          if (!cat) {
+            errors.push(`Recurring template "${t.id}" references nonexistent category "${t.categoryId}"`);
+          } else if (cat.transactionType !== t.transactionType) {
+            errors.push(`Recurring template "${t.id}" type "${t.transactionType}" does not match category type "${cat.transactionType}"`);
+          }
+        }
+      } catch (err) {
+        errors.push(`Invalid recurring section: ${err instanceof Error ? err.message : String(err)}`);
+      }
     }
   }
 

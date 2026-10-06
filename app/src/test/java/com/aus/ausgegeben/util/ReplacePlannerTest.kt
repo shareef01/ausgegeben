@@ -3,6 +3,7 @@ package com.aus.ausgegeben.util
 import com.aus.ausgegeben.data.SyncedPreferences
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
+import com.aus.ausgegeben.data.entity.RecurringTemplate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -245,7 +246,7 @@ class ReplacePlannerTest {
 
     @Test
     fun `rejects unsupported schema versions`() {
-        val invalidSchemaBackup = sampleBackup.copy(schemaVersion = 3)
+        val invalidSchemaBackup = sampleBackup.copy(schemaVersion = 4)
 
         val plan = ReplacePlanner.planReplace(
             currentExpenses = sampleExpenses,
@@ -256,6 +257,128 @@ class ReplacePlannerTest {
 
         assertTrue(plan.conflicts.isNotEmpty())
         assertTrue(plan.conflicts[0].contains("UNSUPPORTED_SCHEMA_VERSION"))
+    }
+
+    @Test
+    fun `accepts schemaVersion 3 with recurring templates and receipts`() {
+        val t = RecurringTemplate(
+            id = "e2f5b5f8-3e4b-4f7a-9a2c-1d3e4f5a6b7c",
+            amount = 50.0,
+            categoryId = "cat-1",
+            note = "Gym subscription",
+            transactionType = "expense",
+            frequency = "monthly",
+            interval = 1,
+            startDate = "2026-01-01",
+            endDate = null,
+            timeZone = "Europe/Berlin",
+            enabled = true,
+            nextIndex = 1,
+            nextDate = "2026-02-01",
+            createdAt = 1000L,
+            updatedAt = 1000L,
+        )
+        val r = OccurrenceReceipt(
+            id = "e2f5b5f8-3e4b-4f7a-9a2c-1d3e4f5a6b7c_2026-01-01",
+            templateId = "e2f5b5f8-3e4b-4f7a-9a2c-1d3e4f5a6b7c",
+            scheduledDate = "2026-01-01",
+            expenseId = "a".repeat(64),
+            createdAt = 1000L,
+        )
+        val v3Backup = sampleBackup.copy(
+            schemaVersion = 3,
+            recurring = RecurringBackupSection(listOf(t), listOf(r)),
+        )
+
+        val plan = ReplacePlanner.planReplace(
+            currentExpenses = sampleExpenses,
+            currentCategories = sampleCategories,
+            currentPreferences = samplePreferences,
+            backup = v3Backup,
+        )
+
+        assertTrue(plan.conflicts.isEmpty())
+    }
+
+    @Test
+    fun `detects orphan category in recurring templates`() {
+        val t = RecurringTemplate(
+            id = "e2f5b5f8-3e4b-4f7a-9a2c-1d3e4f5a6b7c",
+            amount = 50.0,
+            categoryId = "missing-cat",
+            note = "Gym subscription",
+            transactionType = "expense",
+            frequency = "monthly",
+            interval = 1,
+            startDate = "2026-01-01",
+            endDate = null,
+            timeZone = "Europe/Berlin",
+            enabled = true,
+            nextIndex = 1,
+            nextDate = "2026-02-01",
+            createdAt = 1000L,
+            updatedAt = 1000L,
+        )
+        val v3Backup = sampleBackup.copy(
+            schemaVersion = 3,
+            recurring = RecurringBackupSection(listOf(t), emptyList()),
+        )
+
+        val plan = ReplacePlanner.planReplace(
+            currentExpenses = sampleExpenses,
+            currentCategories = sampleCategories,
+            currentPreferences = samplePreferences,
+            backup = v3Backup,
+        )
+
+        assertTrue(plan.conflicts.isNotEmpty())
+        assertTrue(plan.conflicts[0].contains("CATEGORY_ORPHAN_REFERENCE"))
+        assertTrue(plan.conflicts[0].contains("Recurring template"))
+    }
+
+    @Test
+    fun `v3 recurring fingerprint is deterministic and sensitive to template and receipt changes`() {
+        val t1 = RecurringTemplate(
+            id = "e2f5b5f8-3e4b-4f7a-9a2c-1d3e4f5a6b7c",
+            amount = 50.0,
+            categoryId = "cat-1",
+            note = "Gym",
+            transactionType = "expense",
+            frequency = "monthly",
+            interval = 1,
+            startDate = "2026-01-01",
+            endDate = null,
+            timeZone = "Europe/Berlin",
+            enabled = true,
+            nextIndex = 1,
+            nextDate = "2026-02-01",
+            createdAt = 1000L,
+            updatedAt = 1000L,
+        )
+        val r1 = OccurrenceReceipt(
+            id = "e2f5b5f8-3e4b-4f7a-9a2c-1d3e4f5a6b7c_2026-01-01",
+            templateId = "e2f5b5f8-3e4b-4f7a-9a2c-1d3e4f5a6b7c",
+            scheduledDate = "2026-01-01",
+            expenseId = "a".repeat(64),
+            createdAt = 1000L,
+        )
+        val v3A = sampleBackup.copy(
+            schemaVersion = 3,
+            recurring = RecurringBackupSection(listOf(t1), listOf(r1)),
+        )
+        val v3B = sampleBackup.copy(
+            schemaVersion = 3,
+            recurring = RecurringBackupSection(listOf(t1), listOf(r1)),
+        )
+        val fpA = ReplacePlanner.computeBackupFingerprint(v3A)
+        val fpB = ReplacePlanner.computeBackupFingerprint(v3B)
+        assertEquals(fpA, fpB)
+
+        val v3Modified = sampleBackup.copy(
+            schemaVersion = 3,
+            recurring = RecurringBackupSection(listOf(t1.copy(amount = 55.0)), listOf(r1)),
+        )
+        assertNotEquals(fpA, ReplacePlanner.computeBackupFingerprint(v3Modified))
     }
 
     @Test

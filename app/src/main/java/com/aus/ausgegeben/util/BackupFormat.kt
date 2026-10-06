@@ -10,7 +10,7 @@ import kotlin.math.roundToLong
 
 object BackupFormat {
     const val FORMAT_IDENTIFIER = "ausgegeben-backup"
-    const val CURRENT_SCHEMA_VERSION = 2
+    const val CURRENT_SCHEMA_VERSION = 3
 
     private val ALLOWED_TRANSACTION_TYPES = setOf("expense", "income", "transfer")
 
@@ -41,10 +41,12 @@ object BackupFormat {
         appVersion: String,
         exportedAt: String = Instant.now().toString(),
         categoryBudgets: List<CategoryBudget> = emptyList(),
+        recurring: RecurringBackupSection = RecurringBackupSection(emptyList(), emptyList()),
+        schemaVersion: Int = CURRENT_SCHEMA_VERSION,
     ): String {
         val root = JSONObject()
         root.put("format", FORMAT_IDENTIFIER)
-        root.put("schemaVersion", CURRENT_SCHEMA_VERSION)
+        root.put("schemaVersion", schemaVersion)
         root.put("exportedAt", exportedAt)
         root.put("appVersion", appVersion.ifBlank { "unknown" })
 
@@ -92,7 +94,12 @@ object BackupFormat {
             expensesArr.put(expObj)
         }
         root.put("expenses", expensesArr)
-        root.put("categoryBudgets", JSONArray(categoryBudgets.map { JSONObject(it.payload() + ("categoryId" to it.categoryId)) }))
+        if (schemaVersion >= 2) {
+            root.put("categoryBudgets", JSONArray(categoryBudgets.map { JSONObject(it.payload() + ("categoryId" to it.categoryId)) }))
+        }
+        if (schemaVersion >= 3) {
+            root.put("recurring", JSONObject(recurring.serialize()))
+        }
 
         return root.toString(2)
     }
@@ -116,7 +123,8 @@ object BackupFormat {
             "preferences",
             "categories",
             "expenses",
-            "categoryBudgets"
+            "categoryBudgets",
+            "recurring"
         )
         val keys = root.keys()
         while (keys.hasNext()) {
@@ -130,7 +138,7 @@ object BackupFormat {
             errors.add("Invalid format identifier: expected \"$FORMAT_IDENTIFIER\"")
         }
 
-        if (root.opt("schemaVersion") !is Number || root.optDouble("schemaVersion") != root.optInt("schemaVersion").toDouble() || root.optInt("schemaVersion") !in setOf(1, 2)) {
+        if (root.opt("schemaVersion") !is Number || root.optDouble("schemaVersion") != root.optInt("schemaVersion").toDouble() || root.optInt("schemaVersion") !in setOf(1, 2, 3)) {
             errors.add("Unsupported schema version: expected $CURRENT_SCHEMA_VERSION")
         }
 
@@ -233,8 +241,12 @@ object BackupFormat {
         }
 
         val version = root.optInt("schemaVersion")
-        if (version == 1 && root.has("categoryBudgets")) errors.add("Schema v1 cannot contain categoryBudgets")
+        if (version == 1) {
+            if (root.has("categoryBudgets")) errors.add("Schema v1 cannot contain categoryBudgets")
+            if (root.has("recurring")) errors.add("Schema v1 cannot contain recurring")
+        }
         if (version == 2) {
+            if (root.has("recurring")) errors.add("Schema v2 cannot contain recurring")
             val arr = root.optJSONArray("categoryBudgets")
             val seen = mutableSetOf<String>()
             val budgetCategories = categoriesArr?.let { cats -> (0 until cats.length()).mapNotNull { cats.optJSONObject(it) }.associateBy { it.optString("id") } } ?: emptyMap()
@@ -250,6 +262,47 @@ object BackupFormat {
                 if (!seen.add(budget.categoryId)) errors.add("Duplicate budget")
                 val cat = budgetCategories[budget.categoryId]
                 if (cat?.optString("transactionType") != "expense") errors.add("Budget requires expense category")
+            }
+        }
+        if (version == 3) {
+            val arr = root.optJSONArray("categoryBudgets")
+            val seen = mutableSetOf<String>()
+            val budgetCategories = categoriesArr?.let { cats -> (0 until cats.length()).mapNotNull { cats.optJSONObject(it) }.associateBy { it.optString("id") } } ?: emptyMap()
+            if (arr == null) errors.add("categoryBudgets must be an array") else for (i in 0 until arr.length()) {
+                val b = arr.optJSONObject(i)
+                if (b == null) { errors.add("Invalid budget"); continue }
+                val keys = b.keys().asSequence().toSet()
+                val amount = b.optDouble("monthlyLimit", Double.NaN)
+                val threshold = b.optDouble("warningThresholdPercent", Double.NaN)
+                val updated = b.optDouble("updatedAt", Double.NaN)
+                val budget = CategoryBudget(b.optString("categoryId"), amount, threshold.toInt(), updated.toLong())
+                if (b.opt("categoryId") !is String || b.opt("monthlyLimit") !is Number || b.opt("warningThresholdPercent") !is Number || b.opt("updatedAt") !is Number || !budget.valid() || threshold != threshold.toInt().toDouble() || !updated.isFinite() || updated != updated.toLong().toDouble() || keys != setOf("categoryId","monthlyLimit","warningThresholdPercent","updatedAt")) errors.add("Invalid budget")
+                if (!seen.add(budget.categoryId)) errors.add("Duplicate budget")
+                val cat = budgetCategories[budget.categoryId]
+                if (cat?.optString("transactionType") != "expense") errors.add("Budget requires expense category")
+            }
+
+            if (!root.has("recurring")) {
+                errors.add("Schema v3 must contain recurring")
+            } else {
+                val recObj = root.optJSONObject("recurring")
+                if (recObj == null) {
+                    errors.add("recurring must be a JSON object")
+                } else {
+                    try {
+                        val sec = RecurringBackupSection.parse(recObj.toString())
+                        for (t in sec.templates) {
+                            val cat = budgetCategories[t.categoryId]
+                            if (cat == null) {
+                                errors.add("Recurring template \"${t.id}\" references nonexistent category \"${t.categoryId}\"")
+                            } else if (cat.optString("transactionType") != t.transactionType) {
+                                errors.add("Recurring template \"${t.id}\" type \"${t.transactionType}\" does not match category type \"${cat.optString("transactionType")}\"")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        errors.add("Invalid recurring section: ${e.message}")
+                    }
+                }
             }
         }
 
@@ -294,6 +347,7 @@ object BackupFormat {
         val categories: List<ParsedCategory>,
         val expenses: List<ParsedExpense>,
         val categoryBudgets: List<CategoryBudget> = emptyList(),
+        val recurring: RecurringBackupSection? = null,
     )
 
     fun parseBackup(jsonString: String): ParsedBackup? {
@@ -360,8 +414,15 @@ object BackupFormat {
             }
         }
 
+        val recurringSection = if (root.has("recurring")) {
+            try {
+                root.optJSONObject("recurring")?.let { RecurringBackupSection.parse(it.toString()) }
+            } catch (_: Exception) { null }
+        } else null
+
         return ParsedBackup(
             categoryBudgets = root.optJSONArray("categoryBudgets")?.let { arr -> (0 until arr.length()).map { i -> val b = arr.getJSONObject(i); CategoryBudget(b.getString("categoryId"), b.getDouble("monthlyLimit"), b.getInt("warningThresholdPercent"), b.getLong("updatedAt")) } } ?: emptyList(),
+            recurring = recurringSection,
             schemaVersion = schemaVersion,
             appVersion = appVersion,
             exportedAt = exportedAt,
