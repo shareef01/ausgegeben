@@ -1,7 +1,8 @@
 # Local backup and restore plan
 
 This document records the original v1 plan. Current v2 category budget semantics
-and legacy v1 preservation behavior are specified in [Category budgets](category-budgets.md).
+and legacy v1 preservation behavior are specified in [Category budgets](category-budgets.md),
+and schema v3 recurring transaction semantics in [Recurring transactions](recurring-transactions.md).
 
 The current CSV export is accurate for reporting transactions, but it is not a
 restorable account backup. Ausgegeben must not use Cloud Storage or Firestore's

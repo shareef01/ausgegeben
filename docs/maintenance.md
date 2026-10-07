@@ -155,8 +155,8 @@ Do not deploy Firestore rules without their indexes. The local emulator serves u
 - The web production environment file is local, gitignored operational state. It must be backed up securely outside the repository or reconstructed from Firebase and App Check settings.
 - CSV is an interchange/report export, not disaster recovery: it omits preferences,
   categories and their stable IDs, budgets, migration metadata, and deletion state.
-  A safe full restore is specified in `docs/local-backup-plan.md`; it is deliberately
-  not partially implemented.
+  Safe versioned JSON backup export and restore is implemented across Android and
+  the web (see `docs/local-backup-plan.md`).
 - Android does not currently query GitHub for updates. Users discover updates on the
   repository Releases page. A future opt-in checker should query only the latest
   stable release, cache success for at least 24 hours, fail silently on network/API
