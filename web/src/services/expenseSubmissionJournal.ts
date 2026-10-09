@@ -47,6 +47,9 @@ export interface PreparedExpenseSubmission {
 let databasePromise: Promise<IDBDatabase> | null = null;
 
 function openDatabase(): Promise<IDBDatabase> {
+  if (typeof indexedDB === 'undefined') {
+    return Promise.reject(new Error('IndexedDB is not available in this environment'));
+  }
   if (databasePromise) return databasePromise;
   databasePromise = new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -129,6 +132,7 @@ export async function reconcilePendingExpenseSubmissions(
   uid: string,
   exists: (operationId: string) => Promise<boolean>,
 ): Promise<void> {
+  if (typeof indexedDB === 'undefined') return;
   try {
     const db = await openDatabase();
     const entries: JournalEntry[] = [];
@@ -166,6 +170,7 @@ export async function reconcilePendingExpenseSubmissions(
 
 /** Account sign-out abandons opaque pending submissions for that account. */
 export async function clearExpenseSubmissionJournal(uid: string): Promise<void> {
+  if (typeof indexedDB === 'undefined') return;
   try {
     const db = await openDatabase();
     const transaction = db.transaction(STORE_NAME, 'readwrite');
