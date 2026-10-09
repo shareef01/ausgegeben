@@ -57,7 +57,18 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           manualChunks(id) {
-            if (id.includes('node_modules/firebase')) return 'firebase';
+            if (
+              id.includes('@firebase/firestore') ||
+              id.includes('firebase/firestore')
+            ) {
+              return 'firebase-firestore';
+            }
+            if (
+              id.includes('node_modules/firebase') ||
+              id.includes('node_modules/@firebase')
+            ) {
+              return 'firebase-core';
+            }
             if (
               id.includes('node_modules/react-dom') ||
               id.includes('node_modules/react/')
