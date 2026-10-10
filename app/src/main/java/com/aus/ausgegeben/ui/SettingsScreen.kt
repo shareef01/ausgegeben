@@ -105,6 +105,7 @@ fun SettingsScreen(
     var showCurrencySheet by remember { mutableStateOf(false) }
     var showBudgetDialog by remember { mutableStateOf(false) }
     var showReminderTimeDialog by remember { mutableStateOf(false) }
+    var showRecurringSheet by remember { mutableStateOf(false) }
     var showSignOutConfirm by remember { mutableStateOf(false) }
     var showDeleteAccountConfirm by remember { mutableStateOf(false) }
     var showExportTruncatedConfirm by remember { mutableStateOf(false) }
@@ -319,8 +320,6 @@ fun SettingsScreen(
             ) {
                 item { ScreenTitle(title = stringResource(R.string.screen_settings)) }
 
-                item { RecurringManager(recurringViewModel, recurringCategories, currentUser?.uid, currentUser?.isEmailVerified == true) }
-
                 if (unresolvedOp != null &&
                     unresolvedOp!!.phase != ReplacePlanner.RestorePhase.COMPLETED &&
                     unresolvedOp!!.phase != ReplacePlanner.RestorePhase.ROLLED_BACK
@@ -435,6 +434,13 @@ fun SettingsScreen(
                 val managementSection: @Composable () -> Unit = {
                     SettingsManagementSection(
                         onNavigateToCategories = onNavigateToCategories,
+                        onOpenRecurring = {
+                            if (currentUser == null) {
+                                onShowMessage(context.getString(R.string.recurring_offline))
+                            } else {
+                                showRecurringSheet = true
+                            }
+                        },
                         onExportCsv = ::exportCsv,
                         onExportBackup = ::exportBackup,
                         onRestoreBackup = ::onRestoreBackup,
@@ -509,7 +515,7 @@ fun SettingsScreen(
                                         borderColor = signOutColor.copy(alpha = 0.35f),
                                     ) {
                                         Text(
-                                            text = stringResource(R.string.settings_sign_out).lowercase(),
+                                            text = stringResource(R.string.settings_sign_out),
                                             style = TextStyle(
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 15.sp,
@@ -528,7 +534,7 @@ fun SettingsScreen(
                                         borderColor = signOutColor.copy(alpha = 0.55f),
                                     ) {
                                         Text(
-                                            text = stringResource(R.string.settings_delete_account).lowercase(),
+                                            text = stringResource(R.string.settings_delete_account),
                                             style = TextStyle(
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 15.sp,
@@ -546,6 +552,15 @@ fun SettingsScreen(
             }
         }
     }
+
+    RecurringManagerSheet(
+        isOpen = showRecurringSheet,
+        onDismissRequest = { showRecurringSheet = false },
+        vm = recurringViewModel,
+        categories = recurringCategories,
+        owner = currentUser?.uid,
+        canWrite = currentUser?.isEmailVerified == true,
+    )
 
     if (showThemeSheet) {
         ThemeSelectionSheet(
@@ -631,7 +646,7 @@ fun SettingsScreen(
             onDismissRequest = { showExportTruncatedConfirm = false },
             title = {
                 Text(
-                    text = stringResource(titleRes).lowercase(),
+                    text = stringResource(titleRes),
                     style = MaterialTheme.typography.titleMedium,
                 )
             },
@@ -649,7 +664,7 @@ fun SettingsScreen(
                                     repository,
                                     preferenceManager,
                                     allowTruncated = true,
-                                )
+                                    )
                             } else {
                                 ExportUtils.exportCsv(
                                     context,
@@ -667,13 +682,13 @@ fun SettingsScreen(
                         }
                     },
                 ) {
-                    Text(stringResource(R.string.settings_export_truncated_continue).lowercase())
+                    Text(stringResource(R.string.settings_export_truncated_continue))
                 }
             },
             dismissButton = {
                 AppTextButton(
                     onClick = { showExportTruncatedConfirm = false },
-                    text = stringResource(R.string.action_cancel).lowercase(),
+                    text = stringResource(R.string.action_cancel),
                     contentColor = MaterialTheme.colorScheme.onSurface,
                 )
             },
@@ -692,7 +707,7 @@ fun SettingsScreen(
             },
             title = {
                 Text(
-                    text = stringResource(R.string.settings_restore_backup_title).lowercase(),
+                    text = stringResource(R.string.settings_restore_backup_title),
                     style = MaterialTheme.typography.titleMedium,
                 )
             },
@@ -782,7 +797,7 @@ fun SettingsScreen(
                         stringResource(
                             if (isRestoring) R.string.state_loading
                             else R.string.settings_restore_backup_action
-                        ).lowercase()
+                        )
                     )
                 }
             },
@@ -794,7 +809,7 @@ fun SettingsScreen(
                         pendingRestore = null
                         pendingRestoreUid = null
                     },
-                    text = stringResource(R.string.action_cancel).lowercase(),
+                    text = stringResource(R.string.action_cancel),
                     contentColor = MaterialTheme.colorScheme.onSurface,
                 )
             },
@@ -813,7 +828,7 @@ fun SettingsScreen(
             },
             title = {
                 Text(
-                    text = stringResource(R.string.settings_replace_backup_title).lowercase(),
+                    text = stringResource(R.string.settings_replace_backup_title),
                     style = MaterialTheme.typography.titleMedium,
                 )
             },
@@ -882,7 +897,7 @@ fun SettingsScreen(
                         stringResource(
                             if (isReplacing) R.string.state_loading
                             else R.string.settings_replace_backup_action
-                        ).lowercase()
+                        )
                     )
                 }
             },
@@ -894,7 +909,7 @@ fun SettingsScreen(
                         pendingReplace = null
                         pendingReplaceUid = null
                     },
-                    text = stringResource(R.string.action_cancel).lowercase(),
+                    text = stringResource(R.string.action_cancel),
                     contentColor = MaterialTheme.colorScheme.onSurface,
                 )
             },
@@ -911,7 +926,7 @@ fun SettingsScreen(
             },
             title = {
                 Text(
-                    text = stringResource(R.string.settings_sign_out).lowercase(),
+                    text = stringResource(R.string.settings_sign_out),
                     style = MaterialTheme.typography.titleMedium,
                 )
             },
@@ -970,7 +985,7 @@ fun SettingsScreen(
             },
             title = {
                 Text(
-                    text = stringResource(R.string.settings_delete_account).lowercase(),
+                    text = stringResource(R.string.settings_delete_account),
                     style = MaterialTheme.typography.titleMedium,
                 )
             },
@@ -1023,7 +1038,7 @@ private fun ThemeSelectionSheet(
             title = stringResource(R.string.settings_choose_theme),
             options = themeOptions,
             isSelected = { it == currentMode },
-            label = { it.label().lowercase() },
+            label = { it.label() },
             icon = { mode ->
                 val colors = remember(mode) { mode.getPreviewColors() }
                 val brush = remember(colors) {
@@ -1065,7 +1080,7 @@ private fun LanguageSelectionSheet(
             title = stringResource(R.string.settings_choose_language),
             options = options,
             isSelected = { it.first == currentLanguage },
-            label = { it.second.lowercase() },
+            label = { it.second },
             onSelect = { onSelect(it.first) },
             onDismiss = onDismiss
         )
@@ -1092,7 +1107,7 @@ private fun CurrencySelectionSheet(
             options = currencies,
             isSelected = { it == currentCurrency },
             label = { it },
-            secondaryLabel = { CurrencyUtils.labelFor(it).lowercase() },
+            secondaryLabel = { CurrencyUtils.labelFor(it) },
             onSelect = onSelect,
             onDismiss = onDismiss
         )
@@ -1353,14 +1368,14 @@ fun ReminderTimeDialog(
 
     AppAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.settings_reminder_time).lowercase()) },
+        title = { Text(stringResource(R.string.settings_reminder_time)) },
         confirmButton = {
             AppButton(onClick = { onConfirm(hour, minute) }) {
-                Text(stringResource(R.string.action_save).lowercase())
+                Text(stringResource(R.string.action_save))
             }
         },
         dismissButton = {
-            AppTextButton(onClick = onDismiss, text = stringResource(R.string.action_cancel).lowercase())
+            AppTextButton(onClick = onDismiss, text = stringResource(R.string.action_cancel))
         }
     ) {
         Row(
@@ -1472,7 +1487,7 @@ fun MonthlyBudgetSheet(
                         amountText = input
                     }
                 },
-                label = { Text(stringResource(R.string.settings_budget_amount_label, currencyCode).lowercase()) },
+                label = { Text(stringResource(R.string.settings_budget_amount_label, currencyCode)) },
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 singleLine = true,
@@ -1487,14 +1502,14 @@ fun MonthlyBudgetSheet(
                     modifier = Modifier.weight(1f),
                     contentColor = MaterialTheme.colorScheme.error
                 ) {
-                    Text(stringResource(R.string.action_clear).lowercase())
+                    Text(stringResource(R.string.action_clear))
                 }
                 AppButton(
                     onClick = { parsedBudget?.let(onSave) },
                     enabled = canSave,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(stringResource(R.string.action_save).lowercase())
+                    Text(stringResource(R.string.action_save))
                 }
             }
             Spacer(Modifier.height(24.dp))

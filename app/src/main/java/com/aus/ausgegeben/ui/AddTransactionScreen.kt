@@ -451,11 +451,10 @@ private fun ObsidianTopBar(
             )
         }
 
-        SignatureText(
+        Text(
             text = if (isEditing) stringResource(R.string.add_edit_title) else stringResource(R.string.add_new_title),
-            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-            accentColor = accentColor,
-            textColor = contentColor,
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+            color = contentColor,
             modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
         )
     }
@@ -793,7 +792,7 @@ private fun ObsidianNumpadContainer(
                     contentDescription = "$amountText ${CurrencyUtils.symbolFor(currencyCode)}"
                 },
             horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.Bottom
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = CurrencyUtils.symbolFor(currencyCode),
@@ -801,7 +800,7 @@ private fun ObsidianNumpadContainer(
                     fontWeight = FontWeight.SemiBold,
                     color = amountColor.copy(alpha = 0.6f),
                 ),
-                modifier = Modifier.padding(end = 6.dp, bottom = 8.dp)
+                modifier = Modifier.padding(end = 6.dp)
             )
             Text(
                 text = amountText,
@@ -898,10 +897,17 @@ private fun ObsidianKey(
     // chrome made the pad the loudest thing on the sheet, and each one ran its own
     // endless shine animation for as long as the sheet was open. The digits carry
     // themselves; clip only so the press ripple stays inside the key's corners.
+    val keyBg = if (isAppDarkTheme()) Color(0xFF141417) else Color(0xFFF1F1F4)
     Box(
         modifier = modifier
             .height(46.dp)
             .clip(RoundedCornerShape(AppRadius.interactive))
+            .background(keyBg)
+            .border(
+                0.5.dp,
+                if (isAppDarkTheme()) Color(0x18FFFFFF) else Color(0x0C000000),
+                RoundedCornerShape(AppRadius.interactive)
+            )
             .combinedClickable(
                     onClick = {
                         haptics.light()

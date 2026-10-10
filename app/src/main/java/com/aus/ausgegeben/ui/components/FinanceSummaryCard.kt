@@ -194,17 +194,6 @@ private fun SummaryPane(
                 fontFeatureSettings = "tnum"
             )
         )
-        
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        // Refined Physical Mark - Law 4: Symmetrical anchors
-        Box(
-            modifier = Modifier
-                .width(32.dp)
-                .height(4.dp)
-                .clip(CircleShape)
-                .background(color.copy(alpha = 0.6f))
-        )
     }
 }
 

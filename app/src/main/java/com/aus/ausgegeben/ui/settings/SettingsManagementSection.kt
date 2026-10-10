@@ -17,6 +17,7 @@ import com.aus.ausgegeben.ui.theme.*
 @Composable
 fun SettingsManagementSection(
     onNavigateToCategories: () -> Unit,
+    onOpenRecurring: () -> Unit = {},
     onExportCsv: () -> Unit,
     onExportBackup: () -> Unit,
     onRestoreBackup: () -> Unit,
@@ -34,40 +35,48 @@ fun SettingsManagementSection(
                 SettingsActionRow(
                     icon = Icons.Rounded.Category,
                     tint = MaterialTheme.colorScheme.primary,
-                    title = stringResource(R.string.settings_categories).lowercase(),
-                    subtitle = stringResource(R.string.settings_categories_subtitle).lowercase(),
+                    title = stringResource(R.string.settings_categories),
+                    subtitle = stringResource(R.string.settings_categories_subtitle),
                     onClick = onNavigateToCategories,
+                )
+                IosSeparator(insetStart = 56.dp)
+                SettingsActionRow(
+                    icon = Icons.Rounded.Repeat,
+                    tint = MaterialTheme.colorScheme.primary,
+                    title = stringResource(R.string.recurring_title),
+                    subtitle = stringResource(R.string.recurring_contract),
+                    onClick = onOpenRecurring,
                 )
                 IosSeparator(insetStart = 56.dp)
                 SettingsActionRow(
                     icon = Icons.Rounded.FileDownload,
                     tint = settingsIconTintMuted(),
-                    title = stringResource(R.string.settings_export_csv).lowercase(),
-                    subtitle = stringResource(R.string.settings_export_subtitle).lowercase(),
+                    title = stringResource(R.string.settings_export_csv),
+                    subtitle = stringResource(R.string.settings_export_subtitle),
                     onClick = onExportCsv,
                 )
                 IosSeparator(insetStart = 56.dp)
                 SettingsActionRow(
                     icon = Icons.Rounded.Backup,
                     tint = settingsIconTintMuted(),
-                    title = stringResource(R.string.settings_export_backup).lowercase(),
-                    subtitle = stringResource(R.string.settings_export_backup_subtitle).lowercase(),
+                    title = stringResource(R.string.settings_export_backup),
+                    subtitle = stringResource(R.string.settings_export_backup_subtitle),
                     onClick = onExportBackup,
                 )
                 IosSeparator(insetStart = 56.dp)
                 SettingsActionRow(
                     icon = Icons.Rounded.Restore,
                     tint = settingsIconTintMuted(),
-                    title = stringResource(R.string.settings_restore_backup).lowercase(),
-                    subtitle = stringResource(R.string.settings_restore_backup_subtitle).lowercase(),
+                    title = stringResource(R.string.settings_restore_backup),
+                    subtitle = stringResource(R.string.settings_restore_backup_subtitle),
                     onClick = onRestoreBackup,
                 )
                 IosSeparator(insetStart = 56.dp)
                 SettingsActionRow(
                     icon = Icons.Rounded.SwapHoriz,
                     tint = settingsDestructiveColor(),
-                    title = stringResource(R.string.settings_replace_backup).lowercase(),
-                    subtitle = stringResource(R.string.settings_replace_backup_subtitle).lowercase(),
+                    title = stringResource(R.string.settings_replace_backup),
+                    subtitle = stringResource(R.string.settings_replace_backup_subtitle),
                     onClick = onReplaceBackup,
                 )
             }

@@ -163,18 +163,18 @@ fun AppFab(
     icon: ImageVector,
     contentDescription: String,
     modifier: Modifier = Modifier,
-    containerColor: Color = MaterialTheme.colorScheme.primary,
-    contentColor: Color = MaterialTheme.colorScheme.onPrimary,
+    containerColor: Color = financeIncomeColor(),
+    contentColor: Color = Color.White,
     onLongClick: (() -> Unit)? = null,
 ) {
     val haptics = rememberAppHaptics()
     Box(
         modifier = modifier
-            .size(64.dp)
+            .size(56.dp)
             .shadow(
-                elevation = 20.dp,
-                spotColor = containerColor,
-                ambientColor = containerColor.copy(alpha = 0.4f),
+                elevation = 6.dp,
+                spotColor = containerColor.copy(alpha = 0.5f),
+                ambientColor = containerColor.copy(alpha = 0.2f),
                 shape = CircleShape
             )
             .clip(CircleShape)
@@ -197,7 +197,7 @@ fun AppFab(
             imageVector = icon,
             contentDescription = contentDescription,
             tint = contentColor,
-            modifier = Modifier.size(32.dp),
+            modifier = Modifier.size(26.dp),
         )
     }
 }

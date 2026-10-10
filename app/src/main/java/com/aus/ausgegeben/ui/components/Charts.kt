@@ -83,7 +83,6 @@ fun IncomeExpenseOverviewChart(
     }
 
     val cardShape = RoundedCornerShape(AppRadius.lg)
-    val chartSurface = MaterialTheme.colorScheme.surface
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
     val onBackground = MaterialTheme.colorScheme.onBackground
     val chartTrack = appDividerColor().copy(alpha = 0.55f)
@@ -179,9 +178,6 @@ fun IncomeExpenseOverviewChart(
                         topLeft = arcTopLeft
                     )
                 }
-
-                val holeRadius = (size.minDimension / 2f) - strokePx * 1.5f
-                drawCircle(color = chartSurface, radius = holeRadius, center = center)
             }
 
             Column(
@@ -286,7 +282,6 @@ fun DonutChart(
     val total = data.values.sum()
     val sorted = data.entries.sortedByDescending { it.value }
     val trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.18f)
-    val holeColor = MaterialTheme.colorScheme.surface
     val animationKey = remember(data) { data.entries.sortedBy { it.key }.hashCode() }
     val progress = remember { Animatable(0f) }
 
@@ -396,9 +391,6 @@ fun DonutChart(
                         startAngle += fullSweep + gapDegrees
                     }
                 }
-
-                val holeRadius = (size.minDimension / 2f) - 12.dp.toPx() * 1.5f
-                drawCircle(color = holeColor, radius = holeRadius, center = center)
             }
 
             if (centerLabel != null) {

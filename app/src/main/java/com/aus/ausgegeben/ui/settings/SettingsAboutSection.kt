@@ -37,7 +37,7 @@ fun SettingsAboutSection(
                 SettingsActionRow(
                     icon = Icons.AutoMirrored.Rounded.Help,
                     tint = settingsIconTintMuted(),
-                    title = stringResource(R.string.settings_support).lowercase(),
+                    title = stringResource(R.string.settings_support),
                     onClick = {
                         val intent = Intent(Intent.ACTION_SENDTO).apply {
                             data = Uri.parse("mailto:support@ausgegeben.app")

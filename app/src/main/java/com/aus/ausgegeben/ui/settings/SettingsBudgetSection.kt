@@ -31,10 +31,10 @@ fun SettingsBudgetSection(
             SettingsActionRow(
                 icon = Icons.Rounded.Speed,
                 tint = settingsIconTintMuted(),
-                title = stringResource(R.string.settings_monthly_limit).lowercase(),
+                title = stringResource(R.string.settings_monthly_limit),
                 subtitle = monthlyBudget?.let {
                     CurrencyUtils.formatAmount(it, currency, showSymbol = true)
-                } ?: stringResource(R.string.settings_monthly_limit_not_set).lowercase(),
+                } ?: stringResource(R.string.settings_monthly_limit_not_set),
                 onClick = onShowBudgetDialog,
             )
         }

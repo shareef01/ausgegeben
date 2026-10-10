@@ -798,7 +798,8 @@ private fun SpendingPaceCard(
                         text = CurrencyUtils.formatAmount(pace.dailyAverage, currencyCode),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            fontFeatureSettings = "tnum"
+                            fontFeatureSettings = "tnum",
+                            color = MaterialTheme.colorScheme.onSurface,
                         ),
                     )
                 }
