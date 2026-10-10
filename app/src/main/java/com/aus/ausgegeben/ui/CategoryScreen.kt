@@ -123,7 +123,7 @@ fun CategoryScreen(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(stringResource(R.string.category_new).lowercase())
+                    Text(stringResource(R.string.category_new))
                 }
             }
             HorizontalDivider(
@@ -149,7 +149,7 @@ fun CategoryScreen(
                     categoriesByType.forEachIndexed { sectionIndex, (type, typeCategories) ->
                         item(key = "header-${type.storageKey}") {
                             StaggeredEntrance(index = sectionIndex * 3) {
-                                GroupedSectionLabel(text = type.localizedLabel(LocalContext.current).lowercase())
+                                GroupedSectionLabel(text = type.localizedLabel(LocalContext.current))
                             }
                         }
                         itemsIndexed(typeCategories, key = { _, c -> c.id }) { index, category ->

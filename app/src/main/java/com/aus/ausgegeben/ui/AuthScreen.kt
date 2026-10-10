@@ -139,7 +139,7 @@ fun AuthScreen(
                     Spacer(modifier = Modifier.height(20.dp))
                     
                     Text(
-                        text = stringResource(R.string.app_name).lowercase(),
+                        text = stringResource(R.string.app_name),
                         style = TextStyle(
                             brush = Brush.linearGradient(
                                 colors = if (isAppDarkTheme()) {
@@ -155,7 +155,7 @@ fun AuthScreen(
                     )
                     
                     Text(
-                        text = stringResource(R.string.app_tagline).lowercase(),
+                        text = stringResource(R.string.app_tagline),
                         style = MaterialTheme.typography.labelSmall.copy(
                             letterSpacing = 2.sp,
                             color = AuthAuroraTokens.slate().copy(alpha = 0.6f)

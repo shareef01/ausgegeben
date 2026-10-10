@@ -134,14 +134,13 @@ fun SignatureText(
     if (text.isBlank()) return
     
     val annotatedString = remember(text, accentColor, textColor) {
-        val lower = text.lowercase()
         buildAnnotatedString {
             withStyle(style = SpanStyle(color = accentColor, fontWeight = FontWeight.Bold)) {
-                append(lower.take(1))
+                append(text.take(1))
             }
             val resolvedTextColor = if (textColor == Color.Unspecified) Color.Unspecified else textColor
             withStyle(style = SpanStyle(color = resolvedTextColor)) {
-                append(lower.drop(1))
+                append(text.drop(1))
             }
         }
     }
@@ -187,9 +186,10 @@ fun ScreenTitle(
 
 @Composable
 private fun TitleAndSubtitle(title: String, subtitle: String?) {
-    SignatureText(
+    Text(
         text = title,
         style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+        color = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.semantics { heading() },
     )
     if (subtitle != null) {
@@ -215,20 +215,12 @@ fun GroupedSectionLabel(
             .padding(top = 24.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Structural Anchor
-        Box(
-            modifier = Modifier
-                .width(2.dp)
-                .height(12.dp)
-                .background(financeIncomeColor(), RoundedCornerShape(50))
-        )
-        Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = text.lowercase(),
+            text = text.uppercase(),
             style = MaterialTheme.typography.labelSmall.copy(
                 color = readableSecondaryColor(),
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 2.sp
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.5.sp
             )
         )
     }
@@ -330,7 +322,7 @@ fun IosSegmentedControl(
                         )
                     } else {
                         Text(
-                            text = label.lowercase(),
+                            text = label,
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                             color = when {
@@ -547,7 +539,7 @@ fun SheetConfirmActions(
             },
             modifier = Modifier.weight(1f),
         ) {
-            Text(dismissLabel.lowercase())
+            Text(dismissLabel)
         }
         AppButton(
             onClick = {
@@ -559,7 +551,7 @@ fun SheetConfirmActions(
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = contrastColorOn(MaterialTheme.colorScheme.primary),
         ) {
-            Text(confirmLabel.lowercase())
+            Text(confirmLabel)
         }
     }
 }

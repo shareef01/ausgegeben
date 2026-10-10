@@ -89,7 +89,7 @@ fun AccountDeletionPendingBanner(
                 // changing the shared component and reflowing every other caller.
                 AppTextButton(
                     onClick = onFinishDeleting,
-                    text = stringResource(R.string.settings_deletion_finish).lowercase(),
+                    text = stringResource(R.string.settings_deletion_finish),
                     enabled = !busy,
                     contentColor = MaterialTheme.colorScheme.error,
                     modifier = Modifier.heightIn(min = 48.dp),

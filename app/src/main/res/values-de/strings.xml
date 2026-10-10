@@ -34,15 +34,15 @@
     <string name="auth_verify_email_sent">bestätigungs-e-mail gesendet. prüfe deinen posteingang.</string>
 
     <!-- Navigation -->
-    <string name="nav_record">erfassen</string>
-    <string name="nav_bills">einblicke</string>
-    <string name="nav_settings">einstellungen</string>
-    <string name="nav_add_transaction">transaktion hinzufügen</string>
+    <string name="nav_record">Erfassen</string>
+    <string name="nav_bills">Einblicke</string>
+    <string name="nav_settings">Einstellungen</string>
+    <string name="nav_add_transaction">Transaktion hinzufügen</string>
 
     <!-- Screen titles -->
-    <string name="screen_record">erfassen</string>
-    <string name="screen_bills">einblicke</string>
-    <string name="screen_settings">einstellungen</string>
+    <string name="screen_record">Erfassen</string>
+    <string name="screen_bills">Einblicke</string>
+    <string name="screen_settings">Einstellungen</string>
     <string name="settings_version_subtitle">ausgegeben · v%1$s</string>
 
     <!-- Record -->
@@ -65,51 +65,51 @@
     <string name="record_delete_cancel">abbrechen</string>
     <string name="record_swipe_delete">löschen</string>
     <string name="record_unknown_category">unbekannt</string>
-    <string name="filter_all">alle</string>
-    <string name="filter_expense">ausgabe</string>
-    <string name="filter_income">einnahme</string>
-    <string name="filter_transfer">transfer</string>
+    <string name="filter_all">Alle</string>
+    <string name="filter_expense">Ausgabe</string>
+    <string name="filter_income">Einnahme</string>
+    <string name="filter_transfer">Transfer</string>
 
     <!-- Bills -->
     <string name="bills_empty_title">noch keine analysen</string>
     <string name="bills_empty_subtitle">erfasse ausgaben oder einnahmen für auswertungen</string>
 
     <!-- Settings -->
-    <string name="settings_section_appearance">darstellung</string>
-    <string name="settings_section_account">konto</string>
-    <string name="settings_section_notifications">benachrichtigungen</string>
-    <string name="settings_section_budget">budget</string>
-    <string name="settings_section_management">verwaltung</string>
-    <string name="settings_section_export">export</string>
-    <string name="settings_section_about">über</string>
-    <string name="settings_theme">design</string>
-    <string name="settings_currency">währung</string>
+    <string name="settings_section_appearance">Darstellung</string>
+    <string name="settings_section_account">Konto</string>
+    <string name="settings_section_notifications">Benachrichtigungen</string>
+    <string name="settings_section_budget">Budget</string>
+    <string name="settings_section_management">Verwaltung</string>
+    <string name="settings_section_export">Export</string>
+    <string name="settings_section_about">Über</string>
+    <string name="settings_theme">Design</string>
+    <string name="settings_currency">Währung</string>
     <string name="settings_evening_reminder">abendliche erinnerung</string>
     <string name="settings_reminder_subtitle">ca. %1$s, falls heute nichts erfasst wurde</string>
     <string name="settings_reminder_enabled">erinnerung aktiviert</string>
     <string name="settings_reminder_disabled">erinnerung deaktiviert</string>
     <string name="settings_reminder_time">erinnerungszeit</string>
     <string name="settings_reminder_set">erinnerung auf %1$s gesetzt</string>
-    <string name="settings_monthly_limit">monatliches ausgabenlimit</string>
+    <string name="settings_monthly_limit">Monatliches Ausgabenlimit</string>
     <string name="settings_monthly_limit_not_set">nicht festgelegt</string>
-    <string name="settings_categories">kategorien verwalten</string>
-    <string name="settings_categories_subtitle">kategorien hinzufügen oder entfernen</string>
-    <string name="settings_export_csv">als csv exportieren</string>
-    <string name="settings_export_subtitle">tabelle teilen</string>
+    <string name="settings_categories">Kategorien verwalten</string>
+    <string name="settings_categories_subtitle">Kategorien hinzufügen oder entfernen</string>
+    <string name="settings_export_csv">Als CSV exportieren</string>
+    <string name="settings_export_subtitle">Tabelle teilen</string>
     <string name="settings_export_ok">csv bereit zum teilen</string>
     <string name="settings_export_truncated">csv bereit (neueste 5000 zeilen)</string>
     <string name="settings_export_truncated_confirm">nur die neuesten 5000 buchungen werden enthalten. ältere zeilen fehlen. fortfahren?</string>
     <string name="settings_export_truncated_continue">trotzdem exportieren</string>
     <string name="settings_export_failed">export fehlgeschlagen</string>
-    <string name="settings_export_backup">als json-backup exportieren</string>
-    <string name="settings_export_backup_subtitle">vollständige kontodaten zur sicherung</string>
+    <string name="settings_export_backup">Als JSON-Backup exportieren</string>
+    <string name="settings_export_backup_subtitle">Vollständige Kontodaten zur Sicherung</string>
     <string name="settings_export_backup_ok">backup bereit zum teilen</string>
     <string name="settings_export_backup_truncated">backup bereit (neueste 5000 zeilen)</string>
     <string name="settings_export_backup_truncated_confirm">nur die neuesten 5000 buchungen werden im backup enthalten. ältere zeilen fehlen. fortfahren?</string>
-    <string name="settings_restore_backup">als json-backup wiederherstellen</string>
-    <string name="settings_restore_backup_subtitle">daten aus einer versionierten json-sicherung importieren</string>
-    <string name="settings_restore_backup_title">sicherung wiederherstellen</string>
-    <string name="settings_restore_backup_action">wiederherstellen</string>
+    <string name="settings_restore_backup">Als JSON-Backup wiederherstellen</string>
+    <string name="settings_restore_backup_subtitle">Daten aus einer versionierten JSON-Sicherung importieren</string>
+    <string name="settings_restore_backup_title">Sicherung wiederherstellen</string>
+    <string name="settings_restore_backup_action">Wiederherstellen</string>
     <string name="settings_restore_backup_explain">vorhandene übereinstimmende einträge werden aktualisiert. andere aktuelle daten bleiben unverändert.</string>
     <string name="settings_restore_backup_summary">sicherung enthält %1$d ausgaben und %2$d kategorien. währung: %3$s.</string>
     <string name="settings_restore_backup_budget">monatliches budget: %1$s.</string>
@@ -155,10 +155,10 @@
     <string name="settings_account_offline_subtitle">melde dich an, um daten zu sichern und zu synchronisieren</string>
     <string name="settings_sign_in">anmelden / konto erstellen</string>
     <string name="settings_sign_in_subtitle">gerätenah sichern und synchronisieren</string>
-    <string name="settings_sign_out">abmelden</string>
+    <string name="settings_sign_out">Abmelden</string>
     <string name="settings_sign_out_subtitle">sitzung auf diesem gerät beenden</string>
     <string name="settings_sign_out_confirm">abmelden? du musst dich erneut anmelden, um auf deine cloud-daten zuzugreifen.</string>
-    <string name="settings_delete_account">konto löschen</string>
+    <string name="settings_delete_account">Konto löschen</string>
     <string name="settings_delete_account_confirm">konto sowie alle ausgaben, kategorien und einstellungen dauerhaft löschen? das kann nicht rückgängig gemacht werden.</string>
     <string name="settings_delete_account_ok">konto gelöscht</string>
     <string name="settings_delete_account_failed">konto konnte nicht gelöscht werden</string>
@@ -267,14 +267,15 @@
     <string name="notification_reminder_body">du hast heute noch nichts erfasst. tippe hier, um es nachzuholen.</string>
 
     <!-- Common -->
-    <string name="action_close">schließen</string>
-    <string name="action_cancel">abbrechen</string>
-    <string name="action_save">speichern</string>
-    <string name="action_back">zurück</string>
-    <string name="action_delete">löschen</string>
+    <string name="action_close">Schließen</string>
+    <string name="action_cancel">Abbrechen</string>
+    <string name="action_save">Speichern</string>
+    <string name="action_edit">Bearbeiten</string>
+    <string name="action_back">Zurück</string>
+    <string name="action_delete">Löschen</string>
 
     <!-- Categories -->
-    <string name="screen_categories">kategorien</string>
+    <string name="screen_categories">Kategorien</string>
     <string name="category_total_count">%1$d gesamt</string>
     <string name="category_new">neu</string>
     <string name="category_empty_title">noch keine kategorien</string>
@@ -447,6 +448,7 @@
     <string name="category_budget_limit">Monatliches Limit</string>
     <string name="category_budget_threshold">Warnschwelle (%)</string>
     <string name="category_budget_empty">Keine Kategoriebudgets eingerichtet</string>
+    <string name="category_budget_setup">Einrichten</string>
     <string name="category_budget_remove">Budget entfernen</string>
     <string name="category_budget_invalid">Positiven Betrag mit höchstens zwei Dezimalstellen und ganze Warnschwelle von 1 bis 100 eingeben.</string>
     <string name="category_budget_conflict">Speichern fehlgeschlagen. Verbindung prüfen und aktuelles Budget vor erneutem Versuch laden.</string>

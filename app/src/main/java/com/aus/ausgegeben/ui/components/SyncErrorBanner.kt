@@ -67,7 +67,7 @@ fun SyncErrorBanner(
             
             AppTextButton(
                 onClick = onRetry,
-                text = stringResource(R.string.record_error_retry).lowercase(),
+                text = stringResource(R.string.record_error_retry),
                 contentColor = MaterialTheme.colorScheme.primary
             )
         }

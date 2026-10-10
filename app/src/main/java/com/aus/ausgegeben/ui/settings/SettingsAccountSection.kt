@@ -68,8 +68,8 @@ fun SettingsAccountSection(
                     SettingsActionRow(
                         icon = Icons.Rounded.Sync,
                         tint = MaterialTheme.colorScheme.primary,
-                        title = stringResource(R.string.settings_sync_now).lowercase(),
-                        subtitle = stringResource(R.string.settings_account_cloud_subtitle).lowercase(),
+                        title = stringResource(R.string.settings_sync_now),
+                        subtitle = stringResource(R.string.settings_account_cloud_subtitle),
                         onClick = {
                             if (syncing) return@SettingsActionRow
                             onRetrySync()
@@ -79,8 +79,8 @@ fun SettingsAccountSection(
                     SettingsActionRow(
                         icon = Icons.Rounded.CloudUpload,
                         tint = MaterialTheme.colorScheme.primary,
-                        title = stringResource(R.string.settings_sign_in).lowercase(),
-                        subtitle = stringResource(R.string.settings_account_offline_subtitle).lowercase(),
+                        title = stringResource(R.string.settings_sign_in),
+                        subtitle = stringResource(R.string.settings_account_offline_subtitle),
                         onClick = onRequestSignIn,
                     )
                 }

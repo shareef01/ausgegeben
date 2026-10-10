@@ -34,7 +34,7 @@ fun SettingsNotificationSection(
                 SettingsSwitchRow(
                     icon = Icons.Rounded.NotificationsActive,
                     tint = settingsIconTintAccent(),
-                    title = stringResource(R.string.settings_evening_reminder).lowercase(),
+                    title = stringResource(R.string.settings_evening_reminder),
                     checked = dailyReminder,
                     onCheckedChange = onDailyReminderChange,
                 )
@@ -43,7 +43,7 @@ fun SettingsNotificationSection(
                     SettingsActionRow(
                         icon = Icons.Rounded.Schedule,
                         tint = MaterialTheme.colorScheme.primary,
-                        title = stringResource(R.string.settings_reminder_time).lowercase(),
+                        title = stringResource(R.string.settings_reminder_time),
                         subtitle = reminderTimeLabel,
                         onClick = onShowReminderTimeDialog,
                     )

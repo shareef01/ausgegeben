@@ -472,7 +472,7 @@ fun CategoryManageSheet(
                         modifier = Modifier.size(AppIconSize.sm)
                     )
                     Spacer(modifier = Modifier.width(AppSpacing.xxs))
-                    Text(stringResource(R.string.category_new).lowercase())
+                    Text(stringResource(R.string.category_new))
                 }
             }
 
@@ -539,13 +539,13 @@ fun CategoryManageSheet(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = contrastColorOn(MaterialTheme.colorScheme.primary)
                 ) {
-                    Text(stringResource(R.string.category_deduplicate_confirm).lowercase())
+                    Text(stringResource(R.string.category_deduplicate_confirm))
                 }
             },
             dismissButton = {
                 AppTextButton(
                     onClick = { showDeduplicateConfirm = false },
-                    text = stringResource(R.string.action_cancel).lowercase(),
+                    text = stringResource(R.string.action_cancel),
                     contentColor = MaterialTheme.colorScheme.onSurface
                 )
             }

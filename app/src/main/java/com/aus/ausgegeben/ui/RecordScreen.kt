@@ -135,7 +135,7 @@ fun RecordScreen(
     val haptics = rememberAppHaptics()
     val isWide = isWideScreen()
     
-    var isSearchExpanded by remember { mutableStateOf(true) }
+    var isSearchExpanded by remember { mutableStateOf(false) }
     var showFilters by remember { mutableStateOf(false) }
 
     // Pillar 1: Ambient Aurora Wrap
@@ -210,6 +210,10 @@ fun RecordScreen(
                 }
 
                 stickyHeader(key = "toolbar") {
+                    val activeFiltersCount = uiState.toolbar.composite.activeCount +
+                        (if (uiState.toolbar.typeFilter != TransactionTypeFilter.ALL) 1 else 0) +
+                        (if (uiState.toolbar.searchQuery.isNotBlank()) 1 else 0)
+
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -228,10 +232,9 @@ fun RecordScreen(
                             onSearchChange = viewModel::setSearchQuery,
                             isSearchExpanded = isSearchExpanded,
                             onSearchToggle = { isSearchExpanded = it },
+                            activeFilterCount = activeFiltersCount,
+                            onFilterClick = { showFilters = true },
                         )
-                        TextButton(onClick = { showFilters = true }) {
-                            Text(stringResource(R.string.record_filters) + " (${uiState.toolbar.composite.activeCount + (if (uiState.toolbar.typeFilter != TransactionTypeFilter.ALL) 1 else 0) + (if (uiState.toolbar.searchQuery.isNotBlank()) 1 else 0)})")
-                        }
                         HorizontalDivider(
                             thickness = 0.5.dp,
                             color = RecordAuroraTokens.hairline(),
@@ -498,6 +501,8 @@ private fun RecordListToolbar(
     onSearchChange: (String) -> Unit,
     isSearchExpanded: Boolean,
     onSearchToggle: (Boolean) -> Unit,
+    activeFilterCount: Int = 0,
+    onFilterClick: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
@@ -588,7 +593,7 @@ private fun RecordListToolbar(
                                     modifier = Modifier.size(16.dp),
                                 )
                                 Text(
-                                    text = listPeriodLabel.lowercase(),
+                                    text = listPeriodLabel,
                                     style = MaterialTheme.typography.labelLarge,
                                     color = MaterialTheme.colorScheme.onSurface,
                                     maxLines = 1,
@@ -635,6 +640,34 @@ private fun RecordListToolbar(
                                 tint = if (isMonthPeriod) MaterialTheme.colorScheme.primary else navigationInactiveColor(),
                                 modifier = Modifier.size(20.dp)
                             )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .appGlassCard(CircleShape)
+                                .smoothClickable { onFilterClick() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            BadgedBox(
+                                badge = {
+                                    if (activeFilterCount > 0) {
+                                        Badge(
+                                            containerColor = MaterialTheme.colorScheme.primary,
+                                            contentColor = contrastColorOn(MaterialTheme.colorScheme.primary),
+                                        ) {
+                                            Text("$activeFilterCount")
+                                        }
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Tune,
+                                    contentDescription = stringResource(R.string.record_filters),
+                                    tint = if (activeFilterCount > 0) MaterialTheme.colorScheme.primary else navigationInactiveColor(),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
 
                         Box(
@@ -724,7 +757,7 @@ private fun RecordListToolbar(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = stringResource(R.string.action_cancel).lowercase(),
+                                text = stringResource(R.string.action_cancel),
                                 style = MaterialTheme.typography.labelLarge.copy(color = MaterialTheme.colorScheme.primary),
                             )
                         }

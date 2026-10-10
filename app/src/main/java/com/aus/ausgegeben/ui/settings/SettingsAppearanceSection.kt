@@ -37,24 +37,24 @@ fun SettingsAppearanceSection(
                 SettingsActionRow(
                     icon = Icons.Rounded.Palette,
                     tint = settingsIconTintAccent(),
-                    title = stringResource(R.string.settings_theme).lowercase(),
-                    subtitle = themeMode.label().lowercase(),
+                    title = stringResource(R.string.settings_theme),
+                    subtitle = themeMode.label(),
                     onClick = onShowThemeSheet,
                 )
                 IosSeparator(insetStart = 56.dp)
                 SettingsActionRow(
                     icon = Icons.Rounded.Language,
                     tint = settingsIconTintAccent(),
-                    title = stringResource(R.string.settings_language).lowercase(),
-                    subtitle = if (language == "de") stringResource(R.string.lang_german).lowercase() else stringResource(R.string.lang_english).lowercase(),
+                    title = stringResource(R.string.settings_language),
+                    subtitle = if (language == "de") stringResource(R.string.lang_german) else stringResource(R.string.lang_english),
                     onClick = onShowLanguageSheet,
                 )
                 IosSeparator(insetStart = 56.dp)
                 SettingsActionRow(
                     icon = Icons.Rounded.Payments,
                     tint = settingsIconTintAccent(),
-                    title = stringResource(R.string.settings_currency).lowercase(),
-                    subtitle = CurrencyUtils.labelFor(currency).lowercase(),
+                    title = stringResource(R.string.settings_currency),
+                    subtitle = CurrencyUtils.labelFor(currency),
                     onClick = onShowCurrencySheet,
                 )
             }

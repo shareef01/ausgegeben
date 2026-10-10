@@ -284,7 +284,8 @@ fun MainApp(
                         onClick = { overlay.openAddFlow() },
                         icon = Icons.Rounded.Add,
                         contentDescription = stringResource(R.string.nav_add_transaction),
-                        containerColor = MaterialTheme.colorScheme.primary
+                        containerColor = financeIncomeColor(),
+                        contentColor = Color.White,
                     )
                 }
             },

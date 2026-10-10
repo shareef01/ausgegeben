@@ -106,13 +106,13 @@ fun AppDestructiveConfirmDialog(
                 containerColor = MaterialTheme.colorScheme.error,
                 contentColor = Color.White
             ) {
-                Text(confirmLabel.lowercase())
+                Text(confirmLabel)
             }
         },
         dismissButton = {
             AppTextButton(
                 onClick = onDismissRequest,
-                text = dismissLabel.lowercase(),
+                text = dismissLabel,
                 contentColor = MaterialTheme.colorScheme.onSurface
             )
         }
