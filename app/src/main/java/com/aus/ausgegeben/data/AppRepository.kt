@@ -752,12 +752,16 @@ class AppRepository @Inject constructor(
         if (idempotencyKey != null) {
             // Historical releases used random ids. Return an existing legacy row before
             // deriving the modern identity so an upgrade does not duplicate history.
-            val existing = expCol(u)
-                .whereEqualTo("idempotencyKey", idempotencyKey)
-                .limit(1)
-                .get()
-                .await()
-            existing.documents.firstOrNull()?.let { return@runSuspendCatching it.id }
+            val existing = try {
+                expCol(u)
+                    .whereEqualTo("idempotencyKey", idempotencyKey)
+                    .limit(1)
+                    .get()
+                    .await()
+            } catch (_: Exception) {
+                null
+            }
+            existing?.documents?.firstOrNull()?.let { return@runSuspendCatching it.id }
 
             val id = expenseDocumentId(idempotencyKey)
             val e = expense.copy(
@@ -766,14 +770,20 @@ class AppRepository @Inject constructor(
                 note = expense.note.trim().take(2000),
             )
             val ref = expDoc(u, id)
+            // Check if document already exists (locally in cache or on server) before writing,
+            // so retries or duplicate submissions never overwrite a later edit of the row.
+            val existingDeterministic = try {
+                ref.get().await()
+            } catch (_: Exception) {
+                null
+            }
+            if (existingDeterministic?.exists() == true) {
+                return@runSuspendCatching id
+            }
             // The raw legacy-lookup field is rules-bounded; deterministic identity is
             // fixed-size and therefore still supports arbitrarily long caller keys.
             val payload = expensePayload(e, idempotencyKey.takeIf { it.length < 128 })
-            firestore.runTransaction { transaction ->
-                val deterministic = transaction.get(ref)
-                if (!deterministic.exists()) transaction.set(ref, payload)
-                id
-            }.await()
+            ref.set(payload).await()
             return@runSuspendCatching id
         }
         // Always mint a new id on insert so a crafted/stale id cannot overwrite history.

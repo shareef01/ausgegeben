@@ -20,7 +20,9 @@ import kotlinx.coroutines.tasks.await
 import org.robolectric.Shadows
 import org.json.JSONArray
 import org.json.JSONObject
+import com.google.firebase.firestore.Source
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -95,7 +97,8 @@ class FirestoreEmulatorRecoveryTest {
     /** Emulator reachability probe; gates every test so offline runs skip cleanly. */
     private fun firestoreEmulatorReachable(): Boolean = try {
         val (code, _) = http("GET", "http://127.0.0.1:8080/")
-        code in 200..299
+        val (authCode, _) = http("GET", "http://127.0.0.1:9099/")
+        (code in 200..299) && (authCode in 200..299)
     } catch (_: Exception) {
         false
     }
@@ -498,6 +501,38 @@ class FirestoreEmulatorRecoveryTest {
 
         val remote = remoteExpenses()
         assertEquals("a retry of the same attempt must not create a second expense", 1, remote.size)
+        assertEquals(expenseDocumentId(operationId), remote.keys.single())
+        assertEquals(operationId, fieldString(remote.values.single(), "idempotencyKey"))
+        assertTrue(pendingJournalIds().isEmpty())
+    }
+
+    /**
+     * H1: A user can save a transaction while offline. It appears immediately from the local
+     * cache and syncs when connection returns; a retry with the same operation id produces
+     * exactly one remote document.
+     */
+    @Test
+    fun int3b_offlineInsertAndRetryWithSameOperationId_commitsExactlyOneRemoteDocument() = runRecoveryTest {
+        val operationId = preferenceManager.beginExpenseSubmission()
+        db.disableNetwork().await()
+        try {
+            val first = repository.insertExpense(expense("INT-3b offline"), operationId)
+            val second = repository.insertExpense(expense("INT-3b offline"), operationId)
+            assertTrue("first offline insert failed: ${first.exceptionOrNull()}", first.isSuccess)
+            assertTrue("offline retry failed: ${second.exceptionOrNull()}", second.isSuccess)
+            assertEquals("deterministic identity must be stable offline", first.getOrThrow(), second.getOrThrow())
+
+            val localDoc = db.collection("users").document(uid).collection("expenses").document(first.getOrThrow()).get(Source.CACHE).await()
+            assertTrue("offline write must appear locally from cache", localDoc.exists())
+            assertEquals("INT-3b offline", localDoc.getString("note"))
+        } finally {
+            db.enableNetwork().await()
+        }
+
+        preferenceManager.completeExpenseSubmission(operationId)
+
+        val remote = remoteExpenses()
+        assertEquals("an offline insert and retry must produce exactly one remote expense", 1, remote.size)
         assertEquals(expenseDocumentId(operationId), remote.keys.single())
         assertEquals(operationId, fieldString(remote.values.single(), "idempotencyKey"))
         assertTrue(pendingJournalIds().isEmpty())
