@@ -148,6 +148,47 @@ describe('insertExpense', () => {
     expect((await getDocs(expCol())).size).toBe(2);
   });
 
+  it('saves a transaction while offline, appears locally, and syncs on reconnect', async () => {
+    await disableNetwork(emulatorFirestore());
+    try {
+      const id = await expenseRepository.insertExpense(draft, 'offline-key-1');
+      expect(id).toBeDefined();
+      const local = await expenseRepository.getExpenseById(id);
+      expect(local).toBeDefined();
+      expect(local?.amount).toBe(12.35);
+    } finally {
+      await enableNetwork(emulatorFirestore());
+    }
+    await vi.waitFor(async () => {
+      const serverDocs = await getDocs(expCol());
+      expect(serverDocs.size).toBe(1);
+    });
+  });
+
+  it('two submissions with the same operation id produce one document, online and offline', async () => {
+    // Online
+    const onlineId1 = await expenseRepository.insertExpense(draft, 'op-online-same');
+    const onlineId2 = await expenseRepository.insertExpense(draft, 'op-online-same');
+    expect(onlineId1).toBe(onlineId2);
+    expect((await getDocs(expCol())).size).toBe(1);
+
+    // Offline
+    await disableNetwork(emulatorFirestore());
+    try {
+      const offlineId1 = await expenseRepository.insertExpense(draft, 'op-offline-same');
+      const offlineId2 = await expenseRepository.insertExpense(draft, 'op-offline-same');
+      expect(offlineId1).toBe(offlineId2);
+      const local = await expenseRepository.getExpenseById(offlineId1);
+      expect(local).toBeDefined();
+    } finally {
+      await enableNetwork(emulatorFirestore());
+    }
+    await vi.waitFor(async () => {
+      const serverDocs = await getDocs(expCol());
+      expect(serverDocs.size).toBe(2);
+    });
+  });
+
   it('creates a separate row each time when no key is supplied', async () => {
     await expenseRepository.insertExpense(draft);
     await expenseRepository.insertExpense(draft);

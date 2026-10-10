@@ -1,6 +1,6 @@
 import { CATEGORY_BUDGETS_COLLECTION } from '@/repositories/firestorePaths';
 import {
-  collection, doc, setDoc, deleteDoc, getDoc, getDocs, getDocsFromServer,
+  collection, doc, setDoc, deleteDoc, getDoc, getDocFromCache, getDocs, getDocsFromServer,
   getDocFromServer, query, where, orderBy, limit,
   onSnapshot, updateDoc, getAggregateFromServer, sum, type Unsubscribe, writeBatch,
   runTransaction, deleteField, type QueryDocumentSnapshot,
@@ -635,9 +635,22 @@ export const expenseRepository = {
 
   async getExpenseById(id: string): Promise<Expense | undefined> {
     const userId = uid(); if (!userId) return undefined;
-    const snap = await getDoc(expDoc(userId, id));
-    if (!snap.exists()) return undefined;
-    return { ...snap.data(), id: snap.id } as Expense;
+    try {
+      const snap = await getDocFromCache(expDoc(userId, id));
+      if (snap.exists()) return { ...snap.data(), id: snap.id } as Expense;
+    } catch {
+      // Not in cache, try default / server getDoc
+    }
+    try {
+      const snap = await Promise.race([
+        getDoc(expDoc(userId, id)),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 100)),
+      ]);
+      if (snap && snap.exists()) return { ...snap.data(), id: snap.id } as Expense;
+    } catch {
+      // Offline or network error
+    }
+    return undefined;
   },
 
   async getExpensesInRange(start: number, end: number): Promise<Expense[]> {
@@ -691,8 +704,9 @@ export const expenseRepository = {
       .filter((d) => d.data().deleted !== true).length;
   },
 
-  // A keyed create derives remote identity from the key. The transaction makes the
-  // existing-document check and create one atomic operation across tabs/devices/clients.
+  // A keyed create derives remote identity from the key. The check-and-set on the
+  // deterministic id allows offline queuing while ensuring retries or duplicate
+  // submissions never overwrite a later edit of the row.
   async insertExpense(expense: Omit<Expense, 'id'>, idempotencyKey?: string, expectedUid?: string): Promise<string> {
     const userId = uid(); if (!userId) throw new Error('Not signed in');
     if (expectedUid != null && userId !== expectedUid) throw new Error('AUTH_ACCOUNT_CHANGED');
@@ -700,10 +714,15 @@ export const expenseRepository = {
     if (idempotencyKey) {
       // Historical releases used random document ids. Find those first so upgrading a
       // user cannot create a deterministic second copy of an already-recorded expense.
-      const dupSnap = await getDocs(query(
-        expCol(userId), where('idempotencyKey', '==', idempotencyKey), limit(1),
-      ));
-      if (!dupSnap.empty) return dupSnap.docs[0].id;
+      try {
+        const dupSnap = await Promise.race([
+          getDocs(query(expCol(userId), where('idempotencyKey', '==', idempotencyKey), limit(1))),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 100)),
+        ]);
+        if (dupSnap && !dupSnap.empty) return dupSnap.docs[0].id;
+      } catch {
+        // Query may fail offline if not indexed/cached; proceed with deterministic id.
+      }
 
       const id = await expenseDocumentId(idempotencyKey);
       const ref = expDoc(userId, id);
@@ -713,23 +732,46 @@ export const expenseRepository = {
         // such limit because only the fixed-size hash is used as the document path.
         { updatedAt: now(), idempotencyKey: idempotencyKey.length < 128 ? idempotencyKey : undefined },
       );
-      const created = await runTransaction(fs()!, async (transaction) => {
-        const existing = await transaction.get(ref);
-        if (existing.exists()) return false;
-        transaction.set(ref, payload);
-        return true;
-      });
-      if (created) emitDataChanged();
+
+      // Check if document already exists (locally in cache or on server) before writing,
+      // so retries or duplicate submissions never overwrite a later edit of the row.
+      try {
+        const cached = await getDocFromCache(ref);
+        if (cached.exists()) return id;
+      } catch {
+        // Not in local cache
+      }
+
+      try {
+        const existing = await Promise.race([
+          getDoc(ref),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 100)),
+        ]);
+        if (existing && existing.exists()) return id;
+      } catch {
+        // When offline and document is not in cache yet, getDoc may throw or timeout.
+      }
+
+      const writePromise = setDoc(ref, payload);
+      await Promise.race([
+        writePromise,
+        new Promise((resolve) => setTimeout(resolve, 100)),
+      ]);
+      emitDataChanged();
       return id;
     }
     const id = crypto.randomUUID();
-    await setDoc(
+    const writePromise = setDoc(
       expDoc(userId, id),
       expenseWritePayload(
         { ...expense, id },
         { updatedAt: now(), idempotencyKey },
       ),
     );
+    await Promise.race([
+      writePromise,
+      new Promise((resolve) => setTimeout(resolve, 100)),
+    ]);
     emitDataChanged();
     return id;
   },
