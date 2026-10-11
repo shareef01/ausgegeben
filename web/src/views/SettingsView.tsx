@@ -43,6 +43,7 @@ import {
   dismissCompletedOperation,
   planReplace,
   computeBackupFingerprint,
+  computeLegacyBackupFingerprint,
   type RestoreOperationDoc,
   type ReplacePlan,
 } from '@/services/backupReplace';
@@ -220,7 +221,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
     const exportUid = useAuthStore.getState().user?.uid;
     if (!exportUid) return;
     try {
-      const { items: expenses, truncated } = await expenseRepository.getAllExpensesCapped(5_000);
+      const expenses = await expenseRepository.getAllExpensesForBackup();
       const categories = await expenseRepository.getAllCategories();
       const categoryBudgets = await categoryBudgetRepository.getAll(exportUid);
       const recurringTemplates = await recurringRepository.getAll(exportUid);
@@ -243,11 +244,6 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
         expenses,
         appVersion: packageJson.version,
       });
-      if (truncated) {
-        setPendingExportBackup(backup);
-        setShowExportBackupTruncatedConfirm(true);
-        return;
-      }
       downloadBackup(backup, false);
     } catch {
       useToastStore.getState().show(t('settingsExportFailed'));
@@ -315,7 +311,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
     if (!currentUser) return;
     try {
       const { backup } = await readAndValidateBackupFile(file);
-      const { items: currentExpenses } = await expenseRepository.getAllExpensesCapped(5_000);
+      const currentExpenses = await expenseRepository.getAllExpensesForBackup();
       const currentCategories = await expenseRepository.getAllCategories();
       const plan = planReplace({
         backup,
@@ -329,7 +325,8 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
       }
       if (unresolvedOp && unresolvedOp.phase !== 'COMPLETED' && unresolvedOp.phase !== 'ROLLED_BACK') {
         const fingerprint = await computeBackupFingerprint(backup);
-        if (fingerprint !== unresolvedOp.backupFingerprint) {
+        const legacyFingerprint = await computeLegacyBackupFingerprint(backup);
+        if (fingerprint !== unresolvedOp.backupFingerprint && legacyFingerprint !== unresolvedOp.backupFingerprint) {
           useToastStore.getState().show(t('settingsReplaceFailed', { error: 'FINGERPRINT_MISMATCH' }));
           return;
         }

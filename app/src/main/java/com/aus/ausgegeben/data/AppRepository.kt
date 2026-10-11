@@ -24,6 +24,7 @@ import com.google.firebase.firestore.AggregateSource
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.Source
@@ -745,19 +746,36 @@ class AppRepository @Inject constructor(
     override suspend fun insertExpense(expense: Expense, idempotencyKey: String?): Result<String> =
         insertExpenseScoped(expense, idempotencyKey, null)
 
+    private suspend fun isRestoreOperationActive(u: String): Boolean {
+        return try {
+            val snap = restoreOpDoc(u).get().await()
+            if (!snap.exists()) return false
+            val phaseStr = snap.getString("phase") ?: return false
+            phaseStr == ReplacePlanner.RestorePhase.APPLYING.name ||
+                phaseStr == ReplacePlanner.RestorePhase.ROLLING_BACK.name
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     private suspend fun insertExpenseScoped(expense: Expense, idempotencyKey: String?, expectedUid: String?): Result<String> = runSuspendCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
         check(expectedUid == null || u == expectedUid) { "AUTH_ACCOUNT_CHANGED" }
         requireVerifiedEmail()
+        if (isRestoreOperationActive(u)) {
+            throw IllegalStateException("ACCOUNT_RESTORE_IN_PROGRESS")
+        }
         if (idempotencyKey != null) {
             // Historical releases used random ids. Return an existing legacy row before
             // deriving the modern identity so an upgrade does not duplicate history.
-            val existing = expCol(u)
-                .whereEqualTo("idempotencyKey", idempotencyKey)
-                .limit(1)
-                .get()
-                .await()
-            existing.documents.firstOrNull()?.let { return@runSuspendCatching it.id }
+            val existing = try {
+                expCol(u)
+                    .whereEqualTo("idempotencyKey", idempotencyKey)
+                    .limit(1)
+                    .get()
+                    .await()
+            } catch (_: Exception) { null }
+            existing?.documents?.firstOrNull()?.let { return@runSuspendCatching it.id }
 
             val id = expenseDocumentId(idempotencyKey)
             val e = expense.copy(
@@ -769,11 +787,24 @@ class AppRepository @Inject constructor(
             // The raw legacy-lookup field is rules-bounded; deterministic identity is
             // fixed-size and therefore still supports arbitrarily long caller keys.
             val payload = expensePayload(e, idempotencyKey.takeIf { it.length < 128 })
-            firestore.runTransaction { transaction ->
-                val deterministic = transaction.get(ref)
-                if (!deterministic.exists()) transaction.set(ref, payload)
-                id
-            }.await()
+
+            // Cache-first lookup to allow offline idempotent insertion
+            val cached = try { ref.get(Source.CACHE).await() } catch (_: Exception) { null }
+            if (cached != null && cached.exists()) return@runSuspendCatching id
+
+            try {
+                firestore.runTransaction { transaction ->
+                    val deterministic = transaction.get(ref)
+                    if (!deterministic.exists()) transaction.set(ref, payload)
+                    id
+                }.await()
+            } catch (txEx: Exception) {
+                // If transaction fails (e.g. offline / network unavailable), fall back to setDoc check-and-set
+                val existingDoc = try { ref.get().await() } catch (_: Exception) { null }
+                if (existingDoc == null || !existingDoc.exists()) {
+                    ref.set(payload).await()
+                }
+            }
             return@runSuspendCatching id
         }
         // Always mint a new id on insert so a crafted/stale id cannot overwrite history.
@@ -790,18 +821,33 @@ class AppRepository @Inject constructor(
     override suspend fun updateExpense(expense: Expense): Result<Unit> = runSuspendCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
         requireVerifiedEmail()
+        if (isRestoreOperationActive(u)) {
+            throw IllegalStateException("ACCOUNT_RESTORE_IN_PROGRESS")
+        }
         val snap = expDoc(u, expense.id).get().await()
         if (!snap.exists()) throw IllegalStateException("EXPENSE_NOT_FOUND")
         val e = expense.copy(
             amount = roundAmount(expense.amount),
             note = expense.note.trim().take(2000)
         )
-        expDoc(u, expense.id).set(expensePayload(e), SetOptions.merge()).await()
+        val payload = expensePayload(e).toMutableMap()
+        payload["idempotencyKey"] = FieldValue.delete()
+        try {
+            expDoc(u, expense.id).update(payload).await()
+        } catch (e: FirebaseFirestoreException) {
+            if (e.code == FirebaseFirestoreException.Code.NOT_FOUND) {
+                throw IllegalStateException("EXPENSE_NOT_FOUND", e)
+            }
+            throw e
+        }
     }
 
     override suspend fun deleteExpense(expense: Expense): Result<Unit> = runSuspendCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
         requireVerifiedEmail()
+        if (isRestoreOperationActive(u)) {
+            throw IllegalStateException("ACCOUNT_RESTORE_IN_PROGRESS")
+        }
         expDoc(u, expense.id).delete().await()
     }
 
@@ -809,6 +855,9 @@ class AppRepository @Inject constructor(
         val u = uid() ?: throw IllegalStateException("Not signed in")
         check(u == expectedUid) { "AUTH_ACCOUNT_CHANGED" }
         requireVerifiedEmail()
+        if (isRestoreOperationActive(u)) {
+            throw IllegalStateException("ACCOUNT_RESTORE_IN_PROGRESS")
+        }
         expDoc(u, expense.id).delete().await()
     }
 
@@ -999,6 +1048,9 @@ class AppRepository @Inject constructor(
                 batchIndex = (progressMap["batchIndex"] as? Number)?.toInt(),
                 totalBatches = (progressMap["totalBatches"] as? Number)?.toInt(),
                 lastProcessedId = progressMap["lastProcessedId"] as? String,
+                leaseHolder = progressMap["leaseHolder"] as? String,
+                leaseExpiresAt = (progressMap["leaseExpiresAt"] as? Number)?.toLong(),
+                fencingToken = (progressMap["fencingToken"] as? Number)?.toLong(),
             )
         } else null
 
@@ -1008,6 +1060,8 @@ class AppRepository @Inject constructor(
                 chunkCount = (snapMetaMap["chunkCount"] as? Number)?.toInt() ?: 1,
                 totalExpenses = (snapMetaMap["totalExpenses"] as? Number)?.toInt() ?: 0,
                 totalCategories = (snapMetaMap["totalCategories"] as? Number)?.toInt() ?: 0,
+                receiptChunkCount = (snapMetaMap["receiptChunkCount"] as? Number)?.toInt() ?: 0,
+                totalReceipts = (snapMetaMap["totalReceipts"] as? Number)?.toInt() ?: 0,
             )
         } else null
 
@@ -1063,6 +1117,9 @@ class AppRepository @Inject constructor(
                         prog.batchIndex?.let { put("batchIndex", it) }
                         prog.totalBatches?.let { put("totalBatches", it) }
                         prog.lastProcessedId?.let { put("lastProcessedId", it) }
+                        prog.leaseHolder?.let { put("leaseHolder", it) }
+                        prog.leaseExpiresAt?.let { put("leaseExpiresAt", it) }
+                        prog.fencingToken?.let { put("fencingToken", it) }
                     },
                 )
             }
@@ -1073,6 +1130,8 @@ class AppRepository @Inject constructor(
                         "chunkCount" to meta.chunkCount,
                         "totalExpenses" to meta.totalExpenses,
                         "totalCategories" to meta.totalCategories,
+                        "receiptChunkCount" to meta.receiptChunkCount,
+                        "totalReceipts" to meta.totalReceipts,
                     ),
                 )
             }
@@ -1084,9 +1143,143 @@ class AppRepository @Inject constructor(
         val col = snapshotCol(u)
         val snap = col.get().await()
         if (snap.isEmpty) return
-        val batch = firestore.batch()
-        snap.documents.forEach { batch.delete(it.reference) }
-        batch.commit().await()
+        for (chunk in snap.documents.chunked(400)) {
+            val batch = firestore.batch()
+            chunk.forEach { batch.delete(it.reference) }
+            batch.commit().await()
+        }
+    }
+
+    private data class LeaseAcquisitionResult(
+        val fencingToken: Long,
+        val operationId: String,
+        val existingOp: ReplacePlanner.RestoreOperationDoc?,
+    )
+
+    private suspend fun acquireRecoveryLease(
+        expectedUid: String,
+        holderId: String,
+        isResume: Boolean,
+    ): LeaseAcquisitionResult {
+        val opRef = restoreOpDoc(expectedUid)
+        return firestore.runTransaction { tx ->
+            val snap = tx.get(opRef)
+            val now = System.currentTimeMillis()
+            var fencingToken = 1L
+            var existingOp: ReplacePlanner.RestoreOperationDoc? = null
+            var operationId = "replace_${now}_${UUID.randomUUID().toString().take(6)}"
+
+            if (snap.exists()) {
+                val phaseStr = snap.getString("phase")
+                val phase = try {
+                    phaseStr?.let { ReplacePlanner.RestorePhase.valueOf(it) } ?: ReplacePlanner.RestorePhase.PREPARING
+                } catch (_: Exception) {
+                    ReplacePlanner.RestorePhase.PREPARING
+                }
+                val countsMap = snap.get("plannedCounts") as? Map<*, *>
+                val plannedCounts = if (countsMap != null) {
+                    ReplacePlanner.PlannedCounts(
+                        backupExpenseCount = (countsMap["backupExpenseCount"] as? Number)?.toInt() ?: 0,
+                        backupCategoryCount = (countsMap["backupCategoryCount"] as? Number)?.toInt() ?: 0,
+                        expensesToUpsertCount = (countsMap["expensesToUpsertCount"] as? Number)?.toInt() ?: 0,
+                        expensesToDeleteCount = (countsMap["expensesToDeleteCount"] as? Number)?.toInt() ?: 0,
+                        categoriesToUpsertCount = (countsMap["categoriesToUpsertCount"] as? Number)?.toInt() ?: 0,
+                        categoriesPreservedCount = (countsMap["categoriesPreservedCount"] as? Number)?.toInt() ?: 0,
+                    )
+                } else null
+
+                val progressMap = snap.get("progress") as? Map<*, *>
+                val progress = if (progressMap != null) {
+                    ReplacePlanner.RestoreJournalProgress(
+                        step = progressMap["step"] as? String,
+                        batchIndex = (progressMap["batchIndex"] as? Number)?.toInt(),
+                        totalBatches = (progressMap["totalBatches"] as? Number)?.toInt(),
+                        lastProcessedId = progressMap["lastProcessedId"] as? String,
+                        leaseHolder = progressMap["leaseHolder"] as? String,
+                        leaseExpiresAt = (progressMap["leaseExpiresAt"] as? Number)?.toLong(),
+                        fencingToken = (progressMap["fencingToken"] as? Number)?.toLong(),
+                    )
+                } else null
+
+                val snapMetaMap = snap.get("snapshotMeta") as? Map<*, *>
+                val snapshotMeta = if (snapMetaMap != null) {
+                    ReplacePlanner.SnapshotMeta(
+                        chunkCount = (snapMetaMap["chunkCount"] as? Number)?.toInt() ?: 1,
+                        totalExpenses = (snapMetaMap["totalExpenses"] as? Number)?.toInt() ?: 0,
+                        totalCategories = (snapMetaMap["totalCategories"] as? Number)?.toInt() ?: 0,
+                        receiptChunkCount = (snapMetaMap["receiptChunkCount"] as? Number)?.toInt() ?: 0,
+                        totalReceipts = (snapMetaMap["totalReceipts"] as? Number)?.toInt() ?: 0,
+                    )
+                } else null
+
+                existingOp = ReplacePlanner.RestoreOperationDoc(
+                    operationId = snap.getString("operationId") ?: "",
+                    ownerUid = snap.getString("ownerUid") ?: expectedUid,
+                    mode = snap.getString("mode") ?: "replace",
+                    backupFingerprint = snap.getString("backupFingerprint") ?: "",
+                    phase = phase,
+                    createdAt = snap.getLong("createdAt") ?: 0L,
+                    updatedAt = snap.getLong("updatedAt") ?: 0L,
+                    plannedCounts = plannedCounts,
+                    progress = progress,
+                    snapshotMeta = snapshotMeta,
+                    error = snap.getString("error"),
+                    failedFromPhase = snap.getString("failedFromPhase")?.let {
+                        try { ReplacePlanner.RestorePhase.valueOf(it) } catch (_: Exception) { null }
+                    },
+                    initiatorPlatform = snap.getString("initiatorPlatform") ?: "android",
+                )
+
+                val isInFlight = existingOp.phase != ReplacePlanner.RestorePhase.COMPLETED &&
+                    existingOp.phase != ReplacePlanner.RestorePhase.ROLLED_BACK
+                val currentHolder = existingOp.progress?.leaseHolder
+                val expiresAt = existingOp.progress?.leaseExpiresAt ?: 0L
+                fencingToken = (existingOp.progress?.fencingToken ?: 0L) + 1L
+
+                if (!isResume && isInFlight) {
+                    if (currentHolder != null && currentHolder != holderId && expiresAt > now) {
+                        throw IllegalStateException("CONCURRENT_OPERATION_LEASE_ACTIVE: Another client is actively processing this restore operation")
+                    }
+                    throw IllegalStateException("UNRESOLVED_RESTORE_OPERATION: ${existingOp.phase}")
+                }
+
+                if (isInFlight) {
+                    if (currentHolder != null && currentHolder != holderId && expiresAt > now) {
+                        throw IllegalStateException("CONCURRENT_OPERATION_LEASE_ACTIVE: Another client is actively processing this restore operation")
+                    }
+                    operationId = existingOp.operationId
+                }
+            }
+            LeaseAcquisitionResult(fencingToken, operationId, existingOp)
+        }.await()
+    }
+
+    private suspend fun verifyAndRenewRecoveryLease(
+        expectedUid: String,
+        holderId: String,
+        fencingToken: Long,
+    ) {
+        val opRef = restoreOpDoc(expectedUid)
+        val snap = opRef.get(Source.SERVER).await()
+        if (!snap.exists()) {
+            throw IllegalStateException("LEASE_LOST: Restore operation document was removed")
+        }
+        val progressMap = snap.get("progress") as? Map<*, *>
+        val currentHolder = progressMap?.get("leaseHolder") as? String
+        val currentToken = (progressMap?.get("fencingToken") as? Number)?.toLong() ?: 0L
+
+        if (currentHolder != holderId) {
+            throw IllegalStateException("LEASE_LOST: Lease was taken over by $currentHolder")
+        }
+        if (currentToken != fencingToken) {
+            throw IllegalStateException("FENCING_TOKEN_MISMATCH: Expected token $fencingToken, got $currentToken")
+        }
+        val now = System.currentTimeMillis()
+        val update = mapOf(
+            "progress" to ((progressMap?.filterKeys { it != null } ?: emptyMap<Any?, Any?>()) + ("leaseExpiresAt" to (now + 60_000L))),
+            "updatedAt" to now,
+        )
+        opRef.set(update, SetOptions.merge()).await()
     }
 
     private suspend fun createSafetySnapshot(
@@ -1097,10 +1290,13 @@ class AppRepository @Inject constructor(
         preferences: SyncedPreferences?,
     ): ReplacePlanner.SnapshotMeta {
         val now = System.currentTimeMillis()
-        val chunkSize = 200
+        val chunkSize = 100
         val chunkCount = if (expenses.isEmpty()) 1 else (expenses.size + chunkSize - 1) / chunkSize
 
         val currentRecurring = getRecurringBackupSection(u)
+        val receiptsChunkSize = 250
+        val receiptChunkCount = if (currentRecurring.receipts.isEmpty()) 0 else (currentRecurring.receipts.size + receiptsChunkSize - 1) / receiptsChunkSize
+
         val metaPayload = buildMap<String, Any?> {
             put("operationId", operationId)
             put("ownerUid", u)
@@ -1108,9 +1304,10 @@ class AppRepository @Inject constructor(
             put("chunkCount", chunkCount)
             put("totalExpenses", expenses.size)
             put("totalCategories", categories.size)
+            put("receiptChunkCount", receiptChunkCount)
+            put("totalReceipts", currentRecurring.receipts.size)
             put("categoryBudgets", getCategoryBudgets(u).map { it.payload() + ("categoryId" to it.categoryId) })
             put("recurringTemplates", currentRecurring.templates.map { it.payload() + ("id" to it.id) })
-            put("recurringReceipts", currentRecurring.receipts.map { mapOf("id" to it.id, "templateId" to it.templateId, "scheduledDate" to it.scheduledDate, "expenseId" to it.expenseId, "createdAt" to it.createdAt) })
             put(
                 "preferences",
                 preferences?.let {
@@ -1145,6 +1342,19 @@ class AppRepository @Inject constructor(
         }
         snapshotDoc(u, "meta").set(metaPayload).await()
 
+        for (i in 0 until receiptChunkCount) {
+            val chunkReceipts = currentRecurring.receipts.drop(i * receiptsChunkSize).take(receiptsChunkSize)
+            val chunkPayload = mapOf(
+                "operationId" to operationId,
+                "ownerUid" to u,
+                "createdAt" to now,
+                "chunkIndex" to i,
+                "chunkCount" to receiptChunkCount,
+                "recurringReceipts" to chunkReceipts.map { mapOf("id" to it.id, "templateId" to it.templateId, "scheduledDate" to it.scheduledDate, "expenseId" to it.expenseId, "createdAt" to it.createdAt) },
+            )
+            snapshotDoc(u, "receipt_chunk_$i").set(chunkPayload).await()
+        }
+
         for (i in 0 until chunkCount) {
             val chunkExpenses = expenses.drop(i * chunkSize).take(chunkSize)
             val chunkPayload = mapOf(
@@ -1161,6 +1371,7 @@ class AppRepository @Inject constructor(
                         "categoryId" to e.categoryId,
                         "note" to e.note,
                         "transactionType" to e.transactionType,
+                        "deleted" to e.deleted,
                         "updatedAt" to now,
                     )
                 },
@@ -1177,6 +1388,8 @@ class AppRepository @Inject constructor(
             chunkCount = chunkCount,
             totalExpenses = expenses.size,
             totalCategories = categories.size,
+            receiptChunkCount = receiptChunkCount,
+            totalReceipts = currentRecurring.receipts.size,
         )
     }
 
@@ -1245,7 +1458,7 @@ class AppRepository @Inject constructor(
                                 categoryId = (m["categoryId"] as? String) ?: UNCATEGORIZED_ID,
                                 note = (m["note"] as? String) ?: "",
                                 transactionType = (m["transactionType"] as? String) ?: "expense",
-                                deleted = false,
+                                deleted = (m["deleted"] as? Boolean) ?: false,
                             ),
                         )
                     }
@@ -1258,13 +1471,33 @@ class AppRepository @Inject constructor(
             val id = m["id"] as? String ?: return@mapNotNull null
             runCatching { RecurringTemplate.from(id, m) }.getOrNull()
         }
-        val recurringReceipts = (metaSnap.get("recurringReceipts") as? List<Map<String, Any?>>)?.mapNotNull { m ->
-            val id = m["id"] as? String ?: return@mapNotNull null
-            val templateId = m["templateId"] as? String ?: return@mapNotNull null
-            val scheduledDate = m["scheduledDate"] as? String ?: return@mapNotNull null
-            val expenseId = m["expenseId"] as? String ?: return@mapNotNull null
-            val createdAt = (m["createdAt"] as? Number)?.toLong() ?: 0L
-            OccurrenceReceipt(id, templateId, scheduledDate, expenseId, createdAt)
+        val receiptChunkCount = (metaSnap.getLong("receiptChunkCount") ?: 0L).toInt()
+        val recurringReceipts = mutableListOf<OccurrenceReceipt>()
+        if (receiptChunkCount > 0) {
+            for (i in 0 until receiptChunkCount) {
+                val chunkSnap = snapshotDoc(u, "receipt_chunk_$i").get(Source.SERVER).await()
+                if (chunkSnap.exists() && chunkSnap.getString("operationId") == operationId) {
+                    val rawReceipts = chunkSnap.get("recurringReceipts") as? List<Map<String, Any?>> ?: emptyList()
+                    for (m in rawReceipts) {
+                        val id = m["id"] as? String ?: continue
+                        val templateId = m["templateId"] as? String ?: continue
+                        val scheduledDate = m["scheduledDate"] as? String ?: continue
+                        val expenseId = m["expenseId"] as? String ?: continue
+                        val createdAt = (m["createdAt"] as? Number)?.toLong() ?: 0L
+                        recurringReceipts.add(OccurrenceReceipt(id, templateId, scheduledDate, expenseId, createdAt))
+                    }
+                }
+            }
+        } else {
+            val rawReceipts = (metaSnap.get("recurringReceipts") as? List<Map<String, Any?>>) ?: emptyList()
+            for (m in rawReceipts) {
+                val id = m["id"] as? String ?: continue
+                val templateId = m["templateId"] as? String ?: continue
+                val scheduledDate = m["scheduledDate"] as? String ?: continue
+                val expenseId = m["expenseId"] as? String ?: continue
+                val createdAt = (m["createdAt"] as? Number)?.toLong() ?: 0L
+                recurringReceipts.add(OccurrenceReceipt(id, templateId, scheduledDate, expenseId, createdAt))
+            }
         }
         return SnapshotData(
             categoryBudgets = budgets,
@@ -1293,34 +1526,33 @@ class AppRepository @Inject constructor(
             throw IllegalStateException("RESTORE_OPERATION_ALREADY_IN_PROGRESS")
         }
 
+        val currentClientId = "android_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(6)}"
         var currentPhase = ReplacePlanner.RestorePhase.PREPARING
         var operationId = "replace_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(6)}"
+        var fencingToken = 1L
+        var snapshotMeta: ReplacePlanner.SnapshotMeta? = null
+        var initialCreatedAt = System.currentTimeMillis()
 
         try {
-            val existingOp = getRestoreOperation(expectedUid)
-            if (!isResume && existingOp != null &&
-                existingOp.phase != ReplacePlanner.RestorePhase.COMPLETED &&
-                existingOp.phase != ReplacePlanner.RestorePhase.ROLLED_BACK
-            ) {
-                throw IllegalStateException("UNRESOLVED_RESTORE_OPERATION: ${existingOp.phase}")
-            }
+            val lease = acquireRecoveryLease(expectedUid, currentClientId, isResume)
+            fencingToken = lease.fencingToken
+            operationId = lease.operationId
+            val existingOp = lease.existingOp
+
             if (!isResume && existingOp != null &&
                 (existingOp.phase == ReplacePlanner.RestorePhase.COMPLETED || existingOp.phase == ReplacePlanner.RestorePhase.ROLLED_BACK)
             ) {
                 deleteSafetySnapshot(expectedUid)
             }
-            if (isResume && existingOp != null) {
-                operationId = existingOp.operationId
-            }
 
             // Load authoritative current state
-            val expSnap = expCol(expectedUid).get().await()
+            val expSnap = expCol(expectedUid).get(Source.SERVER).await()
             val currentExpenses = expSnap.documents.mapNotNull { expenseFromDoc(it) }
 
-            val catSnap = catCol(expectedUid).get().await()
+            val catSnap = catCol(expectedUid).get(Source.SERVER).await()
             val currentCategories = catSnap.documents.mapNotNull { categoryFromDoc(it) }
 
-            val prefDoc = settingsPrefsDoc(expectedUid).get().await()
+            val prefDoc = settingsPrefsDoc(expectedUid).get(Source.SERVER).await()
             val currentPrefs = if (prefDoc.exists()) {
                 SyncedPreferences(
                     currency = prefDoc.getString("currency") ?: "EUR",
@@ -1348,6 +1580,7 @@ class AppRepository @Inject constructor(
             }
 
             val fingerprint = ReplacePlanner.computeBackupFingerprint(backup)
+            initialCreatedAt = if (isResume && existingOp != null) existingOp.createdAt else System.currentTimeMillis()
 
             val initialOp = ReplacePlanner.RestoreOperationDoc(
                 operationId = operationId,
@@ -1355,14 +1588,19 @@ class AppRepository @Inject constructor(
                 mode = "replace",
                 backupFingerprint = fingerprint,
                 phase = ReplacePlanner.RestorePhase.PREPARING,
-                createdAt = if (isResume && existingOp != null) existingOp.createdAt else System.currentTimeMillis(),
+                createdAt = initialCreatedAt,
                 updatedAt = System.currentTimeMillis(),
                 plannedCounts = plan.counts,
                 initiatorPlatform = "android",
+                progress = ReplacePlanner.RestoreJournalProgress(
+                    leaseHolder = currentClientId,
+                    leaseExpiresAt = System.currentTimeMillis() + 60_000L,
+                    fencingToken = fencingToken,
+                ),
             )
             setRestoreOperation(expectedUid, initialOp)
 
-            var snapshotMeta = if (isResume && existingOp?.snapshotMeta != null) existingOp.snapshotMeta else null
+            snapshotMeta = if (isResume && existingOp?.snapshotMeta != null) existingOp.snapshotMeta else null
             if (snapshotMeta == null) {
                 snapshotMeta = createSafetySnapshot(
                     u = expectedUid,
@@ -1384,6 +1622,11 @@ class AppRepository @Inject constructor(
                     phase = ReplacePlanner.RestorePhase.SNAPSHOT_READY,
                     updatedAt = System.currentTimeMillis(),
                     snapshotMeta = snapshotMeta,
+                    progress = ReplacePlanner.RestoreJournalProgress(
+                        leaseHolder = currentClientId,
+                        leaseExpiresAt = System.currentTimeMillis() + 60_000L,
+                        fencingToken = fencingToken,
+                    ),
                 ),
             )
 
@@ -1394,11 +1637,18 @@ class AppRepository @Inject constructor(
                     phase = ReplacePlanner.RestorePhase.APPLYING,
                     updatedAt = System.currentTimeMillis(),
                     snapshotMeta = snapshotMeta,
-                    progress = ReplacePlanner.RestoreJournalProgress(step = "categories", batchIndex = 0),
+                    progress = ReplacePlanner.RestoreJournalProgress(
+                        step = "categories",
+                        batchIndex = 0,
+                        leaseHolder = currentClientId,
+                        leaseExpiresAt = System.currentTimeMillis() + 60_000L,
+                        fencingToken = fencingToken,
+                    ),
                 ),
             )
 
             // 1. Categories in chunks of 400
+            verifyAndRenewRecoveryLease(expectedUid, currentClientId, fencingToken)
             val categoryChunks = plan.categoriesToUpsert.chunked(400)
             var categoryBatchIndex = 0
             for (chunk in categoryChunks) {
@@ -1406,8 +1656,8 @@ class AppRepository @Inject constructor(
                 for (c in chunk) {
                     val ref = catDoc(expectedUid, c.id)
                     val payload = buildMap<String, Any> {
-                        put("name", c.name.trim().take(50))
-                        put("iconName", c.iconName.take(50))
+                        put("name", c.name.trim().take(80))
+                        put("iconName", c.iconName.take(63))
                         put("colorInt", c.colorInt.toLong())
                         put("transactionType", c.transactionType)
                         put("sortOrder", c.sortOrder)
@@ -1416,6 +1666,17 @@ class AppRepository @Inject constructor(
                     }
                     batch.set(ref, payload, SetOptions.merge())
                 }
+                batch.update(
+                    restoreOpDoc(expectedUid),
+                    mapOf(
+                        "updatedAt" to System.currentTimeMillis(),
+                        "progress.fencingToken" to fencingToken,
+                        "progress.leaseHolder" to currentClientId,
+                        "progress.leaseExpiresAt" to (System.currentTimeMillis() + 60_000L),
+                        "progress.lastBatchCommittedAt" to System.currentTimeMillis(),
+                        "progress.step" to "categories",
+                    ),
+                )
                 batch.commit().await()
                 categoryBatchIndex++
                 if (faultHooks?.failAfterCategoryBatch == categoryBatchIndex) {
@@ -1424,6 +1685,7 @@ class AppRepository @Inject constructor(
             }
 
             // 2. Expenses upsert in chunks of 400
+            verifyAndRenewRecoveryLease(expectedUid, currentClientId, fencingToken)
             val expenseUpsertChunks = plan.expensesToUpsert.chunked(400)
             var expenseUpsertBatchIndex = 0
             for (chunk in expenseUpsertChunks) {
@@ -1435,13 +1697,24 @@ class AppRepository @Inject constructor(
                         put("amount", roundedAmount)
                         put("dateMillis", e.dateMillis)
                         put("categoryId", e.categoryId)
-                        put("note", e.note.take(200))
+                        put("note", e.note.take(2000))
                         put("transactionType", e.transactionType)
                         put("updatedAt", e.updatedAt ?: System.currentTimeMillis())
                         put("id", e.id)
                     }
                     batch.set(ref, payload, SetOptions.merge())
                 }
+                batch.update(
+                    restoreOpDoc(expectedUid),
+                    mapOf(
+                        "updatedAt" to System.currentTimeMillis(),
+                        "progress.fencingToken" to fencingToken,
+                        "progress.leaseHolder" to currentClientId,
+                        "progress.leaseExpiresAt" to (System.currentTimeMillis() + 60_000L),
+                        "progress.lastBatchCommittedAt" to System.currentTimeMillis(),
+                        "progress.step" to "expenses_upsert",
+                    ),
+                )
                 batch.commit().await()
                 expenseUpsertBatchIndex++
                 if (faultHooks?.failAfterExpenseUpsertBatch == expenseUpsertBatchIndex) {
@@ -1450,6 +1723,7 @@ class AppRepository @Inject constructor(
             }
 
             // 3. Stale expenses delete in chunks of 400
+            verifyAndRenewRecoveryLease(expectedUid, currentClientId, fencingToken)
             val expenseDeleteChunks = plan.expenseIdsToDelete.chunked(400)
             var expenseDeleteBatchIndex = 0
             for (chunk in expenseDeleteChunks) {
@@ -1457,6 +1731,17 @@ class AppRepository @Inject constructor(
                 for (id in chunk) {
                     batch.delete(expDoc(expectedUid, id))
                 }
+                batch.update(
+                    restoreOpDoc(expectedUid),
+                    mapOf(
+                        "updatedAt" to System.currentTimeMillis(),
+                        "progress.fencingToken" to fencingToken,
+                        "progress.leaseHolder" to currentClientId,
+                        "progress.leaseExpiresAt" to (System.currentTimeMillis() + 60_000L),
+                        "progress.lastBatchCommittedAt" to System.currentTimeMillis(),
+                        "progress.step" to "expenses_delete",
+                    ),
+                )
                 batch.commit().await()
                 expenseDeleteBatchIndex++
                 if (faultHooks?.failAfterExpenseDeleteBatch == expenseDeleteBatchIndex) {
@@ -1465,6 +1750,7 @@ class AppRepository @Inject constructor(
             }
 
             // 4. Preferences update
+            verifyAndRenewRecoveryLease(expectedUid, currentClientId, fencingToken)
             if (faultHooks?.failBeforePreferences == true) {
                 throw IllegalStateException("FAULT_INJECTED_BEFORE_PREFERENCES")
             }
@@ -1496,6 +1782,11 @@ class AppRepository @Inject constructor(
                     phase = ReplacePlanner.RestorePhase.VERIFYING,
                     updatedAt = System.currentTimeMillis(),
                     snapshotMeta = snapshotMeta,
+                    progress = ReplacePlanner.RestoreJournalProgress(
+                        leaseHolder = currentClientId,
+                        leaseExpiresAt = System.currentTimeMillis() + 60_000L,
+                        fencingToken = fencingToken,
+                    ),
                 ),
             )
 
@@ -1503,12 +1794,32 @@ class AppRepository @Inject constructor(
                 throw IllegalStateException("FAULT_INJECTED_DURING_VERIFICATION")
             }
 
+            // Verify categories exist
+            for (c in plan.categoriesToUpsert) {
+                val catDocSnap = catDoc(expectedUid, c.id).get(Source.SERVER).await()
+                if (!catDocSnap.exists()) {
+                    throw IllegalStateException("REPLACE_VERIFICATION_FAILED: category ${c.id} missing")
+                }
+            }
+
             if (plan.expenseIdsToDelete.isNotEmpty()) {
                 val sampleId = plan.expenseIdsToDelete.first()
-                val checkDoc = expDoc(expectedUid, sampleId).get().await()
+                val checkDoc = expDoc(expectedUid, sampleId).get(Source.SERVER).await()
                 if (checkDoc.exists()) {
                     throw IllegalStateException("REPLACE_VERIFICATION_FAILED: deleted expense still exists")
                 }
+            }
+
+            for (e in plan.expensesToUpsert.take(5)) {
+                val checkDoc = expDoc(expectedUid, e.id).get(Source.SERVER).await()
+                if (!checkDoc.exists()) {
+                    throw IllegalStateException("REPLACE_VERIFICATION_FAILED: restored expense ${e.id} missing")
+                }
+            }
+
+            val verifyPref = settingsPrefsDoc(expectedUid).get(Source.SERVER).await()
+            if (!verifyPref.exists()) {
+                throw IllegalStateException("REPLACE_VERIFICATION_FAILED: preferences missing")
             }
 
             // 6. Completed
@@ -1519,6 +1830,7 @@ class AppRepository @Inject constructor(
                     phase = ReplacePlanner.RestorePhase.COMPLETED,
                     updatedAt = System.currentTimeMillis(),
                     snapshotMeta = snapshotMeta,
+                    progress = null,
                 ),
             )
 
@@ -1540,11 +1852,17 @@ class AppRepository @Inject constructor(
                             mode = "replace",
                             backupFingerprint = ReplacePlanner.computeBackupFingerprint(backup),
                             phase = ReplacePlanner.RestorePhase.FAILED_RECOVERABLE,
-                            createdAt = System.currentTimeMillis(),
+                            createdAt = initialCreatedAt,
                             updatedAt = System.currentTimeMillis(),
+                            snapshotMeta = snapshotMeta,
                             error = errorMsg.take(500),
                             failedFromPhase = currentPhase,
                             initiatorPlatform = "android",
+                            progress = ReplacePlanner.RestoreJournalProgress(
+                                leaseHolder = currentClientId,
+                                leaseExpiresAt = System.currentTimeMillis() + 60_000L,
+                                fencingToken = fencingToken,
+                            ),
                         ),
                     )
                 } catch (_: Exception) {}
@@ -1565,7 +1883,8 @@ class AppRepository @Inject constructor(
             return Result.failure(IllegalStateException("AUTH_ACCOUNT_CHANGED"))
         }
         val currentFp = ReplacePlanner.computeBackupFingerprint(backup)
-        if (currentFp != operation.backupFingerprint) {
+        val legacyFp = ReplacePlanner.computeLegacyBackupFingerprint(backup)
+        if (currentFp != operation.backupFingerprint && legacyFp != operation.backupFingerprint) {
             return Result.failure(IllegalStateException("FINGERPRINT_MISMATCH: Selected backup does not match the unfinished operation"))
         }
         return executeReplace(backup, expectedUid, faultHooks, isResume = true)
@@ -1585,9 +1904,12 @@ class AppRepository @Inject constructor(
         val snapshot = readSafetySnapshot(expectedUid)
         check(snapshot.operationId == operation.operationId) { "SNAPSHOT_OPERATION_MISMATCH" }
 
+        val currentClientId = "android_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(6)}"
         if (!activeReplaceOperations.add(expectedUid)) {
             throw IllegalStateException("RESTORE_OPERATION_ALREADY_IN_PROGRESS")
         }
+        val lease = acquireRecoveryLease(expectedUid, currentClientId, true)
+        val fencingToken = lease.fencingToken
 
         try {
             setRestoreOperation(
@@ -1595,6 +1917,11 @@ class AppRepository @Inject constructor(
                 operation.copy(
                     phase = ReplacePlanner.RestorePhase.ROLLING_BACK,
                     updatedAt = System.currentTimeMillis(),
+                    progress = ReplacePlanner.RestoreJournalProgress(
+                        leaseHolder = currentClientId,
+                        leaseExpiresAt = System.currentTimeMillis() + 60_000L,
+                        fencingToken = fencingToken,
+                    ),
                 ),
             )
 
@@ -1603,25 +1930,69 @@ class AppRepository @Inject constructor(
             }
 
             // 1. Categories
+            verifyAndRenewRecoveryLease(expectedUid, currentClientId, fencingToken)
             for (chunk in snapshot.categories.chunked(400)) {
                 val batch = firestore.batch()
                 for (c in chunk) {
                     val ref = catDoc(expectedUid, c.id)
                     val payload = buildMap<String, Any> {
-                        put("name", c.name.trim().take(50))
-                        put("iconName", c.iconName.take(50))
+                        put("name", c.name.trim().take(80))
+                        put("iconName", c.iconName.take(63))
                         put("colorInt", c.colorInt.toLong())
                         put("transactionType", c.transactionType)
                         put("sortOrder", c.sortOrder)
                         put("updatedAt", System.currentTimeMillis())
                         put("id", c.id)
                     }
-                    batch.set(ref, payload, SetOptions.merge())
+                    batch.set(ref, payload)
                 }
+                batch.update(
+                    restoreOpDoc(expectedUid),
+                    mapOf(
+                        "updatedAt" to System.currentTimeMillis(),
+                        "progress.fencingToken" to fencingToken,
+                        "progress.leaseHolder" to currentClientId,
+                        "progress.leaseExpiresAt" to (System.currentTimeMillis() + 60_000L),
+                        "progress.lastBatchCommittedAt" to System.currentTimeMillis(),
+                        "progress.step" to "rollback_categories",
+                    ),
+                )
                 batch.commit().await()
             }
 
+            // 1b. Delete extra categories introduced by failed replacement
+            verifyAndRenewRecoveryLease(expectedUid, currentClientId, fencingToken)
+            val currentCatSnap = catCol(expectedUid).get(Source.SERVER).await()
+            val snapshotCategoryIds = snapshot.categories.map { it.id }.toSet()
+            val extraCategories = currentCatSnap.documents.filter { it.id !in snapshotCategoryIds }
+            for (extraCat in extraCategories) {
+                try {
+                    extraCat.reference.set(
+                        mapOf("deletionState" to "deleting", "updatedAt" to System.currentTimeMillis()),
+                        SetOptions.merge(),
+                    ).await()
+                    val batch = firestore.batch()
+                    batch.delete(budgetCol(expectedUid).document(extraCat.id))
+                    batch.delete(extraCat.reference)
+                    batch.update(
+                        restoreOpDoc(expectedUid),
+                        mapOf(
+                            "updatedAt" to System.currentTimeMillis(),
+                            "progress.fencingToken" to fencingToken,
+                            "progress.leaseHolder" to currentClientId,
+                            "progress.leaseExpiresAt" to (System.currentTimeMillis() + 60_000L),
+                            "progress.lastBatchCommittedAt" to System.currentTimeMillis(),
+                            "progress.step" to "rollback_extra_categories",
+                        ),
+                    )
+                    batch.commit().await()
+                } catch (_: Exception) {
+                    // best-effort cleanup for aborted extra categories
+                }
+            }
+
             // 2. Expenses upsert
+            verifyAndRenewRecoveryLease(expectedUid, currentClientId, fencingToken)
             val snapshotExpenseIds = snapshot.expenses.map { it.id }.toSet()
             for (chunk in snapshot.expenses.chunked(400)) {
                 val batch = firestore.batch()
@@ -1632,18 +2003,31 @@ class AppRepository @Inject constructor(
                         put("amount", roundedAmount)
                         put("dateMillis", e.dateMillis)
                         put("categoryId", e.categoryId)
-                        put("note", e.note.take(200))
+                        put("note", e.note.take(2000))
                         put("transactionType", e.transactionType)
+                        put("deleted", e.deleted)
                         put("updatedAt", System.currentTimeMillis())
                         put("id", e.id)
                     }
-                    batch.set(ref, payload, SetOptions.merge())
+                    batch.set(ref, payload)
                 }
+                batch.update(
+                    restoreOpDoc(expectedUid),
+                    mapOf(
+                        "updatedAt" to System.currentTimeMillis(),
+                        "progress.fencingToken" to fencingToken,
+                        "progress.leaseHolder" to currentClientId,
+                        "progress.leaseExpiresAt" to (System.currentTimeMillis() + 60_000L),
+                        "progress.lastBatchCommittedAt" to System.currentTimeMillis(),
+                        "progress.step" to "rollback_expenses",
+                    ),
+                )
                 batch.commit().await()
             }
 
             // 3. Delete expenses not in snapshot
-            val currentExpSnap = expCol(expectedUid).get().await()
+            verifyAndRenewRecoveryLease(expectedUid, currentClientId, fencingToken)
+            val currentExpSnap = expCol(expectedUid).get(Source.SERVER).await()
             val extraExpenseIds = currentExpSnap.documents
                 .filter { it.id !in snapshotExpenseIds }
                 .map { it.id }
@@ -1653,6 +2037,17 @@ class AppRepository @Inject constructor(
                 for (id in chunk) {
                     batch.delete(expDoc(expectedUid, id))
                 }
+                batch.update(
+                    restoreOpDoc(expectedUid),
+                    mapOf(
+                        "updatedAt" to System.currentTimeMillis(),
+                        "progress.fencingToken" to fencingToken,
+                        "progress.leaseHolder" to currentClientId,
+                        "progress.leaseExpiresAt" to (System.currentTimeMillis() + 60_000L),
+                        "progress.lastBatchCommittedAt" to System.currentTimeMillis(),
+                        "progress.step" to "rollback_extra_expenses",
+                    ),
+                )
                 batch.commit().await()
             }
 
@@ -1684,7 +2079,7 @@ class AppRepository @Inject constructor(
                     put("monthlyBudget", restored.monthlyBudget)
                     put("updatedAt", restored.updatedAt)
                 }
-                settingsPrefsDoc(expectedUid).set(prefPayload, SetOptions.merge()).await()
+                settingsPrefsDoc(expectedUid).set(prefPayload).await()
                 preferenceManager.applySyncedPreferences(restored)
             }
 
@@ -1694,6 +2089,7 @@ class AppRepository @Inject constructor(
                 operation.copy(
                     phase = ReplacePlanner.RestorePhase.ROLLED_BACK,
                     updatedAt = System.currentTimeMillis(),
+                    progress = null,
                 ),
             )
 
@@ -1709,6 +2105,11 @@ class AppRepository @Inject constructor(
                         updatedAt = System.currentTimeMillis(),
                         error = "Rollback failed: $errorMsg".take(500),
                         failedFromPhase = ReplacePlanner.RestorePhase.ROLLING_BACK,
+                        progress = ReplacePlanner.RestoreJournalProgress(
+                            leaseHolder = currentClientId,
+                            leaseExpiresAt = System.currentTimeMillis() + 60_000L,
+                            fencingToken = fencingToken,
+                        ),
                     ),
                 )
             } catch (_: Exception) {}
@@ -1936,11 +2337,17 @@ class AppRepository @Inject constructor(
             val u = uid() ?: throw IllegalStateException("Not signed in")
             val docs = expenseDocsForCategory(u, categoryId)
             var unfixable = 0
+            val now = System.currentTimeMillis()
+            val updateMap = mapOf(
+                "transactionType" to transactionType,
+                "updatedAt" to now,
+                "idempotencyKey" to FieldValue.delete(),
+            )
             docs.chunked(450).forEach { chunk ->
                 try {
                     firestore.runBatch { batch ->
                         chunk.forEach { doc ->
-                            batch.update(doc.reference, "transactionType", transactionType)
+                            batch.update(doc.reference, updateMap)
                         }
                     }.await()
                 } catch (cancelled: CancellationException) {
@@ -1958,7 +2365,7 @@ class AppRepository @Inject constructor(
                     Log.w(TAG, "batch type change rejected — retrying one at a time", e)
                     chunk.forEach { doc ->
                         try {
-                            doc.reference.update("transactionType", transactionType).await()
+                            doc.reference.update(updateMap).await()
                         } catch (cancelled: CancellationException) {
                             throw cancelled
                         } catch (docError: Exception) {
@@ -2022,11 +2429,17 @@ class AppRepository @Inject constructor(
         toCategoryId: String,
     ): Int {
         var unfixable = 0
+        val now = System.currentTimeMillis()
+        val updateMap = mapOf(
+            "categoryId" to toCategoryId,
+            "updatedAt" to now,
+            "idempotencyKey" to FieldValue.delete(),
+        )
         docs.chunked(450).forEach { chunk ->
             try {
                 firestore.runBatch { batch ->
                     chunk.forEach { doc ->
-                        batch.update(doc.reference, "categoryId", toCategoryId)
+                        batch.update(doc.reference, updateMap)
                     }
                 }.await()
             } catch (cancelled: CancellationException) {
@@ -2037,7 +2450,7 @@ class AppRepository @Inject constructor(
                 if (!error.isPermissionDenied()) throw error
                 chunk.forEach { doc ->
                     try {
-                        doc.reference.update("categoryId", toCategoryId).await()
+                        doc.reference.update(updateMap).await()
                     } catch (cancelled: CancellationException) {
                         throw cancelled
                     } catch (itemError: Exception) {

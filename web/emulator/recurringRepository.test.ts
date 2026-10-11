@@ -13,7 +13,7 @@ const template=():RecurringTemplate=>({id:'550e8400-e29b-41d4-a716-446655440000'
 const expenses=()=>getDocs(collection(emulatorFirestore(),'users',TEST_UID,'expenses'));
 const latest=async()=> (await a.getAll(TEST_UID))[0];
 describe('SDK-backed recurring integrity',()=>{
- beforeAll(async()=>{await startHarness();second=initializeApp({projectId:PROJECT_ID,apiKey:'emulator',appId:'emulator'},'recurring-device-b');const db=getFirestore(second);connectFirestoreEmulator(db,'127.0.0.1',8080);b=createRecurringRepository(db);});
+ beforeAll(async()=>{await startHarness();second=initializeApp({projectId:PROJECT_ID,apiKey:'emulator',appId:'emulator'},'recurring-device-b');const db=getFirestore(second);const port=process.env.FIRESTORE_EMULATOR_HOST?Number(process.env.FIRESTORE_EMULATOR_HOST.split(':')[1]):8088;connectFirestoreEmulator(db,'127.0.0.1',port);b=createRecurringRepository(db);});
  afterAll(async()=>{await deleteApp(second);await stopHarness();});
  beforeEach(async()=>{await resetHarness();signInTestUser();categoryId=await expenseRepository.insertCategory({name:'Rent',iconName:'home',colorInt:1,transactionType:'expense',sortOrder:0});});
  it('two independent SDK clients race one due occurrence without duplicates',async()=>{const t={...template(),endDate:'2024-01-31'};await a.save(TEST_UID,t,null,now);await Promise.all([a.materialize(TEST_UID,t.id,now),b.materialize(TEST_UID,t.id,now)]);expect((await expenses()).size).toBe(1);expect((await getDocs(collection(emulatorFirestore(),'users',TEST_UID,'recurringOccurrences'))).size).toBe(1);});

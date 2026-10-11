@@ -236,7 +236,8 @@ fun SettingsScreen(
                 is RestoreUtils.ReadResult.Success -> {
                     if (isResumeMode && unresolvedOp != null) {
                         val fp = ReplacePlanner.computeBackupFingerprint(result.backup)
-                        if (fp != unresolvedOp!!.backupFingerprint) {
+                        val legacyFp = ReplacePlanner.computeLegacyBackupFingerprint(result.backup)
+                        if (fp != unresolvedOp!!.backupFingerprint && legacyFp != unresolvedOp!!.backupFingerprint) {
                             isResumeMode = false
                             haptics.light()
                             onShowMessage("FINGERPRINT_MISMATCH: Selected backup does not match the unfinished operation")

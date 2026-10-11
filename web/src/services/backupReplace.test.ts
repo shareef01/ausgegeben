@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   computeBackupFingerprint,
+  computeLegacyBackupFingerprint,
   planReplace,
+  resumeReplace,
 } from './backupReplace';
 import type { Category, Expense, SyncedPreferences } from '@/models/types';
 import type { AusgegebenBackup } from './backupFormat';
@@ -158,6 +160,38 @@ describe('backupReplace planner and fingerprinting', () => {
     };
     const fp3 = await computeBackupFingerprint(modifiedBackup);
     expect(fp3).not.toBe(fp1);
+  });
+
+  it('diverges fingerprint when transaction notes, category iconName, colorInt, or sortOrder change', async () => {
+    const fpBase = await computeBackupFingerprint(sampleBackup);
+
+    // Note change
+    const noteModified: AusgegebenBackup = {
+      ...sampleBackup,
+      expenses: [{ ...sampleBackup.expenses[0], note: 'Different Note' }, sampleBackup.expenses[1]],
+    };
+    expect(await computeBackupFingerprint(noteModified)).not.toBe(fpBase);
+
+    // Category iconName change
+    const iconModified: AusgegebenBackup = {
+      ...sampleBackup,
+      categories: [{ ...sampleBackup.categories[0], iconName: 'different_icon' }, sampleBackup.categories[1]],
+    };
+    expect(await computeBackupFingerprint(iconModified)).not.toBe(fpBase);
+
+    // Category colorInt change
+    const colorModified: AusgegebenBackup = {
+      ...sampleBackup,
+      categories: [{ ...sampleBackup.categories[0], colorInt: 999999 }, sampleBackup.categories[1]],
+    };
+    expect(await computeBackupFingerprint(colorModified)).not.toBe(fpBase);
+
+    // Category sortOrder change
+    const sortModified: AusgegebenBackup = {
+      ...sampleBackup,
+      categories: [{ ...sampleBackup.categories[0], sortOrder: 99 }, sampleBackup.categories[1]],
+    };
+    expect(await computeBackupFingerprint(sortModified)).not.toBe(fpBase);
   });
 
   it('correctly plans upserts, stale deletions, and category preservations', () => {
@@ -422,4 +456,126 @@ it('v3 recurring fingerprint is deterministic and sensitive to template and rece
     recurring: { templates: [{ ...t1, amount: 55.0 }], receipts: [r1] },
   };
   expect(await computeBackupFingerprint(v3Modified)).not.toBe(fpA);
+});
+
+describe('Priority 3 — Adversarial Fingerprint Verification', () => {
+  it('proves legacy fingerprint is blind to modified expense notes, while modern fingerprint detects them', async () => {
+    const base = sampleBackup;
+    const modifiedNote: AusgegebenBackup = {
+      ...base,
+      expenses: base.expenses.map((e, idx) => idx === 0 ? { ...e, note: 'TAMPERED_NOTE' } : e),
+    };
+    // Legacy fingerprint only hashes id, amount, dateMillis, categoryId, transactionType!
+    const legacyBase = await computeLegacyBackupFingerprint(base);
+    const legacyModified = await computeLegacyBackupFingerprint(modifiedNote);
+    expect(legacyBase).toBe(legacyModified); // Vulnerable!
+
+    // Modern fingerprint covers note!
+    const modernBase = await computeBackupFingerprint(base);
+    const modernModified = await computeBackupFingerprint(modifiedNote);
+    expect(modernBase).not.toBe(modernModified); // Protected!
+  });
+
+  it('proves legacy fingerprint is blind to modified category icon, color, and sortOrder, while modern fingerprint detects them', async () => {
+    const base = sampleBackup;
+    const modifiedCategory: AusgegebenBackup = {
+      ...base,
+      categories: base.categories.map((c, idx) => idx === 0 ? { ...c, iconName: 'evil_icon', colorInt: 12345, sortOrder: 99 } : c),
+    };
+    const legacyBase = await computeLegacyBackupFingerprint(base);
+    const legacyModified = await computeLegacyBackupFingerprint(modifiedCategory);
+    expect(legacyBase).toBe(legacyModified); // Blind to icon, color, and sort order!
+
+    const modernBase = await computeBackupFingerprint(base);
+    const modernModified = await computeBackupFingerprint(modifiedCategory);
+    expect(modernBase).not.toBe(modernModified); // Protected!
+  });
+
+  it('proves legacy fingerprint is blind to reminder and analytics preferences, while modern fingerprint detects them', async () => {
+    const base = sampleBackup;
+    const modifiedPrefs: AusgegebenBackup = {
+      ...base,
+      preferences: {
+        ...base.preferences,
+        dailyReminder: false,
+        reminderHour: 8,
+        reminderMinute: 30,
+        analyticsPeriod: 'last_month',
+      },
+    };
+    const legacyBase = await computeLegacyBackupFingerprint(base);
+    const legacyModified = await computeLegacyBackupFingerprint(modifiedPrefs);
+    expect(legacyBase).toBe(legacyModified); // Blind to reminder and analytics!
+
+    const modernBase = await computeBackupFingerprint(base);
+    const modernModified = await computeBackupFingerprint(modifiedPrefs);
+    expect(modernBase).not.toBe(modernModified); // Protected!
+  });
+
+  it('proves resumeReplace rejects a backup whose notes or preferences were modified', async () => {
+    const base = sampleBackup;
+    const originalFp = await computeBackupFingerprint(base);
+    const op = {
+      operationId: 'replace_test_op',
+      ownerUid: 'user-123',
+      mode: 'replace' as const,
+      backupFingerprint: originalFp,
+      phase: 'FAILED_RECOVERABLE' as const,
+      createdAt: 1000,
+      updatedAt: 2000,
+    };
+
+    const modifiedNoteBackup: AusgegebenBackup = {
+      ...base,
+      expenses: base.expenses.map((e, idx) => idx === 0 ? { ...e, note: 'TAMPERED' } : e),
+    };
+
+    await expect(resumeReplace(op, modifiedNoteBackup, 'user-123')).rejects.toThrow(
+      'FINGERPRINT_MISMATCH: Selected backup does not match the unfinished operation',
+    );
+  });
+
+  it('computes exact cross-platform canonical fingerprint matching Android fixture', async () => {
+    const sharedFixture: AusgegebenBackup = {
+      format: 'ausgegeben-backup',
+      schemaVersion: 1,
+      appVersion: '2.0.8',
+      exportedAt: '2026-10-01T12:00:00Z',
+      preferences: {
+        currency: 'EUR',
+        monthlyBudget: 1500,
+        locale: 'en',
+        themeMode: 'system',
+        dailyReminder: true,
+        reminderHour: 19,
+        reminderMinute: 0,
+        analyticsPeriod: 'this_month',
+        preferencesUpdatedAt: 1000,
+      },
+      categories: [
+        {
+          id: 'cat-shared-1',
+          name: 'Groceries',
+          iconName: 'shopping_cart',
+          colorInt: -16776961,
+          transactionType: 'expense',
+          sortOrder: 0,
+          updatedAt: 1000,
+        },
+      ],
+      expenses: [
+        {
+          id: 'exp-shared-1',
+          amount: 25.5,
+          dateMillis: 1710000000000,
+          categoryId: 'cat-shared-1',
+          note: 'Supermarket run',
+          transactionType: 'expense',
+          updatedAt: 1000,
+        },
+      ],
+    };
+    const fp = await computeBackupFingerprint(sharedFixture);
+    expect(fp).toBe('2e424151a00280f3c68c00e0e93dfc5e0d8c81b36affb1f7aa7a719eb8777a64');
+  });
 });

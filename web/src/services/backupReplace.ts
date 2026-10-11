@@ -10,8 +10,11 @@ import {
   getDoc,
   getDocFromServer,
   getDocs,
+  getDocsFromServer,
   setDoc,
   writeBatch,
+  runTransaction,
+  type Firestore,
 } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
@@ -19,6 +22,7 @@ import { usePreferencesStore } from '@/services/preferencesStore';
 import { sanitizeSyncedPreferences } from '@/services/preferencesSync';
 import {
   CATEGORIES_COLLECTION,
+  CATEGORY_BUDGETS_COLLECTION,
   EXPENSES_COLLECTION,
   META_COLLECTION,
   PREFERENCES_DOC,
@@ -34,7 +38,7 @@ import type {
 } from '@/services/backupFormat';
 
 export const RESTORE_BATCH_CHUNK_SIZE = 400;
-export const SNAPSHOT_CHUNK_SIZE = 200;
+export const SNAPSHOT_CHUNK_SIZE = 100;
 
 export type RestorePhase =
   | 'PREPARING'
@@ -70,7 +74,18 @@ export interface RestoreJournalProgress {
   batchIndex?: number;
   totalBatches?: number;
   lastProcessedId?: string;
+  leaseHolder?: string;
+  leaseExpiresAt?: number;
+  fencingToken?: number;
 }
+
+export type SnapshotMeta = {
+  chunkCount: number;
+  totalExpenses: number;
+  totalCategories: number;
+  receiptChunkCount?: number;
+  totalReceipts?: number;
+};
 
 export interface RestoreOperationDoc {
   operationId: string;
@@ -82,11 +97,7 @@ export interface RestoreOperationDoc {
   updatedAt: number;
   plannedCounts?: PlannedCounts;
   progress?: RestoreJournalProgress;
-  snapshotMeta?: {
-    chunkCount: number;
-    totalExpenses: number;
-    totalCategories: number;
-  };
+  snapshotMeta?: SnapshotMeta;
   error?: string;
   failedFromPhase?: RestorePhase;
   initiatorPlatform?: 'web' | 'android';
@@ -113,9 +124,9 @@ export interface ReplaceExecutionResult {
 const activeOperationsByUid = new Set<string>();
 
 /**
- * Computes a deterministic SHA-256 fingerprint for a backup.
+ * Legacy fingerprint calculation retained for backwards compatibility with in-flight operations.
  */
-export async function computeBackupFingerprint(backup: AusgegebenBackup): Promise<string> {
+export async function computeLegacyBackupFingerprint(backup: AusgegebenBackup): Promise<string> {
   const canonicalExpenses = [...backup.expenses]
     .map((e) => `${e.id},${e.amount},${e.dateMillis},${e.categoryId},${e.transactionType}`)
     .sort()
@@ -152,6 +163,54 @@ export async function computeBackupFingerprint(backup: AusgegebenBackup): Promis
       r.createdAt,
     ]),
   ]) : '';
+  const raw = `v${backup.schemaVersion}:${backup.exportedAt}:${canonicalExpenses}:${canonicalCategories}:${canonicalPrefs}${budgetPart}${recurringPart}`;
+
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    const msgBuffer = new TextEncoder().encode(raw);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  let hash = 0;
+  for (let i = 0; i < raw.length; i++) {
+    hash = (hash << 5) - hash + raw.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(16).padStart(64, '0');
+}
+
+/**
+ * Computes a deterministic canonical SHA-256 fingerprint covering all fields of a backup.
+ */
+export async function computeBackupFingerprint(backup: AusgegebenBackup): Promise<string> {
+  const canonicalExpenses = [...backup.expenses]
+    .map((e) => `${e.id},${toMinorUnits(e.amount)},${e.dateMillis},${e.categoryId},${e.note},${e.transactionType}`)
+    .sort()
+    .join(';');
+  const canonicalCategories = [...backup.categories]
+    .map((c) => `${c.id},${c.name},${c.iconName},${c.colorInt},${c.transactionType},${c.sortOrder}`)
+    .sort()
+    .join(';');
+  const monthlyBudgetVal = backup.preferences.monthlyBudget !== undefined && backup.preferences.monthlyBudget !== null
+    ? String(toMinorUnits(backup.preferences.monthlyBudget))
+    : 'null';
+  const canonicalPrefs = `${backup.preferences.currency},${monthlyBudgetVal},${backup.preferences.locale ?? ''},${backup.preferences.themeMode ?? ''},${backup.preferences.dailyReminder ?? false},${backup.preferences.reminderHour ?? 0},${backup.preferences.reminderMinute ?? 0},${backup.preferences.analyticsPeriod ?? ''}`;
+  const budgetPart = backup.schemaVersion >= 2 ? ':' + [...(backup.categoryBudgets ?? [])]
+    .sort((a, b) => a.categoryId.localeCompare(b.categoryId))
+    .map((b) => `${b.categoryId},${toMinorUnits(b.monthlyLimit)},${b.warningThresholdPercent}`)
+    .join(';') : '';
+  const recurringPart = backup.schemaVersion >= 3 && backup.recurring ? (() => {
+    const templates = [...(backup.recurring.templates ?? [])]
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .map((t) => `${t.id},${toMinorUnits(t.amount)},${t.categoryId},${t.note},${t.transactionType},${t.frequency},${t.interval},${t.startDate},${t.endDate ?? ''},${t.timeZone},${t.enabled},${t.nextIndex},${t.nextDate ?? ''},${t.createdAt},${t.updatedAt}`)
+      .join(';');
+    const receipts = [...(backup.recurring.receipts ?? [])]
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .map((r) => `${r.id},${r.templateId},${r.scheduledDate},${r.expenseId},${r.createdAt}`)
+      .join(';');
+    return `:templates:${templates}:receipts:${receipts}`;
+  })() : '';
   const raw = `v${backup.schemaVersion}:${backup.exportedAt}:${canonicalExpenses}:${canonicalCategories}:${canonicalPrefs}${budgetPart}${recurringPart}`;
 
   if (typeof crypto !== 'undefined' && crypto.subtle) {
@@ -269,6 +328,9 @@ export function planReplace(params: {
 /**
  * Creates persistent, chunked safety snapshot documents under /users/{userId}/restoreSnapshot/.
  */
+/**
+ * Creates persistent, chunked safety snapshot documents under /users/{userId}/restoreSnapshot/.
+ */
 export async function createSafetySnapshot(
   userId: string,
   operationId: string,
@@ -278,26 +340,30 @@ export async function createSafetySnapshot(
   categoryBudgets?: CategoryBudget[],
   recurringTemplates?: RecurringTemplate[],
   recurringReceipts?: OccurrenceReceipt[],
-): Promise<{ chunkCount: number; totalExpenses: number; totalCategories: number }> {
+): Promise<{ chunkCount: number; totalExpenses: number; totalCategories: number; receiptChunkCount?: number }> {
   const db = getFirebaseFirestore();
   if (!db) throw new Error('FIRESTORE_UNAVAILABLE');
 
   const now = Date.now();
   const chunkCount = Math.ceil(expenses.length / SNAPSHOT_CHUNK_SIZE) || 1;
+  const receiptChunkCount = recurringReceipts && recurringReceipts.length > 0
+    ? Math.ceil(recurringReceipts.length / SNAPSHOT_CHUNK_SIZE)
+    : 0;
 
-  // Write snapshot metadata
+  // Write snapshot metadata (unbounded recurring receipts are chunked separately to obey 1MB Firestore limit)
   const metaRef = doc(db, 'users', userId, RESTORE_SNAPSHOT_COLLECTION, 'meta');
   await setDoc(metaRef, {
     operationId,
     ownerUid: userId,
     createdAt: now,
     chunkCount,
+    receiptChunkCount,
     totalExpenses: expenses.length,
     totalCategories: categories.length,
+    totalReceipts: recurringReceipts?.length ?? 0,
     preferences: preferences ?? {},
     ...(categoryBudgets ? { categoryBudgets } : {}),
     ...(recurringTemplates ? { recurringTemplates } : {}),
-    ...(recurringReceipts ? { recurringReceipts } : {}),
     categories: categories.map((c) => ({
       id: c.id,
       name: c.name,
@@ -327,8 +393,35 @@ export async function createSafetySnapshot(
         note: e.note,
         transactionType: e.transactionType,
         updatedAt: e.updatedAt ?? now,
+        ...(e.idempotencyKey ? { idempotencyKey: e.idempotencyKey } : {}),
+        ...(e.deleted !== undefined ? { deleted: e.deleted } : {}),
+        ...(e.cloudId ? { cloudId: e.cloudId } : {}),
+        ...(e.categoryCloudId != null ? { categoryCloudId: e.categoryCloudId } : {}),
+        ...(e.receiptImagePath != null ? { receiptImagePath: e.receiptImagePath } : {}),
       })),
     });
+  }
+
+  // Write recurring receipt chunks (chunked separately to prevent exceeding 1MB per document)
+  if (recurringReceipts && receiptChunkCount > 0) {
+    for (let i = 0; i < receiptChunkCount; i++) {
+      const chunkReceipts = recurringReceipts.slice(i * SNAPSHOT_CHUNK_SIZE, (i + 1) * SNAPSHOT_CHUNK_SIZE);
+      const chunkRef = doc(db, 'users', userId, RESTORE_SNAPSHOT_COLLECTION, `receipt_chunk_${i}`);
+      await setDoc(chunkRef, {
+        operationId,
+        ownerUid: userId,
+        createdAt: now,
+        chunkIndex: i,
+        chunkCount: receiptChunkCount,
+        recurringReceipts: chunkReceipts.map((r) => ({
+          id: r.id,
+          templateId: r.templateId,
+          scheduledDate: r.scheduledDate,
+          expenseId: r.expenseId,
+          createdAt: r.createdAt,
+        })),
+      });
+    }
   }
 
   // Verify write back
@@ -339,6 +432,7 @@ export async function createSafetySnapshot(
 
   return {
     chunkCount,
+    receiptChunkCount,
     totalExpenses: expenses.length,
     totalCategories: categories.length,
   };
@@ -367,6 +461,7 @@ export async function readSafetySnapshot(userId: string): Promise<{
   const metaData = metaSnap.data() as {
     operationId: string;
     chunkCount: number;
+    receiptChunkCount?: number;
     categories?: Category[];
     preferences?: SyncedPreferences;
     categoryBudgets?: CategoryBudget[];
@@ -382,15 +477,39 @@ export async function readSafetySnapshot(userId: string): Promise<{
     if (chunkSnap.exists()) {
       const data = chunkSnap.data() as { expenses?: Expense[] };
       if (data.expenses) {
-        allExpenses.push(...data.expenses);
+        allExpenses.push(...data.expenses.map((e) => ({
+          ...e,
+          idempotencyKey: e.idempotencyKey ? String(e.idempotencyKey) : undefined,
+          deleted: e.deleted === true ? true : undefined,
+          cloudId: e.cloudId ? String(e.cloudId) : undefined,
+          categoryCloudId: e.categoryCloudId != null ? e.categoryCloudId : undefined,
+          receiptImagePath: e.receiptImagePath != null ? String(e.receiptImagePath) : undefined,
+        })));
       }
     }
+  }
+
+  const allReceipts: OccurrenceReceipt[] = [];
+  const receiptChunkCount = Number(metaData.receiptChunkCount) || 0;
+  if (receiptChunkCount > 0) {
+    for (let i = 0; i < receiptChunkCount; i++) {
+      const chunkRef = doc(db, 'users', userId, RESTORE_SNAPSHOT_COLLECTION, `receipt_chunk_${i}`);
+      const chunkSnap = await getDocFromServer(chunkRef);
+      if (chunkSnap.exists()) {
+        const data = chunkSnap.data() as { recurringReceipts?: OccurrenceReceipt[] };
+        if (data.recurringReceipts) {
+          allReceipts.push(...data.recurringReceipts);
+        }
+      }
+    }
+  } else if (metaData.recurringReceipts) {
+    allReceipts.push(...metaData.recurringReceipts);
   }
 
   return {
     categoryBudgets: metaData.categoryBudgets,
     recurringTemplates: metaData.recurringTemplates,
-    recurringReceipts: metaData.recurringReceipts,
+    recurringReceipts: allReceipts,
     operationId: metaData.operationId,
     expenses: allExpenses,
     categories: metaData.categories ?? [],
@@ -409,9 +528,12 @@ export async function deleteSafetySnapshot(userId: string): Promise<void> {
   const snap = await getDocs(colRef);
   if (snap.empty) return;
 
-  const batch = writeBatch(db);
-  snap.docs.forEach((d) => batch.delete(d.ref));
-  await batch.commit();
+  for (let i = 0; i < snap.docs.length; i += RESTORE_BATCH_CHUNK_SIZE) {
+    const chunk = snap.docs.slice(i, i + RESTORE_BATCH_CHUNK_SIZE);
+    const batch = writeBatch(db);
+    chunk.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  }
 }
 
 /**
@@ -450,6 +572,78 @@ export async function deleteRestoreOperation(userId: string): Promise<void> {
   await deleteDoc(ref);
 }
 
+export const RECOVERY_LEASE_DURATION_MS = 60_000;
+
+export async function acquireRecoveryLease(
+  db: Firestore,
+  userId: string,
+  holderId: string,
+  isResume: boolean,
+): Promise<{ fencingToken: number; operationId: string; existingOp: RestoreOperationDoc | null }> {
+  const ref = doc(db, 'users', userId, META_COLLECTION, RESTORE_OPERATION_DOC);
+  return await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    const now = Date.now();
+    let fencingToken = 1;
+    let existingOp: RestoreOperationDoc | null = null;
+    let operationId = `replace_${now}_${Math.random().toString(36).slice(2, 8)}`;
+
+    if (snap.exists()) {
+      existingOp = snap.data() as RestoreOperationDoc;
+      const isInFlight = existingOp.phase !== 'COMPLETED' && existingOp.phase !== 'ROLLED_BACK';
+      const isActivelyProcessing = isInFlight && existingOp.phase !== 'FAILED_RECOVERABLE';
+      const currentHolder = existingOp.progress?.leaseHolder;
+      const expiresAt = existingOp.progress?.leaseExpiresAt ?? 0;
+      fencingToken = (existingOp.progress?.fencingToken ?? 0) + 1;
+
+      if (!isResume && isInFlight) {
+        if (isActivelyProcessing && currentHolder && currentHolder !== holderId && expiresAt > now) {
+          throw new Error('CONCURRENT_OPERATION_LEASE_ACTIVE: Another browser tab or device is actively processing this restore operation');
+        }
+        throw new Error(`UNRESOLVED_RESTORE_OPERATION: ${existingOp.phase}`);
+      }
+
+      if (isActivelyProcessing) {
+        if (currentHolder && currentHolder !== holderId && expiresAt > now) {
+          throw new Error('CONCURRENT_OPERATION_LEASE_ACTIVE: Another browser tab or device is actively processing this restore operation');
+        }
+        operationId = existingOp.operationId;
+      } else {
+        operationId = existingOp.operationId;
+      }
+    }
+    return { fencingToken, operationId, existingOp };
+  });
+}
+
+export async function verifyAndRenewRecoveryLease(
+  db: Firestore,
+  userId: string,
+  holderId: string,
+  fencingToken: number,
+): Promise<void> {
+  const ref = doc(db, 'users', userId, META_COLLECTION, RESTORE_OPERATION_DOC);
+  const snap = await getDocFromServer(ref);
+  if (!snap.exists()) {
+    throw new Error('LEASE_LOST: Restore operation document was removed');
+  }
+  const data = snap.data() as RestoreOperationDoc;
+  if (data.progress?.leaseHolder !== holderId) {
+    throw new Error(`LEASE_LOST: Lease was taken over by ${data.progress?.leaseHolder}`);
+  }
+  if (data.progress?.fencingToken !== fencingToken) {
+    throw new Error(`FENCING_TOKEN_MISMATCH: Expected token ${fencingToken}, got ${data.progress?.fencingToken}`);
+  }
+  // Extend lease expiration
+  await setDoc(ref, {
+    progress: {
+      ...data.progress,
+      leaseExpiresAt: Date.now() + RECOVERY_LEASE_DURATION_MS,
+    },
+    updatedAt: Date.now(),
+  }, { merge: true });
+}
+
 /**
  * Executes a full destructive replace operation with safety architecture.
  */
@@ -478,56 +672,75 @@ export async function executeReplace(
   }
   activeOperationsByUid.add(expectedUid);
 
+  const currentTabId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `tab_${Date.now()}_${Math.random()}`;
   let currentPhase: RestorePhase = 'PREPARING';
-  let operationId = `replace_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  let operationId = '';
+  let fencingToken = 1;
+  let snapshotMeta: SnapshotMeta | undefined = undefined;
+  let initialCreatedAt = Date.now();
 
   try {
-    // 2. Durable check for existing unresolved operation
-    const existingOp = await getRestoreOperation(expectedUid);
-    if (!isResume && existingOp && existingOp.phase !== 'COMPLETED' && existingOp.phase !== 'ROLLED_BACK') {
-      throw new Error(`UNRESOLVED_RESTORE_OPERATION: ${existingOp.phase}`);
-    }
+    // 2. Atomic lease acquisition & durable state check via Firestore transaction
+    const lease = await acquireRecoveryLease(
+      db,
+      expectedUid,
+      currentTabId,
+      isResume,
+    );
+    fencingToken = lease.fencingToken;
+    operationId = lease.operationId;
+    const existingOp = lease.existingOp;
+    initialCreatedAt = isResume && existingOp ? existingOp.createdAt : Date.now();
+
     if (!isResume && existingOp && (existingOp.phase === 'COMPLETED' || existingOp.phase === 'ROLLED_BACK')) {
       await deleteSafetySnapshot(expectedUid);
     }
-    if (isResume && existingOp) {
-      operationId = existingOp.operationId;
-    }
 
     // 3. Load authoritative server state
-    const expSnap = await getDocs(collection(db, 'users', expectedUid, EXPENSES_COLLECTION));
-    const currentExpenses: Expense[] = expSnap.docs.map((d) => {
-      const data = d.data();
-      return {
-        id: d.id,
-        amount: Number(data.amount) || 0,
-        dateMillis: Number(data.dateMillis) || 0,
-        categoryId: String(data.categoryId || ''),
-        note: String(data.note || ''),
-        transactionType: (data.transactionType as TransactionType) || 'expense',
-        updatedAt: Number(data.updatedAt) || undefined,
-        idempotencyKey: data.idempotencyKey ? String(data.idempotencyKey) : undefined,
-      };
-    });
+    let currentExpenses: Expense[];
+    let currentCategories: Category[];
+    let currentPrefs: SyncedPreferences | null;
+    try {
+      const expSnap = await getDocsFromServer(collection(db, 'users', expectedUid, EXPENSES_COLLECTION));
+      currentExpenses = expSnap.docs.map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          amount: Number(data.amount) || 0,
+          dateMillis: Number(data.dateMillis) || 0,
+          categoryId: String(data.categoryId || ''),
+          note: String(data.note || ''),
+          transactionType: (data.transactionType as TransactionType) || 'expense',
+          updatedAt: Number(data.updatedAt) || undefined,
+          idempotencyKey: data.idempotencyKey ? String(data.idempotencyKey) : undefined,
+          deleted: data.deleted === true ? true : undefined,
+          cloudId: data.cloudId ? String(data.cloudId) : undefined,
+          categoryCloudId: data.categoryCloudId != null ? (data.categoryCloudId as string | number) : undefined,
+          receiptImagePath: data.receiptImagePath != null ? String(data.receiptImagePath) : undefined,
+        };
+      });
 
-    const catSnap = await getDocs(collection(db, 'users', expectedUid, CATEGORIES_COLLECTION));
-    const currentCategories: Category[] = catSnap.docs.map((d) => {
-      const data = d.data();
-      return {
-        id: d.id,
-        name: String(data.name || ''),
-        iconName: String(data.iconName || ''),
-        colorInt: Number(data.colorInt) || 0,
-        transactionType: (data.transactionType as TransactionType) || 'expense',
-        sortOrder: Number(data.sortOrder) || 0,
-        updatedAt: Number(data.updatedAt) || undefined,
-      };
-    });
+      const catSnap = await getDocsFromServer(collection(db, 'users', expectedUid, CATEGORIES_COLLECTION));
+      currentCategories = catSnap.docs.map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          name: String(data.name || ''),
+          iconName: String(data.iconName || ''),
+          colorInt: Number(data.colorInt) || 0,
+          transactionType: (data.transactionType as TransactionType) || 'expense',
+          sortOrder: Number(data.sortOrder) || 0,
+          updatedAt: Number(data.updatedAt) || undefined,
+        };
+      });
 
-    const prefSnap = await getDoc(doc(db, 'users', expectedUid, SETTINGS_COLLECTION, PREFERENCES_DOC));
-    const currentPrefs: SyncedPreferences | null = prefSnap.exists()
-      ? (prefSnap.data() as SyncedPreferences)
-      : null;
+      const prefSnap = await getDocFromServer(doc(db, 'users', expectedUid, SETTINGS_COLLECTION, PREFERENCES_DOC));
+      currentPrefs = prefSnap.exists()
+        ? (prefSnap.data() as SyncedPreferences)
+        : null;
+    } catch (err: unknown) {
+      throw new Error(`AUTHORITATIVE_SERVER_READ_REQUIRED: ${err instanceof Error ? err.message : String(err)}`);
+    }
 
     // 4. Compute mutation plan
     const plan = planReplace({
@@ -555,11 +768,16 @@ export async function executeReplace(
       updatedAt: Date.now(),
       plannedCounts: plan.counts,
       initiatorPlatform: 'web',
+      progress: {
+        leaseHolder: currentTabId,
+        leaseExpiresAt: Date.now() + RECOVERY_LEASE_DURATION_MS,
+        fencingToken,
+      },
     };
     await setRestoreOperation(expectedUid, initialOp);
 
     // 6. Create Safety Snapshot (only if not already created on prior run)
-    let snapshotMeta = isResume && existingOp?.snapshotMeta ? existingOp.snapshotMeta : undefined;
+    snapshotMeta = isResume && existingOp?.snapshotMeta ? existingOp.snapshotMeta : undefined;
     if (!snapshotMeta) {
       snapshotMeta = await createSafetySnapshot(
         expectedUid,
@@ -584,6 +802,11 @@ export async function executeReplace(
       phase: 'SNAPSHOT_READY',
       updatedAt: Date.now(),
       snapshotMeta,
+      progress: {
+        leaseHolder: currentTabId,
+        leaseExpiresAt: Date.now() + RECOVERY_LEASE_DURATION_MS,
+        fencingToken,
+      },
     });
 
     // 8. Advance journal: APPLYING
@@ -593,10 +816,17 @@ export async function executeReplace(
       phase: 'APPLYING',
       updatedAt: Date.now(),
       snapshotMeta,
-      progress: { step: 'categories', batchIndex: 0 },
+      progress: {
+        leaseHolder: currentTabId,
+        leaseExpiresAt: Date.now() + RECOVERY_LEASE_DURATION_MS,
+        fencingToken,
+        step: 'categories',
+        batchIndex: 0,
+      },
     });
 
     // 9. Apply categories in batches of RESTORE_BATCH_CHUNK_SIZE
+    await verifyAndRenewRecoveryLease(db, expectedUid, currentTabId, fencingToken);
     let categoryBatchIndex = 0;
     for (let i = 0; i < plan.categoriesToUpsert.length; i += RESTORE_BATCH_CHUNK_SIZE) {
       const chunk = plan.categoriesToUpsert.slice(i, i + RESTORE_BATCH_CHUNK_SIZE);
@@ -606,8 +836,8 @@ export async function executeReplace(
         batch.set(
           ref,
           {
-            name: c.name.trim().slice(0, 50),
-            iconName: c.iconName.slice(0, 50),
+            name: c.name.trim().slice(0, 80),
+            iconName: c.iconName.slice(0, 63),
             colorInt: c.colorInt | 0,
             transactionType: c.transactionType,
             sortOrder: Math.max(0, Math.trunc(c.sortOrder)),
@@ -617,6 +847,15 @@ export async function executeReplace(
           { merge: true },
         );
       }
+      batch.update(doc(db, 'users', expectedUid, META_COLLECTION, RESTORE_OPERATION_DOC), {
+        updatedAt: Date.now(),
+        'progress.fencingToken': fencingToken,
+        'progress.leaseHolder': currentTabId,
+        'progress.leaseExpiresAt': Date.now() + RECOVERY_LEASE_DURATION_MS,
+        'progress.lastBatchCommittedAt': Date.now(),
+        'progress.batchIndex': categoryBatchIndex,
+        'progress.step': 'categories',
+      });
       await batch.commit();
       categoryBatchIndex++;
 
@@ -626,6 +865,7 @@ export async function executeReplace(
     }
 
     // 10. Apply expenses upsert in batches
+    await verifyAndRenewRecoveryLease(db, expectedUid, currentTabId, fencingToken);
     let expenseUpsertBatchIndex = 0;
     for (let i = 0; i < plan.expensesToUpsert.length; i += RESTORE_BATCH_CHUNK_SIZE) {
       const chunk = plan.expensesToUpsert.slice(i, i + RESTORE_BATCH_CHUNK_SIZE);
@@ -640,7 +880,7 @@ export async function executeReplace(
             amount: roundedAmount,
             dateMillis: Math.trunc(e.dateMillis),
             categoryId: e.categoryId,
-            note: e.note.slice(0, 200),
+            note: e.note.slice(0, 2000),
             transactionType: e.transactionType,
             updatedAt: e.updatedAt ?? Date.now(),
             id: e.id,
@@ -648,6 +888,15 @@ export async function executeReplace(
           { merge: true },
         );
       }
+      batch.update(doc(db, 'users', expectedUid, META_COLLECTION, RESTORE_OPERATION_DOC), {
+        updatedAt: Date.now(),
+        'progress.fencingToken': fencingToken,
+        'progress.leaseHolder': currentTabId,
+        'progress.leaseExpiresAt': Date.now() + RECOVERY_LEASE_DURATION_MS,
+        'progress.lastBatchCommittedAt': Date.now(),
+        'progress.batchIndex': expenseUpsertBatchIndex,
+        'progress.step': 'expenses_upsert',
+      });
       await batch.commit();
       expenseUpsertBatchIndex++;
 
@@ -657,6 +906,7 @@ export async function executeReplace(
     }
 
     // 11. Delete stale expenses in batches
+    await verifyAndRenewRecoveryLease(db, expectedUid, currentTabId, fencingToken);
     let expenseDeleteBatchIndex = 0;
     for (let i = 0; i < plan.expenseIdsToDelete.length; i += RESTORE_BATCH_CHUNK_SIZE) {
       const chunk = plan.expenseIdsToDelete.slice(i, i + RESTORE_BATCH_CHUNK_SIZE);
@@ -665,6 +915,15 @@ export async function executeReplace(
         const ref = doc(db, 'users', expectedUid, EXPENSES_COLLECTION, id);
         batch.delete(ref);
       }
+      batch.update(doc(db, 'users', expectedUid, META_COLLECTION, RESTORE_OPERATION_DOC), {
+        updatedAt: Date.now(),
+        'progress.fencingToken': fencingToken,
+        'progress.leaseHolder': currentTabId,
+        'progress.leaseExpiresAt': Date.now() + RECOVERY_LEASE_DURATION_MS,
+        'progress.lastBatchCommittedAt': Date.now(),
+        'progress.batchIndex': expenseDeleteBatchIndex,
+        'progress.step': 'expenses_delete',
+      });
       await batch.commit();
       expenseDeleteBatchIndex++;
 
@@ -677,6 +936,7 @@ export async function executeReplace(
     if (backup.schemaVersion === 3 && backup.recurring) await replaceRecurringCollection(expectedUid, backup.recurring);
 
     // 12. Apply preferences
+    await verifyAndRenewRecoveryLease(db, expectedUid, currentTabId, fencingToken);
     if (faultHooks?.failBeforePreferences) {
       throw new Error('FAULT_INJECTED_BEFORE_PREFERENCES');
     }
@@ -691,25 +951,62 @@ export async function executeReplace(
       phase: 'VERIFYING',
       updatedAt: Date.now(),
       snapshotMeta,
+      progress: {
+        leaseHolder: currentTabId,
+        leaseExpiresAt: Date.now() + RECOVERY_LEASE_DURATION_MS,
+        fencingToken,
+        step: 'preferences',
+      },
     });
 
     if (faultHooks?.failDuringVerification) {
       throw new Error('FAULT_INJECTED_DURING_VERIFICATION');
     }
 
-    // Verification check: sample verify that expected expense IDs exist and deleted ones are gone
-    if (plan.expenseIdsToDelete.length > 0) {
-      const deletedSample = plan.expenseIdsToDelete[0];
-      const checkDoc = await getDoc(doc(db, 'users', expectedUid, EXPENSES_COLLECTION, deletedSample));
-      if (checkDoc.exists()) {
-        throw new Error('REPLACE_VERIFICATION_FAILED: deleted expense still exists');
+    // Comprehensive Post-Restore Verification:
+    // 1. Verify all categories in plan exist on server and match
+    for (const cat of plan.categoriesToUpsert) {
+      const checkCat = await getDocFromServer(doc(db, 'users', expectedUid, CATEGORIES_COLLECTION, cat.id));
+      if (!checkCat.exists()) {
+        throw new Error(`REPLACE_VERIFICATION_FAILED: Upserted category ${cat.id} does not exist`);
       }
+    }
+
+    // 2. Verify deleted expenses are gone from server
+    if (plan.expenseIdsToDelete.length > 0) {
+      const sampleSize = Math.min(plan.expenseIdsToDelete.length, 10);
+      for (let s = 0; s < sampleSize; s++) {
+        const deletedId = plan.expenseIdsToDelete[s];
+        const checkDoc = await getDocFromServer(doc(db, 'users', expectedUid, EXPENSES_COLLECTION, deletedId));
+        if (checkDoc.exists()) {
+          throw new Error(`REPLACE_VERIFICATION_FAILED: Deleted expense ${deletedId} still exists`);
+        }
+      }
+    }
+
+    // 3. Verify sample upserted expenses exist on server
+    if (plan.expensesToUpsert.length > 0) {
+      const sampleSize = Math.min(plan.expensesToUpsert.length, 10);
+      for (let s = 0; s < sampleSize; s++) {
+        const expectedExp = plan.expensesToUpsert[s];
+        const checkDoc = await getDocFromServer(doc(db, 'users', expectedUid, EXPENSES_COLLECTION, expectedExp.id));
+        if (!checkDoc.exists()) {
+          throw new Error(`REPLACE_VERIFICATION_FAILED: Upserted expense ${expectedExp.id} does not exist`);
+        }
+      }
+    }
+
+    // 4. Verify preferences doc
+    const checkPref = await getDocFromServer(prefRef);
+    if (!checkPref.exists()) {
+      throw new Error('REPLACE_VERIFICATION_FAILED: Preferences doc missing');
     }
 
     // 14. Mark COMPLETED
     currentPhase = 'COMPLETED';
+    const { progress: _compProg, ...compBase } = initialOp;
     await setRestoreOperation(expectedUid, {
-      ...initialOp,
+      ...compBase,
       phase: 'COMPLETED',
       updatedAt: Date.now(),
       snapshotMeta,
@@ -737,14 +1034,20 @@ export async function executeReplace(
           mode: 'replace',
           backupFingerprint: await computeBackupFingerprint(backup),
           phase: 'FAILED_RECOVERABLE',
-          createdAt: Date.now(),
+          createdAt: initialCreatedAt,
           updatedAt: Date.now(),
+          ...(snapshotMeta ? { snapshotMeta } : {}),
           error: errorMsg.slice(0, 500),
           failedFromPhase: currentPhase,
           initiatorPlatform: 'web',
+          progress: {
+            leaseHolder: currentTabId,
+            leaseExpiresAt: 0,
+            fencingToken,
+          },
         });
-      } catch {
-        // Ignore secondary error while logging failure
+      } catch (err2) {
+        console.error('Failed to record FAILED_RECOVERABLE phase in restoreOperation:', err2);
       }
     }
     throw err;
@@ -767,7 +1070,8 @@ export async function resumeReplace(
   }
 
   const currentFp = await computeBackupFingerprint(backup);
-  if (currentFp !== operation.backupFingerprint) {
+  const legacyFp = await computeLegacyBackupFingerprint(backup);
+  if (currentFp !== operation.backupFingerprint && legacyFp !== operation.backupFingerprint) {
     throw new Error('FINGERPRINT_MISMATCH: Selected backup does not match the unfinished operation');
   }
 
@@ -794,9 +1098,11 @@ export async function rollbackReplace(
   const snapshot = await readSafetySnapshot(expectedUid);
   if (snapshot.operationId !== operation.operationId) throw new Error('SNAPSHOT_OPERATION_MISMATCH');
 
+  const currentTabId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `tab_${Date.now()}_${Math.random()}`;
   if (activeOperationsByUid.has(expectedUid)) {
     throw new Error('RESTORE_OPERATION_ALREADY_IN_PROGRESS');
   }
+  const { fencingToken } = await acquireRecoveryLease(db, expectedUid, currentTabId, true);
   activeOperationsByUid.add(expectedUid);
 
   try {
@@ -805,36 +1111,96 @@ export async function rollbackReplace(
       ...operation,
       phase: 'ROLLING_BACK',
       updatedAt: Date.now(),
+      progress: {
+        leaseHolder: currentTabId,
+        leaseExpiresAt: Date.now() + RECOVERY_LEASE_DURATION_MS,
+        fencingToken,
+      },
     });
 
     if (faultHooks?.failDuringRollback) {
       throw new Error('FAULT_INJECTED_DURING_ROLLBACK');
     }
 
-    // 3. Upsert snapshot categories
+    // 2. Upsert snapshot categories without { merge: true }
+    await verifyAndRenewRecoveryLease(db, expectedUid, currentTabId, fencingToken);
     for (let i = 0; i < snapshot.categories.length; i += RESTORE_BATCH_CHUNK_SIZE) {
       const chunk = snapshot.categories.slice(i, i + RESTORE_BATCH_CHUNK_SIZE);
       const batch = writeBatch(db);
       for (const c of chunk) {
         const ref = doc(db, 'users', expectedUid, CATEGORIES_COLLECTION, c.id);
-        batch.set(
-          ref,
-          {
-            name: c.name.trim().slice(0, 50),
-            iconName: c.iconName.slice(0, 50),
-            colorInt: c.colorInt | 0,
-            transactionType: c.transactionType,
-            sortOrder: Math.max(0, Math.trunc(c.sortOrder)),
-            updatedAt: c.updatedAt ?? Date.now(),
-            id: c.id,
-          },
-          { merge: true },
-        );
+        batch.set(ref, {
+          name: c.name.trim().slice(0, 80),
+          iconName: c.iconName.slice(0, 63),
+          colorInt: c.colorInt | 0,
+          transactionType: c.transactionType,
+          sortOrder: Math.max(0, Math.trunc(c.sortOrder)),
+          updatedAt: Date.now(),
+          id: c.id,
+        });
       }
+      batch.update(doc(db, 'users', expectedUid, META_COLLECTION, RESTORE_OPERATION_DOC), {
+        updatedAt: Date.now(),
+        'progress.fencingToken': fencingToken,
+        'progress.leaseHolder': currentTabId,
+        'progress.leaseExpiresAt': Date.now() + RECOVERY_LEASE_DURATION_MS,
+        'progress.lastBatchCommittedAt': Date.now(),
+        'progress.step': 'rollback_categories',
+      });
       await batch.commit();
     }
 
-    // 4. Upsert snapshot expenses
+    // 2b. Delete extra categories that were NOT in the snapshot
+    await verifyAndRenewRecoveryLease(db, expectedUid, currentTabId, fencingToken);
+    const snapshotCategoryIds = new Set(snapshot.categories.map((c) => c.id));
+    const currentCatSnap = await getDocs(collection(db, 'users', expectedUid, CATEGORIES_COLLECTION));
+    const extraCategoryIds = currentCatSnap.docs
+      .filter((d) => !snapshotCategoryIds.has(d.id))
+      .map((d) => d.id);
+
+    // Stage deletionState: 'deleting' first, matching firestore.rules
+    for (let i = 0; i < extraCategoryIds.length; i += RESTORE_BATCH_CHUNK_SIZE) {
+      const chunk = extraCategoryIds.slice(i, i + RESTORE_BATCH_CHUNK_SIZE);
+      const batch = writeBatch(db);
+      for (const id of chunk) {
+        batch.set(
+          doc(db, 'users', expectedUid, CATEGORIES_COLLECTION, id),
+          { deletionState: 'deleting', updatedAt: Date.now() },
+          { merge: true },
+        );
+      }
+      batch.update(doc(db, 'users', expectedUid, META_COLLECTION, RESTORE_OPERATION_DOC), {
+        updatedAt: Date.now(),
+        'progress.fencingToken': fencingToken,
+        'progress.leaseHolder': currentTabId,
+        'progress.leaseExpiresAt': Date.now() + RECOVERY_LEASE_DURATION_MS,
+        'progress.lastBatchCommittedAt': Date.now(),
+        'progress.step': 'rollback_stage_category_deletions',
+      });
+      await batch.commit();
+    }
+
+    // Delete extra categories and any associated budgets
+    for (let i = 0; i < extraCategoryIds.length; i += RESTORE_BATCH_CHUNK_SIZE) {
+      const chunk = extraCategoryIds.slice(i, i + RESTORE_BATCH_CHUNK_SIZE);
+      const batch = writeBatch(db);
+      for (const id of chunk) {
+        batch.delete(doc(db, 'users', expectedUid, CATEGORY_BUDGETS_COLLECTION, id));
+        batch.delete(doc(db, 'users', expectedUid, CATEGORIES_COLLECTION, id));
+      }
+      batch.update(doc(db, 'users', expectedUid, META_COLLECTION, RESTORE_OPERATION_DOC), {
+        updatedAt: Date.now(),
+        'progress.fencingToken': fencingToken,
+        'progress.leaseHolder': currentTabId,
+        'progress.leaseExpiresAt': Date.now() + RECOVERY_LEASE_DURATION_MS,
+        'progress.lastBatchCommittedAt': Date.now(),
+        'progress.step': 'rollback_delete_categories',
+      });
+      await batch.commit();
+    }
+
+    // 3. Upsert snapshot expenses without { merge: true }
+    await verifyAndRenewRecoveryLease(db, expectedUid, currentTabId, fencingToken);
     const snapshotExpenseIds = new Set(snapshot.expenses.map((e) => e.id));
     for (let i = 0; i < snapshot.expenses.length; i += RESTORE_BATCH_CHUNK_SIZE) {
       const chunk = snapshot.expenses.slice(i, i + RESTORE_BATCH_CHUNK_SIZE);
@@ -842,24 +1208,33 @@ export async function rollbackReplace(
       for (const e of chunk) {
         const ref = doc(db, 'users', expectedUid, EXPENSES_COLLECTION, e.id);
         const roundedAmount = Math.round(e.amount * 100) / 100;
-        batch.set(
-          ref,
-          {
-            amount: roundedAmount,
-            dateMillis: Math.trunc(e.dateMillis),
-            categoryId: e.categoryId,
-            note: e.note.slice(0, 200),
-            transactionType: e.transactionType,
-            updatedAt: e.updatedAt ?? Date.now(),
-            id: e.id,
-          },
-          { merge: true },
-        );
+        batch.set(ref, {
+          amount: roundedAmount,
+          dateMillis: Math.trunc(e.dateMillis),
+          categoryId: e.categoryId,
+          note: e.note.slice(0, 2000),
+          transactionType: e.transactionType,
+          id: e.id,
+          updatedAt: Date.now(),
+          ...(e.deleted !== undefined ? { deleted: e.deleted } : {}),
+          ...(e.cloudId ? { cloudId: e.cloudId } : {}),
+          ...(e.categoryCloudId != null ? { categoryCloudId: e.categoryCloudId } : {}),
+          ...(e.receiptImagePath != null ? { receiptImagePath: e.receiptImagePath } : {}),
+        });
       }
+      batch.update(doc(db, 'users', expectedUid, META_COLLECTION, RESTORE_OPERATION_DOC), {
+        updatedAt: Date.now(),
+        'progress.fencingToken': fencingToken,
+        'progress.leaseHolder': currentTabId,
+        'progress.leaseExpiresAt': Date.now() + RECOVERY_LEASE_DURATION_MS,
+        'progress.lastBatchCommittedAt': Date.now(),
+        'progress.step': 'rollback_expenses',
+      });
       await batch.commit();
     }
 
-    // 5. Query current expenses and delete any that were NOT in the snapshot
+    // 4. Query current expenses and delete any that were NOT in the snapshot
+    await verifyAndRenewRecoveryLease(db, expectedUid, currentTabId, fencingToken);
     const currentExpSnap = await getDocs(collection(db, 'users', expectedUid, EXPENSES_COLLECTION));
     const extraExpenseIds = currentExpSnap.docs
       .filter((d) => !snapshotExpenseIds.has(d.id))
@@ -872,6 +1247,14 @@ export async function rollbackReplace(
         const ref = doc(db, 'users', expectedUid, EXPENSES_COLLECTION, id);
         batch.delete(ref);
       }
+      batch.update(doc(db, 'users', expectedUid, META_COLLECTION, RESTORE_OPERATION_DOC), {
+        updatedAt: Date.now(),
+        'progress.fencingToken': fencingToken,
+        'progress.leaseHolder': currentTabId,
+        'progress.leaseExpiresAt': Date.now() + RECOVERY_LEASE_DURATION_MS,
+        'progress.lastBatchCommittedAt': Date.now(),
+        'progress.step': 'rollback_delete_expenses',
+      });
       await batch.commit();
     }
 
@@ -883,7 +1266,7 @@ export async function rollbackReplace(
       });
     }
 
-    // 6. Restore preferences
+    // 5. Restore preferences
     if (snapshot.preferences) {
       const prefRef = doc(db, 'users', expectedUid, SETTINGS_COLLECTION, PREFERENCES_DOC);
       const restoredPrefs = {
@@ -894,14 +1277,15 @@ export async function rollbackReplace(
       usePreferencesStore.getState().applySyncedPreferences(restoredPrefs);
     }
 
-    // 7. Mark journal: ROLLED_BACK
+    // 6. Mark journal: ROLLED_BACK
+    const { progress: _rollProg, ...rollBase } = operation;
     await setRestoreOperation(expectedUid, {
-      ...operation,
+      ...rollBase,
       phase: 'ROLLED_BACK',
       updatedAt: Date.now(),
     });
 
-    // 8. Delete snapshot data after rollback
+    // 7. Delete snapshot data after rollback
     await deleteSafetySnapshot(expectedUid);
 
     // Notify application
@@ -916,6 +1300,11 @@ export async function rollbackReplace(
       updatedAt: Date.now(),
       error: `Rollback failed: ${errorMsg}`.slice(0, 500),
       failedFromPhase: 'ROLLING_BACK',
+      progress: {
+        leaseHolder: currentTabId,
+        leaseExpiresAt: 0,
+        fencingToken,
+      },
     });
     throw err;
   } finally {

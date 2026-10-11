@@ -1,9 +1,9 @@
 import { CATEGORY_BUDGETS_COLLECTION } from '@/repositories/firestorePaths';
 import {
-  collection, doc, setDoc, deleteDoc, getDoc, getDocs, getDocsFromServer,
+  collection, doc, setDoc, deleteDoc, getDoc, getDocFromCache, getDocs, getDocsFromServer,
   getDocFromServer, query, where, orderBy, limit,
   onSnapshot, updateDoc, getAggregateFromServer, sum, type Unsubscribe, writeBatch,
-  runTransaction, deleteField, type QueryDocumentSnapshot,
+  runTransaction, deleteField, type QueryDocumentSnapshot, type Query, type DocumentData,
   documentId, startAfter,
 } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/services/firebase';
@@ -23,6 +23,7 @@ import {
   DELETABLE_USER_DOCS,
   EXPENSES_COLLECTION,
   META_COLLECTION,
+  RESTORE_OPERATION_DOC,
 } from './firestorePaths';
 
 function uid(): string | null { return useAuthStore.getState().user?.uid ?? null; }
@@ -238,7 +239,7 @@ async function reassignExpenses(
   for (let i = 0; i < docs.length; i += REASSIGN_CHUNK_SIZE) {
     const chunk = docs.slice(i, i + REASSIGN_CHUNK_SIZE);
     const batch = writeBatch(fs()!);
-    chunk.forEach((d) => batch.update(d.ref, { categoryId: targetCategoryId }));
+    chunk.forEach((d) => batch.update(d.ref, { categoryId: targetCategoryId, idempotencyKey: deleteField() }));
     try {
       await batch.commit();
     } catch (error) {
@@ -248,7 +249,7 @@ async function reassignExpenses(
       if (!isPermissionDenied(error)) throw error;
       for (const item of chunk) {
         try {
-          await updateDoc(item.ref, { categoryId: targetCategoryId });
+          await updateDoc(item.ref, { categoryId: targetCategoryId, idempotencyKey: deleteField() });
         } catch (itemError) {
           if (!isPermissionDenied(itemError)) throw itemError;
           unfixable += 1;
@@ -275,14 +276,14 @@ async function resumeCategoryTypeMigrations(userId: string): Promise<void> {
     for (let i = 0; i < linked.length; i += REASSIGN_CHUNK_SIZE) {
       const chunk = linked.slice(i, i + REASSIGN_CHUNK_SIZE);
       const batch = writeBatch(fs()!);
-      chunk.forEach((expense) => batch.update(expense.ref, { transactionType: target }));
+      chunk.forEach((expense) => batch.update(expense.ref, { transactionType: target, idempotencyKey: deleteField() }));
       try {
         await batch.commit();
       } catch (error) {
         if (!isPermissionDenied(error)) throw error;
         for (const expense of chunk) {
           try {
-            await updateDoc(expense.ref, { transactionType: target });
+            await updateDoc(expense.ref, { transactionType: target, idempotencyKey: deleteField() });
           } catch (itemError) {
             if (!isPermissionDenied(itemError)) throw itemError;
             unfixable += 1;
@@ -318,6 +319,21 @@ function isPermissionDenied(error: unknown): boolean {
     && error !== null
     && 'code' in error
     && error.code === 'permission-denied';
+}
+
+function isOfflineOrNetworkError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const anyErr = error as Record<string, unknown>;
+  const code = String(anyErr.code ?? '');
+  const msg = String(anyErr.message ?? '').toLowerCase();
+  return (
+    code === 'unavailable' ||
+    (code === 'failed-precondition' && msg.includes('offline')) ||
+    msg.includes('client is offline') ||
+    msg.includes('network') ||
+    msg.includes('backend is unavailable') ||
+    (typeof navigator !== 'undefined' && !navigator.onLine)
+  );
 }
 
 async function deleteCategoryInto(userId: string, id: string, targetId?: string): Promise<void> {
@@ -521,6 +537,19 @@ export const expenseRepository = {
     return snap.data()?.pendingDeletion === true;
   },
 
+  async isRestoreOperationActive(): Promise<boolean> {
+    const userId = uid();
+    if (!userId || !fs()) return false;
+    try {
+      const snap = await getDoc(metaDoc(userId, RESTORE_OPERATION_DOC));
+      if (!snap.exists()) return false;
+      const phase = snap.data()?.phase;
+      return phase === 'APPLYING' || phase === 'ROLLING_BACK';
+    } catch {
+      return false;
+    }
+  },
+
   async markAccountDeletionPending(): Promise<void> {
     const userId = uid();
     if (!userId) throw new Error('Not signed in');
@@ -635,9 +664,42 @@ export const expenseRepository = {
 
   async getExpenseById(id: string): Promise<Expense | undefined> {
     const userId = uid(); if (!userId) return undefined;
-    const snap = await getDoc(expDoc(userId, id));
-    if (!snap.exists()) return undefined;
-    return { ...snap.data(), id: snap.id } as Expense;
+    try {
+      const snap = await getDocFromCache(expDoc(userId, id));
+      if (snap.exists()) return { ...snap.data(), id: snap.id } as Expense;
+    } catch {
+      // Not in cache, try default / server getDoc
+    }
+    try {
+      const snap = await getDoc(expDoc(userId, id));
+      if (snap && snap.exists()) return { ...snap.data(), id: snap.id } as Expense;
+    } catch {
+      // Offline or network error
+    }
+    return undefined;
+  },
+
+  async getAllExpensesForBackup(pageSize = 1_000): Promise<Expense[]> {
+    const u = uid();
+    if (!u) return [];
+    const all: Expense[] = [];
+    let lastDoc: QueryDocumentSnapshot | null = null;
+    while (true) {
+      const q: Query<DocumentData> = lastDoc
+        ? query(expCol(u), orderBy('dateMillis', 'desc'), startAfter(lastDoc), limit(pageSize))
+        : query(expCol(u), orderBy('dateMillis', 'desc'), limit(pageSize));
+      const snap = await getDocsFromServer(q);
+      if (snap.empty) break;
+      for (const d of snap.docs) {
+        const data = d.data();
+        if (data.deleted !== true) {
+          all.push({ ...data, id: d.id } as Expense);
+        }
+      }
+      if (snap.docs.length < pageSize) break;
+      lastDoc = snap.docs[snap.docs.length - 1];
+    }
+    return all;
   },
 
   async getExpensesInRange(start: number, end: number): Promise<Expense[]> {
@@ -691,19 +753,25 @@ export const expenseRepository = {
       .filter((d) => d.data().deleted !== true).length;
   },
 
-  // A keyed create derives remote identity from the key. The transaction makes the
-  // existing-document check and create one atomic operation across tabs/devices/clients.
+  // A keyed create derives remote identity from the key. The check-and-set on the
+  // deterministic id allows offline queuing while ensuring retries or duplicate
+  // submissions never overwrite a later edit of the row.
   async insertExpense(expense: Omit<Expense, 'id'>, idempotencyKey?: string, expectedUid?: string): Promise<string> {
     const userId = uid(); if (!userId) throw new Error('Not signed in');
     if (expectedUid != null && userId !== expectedUid) throw new Error('AUTH_ACCOUNT_CHANGED');
     requireVerifiedEmail();
+    if (await this.isRestoreOperationActive()) {
+      throw new Error('ACCOUNT_RESTORE_IN_PROGRESS');
+    }
     if (idempotencyKey) {
       // Historical releases used random document ids. Find those first so upgrading a
       // user cannot create a deterministic second copy of an already-recorded expense.
-      const dupSnap = await getDocs(query(
-        expCol(userId), where('idempotencyKey', '==', idempotencyKey), limit(1),
-      ));
-      if (!dupSnap.empty) return dupSnap.docs[0].id;
+      try {
+        const dupSnap = await getDocs(query(expCol(userId), where('idempotencyKey', '==', idempotencyKey), limit(1)));
+        if (!dupSnap.empty) return dupSnap.docs[0].id;
+      } catch {
+        // Query may fail offline if not indexed/cached; proceed with deterministic id.
+      }
 
       const id = await expenseDocumentId(idempotencyKey);
       const ref = expDoc(userId, id);
@@ -713,14 +781,40 @@ export const expenseRepository = {
         // such limit because only the fixed-size hash is used as the document path.
         { updatedAt: now(), idempotencyKey: idempotencyKey.length < 128 ? idempotencyKey : undefined },
       );
-      const created = await runTransaction(fs()!, async (transaction) => {
-        const existing = await transaction.get(ref);
-        if (existing.exists()) return false;
-        transaction.set(ref, payload);
-        return true;
-      });
-      if (created) emitDataChanged();
-      return id;
+
+      // Check if document already exists in local cache before attempting transaction/network
+      try {
+        const cached = await getDocFromCache(ref);
+        if (cached.exists()) return id;
+      } catch {
+        // Not in local cache
+      }
+
+      // Primary online path: atomic transaction guarantees create-if-absent across concurrent devices/tabs
+      try {
+        const created = await runTransaction(fs()!, async (transaction) => {
+          const existing = await transaction.get(ref);
+          if (existing.exists()) return false;
+          transaction.set(ref, payload);
+          return true;
+        });
+        if (created) emitDataChanged();
+        return id;
+      } catch (txError: unknown) {
+        if (isOfflineOrNetworkError(txError)) {
+          // Offline fallback: check local/server document if available, then setDoc
+          try {
+            const existing = await getDoc(ref);
+            if (existing.exists()) return id;
+          } catch {
+            // Document unavailable while offline
+          }
+          await setDoc(ref, payload);
+          emitDataChanged();
+          return id;
+        }
+        throw txError;
+      }
     }
     const id = crypto.randomUUID();
     await setDoc(
@@ -739,15 +833,27 @@ export const expenseRepository = {
     if (!userId) throw new Error('Not signed in');
     if (!expense.id) throw new Error('EXPENSE_NOT_FOUND');
     requireVerifiedEmail();
+    if (await this.isRestoreOperationActive()) {
+      throw new Error('ACCOUNT_RESTORE_IN_PROGRESS');
+    }
     const existing = await getDoc(expDoc(userId, expense.id));
     if (!existing.exists()) {
       throw new Error('EXPENSE_NOT_FOUND');
     }
-    await setDoc(
-      expDoc(userId, expense.id),
-      expenseWritePayload(expense, { updatedAt: now() }),
-      { merge: true },
-    );
+    try {
+      await updateDoc(
+        expDoc(userId, expense.id),
+        {
+          ...expenseWritePayload(expense, { updatedAt: now() }),
+          idempotencyKey: deleteField(),
+        } as Record<string, any>,
+      );
+    } catch (err: any) {
+      if (err?.code === 'not-found' || err?.message?.includes('not-found') || err?.message?.includes('No document to update')) {
+        throw new Error('EXPENSE_NOT_FOUND');
+      }
+      throw err;
+    }
     emitDataChanged();
   },
 
@@ -755,6 +861,9 @@ export const expenseRepository = {
     const userId = uid(); if (!userId) return null;
     if (expectedUid != null && userId !== expectedUid) throw new Error('AUTH_ACCOUNT_CHANGED');
     requireVerifiedEmail();
+    if (await this.isRestoreOperationActive()) {
+      throw new Error('ACCOUNT_RESTORE_IN_PROGRESS');
+    }
     const exp = await this.getExpenseById(id);
     if (!exp) return null;
     await deleteDoc(expDoc(userId, id));

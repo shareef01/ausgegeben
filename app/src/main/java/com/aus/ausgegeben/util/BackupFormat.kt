@@ -20,6 +20,10 @@ object BackupFormat {
         val locale: String = "en",
         val themeMode: String = "system",
         val preferencesUpdatedAt: Long? = null,
+        val dailyReminder: Boolean? = null,
+        val reminderHour: Int? = null,
+        val reminderMinute: Int? = null,
+        val analyticsPeriod: String? = null,
     )
 
     data class ValidationResult(
@@ -63,14 +67,18 @@ object BackupFormat {
         preferences.preferencesUpdatedAt?.takeIf { it > 0 }?.let {
             prefsObj.put("preferencesUpdatedAt", it)
         }
+        if (preferences.dailyReminder != null) prefsObj.put("dailyReminder", preferences.dailyReminder)
+        if (preferences.reminderHour != null) prefsObj.put("reminderHour", preferences.reminderHour)
+        if (preferences.reminderMinute != null) prefsObj.put("reminderMinute", preferences.reminderMinute)
+        if (preferences.analyticsPeriod != null) prefsObj.put("analyticsPeriod", preferences.analyticsPeriod)
         root.put("preferences", prefsObj)
 
         val categoriesArr = JSONArray()
         for (c in categories) {
             val catObj = JSONObject()
             catObj.put("id", c.id)
-            catObj.put("name", c.name.trim().take(50))
-            catObj.put("iconName", c.iconName.take(50))
+            catObj.put("name", c.name.trim().take(80))
+            catObj.put("iconName", c.iconName.take(63))
             catObj.put("colorInt", c.colorInt)
             val type = if (c.transactionType in ALLOWED_TRANSACTION_TYPES) c.transactionType else "expense"
             catObj.put("transactionType", type)
@@ -88,7 +96,7 @@ object BackupFormat {
             expObj.put("amount", roundedAmount)
             expObj.put("dateMillis", e.dateMillis)
             expObj.put("categoryId", e.categoryId)
-            expObj.put("note", e.note.take(200))
+            expObj.put("note", e.note.take(2000))
             val type = if (e.transactionType in ALLOWED_TRANSACTION_TYPES) e.transactionType else "expense"
             expObj.put("transactionType", type)
             expensesArr.put(expObj)
@@ -178,18 +186,34 @@ object BackupFormat {
                     continue
                 }
                 val id = cat.optString("id")
-                if (id.isBlank()) {
-                    errors.add("Category at index $i has missing id")
+                if (id.isBlank() || id.length >= 64 || id.contains('/')) {
+                    errors.add("Category at index $i has missing or invalid id")
                 } else if (!categoryIds.add(id)) {
                     errors.add("Duplicate category id: \"$id\"")
                 }
                 val name = cat.optString("name")
-                if (name.isBlank() || name.length > 50) {
-                    errors.add("Category at index $i name must be between 1 and 50 characters")
+                if (name.isBlank() || name.length > 80) {
+                    errors.add("Category at index $i name must be between 1 and 80 characters")
+                }
+                val iconName = cat.optString("iconName")
+                if (iconName.isBlank() || iconName.length >= 64) {
+                    errors.add("Category at index $i iconName must be a non-empty string under 64 characters")
                 }
                 val type = cat.optString("transactionType")
                 if (type !in ALLOWED_TRANSACTION_TYPES) {
                     errors.add("Category at index $i has invalid transactionType: \"$type\"")
+                }
+            }
+        }
+
+        val categoryTypeMap = mutableMapOf<String, String>()
+        if (categoriesArr != null) {
+            for (i in 0 until categoriesArr.length()) {
+                val cat = categoriesArr.optJSONObject(i) ?: continue
+                val id = cat.optString("id")
+                val type = cat.optString("transactionType")
+                if (id.isNotBlank() && type in ALLOWED_TRANSACTION_TYPES) {
+                    categoryTypeMap[id] = type
                 }
             }
         }
@@ -206,8 +230,8 @@ object BackupFormat {
                     continue
                 }
                 val id = exp.optString("id")
-                if (id.isBlank()) {
-                    errors.add("Expense at index $i has missing id")
+                if (id.isBlank() || id.length > 64 || id.contains('/')) {
+                    errors.add("Expense at index $i has missing or invalid id")
                 } else if (!expenseIds.add(id)) {
                     errors.add("Duplicate expense id: \"$id\"")
                 }
@@ -220,22 +244,27 @@ object BackupFormat {
                     errors.add("Expense at index $i has sub-cent precision: $amount")
                 }
                 val dateMillis = exp.optLong("dateMillis", -1L)
-                if (dateMillis <= 0L) {
-                    errors.add("Expense at index $i has invalid dateMillis")
+                if (dateMillis < 946684800000L || dateMillis >= 4102444800000L) {
+                    errors.add("Expense at index $i has invalid dateMillis: must be between 2000-01-01 and 2100-01-01 UTC")
                 }
                 val catId = exp.optString("categoryId")
-                if (catId.isBlank()) {
-                    errors.add("Expense at index $i has missing categoryId")
+                if (catId.isBlank() || catId.length >= 64 || catId.contains('/')) {
+                    errors.add("Expense at index $i has missing or invalid categoryId")
                 } else if (categoryIds.isNotEmpty() && catId !in categoryIds) {
                     errors.add("Expense at index $i references nonexistent categoryId \"$catId\"")
                 }
                 val note = exp.optString("note")
-                if (note.length > 200) {
-                    errors.add("Expense at index $i note must be at most 200 characters")
+                if (note.length > 2000) {
+                    errors.add("Expense at index $i note must be at most 2000 characters")
                 }
                 val type = exp.optString("transactionType")
                 if (type !in ALLOWED_TRANSACTION_TYPES) {
                     errors.add("Expense at index $i has invalid transactionType: \"$type\"")
+                } else {
+                    val catType = categoryTypeMap[catId]
+                    if (catId != "0" && catType != null && catType != type) {
+                        errors.add("Expense at index $i transactionType \"$type\" does not match category transactionType \"$catType\"")
+                    }
                 }
             }
         }
@@ -374,6 +403,10 @@ object BackupFormat {
             locale = prefsObj.optString("locale", "en"),
             themeMode = prefsObj.optString("themeMode", "system"),
             preferencesUpdatedAt = if (prefsObj.has("preferencesUpdatedAt")) prefsObj.optLong("preferencesUpdatedAt") else null,
+            dailyReminder = if (prefsObj.has("dailyReminder")) prefsObj.optBoolean("dailyReminder") else null,
+            reminderHour = if (prefsObj.has("reminderHour")) prefsObj.optInt("reminderHour") else null,
+            reminderMinute = if (prefsObj.has("reminderMinute")) prefsObj.optInt("reminderMinute") else null,
+            analyticsPeriod = if (prefsObj.has("analyticsPeriod")) prefsObj.optString("analyticsPeriod") else null,
         )
 
         val categories = mutableListOf<ParsedCategory>()

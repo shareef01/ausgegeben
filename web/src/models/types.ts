@@ -25,6 +25,9 @@ export interface Expense {
   updatedAt?: number;
   idempotencyKey?: string;
   deleted?: boolean;
+  cloudId?: string;
+  categoryCloudId?: string | number | null;
+  receiptImagePath?: string | null;
 }
 
 export interface AnalyticsPeriodOption {
