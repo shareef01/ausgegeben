@@ -199,6 +199,8 @@ class AppRepository @Inject constructor(
     private fun snapshotDoc(uid: String, id: String) = snapshotCol(uid).document(id)
 
     /** True when wipe finished but Auth delete failed — blocks re-seeding empty accounts. */
+    override suspend fun isAccountDeletionPending(): Boolean = isAccountDeletionPending(null)
+
     override suspend fun isAccountDeletionPending(targetUid: String?): Boolean {
         val u = targetUid ?: uid() ?: return false
         return accountDeletionDoc(u).get().await().getBoolean("pendingDeletion") == true
