@@ -993,6 +993,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
 
       {showCurrency ? (
         <Modal title={t('settingsChooseCurrency')} onClose={() => setShowCurrency(false)}>
+          <p className="text-sm text-on-surface-variant mb-3">{t('settingsCurrencyNotice')}</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2" role="radiogroup" aria-label={t('settingsChooseCurrency')}>
             {SUPPORTED_CURRENCIES.map((c) => (
               <PickerOptionRow

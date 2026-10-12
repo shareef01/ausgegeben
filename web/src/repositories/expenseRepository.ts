@@ -456,8 +456,7 @@ export const expenseRepository = {
         // submission. See DATA-1.
         try {
           await reconcilePendingExpenseSubmissions(userId, async (operationId) => {
-            const id = await expenseDocumentId(operationId);
-            return (await getDoc(expDoc(userId, id))).exists();
+            return (await expenseRepository.expenseExistsForOperation(userId, operationId)) !== null;
           });
         } catch (err) {
           console.warn('[ensureSeeded] pending submission reconciliation failed', err);
@@ -514,8 +513,8 @@ export const expenseRepository = {
     });
   },
 
-  async isAccountDeletionPending(): Promise<boolean> {
-    const userId = uid();
+  async isAccountDeletionPending(targetUid?: string): Promise<boolean> {
+    const userId = targetUid ?? uid();
     if (!userId || !fs()) return false;
     const snap = await getDoc(metaDoc(userId, ACCOUNT_DELETION_DOC));
     return snap.data()?.pendingDeletion === true;
@@ -577,12 +576,17 @@ export const expenseRepository = {
     if (!CategoryValidator.isValid(sanitizedName)) {
       throw new Error('INVALID_CATEGORY_NAME');
     }
-    const current = (await getDocFromServer(catDoc(userId, cat.id))).data();
-    if (current && current.transactionType !== cat.transactionType && (current.recurringTemplateCount ?? 0) > 0) throw new Error('CATEGORY_HAS_RECURRING');
-    await setDoc(
+    const snap = await getDoc(catDoc(userId, cat.id));
+    if (!snap.exists() || (snap.data() as any)?.deleted === true) {
+      throw new Error('CATEGORY_NOT_FOUND');
+    }
+    const current = snap.data();
+    if (current && current.transactionType !== cat.transactionType && (current.recurringTemplateCount ?? 0) > 0) {
+      throw new Error('CATEGORY_HAS_RECURRING');
+    }
+    await updateDoc(
       catDoc(userId, cat.id),
       categoryWritePayload({ ...cat, name: sanitizedName }, now()),
-      { merge: true },
     );
   },
 
@@ -616,7 +620,7 @@ export const expenseRepository = {
 
     const batch = writeBatch(firestore);
     for (const payload of payloads) {
-      batch.set(catDoc(userId, String(payload.id)), payload, { merge: true });
+      batch.update(catDoc(userId, String(payload.id)), payload);
     }
     await batch.commit();
   },
@@ -631,6 +635,23 @@ export const expenseRepository = {
       id,
       id === UNCATEGORIZED_ID ? undefined : UNCATEGORIZED_ID,
     );
+  },
+
+  /**
+   * Whether this exact operation's expense document already exists server-side, and
+   * its id if so. Always a server-only read (`getDocFromServer`, never `getDoc`): an
+   * offline/incomplete cache must never be mistaken for "confirmed absent" and
+   * green-light an unsafe retry — a false negative here could create a real
+   * duplicate. This is the one existence check both cold-start reconciliation
+   * (ensureSeeded, below) and immediate post-write reconciliation
+   * (useAddTransactionViewModel's insertExpenseReconciled) share, rather than two
+   * competing implementations of the same lookup — see DATA-1 and the
+   * server-success/client-timeout fix.
+   */
+  async expenseExistsForOperation(userId: string, operationId: string): Promise<string | null> {
+    const id = await expenseDocumentId(operationId);
+    const snap = await getDocFromServer(expDoc(userId, id));
+    return snap.exists() ? id : null;
   },
 
   async getExpenseById(id: string): Promise<Expense | undefined> {
@@ -691,11 +712,26 @@ export const expenseRepository = {
       .filter((d) => d.data().deleted !== true).length;
   },
 
-  // A keyed create derives remote identity from the key. The transaction makes the
-  // existing-document check and create one atomic operation across tabs/devices/clients.
-  async insertExpense(expense: Omit<Expense, 'id'>, idempotencyKey?: string, expectedUid?: string): Promise<string> {
-    const userId = uid(); if (!userId) throw new Error('Not signed in');
-    if (expectedUid != null && userId !== expectedUid) throw new Error('AUTH_ACCOUNT_CHANGED');
+  /**
+   * `ownerUid`, if supplied, pins the Firestore path this write targets to a value the
+   * caller captured at the start of a logical operation, rather than re-reading the
+   * (mutable) current auth uid on this specific call (WEB-2) — relevant only to a
+   * multi-step reconciliation cycle (insertExpenseReconciled) where the account could
+   * in principle change between the original attempt and its retry. `requireVerifiedEmail`
+   * still checks the CURRENT session regardless: if the session's account actually
+   * changed, Firestore's own rules (isOwner: request.auth.uid == path uid) reject a
+   * write whose path uid no longer matches the authenticated uid as a definite
+   * permission-denied failure — this can never silently write under the wrong account,
+   * it can only ever safely fail. Omitted, this behaves exactly as before (every other
+   * caller).
+   */
+  async insertExpense(
+    expense: Omit<Expense, 'id'>,
+    idempotencyKey?: string,
+    ownerUid?: string,
+  ): Promise<string> {
+    const userId = ownerUid ?? uid(); if (!userId) throw new Error('Not signed in');
+    if (ownerUid != null && uid() !== ownerUid) throw new Error('AUTH_ACCOUNT_CHANGED');
     requireVerifiedEmail();
     if (idempotencyKey) {
       // Historical releases used random document ids. Find those first so upgrading a
@@ -740,13 +776,12 @@ export const expenseRepository = {
     if (!expense.id) throw new Error('EXPENSE_NOT_FOUND');
     requireVerifiedEmail();
     const existing = await getDoc(expDoc(userId, expense.id));
-    if (!existing.exists()) {
+    if (!existing.exists() || (existing.data() as any)?.deleted === true) {
       throw new Error('EXPENSE_NOT_FOUND');
     }
-    await setDoc(
+    await updateDoc(
       expDoc(userId, expense.id),
       expenseWritePayload(expense, { updatedAt: now() }),
-      { merge: true },
     );
     emitDataChanged();
   },

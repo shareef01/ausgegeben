@@ -139,6 +139,7 @@
     <string name="settings_no_email_app">No email app found</string>
     <string name="settings_choose_theme">Choose theme</string>
     <string name="settings_choose_currency">Choose currency</string>
+    <string name="settings_currency_notice">Changing currency updates display formatting. Historical amounts are preserved and not automatically converted.</string>
     <string name="settings_choose_language">Choose language</string>
     <string name="settings_language">Language</string>
     <string name="lang_english">English</string>
@@ -149,7 +150,7 @@
     <string name="settings_budget_set">Monthly limit set</string>
     <string name="settings_budget_cleared">Monthly limit cleared</string>
     <string name="settings_account_cloud">Cloud account</string>
-    <string name="settings_account_sync_enabled">Cloud backup enabled</string>
+    <string name="settings_account_sync_enabled">Cloud sync enabled</string>
     <string name="settings_account_offline">Not signed in</string>
     <string name="settings_account_signed_in_as">Signed in as %1$s</string>
     <string name="settings_account_cloud_subtitle">Your data syncs across devices</string>
@@ -180,10 +181,10 @@
     <string name="settings_sync_in_progress">Syncing with cloud…</string>
     <string name="settings_sync_failed_detail">Sync failed: %1$s</string>
     <string name="settings_sync_error_permission">Cloud sync could not access your account. Check your connection and try signing out and back in.</string>
-    <string name="settings_sync_error_config_placeholder">Cloud backup is not available in this build.</string>
+    <string name="settings_sync_error_config_placeholder">Cloud sync is not available in this build.</string>
     <string name="settings_sync_error_network">No internet connection. Check your network and try again.</string>
     <string name="settings_sync_error_timeout">Sync timed out. Try again on a stable connection.</string>
-    <string name="settings_sync_error_firestore_missing">Cloud backup is temporarily unavailable. Please try again later.</string>
+    <string name="settings_sync_error_firestore_missing">Cloud sync is temporarily unavailable. Please try again later.</string>
 
     <!-- Add transaction -->
     <string name="add_save_changes">Save changes</string>
@@ -213,9 +214,17 @@
     <string name="add_delete_category_none">No transactions are linked to this category.</string>
     <string name="add_delete_category_one">1 linked transaction will move to Uncategorized.</string>
     <string name="add_delete_category_many">%1$d linked transactions will move to Uncategorized.</string>
+    <plurals name="add_delete_category_linked">
+        <item quantity="one">%1$d linked transaction will move to Uncategorized.</item>
+        <item quantity="other">%1$d linked transactions will move to Uncategorized.</item>
+    </plurals>
     <string name="add_delete_category_fallback">Linked transactions will move to Uncategorized.</string>
     <string name="add_delete_category_uncategorized_one">1 linked transaction will show as unknown until you assign a category.</string>
     <string name="add_delete_category_uncategorized_many">%1$d linked transactions will show as unknown until you assign a category.</string>
+    <plurals name="add_delete_category_uncategorized">
+        <item quantity="one">%1$d linked transaction will show as unknown until you assign a category.</item>
+        <item quantity="other">%1$d linked transactions will show as unknown until you assign a category.</item>
+    </plurals>
     <string name="add_delete_category_uncategorized_fallback">Linked transactions will show as unknown until you assign a category.</string>
     <string name="add_delete_category_body">Deleting \"%1$s\" cannot be undone. %2$s</string>
     <string name="action_ok">OK</string>
@@ -226,6 +235,9 @@
     <string name="error_category_type_mismatch">This category is for %1$s transactions</string>
     <string name="error_budget_exceeded">Monthly budget exceeded: %1$s of %2$s</string>
     <string name="error_budget_check_failed">Couldn\'t check the monthly budget. The transaction was saved.</string>
+    <string name="error_save_unresolved">We couldn\'t confirm whether this transaction was saved. Don\'t add it again yet — we\'ll check again automatically.</string>
+    <string name="submission_recovered_success">Your earlier transaction was found and is already saved. Tap Save again to add a new one.</string>
+    <string name="submission_recovered_absent">We couldn\'t find the earlier transaction. You can submit it again — tap Save once more.</string>
 
     <!-- Snackbars -->
     <string name="snackbar_transaction_deleted">Transaction deleted</string>

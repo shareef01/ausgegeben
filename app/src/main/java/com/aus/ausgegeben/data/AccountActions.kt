@@ -3,7 +3,7 @@ package com.aus.ausgegeben.data
 /** Narrow account-lifecycle surface used by Settings' delete-account flow (easy to fake in unit tests). */
 interface AccountActions {
     /** True when the permanent deletion tombstone has frozen the account. */
-    suspend fun isAccountDeletionPending(): Boolean
+    suspend fun isAccountDeletionPending(targetUid: String? = null): Boolean
 
     suspend fun markAccountDeletionPending(): Result<Unit>
 

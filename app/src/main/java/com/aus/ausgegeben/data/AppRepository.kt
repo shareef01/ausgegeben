@@ -199,8 +199,8 @@ class AppRepository @Inject constructor(
     private fun snapshotDoc(uid: String, id: String) = snapshotCol(uid).document(id)
 
     /** True when wipe finished but Auth delete failed — blocks re-seeding empty accounts. */
-    override suspend fun isAccountDeletionPending(): Boolean {
-        val u = uid() ?: return false
+    override suspend fun isAccountDeletionPending(targetUid: String?): Boolean {
+        val u = targetUid ?: uid() ?: return false
         return accountDeletionDoc(u).get().await().getBoolean("pendingDeletion") == true
     }
 
@@ -469,7 +469,7 @@ class AppRepository @Inject constructor(
             }
             desired.transactionType != persisted.transactionType ->
                 migrateCategoryType(u, desired, persisted.transactionType, desired.transactionType)
-            else -> ref.set(categoryPayload(desired), SetOptions.merge()).await()
+            else -> ref.update(categoryPayload(desired)).await()
         }
     }
 
@@ -593,7 +593,7 @@ class AppRepository @Inject constructor(
         }
         firestore.runBatch { batch ->
             prepared.forEach { c ->
-                batch.set(catDoc(u, c.id), categoryPayload(c), SetOptions.merge())
+                batch.update(catDoc(u, c.id), categoryPayload(c))
             }
         }.await()
     }
@@ -791,12 +791,12 @@ class AppRepository @Inject constructor(
         val u = uid() ?: throw IllegalStateException("Not signed in")
         requireVerifiedEmail()
         val snap = expDoc(u, expense.id).get().await()
-        if (!snap.exists()) throw IllegalStateException("EXPENSE_NOT_FOUND")
+        if (!snap.exists() || snap.getBoolean("deleted") == true) throw IllegalStateException("EXPENSE_NOT_FOUND")
         val e = expense.copy(
             amount = roundAmount(expense.amount),
             note = expense.note.trim().take(2000)
         )
-        expDoc(u, expense.id).set(expensePayload(e), SetOptions.merge()).await()
+        expDoc(u, expense.id).update(expensePayload(e)).await()
     }
 
     override suspend fun deleteExpense(expense: Expense): Result<Unit> = runSuspendCatching {

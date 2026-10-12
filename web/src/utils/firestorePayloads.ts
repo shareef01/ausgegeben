@@ -14,8 +14,8 @@ export function categoryWritePayload(
     id?: string;
   },
   updatedAt: number,
-): Record<string, unknown> {
-  const payload: Record<string, unknown> = {
+): Record<string, any> {
+  const payload: Record<string, any> = {
     name: cat.name.trim().slice(0, 80),
     iconName: cat.iconName,
     colorInt: cat.colorInt,
@@ -35,8 +35,8 @@ export function expenseWritePayload(
     id?: string;
   },
   opts?: { updatedAt?: number; idempotencyKey?: string },
-): Record<string, unknown> {
-  const payload: Record<string, unknown> = {
+): Record<string, any> {
+  const payload: Record<string, any> = {
     amount: roundAmount(expense.amount),
     dateMillis: expense.dateMillis,
     categoryId: expense.categoryId,
