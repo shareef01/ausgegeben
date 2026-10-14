@@ -1109,6 +1109,7 @@ private fun CurrencySelectionSheet(
             isSelected = { it == currentCurrency },
             label = { it },
             secondaryLabel = { CurrencyUtils.labelFor(it) },
+            notice = stringResource(R.string.settings_currency_notice),
             onSelect = onSelect,
             onDismiss = onDismiss
         )
@@ -1123,6 +1124,7 @@ private fun <T> SelectionSheetContent(
     label: @Composable (T) -> String,
     secondaryLabel: @Composable ((T) -> String)? = null,
     icon: @Composable ((T) -> Unit)? = null,
+    notice: String? = null,
     onSelect: (T) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -1133,6 +1135,14 @@ private fun <T> SelectionSheetContent(
             .padding(bottom = 32.dp)
     ) {
         SheetHeader(title = title)
+        if (notice != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = notice,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         
         Spacer(modifier = Modifier.height(16.dp))
 

@@ -156,7 +156,13 @@ Do not deploy Firestore rules without their indexes. The local emulator serves u
 - CSV is an interchange/report export, not disaster recovery: it omits preferences,
   categories and their stable IDs, budgets, migration metadata, and deletion state.
   Safe versioned JSON backup export and restore is implemented across Android and
-  the web (see `docs/local-backup-plan.md`).
+  the web using `ausgegeben-backup` schema version 1 (`schemaVersion: 1`),
+  validated by `web/src/services/backupFormat.ts` and described in `docs/local-backup-plan.md`. There is no schema v2 or v3.
+- Actual Firestore collections are strictly under `users/{userId}`: `categories`, `expenses`, `settings` (document `preferences`),
+  and `meta` (documents `dedupe`, `accountDeletion`). There are no recurring templates, recurring receipt subcollections, or restore snapshot paths.
+- Currency switching updates visual display formatting across all records; historical numerical amounts are preserved intact without automatic conversion.
+- Concurrent delete and update safety: Both Android and web employ atomic update semantics (`updateDoc` on Web, `DocumentReference.update` on Android)
+  and batch updates for category reordering, preventing deleted expenses and categories from being resurrected by concurrent writes.
 - Android does not currently query GitHub for updates. Users discover updates on the
   repository Releases page. A future opt-in checker should query only the latest
   stable release, cache success for at least 24 hours, fail silently on network/API

@@ -1010,6 +1010,14 @@ export async function executeReplace(
       phase: 'COMPLETED',
       updatedAt: Date.now(),
       snapshotMeta,
+      // Terminal writes keep the lease progress: the rules fence terminal transitions
+      // while a lease is active, and a stripped progress map would both fail the fence
+      // and reopen the zombie-completion hole.
+      progress: {
+        leaseHolder: currentTabId,
+        leaseExpiresAt: Date.now() + RECOVERY_LEASE_DURATION_MS,
+        fencingToken,
+      },
     });
 
     // Notify application of changes
@@ -1122,7 +1130,9 @@ export async function rollbackReplace(
       throw new Error('FAULT_INJECTED_DURING_ROLLBACK');
     }
 
-    // 2. Upsert snapshot categories without { merge: true }
+    // 2. Upsert snapshot categories with { merge: true } so live fields the failed
+    // replace never touched (deletionState, recurringTemplateCount, migration markers)
+    // survive the round trip; the snapshot does not capture them.
     await verifyAndRenewRecoveryLease(db, expectedUid, currentTabId, fencingToken);
     for (let i = 0; i < snapshot.categories.length; i += RESTORE_BATCH_CHUNK_SIZE) {
       const chunk = snapshot.categories.slice(i, i + RESTORE_BATCH_CHUNK_SIZE);
@@ -1137,7 +1147,7 @@ export async function rollbackReplace(
           sortOrder: Math.max(0, Math.trunc(c.sortOrder)),
           updatedAt: Date.now(),
           id: c.id,
-        });
+        }, { merge: true });
       }
       batch.update(doc(db, 'users', expectedUid, META_COLLECTION, RESTORE_OPERATION_DOC), {
         updatedAt: Date.now(),
@@ -1199,7 +1209,9 @@ export async function rollbackReplace(
       await batch.commit();
     }
 
-    // 3. Upsert snapshot expenses without { merge: true }
+    // 3. Upsert snapshot expenses without { merge: true }: the snapshot captures every
+    // restorable field (including idempotencyKey and legacy sync fields), so a full
+    // overwrite is an exact restore and also wipes anything the failed replace added.
     await verifyAndRenewRecoveryLease(db, expectedUid, currentTabId, fencingToken);
     const snapshotExpenseIds = new Set(snapshot.expenses.map((e) => e.id));
     for (let i = 0; i < snapshot.expenses.length; i += RESTORE_BATCH_CHUNK_SIZE) {
@@ -1216,6 +1228,7 @@ export async function rollbackReplace(
           transactionType: e.transactionType,
           id: e.id,
           updatedAt: Date.now(),
+          ...(e.idempotencyKey ? { idempotencyKey: e.idempotencyKey } : {}),
           ...(e.deleted !== undefined ? { deleted: e.deleted } : {}),
           ...(e.cloudId ? { cloudId: e.cloudId } : {}),
           ...(e.categoryCloudId != null ? { categoryCloudId: e.categoryCloudId } : {}),
@@ -1283,6 +1296,13 @@ export async function rollbackReplace(
       ...rollBase,
       phase: 'ROLLED_BACK',
       updatedAt: Date.now(),
+      // Keep the lease progress on the terminal write: the rules fence terminal
+      // transitions while a lease is active (see executeReplace).
+      progress: {
+        leaseHolder: currentTabId,
+        leaseExpiresAt: Date.now() + RECOVERY_LEASE_DURATION_MS,
+        fencingToken,
+      },
     });
 
     // 7. Delete snapshot data after rollback

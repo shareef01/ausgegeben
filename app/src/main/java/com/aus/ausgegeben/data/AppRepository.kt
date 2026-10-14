@@ -200,8 +200,10 @@ class AppRepository @Inject constructor(
     private fun snapshotDoc(uid: String, id: String) = snapshotCol(uid).document(id)
 
     /** True when wipe finished but Auth delete failed — blocks re-seeding empty accounts. */
-    override suspend fun isAccountDeletionPending(): Boolean {
-        val u = uid() ?: return false
+    override suspend fun isAccountDeletionPending(): Boolean = isAccountDeletionPending(null)
+
+    override suspend fun isAccountDeletionPending(targetUid: String?): Boolean {
+        val u = targetUid ?: uid() ?: return false
         return accountDeletionDoc(u).get().await().getBoolean("pendingDeletion") == true
     }
 
@@ -453,6 +455,7 @@ class AppRepository @Inject constructor(
         val desired = category.copy(name = sanitized)
         val ref = catDoc(u, category.id)
         val snapshot = ref.get().await()
+        if (snapshot.getBoolean("deleted") == true) throw IllegalStateException("CATEGORY_NOT_FOUND")
         val persisted = categoryFromDoc(snapshot)
             ?: throw IllegalStateException("CATEGORY_NOT_FOUND")
         check(desired.transactionType == persisted.transactionType || (snapshot.getLong("recurringTemplateCount") ?: 0) == 0L) { "CATEGORY_HAS_RECURRING" }
@@ -470,7 +473,7 @@ class AppRepository @Inject constructor(
             }
             desired.transactionType != persisted.transactionType ->
                 migrateCategoryType(u, desired, persisted.transactionType, desired.transactionType)
-            else -> ref.set(categoryPayload(desired), SetOptions.merge()).await()
+            else -> ref.update(categoryPayload(desired)).await()
         }
     }
 
@@ -594,7 +597,7 @@ class AppRepository @Inject constructor(
         }
         firestore.runBatch { batch ->
             prepared.forEach { c ->
-                batch.set(catDoc(u, c.id), categoryPayload(c), SetOptions.merge())
+                batch.update(catDoc(u, c.id), categoryPayload(c))
             }
         }.await()
     }
@@ -825,7 +828,7 @@ class AppRepository @Inject constructor(
             throw IllegalStateException("ACCOUNT_RESTORE_IN_PROGRESS")
         }
         val snap = expDoc(u, expense.id).get().await()
-        if (!snap.exists()) throw IllegalStateException("EXPENSE_NOT_FOUND")
+        if (!snap.exists() || snap.getBoolean("deleted") == true) throw IllegalStateException("EXPENSE_NOT_FOUND")
         val e = expense.copy(
             amount = roundAmount(expense.amount),
             note = expense.note.trim().take(2000)
@@ -1830,7 +1833,14 @@ class AppRepository @Inject constructor(
                     phase = ReplacePlanner.RestorePhase.COMPLETED,
                     updatedAt = System.currentTimeMillis(),
                     snapshotMeta = snapshotMeta,
-                    progress = null,
+                    // Terminal writes keep the lease progress: the rules fence terminal
+                    // transitions while a lease is active, and a stripped progress map
+                    // would both fail the fence and reopen the zombie-completion hole.
+                    progress = ReplacePlanner.RestoreJournalProgress(
+                        leaseHolder = currentClientId,
+                        leaseExpiresAt = System.currentTimeMillis() + 60_000L,
+                        fencingToken = fencingToken,
+                    ),
                 ),
             )
 
@@ -1944,7 +1954,9 @@ class AppRepository @Inject constructor(
                         put("updatedAt", System.currentTimeMillis())
                         put("id", c.id)
                     }
-                    batch.set(ref, payload)
+                    // Merge so legacy fields a failed replace never touched (deletionState,
+                    // recurringTemplateCount, migration markers) survive the round trip.
+                    batch.set(ref, payload, SetOptions.merge())
                 }
                 batch.update(
                     restoreOpDoc(expectedUid),
@@ -1966,29 +1978,29 @@ class AppRepository @Inject constructor(
             val snapshotCategoryIds = snapshot.categories.map { it.id }.toSet()
             val extraCategories = currentCatSnap.documents.filter { it.id !in snapshotCategoryIds }
             for (extraCat in extraCategories) {
-                try {
-                    extraCat.reference.set(
-                        mapOf("deletionState" to "deleting", "updatedAt" to System.currentTimeMillis()),
-                        SetOptions.merge(),
-                    ).await()
-                    val batch = firestore.batch()
-                    batch.delete(budgetCol(expectedUid).document(extraCat.id))
-                    batch.delete(extraCat.reference)
-                    batch.update(
-                        restoreOpDoc(expectedUid),
-                        mapOf(
-                            "updatedAt" to System.currentTimeMillis(),
-                            "progress.fencingToken" to fencingToken,
-                            "progress.leaseHolder" to currentClientId,
-                            "progress.leaseExpiresAt" to (System.currentTimeMillis() + 60_000L),
-                            "progress.lastBatchCommittedAt" to System.currentTimeMillis(),
-                            "progress.step" to "rollback_extra_categories",
-                        ),
-                    )
-                    batch.commit().await()
-                } catch (_: Exception) {
-                    // best-effort cleanup for aborted extra categories
-                }
+                // No best-effort swallowing here: a silent failure would let the journal
+                // reach ROLLED_BACK with leftover categories. Any failure propagates to the
+                // outer catch and stays FAILED_RECOVERABLE so a retry finishes the cleanup
+                // (web rollbackReplace already behaves this way).
+                extraCat.reference.set(
+                    mapOf("deletionState" to "deleting", "updatedAt" to System.currentTimeMillis()),
+                    SetOptions.merge(),
+                ).await()
+                val batch = firestore.batch()
+                batch.delete(budgetCol(expectedUid).document(extraCat.id))
+                batch.delete(extraCat.reference)
+                batch.update(
+                    restoreOpDoc(expectedUid),
+                    mapOf(
+                        "updatedAt" to System.currentTimeMillis(),
+                        "progress.fencingToken" to fencingToken,
+                        "progress.leaseHolder" to currentClientId,
+                        "progress.leaseExpiresAt" to (System.currentTimeMillis() + 60_000L),
+                        "progress.lastBatchCommittedAt" to System.currentTimeMillis(),
+                        "progress.step" to "rollback_extra_categories",
+                    ),
+                )
+                batch.commit().await()
             }
 
             // 2. Expenses upsert
@@ -2009,7 +2021,9 @@ class AppRepository @Inject constructor(
                         put("updatedAt", System.currentTimeMillis())
                         put("id", e.id)
                     }
-                    batch.set(ref, payload)
+                    // Merge so legacy fields (cloudId, categoryCloudId, receiptImagePath)
+                    // still present on the doc are not erased by the rollback write.
+                    batch.set(ref, payload, SetOptions.merge())
                 }
                 batch.update(
                     restoreOpDoc(expectedUid),
@@ -2089,7 +2103,13 @@ class AppRepository @Inject constructor(
                 operation.copy(
                     phase = ReplacePlanner.RestorePhase.ROLLED_BACK,
                     updatedAt = System.currentTimeMillis(),
-                    progress = null,
+                    // Keep the lease progress on the terminal write: the rules fence
+                    // terminal transitions while a lease is active (see executeReplace).
+                    progress = ReplacePlanner.RestoreJournalProgress(
+                        leaseHolder = currentClientId,
+                        leaseExpiresAt = System.currentTimeMillis() + 60_000L,
+                        fencingToken = fencingToken,
+                    ),
                 ),
             )
 

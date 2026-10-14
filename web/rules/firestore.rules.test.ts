@@ -1560,4 +1560,108 @@ describe('atomic recovery lease fencing', () => {
     });
     await assertFails(supersededBatch.commit());
   });
+
+  it('fences terminal transitions so a superseded holder cannot complete the operation', async () => {
+    const now = Date.now();
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), restoreDocPath('alice')), {
+        operationId: 'op-1',
+        ownerUid: 'alice',
+        mode: 'replace',
+        backupFingerprint: 'fp-1',
+        phase: 'VERIFYING',
+        createdAt: now - 5000,
+        updatedAt: now - 5000,
+        progress: {
+          leaseHolder: 'clientB', // took over with a newer token
+          leaseExpiresAt: now + 60_000,
+          fencingToken: 7,
+        },
+      });
+    });
+
+    const db = testEnv.authenticatedContext('alice', recentAuthClaims(true)).firestore();
+    const terminalBase = {
+      operationId: 'op-1',
+      ownerUid: 'alice',
+      mode: 'replace',
+      backupFingerprint: 'fp-1',
+      createdAt: now - 5000,
+      updatedAt: now,
+    };
+
+    // The zombie holder cannot mark COMPLETED with its stale lease...
+    await assertFails(
+      setDoc(doc(db, restoreDocPath('alice')), {
+        ...terminalBase,
+        phase: 'COMPLETED',
+        progress: { leaseHolder: 'clientA', leaseExpiresAt: now + 60_000, fencingToken: 5 },
+      }),
+    );
+    // ...nor with the progress map stripped.
+    await assertFails(
+      setDoc(doc(db, restoreDocPath('alice')), {
+        ...terminalBase,
+        phase: 'COMPLETED',
+      }),
+    );
+
+    // The active holder completes the operation by carrying its lease progress.
+    await assertSucceeds(
+      setDoc(doc(db, restoreDocPath('alice')), {
+        ...terminalBase,
+        phase: 'COMPLETED',
+        progress: { leaseHolder: 'clientB', leaseExpiresAt: now + 60_000, fencingToken: 7 },
+      }),
+    );
+  });
+
+  it('rejects lease renewals that pin a far-future leaseExpiresAt', async () => {
+    const now = Date.now();
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), restoreDocPath('alice')), {
+        operationId: 'op-1',
+        ownerUid: 'alice',
+        mode: 'replace',
+        backupFingerprint: 'fp-1',
+        phase: 'APPLYING',
+        createdAt: now - 5000,
+        updatedAt: now - 5000,
+        progress: {
+          leaseHolder: 'clientA',
+          leaseExpiresAt: now + 60_000,
+          fencingToken: 5,
+        },
+      });
+      await setDoc(doc(ctx.firestore(), categoryPath('alice', 'cat-1')), validCategory);
+    });
+
+    const db = testEnv.authenticatedContext('alice', recentAuthClaims(true)).firestore();
+
+    // Same holder and token, but pinning the lease an hour out blocks takeovers.
+    const pinningBatch = writeBatch(db);
+    pinningBatch.update(doc(db, categoryPath('alice', 'cat-1')), { name: 'Pinning Write', updatedAt: now });
+    pinningBatch.update(doc(db, restoreDocPath('alice')), {
+      updatedAt: now,
+      'progress.fencingToken': 5,
+      'progress.leaseHolder': 'clientA',
+      'progress.leaseExpiresAt': now + 3_600_000,
+      'progress.lastBatchCommittedAt': now,
+      'progress.step': 'categories',
+    });
+    await assertFails(pinningBatch.commit());
+
+    // A bounded renewal (+60s, matching the client lease duration) still succeeds.
+    const boundedBatch = writeBatch(db);
+    boundedBatch.update(doc(db, categoryPath('alice', 'cat-1')), { name: 'Bounded Write', updatedAt: now + 10 });
+    boundedBatch.update(doc(db, restoreDocPath('alice')), {
+      updatedAt: now + 10,
+      'progress.fencingToken': 5,
+      'progress.leaseHolder': 'clientA',
+      'progress.leaseExpiresAt': now + 60_000,
+      'progress.lastBatchCommittedAt': now + 10,
+      'progress.step': 'categories',
+    });
+    await assertSucceeds(boundedBatch.commit());
+  });
 });

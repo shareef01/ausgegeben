@@ -393,8 +393,6 @@ service cloud.firestore {
     }
 
     function validRestoreLeaseUpdate() {
-      let isRestoring = resource.data.phase in ['APPLYING', 'ROLLING_BACK'];
-      let willRestore = request.resource.data.phase in ['APPLYING', 'ROLLING_BACK', 'VERIFYING', 'FAILED_RECOVERABLE'];
       let beforeProgress = resource.data.get('progress', {});
       let afterProgress = request.resource.data.get('progress', {});
       let beforeToken = beforeProgress.get('fencingToken', 0);
@@ -402,10 +400,23 @@ service cloud.firestore {
       let beforeHolder = beforeProgress.get('leaseHolder', '');
       let afterHolder = afterProgress.get('leaseHolder', '');
       let beforeExpiresAt = beforeProgress.get('leaseExpiresAt', 0);
-      return !isRestoring || !willRestore || (
+      let afterExpiresAt = afterProgress.get('leaseExpiresAt', 0);
+      // The renewed expiry must stay near the server clock (clients use +60s) so a
+      // holder cannot pin a far-future leaseExpiresAt and block legitimate takeovers.
+      let expiryBounded = afterExpiresAt is int
+        && afterExpiresAt <= request.time.toMillis() + 300000;
+      let fenced = expiryBounded && (
         (afterHolder == beforeHolder && afterToken == beforeToken && beforeExpiresAt >= request.time.toMillis())
         || (afterToken > beforeToken && (beforeExpiresAt < request.time.toMillis() || beforeHolder == ''))
       );
+      // In-flight -> in-flight always needs the fence. Terminal transitions need it
+      // too while a lease is active, so a holder that lost a takeover cannot mark
+      // the operation COMPLETED/ROLLED_BACK underneath the new lease holder.
+      // (Rules allow at most 10 variables per function, so the phase checks inline.)
+      let willRestore = request.resource.data.phase in ['APPLYING', 'ROLLING_BACK', 'VERIFYING', 'FAILED_RECOVERABLE'];
+      return !(resource.data.phase in ['SNAPSHOT_READY', 'APPLYING', 'ROLLING_BACK', 'VERIFYING'])
+        || (willRestore && fenced)
+        || (!willRestore && (fenced || beforeExpiresAt < request.time.toMillis() || beforeHolder == ''));
     }
 
     function validSnapshotDoc() {
