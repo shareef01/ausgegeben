@@ -92,10 +92,19 @@ class FirestoreEmulatorRecoveryTest {
 
     // ---- harness ----------------------------------------------------------------
 
-    /** Emulator reachability probe; gates every test so offline runs skip cleanly. */
+    /**
+     * Emulator reachability probe; gates every test so offline runs skip cleanly.
+     *
+     * Requires both emulators because the harness needs both: Firestore for the data
+     * path and Auth for [createVerifiedUser]. The canonical runner starts them
+     * together (`--only firestore,auth`) and refuses to proceed unless both ports
+     * answer, so gating on Firestore alone would let the suite run into confusing
+     * auth failures instead of skipping when only half the stack is up.
+     */
     private fun firestoreEmulatorReachable(): Boolean = try {
         val (code, _) = http("GET", "http://127.0.0.1:8080/")
-        code in 200..299
+        val (authCode, _) = http("GET", "http://127.0.0.1:9099/")
+        code in 200..299 && authCode in 200..299
     } catch (_: Exception) {
         false
     }
@@ -218,7 +227,7 @@ class FirestoreEmulatorRecoveryTest {
         // up skipped instead of executed.
         val reachable = firestoreEmulatorReachable()
         if (System.getenv("RECOVERY_INTEGRATION_REQUIRED") == "true") {
-            assertTrue("Required Firestore emulator is unavailable on 127.0.0.1:8080", reachable)
+            assertTrue("Required Firestore/Auth emulators are unavailable on 127.0.0.1:8080 and :9099", reachable)
         } else {
             assumeTrue(reachable)
         }
@@ -498,6 +507,47 @@ class FirestoreEmulatorRecoveryTest {
 
         val remote = remoteExpenses()
         assertEquals("a retry of the same attempt must not create a second expense", 1, remote.size)
+        assertEquals(expenseDocumentId(operationId), remote.keys.single())
+        assertEquals(operationId, fieldString(remote.values.single(), "idempotencyKey"))
+        assertTrue(pendingJournalIds().isEmpty())
+    }
+
+    // ---- INT-3b (H1) -------------------------------------------------------------
+
+    /**
+     * H1: a transaction can be recorded with no connectivity at all. The write is
+     * accepted while offline and, once the connection returns, converges on exactly one
+     * remote document. The retry reuses the same operation id, so it must return the same
+     * identity instead of queueing a second write.
+     *
+     * Deliberately does not assert local-cache visibility (`Source.CACHE`): a queued
+     * mutation is not observable that way in this harness — an offline read of the
+     * pending document fails with "Failed to get document from cache" — so the durable
+     * contract is asserted against the emulator instead. Convergence is awaited through
+     * `waitForPendingWrites()` rather than read straight after `enableNetwork()`, which
+     * would race the sync.
+     */
+    @Test
+    fun int3b_offlineInsertAndRetryWithSameOperationId_commitsExactlyOneRemoteDocument() = runRecoveryTest {
+        val operationId = preferenceManager.beginExpenseSubmission()
+
+        db.disableNetwork().await()
+        try {
+            val first = repository.insertExpense(expense("INT-3b offline"), operationId)
+            val second = repository.insertExpense(expense("INT-3b offline"), operationId)
+            assertTrue("offline insert failed: ${first.exceptionOrNull()}", first.isSuccess)
+            assertTrue("offline retry failed: ${second.exceptionOrNull()}", second.isSuccess)
+            assertEquals("the deterministic identity must be stable offline", first.getOrThrow(), second.getOrThrow())
+        } finally {
+            db.enableNetwork().await()
+        }
+        // Resolves once the queued mutation has been acknowledged by the emulator.
+        db.waitForPendingWrites().await()
+
+        preferenceManager.completeExpenseSubmission(operationId)
+
+        val remote = remoteExpenses()
+        assertEquals("an offline insert plus retry must land exactly one remote expense", 1, remote.size)
         assertEquals(expenseDocumentId(operationId), remote.keys.single())
         assertEquals(operationId, fieldString(remote.values.single(), "idempotencyKey"))
         assertTrue(pendingJournalIds().isEmpty())
