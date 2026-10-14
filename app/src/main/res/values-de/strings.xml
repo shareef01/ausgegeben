@@ -332,11 +332,15 @@
     <string name="bills_total_expense">gesamtausgaben</string>
     <string name="bills_total_transfers">gesamttransfers</string>
     <string name="add_delete_category_fallback">verknüpfte transaktionen werden zu „nicht kategorisiert" verschoben.</string>
+    <string name="add_delete_category_one">1 verknüpfte transaktion wird zu „nicht kategorisiert" verschoben.</string>
+    <string name="add_delete_category_many">%1$d verknüpfte transaktionen werden zu „nicht kategorisiert" verschoben.</string>
     <plurals name="add_delete_category_linked">
         <item quantity="one">%1$d verknüpfte transaktion wird zu „nicht kategorisiert" verschoben.</item>
         <item quantity="other">%1$d verknüpfte transaktionen werden zu „nicht kategorisiert" verschoben.</item>
     </plurals>
     <string name="add_delete_category_none">keine transaktionen sind mit dieser kategorie verknüpft.</string>
+    <string name="add_delete_category_uncategorized_one">1 verknüpfte transaktion wird als „unbekannt“ angezeigt, bis du eine kategorie zuweist.</string>
+    <string name="add_delete_category_uncategorized_many">%1$d verknüpfte transaktionen werden als „unbekannt“ angezeigt, bis du eine kategorie zuweist.</string>
     <plurals name="add_delete_category_uncategorized">
         <item quantity="one">%1$d verknüpfte transaktion wird als „unbekannt“ angezeigt, bis du eine kategorie zuweist.</item>
         <item quantity="other">%1$d verknüpfte transaktionen werden als „unbekannt“ angezeigt, bis du eine kategorie zuweist.</item>

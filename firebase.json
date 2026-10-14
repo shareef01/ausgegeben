@@ -6,8 +6,6 @@
   "emulators": {
     "auth": { "port": 9099 },
     "firestore": { "port": 8080 },
-    "hub": { "port": 4405 },
-    "logging": { "port": 4505 },
     "ui": { "enabled": false }
   },
   "hosting": {
