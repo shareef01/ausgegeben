@@ -300,6 +300,9 @@ describe('backupReplace on real Firestore emulator with rules enforced', () => {
       note: 'Crucial original expense',
       transactionType: 'expense',
       updatedAt: 1000,
+      cloudId: 'legacy-c1',
+      categoryCloudId: 'cat-legacy',
+      receiptImagePath: '/path/to/img.jpg',
     });
 
     const backup = createTestBackup({ numExpenses: 2, prefix: 'new' });
@@ -325,6 +328,9 @@ describe('backupReplace on real Firestore emulator with rules enforced', () => {
     const origExp = await getDoc(doc(db, 'users', TEST_UID, 'expenses', 'exp-original'));
     expect(origExp.exists()).toBe(true);
     expect(origExp.data()?.amount).toBe(42.0);
+    expect(origExp.data()?.cloudId).toBe('legacy-c1');
+    expect(origExp.data()?.categoryCloudId).toBe('cat-legacy');
+    expect(origExp.data()?.receiptImagePath).toBe('/path/to/img.jpg');
 
     const newExp0 = await getDoc(doc(db, 'users', TEST_UID, 'expenses', 'new-0'));
     expect(newExp0.exists()).toBe(false);

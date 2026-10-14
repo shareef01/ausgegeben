@@ -136,7 +136,7 @@ class BackupFormatTest {
             amount = 12.3456,
             dateMillis = 1700000000000L,
             categoryId = "cat-long",
-            note = "N".repeat(300),
+            note = "N".repeat(2500),
             transactionType = "expense",
         )
 
@@ -149,16 +149,47 @@ class BackupFormatTest {
 
         val root = JSONObject(json)
         val cat = root.getJSONArray("categories").getJSONObject(0)
-        assertEquals(50, cat.getString("name").length)
-        assertEquals(50, cat.getString("iconName").length)
+        assertEquals(80, cat.getString("name").length)
+        assertEquals(63, cat.getString("iconName").length)
 
         val exp = root.getJSONArray("expenses").getJSONObject(0)
-        assertEquals(200, exp.getString("note").length)
+        assertEquals(2000, exp.getString("note").length)
         // 12.3456 must be rounded to 12.35
         assertEquals(12.35, exp.getDouble("amount"), 0.001)
 
         val validation = BackupFormat.validateBackupJson(json)
         assertTrue(validation.errors.joinToString(), validation.valid)
+    }
+
+    @Test
+    fun createBackupJson_preserves2000CharNoteExactly() {
+        val note2000 = "X".repeat(2000)
+        val exp = Expense(
+            id = "exp-exact-2000",
+            amount = 10.0,
+            dateMillis = 1700000000000L,
+            categoryId = "cat-1",
+            note = note2000,
+            transactionType = "expense",
+        )
+        val cat = Category(
+            id = "cat-1",
+            name = "Groceries",
+            iconName = "cart",
+            colorInt = 123,
+            transactionType = "expense",
+            sortOrder = 0,
+        )
+        val json = BackupFormat.createBackupJson(
+            preferences = BackupFormat.BackupPreferences("EUR", 50.0),
+            categories = listOf(cat),
+            expenses = listOf(exp),
+            appVersion = "2.0.8",
+        )
+        val parsed = BackupFormat.parseBackup(json)
+        org.junit.Assert.assertNotNull(parsed)
+        assertEquals(note2000, parsed!!.expenses[0].note)
+        assertEquals(2000, parsed.expenses[0].note.length)
     }
 
     @Test

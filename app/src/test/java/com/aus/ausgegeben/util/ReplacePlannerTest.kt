@@ -154,6 +154,28 @@ class ReplacePlannerTest {
         )
         val fp3 = ReplacePlanner.computeBackupFingerprint(modifiedBackup)
         assertNotEquals(fp1, fp3)
+
+        // Note change alters fingerprint
+        val noteModifiedBackup = sampleBackup.copy(
+            expenses = listOf(sampleBackup.expenses[0].copy(note = "Different Note"), sampleBackup.expenses[1]),
+        )
+        assertNotEquals(fp1, ReplacePlanner.computeBackupFingerprint(noteModifiedBackup))
+
+        // Category iconName, colorInt, and sortOrder alter fingerprint
+        val iconModifiedBackup = sampleBackup.copy(
+            categories = listOf(sampleBackup.categories[0].copy(iconName = "different_icon"), sampleBackup.categories[1]),
+        )
+        assertNotEquals(fp1, ReplacePlanner.computeBackupFingerprint(iconModifiedBackup))
+
+        val colorModifiedBackup = sampleBackup.copy(
+            categories = listOf(sampleBackup.categories[0].copy(colorInt = 999999), sampleBackup.categories[1]),
+        )
+        assertNotEquals(fp1, ReplacePlanner.computeBackupFingerprint(colorModifiedBackup))
+
+        val sortOrderModifiedBackup = sampleBackup.copy(
+            categories = listOf(sampleBackup.categories[0].copy(sortOrder = 99), sampleBackup.categories[1]),
+        )
+        assertNotEquals(fp1, ReplacePlanner.computeBackupFingerprint(sortOrderModifiedBackup))
     }
 
     @Test
@@ -439,5 +461,117 @@ class ReplacePlannerTest {
 
         val toDelete = currentServerExpenseIds.filter { it !in snapshotExpenseIds }
         assertEquals(listOf("exp-3-stale", "exp-4-stale"), toDelete)
+    }
+
+    @Test
+    fun `recovery lease and receipt chunk fields default and serialize properly`() {
+        val progress = ReplacePlanner.RestoreJournalProgress(
+            step = "categories",
+            batchIndex = 2,
+            totalBatches = 5,
+            lastProcessedId = "cat-2",
+            leaseHolder = "tab-abc-123",
+            leaseExpiresAt = 1700000060000L,
+            fencingToken = 42L,
+        )
+        assertEquals("tab-abc-123", progress.leaseHolder)
+        assertEquals(1700000060000L, progress.leaseExpiresAt)
+        assertEquals(42L, progress.fencingToken)
+
+        val meta = ReplacePlanner.SnapshotMeta(
+            chunkCount = 3,
+            totalExpenses = 500,
+            totalCategories = 10,
+            receiptChunkCount = 2,
+            totalReceipts = 450,
+        )
+        assertEquals(2, meta.receiptChunkCount)
+        assertEquals(450, meta.totalReceipts)
+    }
+
+    @Test
+    fun `adversarial test - modern fingerprint detects changes to notes categories and prefs that legacy misses`() {
+        val base = sampleBackup
+        val modernBase = ReplacePlanner.computeBackupFingerprint(base)
+        val legacyBase = ReplacePlanner.computeLegacyBackupFingerprint(base)
+
+        // 1. Modifying note
+        val noteModified = base.copy(
+            expenses = listOf(base.expenses[0].copy(note = "Attacker modified note"), base.expenses[1]),
+        )
+        assertNotEquals(modernBase, ReplacePlanner.computeBackupFingerprint(noteModified))
+        assertEquals(legacyBase, ReplacePlanner.computeLegacyBackupFingerprint(noteModified))
+
+        // 2. Modifying category iconName
+        val iconModified = base.copy(
+            categories = listOf(base.categories[0].copy(iconName = "evil_icon"), base.categories[1]),
+        )
+        assertNotEquals(modernBase, ReplacePlanner.computeBackupFingerprint(iconModified))
+        assertEquals(legacyBase, ReplacePlanner.computeLegacyBackupFingerprint(iconModified))
+
+        // 3. Modifying category colorInt
+        val colorModified = base.copy(
+            categories = listOf(base.categories[0].copy(colorInt = 0x123456), base.categories[1]),
+        )
+        assertNotEquals(modernBase, ReplacePlanner.computeBackupFingerprint(colorModified))
+        assertEquals(legacyBase, ReplacePlanner.computeLegacyBackupFingerprint(colorModified))
+
+        // 4. Modifying category sortOrder
+        val sortModified = base.copy(
+            categories = listOf(base.categories[0].copy(sortOrder = 99), base.categories[1]),
+        )
+        assertNotEquals(modernBase, ReplacePlanner.computeBackupFingerprint(sortModified))
+        assertEquals(legacyBase, ReplacePlanner.computeLegacyBackupFingerprint(sortModified))
+
+        // 5. Modifying dailyReminder in preferences
+        val prefModified = base.copy(
+            preferences = base.preferences.copy(dailyReminder = false),
+        )
+        assertNotEquals(modernBase, ReplacePlanner.computeBackupFingerprint(prefModified))
+        assertEquals(legacyBase, ReplacePlanner.computeLegacyBackupFingerprint(prefModified))
+    }
+
+    @Test
+    fun `cross-platform fingerprint matches Web shared fixture exactly`() {
+        val sharedFixture = BackupFormat.ParsedBackup(
+            schemaVersion = 1,
+            appVersion = "2.0.8",
+            exportedAt = "2026-10-01T12:00:00Z",
+            preferences = BackupFormat.BackupPreferences(
+                currency = "EUR",
+                monthlyBudget = 1500.0,
+                locale = "en",
+                themeMode = "system",
+                dailyReminder = true,
+                reminderHour = 19,
+                reminderMinute = 0,
+                analyticsPeriod = "this_month",
+                preferencesUpdatedAt = 1000L,
+            ),
+            categories = listOf(
+                BackupFormat.ParsedCategory(
+                    id = "cat-shared-1",
+                    name = "Groceries",
+                    iconName = "shopping_cart",
+                    colorInt = -16776961,
+                    transactionType = "expense",
+                    sortOrder = 0,
+                    updatedAt = 1000L,
+                ),
+            ),
+            expenses = listOf(
+                BackupFormat.ParsedExpense(
+                    id = "exp-shared-1",
+                    amount = 25.5,
+                    dateMillis = 1710000000000L,
+                    categoryId = "cat-shared-1",
+                    note = "Supermarket run",
+                    transactionType = "expense",
+                    updatedAt = 1000L,
+                ),
+            ),
+        )
+        val fp = ReplacePlanner.computeBackupFingerprint(sharedFixture)
+        assertEquals("2e424151a00280f3c68c00e0e93dfc5e0d8c81b36affb1f7aa7a719eb8777a64", fp)
     }
 }

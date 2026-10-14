@@ -40,8 +40,8 @@ export async function startEnforcedHarness(): Promise<void> {
     projectId: PROJECT_ID,
     firestore: {
       rules: readFileSync(resolve(process.cwd(), '../firestore.rules'), 'utf8'),
-      host: '127.0.0.1',
-      port: 8080,
+      host: process.env.FIRESTORE_EMULATOR_HOST ? process.env.FIRESTORE_EMULATOR_HOST.split(':')[0] : '127.0.0.1',
+      port: process.env.FIRESTORE_EMULATOR_HOST ? Number(process.env.FIRESTORE_EMULATOR_HOST.split(':')[1]) : 8088,
     },
   });
   // @firebase/rules-unit-testing bundles its own copy of the Firestore types, so the

@@ -4,6 +4,7 @@
 .kotlin
 /local.properties
 /.idea/
+.vscode/
 .externalNativeBuild
 .cxx
 *.apk
@@ -42,6 +43,7 @@ firebase.emulator.json
 
 # Local audit harness (Playwright feature audit — local only, never committed)
 .audit-gradle/
+app/src/audit/
 web/.audit-config/
 web/.audit-*.mjs
 web/.audit-shots/
@@ -67,8 +69,16 @@ web/playwright/.cache/
 .artifacts/
 .reasonix/
 .agent/
-.claude/*.local.json
+.claude/
+.cursor/
 scratch/
+
+# Device backups and local remediation artifacts — contain device identifiers
+# (serial/IMEI/MAC) and review payloads; local only, never published.
+redmi-pad-2-pro-backup/
+remediation-review.patch
+/audit-*
+/head-*
 
 # Test runner output and reports
 test-results/

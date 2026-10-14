@@ -57,8 +57,8 @@ beforeAll(async () => {
     projectId: PROJECT_ID,
     firestore: {
       rules: readFileSync(RULES_PATH, 'utf8'),
-      host: '127.0.0.1',
-      port: 8080,
+      host: process.env.FIRESTORE_EMULATOR_HOST ? process.env.FIRESTORE_EMULATOR_HOST.split(':')[0] : '127.0.0.1',
+      port: process.env.FIRESTORE_EMULATOR_HOST ? Number(process.env.FIRESTORE_EMULATOR_HOST.split(':')[1]) : 8088,
     },
   });
 }, 30_000);
@@ -260,6 +260,23 @@ describe('firestore.rules', () => {
     );
   });
 
+  it('denies an expense update with a stale updatedAt', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), categoryPath('alice', 'cat-1')), validCategory);
+      await setDoc(doc(ctx.firestore(), expensePath('alice')), {
+        ...validExpense,
+        updatedAt: 2000,
+      });
+    });
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    await assertFails(
+      setDoc(doc(db, expensePath('alice')), { ...validExpense, updatedAt: 1000 }),
+    );
+    await assertSucceeds(
+      setDoc(doc(db, expensePath('alice')), { ...validExpense, updatedAt: 3000 }),
+    );
+  });
+
   it('rejects dateMillis as a Timestamp — only numbers are validDateMillis', async () => {
     const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
     await assertSucceeds(setDoc(doc(db, categoryPath('alice', 'cat-1')), validCategory));
@@ -322,35 +339,40 @@ describe('firestore.rules', () => {
       );
     });
 
-    it('preserves idempotencyKey on update of legacy random-ID doc, allowing note/amount updates and rejecting key changes/removals', async () => {
+    it('enforces creation immutability for idempotencyKey, requiring deletion on legitimate user edits and rejecting conflicting writes', async () => {
       const legacyDocId = 'random-legacy-uuid-1';
       const originalKey = 'original-idempotency-key-1';
+      const initialUpdatedAt = 1000;
       await testEnv.withSecurityRulesDisabled(async (ctx) => {
         const admin = ctx.firestore();
         await setDoc(doc(admin, categoryPath('alice', 'cat-1')), validCategory);
         await setDoc(doc(admin, expensePath('alice', legacyDocId)), {
           ...validExpense,
           idempotencyKey: originalKey,
+          updatedAt: initialUpdatedAt,
         });
       });
 
       const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
       const expenseRef = doc(db, expensePath('alice', legacyDocId));
 
-      // Ordinary note update succeeds (merge update omitting key preserves it)
-      await assertSucceeds(updateDoc(expenseRef, { note: 'updated note without resending key' }));
+      // Conflicting write preserving key but changing amount or note is REJECTED (proves 2nd offline write cannot overwrite)
+      await assertFails(updateDoc(expenseRef, { amount: 42.50, updatedAt: 2000 }));
+      await assertFails(updateDoc(expenseRef, { note: 'changed note', updatedAt: 2000 }));
 
-      // Amount update succeeds if other schema rules satisfied
-      await assertSucceeds(updateDoc(expenseRef, { amount: 42.50 }));
+      // Exact replay preserving key with identical fields succeeds
+      await assertSucceeds(updateDoc(expenseRef, { note: validExpense.note, updatedAt: 2000 }));
 
-      // Explicitly preserving the same key succeeds
-      await assertSucceeds(updateDoc(expenseRef, { note: 'same key', idempotencyKey: originalKey }));
+      // Legitimate user edit explicitly deleting key and monotonically advancing updatedAt succeeds
+      await assertSucceeds(updateDoc(expenseRef, {
+        note: 'legitimate edit',
+        amount: 42.50,
+        updatedAt: 3000,
+        idempotencyKey: deleteField(),
+      }));
 
-      // Same document -> key change rejected
-      await assertFails(updateDoc(expenseRef, { idempotencyKey: 'changed-idempotency-key' }));
-
-      // Same document -> key removal rejected
-      await assertFails(updateDoc(expenseRef, { idempotencyKey: deleteField() }));
+      // Same document -> injecting a new or changed key is rejected
+      await assertFails(updateDoc(expenseRef, { idempotencyKey: 'changed-idempotency-key', updatedAt: 4000 }));
     });
 
     it('allows normal update of legacy keyless doc and rejects injecting idempotencyKey on update', async () => {
@@ -1419,4 +1441,227 @@ it('allows a budget for a valid existing category identity longer than 64 charac
   const db=testEnv.authenticatedContext('alice',recentAuthClaims(true)).firestore();
   await assertSucceeds(setDoc(doc(db,categoryPath('alice',id)),validCategory));
   await assertSucceeds(setDoc(doc(db,'users/alice/categoryBudgets/'+id),{monthlyLimit:100,warningThresholdPercent:80,updatedAt:Date.now()}));
+});
+
+describe('offline idempotency and creation immutability', () => {
+  it('first committed creation wins; conflicting write with same key is rejected', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), categoryPath('alice', 'cat-1')), validCategory);
+    });
+    const db = testEnv.authenticatedContext('alice', recentAuthClaims(true)).firestore();
+    const docRef = doc(db, expensePath('alice', 'exp-idem-1'));
+    const initialPayload = {
+      ...validExpense,
+      idempotencyKey: 'idem-key-1',
+      updatedAt: 1000,
+    };
+    // 1. Initial creation succeeds
+    await assertSucceeds(setDoc(docRef, initialPayload));
+
+    // 2. Conflicting creation write with same idempotency key but different amount fails
+    const conflictingPayload = {
+      ...validExpense,
+      amount: 99.99,
+      idempotencyKey: 'idem-key-1',
+      updatedAt: 2000,
+    };
+    await assertFails(setDoc(docRef, conflictingPayload));
+
+    // 3. Exact replay of identical payload succeeds
+    const replayPayload = {
+      ...validExpense,
+      idempotencyKey: 'idem-key-1',
+      updatedAt: 2000,
+    };
+    await assertSucceeds(setDoc(docRef, replayPayload));
+
+    // 4. Legitimate user edit with idempotencyKey deleted and monotonic updatedAt succeeds
+    await assertSucceeds(
+      updateDoc(docRef, {
+        amount: 45.0,
+        updatedAt: 3000,
+        idempotencyKey: deleteField(),
+      }),
+    );
+
+    // 5. Subsequent write trying to supply idempotencyKey fails
+    await assertFails(
+      setDoc(docRef, {
+        ...validExpense,
+        idempotencyKey: 'idem-key-1',
+        updatedAt: 4000,
+      }),
+    );
+  });
+});
+
+describe('atomic recovery lease fencing', () => {
+  const restoreDocPath = (uid: string) => `users/${uid}/meta/restoreOperation`;
+
+  it('enforces atomic lease and fencing token in destructive batches', async () => {
+    const now = Date.now();
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), restoreDocPath('alice')), {
+        operationId: 'op-1',
+        ownerUid: 'alice',
+        mode: 'replace',
+        backupFingerprint: 'fp-1',
+        phase: 'APPLYING',
+        createdAt: now - 5000,
+        updatedAt: now - 5000,
+        progress: {
+          step: 'categories',
+          leaseHolder: 'clientA',
+          leaseExpiresAt: now + 60_000,
+          fencingToken: 5,
+        },
+      });
+      await setDoc(doc(ctx.firestore(), categoryPath('alice', 'cat-1')), validCategory);
+    });
+
+    const db = testEnv.authenticatedContext('alice', recentAuthClaims(true)).firestore();
+
+    // Valid batch from leaseHolder clientA with matching fencingToken succeeds
+    const validBatch = writeBatch(db);
+    validBatch.update(doc(db, categoryPath('alice', 'cat-1')), { name: 'Updated Groceries', updatedAt: now });
+    validBatch.update(doc(db, restoreDocPath('alice')), {
+      updatedAt: now,
+      'progress.fencingToken': 5,
+      'progress.leaseHolder': 'clientA',
+      'progress.leaseExpiresAt': now + 60_000,
+      'progress.lastBatchCommittedAt': now,
+      'progress.step': 'categories',
+    });
+    await assertSucceeds(validBatch.commit());
+
+    // Batch with stale fencing token fails
+    const staleBatch = writeBatch(db);
+    staleBatch.update(doc(db, categoryPath('alice', 'cat-1')), { name: 'Stale Write', updatedAt: now + 10 });
+    staleBatch.update(doc(db, restoreDocPath('alice')), {
+      updatedAt: now + 10,
+      'progress.fencingToken': 4, // stale token
+      'progress.leaseHolder': 'clientA',
+      'progress.leaseExpiresAt': now + 60_000,
+      'progress.lastBatchCommittedAt': now + 10,
+      'progress.step': 'categories',
+    });
+    await assertFails(staleBatch.commit());
+
+    // Batch with superseded leaseholder fails
+    const supersededBatch = writeBatch(db);
+    supersededBatch.update(doc(db, categoryPath('alice', 'cat-1')), { name: 'Imposter Write', updatedAt: now + 20 });
+    supersededBatch.update(doc(db, restoreDocPath('alice')), {
+      updatedAt: now + 20,
+      'progress.fencingToken': 5,
+      'progress.leaseHolder': 'clientB', // not holder
+      'progress.leaseExpiresAt': now + 60_000,
+      'progress.lastBatchCommittedAt': now + 20,
+      'progress.step': 'categories',
+    });
+    await assertFails(supersededBatch.commit());
+  });
+
+  it('fences terminal transitions so a superseded holder cannot complete the operation', async () => {
+    const now = Date.now();
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), restoreDocPath('alice')), {
+        operationId: 'op-1',
+        ownerUid: 'alice',
+        mode: 'replace',
+        backupFingerprint: 'fp-1',
+        phase: 'VERIFYING',
+        createdAt: now - 5000,
+        updatedAt: now - 5000,
+        progress: {
+          leaseHolder: 'clientB', // took over with a newer token
+          leaseExpiresAt: now + 60_000,
+          fencingToken: 7,
+        },
+      });
+    });
+
+    const db = testEnv.authenticatedContext('alice', recentAuthClaims(true)).firestore();
+    const terminalBase = {
+      operationId: 'op-1',
+      ownerUid: 'alice',
+      mode: 'replace',
+      backupFingerprint: 'fp-1',
+      createdAt: now - 5000,
+      updatedAt: now,
+    };
+
+    // The zombie holder cannot mark COMPLETED with its stale lease...
+    await assertFails(
+      setDoc(doc(db, restoreDocPath('alice')), {
+        ...terminalBase,
+        phase: 'COMPLETED',
+        progress: { leaseHolder: 'clientA', leaseExpiresAt: now + 60_000, fencingToken: 5 },
+      }),
+    );
+    // ...nor with the progress map stripped.
+    await assertFails(
+      setDoc(doc(db, restoreDocPath('alice')), {
+        ...terminalBase,
+        phase: 'COMPLETED',
+      }),
+    );
+
+    // The active holder completes the operation by carrying its lease progress.
+    await assertSucceeds(
+      setDoc(doc(db, restoreDocPath('alice')), {
+        ...terminalBase,
+        phase: 'COMPLETED',
+        progress: { leaseHolder: 'clientB', leaseExpiresAt: now + 60_000, fencingToken: 7 },
+      }),
+    );
+  });
+
+  it('rejects lease renewals that pin a far-future leaseExpiresAt', async () => {
+    const now = Date.now();
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), restoreDocPath('alice')), {
+        operationId: 'op-1',
+        ownerUid: 'alice',
+        mode: 'replace',
+        backupFingerprint: 'fp-1',
+        phase: 'APPLYING',
+        createdAt: now - 5000,
+        updatedAt: now - 5000,
+        progress: {
+          leaseHolder: 'clientA',
+          leaseExpiresAt: now + 60_000,
+          fencingToken: 5,
+        },
+      });
+      await setDoc(doc(ctx.firestore(), categoryPath('alice', 'cat-1')), validCategory);
+    });
+
+    const db = testEnv.authenticatedContext('alice', recentAuthClaims(true)).firestore();
+
+    // Same holder and token, but pinning the lease an hour out blocks takeovers.
+    const pinningBatch = writeBatch(db);
+    pinningBatch.update(doc(db, categoryPath('alice', 'cat-1')), { name: 'Pinning Write', updatedAt: now });
+    pinningBatch.update(doc(db, restoreDocPath('alice')), {
+      updatedAt: now,
+      'progress.fencingToken': 5,
+      'progress.leaseHolder': 'clientA',
+      'progress.leaseExpiresAt': now + 3_600_000,
+      'progress.lastBatchCommittedAt': now,
+      'progress.step': 'categories',
+    });
+    await assertFails(pinningBatch.commit());
+
+    // A bounded renewal (+60s, matching the client lease duration) still succeeds.
+    const boundedBatch = writeBatch(db);
+    boundedBatch.update(doc(db, categoryPath('alice', 'cat-1')), { name: 'Bounded Write', updatedAt: now + 10 });
+    boundedBatch.update(doc(db, restoreDocPath('alice')), {
+      updatedAt: now + 10,
+      'progress.fencingToken': 5,
+      'progress.leaseHolder': 'clientA',
+      'progress.leaseExpiresAt': now + 60_000,
+      'progress.lastBatchCommittedAt': now + 10,
+      'progress.step': 'categories',
+    });
+    await assertSucceeds(boundedBatch.commit());
+  });
 });

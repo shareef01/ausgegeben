@@ -211,4 +211,23 @@ describe('Local backup serializer & strict validator', () => {
     });
     expect({ ...exported, exportedAt: fixture.exportedAt }).toEqual(fixture);
   });
+
+  it('preserves valid 2000-character note unchanged through createBackup and validateBackup', () => {
+    const longNote = 'A'.repeat(2000);
+    const backup = createBackup({
+      preferences: { currency: 'EUR', monthlyBudget: 100 },
+      categories: sampleCategories,
+      expenses: [
+        {
+          ...sampleExpenses[0],
+          note: longNote,
+        },
+      ],
+      appVersion: '2.0.6',
+    });
+    expect(backup.expenses[0].note).toBe(longNote);
+    expect(backup.expenses[0].note.length).toBe(2000);
+    const result = validateBackup(backup);
+    expect(result.valid).toBe(true);
+  });
 });

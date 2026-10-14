@@ -4,6 +4,7 @@ package com.aus.ausgegeben.data
 interface AccountActions {
     /** True when the permanent deletion tombstone has frozen the account. */
     suspend fun isAccountDeletionPending(): Boolean
+    suspend fun isAccountDeletionPending(targetUid: String?): Boolean = isAccountDeletionPending()
 
     suspend fun markAccountDeletionPending(): Result<Unit>
 

@@ -5,7 +5,7 @@ import { beforeAll,afterAll,beforeEach,it,expect } from 'vitest';
 import { createRecurringRepository } from '@/services/recurringRepository';
 import {useAuthStore} from '@/services/authStore';
 let env:RulesTestEnvironment;
-beforeAll(async()=>{env=await initializeTestEnvironment({projectId:'demo-recurring-enforced',firestore:{host:'127.0.0.1',port:8080,rules:readFileSync('../firestore.rules','utf8')}});});
+beforeAll(async()=>{env=await initializeTestEnvironment({projectId:'demo-recurring-enforced',firestore:{host:process.env.FIRESTORE_EMULATOR_HOST?process.env.FIRESTORE_EMULATOR_HOST.split(':')[0]:'127.0.0.1',port:process.env.FIRESTORE_EMULATOR_HOST?Number(process.env.FIRESTORE_EMULATOR_HOST.split(':')[1]):8088,rules:readFileSync('../firestore.rules','utf8')}});});
 afterAll(async()=>{await env?.cleanup();});
 beforeEach(async()=>{await env.clearFirestore();useAuthStore.setState({user:{uid:'owner',email:'owner@example.com',emailVerified:true,displayName:null}});await env.withSecurityRulesDisabled(async c=>setDoc(doc(c.firestore(),'users/owner/categories/rent'),{name:'Rent',iconName:'home',colorInt:1,sortOrder:0,transactionType:'expense'}));});
 it('production transactions deduplicate across two clients under strict rules',async()=>{
