@@ -1,9 +1,9 @@
 import { CATEGORY_BUDGETS_COLLECTION } from '@/repositories/firestorePaths';
 import {
-  collection, doc, setDoc, deleteDoc, getDoc, getDocs, getDocsFromServer,
+  collection, doc, setDoc, deleteDoc, getDoc, getDocFromCache, getDocs, getDocsFromServer,
   getDocFromServer, query, where, orderBy, limit,
   onSnapshot, updateDoc, getAggregateFromServer, sum, type Unsubscribe, writeBatch,
-  runTransaction, deleteField, type QueryDocumentSnapshot,
+  runTransaction, deleteField, type QueryDocumentSnapshot, type Query, type DocumentData,
   documentId, startAfter,
 } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/services/firebase';
@@ -23,6 +23,7 @@ import {
   DELETABLE_USER_DOCS,
   EXPENSES_COLLECTION,
   META_COLLECTION,
+  RESTORE_OPERATION_DOC,
 } from './firestorePaths';
 
 function uid(): string | null { return useAuthStore.getState().user?.uid ?? null; }
@@ -238,7 +239,7 @@ async function reassignExpenses(
   for (let i = 0; i < docs.length; i += REASSIGN_CHUNK_SIZE) {
     const chunk = docs.slice(i, i + REASSIGN_CHUNK_SIZE);
     const batch = writeBatch(fs()!);
-    chunk.forEach((d) => batch.update(d.ref, { categoryId: targetCategoryId }));
+    chunk.forEach((d) => batch.update(d.ref, { categoryId: targetCategoryId, idempotencyKey: deleteField() }));
     try {
       await batch.commit();
     } catch (error) {
@@ -248,7 +249,7 @@ async function reassignExpenses(
       if (!isPermissionDenied(error)) throw error;
       for (const item of chunk) {
         try {
-          await updateDoc(item.ref, { categoryId: targetCategoryId });
+          await updateDoc(item.ref, { categoryId: targetCategoryId, idempotencyKey: deleteField() });
         } catch (itemError) {
           if (!isPermissionDenied(itemError)) throw itemError;
           unfixable += 1;
@@ -275,14 +276,14 @@ async function resumeCategoryTypeMigrations(userId: string): Promise<void> {
     for (let i = 0; i < linked.length; i += REASSIGN_CHUNK_SIZE) {
       const chunk = linked.slice(i, i + REASSIGN_CHUNK_SIZE);
       const batch = writeBatch(fs()!);
-      chunk.forEach((expense) => batch.update(expense.ref, { transactionType: target }));
+      chunk.forEach((expense) => batch.update(expense.ref, { transactionType: target, idempotencyKey: deleteField() }));
       try {
         await batch.commit();
       } catch (error) {
         if (!isPermissionDenied(error)) throw error;
         for (const expense of chunk) {
           try {
-            await updateDoc(expense.ref, { transactionType: target });
+            await updateDoc(expense.ref, { transactionType: target, idempotencyKey: deleteField() });
           } catch (itemError) {
             if (!isPermissionDenied(itemError)) throw itemError;
             unfixable += 1;
@@ -318,6 +319,21 @@ function isPermissionDenied(error: unknown): boolean {
     && error !== null
     && 'code' in error
     && error.code === 'permission-denied';
+}
+
+function isOfflineOrNetworkError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const anyErr = error as Record<string, unknown>;
+  const code = String(anyErr.code ?? '');
+  const msg = String(anyErr.message ?? '').toLowerCase();
+  return (
+    code === 'unavailable' ||
+    (code === 'failed-precondition' && msg.includes('offline')) ||
+    msg.includes('client is offline') ||
+    msg.includes('network') ||
+    msg.includes('backend is unavailable') ||
+    (typeof navigator !== 'undefined' && !navigator.onLine)
+  );
 }
 
 async function deleteCategoryInto(userId: string, id: string, targetId?: string): Promise<void> {
@@ -456,8 +472,7 @@ export const expenseRepository = {
         // submission. See DATA-1.
         try {
           await reconcilePendingExpenseSubmissions(userId, async (operationId) => {
-            const id = await expenseDocumentId(operationId);
-            return (await getDoc(expDoc(userId, id))).exists();
+            return (await expenseRepository.expenseExistsForOperation(userId, operationId)) !== null;
           });
         } catch (err) {
           console.warn('[ensureSeeded] pending submission reconciliation failed', err);
@@ -514,11 +529,24 @@ export const expenseRepository = {
     });
   },
 
-  async isAccountDeletionPending(): Promise<boolean> {
-    const userId = uid();
+  async isAccountDeletionPending(targetUid?: string): Promise<boolean> {
+    const userId = targetUid ?? uid();
     if (!userId || !fs()) return false;
     const snap = await getDoc(metaDoc(userId, ACCOUNT_DELETION_DOC));
     return snap.data()?.pendingDeletion === true;
+  },
+
+  async isRestoreOperationActive(): Promise<boolean> {
+    const userId = uid();
+    if (!userId || !fs()) return false;
+    try {
+      const snap = await getDoc(metaDoc(userId, RESTORE_OPERATION_DOC));
+      if (!snap.exists()) return false;
+      const phase = snap.data()?.phase;
+      return phase === 'APPLYING' || phase === 'ROLLING_BACK';
+    } catch {
+      return false;
+    }
   },
 
   async markAccountDeletionPending(): Promise<void> {
@@ -577,12 +605,17 @@ export const expenseRepository = {
     if (!CategoryValidator.isValid(sanitizedName)) {
       throw new Error('INVALID_CATEGORY_NAME');
     }
-    const current = (await getDocFromServer(catDoc(userId, cat.id))).data();
-    if (current && current.transactionType !== cat.transactionType && (current.recurringTemplateCount ?? 0) > 0) throw new Error('CATEGORY_HAS_RECURRING');
-    await setDoc(
+    const snap = await getDoc(catDoc(userId, cat.id));
+    if (!snap.exists() || (snap.data() as any)?.deleted === true) {
+      throw new Error('CATEGORY_NOT_FOUND');
+    }
+    const current = snap.data();
+    if (current && current.transactionType !== cat.transactionType && (current.recurringTemplateCount ?? 0) > 0) {
+      throw new Error('CATEGORY_HAS_RECURRING');
+    }
+    await updateDoc(
       catDoc(userId, cat.id),
-      categoryWritePayload({ ...cat, name: sanitizedName }, now()),
-      { merge: true },
+      categoryWritePayload({ ...cat, name: sanitizedName }, now()) as Record<string, any>,
     );
   },
 
@@ -616,7 +649,7 @@ export const expenseRepository = {
 
     const batch = writeBatch(firestore);
     for (const payload of payloads) {
-      batch.set(catDoc(userId, String(payload.id)), payload, { merge: true });
+      batch.update(catDoc(userId, String(payload.id)), payload as Record<string, any>);
     }
     await batch.commit();
   },
@@ -633,11 +666,61 @@ export const expenseRepository = {
     );
   },
 
+  /**
+   * Whether this exact operation's expense document already exists server-side, and
+   * its id if so. Always a server-only read (`getDocFromServer`, never `getDoc`): an
+   * offline/incomplete cache must never be mistaken for "confirmed absent" and
+   * green-light an unsafe retry — a false negative here could create a real
+   * duplicate. This is the one existence check both cold-start reconciliation
+   * (ensureSeeded, below) and immediate post-write reconciliation
+   * (useAddTransactionViewModel's insertExpenseReconciled) share, rather than two
+   * competing implementations of the same lookup — see DATA-1 and the
+   * server-success/client-timeout fix.
+   */
+  async expenseExistsForOperation(userId: string, operationId: string): Promise<string | null> {
+    const id = await expenseDocumentId(operationId);
+    const snap = await getDocFromServer(expDoc(userId, id));
+    return snap.exists() ? id : null;
+  },
+
   async getExpenseById(id: string): Promise<Expense | undefined> {
     const userId = uid(); if (!userId) return undefined;
-    const snap = await getDoc(expDoc(userId, id));
-    if (!snap.exists()) return undefined;
-    return { ...snap.data(), id: snap.id } as Expense;
+    try {
+      const snap = await getDocFromCache(expDoc(userId, id));
+      if (snap.exists()) return { ...snap.data(), id: snap.id } as Expense;
+    } catch {
+      // Not in cache, try default / server getDoc
+    }
+    try {
+      const snap = await getDoc(expDoc(userId, id));
+      if (snap && snap.exists()) return { ...snap.data(), id: snap.id } as Expense;
+    } catch {
+      // Offline or network error
+    }
+    return undefined;
+  },
+
+  async getAllExpensesForBackup(pageSize = 1_000): Promise<Expense[]> {
+    const u = uid();
+    if (!u) return [];
+    const all: Expense[] = [];
+    let lastDoc: QueryDocumentSnapshot | null = null;
+    while (true) {
+      const q: Query<DocumentData> = lastDoc
+        ? query(expCol(u), orderBy('dateMillis', 'desc'), startAfter(lastDoc), limit(pageSize))
+        : query(expCol(u), orderBy('dateMillis', 'desc'), limit(pageSize));
+      const snap = await getDocsFromServer(q);
+      if (snap.empty) break;
+      for (const d of snap.docs) {
+        const data = d.data();
+        if (data.deleted !== true) {
+          all.push({ ...data, id: d.id } as Expense);
+        }
+      }
+      if (snap.docs.length < pageSize) break;
+      lastDoc = snap.docs[snap.docs.length - 1];
+    }
+    return all;
   },
 
   async getExpensesInRange(start: number, end: number): Promise<Expense[]> {
@@ -691,19 +774,25 @@ export const expenseRepository = {
       .filter((d) => d.data().deleted !== true).length;
   },
 
-  // A keyed create derives remote identity from the key. The transaction makes the
-  // existing-document check and create one atomic operation across tabs/devices/clients.
+  // A keyed create derives remote identity from the key. The check-and-set on the
+  // deterministic id allows offline queuing while ensuring retries or duplicate
+  // submissions never overwrite a later edit of the row.
   async insertExpense(expense: Omit<Expense, 'id'>, idempotencyKey?: string, expectedUid?: string): Promise<string> {
     const userId = uid(); if (!userId) throw new Error('Not signed in');
     if (expectedUid != null && userId !== expectedUid) throw new Error('AUTH_ACCOUNT_CHANGED');
     requireVerifiedEmail();
+    if (await this.isRestoreOperationActive()) {
+      throw new Error('ACCOUNT_RESTORE_IN_PROGRESS');
+    }
     if (idempotencyKey) {
       // Historical releases used random document ids. Find those first so upgrading a
       // user cannot create a deterministic second copy of an already-recorded expense.
-      const dupSnap = await getDocs(query(
-        expCol(userId), where('idempotencyKey', '==', idempotencyKey), limit(1),
-      ));
-      if (!dupSnap.empty) return dupSnap.docs[0].id;
+      try {
+        const dupSnap = await getDocs(query(expCol(userId), where('idempotencyKey', '==', idempotencyKey), limit(1)));
+        if (!dupSnap.empty) return dupSnap.docs[0].id;
+      } catch {
+        // Query may fail offline if not indexed/cached; proceed with deterministic id.
+      }
 
       const id = await expenseDocumentId(idempotencyKey);
       const ref = expDoc(userId, id);
@@ -713,14 +802,40 @@ export const expenseRepository = {
         // such limit because only the fixed-size hash is used as the document path.
         { updatedAt: now(), idempotencyKey: idempotencyKey.length < 128 ? idempotencyKey : undefined },
       );
-      const created = await runTransaction(fs()!, async (transaction) => {
-        const existing = await transaction.get(ref);
-        if (existing.exists()) return false;
-        transaction.set(ref, payload);
-        return true;
-      });
-      if (created) emitDataChanged();
-      return id;
+
+      // Check if document already exists in local cache before attempting transaction/network
+      try {
+        const cached = await getDocFromCache(ref);
+        if (cached.exists()) return id;
+      } catch {
+        // Not in local cache
+      }
+
+      // Primary online path: atomic transaction guarantees create-if-absent across concurrent devices/tabs
+      try {
+        const created = await runTransaction(fs()!, async (transaction) => {
+          const existing = await transaction.get(ref);
+          if (existing.exists()) return false;
+          transaction.set(ref, payload);
+          return true;
+        });
+        if (created) emitDataChanged();
+        return id;
+      } catch (txError: unknown) {
+        if (isOfflineOrNetworkError(txError)) {
+          // Offline fallback: check local/server document if available, then setDoc
+          try {
+            const existing = await getDoc(ref);
+            if (existing.exists()) return id;
+          } catch {
+            // Document unavailable while offline
+          }
+          await setDoc(ref, payload);
+          emitDataChanged();
+          return id;
+        }
+        throw txError;
+      }
     }
     const id = crypto.randomUUID();
     await setDoc(
@@ -739,15 +854,27 @@ export const expenseRepository = {
     if (!userId) throw new Error('Not signed in');
     if (!expense.id) throw new Error('EXPENSE_NOT_FOUND');
     requireVerifiedEmail();
+    if (await this.isRestoreOperationActive()) {
+      throw new Error('ACCOUNT_RESTORE_IN_PROGRESS');
+    }
     const existing = await getDoc(expDoc(userId, expense.id));
-    if (!existing.exists()) {
+    if (!existing.exists() || (existing.data() as any)?.deleted === true) {
       throw new Error('EXPENSE_NOT_FOUND');
     }
-    await setDoc(
-      expDoc(userId, expense.id),
-      expenseWritePayload(expense, { updatedAt: now() }),
-      { merge: true },
-    );
+    try {
+      await updateDoc(
+        expDoc(userId, expense.id),
+        {
+          ...expenseWritePayload(expense, { updatedAt: now() }),
+          idempotencyKey: deleteField(),
+        } as Record<string, any>,
+      );
+    } catch (err: any) {
+      if (err?.code === 'not-found' || err?.message?.includes('not-found') || err?.message?.includes('No document to update')) {
+        throw new Error('EXPENSE_NOT_FOUND');
+      }
+      throw err;
+    }
     emitDataChanged();
   },
 
@@ -755,6 +882,9 @@ export const expenseRepository = {
     const userId = uid(); if (!userId) return null;
     if (expectedUid != null && userId !== expectedUid) throw new Error('AUTH_ACCOUNT_CHANGED');
     requireVerifiedEmail();
+    if (await this.isRestoreOperationActive()) {
+      throw new Error('ACCOUNT_RESTORE_IN_PROGRESS');
+    }
     const exp = await this.getExpenseById(id);
     if (!exp) return null;
     await deleteDoc(expDoc(userId, id));

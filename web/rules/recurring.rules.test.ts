@@ -7,7 +7,7 @@ const id='550e8400-e29b-41d4-a716-446655440000', path=`users/a/recurringTransact
 const t={amount:15,categoryId:'rent',note:'',transactionType:'expense',frequency:'monthly',interval:1,startDate:'2024-01-31',endDate:null,timeZone:'Europe/Berlin',enabled:true,nextIndex:0,nextDate:'2024-01-31',createdAt:1,updatedAt:1};
 const owner=()=>env.authenticatedContext('a',{email_verified:true}).firestore();
 async function create(data:Record<string,unknown>=t){const db=owner(),b=writeBatch(db);b.set(doc(db,path),data);b.update(doc(db,'users/a/categories/rent'),{recurringTemplateCount:1,recurringMutationId:id});return b.commit();}
-beforeAll(async()=>{env=await initializeTestEnvironment({projectId:'demo-recurring-rules',firestore:{host:'127.0.0.1',port:8080,rules:readFileSync('../firestore.rules','utf8')}});});
+beforeAll(async()=>{env=await initializeTestEnvironment({projectId:'demo-recurring-rules',firestore:{host:process.env.FIRESTORE_EMULATOR_HOST?process.env.FIRESTORE_EMULATOR_HOST.split(':')[0]:'127.0.0.1',port:process.env.FIRESTORE_EMULATOR_HOST?Number(process.env.FIRESTORE_EMULATOR_HOST.split(':')[1]):8088,rules:readFileSync('../firestore.rules','utf8')}});});
 afterAll(async()=>{await env?.cleanup();});
 beforeEach(async()=>{await env.clearFirestore();await env.withSecurityRulesDisabled(async c=>setDoc(doc(c.firestore(),'users/a/categories/rent'),{name:'Rent',iconName:'home',colorInt:1,sortOrder:0,transactionType:'expense'}));});
 describe('recurring owner boundary and category integrity',()=>{

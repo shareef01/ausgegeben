@@ -140,6 +140,7 @@
     <string name="settings_no_email_app">keine e-mail-app gefunden</string>
     <string name="settings_choose_theme">design wählen</string>
     <string name="settings_choose_currency">währung wählen</string>
+    <string name="settings_currency_notice">Das Ändern der Währung passt die Anzeigeformatierung an. Bestehende Beträge bleiben erhalten und werden nicht umgerechnet.</string>
     <string name="settings_choose_language">sprache wählen</string>
     <string name="settings_language">sprache</string>
     <string name="settings_budget_dialog_title">monatliches ausgabenlimit</string>
@@ -148,7 +149,7 @@
     <string name="settings_budget_set">monatslimit gesetzt</string>
     <string name="settings_budget_cleared">monatslimit gelöscht</string>
     <string name="settings_account_cloud">cloud-konto</string>
-    <string name="settings_account_sync_enabled">cloud-backup aktiv</string>
+    <string name="settings_account_sync_enabled">cloud-synchronisierung aktiv</string>
     <string name="settings_account_offline">nicht angemeldet</string>
     <string name="settings_account_signed_in_as">angemeldet als %1$s</string>
     <string name="settings_account_cloud_subtitle">daten werden geräteübergreifend synchronisiert</string>
@@ -215,6 +216,9 @@
     <string name="error_category_type_mismatch">kategorie ist für %1$s-transaktionen</string>
     <string name="error_budget_exceeded">monatsbudget überschritten: %1$s von %2$s</string>
     <string name="error_budget_check_failed">monatsbudget konnte nicht geprüft werden. die transaktion wurde gespeichert.</string>
+    <string name="error_save_unresolved">wir konnten nicht bestätigen, ob diese transaktion gespeichert wurde. füge sie noch nicht erneut hinzu — wir prüfen das automatisch noch einmal.</string>
+    <string name="submission_recovered_success">deine frühere transaktion wurde gefunden und ist bereits gespeichert. tippe erneut auf speichern, um eine neue hinzuzufügen.</string>
+    <string name="submission_recovered_absent">wir konnten die frühere transaktion nicht finden. du kannst sie erneut senden — tippe noch einmal auf speichern.</string>
 
     <!-- Snackbars -->
     <string name="snackbar_transaction_deleted">transaktion gelöscht</string>
@@ -328,19 +332,27 @@
     <string name="bills_total_expense">gesamtausgaben</string>
     <string name="bills_total_transfers">gesamttransfers</string>
     <string name="add_delete_category_fallback">verknüpfte transaktionen werden zu „nicht kategorisiert" verschoben.</string>
-    <string name="add_delete_category_many">%1$d verknüpfte transaktionen werden zu „nicht kategorisiert" verschoben.</string>
-    <string name="add_delete_category_none">keine transaktionen sind mit dieser kategorie verknüpft.</string>
     <string name="add_delete_category_one">1 verknüpfte transaktion wird zu „nicht kategorisiert" verschoben.</string>
+    <string name="add_delete_category_many">%1$d verknüpfte transaktionen werden zu „nicht kategorisiert" verschoben.</string>
+    <plurals name="add_delete_category_linked">
+        <item quantity="one">%1$d verknüpfte transaktion wird zu „nicht kategorisiert" verschoben.</item>
+        <item quantity="other">%1$d verknüpfte transaktionen werden zu „nicht kategorisiert" verschoben.</item>
+    </plurals>
+    <string name="add_delete_category_none">keine transaktionen sind mit dieser kategorie verknüpft.</string>
     <string name="add_delete_category_uncategorized_one">1 verknüpfte transaktion wird als „unbekannt“ angezeigt, bis du eine kategorie zuweist.</string>
     <string name="add_delete_category_uncategorized_many">%1$d verknüpfte transaktionen werden als „unbekannt“ angezeigt, bis du eine kategorie zuweist.</string>
+    <plurals name="add_delete_category_uncategorized">
+        <item quantity="one">%1$d verknüpfte transaktion wird als „unbekannt“ angezeigt, bis du eine kategorie zuweist.</item>
+        <item quantity="other">%1$d verknüpfte transaktionen werden als „unbekannt“ angezeigt, bis du eine kategorie zuweist.</item>
+    </plurals>
     <string name="add_delete_category_uncategorized_fallback">verknüpfte transaktionen werden als „unbekannt“ angezeigt, bis du eine kategorie zuweist.</string>
     <string name="add_no_categories_subtitle">tippe unten auf neu oder verwalten, um eine zu erstellen</string>
     <plurals name="insight_days_logged">
         <item quantity="one">%d tag diese woche erfasst</item>
         <item quantity="other">%d tage diese woche erfasst</item>
     </plurals>
-    <string name="settings_sync_error_config_placeholder">cloud-backup ist in diesem build nicht verfügbar.</string>
-    <string name="settings_sync_error_firestore_missing">cloud-backup ist vorübergehend nicht verfügbar. bitte später erneut versuchen.</string>
+    <string name="settings_sync_error_config_placeholder">cloud-synchronisierung ist in diesem build nicht verfügbar.</string>
+    <string name="settings_sync_error_firestore_missing">cloud-synchronisierung ist vorübergehend nicht verfügbar. bitte später erneut versuchen.</string>
     <string name="snackbar_data_listener_error">probleme beim laden der neuesten daten. prüfe deine verbindung.</string>
     <string name="snackbar_transaction_delete_failed">transaktion konnte nicht gelöscht werden</string>
     <string name="snackbar_transaction_duplicate_failed">transaktion konnte nicht dupliziert werden</string>

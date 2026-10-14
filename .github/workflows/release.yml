@@ -115,6 +115,12 @@ jobs:
       - run: npm run lint:css
         working-directory: web
 
+      # TEL-1: fails if a repository/service throw site dumps a whole object's
+      # contents into an Error message, which no telemetry redaction regex can
+      # distinguish from safe free text.
+      - run: npm run lint:telemetry
+        working-directory: web
+
       - run: npm run build
         working-directory: web
 

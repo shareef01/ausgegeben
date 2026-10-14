@@ -153,11 +153,40 @@ service cloud.firestore {
         && (!('id' in d) || (d.id is string && d.id.size() <= 64));
     }
 
-    function preservesExpenseIdempotencyKey() {
+    function isIdempotentCreationReplay() {
       return ('idempotencyKey' in resource.data)
-        ? ('idempotencyKey' in request.resource.data
-            && request.resource.data.idempotencyKey == resource.data.idempotencyKey)
-        : !('idempotencyKey' in request.resource.data);
+        && ('idempotencyKey' in request.resource.data)
+        && request.resource.data.idempotencyKey == resource.data.idempotencyKey
+        && math.abs(request.resource.data.amount - resource.data.amount) < 0.0001
+        && request.resource.data.dateMillis == resource.data.dateMillis
+        && request.resource.data.categoryId == resource.data.categoryId
+        && request.resource.data.transactionType == resource.data.transactionType
+        && request.resource.data.note == resource.data.note;
+    }
+
+    function isLegitimateExpenseUpdate() {
+      return !('idempotencyKey' in request.resource.data);
+    }
+
+    function validExpenseMutation() {
+      return isIdempotentCreationReplay() || isLegitimateExpenseUpdate();
+    }
+
+    function monotonicallyIncreasingExpenseUpdatedAt() {
+      return !('updatedAt' in resource.data)
+        || !('updatedAt' in request.resource.data)
+        || (resource.data.updatedAt is number
+            && request.resource.data.updatedAt is number
+            && request.resource.data.updatedAt >= resource.data.updatedAt)
+        || (resource.data.updatedAt is timestamp
+            && request.resource.data.updatedAt is number
+            && request.resource.data.updatedAt >= resource.data.updatedAt.toMillis())
+        || (resource.data.updatedAt is number
+            && request.resource.data.updatedAt is timestamp
+            && request.resource.data.updatedAt.toMillis() >= resource.data.updatedAt)
+        || (resource.data.updatedAt is timestamp
+            && request.resource.data.updatedAt is timestamp
+            && request.resource.data.updatedAt.toMillis() >= resource.data.updatedAt.toMillis());
     }
 
     // Categories came from the same legacy backend as expenses and carry the same
@@ -363,12 +392,47 @@ service cloud.firestore {
         && (!('snapshotMeta' in d) || d.snapshotMeta is map);
     }
 
+    function validRestoreLeaseUpdate() {
+      // NOTE: Firestore rules allow at most 10 `let` bindings per function — this
+      // function deliberately uses 9, and the two phase-set checks are inlined in
+      // the return expression to stay under the limit. Do not add bindings here.
+      let beforeProgress = resource.data.get('progress', {});
+      let afterProgress = request.resource.data.get('progress', {});
+      let beforeToken = beforeProgress.get('fencingToken', 0);
+      let afterToken = afterProgress.get('fencingToken', 0);
+      let beforeHolder = beforeProgress.get('leaseHolder', '');
+      let afterHolder = afterProgress.get('leaseHolder', '');
+      let beforeExpiresAt = beforeProgress.get('leaseExpiresAt', 0);
+      let afterExpiresAt = afterProgress.get('leaseExpiresAt', 0);
+      // fenced = bounded expiry + (same-holder renewal of a live lease | takeover
+      // of an expired/holderless lease).
+      // CLOCK SKEW: leaseExpiresAt is a CLIENT-generated ms epoch compared here
+      // against the server clock (request.time). The +300000 bound covers the
+      // clients' 60s lease duration plus up to 240s of client clock skew. Do not
+      // shrink it below the lease duration (slow devices could no longer renew)
+      // and do not remove it (a holder could pin a far-future expiry and block
+      // every legitimate takeover).
+      let fenced = afterExpiresAt is int
+        && afterExpiresAt <= request.time.toMillis() + 300000
+        && (
+          (afterHolder == beforeHolder && afterToken == beforeToken && beforeExpiresAt >= request.time.toMillis())
+          || (afterToken > beforeToken && (beforeExpiresAt < request.time.toMillis() || beforeHolder == ''))
+        );
+      // In-flight -> in-flight always needs the fence. Terminal transitions need
+      // it too while a lease is active, so a holder that lost a takeover cannot
+      // mark the operation COMPLETED/ROLLED_BACK underneath the new lease holder.
+      return !(resource.data.phase in ['SNAPSHOT_READY', 'APPLYING', 'ROLLING_BACK', 'VERIFYING'])
+        || (request.resource.data.phase in ['APPLYING', 'ROLLING_BACK', 'VERIFYING', 'FAILED_RECOVERABLE'] && fenced)
+        || (!(request.resource.data.phase in ['APPLYING', 'ROLLING_BACK', 'VERIFYING', 'FAILED_RECOVERABLE'])
+          && (fenced || beforeExpiresAt < request.time.toMillis() || beforeHolder == ''));
+    }
+
     function validSnapshotDoc() {
       let d = request.resource.data;
       return d.keys().hasOnly([
           'operationId', 'ownerUid', 'createdAt', 'chunkIndex', 'chunkCount',
           'totalExpenses', 'totalCategories', 'expenses', 'categories', 'preferences', 'categoryBudgets',
-          'recurringTemplates', 'recurringReceipts'
+          'recurringTemplates', 'recurringReceipts', 'receiptChunkCount', 'totalReceipts'
         ])
         && d.keys().hasAll(['operationId', 'ownerUid', 'createdAt'])
         && d.operationId is string && d.operationId.size() > 0 && d.operationId.size() <= 64
@@ -376,8 +440,10 @@ service cloud.firestore {
         && d.createdAt is number && d.createdAt > 0
         && (!('chunkIndex' in d) || (d.chunkIndex is int && d.chunkIndex >= 0))
         && (!('chunkCount' in d) || (d.chunkCount is int && d.chunkCount >= 0))
+        && (!('receiptChunkCount' in d) || (d.receiptChunkCount is int && d.receiptChunkCount >= 0))
         && (!('totalExpenses' in d) || (d.totalExpenses is int && d.totalExpenses >= 0))
         && (!('totalCategories' in d) || (d.totalCategories is int && d.totalCategories >= 0))
+        && (!('totalReceipts' in d) || (d.totalReceipts is int && d.totalReceipts >= 0))
         && (!('expenses' in d) || d.expenses is list)
         && (!('categories' in d) || d.categories is list)
         && (!('categoryBudgets' in d) || d.categoryBudgets is list)
@@ -514,7 +580,8 @@ service cloud.firestore {
           && accountAcceptsWrites(userId)
           && isEmailVerified()
           && validExpense()
-          && preservesExpenseIdempotencyKey()
+          && validExpenseMutation()
+          && monotonicallyIncreasingExpenseUpdatedAt()
           && exists(/databases/$(database)/documents/users/$(userId)/categories/$(request.resource.data.categoryId))
           && expenseCategoryAcceptsReferences(userId)
           && expenseCategoryTypeMatches(userId);
@@ -572,6 +639,7 @@ service cloud.firestore {
           && isEmailVerified()
           && validRestoreOperation()
           && request.resource.data.ownerUid == resource.data.ownerUid
+          && validRestoreLeaseUpdate()
           && (resource.data.phase in ['COMPLETED', 'ROLLED_BACK']
               || request.resource.data.operationId == resource.data.operationId);
         allow delete: if docId == 'restoreOperation' && canDeleteOwned(userId);

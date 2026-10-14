@@ -41,12 +41,17 @@ object ReplacePlanner {
         val batchIndex: Int? = null,
         val totalBatches: Int? = null,
         val lastProcessedId: String? = null,
+        val leaseHolder: String? = null,
+        val leaseExpiresAt: Long? = null,
+        val fencingToken: Long? = null,
     )
 
     data class SnapshotMeta(
         val chunkCount: Int,
         val totalExpenses: Int,
         val totalCategories: Int,
+        val receiptChunkCount: Int = 0,
+        val totalReceipts: Int = 0,
     )
 
     data class RestoreOperationDoc(
@@ -82,7 +87,10 @@ object ReplacePlanner {
         val phase: RestorePhase,
     )
 
-    fun computeBackupFingerprint(backup: BackupFormat.ParsedBackup): String {
+    /**
+     * Legacy fingerprint calculation retained for backwards compatibility with in-flight operations.
+     */
+    fun computeLegacyBackupFingerprint(backup: BackupFormat.ParsedBackup): String {
         val canonicalExpenses = backup.expenses
             .map { "${it.id},${it.amount},${it.dateMillis},${it.categoryId},${it.transactionType}" }
             .sorted()
@@ -128,6 +136,39 @@ object ReplacePlanner {
             recurringArray.put(templatesArray)
             recurringArray.put(receiptsArray)
             ":" + recurringArray.toString()
+        } else ""
+        val raw = "v${backup.schemaVersion}:${backup.exportedAt}:$canonicalExpenses:$canonicalCategories:$canonicalPrefs$budgetPart$recurringPart"
+
+        val md = MessageDigest.getInstance("SHA-256")
+        val bytes = md.digest(raw.toByteArray(Charsets.UTF_8))
+        return bytes.joinToString("") { "%02x".format(it) }
+    }
+
+    /**
+     * Modern canonical fingerprint covering all meaningful backup data including notes, icons, colors, and order.
+     */
+    fun computeBackupFingerprint(backup: BackupFormat.ParsedBackup): String {
+        val canonicalExpenses = backup.expenses
+            .map { "${it.id},${CurrencyUtils.toMinorUnits(it.amount)},${it.dateMillis},${it.categoryId},${it.note},${it.transactionType}" }
+            .sorted()
+            .joinToString(";")
+        val canonicalCategories = backup.categories
+            .map { "${it.id},${it.name},${it.iconName},${it.colorInt},${it.transactionType},${it.sortOrder}" }
+            .sorted()
+            .joinToString(";")
+        val budgetVal = backup.preferences.monthlyBudget?.let { CurrencyUtils.toMinorUnits(it).toString() } ?: "null"
+        val canonicalPrefs = "${backup.preferences.currency},$budgetVal,${backup.preferences.locale},${backup.preferences.themeMode},${backup.preferences.dailyReminder},${backup.preferences.reminderHour},${backup.preferences.reminderMinute},${backup.preferences.analyticsPeriod}"
+        val budgetPart = if (backup.schemaVersion >= 2) ":" + backup.categoryBudgets.sortedBy { it.categoryId }.joinToString(";") {
+            "${it.categoryId},${CurrencyUtils.toMinorUnits(it.monthlyLimit)},${it.warningThresholdPercent}"
+        } else ""
+        val recurringPart = if (backup.schemaVersion >= 3 && backup.recurring != null) {
+            val templates = backup.recurring.templates.sortedBy { it.id }.joinToString(";") { t ->
+                "${t.id},${CurrencyUtils.toMinorUnits(t.amount)},${t.categoryId},${t.note},${t.transactionType},${t.frequency},${t.interval},${t.startDate},${t.endDate ?: ""},${t.timeZone},${t.enabled},${t.nextIndex},${t.nextDate ?: ""},${t.createdAt},${t.updatedAt}"
+            }
+            val receipts = backup.recurring.receipts.sortedBy { it.id }.joinToString(";") { r ->
+                "${r.id},${r.templateId},${r.scheduledDate},${r.expenseId},${r.createdAt}"
+            }
+            ":templates:$templates:receipts:$receipts"
         } else ""
         val raw = "v${backup.schemaVersion}:${backup.exportedAt}:$canonicalExpenses:$canonicalCategories:$canonicalPrefs$budgetPart$recurringPart"
 

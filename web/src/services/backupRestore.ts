@@ -115,8 +115,8 @@ export async function restoreBackup(
       batch.set(
         ref,
         {
-          name: c.name.trim().slice(0, 50),
-          iconName: c.iconName.slice(0, 50),
+          name: c.name.trim().slice(0, 80),
+          iconName: c.iconName.slice(0, 63),
           colorInt: c.colorInt | 0,
           transactionType: c.transactionType,
           sortOrder: Math.max(0, Math.trunc(c.sortOrder)),
@@ -141,7 +141,7 @@ export async function restoreBackup(
           amount: Math.round(e.amount * 100) / 100,
           dateMillis: Math.trunc(e.dateMillis),
           categoryId: e.categoryId,
-          note: (e.note ?? '').slice(0, 200),
+          note: (e.note ?? '').slice(0, 2000),
           transactionType: e.transactionType,
           updatedAt: typeof e.updatedAt === 'number' ? e.updatedAt : Date.now(),
           id: e.id,

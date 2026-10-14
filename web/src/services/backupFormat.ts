@@ -11,6 +11,10 @@ export interface BackupPreferences {
   locale?: 'en' | 'de';
   themeMode?: string;
   preferencesUpdatedAt?: number;
+  dailyReminder?: boolean;
+  reminderHour?: number;
+  reminderMinute?: number;
+  analyticsPeriod?: string;
 }
 
 export interface BackupCategory {
@@ -102,8 +106,8 @@ export function createBackup(params: {
   const schemaVersion = params.schemaVersion ?? CURRENT_BACKUP_SCHEMA_VERSION;
   const cleanCategories: BackupCategory[] = params.categories.map((c) => ({
     id: c.id,
-    name: c.name.trim().slice(0, 50),
-    iconName: c.iconName.slice(0, 50),
+    name: c.name.trim().slice(0, 80),
+    iconName: c.iconName.slice(0, 63),
     colorInt: Math.trunc(c.colorInt),
     transactionType: (ALLOWED_TRANSACTION_TYPES.has(c.transactionType as TransactionType)
       ? c.transactionType
@@ -119,7 +123,7 @@ export function createBackup(params: {
       amount: Math.round(e.amount * 100) / 100,
       dateMillis: Math.trunc(e.dateMillis),
       categoryId: e.categoryId,
-      note: (e.note ?? '').slice(0, 200),
+      note: (e.note ?? '').slice(0, 2000),
       transactionType: (ALLOWED_TRANSACTION_TYPES.has(e.transactionType)
         ? e.transactionType
         : 'expense') as TransactionType,
@@ -144,6 +148,18 @@ export function createBackup(params: {
       themeMode: params.preferences.themeMode ?? 'system',
       ...(typeof params.preferences.preferencesUpdatedAt === 'number'
         ? { preferencesUpdatedAt: params.preferences.preferencesUpdatedAt }
+        : {}),
+      ...(params.preferences.dailyReminder !== undefined
+        ? { dailyReminder: params.preferences.dailyReminder }
+        : {}),
+      ...(params.preferences.reminderHour !== undefined
+        ? { reminderHour: params.preferences.reminderHour }
+        : {}),
+      ...(params.preferences.reminderMinute !== undefined
+        ? { reminderMinute: params.preferences.reminderMinute }
+        : {}),
+      ...(params.preferences.analyticsPeriod !== undefined
+        ? { analyticsPeriod: params.preferences.analyticsPeriod }
         : {}),
     },
     categories: cleanCategories,
@@ -221,6 +237,7 @@ export function validateBackup(data: unknown): ValidationResult {
 
   // Validate Categories
   const categoryIds = new Set<string>();
+  const categoryMap = new Map<string, { transactionType: TransactionType }>();
   if (!Array.isArray(root.categories)) {
     errors.push('categories must be an array');
   } else {
@@ -230,7 +247,7 @@ export function validateBackup(data: unknown): ValidationResult {
         return;
       }
       const c = cat as Record<string, unknown>;
-      if (typeof c.id !== 'string' || c.id.trim().length === 0) {
+      if (typeof c.id !== 'string' || c.id.trim().length === 0 || c.id.length >= 64 || c.id.includes('/')) {
         errors.push(`Category at index ${index} has missing or invalid id`);
       } else {
         if (categoryIds.has(c.id)) {
@@ -239,24 +256,36 @@ export function validateBackup(data: unknown): ValidationResult {
         categoryIds.add(c.id);
       }
 
-      if (typeof c.name !== 'string' || c.name.trim().length === 0 || c.name.length > 50) {
-        errors.push(`Category at index ${index} name must be between 1 and 50 characters`);
+      if (typeof c.name !== 'string' || c.name.trim().length === 0 || c.name.length > 80) {
+        errors.push(`Category at index ${index} name must be between 1 and 80 characters`);
       }
 
-      if (typeof c.iconName !== 'string' || c.iconName.length > 50) {
-        errors.push(`Category at index ${index} iconName must be a string up to 50 characters`);
+      if (typeof c.iconName !== 'string' || c.iconName.trim().length === 0 || c.iconName.length >= 64) {
+        errors.push(`Category at index ${index} iconName must be a non-empty string under 64 characters`);
       }
 
-      if (typeof c.colorInt !== 'number' || !Number.isFinite(c.colorInt)) {
-        errors.push(`Category at index ${index} colorInt must be a finite number`);
+      if (
+        typeof c.colorInt !== 'number' ||
+        !Number.isFinite(c.colorInt) ||
+        c.colorInt < -2147483648 ||
+        c.colorInt > 2147483647
+      ) {
+        errors.push(`Category at index ${index} colorInt must be a 32-bit integer`);
       }
 
-      if (typeof c.sortOrder !== 'number' || !Number.isFinite(c.sortOrder)) {
-        errors.push(`Category at index ${index} sortOrder must be a finite number`);
+      if (
+        typeof c.sortOrder !== 'number' ||
+        !Number.isFinite(c.sortOrder) ||
+        c.sortOrder < 0 ||
+        c.sortOrder >= 10000
+      ) {
+        errors.push(`Category at index ${index} sortOrder must be a finite number between 0 and 9999`);
       }
 
       if (typeof c.transactionType !== 'string' || !ALLOWED_TRANSACTION_TYPES.has(c.transactionType as TransactionType)) {
         errors.push(`Category at index ${index} has invalid transactionType: "${String(c.transactionType)}"`);
+      } else if (typeof c.id === 'string' && c.id.trim().length > 0) {
+        categoryMap.set(c.id, { transactionType: c.transactionType as TransactionType });
       }
     });
   }
@@ -272,7 +301,7 @@ export function validateBackup(data: unknown): ValidationResult {
         return;
       }
       const e = exp as Record<string, unknown>;
-      if (typeof e.id !== 'string' || e.id.trim().length === 0) {
+      if (typeof e.id !== 'string' || e.id.trim().length === 0 || e.id.length > 64 || e.id.includes('/')) {
         errors.push(`Expense at index ${index} has missing or invalid id`);
       } else {
         if (expenseIds.has(e.id)) {
@@ -296,18 +325,28 @@ export function validateBackup(data: unknown): ValidationResult {
         }
       }
 
-      if (typeof e.dateMillis !== 'number' || !Number.isFinite(e.dateMillis) || e.dateMillis <= 0) {
-        errors.push(`Expense at index ${index} has invalid dateMillis`);
+      if (
+        typeof e.dateMillis !== 'number' ||
+        !Number.isFinite(e.dateMillis) ||
+        e.dateMillis < 946684800000 ||
+        e.dateMillis >= 4102444800000
+      ) {
+        errors.push(`Expense at index ${index} has invalid dateMillis: must be between 2000-01-01 and 2100-01-01 UTC`);
       }
 
-      if (typeof e.categoryId !== 'string' || e.categoryId.trim().length === 0) {
-        errors.push(`Expense at index ${index} has missing categoryId`);
+      if (typeof e.categoryId !== 'string' || e.categoryId.trim().length === 0 || e.categoryId.length >= 64 || e.categoryId.includes('/')) {
+        errors.push(`Expense at index ${index} has missing or invalid categoryId`);
       } else if (categoryIds.size > 0 && !categoryIds.has(e.categoryId)) {
         errors.push(`Expense at index ${index} references nonexistent categoryId "${e.categoryId}"`);
+      } else if (categoryMap.has(e.categoryId)) {
+        const cat = categoryMap.get(e.categoryId)!;
+        if (e.categoryId !== '0' && cat.transactionType !== e.transactionType) {
+          errors.push(`Expense at index ${index} transactionType "${String(e.transactionType)}" does not match category transactionType "${cat.transactionType}"`);
+        }
       }
 
-      if (typeof e.note !== 'string' || e.note.length > 200) {
-        errors.push(`Expense at index ${index} note must be a string up to 200 characters`);
+      if (typeof e.note !== 'string' || e.note.length > 2000) {
+        errors.push(`Expense at index ${index} note must be a string up to 2000 characters`);
       }
 
       if (typeof e.transactionType !== 'string' || !ALLOWED_TRANSACTION_TYPES.has(e.transactionType as TransactionType)) {
