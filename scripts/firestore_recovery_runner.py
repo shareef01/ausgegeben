@@ -23,6 +23,7 @@ TESTS = (
     "int1_serverSuccessWithAmbiguousOutcome_recoversExactlyOneRemoteRecord",
     "int2_ambiguousA_thenExplicitB_yieldsExactlyTwoRemoteRecords",
     "int3_retryWithSameOperationId_commitsExactlyOneRemoteDocument",
+    "int3b_offlineInsertAndRetryWithSameOperationId_commitsExactlyOneRemoteDocument",
     "int4_recoveryFromReconstructedProductionGraph_usesServerWithEmptyCache",
     "int5_lateCompletionOfA_removesOnlyA_andBReconcilesIndependently",
     "int6_signOutClearsPendingOperations_nextAccountCannotReconcileThem",
