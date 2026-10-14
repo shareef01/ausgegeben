@@ -25,7 +25,7 @@ import firestore_recovery_runner as runner
 
 
 def good_xml():
-    suite = ET.Element("testsuite", name=runner.TEST_CLASS, tests="6", failures="0", errors="0", skipped="0")
+    suite = ET.Element("testsuite", name=runner.TEST_CLASS, tests=str(len(runner.TESTS)), failures="0", errors="0", skipped="0")
     for name in runner.TESTS:
         ET.SubElement(suite, "testcase", name=name, classname=runner.TEST_CLASS)
     return ET.tostring(suite, encoding="unicode")
@@ -35,8 +35,8 @@ def xml_fixtures(good):
     root = ET.fromstring(good)
     fixtures = {
         "truncated final close": good[:good.rfind("</testsuite>")],
-        "truncated inside testcase name": good[:good.index(runner.TESTS[5]) + 5],
-        "unterminated attribute": good.replace('tests="6"', 'tests="6'),
+        "truncated inside testcase name": good[:good.index(runner.TESTS[-1]) + 5],
+        "unterminated attribute": re.sub(r'tests="(\d+)"', r'tests="\1', good, count=1),
         "unterminated element": good.replace("</testsuite>", "<unfinished>"),
         "missing XML": None,
     }
@@ -316,7 +316,7 @@ def integration():
 
     for number in range(1, 4):
         code, text, run_dir = execute(f"canonical-{number}")
-        assert code == 0 and "PASS (6 executed, 0 skipped)" in text
+        assert code == 0 and f"PASS ({len(runner.TESTS)} executed, 0 skipped)" in text
         runner.validate_report(run_dir / "xml" / runner.REPORT)
         if number == 1:
             good = (run_dir / "xml" / runner.REPORT).read_text(encoding="utf-8")
