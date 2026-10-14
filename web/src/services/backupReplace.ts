@@ -1160,6 +1160,19 @@ export async function rollbackReplace(
       await batch.commit();
     }
 
+    // 2a. Restore recurring collections BEFORE deleting extra categories: a failed
+    // replace may have created categories with recurring templates attached, and the
+    // rules refuse to stage or delete a category whose recurringTemplateCount is
+    // non-zero. replaceRecurringCollection first deletes the extra templates
+    // (decrementing those counters), which unblocks 2b. Snapshot templates reference
+    // snapshot categories, restored in step 2.
+    if (snapshot.recurringTemplates) {
+      await replaceRecurringCollection(expectedUid, {
+        templates: snapshot.recurringTemplates,
+        receipts: snapshot.recurringReceipts ?? [],
+      });
+    }
+
     // 2b. Delete extra categories that were NOT in the snapshot
     await verifyAndRenewRecoveryLease(db, expectedUid, currentTabId, fencingToken);
     const snapshotCategoryIds = new Set(snapshot.categories.map((c) => c.id));
@@ -1210,8 +1223,13 @@ export async function rollbackReplace(
     }
 
     // 3. Upsert snapshot expenses without { merge: true }: the snapshot captures every
-    // restorable field (including idempotencyKey and legacy sync fields), so a full
-    // overwrite is an exact restore and also wipes anything the failed replace added.
+    // restorable field, so a full overwrite is an exact restore and also wipes anything
+    // the failed replace added. idempotencyKey is deliberately NOT restored: the rules
+    // reject any update that carries it unless the write is an exact creation replay
+    // (isLegitimateExpenseUpdate), and the failed replace may have changed the expense,
+    // so including the key would abort the rollback into FAILED_RECOVERABLE. Omitting
+    // it clears any leftover key on the doc — the same thing updateExpense does after
+    // a successful write.
     await verifyAndRenewRecoveryLease(db, expectedUid, currentTabId, fencingToken);
     const snapshotExpenseIds = new Set(snapshot.expenses.map((e) => e.id));
     for (let i = 0; i < snapshot.expenses.length; i += RESTORE_BATCH_CHUNK_SIZE) {
@@ -1228,7 +1246,6 @@ export async function rollbackReplace(
           transactionType: e.transactionType,
           id: e.id,
           updatedAt: Date.now(),
-          ...(e.idempotencyKey ? { idempotencyKey: e.idempotencyKey } : {}),
           ...(e.deleted !== undefined ? { deleted: e.deleted } : {}),
           ...(e.cloudId ? { cloudId: e.cloudId } : {}),
           ...(e.categoryCloudId != null ? { categoryCloudId: e.categoryCloudId } : {}),
@@ -1272,12 +1289,6 @@ export async function rollbackReplace(
     }
 
     if (snapshot.categoryBudgets) await replaceBudgetCollection(expectedUid, snapshot.categoryBudgets);
-    if (snapshot.recurringTemplates) {
-      await replaceRecurringCollection(expectedUid, {
-        templates: snapshot.recurringTemplates,
-        receipts: snapshot.recurringReceipts ?? [],
-      });
-    }
 
     // 5. Restore preferences
     if (snapshot.preferences) {

@@ -393,6 +393,9 @@ service cloud.firestore {
     }
 
     function validRestoreLeaseUpdate() {
+      // NOTE: Firestore rules allow at most 10 `let` bindings per function — this
+      // function deliberately uses 9, and the two phase-set checks are inlined in
+      // the return expression to stay under the limit. Do not add bindings here.
       let beforeProgress = resource.data.get('progress', {});
       let afterProgress = request.resource.data.get('progress', {});
       let beforeToken = beforeProgress.get('fencingToken', 0);
@@ -401,22 +404,27 @@ service cloud.firestore {
       let afterHolder = afterProgress.get('leaseHolder', '');
       let beforeExpiresAt = beforeProgress.get('leaseExpiresAt', 0);
       let afterExpiresAt = afterProgress.get('leaseExpiresAt', 0);
-      // The renewed expiry must stay near the server clock (clients use +60s) so a
-      // holder cannot pin a far-future leaseExpiresAt and block legitimate takeovers.
-      let expiryBounded = afterExpiresAt is int
-        && afterExpiresAt <= request.time.toMillis() + 300000;
-      let fenced = expiryBounded && (
-        (afterHolder == beforeHolder && afterToken == beforeToken && beforeExpiresAt >= request.time.toMillis())
-        || (afterToken > beforeToken && (beforeExpiresAt < request.time.toMillis() || beforeHolder == ''))
-      );
-      // In-flight -> in-flight always needs the fence. Terminal transitions need it
-      // too while a lease is active, so a holder that lost a takeover cannot mark
-      // the operation COMPLETED/ROLLED_BACK underneath the new lease holder.
-      // (Rules allow at most 10 variables per function, so the phase checks inline.)
-      let willRestore = request.resource.data.phase in ['APPLYING', 'ROLLING_BACK', 'VERIFYING', 'FAILED_RECOVERABLE'];
+      // fenced = bounded expiry + (same-holder renewal of a live lease | takeover
+      // of an expired/holderless lease).
+      // CLOCK SKEW: leaseExpiresAt is a CLIENT-generated ms epoch compared here
+      // against the server clock (request.time). The +300000 bound covers the
+      // clients' 60s lease duration plus up to 240s of client clock skew. Do not
+      // shrink it below the lease duration (slow devices could no longer renew)
+      // and do not remove it (a holder could pin a far-future expiry and block
+      // every legitimate takeover).
+      let fenced = afterExpiresAt is int
+        && afterExpiresAt <= request.time.toMillis() + 300000
+        && (
+          (afterHolder == beforeHolder && afterToken == beforeToken && beforeExpiresAt >= request.time.toMillis())
+          || (afterToken > beforeToken && (beforeExpiresAt < request.time.toMillis() || beforeHolder == ''))
+        );
+      // In-flight -> in-flight always needs the fence. Terminal transitions need
+      // it too while a lease is active, so a holder that lost a takeover cannot
+      // mark the operation COMPLETED/ROLLED_BACK underneath the new lease holder.
       return !(resource.data.phase in ['SNAPSHOT_READY', 'APPLYING', 'ROLLING_BACK', 'VERIFYING'])
-        || (willRestore && fenced)
-        || (!willRestore && (fenced || beforeExpiresAt < request.time.toMillis() || beforeHolder == ''));
+        || (request.resource.data.phase in ['APPLYING', 'ROLLING_BACK', 'VERIFYING', 'FAILED_RECOVERABLE'] && fenced)
+        || (!(request.resource.data.phase in ['APPLYING', 'ROLLING_BACK', 'VERIFYING', 'FAILED_RECOVERABLE'])
+          && (fenced || beforeExpiresAt < request.time.toMillis() || beforeHolder == ''));
     }
 
     function validSnapshotDoc() {

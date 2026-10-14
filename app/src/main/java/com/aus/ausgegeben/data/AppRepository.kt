@@ -1918,10 +1918,17 @@ class AppRepository @Inject constructor(
         if (!activeReplaceOperations.add(expectedUid)) {
             throw IllegalStateException("RESTORE_OPERATION_ALREADY_IN_PROGRESS")
         }
-        val lease = acquireRecoveryLease(expectedUid, currentClientId, true)
-        val fencingToken = lease.fencingToken
+        // Lease acquisition must happen INSIDE the try: if it throws while the uid
+        // is already registered above, the finally below still releases the slot —
+        // otherwise a failed acquire leaks the uid and blocks every later restore
+        // until app restart. acquiredToken stays nullable so the catch can tell
+        // whether a lease was ever acquired (web acquires before registering instead).
+        var acquiredToken: Long? = null
 
         try {
+            val lease = acquireRecoveryLease(expectedUid, currentClientId, true)
+            val fencingToken = lease.fencingToken
+            acquiredToken = fencingToken
             setRestoreOperation(
                 expectedUid,
                 operation.copy(
@@ -1970,6 +1977,23 @@ class AppRepository @Inject constructor(
                     ),
                 )
                 batch.commit().await()
+            }
+
+            // 1a. Restore recurring collections BEFORE deleting extra categories: a
+            // failed replace may have created categories with recurring templates
+            // attached, and the rules refuse to stage or delete a category whose
+            // recurringTemplateCount is non-zero. replace=true first deletes the
+            // extra templates (decrementing those counters), which unblocks 1b.
+            // Snapshot templates reference snapshot categories, restored in step 1.
+            if (snapshot.recurringTemplates != null) {
+                applyRecurringCollection(
+                    expectedUid,
+                    RecurringBackupSection(
+                        templates = snapshot.recurringTemplates,
+                        receipts = snapshot.recurringReceipts ?: emptyList(),
+                    ),
+                    replace = true,
+                )
             }
 
             // 1b. Delete extra categories introduced by failed replacement
@@ -2066,16 +2090,6 @@ class AppRepository @Inject constructor(
             }
 
             snapshot.categoryBudgets?.let { applyBudgetCollection(expectedUid, it, true) }
-            if (snapshot.recurringTemplates != null) {
-                applyRecurringCollection(
-                    expectedUid,
-                    RecurringBackupSection(
-                        templates = snapshot.recurringTemplates,
-                        receipts = snapshot.recurringReceipts ?: emptyList(),
-                    ),
-                    replace = true,
-                )
-            }
 
             // 4. Restore preferences
             snapshot.preferences?.let { p ->
@@ -2125,11 +2139,15 @@ class AppRepository @Inject constructor(
                         updatedAt = System.currentTimeMillis(),
                         error = "Rollback failed: $errorMsg".take(500),
                         failedFromPhase = ReplacePlanner.RestorePhase.ROLLING_BACK,
-                        progress = ReplacePlanner.RestoreJournalProgress(
-                            leaseHolder = currentClientId,
-                            leaseExpiresAt = System.currentTimeMillis() + 60_000L,
-                            fencingToken = fencingToken,
-                        ),
+                        // No lease progress without an acquired lease: a null-token
+                        // progress map would fail the rules fence anyway.
+                        progress = acquiredToken?.let { token ->
+                            ReplacePlanner.RestoreJournalProgress(
+                                leaseHolder = currentClientId,
+                                leaseExpiresAt = System.currentTimeMillis() + 60_000L,
+                                fencingToken = token,
+                            )
+                        },
                     ),
                 )
             } catch (_: Exception) {}

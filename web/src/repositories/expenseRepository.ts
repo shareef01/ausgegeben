@@ -615,7 +615,7 @@ export const expenseRepository = {
     }
     await updateDoc(
       catDoc(userId, cat.id),
-      categoryWritePayload({ ...cat, name: sanitizedName }, now()),
+      categoryWritePayload({ ...cat, name: sanitizedName }, now()) as Record<string, any>,
     );
   },
 
@@ -649,7 +649,7 @@ export const expenseRepository = {
 
     const batch = writeBatch(firestore);
     for (const payload of payloads) {
-      batch.update(catDoc(userId, String(payload.id)), payload);
+      batch.update(catDoc(userId, String(payload.id)), payload as Record<string, any>);
     }
     await batch.commit();
   },
