@@ -5,7 +5,7 @@ import { useCategoryBudgets } from '@/viewmodels/useCategoryBudgets';
 import { useTranslation } from '@/i18n';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { CategoryIconTile } from '@/components/ui';
-import { formatAmount, colorIntToHex } from '@/utils/currency';
+import { formatAmount, formatAmountForInput, colorIntToHex } from '@/utils/currency';
 import { parseRecordAmount } from '@/viewmodels/useRecordViewModel';
 import type { Category, Expense } from '@/models/types';
 
@@ -47,7 +47,7 @@ export function CategoryBudgetManager() {
     {!rows.length && <p>{t('categoryBudgetEmpty')}</p>}
     <div className="settings-budget-edit__actions">{categories.map(c => {
       const b = budgetsById.get(c.id);
-      return <button type="button" className="btn btn-secondary" key={c.id} onClick={e => { editorTrigger.current = e.currentTarget; setSelected(c.id); setAmount(b ? String(b.monthlyLimit) : ''); setThreshold(String(b?.warningThresholdPercent ?? 80)); setRevision(b?.updatedAt ?? null); setError(false); }}>{c.name}{b ? ` · ${formatAmount(b.monthlyLimit, currency)} · ${b.warningThresholdPercent}%` : ''}</button>;
+      return <button type="button" className="btn btn-secondary" key={c.id} onClick={e => { editorTrigger.current = e.currentTarget; setSelected(c.id); setAmount(b ? formatAmountForInput(b.monthlyLimit, currency) : ''); setThreshold(String(b?.warningThresholdPercent ?? 80)); setRevision(b?.updatedAt ?? null); setError(false); }}>{c.name}{b ? ` · ${formatAmount(b.monthlyLimit, currency)} · ${b.warningThresholdPercent}%` : ''}</button>;
     })}</div>
     {selected && <form className="settings-budget-edit" onSubmit={e => { e.preventDefault(); void save(); }}>
       <h3>{categories.find(c => c.id === selected)?.name}</h3>

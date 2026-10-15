@@ -20,7 +20,9 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aus.ausgegeben.R
@@ -29,6 +31,7 @@ import com.aus.ausgegeben.data.entity.Recurrence
 import com.aus.ausgegeben.data.entity.RecurringTemplate
 import com.aus.ausgegeben.ui.components.*
 import com.aus.ausgegeben.ui.theme.*
+import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.iconForCategory
 import java.time.ZoneId
 import java.util.UUID
@@ -38,7 +41,8 @@ fun RecurringManager(
     vm: RecurringViewModel,
     categories: List<Category>,
     owner: String?,
-    canWrite: Boolean
+    canWrite: Boolean,
+    currencyCode: String = "EUR",
 ) {
     var open by remember(owner) { mutableStateOf(false) }
     RecurringManagerSheet(
@@ -48,6 +52,7 @@ fun RecurringManager(
         categories = categories,
         owner = owner,
         canWrite = canWrite,
+        currencyCode = currencyCode,
     )
 }
 
@@ -60,6 +65,7 @@ fun RecurringManagerSheet(
     categories: List<Category>,
     owner: String?,
     canWrite: Boolean,
+    currencyCode: String,
 ) {
     var draft by remember(owner) { mutableStateOf<RecurringTemplate?>(null) }
     var expected by remember(owner) { mutableStateOf<Long?>(null) }
@@ -250,7 +256,7 @@ fun RecurringManagerSheet(
                                     }
 
                                     Text(
-                                        text = "${row.amount}",
+                                        text = CurrencyUtils.formatAmount(row.amount, currencyCode),
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                         color = if (row.transactionType == "income") financeIncomeColor() else financeExpenseColor(),
                                     )
@@ -330,7 +336,9 @@ fun RecurringManagerSheet(
 
     // Editor Dialog
     draft?.let { d ->
-        var amount by remember(d.id) { mutableStateOf(d.amount.toString()) }
+        // Double.toString() prefilled "1500.0" (and "1.0E7" from ten million up),
+        // the wrong separator for EUR and not something the user would type.
+        var amount by remember(d.id) { mutableStateOf(CurrencyUtils.formatAmountForInput(d.amount, currencyCode)) }
         var interval by remember(d.id) { mutableStateOf(d.interval.toString()) }
         var note by remember(d.id) { mutableStateOf(d.note) }
         var startDate by remember(d.id) { mutableStateOf(d.startDate) }
@@ -357,6 +365,7 @@ fun RecurringManagerSheet(
                         label = { Text(stringResource(R.string.recurring_amount)) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     )
                     Choice(
                         label = stringResource(R.string.recurring_type),
@@ -415,7 +424,11 @@ fun RecurringManagerSheet(
                 AppButton(
                     onClick = {
                         val parsed = d.copy(
-                            amount = amount.replace(',', '.').toDoubleOrNull() ?: Double.NaN,
+                            // Same strict parse as the budget editor and record filters. The old
+                            // replace(',', '.') read EUR "1.000" as 1.00, so a 1,000 rent
+                            // template silently saved as 1 and generated 1-unit rows.
+                            amount = CompositeRecordFilter(minInput = amount).bounds(currencyCode)
+                                ?.first?.div(100.0) ?: Double.NaN,
                             interval = interval.toIntOrNull() ?: 0,
                         )
                         val next = runCatching { parsed.copy(nextDate = Recurrence.date(parsed, parsed.nextIndex)) }.getOrNull()
