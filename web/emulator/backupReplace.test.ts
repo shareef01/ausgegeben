@@ -3,6 +3,7 @@ import { collection, doc, getDoc, getDocs, setDoc } from 'firebase/firestore';
 import {
   enforcedFirestore,
   resetEnforcedHarness,
+  rulesEnv,
   startEnforcedHarness,
   stopEnforcedHarness,
   TEST_UID,
@@ -338,6 +339,98 @@ describe('backupReplace on real Firestore emulator with rules enforced', () => {
     // Rollback run twice is safe and does not delete or duplicate data
     op = await getRestoreOperation(TEST_UID);
     expect(op?.phase).toBe('ROLLED_BACK');
+  });
+
+  it('replaces an expense edited after the backup was taken (stale backup updatedAt)', async () => {
+    const db = enforcedFirestore();
+    await setDoc(doc(db, 'users', TEST_UID, 'categories', 'cat-food'), {
+      name: 'Food', iconName: 'food', colorInt: -1, transactionType: 'expense', sortOrder: 0, updatedAt: 1000,
+    });
+    // Edited "just now": its clock is newer than the backup copy of the same row.
+    await setDoc(doc(db, 'users', TEST_UID, 'expenses', 'exp-0'), {
+      amount: 99.0, dateMillis: 1700000000000, categoryId: 'cat-food', note: 'Edited after backup',
+      transactionType: 'expense', updatedAt: Date.now(),
+    });
+    const backup = createTestBackup({ numExpenses: 1, prefix: 'exp' });
+    backup.expenses[0].updatedAt = Date.now() - 86_400_000;
+
+    const result = await executeReplace(backup, TEST_UID);
+    expect(result.phase).toBe('COMPLETED');
+    const exp0 = await getDoc(doc(db, 'users', TEST_UID, 'expenses', 'exp-0'));
+    expect(exp0.data()?.note).toBe('Expense exp 0');
+    expect(exp0.data()?.amount).toBe(10.5);
+  });
+
+  it('merge restore overwrites an expense edited after the backup was taken', async () => {
+    const db = enforcedFirestore();
+    await setDoc(doc(db, 'users', TEST_UID, 'categories', 'cat-food'), {
+      name: 'Food', iconName: 'food', colorInt: -1, transactionType: 'expense', sortOrder: 0, updatedAt: 1000,
+    });
+    await setDoc(doc(db, 'users', TEST_UID, 'expenses', 'exp-0'), {
+      amount: 99.0, dateMillis: 1700000000000, categoryId: 'cat-food', note: 'Edited after backup',
+      transactionType: 'expense', updatedAt: Date.now(),
+    });
+    const backup = createTestBackup({ numExpenses: 1, prefix: 'exp' });
+    backup.expenses[0].updatedAt = Date.now() - 86_400_000;
+
+    await restoreBackup(backup, TEST_UID);
+    const exp0 = await getDoc(doc(db, 'users', TEST_UID, 'expenses', 'exp-0'));
+    expect(exp0.data()?.note).toBe('Expense exp 0');
+  });
+
+  it('a resume that fails before SNAPSHOT_READY keeps the original safety snapshot', async () => {
+    const db = enforcedFirestore();
+    await setDoc(doc(db, 'users', TEST_UID, 'categories', 'cat-food'), {
+      name: 'Food', iconName: 'food', colorInt: -1, transactionType: 'expense', sortOrder: 0, updatedAt: 1000,
+    });
+    await setDoc(doc(db, 'users', TEST_UID, 'expenses', 'exp-original'), {
+      amount: 42.0, dateMillis: 1700000000000, categoryId: 'cat-food', note: 'Only in the original account',
+      transactionType: 'expense', updatedAt: 1000,
+    });
+    const backup = createTestBackup({ numExpenses: 2, prefix: 'new' });
+
+    // First run gets as far as deleting exp-original, then fails.
+    await expect(executeReplace(backup, TEST_UID, { failAfterExpenseDeleteBatch: 1 }))
+      .rejects.toThrow('FAULT_INJECTED_AFTER_EXPENSE_DELETE_BATCH');
+    let op = await getRestoreOperation(TEST_UID);
+    expect(op?.phase).toBe('FAILED_RECOVERABLE');
+    expect(op?.snapshotMeta).toBeDefined();
+
+    // A resume dies before it re-reaches SNAPSHOT_READY...
+    await expect(resumeReplace(op!, backup, TEST_UID, { failAfterSnapshot: true }))
+      .rejects.toThrow('FAULT_INJECTED_AFTER_SNAPSHOT');
+    op = await getRestoreOperation(TEST_UID);
+    expect(op?.snapshotMeta).toBeDefined();
+
+    // ...and the next resume must not re-snapshot the half-replaced account.
+    await expect(resumeReplace(op!, backup, TEST_UID, { failBeforePreferences: true }))
+      .rejects.toThrow('FAULT_INJECTED_BEFORE_PREFERENCES');
+    op = await getRestoreOperation(TEST_UID);
+    await rollbackReplace(op!, TEST_UID);
+
+    const orig = await getDoc(doc(db, 'users', TEST_UID, 'expenses', 'exp-original'));
+    expect(orig.exists()).toBe(true);
+    expect(orig.data()?.note).toBe('Only in the original account');
+  });
+
+  it('refuses a safety snapshot whose recurring receipt chunk is missing', async () => {
+    // Expense chunks already fail closed; a silently skipped receipt chunk would let
+    // rollback replace the receipts collection with a partial list, and the deleted
+    // receipts' occurrences would then be materialised a second time.
+    await rulesEnv().withSecurityRulesDisabled(async (ctx) => {
+      const adminDb = ctx.firestore();
+      const base = { operationId: 'replace_test', ownerUid: TEST_UID, createdAt: 1000 };
+      await adminDb.doc(`users/${TEST_UID}/restoreSnapshot/meta`).set({
+        ...base, chunkCount: 1, receiptChunkCount: 2, totalExpenses: 0, totalCategories: 0, totalReceipts: 2,
+        categories: [], recurringTemplates: [],
+      });
+      await adminDb.doc(`users/${TEST_UID}/restoreSnapshot/chunk_0`).set({ ...base, chunkIndex: 0, chunkCount: 1, expenses: [] });
+      await adminDb.doc(`users/${TEST_UID}/restoreSnapshot/receipt_chunk_0`).set({
+        ...base, chunkIndex: 0, chunkCount: 2,
+        recurringReceipts: [{ id: 'r1', templateId: 't1', scheduledDate: '2026-01-01', expenseId: 'e1', createdAt: 1 }],
+      });
+    });
+    await expect(readSafetySnapshot(TEST_UID)).rejects.toThrow('SNAPSHOT_CHUNK_MISSING_OR_CHANGED');
   });
 
   it('13. account switch blocks continuation', async () => {
