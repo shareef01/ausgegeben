@@ -4,6 +4,7 @@ import { usePreferencesStore } from '@/services/preferencesStore';
 import { useAuthStore } from '@/services/authStore';
 import type { AppPreferences, SyncedPreferences, ThemeMode } from '@/models/types';
 import { normalizeAnalyticsPeriodKey } from '@/utils/periodUtils';
+import { fromMinorUnits, toMinorUnits } from '@/utils/money';
 import { prefsLwwAction } from '@/services/prefsLww';
 import { PREFERENCES_DOC, SETTINGS_COLLECTION } from '@/repositories/firestorePaths';
 
@@ -78,8 +79,11 @@ export function sanitizeSyncedPreferences(prefs: SyncedPreferences): SyncedPrefe
     updatedAt,
     reminderHour: Math.min(23, Math.max(0, prefs.reminderHour)),
     reminderMinute: Math.min(59, Math.max(0, prefs.reminderMinute)),
+    // Rules reject a changed sub-cent budget; rounding also normalizes a legacy value.
     monthlyBudget:
-      prefs.monthlyBudget != null && prefs.monthlyBudget > 0 ? prefs.monthlyBudget : null,
+      prefs.monthlyBudget != null && prefs.monthlyBudget > 0
+        ? fromMinorUnits(toMinorUnits(prefs.monthlyBudget))
+        : null,
   };
 }
 

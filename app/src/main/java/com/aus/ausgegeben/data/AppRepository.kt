@@ -953,6 +953,7 @@ class AppRepository @Inject constructor(
         }
 
         val budget = backup.preferences.monthlyBudget?.takeIf { it > 0.0 && it < 1_000_000_000.0 }
+            ?.let(CurrencyUtils::roundAmount)
 
         val syncedPrefs = SyncedPreferences(
             currency = cur,
@@ -1791,7 +1792,7 @@ class AppRepository @Inject constructor(
                 put("reminderHour", p.reminderHour)
                 put("reminderMinute", p.reminderMinute)
                 put("analyticsPeriod", p.analyticsPeriod)
-                put("monthlyBudget", p.monthlyBudget)
+                put("monthlyBudget", p.monthlyBudget?.let(CurrencyUtils::roundAmount))
                 put("updatedAt", p.updatedAt)
             }
             settingsPrefsDoc(expectedUid).set(prefPayload, SetOptions.merge()).await()
@@ -2133,7 +2134,8 @@ class AppRepository @Inject constructor(
                     put("reminderHour", restored.reminderHour)
                     put("reminderMinute", restored.reminderMinute)
                     put("analyticsPeriod", restored.analyticsPeriod)
-                    put("monthlyBudget", restored.monthlyBudget)
+                    // Rules reject a changed sub-cent budget, so a legacy one is rounded on rollback.
+                    put("monthlyBudget", restored.monthlyBudget?.let(CurrencyUtils::roundAmount))
                     put("updatedAt", restored.updatedAt)
                 }
                 settingsPrefsDoc(expectedUid).set(prefPayload).await()

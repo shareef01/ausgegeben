@@ -363,6 +363,16 @@ service cloud.firestore {
         && (!('onboardingComplete' in d) || d.onboardingComplete is bool);
     }
 
+    // Same cent rule as every other amount. A value already stored before this rule
+    // may be kept unchanged on update: validPreferences() sees the merged document,
+    // so rejecting it would freeze every preference write (and restore rollback)
+    // on that account.
+    function budgetIsCentGranular(d) {
+      return !('monthlyBudget' in d)
+        || d.monthlyBudget == null
+        || math.abs(d.monthlyBudget * 100 - math.round(d.monthlyBudget * 100)) < 0.0001;
+    }
+
     function validRestoreOperation() {
       let d = request.resource.data;
       return d.keys().hasOnly([
@@ -596,7 +606,8 @@ service cloud.firestore {
           && accountAcceptsWrites(userId)
           && isEmailVerified()
           && docId == 'preferences'
-          && validPreferences();
+          && validPreferences()
+          && budgetIsCentGranular(request.resource.data);
         // Backend-enforced monotonicity is the final defense against delayed offline
         // writes and custom clients. Official clients also use read/write transactions
         // so a losing local candidate immediately adopts the committed winner.
@@ -605,6 +616,8 @@ service cloud.firestore {
           && isEmailVerified()
           && docId == 'preferences'
           && validPreferences()
+          && (budgetIsCentGranular(request.resource.data)
+            || request.resource.data.get('monthlyBudget', null) == resource.data.get('monthlyBudget', null))
           && request.resource.data.updatedAt > resource.data.updatedAt;
         allow delete: if canDeleteOwned(userId) && docId == 'preferences';
       }
