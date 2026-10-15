@@ -1,4 +1,4 @@
-import { toMinorUnits } from '@/utils/money';
+import { fromMinorUnits, toMinorUnits } from '@/utils/money';
 import { categoryBudgetRepository, type CategoryBudget } from '@/services/categoryBudgets';
 import { recurringRepository } from '@/services/recurringRepository';
 import type { RecurringTemplate } from '@/services/recurrence';
@@ -1308,6 +1308,10 @@ export async function rollbackReplace(
       const prefRef = doc(db, 'users', expectedUid, SETTINGS_COLLECTION, PREFERENCES_DOC);
       const restoredPrefs = {
         ...snapshot.preferences,
+        // Rules reject a changed sub-cent budget, so a legacy one is rounded on rollback.
+        ...(typeof snapshot.preferences.monthlyBudget === 'number'
+          ? { monthlyBudget: fromMinorUnits(toMinorUnits(snapshot.preferences.monthlyBudget)) }
+          : {}),
         updatedAt: Math.max(Date.now(), (snapshot.preferences.updatedAt ?? 0) + 1),
       };
       await setDoc(prefRef, restoredPrefs);

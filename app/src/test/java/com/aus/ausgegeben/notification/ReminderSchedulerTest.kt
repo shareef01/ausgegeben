@@ -16,6 +16,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.util.Calendar
+import java.util.TimeZone
 import java.util.concurrent.TimeUnit
 
 /**
@@ -82,6 +84,35 @@ class ReminderSchedulerTest {
 
         val pending = reminderWorkInfos().filterNot { it.state.isFinished }
         assertEquals(1, pending.size)
+    }
+
+    private fun berlin(year: Int, month: Int, day: Int, hour: Int, minute: Int): Calendar =
+        Calendar.getInstance(TimeZone.getTimeZone("Europe/Berlin")).apply {
+            clear()
+            set(year, month - 1, day, hour, minute, 0)
+        }
+
+    @Test
+    fun millisFromNearestSlot_seesTheDstShiftButNotOrdinaryJitter() {
+        // The first run after spring-forward lands at 20:00 local for a 19:00 slot.
+        assertEquals(TimeUnit.HOURS.toMillis(1), ReminderScheduler.millisFromNearestSlot(19, 0, berlin(2026, 3, 30, 20, 0)))
+        assertTrue(ReminderScheduler.millisFromNearestSlot(19, 0, berlin(2026, 3, 30, 19, 10)) <= ReminderScheduler.DRIFT_TOLERANCE_MS)
+        // A late run just after midnight is measured against yesterday's 23:50 slot.
+        assertEquals(TimeUnit.MINUTES.toMillis(20), ReminderScheduler.millisFromNearestSlot(23, 50, berlin(2026, 6, 2, 0, 10)))
+    }
+
+    @Test
+    fun reanchor_landsOnTheSlotAtLeastHalfADayOut() {
+        // Early run (fall-back: 18:00 for a 19:00 slot) must not fire again in an hour.
+        val early = berlin(2026, 10, 26, 18, 0)
+        val delay = ReminderScheduler.millisUntilReminderAtLeastHalfADayAway(19, 0, early)
+        val target = (early.clone() as Calendar).apply { timeInMillis += delay }
+        assertEquals(27, target.get(Calendar.DAY_OF_MONTH))
+        assertEquals(19, target.get(Calendar.HOUR_OF_DAY))
+        assertEquals(0, target.get(Calendar.MINUTE))
+        // Across the spring-forward night the wall-clock slot still holds (23h, not 24h).
+        val beforeSpring = berlin(2026, 3, 28, 20, 0)
+        assertEquals(TimeUnit.HOURS.toMillis(22), ReminderScheduler.millisUntilReminderAtLeastHalfADayAway(19, 0, beforeSpring))
     }
 
     @Test

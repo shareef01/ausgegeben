@@ -58,9 +58,16 @@ class DailyReminderWorker @AssistedInject constructor(
                 NotificationHelper.showDailyReminder(applicationContext)
             }
 
-            // No self-rescheduling: ReminderScheduler now enqueues periodic work, so
-            // WorkManager owns the next run. Re-enqueueing from in here is what grew the
-            // unique-work chain without bound and let one failed node kill the whole chain.
+            // Last, because re-anchoring replaces (and so cancels) this run.
+            val (hour, minute) = preferenceManager.reminderTime()
+            if (ReminderScheduler.millisFromNearestSlot(hour, minute) > ReminderScheduler.DRIFT_TOLERANCE_MS) {
+                ReminderScheduler.reanchorAfterDrift(applicationContext, hour, minute)
+            }
+
+            // No chained self-rescheduling: ReminderScheduler enqueues periodic work, so
+            // WorkManager owns the next run. Appending from in here is what grew the
+            // unique-work chain without bound and let one failed node kill the whole chain;
+            // the drift re-anchor above replaces the work instead.
             Result.success()
         } catch (cancelled: CancellationException) {
             throw cancelled
