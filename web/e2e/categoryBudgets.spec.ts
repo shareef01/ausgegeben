@@ -72,7 +72,8 @@ test('category budget management and current-month warning progress', async ({ p
   await expect(manager.getByRole('alert')).toHaveText(en.categoryBudgetConflict);
   await manager.getByRole('button', { name: en.actionCancel, exact: true }).click();
   await manager.getByRole('button', { name: new RegExp(name) }).click();
-  await expect(manager.getByLabel(en.categoryBudgetLimit)).toHaveValue('120');
+  // Prefilled in the input format for the default EUR currency, like the global budget.
+  await expect(manager.getByLabel(en.categoryBudgetLimit)).toHaveValue('120,00');
   await manager.getByLabel(en.categoryBudgetLimit).fill('100');
   await manager.getByLabel(en.categoryBudgetThreshold).fill('80');
   await manager.getByRole('button', { name: en.actionSave, exact: true }).click();

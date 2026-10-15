@@ -162,7 +162,9 @@ fun CategoryBudgetManager(repository: AppRepository, uid: String, currency: Stri
                         .clip(RoundedCornerShape(AppRadius.interactive))
                         .smoothClickable {
                             selected = cat
-                            amount = budget?.monthlyLimit?.toString() ?: ""
+                            // Not toString(): from ten million up it yields "1.0E7", which the
+                            // strict parse below rejects, so an existing budget opened invalid.
+                            amount = budget?.monthlyLimit?.let { CurrencyUtils.formatAmountForInput(it, currency) } ?: ""
                             threshold = (budget?.warningThresholdPercent ?: 80).toString()
                             revision = budget?.updatedAt
                             failed = false

@@ -31,6 +31,20 @@ class CompositeRecordFilterTest {
         }
         assertEquals(0L, CompositeRecordFilter(minInput="0").bounds("EUR")!!.first)
     }
+    // The recurring and category-budget editors parse with bounds() and prefill with
+    // formatAmountForInput, so every stored amount must round-trip, and grouped input
+    // must be refused rather than read as a decimal ("1.000" was saved as 1.00).
+    @Test fun editorPrefillRoundTripsAndGroupedInputIsRefused() {
+        listOf("EUR", "USD", "GBP", "CHF").forEach { currency ->
+            listOf(0.01, 12.5, 1500.0, 10_000_000.0, 999_999_999.99).forEach { amount ->
+                val text = com.aus.ausgegeben.util.CurrencyUtils.formatAmountForInput(amount, currency)
+                assertEquals("$currency $text", Math.round(amount * 100), CompositeRecordFilter(minInput=text).bounds(currency)!!.first)
+            }
+            listOf("1.000", "1,000", "1.234,56", "1,234.56").forEach {
+                assertNull("$currency $it", CompositeRecordFilter(minInput=it).bounds(currency))
+            }
+        }
+    }
     @Test fun allSortsHaveDeterministicTies() {
         assertEquals(listOf("a", "b", "c"), run(filter=CompositeRecordFilter(sort=RecordSort.DATE_DESC)))
         assertEquals(listOf("c", "a", "b"), run(filter=CompositeRecordFilter(sort=RecordSort.DATE_ASC)))

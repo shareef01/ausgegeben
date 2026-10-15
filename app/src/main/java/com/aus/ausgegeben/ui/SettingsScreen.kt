@@ -561,6 +561,7 @@ fun SettingsScreen(
         categories = recurringCategories,
         owner = currentUser?.uid,
         canWrite = currentUser?.isEmailVerified == true,
+        currencyCode = currency,
     )
 
     if (showThemeSheet) {
