@@ -10,6 +10,7 @@ import { usePreferencesStore } from '@/services/preferencesStore';
 import { useToastStore } from '@/services/toastStore';
 import { useRef, useEffect, useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useCssProps } from '@/utils/cssVars';
+import { toDateInputValue, withDateInputValue } from '@/utils/periodUtils';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
@@ -170,7 +171,7 @@ export function AddTransactionView({
               disabled={vm.loadFailed}
               onChange={(e) => {
                 if (!e.target.value) return;
-                vm.setForm((f) => ({ ...f, dateMillis: fromDateInputValue(e.target.value) }));
+                vm.setForm((f) => ({ ...f, dateMillis: withDateInputValue(e.target.value, f.dateMillis) }));
               }}
             />
           </div>
@@ -301,17 +302,4 @@ function decimalSep(currency: string): string {
 
 function zeroPlaceholder(currency: string): string {
   return `0${decimalSep(currency)}00`;
-}
-
-function toDateInputValue(ms: number): string {
-  const d = new Date(ms);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-function fromDateInputValue(value: string): number {
-  const [y, m, d] = value.split('-').map(Number);
-  return new Date(y, m - 1, d).getTime();
 }

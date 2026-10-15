@@ -171,6 +171,21 @@ class InsightsStateTest {
     }
 
     @Test
+    fun buildInsightsState_transferOnlyPriorPeriod_hasNoPriorData() {
+        val state = buildInsightsState(
+            currency = "EUR",
+            categories = listOf(groceries, transferCat),
+            scoped = listOf(expense("c1", 100.0, "expense")),
+            periodKey = "month:2026-05",
+            truncated = false,
+            priorExpenses = listOf(expense("c4", 50.0, "transfer")),
+            monthlyBudget = null,
+        )
+
+        assertFalse(state.comparison!!.hasPriorData)
+    }
+
+    @Test
     fun buildInsightsState_computesComparisonAndPaceWhenMonthly() {
         val current = listOf(expense("c1", 100.0, "expense"))
         val prior = listOf(expense("c1", 50.0, "expense"))

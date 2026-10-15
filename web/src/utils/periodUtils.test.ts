@@ -8,11 +8,32 @@ import {
   normalizeAnalyticsPeriodKey,
   previousPeriodRange,
   thisMonthRange,
+  toDateInputValue,
+  withDateInputValue,
 } from '@/utils/periodUtils';
 
 const JUNE_2026 = new Date(2026, 5, 15, 12, 0, 0, 0).getTime();
 
 describe('periodUtils', () => {
+  it('withDateInputValue moves the day but keeps the time of day', () => {
+    const original = new Date(2026, 4, 10, 7, 45, 30, 250).getTime();
+    expect(withDateInputValue('2026-05-03', original)).toBe(new Date(2026, 4, 3, 7, 45, 30, 250).getTime());
+    expect(toDateInputValue(withDateInputValue('2026-12-31', original))).toBe('2026-12-31');
+  });
+
+  it('formatRelativeTimestamp labels yesterday by calendar day across DST', () => {
+    const originalTz = process.env.TZ;
+    process.env.TZ = 'Europe/Berlin';
+    try {
+      // 2026-03-29 is 23h long in Berlin, so now - 24h early on 03-30 is 03-28.
+      const now = new Date(2026, 2, 30, 0, 30).getTime();
+      const label = formatRelativeTimestamp(new Date(2026, 2, 29, 12, 0).getTime(), 'en', now);
+      expect(label).toMatch(/^yesterday,/i);
+    } finally {
+      process.env.TZ = originalTz;
+    }
+  });
+
   it('isInThisMonth keeps budget projections to the current local month', () => {
     const [start, end] = thisMonthRange(JUNE_2026);
     expect(isInThisMonth(JUNE_2026, JUNE_2026)).toBe(true);

@@ -11,6 +11,7 @@ import {
   csvEscapeField,
   exportCsv,
   groupByCategory,
+  hasComparableData,
   isExpense,
   isIncome,
   isTransfer,
@@ -33,6 +34,16 @@ describe('analytics', () => {
     expect(isExpense({ transactionType: 'expense' })).toBe(true);
     expect(isIncome({ transactionType: 'income' })).toBe(true);
     expect(isTransfer(expense({ amount: 1, transactionType: 'transfer' }))).toBe(true);
+  });
+
+  it('hasComparableData ignores transfer-only periods', () => {
+    expect(hasComparableData([])).toBe(false);
+    expect(hasComparableData([expense({ amount: 50, transactionType: 'transfer' })])).toBe(false);
+    expect(hasComparableData([
+      expense({ amount: 50, transactionType: 'transfer' }),
+      expense({ amount: 5, transactionType: 'income' }),
+    ])).toBe(true);
+    expect(hasComparableData([expense({ amount: 5, transactionType: 'expense' })])).toBe(true);
   });
 
   it('computeTotals separates expense, income, and transfers', () => {

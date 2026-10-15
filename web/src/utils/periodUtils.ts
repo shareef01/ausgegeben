@@ -137,3 +137,22 @@ export function formatRelativeTimestamp(millis: number, locale?: Locale, now = D
 
   return `${formatDateLabel(millis, locale)}, ${time}`;
 }
+
+/** `yyyy-mm-dd` of the local calendar day of [millis], for `<input type="date">`. */
+export function toDateInputValue(millis: number): string {
+  const d = new Date(millis);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * The `yyyy-mm-dd` day from a date input at the local time of day of [timeOfDayFromMillis],
+ * so changing only the date keeps the transaction's original time (Android's withLocalTimeOfDay).
+ */
+export function withDateInputValue(value: string, timeOfDayFromMillis: number): number {
+  const [y, m, d] = value.split('-').map(Number);
+  const time = new Date(timeOfDayFromMillis);
+  return new Date(y, m - 1, d, time.getHours(), time.getMinutes(), time.getSeconds(), time.getMilliseconds()).getTime();
+}
