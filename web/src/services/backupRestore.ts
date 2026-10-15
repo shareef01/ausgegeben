@@ -143,7 +143,8 @@ export async function restoreBackup(
           categoryId: e.categoryId,
           note: (e.note ?? '').slice(0, 2000),
           transactionType: e.transactionType,
-          updatedAt: typeof e.updatedAt === 'number' ? e.updatedAt : Date.now(),
+          // Rules reject an updatedAt older than the stored row; a restore is a new write.
+          updatedAt: Date.now(),
           id: e.id,
         },
         { merge: true },

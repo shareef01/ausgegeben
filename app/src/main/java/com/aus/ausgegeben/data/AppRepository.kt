@@ -899,8 +899,8 @@ class AppRepository @Inject constructor(
             for (c in chunk) {
                 val ref = catDoc(u, c.id)
                 val payload = buildMap<String, Any> {
-                    put("name", c.name.trim().take(50))
-                    put("iconName", c.iconName.take(50))
+                    put("name", c.name.trim().take(80))
+                    put("iconName", c.iconName.take(63))
                     put("colorInt", c.colorInt.toLong())
                     put("transactionType", c.transactionType)
                     put("sortOrder", c.sortOrder)
@@ -923,9 +923,12 @@ class AppRepository @Inject constructor(
                     put("amount", roundedAmount)
                     put("dateMillis", e.dateMillis)
                     put("categoryId", e.categoryId)
-                    put("note", e.note.take(200))
+                    // 2000 is the rules' and every other writer's cap; 200 silently cut notes.
+                    put("note", e.note.take(2000))
                     put("transactionType", e.transactionType)
-                    put("updatedAt", e.updatedAt ?: System.currentTimeMillis())
+                    // A restore is a new write: the rules deny an updatedAt older than the
+                    // stored row, so the backup's own clock failed any merge over an edit.
+                    put("updatedAt", System.currentTimeMillis())
                     put("id", e.id)
                 }
                 batch.set(ref, payload, SetOptions.merge())
@@ -1291,6 +1294,7 @@ class AppRepository @Inject constructor(
         expenses: List<Expense>,
         categories: List<Category>,
         preferences: SyncedPreferences?,
+        expenseLegacyFields: Map<String, Map<String, Any>> = emptyMap(),
     ): ReplacePlanner.SnapshotMeta {
         val now = System.currentTimeMillis()
         val chunkSize = 100
@@ -1376,7 +1380,7 @@ class AppRepository @Inject constructor(
                         "transactionType" to e.transactionType,
                         "deleted" to e.deleted,
                         "updatedAt" to now,
-                    )
+                    ) + expenseLegacyFields[e.id].orEmpty()
                 },
             )
             snapshotDoc(u, "chunk_$i").set(chunkPayload).await()
@@ -1399,6 +1403,7 @@ class AppRepository @Inject constructor(
     private data class SnapshotData(
         val operationId: String,
         val expenses: List<Expense>,
+        val expenseLegacyFields: Map<String, Map<String, Any>>,
         val categories: List<Category>,
         val preferences: SyncedPreferences?,
         val categoryBudgets: List<com.aus.ausgegeben.data.entity.CategoryBudget>?,
@@ -1445,6 +1450,7 @@ class AppRepository @Inject constructor(
         } else null
 
         val expenses = mutableListOf<Expense>()
+        val expenseLegacyFields = mutableMapOf<String, Map<String, Any>>()
         for (i in 0 until chunkCount) {
             val chunkSnap = snapshotDoc(u, "chunk_$i").get(Source.SERVER).await()
             check(chunkSnap.exists() && chunkSnap.getString("operationId") == operationId) { "SNAPSHOT_CHUNK_MISSING_OR_CHANGED" }
@@ -1453,6 +1459,7 @@ class AppRepository @Inject constructor(
                 for (m in rawExpenses) {
                     val id = (m["id"] as? String).orEmpty()
                     if (id.isNotEmpty()) {
+                        legacyExpenseFields(m).takeIf { it.isNotEmpty() }?.let { expenseLegacyFields[id] = it }
                         expenses.add(
                             Expense(
                                 id = id,
@@ -1479,16 +1486,17 @@ class AppRepository @Inject constructor(
         if (receiptChunkCount > 0) {
             for (i in 0 until receiptChunkCount) {
                 val chunkSnap = snapshotDoc(u, "receipt_chunk_$i").get(Source.SERVER).await()
-                if (chunkSnap.exists() && chunkSnap.getString("operationId") == operationId) {
-                    val rawReceipts = chunkSnap.get("recurringReceipts") as? List<Map<String, Any?>> ?: emptyList()
-                    for (m in rawReceipts) {
-                        val id = m["id"] as? String ?: continue
-                        val templateId = m["templateId"] as? String ?: continue
-                        val scheduledDate = m["scheduledDate"] as? String ?: continue
-                        val expenseId = m["expenseId"] as? String ?: continue
-                        val createdAt = (m["createdAt"] as? Number)?.toLong() ?: 0L
-                        recurringReceipts.add(OccurrenceReceipt(id, templateId, scheduledDate, expenseId, createdAt))
-                    }
+                // Fail closed like the expense chunks: rollback replaces the receipts
+                // collection with this list, so a dropped chunk re-materialises occurrences.
+                check(chunkSnap.exists() && chunkSnap.getString("operationId") == operationId) { "SNAPSHOT_CHUNK_MISSING_OR_CHANGED" }
+                val rawReceipts = chunkSnap.get("recurringReceipts") as? List<Map<String, Any?>> ?: emptyList()
+                for (m in rawReceipts) {
+                    val id = m["id"] as? String ?: continue
+                    val templateId = m["templateId"] as? String ?: continue
+                    val scheduledDate = m["scheduledDate"] as? String ?: continue
+                    val expenseId = m["expenseId"] as? String ?: continue
+                    val createdAt = (m["createdAt"] as? Number)?.toLong() ?: 0L
+                    recurringReceipts.add(OccurrenceReceipt(id, templateId, scheduledDate, expenseId, createdAt))
                 }
             }
         } else {
@@ -1508,6 +1516,7 @@ class AppRepository @Inject constructor(
             recurringReceipts = recurringReceipts,
             operationId = operationId,
             expenses = expenses,
+            expenseLegacyFields = expenseLegacyFields,
             categories = categories,
             preferences = preferences,
         )
@@ -1551,6 +1560,9 @@ class AppRepository @Inject constructor(
             // Load authoritative current state
             val expSnap = expCol(expectedUid).get(Source.SERVER).await()
             val currentExpenses = expSnap.documents.mapNotNull { expenseFromDoc(it) }
+            val currentLegacyFields = expSnap.documents
+                .associate { it.id to legacyExpenseFields(it.data.orEmpty()) }
+                .filterValues { it.isNotEmpty() }
 
             val catSnap = catCol(expectedUid).get(Source.SERVER).await()
             val currentCategories = catSnap.documents.mapNotNull { categoryFromDoc(it) }
@@ -1595,6 +1607,10 @@ class AppRepository @Inject constructor(
                 updatedAt = System.currentTimeMillis(),
                 plannedCounts = plan.counts,
                 initiatorPlatform = "android",
+                // setRestoreOperation replaces the whole journal: without this a resume
+                // that died before SNAPSHOT_READY left no snapshotMeta, and the next
+                // resume re-snapshotted the half-replaced account over the original.
+                snapshotMeta = if (isResume) existingOp?.snapshotMeta else null,
                 progress = ReplacePlanner.RestoreJournalProgress(
                     leaseHolder = currentClientId,
                     leaseExpiresAt = System.currentTimeMillis() + 60_000L,
@@ -1611,6 +1627,7 @@ class AppRepository @Inject constructor(
                     expenses = currentExpenses,
                     categories = currentCategories,
                     preferences = currentPrefs,
+                    expenseLegacyFields = currentLegacyFields,
                 )
             }
 
@@ -1702,7 +1719,10 @@ class AppRepository @Inject constructor(
                         put("categoryId", e.categoryId)
                         put("note", e.note.take(2000))
                         put("transactionType", e.transactionType)
-                        put("updatedAt", e.updatedAt ?: System.currentTimeMillis())
+                        // A restore is a new write, not a replay of the backup's clock: the
+                        // rules deny an updatedAt older than the stored row, so writing the
+                        // backup's value failed every replace over an expense edited since.
+                        put("updatedAt", System.currentTimeMillis())
                         put("id", e.id)
                     }
                     batch.set(ref, payload, SetOptions.merge())
@@ -1852,7 +1872,10 @@ class AppRepository @Inject constructor(
             )
         } catch (e: Throwable) {
             val errorMsg = e.message ?: e.toString()
-            if (currentPhase != ReplacePlanner.RestorePhase.PREPARING) {
+            // Once a snapshot exists (created this run, or carried over by a resume) a
+            // failure still in PREPARING must be journaled too, or the operation sits in
+            // PREPARING behind this dead holder's lease and the next resume is refused.
+            if (currentPhase != ReplacePlanner.RestorePhase.PREPARING || snapshotMeta != null) {
                 try {
                     setRestoreOperation(
                         expectedUid,
@@ -1868,9 +1891,12 @@ class AppRepository @Inject constructor(
                             error = errorMsg.take(500),
                             failedFromPhase = currentPhase,
                             initiatorPlatform = "android",
+                            // Release the lease (as web does): every call mints a new
+                            // holder id, so a live expiry here made the user's own
+                            // immediate resume or rollback fail as a concurrent client.
                             progress = ReplacePlanner.RestoreJournalProgress(
                                 leaseHolder = currentClientId,
-                                leaseExpiresAt = System.currentTimeMillis() + 60_000L,
+                                leaseExpiresAt = 0L,
                                 fencingToken = fencingToken,
                             ),
                         ),
@@ -2044,6 +2070,9 @@ class AppRepository @Inject constructor(
                         put("deleted", e.deleted)
                         put("updatedAt", System.currentTimeMillis())
                         put("id", e.id)
+                        // A row the failed replace deleted comes back from the snapshot
+                        // alone, so its legacy fields must come from there too.
+                        putAll(snapshot.expenseLegacyFields[e.id].orEmpty())
                     }
                     // Merge so legacy fields (cloudId, categoryCloudId, receiptImagePath)
                     // still present on the doc are not erased by the rollback write.
@@ -2141,10 +2170,11 @@ class AppRepository @Inject constructor(
                         failedFromPhase = ReplacePlanner.RestorePhase.ROLLING_BACK,
                         // No lease progress without an acquired lease: a null-token
                         // progress map would fail the rules fence anyway.
+                        // Expiry 0 releases the lease so the user can retry right away.
                         progress = acquiredToken?.let { token ->
                             ReplacePlanner.RestoreJournalProgress(
                                 leaseHolder = currentClientId,
-                                leaseExpiresAt = System.currentTimeMillis() + 60_000L,
+                                leaseExpiresAt = 0L,
                                 fencingToken = token,
                             )
                         },
@@ -2617,6 +2647,17 @@ class AppRepository @Inject constructor(
             sortOrder = 999,
         )
         ref.set(categoryPayload(uncategorized)).await()
+    }
+
+    /**
+     * Legacy-backend fields the Expense entity does not model. The safety snapshot
+     * carries them (as web's does) so a rollback can recreate a row the failed replace
+     * deleted without losing them. Nulls are dropped: absent and null mean the same.
+     */
+    private fun legacyExpenseFields(m: Map<String, Any?>): Map<String, Any> = buildMap {
+        (m["cloudId"] as? String)?.let { put("cloudId", it) }
+        m["categoryCloudId"]?.takeIf { it is String || it is Number }?.let { put("categoryCloudId", it) }
+        (m["receiptImagePath"] as? String)?.let { put("receiptImagePath", it) }
     }
 
     private fun categoryFromDoc(doc: DocumentSnapshot): Category? {

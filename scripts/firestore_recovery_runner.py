@@ -27,6 +27,8 @@ TESTS = (
     "int4_recoveryFromReconstructedProductionGraph_usesServerWithEmptyCache",
     "int5_lateCompletionOfA_removesOnlyA_andBReconcilesIndependently",
     "int6_signOutClearsPendingOperations_nextAccountCannotReconcileThem",
+    "rel1_replaceAndMergeRestoreOverExpenseEditedAfterBackup_succeed",
+    "rel2_failedResumeKeepsOriginalSnapshot_andRollbackRestoresDeletedLegacyRow",
 )
 REPORT = f"TEST-{TEST_CLASS}.xml"
 # SDK, CLI hub/logging, and Firestore websocket ports.

@@ -495,11 +495,14 @@ export async function readSafetySnapshot(userId: string): Promise<{
     for (let i = 0; i < receiptChunkCount; i++) {
       const chunkRef = doc(db, 'users', userId, RESTORE_SNAPSHOT_COLLECTION, `receipt_chunk_${i}`);
       const chunkSnap = await getDocFromServer(chunkRef);
-      if (chunkSnap.exists()) {
-        const data = chunkSnap.data() as { recurringReceipts?: OccurrenceReceipt[] };
-        if (data.recurringReceipts) {
-          allReceipts.push(...data.recurringReceipts);
-        }
+      // Fail closed like the expense chunks: rollback replaces the receipts collection
+      // with this list, so a dropped chunk would re-materialise those occurrences.
+      if (!chunkSnap.exists() || chunkSnap.data().operationId !== metaData.operationId) {
+        throw new Error('SNAPSHOT_CHUNK_MISSING_OR_CHANGED');
+      }
+      const data = chunkSnap.data() as { recurringReceipts?: OccurrenceReceipt[] };
+      if (data.recurringReceipts) {
+        allReceipts.push(...data.recurringReceipts);
       }
     }
   } else if (metaData.recurringReceipts) {
@@ -768,6 +771,10 @@ export async function executeReplace(
       updatedAt: Date.now(),
       plannedCounts: plan.counts,
       initiatorPlatform: 'web',
+      // Carry the existing snapshot through the PREPARING rewrite: setRestoreOperation
+      // replaces the whole journal, and a resume that then failed before SNAPSHOT_READY
+      // left no snapshotMeta, so the next resume re-snapshotted the half-replaced account.
+      ...(isResume && existingOp?.snapshotMeta ? { snapshotMeta: existingOp.snapshotMeta } : {}),
       progress: {
         leaseHolder: currentTabId,
         leaseExpiresAt: Date.now() + RECOVERY_LEASE_DURATION_MS,
@@ -882,7 +889,10 @@ export async function executeReplace(
             categoryId: e.categoryId,
             note: e.note.slice(0, 2000),
             transactionType: e.transactionType,
-            updatedAt: e.updatedAt ?? Date.now(),
+            // A restore is a new write, not a replay of the backup's clock: the rules
+            // reject an updatedAt older than the stored row, so writing the backup's
+            // own value failed every replace over an expense edited since the backup.
+            updatedAt: Date.now(),
             id: e.id,
           },
           { merge: true },
@@ -1033,7 +1043,10 @@ export async function executeReplace(
     };
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : String(err);
-    if (currentPhase !== 'PREPARING') {
+    // Once a snapshot exists (created this run, or carried over by a resume) a failure
+    // still in PREPARING must be journaled too: otherwise the operation sits in
+    // PREPARING behind this dead holder's lease and the next resume is refused.
+    if (currentPhase !== 'PREPARING' || snapshotMeta) {
       // Mark as FAILED_RECOVERABLE
       try {
         await setRestoreOperation(expectedUid, {
