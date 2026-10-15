@@ -31,8 +31,10 @@ class DailyReminderWorker @AssistedInject constructor(
             }
 
             val uid = authRepository.currentUserId ?: return Result.success()
-            val dayStart = localDayStartMillis(System.currentTimeMillis())
-            val dayEnd = dayStart + 24 * 60 * 60 * 1000L
+            val now = System.currentTimeMillis()
+            val dayStart = localDayStartMillis(now)
+            // Next local midnight, not +24h: the fall-back day is 25 hours long.
+            val dayEnd = localDayStartMillis(now, plusDays = 1)
             // This is the one place that reads expenses without going through
             // AppRepository, so repository-level invariants do not reach it: legacy
             // soft-deleted rows have to be skipped here too, or one dated today makes

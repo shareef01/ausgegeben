@@ -319,6 +319,22 @@ class AddExpenseViewModelTest {
     }
 
     @Test
+    fun onDateChange_editingKeepsTheTransactionsTimeOfDay() {
+        val zone = java.time.ZoneId.systemDefault()
+        val original = java.time.LocalDateTime.of(2026, 5, 10, 7, 45, 30).atZone(zone).toInstant().toEpochMilli()
+        viewModel.loadForEdit(
+            Expense(id = "e1", amount = 5.0, dateMillis = original, categoryId = expenseCategory.id, note = "", transactionType = "expense"),
+            listOf(expenseCategory),
+        )
+
+        // Material DatePicker hands back UTC midnight of the chosen day.
+        viewModel.onDateChange(java.time.LocalDate.of(2026, 5, 3).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli())
+
+        val expected = java.time.LocalDateTime.of(2026, 5, 3, 7, 45, 30).atZone(zone).toInstant().toEpochMilli()
+        assertEquals(expected, viewModel.dateMillis.value)
+    }
+
+    @Test
     fun saveExpense_budgetCheckFailure_stillSucceedsAndSurfacesFallback() = runTest(dispatcher) {
         fakePreferences.monthlyBudget.value = 100.0
         fakeExpenses.sumMonthThrows = true

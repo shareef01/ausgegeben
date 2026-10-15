@@ -23,6 +23,15 @@ export function isTransfer(e: Expense): boolean {
   return e.transactionType === 'transfer';
 }
 
+/**
+ * Whether a period has anything a comparison can use. Transfers count toward neither
+ * total, so a prior period holding only transfers reads as "no prior data", same as
+ * Android's buildInsightsState.
+ */
+export function hasComparableData(expenses: Expense[]): boolean {
+  return expenses.some((e) => isExpense(e) || isIncome(e));
+}
+
 export function computeTotals(expenses: Expense[]) {
   let totalExpensesMinor = 0;
   let totalIncomeMinor = 0;
