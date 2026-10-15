@@ -6,6 +6,8 @@ import androidx.datastore.preferences.core.edit
 import androidx.test.core.app.ApplicationProvider
 import com.aus.ausgegeben.data.auth.AuthRepository
 import com.aus.ausgegeben.data.entity.Expense
+import com.aus.ausgegeben.util.BackupFormat
+import com.aus.ausgegeben.util.ReplacePlanner
 import com.aus.ausgegeben.util.expenseDocumentId
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
@@ -13,6 +15,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
 import com.google.firebase.firestore.MemoryCacheSettings
+import com.google.firebase.firestore.Source
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.runBlocking
@@ -21,6 +24,8 @@ import org.robolectric.Shadows
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -798,5 +803,113 @@ class FirestoreEmulatorRecoveryTest {
         assertTrue(repository.markAccountDeletionPending().isSuccess)
         assertTrue(repository.deleteAllUserData().isSuccess)
         assertTrue(repository.getCategoryBudgets(uid).isEmpty())
+    }
+
+    // ---- REL: backup replace / restore recovery ----------------------------------
+
+    private fun expenseRef(id: String) =
+        db.collection("users").document(uid).collection("expenses").document(id)
+
+    private fun backupOf(vararg expenses: BackupFormat.ParsedExpense) = BackupFormat.ParsedBackup(
+        schemaVersion = 1,
+        appVersion = "test",
+        exportedAt = "2026-10-01T00:00:00Z",
+        preferences = BackupFormat.BackupPreferences(currency = "EUR", monthlyBudget = null),
+        categories = listOf(
+            BackupFormat.ParsedCategory(
+                id = categoryId,
+                name = "Restored",
+                iconName = "shopping_bag",
+                colorInt = -1,
+                transactionType = "expense",
+                sortOrder = 0,
+            ),
+        ),
+        expenses = expenses.toList(),
+    )
+
+    private fun backupExpense(id: String, note: String, updatedAt: Long? = null) = BackupFormat.ParsedExpense(
+        id = id,
+        amount = 10.5,
+        dateMillis = 1_700_000_000_000L,
+        categoryId = categoryId,
+        note = note,
+        transactionType = "expense",
+        updatedAt = updatedAt,
+    )
+
+    private suspend fun seedExpense(id: String, note: String, updatedAt: Long, extra: Map<String, Any> = emptyMap()) {
+        expenseRef(id).set(
+            mapOf(
+                "amount" to 99.0,
+                "dateMillis" to 1_700_000_000_000L,
+                "categoryId" to categoryId,
+                "note" to note,
+                "transactionType" to "expense",
+                "updatedAt" to updatedAt,
+            ) + extra,
+        ).await()
+    }
+
+    /**
+     * Restoring an older backup is how a user undoes later edits, so the backup's copy
+     * of a row is routinely older than the stored one. The rules deny a stale
+     * updatedAt; both restore modes must therefore write a fresh one.
+     */
+    @Test
+    fun rel1_replaceAndMergeRestoreOverExpenseEditedAfterBackup_succeed() = runRecoveryTest {
+        val dayAgo = System.currentTimeMillis() - 86_400_000L
+        seedExpense("rel-edited", "Edited after backup", System.currentTimeMillis())
+        val replaced = repository.executeReplace(backupOf(backupExpense("rel-edited", "From backup", dayAgo)), uid)
+        assertTrue("replace failed: ${replaced.exceptionOrNull()}", replaced.isSuccess)
+        assertEquals(ReplacePlanner.RestorePhase.COMPLETED, replaced.getOrThrow().phase)
+        assertEquals("From backup", expenseRef("rel-edited").get(Source.SERVER).await().getString("note"))
+
+        seedExpense("rel-edited", "Edited again", System.currentTimeMillis())
+        val longNote = "n".repeat(600)
+        val merged = repository.restoreBackup(backupOf(backupExpense("rel-edited", longNote, dayAgo)), uid)
+        assertTrue("merge restore failed: ${merged.exceptionOrNull()}", merged.isSuccess)
+        assertEquals("merge restore must not truncate notes", longNote,
+            expenseRef("rel-edited").get(Source.SERVER).await().getString("note"))
+    }
+
+    /**
+     * A failed replace must release its lease so the user's own retry is not refused
+     * as a concurrent client; a resume that then fails before SNAPSHOT_READY must keep
+     * the original safety snapshot; and rollback must bring back a row the replace
+     * deleted with the legacy fields the Expense entity does not model.
+     */
+    @Test
+    fun rel2_failedResumeKeepsOriginalSnapshot_andRollbackRestoresDeletedLegacyRow() = runRecoveryTest {
+        seedExpense(
+            "rel-original", "Only in the original account", System.currentTimeMillis(),
+            mapOf("cloudId" to "legacy-c1", "categoryCloudId" to 7L, "receiptImagePath" to "/legacy/img.jpg"),
+        )
+        val backup = backupOf(backupExpense("rel-new-0", "New 0"), backupExpense("rel-new-1", "New 1"))
+
+        val first = repository.executeReplace(backup, uid, ReplacePlanner.ReplaceFaultHooks(failAfterExpenseDeleteBatch = 1))
+        assertEquals("FAULT_INJECTED_AFTER_EXPENSE_DELETE_BATCH", first.exceptionOrNull()?.message)
+        assertFalse(expenseRef("rel-original").get(Source.SERVER).await().exists())
+        var op = repository.getRestoreOperation(uid)
+        assertEquals(ReplacePlanner.RestorePhase.FAILED_RECOVERABLE, op?.phase)
+
+        val resumed = repository.resumeReplace(op!!, backup, uid, ReplacePlanner.ReplaceFaultHooks(failAfterSnapshot = true))
+        assertEquals("FAULT_INJECTED_AFTER_SNAPSHOT", resumed.exceptionOrNull()?.message)
+        op = repository.getRestoreOperation(uid)
+        assertNotNull("resume failure must keep snapshotMeta", op?.snapshotMeta)
+
+        val resumedAgain = repository.resumeReplace(op!!, backup, uid, ReplacePlanner.ReplaceFaultHooks(failBeforePreferences = true))
+        assertEquals("FAULT_INJECTED_BEFORE_PREFERENCES", resumedAgain.exceptionOrNull()?.message)
+        op = repository.getRestoreOperation(uid)
+        val rolledBack = repository.rollbackReplace(op!!, uid)
+        assertTrue("rollback failed: ${rolledBack.exceptionOrNull()}", rolledBack.isSuccess)
+
+        val original = expenseRef("rel-original").get(Source.SERVER).await()
+        assertTrue("rollback must restore the row the replace deleted", original.exists())
+        assertEquals("Only in the original account", original.getString("note"))
+        assertEquals("legacy-c1", original.getString("cloudId"))
+        assertEquals(7L, original.getLong("categoryCloudId"))
+        assertEquals("/legacy/img.jpg", original.getString("receiptImagePath"))
+        assertFalse(expenseRef("rel-new-0").get(Source.SERVER).await().exists())
     }
 }
