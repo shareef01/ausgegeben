@@ -11,6 +11,7 @@ import {
   computeSpendingPace,
   computeTotals,
   groupByCategory,
+  hasComparableData,
 } from '@/utils/analytics';
 import {
   analyticsDateRangeMillis,
@@ -199,7 +200,7 @@ export function useInsightsViewModel() {
           currentTotals.totalIncome,
           priorTotals.totalExpenses,
           priorTotals.totalIncome,
-          priorExpenses.length > 0,
+          hasComparableData(priorExpenses),
         )
       : null;
 

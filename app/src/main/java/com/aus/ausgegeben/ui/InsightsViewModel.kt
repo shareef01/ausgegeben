@@ -226,14 +226,19 @@ internal fun buildInsightsState(
     if (range != null) {
         var priorTotalExpenses = 0L
         var priorTotalIncome = 0L
+        // Transfers are excluded from both totals, so a prior period holding only
+        // transfers has nothing to compare against and must read as "no prior data".
+        var hasPriorData = false
         val priorExpenseTotals = mutableMapOf<String, Long>()
 
         for (expense in priorExpenses) {
             when {
                 expense.isIncome() -> {
+                    hasPriorData = true
                     priorTotalIncome += CurrencyUtils.toMinorUnits(expense.amount)
                 }
                 expense.isExpense() -> {
+                    hasPriorData = true
                     val minor = CurrencyUtils.toMinorUnits(expense.amount)
                     priorTotalExpenses += minor
                     priorExpenseTotals[expense.categoryId] =
@@ -247,7 +252,7 @@ internal fun buildInsightsState(
             currentIncome = CurrencyUtils.fromMinorUnits(totalIncome),
             priorExpenses = CurrencyUtils.fromMinorUnits(priorTotalExpenses),
             priorIncome = CurrencyUtils.fromMinorUnits(priorTotalIncome),
-            hasPriorData = priorExpenses.isNotEmpty(),
+            hasPriorData = hasPriorData,
         )
 
         pace = computeSpendingPace(

@@ -15,6 +15,7 @@ import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.dateRangeMillis
 import com.aus.ausgegeben.util.datePickerMillisToLocalDayStart
 import com.aus.ausgegeben.util.runSuspendCatching
+import com.aus.ausgegeben.util.withLocalTimeOfDay
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -88,13 +89,9 @@ class AddExpenseViewModel @Inject constructor(
     }
 
     fun onDateChange(millis: Long) {
-        val dayStart = datePickerMillisToLocalDayStart(millis)
-        val now = java.util.Calendar.getInstance()
-        val timeOfDayMillis =
-            now.get(java.util.Calendar.HOUR_OF_DAY) * 3_600_000L +
-                now.get(java.util.Calendar.MINUTE) * 60_000L +
-                now.get(java.util.Calendar.SECOND) * 1_000L
-        _dateMillis.value = dayStart + timeOfDayMillis
+        // Keep the time of day the transaction already has: its original time when
+        // editing, the time the form was opened for a new one.
+        _dateMillis.value = withLocalTimeOfDay(datePickerMillisToLocalDayStart(millis), _dateMillis.value)
     }
 
     fun loadForEdit(expense: Expense, categories: List<Category>, ownerUid: String? = null) {

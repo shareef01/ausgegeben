@@ -22,6 +22,35 @@ fun localDayStartMillis(millis: Long): Long {
 }
 
 /**
+ * Start of the local calendar day [days] days after (or, if negative, before) the day of
+ * [millis]. Steps by calendar day, not by 24h: on a DST day a local day is 23 or 25 hours
+ * long, and `dayStart ± 24h` lands on the wrong day or an hour off midnight.
+ */
+fun localDayStartMillis(millis: Long, plusDays: Int): Long {
+    val cal = Calendar.getInstance().apply {
+        timeInMillis = localDayStartMillis(millis)
+        add(Calendar.DAY_OF_YEAR, plusDays)
+    }
+    return cal.timeInMillis
+}
+
+/**
+ * The local calendar day of [dayMillis] at the local time of day of [timeOfDayFromMillis].
+ * Used when only the date of a transaction changes, so it keeps its original time.
+ */
+fun withLocalTimeOfDay(dayMillis: Long, timeOfDayFromMillis: Long): Long {
+    val time = Calendar.getInstance().apply { timeInMillis = timeOfDayFromMillis }
+    val cal = Calendar.getInstance().apply {
+        timeInMillis = dayMillis
+        set(Calendar.HOUR_OF_DAY, time.get(Calendar.HOUR_OF_DAY))
+        set(Calendar.MINUTE, time.get(Calendar.MINUTE))
+        set(Calendar.SECOND, time.get(Calendar.SECOND))
+        set(Calendar.MILLISECOND, time.get(Calendar.MILLISECOND))
+    }
+    return cal.timeInMillis
+}
+
+/**
  * Material DatePicker returns UTC midnight for the selected calendar day.
  * Convert that to local midnight so grouping and display stay consistent.
  */
@@ -55,7 +84,7 @@ fun formatRelativeTimestamp(context: Context, millis: Long, now: Long = System.c
 
     if (day == today) return "${context.getString(R.string.time_today)}, $timeStr"
 
-    val yesterday = localDayStartMillis(now - 86_400_000L)
+    val yesterday = localDayStartMillis(now, plusDays = -1)
     if (day == yesterday) return "${context.getString(R.string.time_yesterday)}, $timeStr"
 
     val weekAgo = now - 7 * 86_400_000L
