@@ -26,6 +26,12 @@ export function thisMonthRange(now = Date.now()): [number, number] {
   return monthRange(d.getFullYear(), d.getMonth());
 }
 
+/** True when [dateMillis] falls in the local calendar month containing [now]. */
+export function isInThisMonth(dateMillis: number, now = Date.now()): boolean {
+  const [start, end] = thisMonthRange(now);
+  return dateMillis >= start && dateMillis < end;
+}
+
 export function analyticsPeriodOptions(
   monthsBack = 14,
   now = Date.now(),

@@ -9,7 +9,7 @@ import java.util.Calendar
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 
 data class PeriodComparison(
     val hasPriorData: Boolean,
@@ -81,13 +81,13 @@ fun computePeriodComparison(
     val netDelta = CurrencyUtils.fromMinorUnits(currentNetMinor - priorNetMinor)
 
     val expensePercentageDelta = if (priorExpMinor > 0) {
-        (((currentExpMinor - priorExpMinor).toDouble() / priorExpMinor.toDouble()) * 1000.0).roundToInt() / 10.0
+        (((currentExpMinor - priorExpMinor).toDouble() / priorExpMinor.toDouble()) * 1000.0).roundToLong() / 10.0
     } else {
         null
     }
 
     val incomePercentageDelta = if (priorIncMinor > 0) {
-        (((currentIncMinor - priorIncMinor).toDouble() / priorIncMinor.toDouble()) * 1000.0).roundToInt() / 10.0
+        (((currentIncMinor - priorIncMinor).toDouble() / priorIncMinor.toDouble()) * 1000.0).roundToLong() / 10.0
     } else {
         null
     }
@@ -112,7 +112,9 @@ fun computeSpendingPace(
 ): SpendingPace? {
     if (rangeMillis == null) return null
     val (start, end) = rangeMillis
-    val daysInMonth = ((end - start) / 86_400_000L).toInt()
+    // Rounded, not truncated: a month containing a DST switch is 1h short or long, and
+    // integer division turned March's 30d23h into 30 days (web uses Math.round).
+    val daysInMonth = Math.round((end - start) / 86_400_000.0).toInt()
     if (daysInMonth <= 0) return null
 
     val daysElapsed: Int
@@ -123,7 +125,7 @@ fun computeSpendingPace(
     when {
         nowMillis >= end -> {
             daysElapsed = daysInMonth
-            dailyAverage = CurrencyUtils.fromMinorUnits((currentExpMinor.toDouble() / daysInMonth.toDouble()).roundToInt().toLong())
+            dailyAverage = CurrencyUtils.fromMinorUnits((currentExpMinor.toDouble() / daysInMonth.toDouble()).roundToLong())
             projectedTotal = currentExpenses
         }
         nowMillis < start -> {
@@ -135,7 +137,7 @@ fun computeSpendingPace(
             val cal = Calendar.getInstance().apply { timeInMillis = nowMillis }
             val dayOfMonth = cal.get(Calendar.DAY_OF_MONTH)
             daysElapsed = min(max(dayOfMonth, 1), daysInMonth)
-            val dailyAverageMinor = (currentExpMinor.toDouble() / daysElapsed.toDouble()).roundToInt().toLong()
+            val dailyAverageMinor = (currentExpMinor.toDouble() / daysElapsed.toDouble()).roundToLong()
             dailyAverage = CurrencyUtils.fromMinorUnits(dailyAverageMinor)
             projectedTotal = CurrencyUtils.fromMinorUnits(dailyAverageMinor * daysInMonth)
         }
@@ -185,7 +187,7 @@ fun computeCategoryMovers(
 
         val delta = CurrencyUtils.fromMinorUnits(deltaMinor)
         val percentageDelta = if (priorMinor > 0) {
-            (((currentMinor - priorMinor).toDouble() / priorMinor.toDouble()) * 1000.0).roundToInt() / 10.0
+            (((currentMinor - priorMinor).toDouble() / priorMinor.toDouble()) * 1000.0).roundToLong() / 10.0
         } else {
             null
         }
@@ -234,9 +236,9 @@ fun computeAllTimeAverages(expenses: List<Expense>): AllTimeAverages? {
     }
 
     val monthsCount = max(months.size, 1)
-    val avgExp = CurrencyUtils.fromMinorUnits((totalExpensesMinor.toDouble() / monthsCount.toDouble()).roundToInt().toLong())
-    val avgInc = CurrencyUtils.fromMinorUnits((totalIncomeMinor.toDouble() / monthsCount.toDouble()).roundToInt().toLong())
-    val avgNet = CurrencyUtils.fromMinorUnits(((totalIncomeMinor - totalExpensesMinor).toDouble() / monthsCount.toDouble()).roundToInt().toLong())
+    val avgExp = CurrencyUtils.fromMinorUnits((totalExpensesMinor.toDouble() / monthsCount.toDouble()).roundToLong())
+    val avgInc = CurrencyUtils.fromMinorUnits((totalIncomeMinor.toDouble() / monthsCount.toDouble()).roundToLong())
+    val avgNet = CurrencyUtils.fromMinorUnits(((totalIncomeMinor - totalExpensesMinor).toDouble() / monthsCount.toDouble()).roundToLong())
 
     return AllTimeAverages(
         monthsCount = monthsCount,
