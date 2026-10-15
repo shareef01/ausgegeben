@@ -4,6 +4,7 @@ import {
   analyticsPeriodOptions,
   dayKey,
   formatRelativeTimestamp,
+  isInThisMonth,
   normalizeAnalyticsPeriodKey,
   previousPeriodRange,
   thisMonthRange,
@@ -12,6 +13,17 @@ import {
 const JUNE_2026 = new Date(2026, 5, 15, 12, 0, 0, 0).getTime();
 
 describe('periodUtils', () => {
+  it('isInThisMonth keeps budget projections to the current local month', () => {
+    const [start, end] = thisMonthRange(JUNE_2026);
+    expect(isInThisMonth(JUNE_2026, JUNE_2026)).toBe(true);
+    expect(isInThisMonth(start, JUNE_2026)).toBe(true);
+    expect(isInThisMonth(end - 1, JUNE_2026)).toBe(true);
+    // A backdated or forward-dated entry never counts against this month's budget.
+    expect(isInThisMonth(start - 1, JUNE_2026)).toBe(false);
+    expect(isInThisMonth(end, JUNE_2026)).toBe(false);
+    expect(isInThisMonth(new Date(2026, 4, 20).getTime(), JUNE_2026)).toBe(false);
+  });
+
   it('thisMonthRange uses inclusive start and exclusive end', () => {
     const [start, end] = thisMonthRange(JUNE_2026);
     expect(new Date(start).getMonth()).toBe(5);

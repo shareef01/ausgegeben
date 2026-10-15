@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Category, Expense, TransactionType } from '@/models/types';
 import { expenseRepository, EmailNotVerifiedError, UNCATEGORIZED_ID } from '@/repositories/expenseRepository';
 import { formatAmount, formatAmountForInput, parseAmount, sanitizeAmountInput } from '@/utils/currency';
-import { thisMonthRange } from '@/utils/periodUtils';
+import { isInThisMonth, thisMonthRange } from '@/utils/periodUtils';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useTranslation } from '@/i18n';
 import { useAuthStore } from '@/services/authStore';
@@ -268,9 +268,14 @@ export function useAddTransactionViewModel(expenseId?: string) {
   const checkBudgetAlert = async (
     type: TransactionType,
     newAmount: number,
+    dateMillis: number,
     excludeExpenseId?: string,
   ): Promise<string | undefined> => {
     if (type !== 'expense') return undefined;
+    // The monthly budget only covers this month. A transaction dated in another month
+    // never adds to this month's spend, so projecting spent + newAmount for it raised a
+    // false "budget exceeded" alert for every backdated (or forward-dated) entry.
+    if (!isInThisMonth(dateMillis)) return undefined;
     const { monthlyBudget, currency } = usePreferencesStore.getState();
     if (!monthlyBudget || monthlyBudget <= 0) return undefined;
     const [start, end] = thisMonthRange();
@@ -332,7 +337,7 @@ export function useAddTransactionViewModel(expenseId?: string) {
         // Budget check is best-effort — a failed projection must not look like a failed save.
         let budgetAlert: string | undefined;
         try {
-          budgetAlert = await checkBudgetAlert(form.transactionType, amount, savedId);
+          budgetAlert = await checkBudgetAlert(form.transactionType, amount, payload.dateMillis, savedId);
         } catch (err) {
           console.error('[useAddTransactionViewModel] budget check failed', err);
           budgetAlert = t('errorBudgetCheckFailed');

@@ -294,6 +294,31 @@ class AddExpenseViewModelTest {
     }
 
     @Test
+    fun saveExpense_backdatedToEarlierMonth_doesNotProjectAgainstThisMonthsBudget() = runTest(dispatcher) {
+        fakePreferences.monthlyBudget.value = 100.0
+        fakeExpenses.sumMonthResult = 95.0
+        viewModel.onCategorySelect(expenseCategory)
+        viewModel.onAmountChange("10,00")
+        // Material DatePicker hands back UTC midnight of the chosen day.
+        val earlierMonth = java.time.LocalDate.now().minusMonths(2).withDayOfMonth(15)
+        viewModel.onDateChange(earlierMonth.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli())
+
+        var success = false
+        var alert: String? = null
+        viewModel.saveExpense(
+            TransactionType.EXPENSE,
+            onSuccess = { success = true },
+            onError = {},
+            onBudgetAlert = { alert = it },
+        )
+        advanceUntilIdle()
+
+        assertTrue(success)
+        assertNull(alert)
+        assertFalse(fakeExpenses.sumMonthCalled)
+    }
+
+    @Test
     fun saveExpense_budgetCheckFailure_stillSucceedsAndSurfacesFallback() = runTest(dispatcher) {
         fakePreferences.monthlyBudget.value = 100.0
         fakeExpenses.sumMonthThrows = true
@@ -513,6 +538,7 @@ class AddExpenseViewModelTest {
         var lastInserted: Expense? = null
         var lastUpdated: Expense? = null
         var sumMonthThrows = false
+        var sumMonthCalled = false
         val idempotencyKeys = mutableListOf<String?>()
 
         override fun getExpensesInRange(startMillis: Long, endMillis: Long): Flow<List<Expense>> =
@@ -534,6 +560,7 @@ class AddExpenseViewModelTest {
         override suspend fun deleteExpense(expense: Expense) = Result.success(Unit)
         override suspend fun duplicateExpense(expense: Expense) = Result.success(Unit)
         override suspend fun sumMonthExpenses(excludeExpenseId: String): Double {
+            sumMonthCalled = true
             if (sumMonthThrows) throw IllegalStateException("FAILED_PRECONDITION")
             return sumMonthResult
         }
