@@ -800,6 +800,20 @@ describe('firestore.rules', () => {
     );
   });
 
+  it('rejects a sub-cent monthly budget but keeps an already-stored one writable', async () => {
+    const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+    const ref = doc(db, prefsPath('alice'));
+    await assertFails(setDoc(ref, { ...validPreferences, monthlyBudget: 100.005 }));
+    await assertSucceeds(setDoc(ref, { ...validPreferences, monthlyBudget: 100.05 }));
+    await assertFails(updateDoc(ref, { monthlyBudget: 100.005, updatedAt: validPreferences.updatedAt + 1 }));
+    // A value stored before the rule existed must not freeze unrelated preference writes.
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), prefsPath('alice')), { ...validPreferences, monthlyBudget: 100.005 });
+    });
+    await assertSucceeds(updateDoc(ref, { currency: 'USD', updatedAt: validPreferences.updatedAt + 1 }));
+    await assertSucceeds(updateDoc(ref, { monthlyBudget: 100.01, updatedAt: validPreferences.updatedAt + 2 }));
+  });
+
   it('rejects unsupported currency codes', async () => {
     const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
     await assertFails(

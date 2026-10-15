@@ -6,6 +6,7 @@ import androidx.core.os.LocaleListCompat
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
+import com.aus.ausgegeben.util.CurrencyUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -276,7 +277,8 @@ class PreferencesCloudSync @Inject constructor(
             "reminderHour" to reminderHour.coerceIn(0, 23),
             "reminderMinute" to reminderMinute.coerceIn(0, 59),
             "analyticsPeriod" to if (ANALYTICS_PERIOD_REGEX.matches(analyticsPeriod)) analyticsPeriod else "this_month",
-            "monthlyBudget" to monthlyBudget?.takeIf { it > 0 },
+            // Rules reject a changed sub-cent budget; rounding also normalizes a legacy value.
+            "monthlyBudget" to monthlyBudget?.takeIf { it > 0 }?.let(CurrencyUtils::roundAmount),
             "updatedAt" to updatedAt,
         )
     }
