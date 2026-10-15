@@ -103,6 +103,19 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
 
+      # The PWA shows web/package.json's version in Settings and stamps it into
+      # backups. v2.1.1 shipped with it still at 2.1.0 because nothing compared the
+      # two, so require the bump before a tag can publish.
+      - name: Require web/package.json version to match the tag
+        env:
+          TAG_INPUT: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          WEB_VERSION=$(node -p "require('./web/package.json').version")
+          if [ "v$WEB_VERSION" != "$TAG_INPUT" ]; then
+            echo "::error::web/package.json is $WEB_VERSION but the tag is $TAG_INPUT. Run 'npm version <x.y.z> --no-git-tag-version' in web/ first."
+            exit 1
+          fi
+
       - run: npm ci
         working-directory: web
 

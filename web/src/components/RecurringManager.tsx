@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from '@/i18n';
 import { useAuthStore } from '@/services/authStore';
+import { usePreferencesStore } from '@/services/preferencesStore';
+import { formatAmount } from '@/utils/currency';
 import { recurringRepository } from '@/services/recurringRepository';
 import { syncRecurring, useRecurringStore } from '@/services/recurringStore';
 import { localDateAt, occurrenceDate, validTemplate, type RecurringTemplate, type Frequency } from '@/services/recurrence';
@@ -17,7 +19,7 @@ export function RecurringManager() {
   return <><button className="btn btn-secondary" onClick={()=>setOpen(true)}>{t('recurringTitle')}</button>{open && user && <RecurringPanel key={user.uid} owner={user.uid} close={()=>setOpen(false)}/>}</>;
 }
 function RecurringPanel({owner,close}:{owner:string;close:()=>void}) {
-  const {t}=useTranslation(); const user=useAuthStore(s=>s.user); const state=useRecurringStore();
+  const {t}=useTranslation(); const user=useAuthStore(s=>s.user); const state=useRecurringStore(); const currency=usePreferencesStore(s=>s.currency);
   const rows=state.owner===owner ? state.rows : []; const root=useRef<HTMLDivElement>(null);
   const [categories,setCategories]=useState<Category[]>([]); const [draft,setDraft]=useState<RecurringTemplate|null>(null);
   const [expected,setExpected]=useState<number|null>(null); const [busy,setBusy]=useState(false); const [error,setError]=useState(false); const [removing,setRemoving]=useState<RecurringTemplate|null>(null);
@@ -49,7 +51,7 @@ function RecurringPanel({owner,close}:{owner:string;close:()=>void}) {
       <p>{t('recurringZone')}: {draft.timeZone}</p><button className="btn btn-primary" disabled={disabled}>{t('actionSave')}</button><button type="button" className="btn btn-secondary" disabled={busy} onClick={()=>setDraft(null)}>{t('actionCancel')}</button>
     </form>}
     <div aria-live="polite">{!rows.length&&<p>{t('recurringEmpty')}</p>}{rows.map(row=><article className="recurring-row" key={row.id}>
-      <strong>{row.note||categories.find(c=>c.id===row.categoryId)?.name||t('recurringTitle')}</strong><p>{row.amount.toFixed(2)} · {categories.find(c=>c.id===row.categoryId)?.name} · {t('recurringEvery')} {row.interval} {t(row.frequency==='daily'?'recurringDaily':row.frequency==='weekly'?'recurringWeekly':row.frequency==='monthly'?'recurringMonthly':'recurringYearly')}</p>
+      <strong>{row.note||categories.find(c=>c.id===row.categoryId)?.name||t('recurringTitle')}</strong><p>{formatAmount(row.amount, currency)} · {categories.find(c=>c.id===row.categoryId)?.name} · {t('recurringEvery')} {row.interval} {t(row.frequency==='daily'?'recurringDaily':row.frequency==='weekly'?'recurringWeekly':row.frequency==='monthly'?'recurringMonthly':'recurringYearly')}</p>
       <p>{t(row.enabled?(row.nextDate?'recurringActive':'recurringEnded'):'recurringPaused')} · {t('recurringNext')}: {row.nextDate??'—'}</p>
       <button className="btn btn-secondary" disabled={disabled} onClick={()=>{setExpected(row.updatedAt);setDraft({...row});}}>{t('recurringEdit')}</button>
       <button className="btn btn-secondary" disabled={disabled} onClick={()=>void mutate(()=>recurringRepository.save(owner,{...row,enabled:!row.enabled},row.updatedAt))}>{t(row.enabled?'recurringPause':'recurringResume')}</button>
