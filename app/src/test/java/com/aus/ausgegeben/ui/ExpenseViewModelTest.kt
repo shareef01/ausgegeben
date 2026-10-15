@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.resetMain
@@ -369,8 +370,7 @@ class ExpenseViewModelTest {
         job.cancel()
         runCurrent()
         advanceTimeBy(5_001)
-        runCurrent()
-        assertEquals(0, cold.activeIds().size)
+        awaitNoCategoryListeners(cold)
     }
 
     @Test
@@ -386,8 +386,7 @@ class ExpenseViewModelTest {
         job.cancel()
         runCurrent()
         advanceTimeBy(5_001)
-        runCurrent()
-        assertEquals(0, cold.activeIds().size)
+        awaitNoCategoryListeners(cold)
 
         val renamed = category.copy(name = "Updated groceries")
         cold.initialSnapshot = listOf(renamed)
@@ -417,8 +416,7 @@ class ExpenseViewModelTest {
         runCurrent()
         assertEquals(1, cold.activeIds().size) // Rows still consume category names.
         rows.cancelAndJoin()
-        runCurrent()
-        assertEquals(0, cold.activeIds().size)
+        awaitNoCategoryListeners(cold)
     }
 
     @Test
@@ -495,6 +493,23 @@ class ExpenseViewModelTest {
         }
 
     /** Each collector has an independently controllable channel, like a cold listener. */
+    /**
+     * insightsFlow collects categories on Dispatchers.Default, so that subscriber leaves the
+     * shared flow on a real thread, after which the share stops on the test dispatcher. A
+     * single runCurrent() can run before the Default thread has unsubscribed, which made
+     * these assertions fail intermittently in CI. Pump the test dispatcher until the upstream
+     * closes, bounded in wall-clock time so a genuine leak still fails.
+     */
+    private fun TestScope.awaitNoCategoryListeners(cold: ColdCategoryFlow) {
+        val deadline = System.nanoTime() + 5_000_000_000L
+        runCurrent()
+        while (cold.activeIds().isNotEmpty() && System.nanoTime() < deadline) {
+            Thread.sleep(5)
+            runCurrent()
+        }
+        assertEquals(0, cold.activeIds().size)
+    }
+
     private class ColdCategoryFlow(@Volatile var initialSnapshot: List<Category> = emptyList()) {
         private val nextId = java.util.concurrent.atomic.AtomicInteger()
         private val channels = java.util.concurrent.ConcurrentHashMap<Int, Channel<List<Category>>>()
