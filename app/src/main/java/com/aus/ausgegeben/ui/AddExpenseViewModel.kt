@@ -10,7 +10,9 @@ import com.aus.ausgegeben.data.ExpenseActions
 import com.aus.ausgegeben.data.TransactionPreferences
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
+import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.util.CurrencyUtils
+import com.aus.ausgegeben.util.dateRangeMillis
 import com.aus.ausgegeben.util.datePickerMillisToLocalDayStart
 import com.aus.ausgegeben.util.runSuspendCatching
 import kotlinx.coroutines.CancellationException
@@ -193,7 +195,7 @@ class AddExpenseViewModel @Inject constructor(
                     if (saveError == null) {
                         // Budget projection is best-effort — must not look like a failed save
                         // after the write already succeeded (web parity).
-                        runSuspendCatching { checkBudgetAlert(type, amt, excludeIdForBudget) }
+                        runSuspendCatching { checkBudgetAlert(type, amt, expense.dateMillis, excludeIdForBudget) }
                             .onSuccess { alert -> alert?.let { onBudgetAlert?.invoke(it) } }
                             .onFailure { e ->
                                 Log.w(TAG, "budget check failed", e)
@@ -224,9 +226,15 @@ class AddExpenseViewModel @Inject constructor(
     private suspend fun checkBudgetAlert(
         type: TransactionType,
         newAmount: Double,
+        dateMillis: Long,
         excludeExpenseId: String,
     ): String? {
         if (type != TransactionType.EXPENSE) return null
+        // The monthly budget only covers this month. A transaction dated in another month
+        // never adds to this month's spend, so projecting spent + newAmount for it raised a
+        // false "budget exceeded" alert for every backdated (or forward-dated) entry.
+        val thisMonth = AnalyticsPeriod.THIS_MONTH.dateRangeMillis() ?: return null
+        if (dateMillis !in thisMonth.first until thisMonth.second) return null
         val budget = preferenceManager.monthlyBudgetFlow.first() ?: return null
         val spent = expenseActions.sumMonthExpenses(excludeExpenseId)
         val projected = spent + newAmount

@@ -216,4 +216,37 @@ class InsightsAnalyticsTest {
         // Net: 1100 - 300 = 800
         assertEquals(800.0, averages.averageMonthlyNet, 0.01)
     }
+
+    @Test
+    fun computeSpendingPace_dstMonth_countsCalendarDays() {
+        // March in Europe/Berlin loses an hour to DST (30d 23h): truncating division
+        // reported 30 days and capped March 31 at day 30.
+        val original = java.util.TimeZone.getDefault()
+        java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("Europe/Berlin"))
+        try {
+            val march = monthRange(2026, Calendar.MARCH)
+            val october = monthRange(2026, Calendar.OCTOBER)
+            val lastDayOfMarch = Calendar.getInstance().apply { set(2026, Calendar.MARCH, 31, 12, 0, 0) }.timeInMillis
+
+            val marchPace = computeSpendingPace(310.0, march, nowMillis = lastDayOfMarch)!!
+            assertEquals(31, marchPace.daysInMonth)
+            assertEquals(31, marchPace.daysElapsed)
+            assertEquals(10.0, marchPace.dailyAverage, 0.0)
+            assertEquals(310.0, marchPace.projectedTotal, 0.0)
+
+            assertEquals(31, computeSpendingPace(0.0, october, nowMillis = october.second)!!.daysInMonth)
+        } finally {
+            java.util.TimeZone.setDefault(original)
+        }
+    }
+
+    @Test
+    fun computeAllTimeAverages_largeTotals_doNotSaturateAtIntRange() {
+        // 50M in minor units is past Int.MAX_VALUE; roundToInt() clamped it to 21,474,836.47.
+        val cal = Calendar.getInstance().apply { set(2026, Calendar.JANUARY, 10, 12, 0, 0) }
+        val expenses = listOf(Expense(id = "big", amount = 50_000_000.0, dateMillis = cal.timeInMillis, categoryId = "c4", note = "", transactionType = "income"))
+        val averages = computeAllTimeAverages(expenses)!!
+        assertEquals(50_000_000.0, averages.averageMonthlyIncome, 0.0)
+        assertEquals(50_000_000.0, averages.averageMonthlyNet, 0.0)
+    }
 }
