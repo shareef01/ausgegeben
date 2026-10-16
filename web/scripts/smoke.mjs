@@ -63,8 +63,17 @@ async function main() {
   }
   const bundleUrl = ORIGIN + bundleMatch[0];
   const bundleRes = await fetch(bundleUrl);
-  const bundle = await bundleRes.text();
   record(bundleRes.ok, `entry bundle serves ${bundleRes.status}`, bundleMatch[0]);
+
+  // The build config is not guaranteed to land in the entry chunk: from 2.1.2 the
+  // bundler hoisted the Firebase config into a shared chunk, and searching only
+  // index-*.js reported both keys missing on a healthy deploy. Search every chunk
+  // index.html loads up front instead (entry + modulepreloads).
+  const chunkPaths = [...new Set(html.match(/\/assets\/[A-Za-z0-9_.-]+\.js/g))];
+  const chunks = await Promise.all(
+    chunkPaths.map(async (p) => (p === bundleMatch[0] ? bundleRes : await fetch(ORIGIN + p)).text()),
+  );
+  const bundle = chunks.join('\n');
 
   // ── the Firebase key baked into that bundle is still alive ──
   // A read-only probe: no sign-in attempt, so this can run on a schedule without
@@ -94,7 +103,9 @@ async function main() {
   // succeeds, every other check here passes, and the site is a white screen for
   // everyone. Same shape as the deleted API key above — a build-time input that nothing
   // validated — so it gets the same treatment. reCAPTCHA Enterprise site keys are `6L…`.
-  const appCheckKey = (bundle.match(/6L[A-Za-z0-9_-]{20,}/) || [])[0];
+  // Exactly 40 characters, bounded: vendor chunks contain base64-ish tables with long
+  // `6L…` runs that a looser pattern would accept as a key.
+  const appCheckKey = (bundle.match(/(?<![A-Za-z0-9_-])6L[A-Za-z0-9_-]{38}(?![A-Za-z0-9_-])/) || [])[0];
   record(
     Boolean(appCheckKey),
     'App Check site key is baked into the bundle',
