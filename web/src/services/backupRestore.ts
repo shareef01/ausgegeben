@@ -3,6 +3,7 @@ import { recurringRepository } from '@/services/recurringRepository';
 import { collection, doc, getDocs, setDoc, writeBatch } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
+import { chunkByCategory } from '@/utils/restoreBatches';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { sanitizeSyncedPreferences } from '@/services/preferencesSync';
 import {
@@ -129,9 +130,8 @@ export async function restoreBackup(
     await batch.commit();
   }
 
-  // 2. Write expenses in chunks of RESTORE_BATCH_CHUNK_SIZE
-  for (let i = 0; i < backup.expenses.length; i += RESTORE_BATCH_CHUNK_SIZE) {
-    const chunk = backup.expenses.slice(i, i + RESTORE_BATCH_CHUNK_SIZE);
+  // 2. Write expenses in chunks the rules' per-batch read limit accepts
+  for (const chunk of chunkByCategory(backup.expenses, RESTORE_BATCH_CHUNK_SIZE)) {
     const batch = writeBatch(db);
     for (const e of chunk) {
       const ref = doc(db, 'users', expectedUid, EXPENSES_COLLECTION, e.id);
