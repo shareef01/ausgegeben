@@ -66,13 +66,24 @@ async function main() {
   const bundle = await bundleRes.text();
   record(bundleRes.ok, `entry bundle serves ${bundleRes.status}`, bundleMatch[0]);
 
+  // The Firebase config lives in whichever chunk Rolldown puts services/firebase.ts in,
+  // which is not always the entry (2.1.2 moved it into a shared chunk and this check
+  // reported a healthy site as broken). Search every script index.html loads up front.
+  const chunkPaths = [...new Set(html.match(/\/assets\/[A-Za-z0-9_.-]+\.js/g) || [])]
+    .filter((p) => p !== bundleMatch[0]);
+  const chunks = await Promise.all(
+    chunkPaths.map((p) => fetch(ORIGIN + p).then((r) => (r.ok ? r.text() : '')).catch(() => '')),
+  );
+  const scripts = [bundle, ...chunks].join('\n');
+
   // ── the Firebase key baked into that bundle is still alive ──
   // A read-only probe: no sign-in attempt, so this can run on a schedule without
   // piling up failed logins. A deleted or expired key answers API_KEY_INVALID,
   // which is exactly the failure that went unnoticed in production.
-  const key = (bundle.match(/AIzaSy[A-Za-z0-9_-]{20,}/) || [])[0];
+  // Quote-delimited so base64-ish blobs in vendor chunks can't pose as a key.
+  const key = (scripts.match(/["'`](AIzaSy[A-Za-z0-9_-]{30,})["'`]/) || [])[1];
   if (!key) {
-    record(false, 'Firebase API key found in bundle');
+    record(false, 'Firebase API key found in the loaded scripts');
   } else {
     const probe = await fetch(
       `https://identitytoolkit.googleapis.com/v1/projects?key=${key}`,
@@ -94,10 +105,10 @@ async function main() {
   // succeeds, every other check here passes, and the site is a white screen for
   // everyone. Same shape as the deleted API key above — a build-time input that nothing
   // validated — so it gets the same treatment. reCAPTCHA Enterprise site keys are `6L…`.
-  const appCheckKey = (bundle.match(/6L[A-Za-z0-9_-]{20,}/) || [])[0];
+  const appCheckKey = (scripts.match(/["'`](6L[A-Za-z0-9_-]{30,})["'`]/) || [])[1];
   record(
     Boolean(appCheckKey),
-    'App Check site key is baked into the bundle',
+    'App Check site key is baked into the loaded scripts',
     appCheckKey
       ? `${appCheckKey.slice(0, 6)}…`
       : 'VITE_FIREBASE_APP_CHECK_KEY missing at build time — the app throws on boot',
