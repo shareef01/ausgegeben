@@ -14,6 +14,7 @@ import com.aus.ausgegeben.util.BackupFormat
 import com.aus.ausgegeben.util.CategoryDedupe
 import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.RestoreUtils
+import com.aus.ausgegeben.util.RestoreBatches
 import com.aus.ausgegeben.util.ReplacePlanner
 import com.aus.ausgegeben.util.dateRangeMillis
 import com.aus.ausgegeben.util.expenseDocumentId
@@ -912,8 +913,8 @@ class AppRepository @Inject constructor(
             batch.commit().await()
         }
 
-        // 2. Expenses in chunks of 400
-        val expenseChunks = backup.expenses.chunked(400)
+        // 2. Expenses in chunks the rules' per-batch read limit accepts
+        val expenseChunks = RestoreBatches.chunkByCategory(backup.expenses, 400) { it.categoryId }
         for (chunk in expenseChunks) {
             val batch = firestore.batch()
             for (e in chunk) {
@@ -1707,7 +1708,7 @@ class AppRepository @Inject constructor(
 
             // 2. Expenses upsert in chunks of 400
             verifyAndRenewRecoveryLease(expectedUid, currentClientId, fencingToken)
-            val expenseUpsertChunks = plan.expensesToUpsert.chunked(400)
+            val expenseUpsertChunks = RestoreBatches.chunkByCategory(plan.expensesToUpsert, 400) { it.categoryId }
             var expenseUpsertBatchIndex = 0
             for (chunk in expenseUpsertChunks) {
                 val batch = firestore.batch()
@@ -2057,7 +2058,7 @@ class AppRepository @Inject constructor(
             // 2. Expenses upsert
             verifyAndRenewRecoveryLease(expectedUid, currentClientId, fencingToken)
             val snapshotExpenseIds = snapshot.expenses.map { it.id }.toSet()
-            for (chunk in snapshot.expenses.chunked(400)) {
+            for (chunk in RestoreBatches.chunkByCategory(snapshot.expenses, 400) { it.categoryId }) {
                 val batch = firestore.batch()
                 for (e in chunk) {
                     val ref = expDoc(expectedUid, e.id)
