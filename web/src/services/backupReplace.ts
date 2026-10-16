@@ -18,6 +18,7 @@ import {
 } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
+import { chunkByCategory } from '@/utils/restoreBatches';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { sanitizeSyncedPreferences } from '@/services/preferencesSync';
 import {
@@ -874,8 +875,7 @@ export async function executeReplace(
     // 10. Apply expenses upsert in batches
     await verifyAndRenewRecoveryLease(db, expectedUid, currentTabId, fencingToken);
     let expenseUpsertBatchIndex = 0;
-    for (let i = 0; i < plan.expensesToUpsert.length; i += RESTORE_BATCH_CHUNK_SIZE) {
-      const chunk = plan.expensesToUpsert.slice(i, i + RESTORE_BATCH_CHUNK_SIZE);
+    for (const chunk of chunkByCategory(plan.expensesToUpsert, RESTORE_BATCH_CHUNK_SIZE)) {
       const batch = writeBatch(db);
       for (const e of chunk) {
         const ref = doc(db, 'users', expectedUid, EXPENSES_COLLECTION, e.id);
@@ -1245,8 +1245,7 @@ export async function rollbackReplace(
     // a successful write.
     await verifyAndRenewRecoveryLease(db, expectedUid, currentTabId, fencingToken);
     const snapshotExpenseIds = new Set(snapshot.expenses.map((e) => e.id));
-    for (let i = 0; i < snapshot.expenses.length; i += RESTORE_BATCH_CHUNK_SIZE) {
-      const chunk = snapshot.expenses.slice(i, i + RESTORE_BATCH_CHUNK_SIZE);
+    for (const chunk of chunkByCategory(snapshot.expenses, RESTORE_BATCH_CHUNK_SIZE)) {
       const batch = writeBatch(db);
       for (const e of chunk) {
         const ref = doc(db, 'users', expectedUid, EXPENSES_COLLECTION, e.id);
