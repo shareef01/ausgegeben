@@ -2,6 +2,7 @@ import { categoryBudgetRepository } from '@/services/categoryBudgets';
 import { recurringRepository } from '@/services/recurringRepository';
 import { collection, doc, getDocs, setDoc, writeBatch } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/services/firebase';
+import { chunkExpensesForRules } from '@/services/expenseBatching';
 import { useAuthStore } from '@/services/authStore';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { sanitizeSyncedPreferences } from '@/services/preferencesSync';
@@ -129,9 +130,8 @@ export async function restoreBackup(
     await batch.commit();
   }
 
-  // 2. Write expenses in chunks of RESTORE_BATCH_CHUNK_SIZE
-  for (let i = 0; i < backup.expenses.length; i += RESTORE_BATCH_CHUNK_SIZE) {
-    const chunk = backup.expenses.slice(i, i + RESTORE_BATCH_CHUNK_SIZE);
+  // 2. Write expenses, chunked so each batch stays within the rules' lookup budget
+  for (const chunk of chunkExpensesForRules(backup.expenses)) {
     const batch = writeBatch(db);
     for (const e of chunk) {
       const ref = doc(db, 'users', expectedUid, EXPENSES_COLLECTION, e.id);

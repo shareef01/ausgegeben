@@ -438,6 +438,62 @@ describe('backupReplace on real Firestore emulator with rules enforced', () => {
     await expect(executeReplace(backup, 'other-uid')).rejects.toThrow('AUTH_ACCOUNT_CHANGED');
   });
 
+  // Every expense write makes the rules look up its category, and Firestore allows 20
+  // lookups per batched write, so one batch can span at most 9 categories. A real
+  // 17-category backup failed restore, replace and rollback with "permission denied"
+  // while every row was valid on its own; every test above uses a single category.
+  function createMultiCategoryBackup(categoryCount: number, perCategory: number): AusgegebenBackup {
+    const base = createTestBackup({ numExpenses: 0 });
+    const categories = Array.from({ length: categoryCount }, (_, c) => ({
+      id: `cat-${c}`,
+      name: `Category ${c}`,
+      iconName: 'restaurant',
+      colorInt: -16711936,
+      transactionType: 'expense' as const,
+      sortOrder: c,
+    }));
+    const expenses = categories.flatMap((cat, c) =>
+      Array.from({ length: perCategory }, (_, i) => ({
+        id: `multi-${c}-${i}`,
+        amount: 3 + i,
+        dateMillis: 1700000000000 + (c * perCategory + i) * 1000,
+        categoryId: cat.id,
+        note: '',
+        transactionType: 'expense' as const,
+      })),
+    );
+    return { ...base, categories, expenses };
+  }
+
+  it('merge restore succeeds for a backup spanning more categories than one batch can look up', async () => {
+    const db = enforcedFirestore();
+    const backup = createMultiCategoryBackup(17, 15);
+
+    await restoreBackup(backup, TEST_UID);
+
+    const allExpenses = await getDocs(collection(db, 'users', TEST_UID, 'expenses'));
+    expect(allExpenses.size).toBe(17 * 15);
+  });
+
+  it('replace and rollback succeed for a backup spanning more categories than one batch can look up', async () => {
+    const db = enforcedFirestore();
+    const original = createMultiCategoryBackup(12, 3);
+    await restoreBackup(original, TEST_UID);
+
+    const result = await executeReplace(createMultiCategoryBackup(17, 15), TEST_UID);
+    expect(result.success).toBe(true);
+    expect((await getDocs(collection(db, 'users', TEST_UID, 'expenses'))).size).toBe(17 * 15);
+
+    // Fail the next replace mid-way, then roll back to the 17-category state.
+    await expect(
+      executeReplace(createMultiCategoryBackup(12, 3), TEST_UID, { failAfterExpenseUpsertBatch: 1 }),
+    ).rejects.toThrow('FAULT_INJECTED_AFTER_EXPENSE_UPSERT_BATCH');
+    const op = await getRestoreOperation(TEST_UID);
+    await rollbackReplace(op!, TEST_UID);
+    expect((await getRestoreOperation(TEST_UID))?.phase).toBe('ROLLED_BACK');
+    expect((await getDocs(collection(db, 'users', TEST_UID, 'expenses'))).size).toBe(17 * 15);
+  });
+
   it('15. >400 documents crosses a write-batch boundary', async () => {
     const db = enforcedFirestore();
     const backup = createTestBackup({ numExpenses: 450, prefix: 'bulk' });
