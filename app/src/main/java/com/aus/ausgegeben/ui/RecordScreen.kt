@@ -178,11 +178,13 @@ fun RecordScreen(
                     val headerExpenses = uiState.data.headerExpenses
                     val sequence = remember(headerExpenses) { headerExpenses.asSequence() }
                     
-                    val expenseTotal = remember(sequence) { sequence.filter { it.isExpense() }.sumOf { it.amount } }
-                    val incomeTotal = remember(sequence) { sequence.filter { it.isIncome() }.sumOf { it.amount } }
+                    // sumMoney adds in cents: sumOf drifted (64.01 + 0.04 + 35.95 > 100.00), which
+                    // showed a budget spent exactly to the cent as over budget.
+                    val expenseTotal = remember(sequence) { sequence.filter { it.isExpense() }.map { it.amount }.sumMoney() }
+                    val incomeTotal = remember(sequence) { sequence.filter { it.isIncome() }.map { it.amount }.sumMoney() }
                     val net = remember(sequence) { 
                         sequence.filter { !it.isTransfer() }.let { seq ->
-                            seq.filter { it.isIncome() }.sumOf { it.amount } - seq.filter { it.isExpense() }.sumOf { it.amount }
+                            CurrencyUtils.roundAmount(seq.filter { it.isIncome() }.map { it.amount }.sumMoney() - seq.filter { it.isExpense() }.map { it.amount }.sumMoney())
                         }
                     }
                     
@@ -199,7 +201,7 @@ fun RecordScreen(
                 uiState.data.monthlyBudget?.let { budget ->
                     item(key = "budget") {
                         val monthSpent = remember(uiState.data.monthExpenses) {
-                            uiState.data.monthExpenses.asSequence().filter { it.isExpense() }.sumOf { it.amount }
+                            uiState.data.monthExpenses.asSequence().filter { it.isExpense() }.map { it.amount }.sumMoney()
                         }
                         BudgetProgressBar(
                             spent = monthSpent,

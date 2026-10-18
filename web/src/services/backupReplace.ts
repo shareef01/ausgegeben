@@ -1,4 +1,5 @@
 import { fromMinorUnits, toMinorUnits } from '@/utils/money';
+import { restoredCategoryRevision, restoredPreferencesRevision } from '@/services/backupFormat';
 import { categoryBudgetRepository, type CategoryBudget } from '@/services/categoryBudgets';
 import { recurringRepository } from '@/services/recurringRepository';
 import type { RecurringTemplate } from '@/services/recurrence';
@@ -291,10 +292,7 @@ export function planReplace(params: {
     .map((c) => c.id);
 
   // Preferences update
-  const newTimestamp = Math.max(
-    Date.now(),
-    (backup.preferences.preferencesUpdatedAt ?? 0) + 1,
-  );
+  const newTimestamp = restoredPreferencesRevision(backup.preferences.preferencesUpdatedAt);
   const preferencesToUpdate: SyncedPreferences = sanitizeSyncedPreferences({
     currency: backup.preferences.currency,
     locale: backup.preferences.locale ?? currentPreferences?.locale ?? 'en',
@@ -849,7 +847,7 @@ export async function executeReplace(
             colorInt: c.colorInt | 0,
             transactionType: c.transactionType,
             sortOrder: Math.max(0, Math.trunc(c.sortOrder)),
-            updatedAt: c.updatedAt ?? Date.now(),
+            updatedAt: restoredCategoryRevision(c.updatedAt),
             id: c.id,
           },
           { merge: true },

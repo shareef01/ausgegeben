@@ -220,7 +220,7 @@ object ReplacePlanner {
         val categoriesToUpsert = backup.categories
         val categoryIdsToPreserve = currentCategories.filter { it.id !in backupCatMap }.map { it.id }
 
-        val newTimestamp = maxOf(System.currentTimeMillis(), (backup.preferences.preferencesUpdatedAt ?: 0L) + 1L)
+        val newTimestamp = BackupFormat.restoredPreferencesRevision(backup.preferences.preferencesUpdatedAt)
         val validCurrencies = setOf("EUR", "USD", "GBP", "CHF")
         val validLocales = setOf("en", "de")
         val validThemes = setOf(

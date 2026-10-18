@@ -172,6 +172,26 @@ describe('backupRestore on real Firestore emulator with rules enforced', () => {
     expect(expSnap.exists()).toBe(false);
   });
 
+  it('restores a file whose category and preference revisions are ahead of the server clock', async () => {
+    // A backup from a device with a fast clock (or a damaged file) carried revisions the
+    // rules refuse as more than five minutes in the future. The category batch, or the
+    // final preferences write after every transaction had landed, then failed.
+    const backup = createTestBackup(2);
+    const future = Date.now() + 3_600_000;
+    backup.categories[0].updatedAt = future;
+    backup.preferences.preferencesUpdatedAt = future;
+
+    const result = await restoreBackup(backup, TEST_UID);
+    expect(result.success).toBe(true);
+
+    const db = enforcedFirestore();
+    const cat = await getDoc(doc(db, 'users', TEST_UID, 'categories', 'cat-food'));
+    expect(cat.data()?.updatedAt).toBeLessThanOrEqual(Date.now());
+    const prefs = await getDoc(doc(db, 'users', TEST_UID, 'settings', 'preferences'));
+    expect(prefs.data()?.updatedAt).toBeLessThanOrEqual(Date.now() + 300_000);
+    expect(prefs.data()?.currency).toBe('EUR');
+  });
+
   it('aborts immediately if active session changed before execution', async () => {
     const backup = createTestBackup(1);
     await expect(restoreBackup(backup, 'different-uid')).rejects.toThrow('AUTH_ACCOUNT_CHANGED');

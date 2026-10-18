@@ -272,3 +272,83 @@ test('withinRateLimit: fails closed when the cache itself errors', async () => {
     assert.equal(await withinRateLimit(reportRequest('1.1.1.1'), NO_BINDING_ENV, undefined), false);
   });
 });
+
+// 2026-10-18 audit: the production path passes a real ctx, so the counter write went to
+// ctx.waitUntil and its failure could no longer reach the fail-closed catch.
+
+function makeWriteFailingCache() {
+  const inner = makeFakeCache();
+  return {
+    match: (request) => inner.match(request),
+    put: async () => { throw new Error('cache write rejected'); },
+  };
+}
+
+function makeCtx() {
+  const pending = [];
+  return {
+    pending,
+    waitUntil(promise) {
+      // Mirror the runtime: a rejected waitUntil promise is logged, not surfaced.
+      pending.push(Promise.resolve(promise).then(() => 'ok', () => 'rejected'));
+    },
+  };
+}
+
+test('withinRateLimit: fails closed when the counter write is rejected (production ctx)', async () => {
+  await withFakeCache(makeWriteFailingCache(), async () => {
+    const ctx = makeCtx();
+    let accepted = 0;
+    for (let i = 0; i < 25; i++) {
+      // eslint-disable-next-line no-await-in-loop -- intentionally sequential
+      if (await withinRateLimit(reportRequest('7.7.7.7'), NO_BINDING_ENV, ctx)) accepted++;
+    }
+    // Before the fix every request was admitted and counted nowhere: 25 of 25.
+    assert.equal(accepted, 0);
+    const outcomes = await Promise.all(ctx.pending);
+    assert.ok(!outcomes.includes('rejected'), 'no rejected promise may be handed to waitUntil');
+  });
+});
+
+test('withinRateLimit: still enforces RATE_LIMIT with a production ctx and a healthy cache', async () => {
+  await withFakeCache(makeFakeCache(), async () => {
+    const ctx = makeCtx();
+    let accepted = 0;
+    for (let i = 0; i < 25; i++) {
+      // eslint-disable-next-line no-await-in-loop -- intentionally sequential
+      if (await withinRateLimit(reportRequest('8.8.4.4'), NO_BINDING_ENV, ctx)) accepted++;
+    }
+    assert.equal(accepted, 20);
+  });
+});
+
+test('App Check verification does not force a JWKS refetch for every forged kid', async () => {
+  const keys = await crypto.subtle.generateKey(
+    { name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' },
+    true,
+    ['sign', 'verify'],
+  );
+  const now = 2_000_040_000;
+  const claims = {
+    iss: 'https://firebaseappcheck.googleapis.com/123456',
+    aud: ['projects/123456'],
+    sub: '1:123456:web:allowed',
+    iat: now - 5,
+    exp: now + 3600,
+  };
+  const env = { FIREBASE_PROJECT_NUMBER: '123456', FIREBASE_APP_IDS: claims.sub };
+  let fetches = 0;
+  const emptyJwks = async () => { fetches += 1; return Response.json({ keys: [] }); };
+
+  // Every claim except the signature is public, so anyone can mint these. Verification
+  // runs before rate limiting; each one used to cost an outbound fetch to Google.
+  for (let i = 0; i < 50; i++) {
+    // eslint-disable-next-line no-await-in-loop -- intentionally sequential
+    assert.equal(await verifyAppCheckToken(await signedToken(keys.privateKey, `forged-${i}`, claims), env, emptyJwks, now + i), false);
+  }
+  assert.equal(fetches, 2, 'one initial fetch plus one forced refresh per cooldown window');
+
+  // After the cooldown a genuinely rotated key can still be picked up.
+  assert.equal(await verifyAppCheckToken(await signedToken(keys.privateKey, 'later', claims), env, emptyJwks, now + 120), false);
+  assert.equal(fetches, 3);
+});

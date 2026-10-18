@@ -73,4 +73,14 @@ class CurrencyUtilsTest {
         assertEquals(',', CurrencyUtils.decimalSeparator("EUR"))
         assertEquals('.', CurrencyUtils.decimalSeparator("USD"))
     }
+
+    @Test
+    fun sumMoney_spendsABudgetExactlyToTheCent() {
+        // RecordScreen's budget bar used sumOf, which lands just above 100.00 here and
+        // drew a budget spent exactly to the cent as over budget.
+        val amounts = listOf(64.01, 0.04, 35.95)
+        org.junit.Assert.assertTrue(amounts.sumOf { it } > 100.0)
+        assertEquals(100.0, amounts.sumMoney(), 0.0)
+        org.junit.Assert.assertFalse(amounts.sumMoney() > 100.0)
+    }
 }

@@ -13,8 +13,8 @@ npx wrangler login       # one-time, opens a browser
 npm run deploy
 ```
 
-Before deploying, replace both `SET_BEFORE_DEPLOY` App Check values in
-`wrangler.toml`. `FIREBASE_PROJECT_NUMBER` is the numeric Firebase project number;
+`wrangler.toml` already carries the production App Check values (set in #83).
+`FIREBASE_PROJECT_NUMBER` is the numeric Firebase project number;
 `FIREBASE_APP_IDS` is a comma-separated allowlist of web App IDs. They are public
 identifiers, not secrets. Requests fail closed until these values are valid. The PWA
 gets an App Check token and sends it in `X-Firebase-AppCheck`; the Worker verifies its
@@ -41,6 +41,9 @@ handful of reports a week, logs are the right size.
 - Only origins listed in `ALLOWED_ORIGINS` are accepted. Origin is defense in depth;
   verified Firebase App Check is the authorization/abuse-control boundary.
 - Bodies over 16 KB are rejected.
+- Rate limiting is best-effort: per-IP and per-colo counters in the Cache API, not an
+  atomic global limit (that would need a paid Durable Object). A counter that cannot be
+  read or written rejects the request (fail closed). See `withinRateLimit` in `src/index.js`.
 - The client already caps itself at 10 reports per session and dedupes by
   fingerprint, so a crash loop cannot flood this.
 - Configure the shortest practical Workers Logs retention in the Cloudflare dashboard

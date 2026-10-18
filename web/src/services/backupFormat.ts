@@ -1,6 +1,7 @@
 import { validCategoryBudget, type CategoryBudget } from '@/services/categoryBudgets';
 import { parseRecurringSection, type RecurringBackupSection } from '@/services/recurringBackupSection';
 import type { Category, Expense, TransactionType } from '@/models/types';
+import { SUPPORTED_CURRENCIES } from '@/utils/currency';
 
 export const BACKUP_FORMAT_IDENTIFIER = 'ausgegeben-backup';
 export const CURRENT_BACKUP_SCHEMA_VERSION = 3;
@@ -89,6 +90,34 @@ const ALLOWED_TOP_LEVEL_KEYS = new Set([
 ]);
 
 const ALLOWED_TRANSACTION_TYPES = new Set<TransactionType>(['expense', 'income', 'transfer']);
+const SUPPORTED_CURRENCY_SET = new Set<string>(SUPPORTED_CURRENCIES);
+
+function isCentGranular(value: number): boolean {
+  return Math.abs(value * 100 - Math.round(value * 100)) < 1e-4;
+}
+
+function isNonNegativeSafeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+}
+
+function isIntegerInRange(value: unknown, min: number, max: number): boolean {
+  return typeof value === 'number' && Number.isInteger(value) && value >= min && value <= max;
+}
+
+/**
+ * Restore re-stamps preferences with a revision newer than both the clock and the file.
+ * The file's value is capped a few minutes ahead because the rules refuse revisions more
+ * than five minutes in the future; an uncapped one failed the final preferences write
+ * after every category and transaction had already been written.
+ */
+export function restoredPreferencesRevision(backupRevision: number | undefined, now = Date.now()): number {
+  return Math.max(now, Math.min((backupRevision ?? 0) + 1, now + 240_000));
+}
+
+/** Category revision for a restore write: the file's value, never later than now. */
+export function restoredCategoryRevision(backupRevision: number | undefined, now = Date.now()): number {
+  return typeof backupRevision === 'number' ? Math.min(backupRevision, now) : now;
+}
 
 /**
  * Serializes current state into a standardized, versioned backup object.
@@ -113,7 +142,8 @@ export function createBackup(params: {
       ? c.transactionType
       : 'expense') as TransactionType,
     sortOrder: Math.trunc(c.sortOrder),
-    ...(typeof c.updatedAt === 'number' ? { updatedAt: c.updatedAt } : {}),
+    // Only a value validateBackup accepts, so an export always re-imports.
+    ...(isNonNegativeSafeInteger(c.updatedAt) ? { updatedAt: c.updatedAt } : {}),
   }));
 
   const cleanExpenses: BackupExpense[] = params.expenses
@@ -146,7 +176,7 @@ export function createBackup(params: {
           : null,
       locale: params.preferences.locale === 'de' ? 'de' : 'en',
       themeMode: params.preferences.themeMode ?? 'system',
-      ...(typeof params.preferences.preferencesUpdatedAt === 'number'
+      ...(isNonNegativeSafeInteger(params.preferences.preferencesUpdatedAt)
         ? { preferencesUpdatedAt: params.preferences.preferencesUpdatedAt }
         : {}),
       ...(params.preferences.dailyReminder !== undefined
@@ -220,8 +250,10 @@ export function validateBackup(data: unknown): ValidationResult {
     errors.push('preferences must be a JSON object');
   } else {
     const prefs = root.preferences as Record<string, unknown>;
-    if (typeof prefs.currency !== 'string' || prefs.currency.length !== 3) {
-      errors.push('preferences.currency must be a 3-character currency code');
+    // Restore used to coerce anything outside the rules' allowlist to EUR, silently
+    // relabelling every amount in the file. Refuse it here instead.
+    if (typeof prefs.currency !== 'string' || !SUPPORTED_CURRENCY_SET.has(prefs.currency)) {
+      errors.push(`preferences.currency must be one of ${SUPPORTED_CURRENCIES.join(', ')}`);
     }
     if (
       prefs.monthlyBudget !== null &&
@@ -229,9 +261,33 @@ export function validateBackup(data: unknown): ValidationResult {
       (typeof prefs.monthlyBudget !== 'number' ||
         !Number.isFinite(prefs.monthlyBudget) ||
         prefs.monthlyBudget <= 0 ||
-        prefs.monthlyBudget >= 1_000_000_000)
+        prefs.monthlyBudget >= 1_000_000_000 ||
+        !isCentGranular(prefs.monthlyBudget))
     ) {
-      errors.push('preferences.monthlyBudget must be null or a positive number < 1,000,000,000');
+      errors.push('preferences.monthlyBudget must be null or a positive cent amount < 1,000,000,000');
+    }
+    // Optional fields: older backups omit them, but a present value must have the type
+    // every writer produces, so restore never has to guess.
+    if (prefs.locale !== undefined && prefs.locale !== 'en' && prefs.locale !== 'de') {
+      errors.push('preferences.locale must be "en" or "de" when present');
+    }
+    if (prefs.themeMode !== undefined && typeof prefs.themeMode !== 'string') {
+      errors.push('preferences.themeMode must be a string when present');
+    }
+    if (prefs.preferencesUpdatedAt !== undefined && !isNonNegativeSafeInteger(prefs.preferencesUpdatedAt)) {
+      errors.push('preferences.preferencesUpdatedAt must be a non-negative integer when present');
+    }
+    if (prefs.dailyReminder !== undefined && typeof prefs.dailyReminder !== 'boolean') {
+      errors.push('preferences.dailyReminder must be a boolean when present');
+    }
+    if (prefs.reminderHour !== undefined && !isIntegerInRange(prefs.reminderHour, 0, 23)) {
+      errors.push('preferences.reminderHour must be an integer 0-23 when present');
+    }
+    if (prefs.reminderMinute !== undefined && !isIntegerInRange(prefs.reminderMinute, 0, 59)) {
+      errors.push('preferences.reminderMinute must be an integer 0-59 when present');
+    }
+    if (prefs.analyticsPeriod !== undefined && typeof prefs.analyticsPeriod !== 'string') {
+      errors.push('preferences.analyticsPeriod must be a string when present');
     }
   }
 
@@ -280,6 +336,12 @@ export function validateBackup(data: unknown): ValidationResult {
         c.sortOrder >= 10000
       ) {
         errors.push(`Category at index ${index} sortOrder must be a finite number between 0 and 9999`);
+      }
+
+      // Restore writes this value back (capped at now), so it must be a plain millisecond
+      // number. Zero is allowed: older exports carry it for categories that never had a clock.
+      if (c.updatedAt !== undefined && !isNonNegativeSafeInteger(c.updatedAt)) {
+        errors.push(`Category at index ${index} updatedAt must be a non-negative integer timestamp`);
       }
 
       if (typeof c.transactionType !== 'string' || !ALLOWED_TRANSACTION_TYPES.has(c.transactionType as TransactionType)) {
@@ -336,7 +398,11 @@ export function validateBackup(data: unknown): ValidationResult {
 
       if (typeof e.categoryId !== 'string' || e.categoryId.trim().length === 0 || e.categoryId.length >= 64 || e.categoryId.includes('/')) {
         errors.push(`Expense at index ${index} has missing or invalid categoryId`);
-      } else if (categoryIds.size > 0 && !categoryIds.has(e.categoryId)) {
+      } else if (!categoryIds.has(e.categoryId)) {
+        // Every exporter writes the categories its expenses use (the rules refuse an
+        // expense without its category, the "0" sentinel included), so a missing one
+        // means a damaged or hand-made file. It used to pass whenever `categories` was
+        // empty and then fail mid-restore, after earlier batches had committed.
         errors.push(`Expense at index ${index} references nonexistent categoryId "${e.categoryId}"`);
       } else if (categoryMap.has(e.categoryId)) {
         const cat = categoryMap.get(e.categoryId)!;

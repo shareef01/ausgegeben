@@ -13,6 +13,32 @@ object BackupFormat {
     const val CURRENT_SCHEMA_VERSION = 3
 
     private val ALLOWED_TRANSACTION_TYPES = setOf("expense", "income", "transfer")
+    val SUPPORTED_CURRENCIES = setOf("EUR", "USD", "GBP", "CHF")
+    private const val MAX_SAFE_INTEGER = 9_007_199_254_740_991.0
+
+    /** A JSON number with no fractional part inside JavaScript's safe range, else null. */
+    private fun JSONObject.integralOrNull(key: String): Long? {
+        val d = (opt(key) as? Number)?.toDouble() ?: return null
+        return if (d.isFinite() && d == kotlin.math.floor(d) && kotlin.math.abs(d) <= MAX_SAFE_INTEGER) d.toLong() else null
+    }
+
+    private fun isCentGranular(value: Double): Boolean {
+        val inCents = value * 100.0
+        return kotlin.math.abs(inCents - inCents.roundToLong()) <= 1e-4
+    }
+
+    /**
+     * Restore re-stamps preferences newer than both the clock and the file, capped a few
+     * minutes ahead: the rules refuse revisions more than five minutes in the future, and an
+     * uncapped value failed the final preferences write after all data had been written.
+     * Mirrors web restoredPreferencesRevision.
+     */
+    fun restoredPreferencesRevision(backupRevision: Long?, now: Long = System.currentTimeMillis()): Long =
+        maxOf(now, minOf(backupRevision ?: 0L, now + 239_999L) + 1L)
+
+    /** Category revision for a restore write: the file's value, never later than now. */
+    fun restoredCategoryRevision(backupRevision: Long?, now: Long = System.currentTimeMillis()): Long =
+        backupRevision?.let { minOf(it, now) } ?: now
 
     data class BackupPreferences(
         val currency: String,
@@ -162,15 +188,40 @@ object BackupFormat {
         if (prefs == null) {
             errors.add("preferences must be a JSON object")
         } else {
-            val cur = prefs.optString("currency")
-            if (cur.length != 3) {
-                errors.add("preferences.currency must be a 3-character currency code")
+            // Restore used to coerce anything outside the rules' allowlist to EUR, silently
+            // relabelling every amount in the file. Refuse it here instead.
+            val cur = prefs.opt("currency")
+            if (cur !is String || cur !in SUPPORTED_CURRENCIES) {
+                errors.add("preferences.currency must be one of ${SUPPORTED_CURRENCIES.joinToString(", ")}")
             }
             if (prefs.has("monthlyBudget") && !prefs.isNull("monthlyBudget")) {
-                val budget = prefs.optDouble("monthlyBudget", -1.0)
-                if (budget <= 0.0 || budget >= 1_000_000_000.0) {
-                    errors.add("preferences.monthlyBudget must be null or positive number < 1,000,000,000")
+                val budget = (prefs.opt("monthlyBudget") as? Number)?.toDouble() ?: -1.0
+                if (!budget.isFinite() || budget <= 0.0 || budget >= 1_000_000_000.0 || !isCentGranular(budget)) {
+                    errors.add("preferences.monthlyBudget must be null or a positive cent amount < 1,000,000,000")
                 }
+            }
+            // Optional fields: older backups omit them, but a present value must have the
+            // type every writer produces. Same checks as web validateBackup.
+            if (prefs.has("locale") && prefs.opt("locale") !in setOf("en", "de")) {
+                errors.add("preferences.locale must be \"en\" or \"de\" when present")
+            }
+            if (prefs.has("themeMode") && prefs.opt("themeMode") !is String) {
+                errors.add("preferences.themeMode must be a string when present")
+            }
+            if (prefs.has("preferencesUpdatedAt") && (prefs.integralOrNull("preferencesUpdatedAt") ?: -1L) < 0L) {
+                errors.add("preferences.preferencesUpdatedAt must be a non-negative integer when present")
+            }
+            if (prefs.has("dailyReminder") && prefs.opt("dailyReminder") !is Boolean) {
+                errors.add("preferences.dailyReminder must be a boolean when present")
+            }
+            if (prefs.has("reminderHour") && (prefs.integralOrNull("reminderHour") ?: -1L) !in 0L..23L) {
+                errors.add("preferences.reminderHour must be an integer 0-23 when present")
+            }
+            if (prefs.has("reminderMinute") && (prefs.integralOrNull("reminderMinute") ?: -1L) !in 0L..59L) {
+                errors.add("preferences.reminderMinute must be an integer 0-59 when present")
+            }
+            if (prefs.has("analyticsPeriod") && prefs.opt("analyticsPeriod") !is String) {
+                errors.add("preferences.analyticsPeriod must be a string when present")
             }
         }
 
@@ -198,6 +249,19 @@ object BackupFormat {
                 val iconName = cat.optString("iconName")
                 if (iconName.isBlank() || iconName.length >= 64) {
                     errors.add("Category at index $i iconName must be a non-empty string under 64 characters")
+                }
+                val colorInt = (cat.opt("colorInt") as? Number)?.toDouble()
+                if (colorInt == null || !colorInt.isFinite() || colorInt < Int.MIN_VALUE.toDouble() || colorInt > Int.MAX_VALUE.toDouble()) {
+                    errors.add("Category at index $i colorInt must be a 32-bit integer")
+                }
+                val sortOrder = (cat.opt("sortOrder") as? Number)?.toDouble()
+                if (sortOrder == null || !sortOrder.isFinite() || sortOrder < 0.0 || sortOrder >= 10000.0) {
+                    errors.add("Category at index $i sortOrder must be a finite number between 0 and 9999")
+                }
+                // Restore writes this value back (capped at now), so it must be a plain
+                // millisecond number. Zero is allowed, as in web validateBackup.
+                if (cat.has("updatedAt") && (cat.integralOrNull("updatedAt") ?: -1L) < 0L) {
+                    errors.add("Category at index $i updatedAt must be a non-negative integer timestamp")
                 }
                 val type = cat.optString("transactionType")
                 if (type !in ALLOWED_TRANSACTION_TYPES) {
@@ -235,27 +299,29 @@ object BackupFormat {
                 } else if (!expenseIds.add(id)) {
                     errors.add("Duplicate expense id: \"$id\"")
                 }
-                val amount = exp.optDouble("amount", -1.0)
-                if (amount <= 0.0 || amount >= 1_000_000_000.0) {
+                // optDouble/optLong coerce numeric strings; web rejects them, so this does too.
+                val amount = (exp.opt("amount") as? Number)?.toDouble() ?: -1.0
+                if (!amount.isFinite() || amount <= 0.0 || amount >= 1_000_000_000.0) {
                     errors.add("Expense at index $i has invalid amount: must be positive < 1,000,000,000")
-                }
-                val inCents = amount * 100.0
-                if (kotlin.math.abs(inCents - inCents.roundToLong()) > 1e-4) {
+                } else if (!isCentGranular(amount)) {
                     errors.add("Expense at index $i has sub-cent precision: $amount")
                 }
-                val dateMillis = exp.optLong("dateMillis", -1L)
-                if (dateMillis < 946684800000L || dateMillis >= 4102444800000L) {
+                val dateMillis = (exp.opt("dateMillis") as? Number)?.toDouble() ?: -1.0
+                if (!dateMillis.isFinite() || dateMillis < 946684800000.0 || dateMillis >= 4102444800000.0) {
                     errors.add("Expense at index $i has invalid dateMillis: must be between 2000-01-01 and 2100-01-01 UTC")
                 }
                 val catId = exp.optString("categoryId")
                 if (catId.isBlank() || catId.length >= 64 || catId.contains('/')) {
                     errors.add("Expense at index $i has missing or invalid categoryId")
-                } else if (categoryIds.isNotEmpty() && catId !in categoryIds) {
+                } else if (catId !in categoryIds) {
+                    // Exporters always include the categories their expenses use (the rules
+                    // refuse an expense without one, "0" included). This used to pass whenever
+                    // the backup had no categories and then fail mid-restore.
                     errors.add("Expense at index $i references nonexistent categoryId \"$catId\"")
                 }
-                val note = exp.optString("note")
-                if (note.length > 2000) {
-                    errors.add("Expense at index $i note must be at most 2000 characters")
+                val note = exp.opt("note")
+                if (note !is String || note.length > 2000) {
+                    errors.add("Expense at index $i note must be a string up to 2000 characters")
                 }
                 val type = exp.optString("transactionType")
                 if (type !in ALLOWED_TRANSACTION_TYPES) {
