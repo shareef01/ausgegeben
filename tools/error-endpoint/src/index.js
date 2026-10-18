@@ -13,10 +13,16 @@
 const MAX_BODY_BYTES = 16 * 1024;
 const APP_CHECK_JWKS = 'https://firebaseappcheck.googleapis.com/v1/jwks';
 const JWKS_CACHE_SECONDS = 6 * 60 * 60;
+// Minimum gap between forced refetches. Every claim but the signature is public, so
+// anyone can mint a token with an unknown kid, and verification runs before the rate
+// limit: without a floor each such request cost an outbound fetch to Google.
+const JWKS_FORCED_REFRESH_COOLDOWN_SECONDS = 60;
 let jwksCache = null;
+let lastForcedRefreshAt = -Infinity;
 
 function resetJwksCacheForTests() {
   jwksCache = null;
+  lastForcedRefreshAt = -Infinity;
 }
 
 function corsHeaders(origin) {
@@ -66,9 +72,10 @@ async function verifyAppCheckToken(token, env, fetcher = fetch, nowSeconds = Mat
     let jwks = await readJwks(fetcher, nowSeconds);
     let jwk = jwks.find((candidate) => candidate?.kid === header.kid);
     // Firebase can rotate signing keys before our six-hour cache expires. Refresh
-    // once for an unknown kid, then fail closed; a forged token cannot trigger an
-    // unbounded fetch loop.
-    if (!jwk) {
+    // once for an unknown kid, at most once per cooldown per isolate, then fail closed;
+    // a forged token can trigger neither a fetch loop nor a fetch per request.
+    if (!jwk && nowSeconds - lastForcedRefreshAt >= JWKS_FORCED_REFRESH_COOLDOWN_SECONDS) {
+      lastForcedRefreshAt = nowSeconds;
       jwks = await readJwks(fetcher, nowSeconds, true);
       jwk = jwks.find((candidate) => candidate?.kid === header.kid);
     }
@@ -180,14 +187,15 @@ const RATE_WINDOW_SECONDS = 60;
 
 /**
  * Increment-and-check a single Cache API counter. Returns true when `key` has not yet
- * reached `limit` for the current window, and durably records this call either way.
+ * reached `limit` for the current window, recording an admitted call before returning.
+ * A failed read or write throws, so withinRateLimit fails closed.
  *
  * Not atomic (see `withinRateLimit`'s own doc comment) — a burst of near-simultaneous
  * calls for the same key can each read the same `seen` value before any of their
  * writes land, undercounting by up to (burst size - 1). Fine for an abuse backstop;
  * would not be fine as the sole guard for something that needed an exact ceiling.
  */
-async function checkAndIncrement(key, limit, ctx) {
+async function checkAndIncrement(key, limit) {
   const window = Math.floor(Date.now() / (RATE_WINDOW_SECONDS * 1000));
   // A synthetic GET is the documented way to key the Cache API by something other
   // than a real URL. The host is deliberately unroutable.
@@ -196,14 +204,16 @@ async function checkAndIncrement(key, limit, ctx) {
   const hit = await cache.match(cacheKey);
   const seen = hit ? Number(await hit.text()) || 0 : 0;
   if (seen >= limit) return false;
-  const write = cache.put(
+  // Awaited, not handed to ctx.waitUntil: a deferred write that rejected never reached
+  // withinRateLimit's catch, so a cache refusing writes admitted every request while
+  // counting none (fail open), and even a healthy deferred write let the caller's next
+  // request read the old count. The put costs one edge-cache round trip.
+  await cache.put(
     cacheKey,
     new Response(String(seen + 1), {
       headers: { 'Cache-Control': `max-age=${RATE_WINDOW_SECONDS}` },
     }),
   );
-  if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(write);
-  else await write;
   return true;
 }
 
@@ -246,7 +256,7 @@ async function checkAndIncrement(key, limit, ctx) {
  * Counter failures fail closed. Losing telemetry during an edge-cache incident is
  * preferable to turning a known public endpoint into an unbounded log-ingestion path.
  */
-async function withinRateLimit(request, env, ctx) {
+async function withinRateLimit(request, env) {
   const limiter = env.REPORT_LIMITER;
   if (limiter && typeof limiter.limit === 'function') {
     try {
@@ -262,8 +272,8 @@ async function withinRateLimit(request, env, ctx) {
 
   try {
     const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
-    if (!(await checkAndIncrement(ip, RATE_LIMIT, ctx))) return false;
-    if (!(await checkAndIncrement('__global__', GLOBAL_RATE_LIMIT, ctx))) return false;
+    if (!(await checkAndIncrement(ip, RATE_LIMIT))) return false;
+    if (!(await checkAndIncrement('__global__', GLOBAL_RATE_LIMIT))) return false;
     return true;
   } catch {
     return false;
@@ -290,7 +300,7 @@ function summarize(report) {
 export { logSafe, resetJwksCacheForTests, safeContext, summarize, verifyAppCheckToken, withinRateLimit };
 
 export default {
-  async fetch(request, env, ctx) {
+  async fetch(request, env) {
     const origin = request.headers.get('Origin');
 
     if (request.method === 'OPTIONS') {
@@ -313,7 +323,7 @@ export default {
 
     // Checked before the body is read: a limited caller should cost this Worker as
     // little as possible, which is the whole point of limiting it.
-    if (!(await withinRateLimit(request, env, ctx))) {
+    if (!(await withinRateLimit(request, env))) {
       return new Response('too many requests', {
         status: 429,
         headers: { ...corsHeaders(origin), 'Retry-After': '60' },

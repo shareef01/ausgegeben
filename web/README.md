@@ -35,6 +35,8 @@ npm run validate:prod-env
 
 Firebase's current Firestore emulator requires JDK 21 or newer. It uses the `java` executable on `PATH`, so verify the active version with `java -version` rather than relying on an installed JDK that may not be selected.
 
+`npm run test:e2e` runs the Playwright browser tests against the Auth and Firestore emulators. CI does not run them, so run them before changing auth, budgets, filters or recurring screens. They need a git-ignored `web/.env.emulator` with `VITE_FIREBASE_USE_EMULATORS=true`, `VITE_FIREBASE_PROJECT_ID=demo-ausgegeben` and placeholder values for the other `VITE_FIREBASE_*` keys in `.env.example`.
+
 The CSS check is intentional. This project keeps its utility classes in source-controlled CSS instead of generating them with Tailwind, which means a misspelled or missing class would otherwise fail silently.
 
 ## Firebase emulators

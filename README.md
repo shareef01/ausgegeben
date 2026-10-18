@@ -52,7 +52,7 @@ Every screenshot is generated from a verified demo account against local Firebas
 - Schedules replay-safe recurring transaction templates
 - Searches and duplicates transactions, deletes with a brief undo window, exports to CSV, and provides safe versioned JSON backup export and restore across platforms (see `docs/local-backup-plan.md`)
 - Synchronizes data and preferences between Android and the web
-- Supports English and German, multiple currencies, and several light and dark themes
+- Supports English and German, a choice of display currency (EUR, USD, GBP, CHF; amounts are relabelled, not converted), and several light and dark themes
 - Works offline through Firestore's local cache, with browser persistence controlled per device
 - Provides configurable daily reminders on Android
 - Installs as a PWA and updates its cached application shell automatically

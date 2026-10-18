@@ -15,6 +15,8 @@ import {
 import {
   validateBackup,
   summarizeBackup,
+  restoredCategoryRevision,
+  restoredPreferencesRevision,
   type AusgegebenBackup,
   type BackupSummary,
 } from '@/services/backupFormat';
@@ -121,7 +123,7 @@ export async function restoreBackup(
           colorInt: c.colorInt | 0,
           transactionType: c.transactionType,
           sortOrder: Math.max(0, Math.trunc(c.sortOrder)),
-          updatedAt: typeof c.updatedAt === 'number' ? c.updatedAt : Date.now(),
+          updatedAt: restoredCategoryRevision(c.updatedAt),
           id: c.id,
         },
         { merge: true },
@@ -166,7 +168,7 @@ export async function restoreBackup(
 
   // 3. Restore preferences
   const currentPrefs = usePreferencesStore.getState();
-  const newTimestamp = Math.max(Date.now(), (backup.preferences.preferencesUpdatedAt ?? 0) + 1);
+  const newTimestamp = restoredPreferencesRevision(backup.preferences.preferencesUpdatedAt);
   const synced: SyncedPreferences = sanitizeSyncedPreferences({
     currency: backup.preferences.currency,
     locale: backup.preferences.locale ?? currentPrefs.locale,

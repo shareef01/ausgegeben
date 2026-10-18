@@ -905,7 +905,7 @@ class AppRepository @Inject constructor(
                     put("colorInt", c.colorInt.toLong())
                     put("transactionType", c.transactionType)
                     put("sortOrder", c.sortOrder)
-                    put("updatedAt", c.updatedAt ?: System.currentTimeMillis())
+                    put("updatedAt", BackupFormat.restoredCategoryRevision(c.updatedAt))
                     put("id", c.id)
                 }
                 batch.set(ref, payload, SetOptions.merge())
@@ -938,7 +938,7 @@ class AppRepository @Inject constructor(
         }
 
         // 3. Preferences
-        val newTimestamp = maxOf(System.currentTimeMillis(), (backup.preferences.preferencesUpdatedAt ?: 0L) + 1L)
+        val newTimestamp = BackupFormat.restoredPreferencesRevision(backup.preferences.preferencesUpdatedAt)
         val validCurrencies = setOf("EUR", "USD", "GBP", "CHF")
         val validLocales = setOf("en", "de")
         val validThemes = setOf(
@@ -956,15 +956,19 @@ class AppRepository @Inject constructor(
         val budget = backup.preferences.monthlyBudget?.takeIf { it > 0.0 && it < 1_000_000_000.0 }
             ?.let(CurrencyUtils::roundAmount)
 
+        // Backups carry no reminder or analytics-period settings, so keep this device's
+        // (as web restore does). Hard-coded defaults here re-enabled a reminder the user
+        // had switched off and reset it to 19:00 on every merge restore.
+        val current = preferenceManager.snapshotSyncedPreferences()
         val syncedPrefs = SyncedPreferences(
             currency = cur,
             locale = loc,
             themeMode = theme,
             onboardingComplete = true,
-            dailyReminder = true,
-            reminderHour = 19,
-            reminderMinute = 0,
-            analyticsPeriod = "this_month",
+            dailyReminder = current.dailyReminder,
+            reminderHour = current.reminderHour,
+            reminderMinute = current.reminderMinute,
+            analyticsPeriod = current.analyticsPeriod,
             monthlyBudget = budget,
             updatedAt = newTimestamp,
         )
@@ -975,10 +979,10 @@ class AppRepository @Inject constructor(
                 put("locale", loc)
                 put("themeMode", theme)
                 put("onboardingComplete", true)
-                put("dailyReminder", true)
-                put("reminderHour", 19)
-                put("reminderMinute", 0)
-                put("analyticsPeriod", "this_month")
+                put("dailyReminder", syncedPrefs.dailyReminder)
+                put("reminderHour", syncedPrefs.reminderHour)
+                put("reminderMinute", syncedPrefs.reminderMinute)
+                put("analyticsPeriod", syncedPrefs.analyticsPeriod)
                 put("monthlyBudget", budget)
                 put("updatedAt", newTimestamp)
             },
@@ -1683,7 +1687,7 @@ class AppRepository @Inject constructor(
                         put("colorInt", c.colorInt.toLong())
                         put("transactionType", c.transactionType)
                         put("sortOrder", c.sortOrder)
-                        put("updatedAt", c.updatedAt ?: System.currentTimeMillis())
+                        put("updatedAt", BackupFormat.restoredCategoryRevision(c.updatedAt))
                         put("id", c.id)
                     }
                     batch.set(ref, payload, SetOptions.merge())
