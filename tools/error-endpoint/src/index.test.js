@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import worker, { resetJwksCacheForTests, summarize, verifyAppCheckToken, withinRateLimit } from './index.js';
+import worker, { readBodyCapped, resetJwksCacheForTests, summarize, verifyAppCheckToken, withinRateLimit } from './index.js';
 
 test('receiver redacts a multi-word secret in full, not just its first token (fixed)', () => {
   const entry = summarize({ error: { message: 'password: correct horse battery staple' } });
@@ -351,4 +351,27 @@ test('App Check verification does not force a JWKS refetch for every forged kid'
   // After the cooldown a genuinely rotated key can still be picked up.
   assert.equal(await verifyAppCheckToken(await signedToken(keys.privateKey, 'later', claims), env, emptyJwks, now + 120), false);
   assert.equal(fetches, 3);
+});
+
+test('readBodyCapped stops a chunked body with no Content-Length at the cap', async () => {
+  let pulled = 0;
+  const chunk = new Uint8Array(4096).fill(0x61);
+  const stream = new ReadableStream({
+    pull(controller) {
+      pulled += 1;
+      if (pulled > 1000) controller.close(); // ~4 MB if read to the end
+      else controller.enqueue(chunk);
+    },
+  });
+  const request = new Request('https://errors.example.test', { method: 'POST', body: stream, duplex: 'half' });
+  assert.equal(request.headers.get('Content-Length'), null);
+  assert.equal(await readBodyCapped(request, 16 * 1024), null);
+  assert.ok(pulled < 10, `read ${pulled} chunks before stopping`);
+});
+
+test('readBodyCapped returns multibyte text under the cap and counts bytes, not units', async () => {
+  const text = JSON.stringify({ error: { message: 'Fehler: Größe ü€' } });
+  assert.equal(await readBodyCapped(new Request('https://x.test', { method: 'POST', body: text }), 1024), text);
+  // 6 three-byte characters are 6 UTF-16 units but 18 bytes.
+  assert.equal(await readBodyCapped(new Request('https://x.test', { method: 'POST', body: '€€€€€€' }), 10), null);
 });

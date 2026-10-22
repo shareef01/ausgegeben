@@ -109,7 +109,6 @@ fun SettingsScreen(
     var showSignOutConfirm by remember { mutableStateOf(false) }
     var showDeleteAccountConfirm by remember { mutableStateOf(false) }
     var showExportTruncatedConfirm by remember { mutableStateOf(false) }
-    var pendingExportIsBackup by remember { mutableStateOf(false) }
     var showRestoreConfirm by remember { mutableStateOf(false) }
     var pendingRestore by remember { mutableStateOf<Pair<BackupFormat.ParsedBackup, BackupFormat.BackupSummary>?>(null) }
     var pendingRestoreUid by remember { mutableStateOf<String?>(null) }
@@ -139,7 +138,6 @@ fun SettingsScreen(
         scope.launch {
             val result = ExportUtils.exportCsv(context, repository)
             if (result.needsConfirm) {
-                pendingExportIsBackup = false
                 showExportTruncatedConfirm = true
                 return@launch
             }
@@ -159,19 +157,10 @@ fun SettingsScreen(
     fun exportBackup() {
         scope.launch {
             val result = ExportUtils.exportBackupJson(context, repository, preferenceManager)
-            if (result.needsConfirm) {
-                pendingExportIsBackup = true
-                showExportTruncatedConfirm = true
-                return@launch
-            }
             if (result.success) haptics.success() else haptics.light()
             onShowMessage(
                 context.getString(
-                    when {
-                        !result.success -> R.string.settings_export_failed
-                        result.truncated -> R.string.settings_export_backup_truncated
-                        else -> R.string.settings_export_backup_ok
-                    },
+                    if (result.success) R.string.settings_export_backup_ok else R.string.settings_export_failed,
                 ),
             )
         }
@@ -642,44 +631,29 @@ fun SettingsScreen(
     }
 
     if (showExportTruncatedConfirm) {
-        val titleRes = if (pendingExportIsBackup) R.string.settings_export_backup else R.string.settings_export_csv
-        val messageRes = if (pendingExportIsBackup) R.string.settings_export_backup_truncated_confirm else R.string.settings_export_truncated_confirm
         AppAlertDialog(
             onDismissRequest = { showExportTruncatedConfirm = false },
             title = {
                 Text(
-                    text = stringResource(titleRes),
+                    text = stringResource(R.string.settings_export_csv),
                     style = MaterialTheme.typography.titleMedium,
                 )
             },
             text = {
-                AppDialogBodyText(stringResource(messageRes))
+                AppDialogBodyText(stringResource(R.string.settings_export_truncated_confirm))
             },
             confirmButton = {
                 AppButton(
                     onClick = {
                         showExportTruncatedConfirm = false
                         scope.launch {
-                            val result = if (pendingExportIsBackup) {
-                                ExportUtils.exportBackupJson(
-                                    context,
-                                    repository,
-                                    preferenceManager,
-                                    allowTruncated = true,
-                                    )
-                            } else {
-                                ExportUtils.exportCsv(
-                                    context,
-                                    repository,
-                                    allowTruncated = true,
-                                )
-                            }
+                            val result = ExportUtils.exportCsv(
+                                context,
+                                repository,
+                                allowTruncated = true,
+                            )
                             if (result.success) haptics.success() else haptics.light()
-                            val msgRes = if (pendingExportIsBackup) {
-                                if (result.success) R.string.settings_export_backup_truncated else R.string.settings_export_failed
-                            } else {
-                                if (result.success) R.string.settings_export_truncated else R.string.settings_export_failed
-                            }
+                            val msgRes = if (result.success) R.string.settings_export_truncated else R.string.settings_export_failed
                             onShowMessage(context.getString(msgRes))
                         }
                     },
@@ -772,10 +746,12 @@ fun SettingsScreen(
                                     )
                                 }.onFailure { ex ->
                                     haptics.light()
-                                    val msg = if (ex.message?.contains("CONFLICT") == true) {
-                                        context.getString(R.string.settings_restore_conflict)
-                                    } else {
-                                        context.getString(R.string.settings_restore_failed)
+                                    val msg = when {
+                                        ex.message?.contains("CONFLICT") == true ->
+                                            context.getString(R.string.settings_restore_conflict)
+                                        ex.message?.startsWith("CATEGORY_BUSY") == true ->
+                                            context.getString(R.string.settings_restore_category_busy)
+                                        else -> context.getString(R.string.settings_restore_failed)
                                     }
                                     onShowMessage(msg)
                                 }
@@ -785,10 +761,12 @@ fun SettingsScreen(
                                 pendingRestore = null
                                 pendingRestoreUid = null
                                 haptics.light()
-                                val msg = if (e.message?.contains("CONFLICT") == true) {
-                                    context.getString(R.string.settings_restore_conflict)
-                                } else {
-                                    context.getString(R.string.settings_restore_failed)
+                                val msg = when {
+                                    e.message?.contains("CONFLICT") == true ->
+                                        context.getString(R.string.settings_restore_conflict)
+                                    e.message?.startsWith("CATEGORY_BUSY") == true ->
+                                        context.getString(R.string.settings_restore_category_busy)
+                                    else -> context.getString(R.string.settings_restore_failed)
                                 }
                                 onShowMessage(msg)
                             }

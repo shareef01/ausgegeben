@@ -34,8 +34,26 @@ fun keystoreProp(name: String): String? =
 
 // Read via providers so the configuration cache stays valid; -P overrides come
 // from the release workflow, which derives them from the git tag.
-val appVersionCode = (providers.gradleProperty("ausgegebenVersionCode").orNull ?: "1").toInt()
-val appVersionName = providers.gradleProperty("ausgegebenVersionName").orNull ?: "1.0"
+//
+// Without an override the version comes from web/package.json, which the release
+// workflow already requires to match the tag. The old fallback of 1 / "1.0" meant every
+// Android Studio or plain `./gradlew` build reported version 1.0 in Settings and stamped
+// "1.0" into its backups (a Pixel showed exactly that before 2.1.4 was installed), and
+// once a real release was on a device such a build could not be installed over it.
+// The code uses the release workflow's scheme: v1.2.3 -> 10203.
+val webPackageVersion: String? = providers
+    .fileContents(rootProject.layout.projectDirectory.file("web/package.json"))
+    .asText.orNull
+    ?.let { Regex("\"version\"\\s*:\\s*\"(\\d+\\.\\d+\\.\\d+)\"").find(it)?.groupValues?.get(1) }
+fun versionCodeFor(name: String): Int {
+    val (major, minor, patch) = name.split('.').map { it.toInt() }
+    check(minor <= 99 && patch <= 99) { "MINOR and PATCH must each be <= 99 for the versionCode scheme" }
+    return major * 10000 + minor * 100 + patch
+}
+val appVersionName = providers.gradleProperty("ausgegebenVersionName").orNull ?: webPackageVersion ?: "1.0"
+val appVersionCode = providers.gradleProperty("ausgegebenVersionCode").orNull?.toInt()
+    ?: webPackageVersion?.let(::versionCodeFor)
+    ?: 1
 
 plugins {
     alias(libs.plugins.android.application)
