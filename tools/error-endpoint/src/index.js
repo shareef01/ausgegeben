@@ -280,6 +280,37 @@ async function withinRateLimit(request, env) {
   }
 }
 
+/**
+ * The body as text, or null once it passes `max` bytes. The Content-Length check above
+ * only covers callers that send one: a chunked upload has none, and request.text()
+ * buffered the whole stream into the isolate before the size was ever compared.
+ * Counting bytes as they arrive (not `.length`, which counts UTF-16 units and
+ * under-counts multibyte content) stops reading as soon as the cap is crossed.
+ */
+async function readBodyCapped(request, max) {
+  if (!request.body) return '';
+  const reader = request.body.getReader();
+  const chunks = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > max) {
+      await reader.cancel().catch(() => {});
+      return null;
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
+}
+
 function summarize(report) {
   const error = report?.error ?? {};
   return {
@@ -297,7 +328,7 @@ function summarize(report) {
   };
 }
 
-export { logSafe, resetJwksCacheForTests, safeContext, summarize, verifyAppCheckToken, withinRateLimit };
+export { logSafe, readBodyCapped, resetJwksCacheForTests, safeContext, summarize, verifyAppCheckToken, withinRateLimit };
 
 export default {
   async fetch(request, env) {
@@ -338,11 +369,8 @@ export default {
       return new Response('payload too large', { status: 413, headers: corsHeaders(origin) });
     }
 
-    const body = await request.text();
-    // Byte length, not `.length`: that counts UTF-16 code units, and multibyte
-    // content (CJK stacks, emoji) encodes to more bytes than units, so the cap
-    // would otherwise over-admit.
-    if (new TextEncoder().encode(body).length > MAX_BODY_BYTES) {
+    const body = await readBodyCapped(request, MAX_BODY_BYTES);
+    if (body === null) {
       return new Response('payload too large', { status: 413, headers: corsHeaders(origin) });
     }
 
