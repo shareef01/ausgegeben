@@ -103,8 +103,6 @@
     <string name="settings_export_backup">Export JSON backup</string>
     <string name="settings_export_backup_subtitle">Complete account data for portability</string>
     <string name="settings_export_backup_ok">Backup ready to share</string>
-    <string name="settings_export_backup_truncated">Backup ready (latest 5000 rows)</string>
-    <string name="settings_export_backup_truncated_confirm">Only the latest 5000 transactions will be included in the backup. Older rows will be missing. Continue?</string>
     <string name="settings_restore_backup">Restore JSON backup</string>
     <string name="settings_restore_backup_subtitle">Import data from a versioned JSON backup</string>
     <string name="settings_restore_backup_title">Restore backup</string>
@@ -117,7 +115,8 @@
     <string name="settings_restore_file_too_large">Backup file exceeds size limit (max 10 MB)</string>
     <string name="settings_restore_conflict">Category conflict: conflicting transaction type</string>
     <string name="settings_restore_auth_changed">Authentication session changed. Restore aborted.</string>
-    <string name="settings_restore_failed">Failed to restore backup</string>
+    <string name="settings_restore_failed">Restore did not finish. Nothing was removed, and it is safe to try again.</string>
+    <string name="settings_restore_category_busy">A category in this backup is still being deleted or changed. Try again in a moment.</string>
     <string name="settings_replace_backup">Replace current data with backup</string>
     <string name="settings_replace_backup_subtitle">Replace current data with a versioned JSON backup</string>
     <string name="settings_replace_backup_title">Replace current data</string>

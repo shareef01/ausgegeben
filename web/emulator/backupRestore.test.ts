@@ -172,6 +172,30 @@ describe('backupRestore on real Firestore emulator with rules enforced', () => {
     expect(expSnap.exists()).toBe(false);
   });
 
+  it('refuses before any write when a backup category is being deleted', async () => {
+    const db = enforcedFirestore();
+    await setDoc(doc(db, 'users', TEST_UID, 'categories', 'cat-food'), {
+      id: 'cat-food',
+      name: 'Being Deleted',
+      iconName: 'restaurant',
+      colorInt: -16711936,
+      transactionType: 'expense',
+      sortOrder: 0,
+      updatedAt: Date.now() - 60_000,
+      deletionState: 'deleting',
+    });
+
+    // Before the preflight the category merge committed and the expense batch was then
+    // refused by the rules, leaving a partial restore behind a generic failure.
+    const backup = createTestBackup(1);
+    await expect(restoreBackup(backup, TEST_UID)).rejects.toThrow('CATEGORY_BUSY');
+
+    const catSnap = await getDoc(doc(db, 'users', TEST_UID, 'categories', 'cat-food'));
+    expect(catSnap.data()?.name).toBe('Being Deleted');
+    const expSnap = await getDoc(doc(db, 'users', TEST_UID, 'expenses', 'exp-0'));
+    expect(expSnap.exists()).toBe(false);
+  });
+
   it('restores a file whose category and preference revisions are ahead of the server clock', async () => {
     // A backup from a device with a fast clock (or a damaged file) carried revisions the
     // rules refuse as more than five minutes in the future. The category batch, or the

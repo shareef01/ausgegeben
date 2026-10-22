@@ -104,8 +104,6 @@
     <string name="settings_export_backup">Als JSON-Backup exportieren</string>
     <string name="settings_export_backup_subtitle">Vollständige Kontodaten zur Sicherung</string>
     <string name="settings_export_backup_ok">backup bereit zum teilen</string>
-    <string name="settings_export_backup_truncated">backup bereit (neueste 5000 zeilen)</string>
-    <string name="settings_export_backup_truncated_confirm">nur die neuesten 5000 buchungen werden im backup enthalten. ältere zeilen fehlen. fortfahren?</string>
     <string name="settings_restore_backup">Als JSON-Backup wiederherstellen</string>
     <string name="settings_restore_backup_subtitle">Daten aus einer versionierten JSON-Sicherung importieren</string>
     <string name="settings_restore_backup_title">Sicherung wiederherstellen</string>
@@ -118,7 +116,8 @@
     <string name="settings_restore_file_too_large">sicherungsdatei überschreitet das größenlimit (max. 10 mb)</string>
     <string name="settings_restore_conflict">kategoriekonflikt: transaktionstyp stimmt nicht überein</string>
     <string name="settings_restore_auth_changed">authentifizierungssitzung geändert. wiederherstellung abgebrochen.</string>
-    <string name="settings_restore_failed">wiederherstellung der sicherung fehlgeschlagen</string>
+    <string name="settings_restore_failed">wiederherstellung nicht abgeschlossen. es wurde nichts entfernt, ein erneuter versuch ist sicher.</string>
+    <string name="settings_restore_category_busy">eine kategorie aus dieser sicherung wird gerade gelöscht oder geändert. bitte gleich noch einmal versuchen.</string>
     <string name="settings_replace_backup">aktuelle daten durch backup ersetzen</string>
     <string name="settings_replace_backup_subtitle">aktuelle daten durch eine versionierte json-sicherung ersetzen</string>
     <string name="settings_replace_backup_title">aktuelle daten ersetzen</string>

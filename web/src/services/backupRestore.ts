@@ -107,6 +107,13 @@ export async function restoreBackup(
     if (existing && existing.transactionType && existing.transactionType !== c.transactionType) {
       throw new Error(`CATEGORY_TYPE_CONFLICT: ${c.name}`);
     }
+    // The merge leaves these markers in place, and the rules refuse new expenses for a
+    // category being deleted and budgets for one being migrated. Without this check the
+    // restore failed only after every category (and earlier expense batches) had been
+    // written. Refuse before the first write instead; the operation finishes on its own.
+    if (existing && (existing.deletionState === 'deleting' || existing.migrationState === 'migrating')) {
+      throw new Error(`CATEGORY_BUSY: ${c.name}`);
+    }
   }
 
   // 1. Write categories in chunks of RESTORE_BATCH_CHUNK_SIZE

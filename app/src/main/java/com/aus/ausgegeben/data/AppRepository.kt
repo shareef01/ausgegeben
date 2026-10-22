@@ -648,6 +648,38 @@ class AppRepository @Inject constructor(
         recurringRepository.restoreReceipts(u, section.receipts)
     }
 
+    /**
+     * Every live expense, paged from the server, for a backup (web getAllExpensesForBackup
+     * parity). The backup used to read [allExpenses], which stops at the 5,000-row soft
+     * cap and whose first emission can come from the local cache, so a backup taken
+     * on a large or freshly started account could silently miss rows, and a later
+     * replace restore from that file would delete them.
+     */
+    suspend fun getAllExpensesForBackup(u: String, pageSize: Long = 1_000L): List<Expense> {
+        check(uid() == u) { "AUTH_ACCOUNT_CHANGED" }
+        val all = mutableListOf<Expense>()
+        var last: DocumentSnapshot? = null
+        while (true) {
+            var query = expCol(u).orderBy("dateMillis", Query.Direction.DESCENDING)
+            if (last != null) query = query.startAfter(last)
+            val snap = query.limit(pageSize).get(Source.SERVER).await()
+            check(uid() == u) { "AUTH_ACCOUNT_CHANGED" }
+            if (snap.isEmpty) break
+            snap.documents.mapNotNullTo(all) { doc -> expenseFromDoc(doc)?.takeIf { !it.deleted } }
+            if (snap.size() < pageSize) break
+            last = snap.documents.last()
+        }
+        return all
+    }
+
+    /** Categories for a backup, read from the server rather than the listener's first emission. */
+    suspend fun getCategoriesForBackup(u: String): List<Category> {
+        check(uid() == u) { "AUTH_ACCOUNT_CHANGED" }
+        val snap = catCol(u).orderBy("sortOrder").get(Source.SERVER).await()
+        check(uid() == u) { "AUTH_ACCOUNT_CHANGED" }
+        return snap.documents.mapNotNull { categoryFromDoc(it) }
+    }
+
     suspend fun getRecurringBackupSection(u: String): RecurringBackupSection {
         check(uid() == u) { "AUTH_ACCOUNT_CHANGED" }
         return RecurringBackupSection(
@@ -884,12 +916,21 @@ class AppRepository @Inject constructor(
 
         // Pre-flight check: query categories to detect conflicting transactionType
         val existingCatsSnap = catCol(u).get().await()
-        val existingCatsById = existingCatsSnap.documents.associate { it.id to it.getString("transactionType") }
+        val existingCatsById = existingCatsSnap.documents.associateBy { it.id }
 
         for (c in backup.categories) {
-            val existingType = existingCatsById[c.id]
+            val existing = existingCatsById[c.id] ?: continue
+            val existingType = existing.getString("transactionType")
             if (existingType != null && existingType != c.transactionType) {
                 throw IllegalStateException("CATEGORY_TYPE_CONFLICT: ${c.name}")
+            }
+            // The merge leaves these markers in place, and the rules refuse new expenses for
+            // a category being deleted and budgets for one being migrated, so the restore
+            // failed only after the categories and earlier batches were written (web parity).
+            if (existing.getString("deletionState") == "deleting" ||
+                existing.getString("migrationState") == "migrating"
+            ) {
+                throw IllegalStateException("CATEGORY_BUSY: ${c.name}")
             }
         }
 

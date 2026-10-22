@@ -106,28 +106,25 @@ object ExportUtils {
     }
 
     /**
-     * Build and share a versioned JSON backup of complete account state. When the soft cap
-     * truncates history and [allowTruncated] is false, returns [Result.needsConfirm]
-     * without opening the share sheet.
+     * Build and share a versioned JSON backup of complete account state. Every row is
+     * read from the server, as web does: the backup used to come from the capped
+     * listener, so past 5,000 transactions the file left out the oldest ones (behind a
+     * dialog that did not say what replace would do), and a replace restore from that
+     * file then deleted them from the account.
      */
     suspend fun exportBackupJson(
         context: Context,
         repository: AppRepository,
         preferenceManager: com.aus.ausgegeben.data.PreferenceManager,
-        allowTruncated: Boolean = false,
     ): Result {
         return withContext(Dispatchers.IO) {
             try {
                 val backupUid = repository.currentRecordAccountId ?: error("Not signed in")
-                val expenses = withTimeoutOrNull(EXPORT_TIMEOUT_MS) {
-                    repository.allExpenses.first()
+                val expenses = withTimeoutOrNull(BACKUP_TIMEOUT_MS) {
+                    repository.getAllExpensesForBackup(backupUid)
                 } ?: return@withContext Result(success = false)
-                val truncated = repository.dataTruncated.value
-                if (truncated && !allowTruncated) {
-                    return@withContext Result(success = false, truncated = true, needsConfirm = true)
-                }
                 val categories = withTimeoutOrNull(EXPORT_TIMEOUT_MS) {
-                    repository.allCategories.first()
+                    repository.getCategoriesForBackup(backupUid)
                 } ?: return@withContext Result(success = false)
 
                 val currency = preferenceManager.currencyFlow.first()
@@ -173,7 +170,7 @@ object ExportUtils {
                     check(repository.currentRecordAccountId == backupUid) { "AUTH_ACCOUNT_CHANGED" }
                     context.startActivity(Intent.createChooser(intent, context.getString(R.string.settings_export_backup)))
                 }
-                Result(success = true, truncated = truncated)
+                Result(success = true)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
@@ -205,6 +202,8 @@ object ExportUtils {
 
     private val FORMULA_TRIGGERS = charArrayOf('=', '+', '-', '@', '\t', '\r')
     private const val EXPORT_TIMEOUT_MS = 15_000L
+    // Paged server reads of a large history take longer than one listener emission.
+    private const val BACKUP_TIMEOUT_MS = 60_000L
 
     /**
      * Deletes any CSV export left in the app-private cache (STOR-1). Neither sign-out
