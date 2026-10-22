@@ -293,6 +293,8 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
         useToastStore.getState().show(t('settingsRestoreAuthChanged'));
       } else if (msg.startsWith('CATEGORY_TYPE_CONFLICT')) {
         useToastStore.getState().show(t('settingsRestoreConflict'));
+      } else if (msg.startsWith('CATEGORY_BUSY')) {
+        useToastStore.getState().show(t('settingsRestoreCategoryBusy'));
       } else {
         useToastStore.getState().show(t('settingsRestoreFailed'));
       }
