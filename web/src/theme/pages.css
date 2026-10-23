@@ -238,6 +238,15 @@
   color: var(--color-on-background);
 }
 
+/* Explains that the day-group totals follow the active filters (UX-3). Informational, not a
+ * warning, so it is quiet: no border, no background, secondary text. */
+.record-totals-note {
+  margin: 0 0 12px;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--color-on-surface-variant, var(--color-on-background));
+}
+
 .settings-section {
   display: flex;
   flex-direction: column;

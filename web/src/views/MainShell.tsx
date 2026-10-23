@@ -16,9 +16,15 @@ import { authService } from '@/services/authService';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useRecurringSync } from '@/services/recurringStore';
+import {
+  APP_TABS,
+  readTabFromSearch,
+  shouldPushTab,
+  tabUrlFor,
+  type AppTab,
+} from '@/utils/tabHistory';
 import { preferencesSync } from '@/services/preferencesSync';
 
-type Tab = 'record' | 'insights' | 'settings';
 type TxnOverlay = null | { type: 'add' } | { type: 'edit'; expenseId: string };
 
 export function MainShell() {
@@ -27,7 +33,12 @@ export function MainShell() {
   const user = useAuthStore((s) => s.user);
   const isDesktop = useMediaQuery('(min-width: 768px)');
   const isOnline = useOnlineStatus();
-  const [tab, setTab] = useState<Tab>('record');
+  // UX-4: the URL is the source of truth for the active tab, so Back/Forward, reload and a
+  // copied link all agree with what is on screen. `?tab=` rather than a fragment because
+  // `#app-main` belongs to the skip link.
+  const [tab, setTab] = useState<AppTab>(() =>
+    typeof window === 'undefined' ? 'record' : readTabFromSearch(window.location.search),
+  );
   const [txnOverlay, setTxnOverlay] = useState<TxnOverlay>(null);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
 
@@ -35,25 +46,64 @@ export function MainShell() {
     setTxnOverlay(null);
     setCategoriesOpen(false);
   }, [user?.uid]);
-  const [visitedTabs, setVisitedTabs] = useState<Set<Tab>>(() => new Set(['record']));
+  const [visitedTabs, setVisitedTabs] = useState<Set<AppTab>>(() => new Set([tab]));
   const [verifyDismissed, setVerifyDismissed] = useState(false);
   const [verifyBusy, setVerifyBusy] = useState(false);
   const [verifyInfo, setVerifyInfo] = useState<string | null>(null);
 
   const showVerifyBanner = Boolean(isOnline && user && !user.emailVerified && !verifyDismissed);
 
-  const selectTab = (next: Tab) => {
-    setVisitedTabs((prev) => new Set(prev).add(next));
+  /** Keeps a view mounted once visited, so switching back does not refetch or reset it. */
+  const rememberTab = (next: AppTab) => {
+    setVisitedTabs((prev) => (prev.has(next) ? prev : new Set(prev).add(next)));
+  };
+
+  const selectTab = (next: AppTab) => {
+    rememberTab(next);
+    if (!shouldPushTab(next, tab)) return;
+    window.history.pushState(window.history.state, '', tabUrlFor(window.location.search, window.location.hash, next));
     setTab(next);
   };
 
-  const navItems: { id: Tab; label: string; Icon: typeof IconRecord }[] = [
+  // Back/Forward. The popstate handler re-reads the URL rather than trusting a stored index, so
+  // a manual URL edit or a restored session behaves the same way.
+  useEffect(() => {
+    const onPopState = () => {
+      const next = readTabFromSearch(window.location.search);
+      rememberTab(next);
+      setTab(next);
+      // Focus is moved for history navigation only: a mouse/keyboard user who clicked a nav item
+      // keeps their place in the nav, but someone who pressed Back has no idea where focus went,
+      // so it lands on the region that just changed.
+      const main = document.getElementById('app-main');
+      if (main) main.focus({ preventScroll: false });
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  // Normalise the URL once on mount (`replaceState`, so no phantom history entry): the tab is
+  // then always named, which is what makes a reload, a copied link and a Back-after-reload agree
+  // with what is on screen.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tab') === tab) return;
+    window.history.replaceState(
+      window.history.state,
+      '',
+      tabUrlFor(window.location.search, window.location.hash, tab),
+    );
+    // Mount-only: later changes go through selectTab / popstate.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const navItems: { id: AppTab; label: string; Icon: typeof IconRecord }[] = [
     { id: 'record', label: t('navRecord'), Icon: IconRecord },
     { id: 'insights', label: t('navInsights'), Icon: IconInsights },
     { id: 'settings', label: t('navSettings'), Icon: IconSettings },
   ];
 
-  const tabContent: Record<Tab, JSX.Element | null> = {
+  const tabContent: Record<AppTab, JSX.Element | null> = {
     record: (
       <RecordView
         onEdit={(id) => setTxnOverlay({ type: 'edit', expenseId: id })}
@@ -149,7 +199,7 @@ export function MainShell() {
 
         {/* Main content */}
         <main id="app-main" className="app-shell__main" tabIndex={-1}>
-          {(['record', 'insights', 'settings'] as Tab[]).map((tabId) => {
+          {APP_TABS.map((tabId) => {
             const active = tab === tabId;
             if (!visitedTabs.has(tabId) && !active) return null;
             return (
@@ -259,9 +309,9 @@ function DesktopHeaderNav({
   onSelect,
   label,
 }: {
-  tab: Tab;
-  navItems: { id: Tab; label: string; Icon: typeof IconRecord }[];
-  onSelect: (tab: Tab) => void;
+  tab: AppTab;
+  navItems: { id: AppTab; label: string; Icon: typeof IconRecord }[];
+  onSelect: (tab: AppTab) => void;
   label: string;
 }) {
   const navRef = useCssProps<HTMLElement>({

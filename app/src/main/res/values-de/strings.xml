@@ -313,7 +313,7 @@
     <string name="category_error_unwritable">neu sortieren nicht möglich: kategorie zuerst korrigieren oder umbenennen — %1$s</string>
 
     <!-- Finance summary -->
-    <string name="summary_balance_period">überschuss · %1$s</string>
+    <string name="summary_balance_period">netto im zeitraum · %1$s</string>
     <string name="summary_spent">ausgegeben</string>
     <string name="summary_earned">eingenommen</string>
 

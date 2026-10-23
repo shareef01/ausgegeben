@@ -39,9 +39,9 @@ control is a real control, and every icon-only control carries an `aria-label` +
 |---|---|---|---|---|---|---|---|---|
 | **UX-1** | **Editing an existing transaction discards edits with no confirmation.** `requestClose()` only prompts when `!vm.isEditing`; Escape, backdrop click and the ✕ all close an edited form immediately. | **Critical** (silent data loss) | `views/AddTransactionView.tsx:43-63` (`if (!vm.isEditing && hasUnsavedChanges)`), comment on :43-44 states the create-only intent | User edits amount/note/category, hits Escape or the backdrop by habit, loses the edit with no warning and no undo | Baseline the loaded row and prompt on *any* real change (create **and** edit); no prompt when nothing changed | S | Low — touches only the close path, not persistence | Pure `isFormDirty` unit tests for create + edit + no-op reformat; editor still saves unchanged |
 | **UX-2** | **"balance" label for a period net.** The headline number is `income − expenses` for the selected period (`computeTotals().net`; transfers excluded from `net`), labelled `summaryBalance: 'balance'`. | **High** (financial misinterpretation) | `components/FinanceSummaryCard.tsx:15,21`; `i18n/en.ts:120`; `utils/analytics.ts:35-51` | A reader can take it as their *account* balance, and a month with transfers shows a net that excludes them | Rename to "net this period" / "net cash flow" (en + de), keep the formula, surface transfers when non-zero so the number is explainable | S | Low — copy + one conditional row | Unit test that the label key changed and `computeTotals` is untouched; screenshot check |
-| **UX-3** | **Day-group totals ignore the active filter.** Rows are search/type/category filtered but each date group's total is computed from the unfiltered period. The source calls this intentional Android parity. | **High** (visible numbers disagree with visible rows) | `views/RecordView.tsx:73-83` ("Period day totals stay unfiltered (Android parity)") | Filter to one category and the group totals still add up the whole day; user cannot tell what the number refers to | Sum the *visible* rows when a filter/search is active, and keep unfiltered totals when none is; label the state so it is unambiguous | M | Medium — display-only, but the day-total map is shared with the record list | Fixture-driven tests: filtered total ≠ unfiltered, empty result shows 0, no-filter path unchanged |
-| **UX-4** | **No history integration: browser Back leaves the app.** Navigation is `useState<Tab>`; there is no `popstate`/`pushState`/URL sync anywhere in `web/src`. | **High** (web/PWA navigation contract) | `views/MainShell.tsx:30` (`useState<Tab>`); grep for `popstate|pushState|replaceState|location.hash|useNavigate` returns **zero** matches | Android-style "back closes the tab" — in an installed PWA, Back exits the app instead of returning to the previous tab; deep links are impossible | Sync the active tab to the URL hash with `history.pushState` + a `popstate` listener; focus the panel heading after a keyboard/Back-driven switch | M | Medium — must not remount views or lose form state; keep panels mounted | Tests for hash→tab, tab→hash, popstate switching, unknown hash falls back to record |
-| **UX-5** | **The period listbox has no keyboard model and no accessible name.** Trigger advertises `aria-haspopup="listbox"`, the menu is `role="listbox"`, but there is no arrow/Home/End handling, focus never enters the list, and the listbox has no `aria-label`/`aria-labelledby`. | **High** (WCAG 2.1.1 keyboard, 4.1.2 name/role) | `components/PeriodSelector.tsx:47-90` (trigger `aria-haspopup`; menu `role="listbox" id`; options are `<button role="option">`; no `onKeyDown`; Escape listener at :34-36 closes only) | Keyboard and screen-reader users get a popup that behaves like nothing they expect: no arrow navigation, an unnamed list, no focus movement or restoration | Implement the listbox pattern (roving focus, Arrow/Home/End, Enter/Space, Escape + focus restore), or replace with a native `<select>` where the option set is simple | M | Medium — used by Record period + any other listbox consumer | Component tests for each key; axe check for the accessible name |
+| **UX-3** | **Day-group totals ignored the active filter.** Rows were search/type/category filtered but each date group's total came from the unfiltered period. | **High** (visible numbers disagreed with visible rows) | `viewmodels/useRecordViewModel.ts` (two independent memos) + `views/RecordView.tsx:73-83` | Filtering to one category left day headers adding up the whole day | **Fixed in Round 2:** `buildRecordList` derives rows *and* totals from one input; `groupRecordRows` owns the grouping; a note explains the difference while a filter is active | M | Low — display-only | `recordDayTotals.test.ts` (19 tests: search/type/category/min/max/combined, both sort axes, same-day, midnight, orphan category, empty) |
+| **UX-4** | **No history integration: browser Back left the app.** Navigation was `useState<Tab>`; there was no `popstate`/`pushState`/URL sync anywhere in `web/src`. | **High** (web/PWA navigation contract) | `views/MainShell.tsx` + repo-wide grep returning **zero** matches | In an installed PWA, Back exited the app instead of returning to the previous tab; no tab was linkable | **Fixed in Round 2:** tab lives in `?tab=` (not the fragment — `#app-main` is the skip-link target); `pushState` on change, `popstate` re-reads the URL, mount normalises with `replaceState`, focus moves to `#app-main` on Back/Forward only, visited panels stay mounted and `inert` | M | Low (verified: no remount, state preserved) | `tabHistory.test.ts` (15) + `e2e/tabHistory.spec.ts` in Chromium: history entries, Back/Forward, duplicate suppression, URL on load, invalid fallback, reload, unrelated params, skip link |
+| **UX-5** | **The period listbox had no keyboard model and no accessible name.** | **High** (WCAG 2.1.1, 4.1.2) | `components/PeriodSelector.tsx` (no `onKeyDown`, focus never entered the list, unnamed listbox) | Keyboard/AT users got a popup that behaved like nothing they expect | **Fixed in Round 2:** WAI-ARIA listbox with roving tabindex, focus-on-open, Arrow/Home/End, native Enter/Space activation, Escape and Tab both restore focus to the trigger, `aria-labelledby` names trigger and listbox; index maths extracted to `utils/listbox.ts` | M | Low | `listbox.test.ts` (12) + `e2e/periodSelector.spec.ts` in Chromium: name, focus-on-open, arrow/wrap, Home/End, Enter, Escape + focus restore, selection state, pointer path, single tabbable option |
 
 ## Design weaknesses (judgement, with evidence — not bugs)
 
@@ -72,11 +72,11 @@ control is a real control, and every icon-only control carries an `aria-label` +
 **P0 — UX-1 and UX-2 shipped in this round; UX-5 next**
 1. ✅ **UX-1** unsaved-edit protection — *done*: `isFormDirty`/`toTransactionBaseline` in `useAddTransactionViewModel.ts`, the create-only gate removed from `AddTransactionView.tsx`, 14 new tests in `addTransactionDirty.test.ts` (create + edit + reformat + date-time-of-day + orphan-category cases). Android still uses the create-only gate and is tracked for the parity pass.
 2. ✅ **UX-2** financial terminology — *done* on **both** platforms: `summaryBalance` → "net cash flow" (en) / "überschuss" (de) in `i18n/en.ts` + `i18n/de.ts`, and `summary_balance_period` → "Net cash flow · %1$s" / "überschuss · %1$s" in the Android resources. Formula untouched. Surfacing a transfers row (Android already defines a `summary_transfers` plural; web shows transfers only on Insights) is deferred to the visual pass so it lands on both platforms at once.
-3. ⏳ **UX-5** period listbox keyboard + accessible name — next round; the pure navigation logic will be extracted so it is testable without a DOM harness (this repo has no component-testing setup).
+3. ✅ **UX-5** period listbox keyboard + accessible name — *done*: full WAI-ARIA listbox pattern in `components/PeriodSelector.tsx` (roving tabindex, focus-on-open, Arrow/Home/End, native Enter/Space, Escape/Tab restore focus, `aria-labelledby` for trigger and listbox), index maths in `utils/listbox.ts`. A native `<select>` was considered and rejected: the popup carries the selected-state check icon and the month list, and swapping it would be a visual regression ahead of the Round-3 redesign. **Verified in Chromium** (`e2e/periodSelector.spec.ts`), not just by unit tests.
 
-**P1 — next rounds**
-4. **UX-3** filtered vs unfiltered day totals, with documented semantics and fixtures.
-5. **UX-4** hash-based tab history with `popstate`, focus handling, and no state loss.
+**P1 — completed in Round 2**
+4. ✅ **UX-3** day totals now follow the displayed rows. `buildRecordList` (view model) derives rows **and** totals from one input; `utils/recordGrouping.ts` owns grouping (including "amount sorting shows no day total"); `RecordView` shows a note while a filter is active so the filter-independent period summary and the filtered list totals can never look like they disagree. Covered by 19 pipeline tests.
+5. ✅ **UX-4** tab history via `?tab=` (chosen over the fragment because `#app-main` is the skip-link target): `pushState` on a genuine change, `popstate` re-reads the URL, a mount-time `replaceState` normalises the URL, focus moves to `#app-main` only for history navigation, unrelated query parameters and fragments are preserved, and visited panels stay mounted/`inert`. Covered by 15 unit tests **and** `e2e/tabHistory.spec.ts` in Chromium.
 
 **P2 — visual implementation (after P0/P1 land)**
 6. Token pass: extend `tokens.ts` (surface hierarchy, semantic income/expense/transfer already exist) and audit contrast across the 8 palettes.
@@ -98,3 +98,61 @@ control is a real control, and every icon-only control carries an `aria-label` +
   or a visual diff — those are Phase 6 items and will be reported with real output or as blocked.
 * Financial formulas are treated as fixed contracts: `computeTotals`, `sumMonthExpenses` and the
   currency handling are not changed by this work; only their *labels* and *presentation*.
+
+---
+
+# Round 2 additions
+
+## German financial copy (Task 4)
+
+Round 1 changed the German headline from `saldo` to `überschuss`. On review that is still wrong for
+half the cases: *Überschuss* means surplus, so a zero or negative net renders as "Überschuss −120 €",
+which reads as a contradiction. The label is now neutral and period-scoped on both clients:
+
+| | before (R1) | after (R2) |
+|---|---|---|
+| web `en` | `net cash flow` | `net cash flow` (unchanged — already neutral) |
+| web `de` | `überschuss` | **`netto im zeitraum`** |
+| Android `en` | `Net cash flow · %1$s` | unchanged |
+| Android `de` | `überschuss · %1$s` | **`netto im zeitraum · %1$s`** |
+
+The formula is untouched (`computeTotals().net` = period income − period expenses, transfers
+excluded on both platforms). Web renders `netto im zeitraum · Mai 2026`; Android upper-cases the
+same string via `uppercase()` in `FinanceSummaryCard.kt`, which is a typography decision for Round 3.
+
+## Expanded audit coverage (Task 5)
+
+Previously unreviewed views are now inspected to the depth stated. I read the whole of `AuthView`
+and `OnboardingView`, and — because `SettingsView` is 1 101 lines and `CategoriesView` 463 — I read
+their structure and interaction-relevant regions (dialog/confirm scaffolding, section headings,
+live regions, per-row action labels) rather than every line. No claim is made about their CSS.
+
+| View | Verdict | Evidence |
+|---|---|---|
+| `AuthView.tsx` | **Sound.** Labelled inputs, `autoComplete` for email/current/new password, submit prevented, config error and auth error both `role="alert"`, info/sync `role="status" aria-live="polite"`, password-visibility toggle labelled, sign-in/up switch labelled. | `:110`, `:124-160`, `:181`, `:213-215` |
+| `OnboardingView.tsx` | **Sound.** Step dots are buttons with `aria-current="step"` inside a labelled `group`, slide has `h2` + body, skip always available, Back hidden on the first slide. | `:45-66` |
+| `SettingsView.tsx` | **Sound but large.** Section titles are real `h2`s; every destructive action (sign out, delete account, export-truncated, restore, replace) is behind a `ConfirmDialog`; sync errors, deletion-pending and unresolved-replace states are `role="alert"`. Risk is structural (one 1 101-line file, modal scaffolding repeated), not interactional. | `:440`, `:453`, `:469`, `:528-539`, `:755`, `:1017`, `:1141` |
+| `CategoriesView.tsx` | **Sound.** `role="dialog" aria-modal aria-labelledby` with a focus trap that pauses for nested confirms, icon/colour groups labelled, per-row buttons named with the category (`Edit: Groceries`, `Move up: Groceries`). | `:65`, `:220-222`, `:271`, `:291`, `:364-375` |
+
+**New confirmed defect (Low)**
+
+| # | Issue | Severity | Evidence | Impact | Fix |
+|---|---|---|---|---|---|
+| UX-6 | Sign-in failure does not mark the offending field invalid: only the confirm-password field sets `aria-invalid`, so an email/password failure is announced once via `role="alert"` but the field itself carries no invalid state for AT navigation. | Low | `AuthView.tsx:181` is the only `aria-invalid`; `:213` is the alert | A screen-reader user who returns to the field later gets no indication it was rejected | Set `aria-invalid` on email/password when the corresponding error is active; keep the single alert |
+
+**Design weaknesses confirmed (not fixed this round)**
+
+* `DW-5` — `SettingsView.tsx` mixes nine concerns in one file with repeated modal scaffolding; splitting
+  is a Round-3 (or later) refactor, not a UX defect a user sees.
+* `DW-6` — Onboarding has no explicit "you can change this later" reassurance on the notification
+  step; worth a copy test rather than an unverified change.
+
+## Android parity obligations from Round 2
+
+| Item | Obligation |
+|---|---|
+| UX-3 day totals | Android's `RecordScreen` still shows period-level day totals while the list is filtered. Decide the same semantics (filtered totals) and add the equivalent note, or document the divergence deliberately. |
+| UX-5 period selector | Android already uses a modal sheet with real buttons; verify TalkBack announces the selected period and that the sheet traps/restores focus. No code change expected. |
+| UX-1 dirty check | Still create-only in `AddTransactionScreen.kt`; must mirror `isFormDirty` (amount in cents, date as calendar day, trimmed note) with unit tests. |
+| UX-4 | Not applicable — Android has no URL. |
+| Copy | Done: `netto im zeitraum` in `values-de`. |
