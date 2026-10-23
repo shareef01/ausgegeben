@@ -55,7 +55,7 @@ control is a real control, and every icon-only control carries an `aria-label` +
 ## Hypotheses (need user testing or measurement — not asserted as defects)
 
 * **H-1** The transaction editor's field order (type → amount → date → category → note) puts the category rail — a long horizontal scroll — above the note, which may bury the primary action on small screens. Measure with a scroll-depth/tap-count probe at 320 px.
-* **H-2** The editor's "Save" label is lower-cased in the button (`t('actionSave').toLowerCase()`) while other buttons keep sentence case; users may read the all-lowercase style as disabled/secondary. Needs a quick preference test.
+* ~~**H-2** The editor's "Save" label is lower-cased and may read as disabled/secondary.~~ **Withdrawn in Round 12 — the capture disproves it.** The save control is a full-width solid-green primary button spanning the editor footer; nothing about it reads as secondary. The lowercase label is the product's voice, not a hierarchy signal.
 * **H-3** Swipe-to-delete discoverability on the transaction list is unknown; the gesture has no visible affordance until used.
 * ~~**H-4** Insights charts expose a picture description with no numbers.~~ **Withdrawn in Round 9 — the hypothesis was wrong.** `CashFlowChart` announces its label *and* both totals (`role="img"` + `aria-label` containing income and expense, `CashFlowChart.tsx:162,208-209`), and `DonutChart` announces the total plus **every category with its percentage** (`DonutChart.tsx:103-113`). Verified by reading the label construction, not by assuming. No change was needed here, and none was invented.
 
@@ -497,4 +497,39 @@ change this work has avoided, so they are enumerated rather than guessed at:
 web unit            41 files / 423 tests passed
 lint:css            527 class tokens, no undefined utilities
 vite build          ok
+```
+---
+
+# Round 12 additions — form labels, and a second hypothesis withdrawn
+
+## Changed
+
+`.field__label`: 10px, weight **900**, uppercase, 0.1em tracking → 13px, weight 600, sentence case.
+One rule, because the class is shared by every form in the app (transaction editor, auth, settings) —
+the editor capture showed `AMOUNT` / `DATE` / `CATEGORY` / `NOTE / VENDOR` as the last all-caps family
+in that flow. Sentence case is also narrower, so no label can begin wrapping where it did not before.
+
+## H-2 withdrawn
+
+I had hypothesised that the lowercase "save" label might read as disabled or secondary. The captured
+editor shows a **full-width solid-green primary button** pinned to the footer — the most prominent
+element in the dialog. The hypothesis was wrong, and the lowercase is the product's voice rather than
+a hierarchy signal. Nothing was changed for it.
+
+## What the editor capture also shows (not changed, with reasons)
+
+* The category rail clips its last chip at the modal edge. That is a horizontally scrolling rail by
+  design (the view scrolls the selected chip into view), not an overflow bug — but it has **no
+  affordance** that more chips exist. A fade or peek is a real improvement and is queued rather
+  than guessed at.
+* `field__input` heights, the segmented type control and the amount field all measured ≥ 44px in the
+  capture, which is why no touch-target work was needed here.
+
+## Test evidence
+
+```
+web unit            41 files / 423 tests passed
+lint:css            527 class tokens, no undefined utilities
+vite build          ok
+Playwright/Chromium 5/5 (layout + tab history, re-run after the CSS change)
 ```

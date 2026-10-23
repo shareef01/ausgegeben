@@ -2844,10 +2844,13 @@
 }
 
 .field__label {
-  font-size: 10px;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  /* Form labels are read, not decorated: 13px sentence case replaces a 10px weight-900
+     all-caps label with 0.1em tracking. Used by every form (editor, auth, settings), so this one
+     rule fixes the whole family, and sentence case is narrower, so no label can start wrapping. */
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.01em;
   color: var(--color-on-surface-variant);
   padding: 0 4px;
 }
