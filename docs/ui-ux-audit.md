@@ -425,3 +425,42 @@ tsc --noEmit        clean
 lint:css            527 class tokens, no undefined utilities
 vite build          ok
 ```
+---
+
+# Round 10 additions — Insights narrative order
+
+The captured screenshot after Round 9 still showed the structural problem: **"Category budgets" held
+the most valuable position on the screen**, showing only "No category budgets configured", while the
+spending and income distributions sat below the fold.
+
+## Reordered (web)
+
+The card order now follows the narrative the brief specifies:
+
+| Position | Before | After |
+|---|---|---|
+| 1 | Category budgets | Spending pace + vs previous month (overview + change) |
+| 2 | Spending pace / comparison | Top shifts (biggest drivers) |
+| 3 | All-time averages | Category distributions (expense / income / transfer) |
+| 4 | Top shifts | Cash-flow trend |
+| 5 | Category distributions | Category budgets (budget performance) |
+| 6 | Cash-flow trend | All-time averages ("additional detail") |
+
+Verified by re-capturing the Insights screen at 1280x880: the metrics, the top-shift row and both
+donuts are now inside the first viewport.
+
+## Still uppercase in that capture (next slice)
+
+`SPENDING PACE`, `VS PREVIOUS MONTH`, `TOP SHIFTS VS LAST MONTH`, `EXPENSE`, `INCOME` and the chart
+legend come from shared title components (`AccentTitle` and the metric-card titles), not from the
+label classes fixed in Round 9. Changing them touches a component used by several screens, which is
+why it is a slice of its own rather than another one-line change.
+
+## Test evidence
+
+```
+web unit            41 files / 423 tests passed
+tsc --noEmit        clean
+vite build          ok
+screenshot          1280x880 Insights after the reorder, captured and inspected
+```

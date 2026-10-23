@@ -66,7 +66,6 @@ export function InsightsView({ onAdd, onManageBudgets }: { onAdd?: () => void; o
         </aside>
 
         <div className="content-col">
-          {showCategoryBudgets && <CategoryBudgetInsights categories={categories} expenses={budgetExpenses} incomplete={budgetIncomplete} onManage={onManageBudgets} />}
           {loading ? (
             <LoadingListSkeleton rows={8} />
           ) : !hasData && uiState.loadError ? (
@@ -121,10 +120,6 @@ export function InsightsView({ onAdd, onManageBudgets }: { onAdd?: () => void; o
                 </div>
               ) : null}
 
-              {uiState.allTimeAverages ? (
-                <AllTimeAveragesCard averages={uiState.allTimeAverages} currency={currency} />
-              ) : null}
-
               {uiState.categoryMovers && uiState.categoryMovers.length > 0 ? (
                 <CategoryMoversCard movers={uiState.categoryMovers} currency={currency} />
               ) : null}
@@ -143,6 +138,25 @@ export function InsightsView({ onAdd, onManageBudgets }: { onAdd?: () => void; o
 
               {uiState.cashFlowTrend.length > 0 ? (
                 <CashFlowCard trend={uiState.cashFlowTrend} currency={currency} />
+              ) : null}
+
+              {/* Budget performance is the last step of the narrative the brief asks for
+                  (overview -> change -> drivers -> distribution -> trend -> budget), and it was
+                  the first and largest card on the screen — showing "no budgets configured" in
+                  the most valuable position while the distributions sat below the fold. */}
+              {showCategoryBudgets ? (
+                <CategoryBudgetInsights
+                  categories={categories}
+                  expenses={budgetExpenses}
+                  incomplete={budgetIncomplete}
+                  onManage={onManageBudgets}
+                />
+              ) : null}
+
+              {/* "Additional detail" closes the narrative: all-time averages are context, not the
+                  headline, so they no longer interrupt the period story. */}
+              {uiState.allTimeAverages ? (
+                <AllTimeAveragesCard averages={uiState.allTimeAverages} currency={currency} />
               ) : null}
             </div>
           )}
