@@ -47,7 +47,7 @@ control is a real control, and every icon-only control carries an `aria-label` +
 
 | # | Observation | Evidence | Recommendation |
 |---|---|---|---|
-| DW-1 | Mobile nav is **icon-only**; labels exist only in `aria-label`/`title`, so sighted users must infer meaning from glyphs. | `MainShell.tsx:187-198` | Add visible labels under the mobile icons (or a selected-state label), keep the desktop rail. |
+| DW-1 | Mobile nav was **icon-only**; labels existed only in `aria-label`/`title`, so sighted users had to infer meaning from glyphs (the dock has no hover state to reveal a tooltip). | `MainShell.tsx` (mobile dock) | **Fixed in Round 5:** visible labels under each icon, and the label *is* the accessible name, so the visual and screen-reader names cannot diverge. The desktop rail keeps `aria-label` + `title`; visible labels there belong with the wider visual pass because the sliding indicator is sized from icon-width items. |
 | DW-2 | The summary card's *value* has no unit context beyond the currency symbol, and the eyebrow sets "balance · period" in a small–caps style. | `FinanceSummaryCard.tsx:20-27`; `.finance-summary-card__eyebrow` in `pages.css` | Pair the number with its period in normal case, and let the label carry the semantics (depends on UX-2). |
 | DW-3 | Two different period-selection idioms coexist: an inline listbox popup (Record) and a bottom-sheet dialog (Insights). | `PeriodSelector.tsx` (both components) | Pick one interaction for period selection; the sheet is the better mobile pattern. |
 | DW-4 | `pages.css` is 3 638 lines for a 7-view app; visual rules for one component can live three files away (`polish.css`, `premium.css`, `ios.css`, `layout.css`). | file sizes in `web/src/theme` | Not a defect a user sees, but it makes every visual change risky. Consolidate per-component rules as components are touched (opportunistic, not a rewrite). |
@@ -204,3 +204,50 @@ totals cannot disagree about *which* rows are visible) without changing any flow
 **Tests:** `ExpenseViewModelTest.dayTotals_followTheFilteredRows` — 16.0 unfiltered → 12.5 with a
 search → 16.0 after clearing, all read from `uiState.dayTotalsByDay`. Android suite: 42 suites /
 349 tests, 0 failures (9 emulator-only skips) + `lintProdDebug`.
+
+---
+
+# Round 5 additions — shell clarity, auth field state, one regression the old suite caught
+
+## Fixed
+
+| # | Change | Evidence |
+|---|---|---|
+| DW-1 | Mobile dock items now show a visible label under the icon (11 px, truncating at 4.25 rem so `einstellungen` cannot widen the dock). The label **is** the accessible name, so the visual and screen-reader names are the same string. Icons keep their 22 px size and every item keeps a >= 44 px target. | `MainShell.tsx`; `.bottom-nav-pill__item` / `__label` in `polish.css` |
+| UX-6 | Sign-in now marks the field the rejection concerns with `aria-invalid`: email for "enter your email" / "already registered", password for weak or mismatched, and **both** for "invalid email or password" (either could be wrong, so guessing would be worse). Previously only the confirm-password field carried the state. | `AuthView.tsx` |
+
+The desktop rail keeps `aria-label` + `title` for now: its sliding indicator is sized from
+icon-width items, so visible labels there belong with the wider visual pass, not a one-off.
+
+## A regression the pre-existing suite caught (fixed in this round)
+
+Round 2 moved the active tab into `?tab=`. That made a **signed-out session leave its tab named in
+the URL**, so signing out on Settings and signing in as someone else landed the next person on
+Settings. `e2e/recordFilters.spec.ts`, written long before this work, failed on exactly that;
+`e2e/categoryBudgets.spec.ts` failed for the same reason.
+
+Fix: `authService.signOut()` resets `?tab=` to `record` before the shell unmounts, and the shell
+also resets to Record when a *new* identity appears (tracked with a ref, so an initial `?tab=` deep
+link still survives auth resolution).
+
+Stated plainly: the Round-2 change was only verified against the specs written for it. Running the
+**whole** suite is what caught this, which is why this round validates all of it.
+
+## New verification: measured layout rather than asserted layout
+
+`e2e/layout.spec.ts` (2 Chromium tests) measures at 320 / 375 / 390 / 430 px and 768 / 1024 / 1440 px:
+
+* document `scrollWidth <= clientWidth + 1` at every width — no horizontal scrollbar;
+* every dock item shows a label, is >= 44 x 44 px, and sits fully inside the viewport;
+* the dock is **absent from the DOM** at desktop widths, where the header rail is present instead.
+
+## Test evidence (all executed)
+
+```
+web unit            41 files / 422 tests passed
+tsc --noEmit        clean
+lint:css            528 class tokens, no undefined utilities
+vite build          ok
+Playwright/Chromium 16/16 passed — authLifecycle, categoryBudgets, recordFilters,
+                    recurring, tabHistory, periodSelector, layout (the whole suite)
+```

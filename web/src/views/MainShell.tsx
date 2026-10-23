@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense, type JSX } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense, type JSX } from 'react';
 import { useCssProps } from '@/utils/cssVars';
 import { RecordView } from '@/views/RecordView';
 // Lazy-loaded so their code (and the charts Insights pulls in) is split into
@@ -41,10 +41,32 @@ export function MainShell() {
   );
   const [txnOverlay, setTxnOverlay] = useState<TxnOverlay>(null);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const lastUidRef = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
+    const uid = user?.uid ?? null;
+    // First run records the signed-in identity (or its absence) without touching anything, so a
+    // `?tab=` deep link survives the initial auth resolution.
+    if (lastUidRef.current === undefined) {
+      lastUidRef.current = uid;
+      return;
+    }
+    if (lastUidRef.current === uid) return;
+    lastUidRef.current = uid;
+
     setTxnOverlay(null);
     setCategoriesOpen(false);
+    // A session that starts now begins on Record, and the URL follows: a tab name left over from
+    // the previous session must not decide where the next person lands (found by
+    // e2e/recordFilters.spec.ts: sign out on Settings, sign in as another account, expect Record).
+    if (uid !== null) {
+      setTab('record');
+      window.history.replaceState(
+        window.history.state,
+        '',
+        tabUrlFor(window.location.search, window.location.hash, 'record'),
+      );
+    }
   }, [user?.uid]);
   const [visitedTabs, setVisitedTabs] = useState<Set<AppTab>>(() => new Set([tab]));
   const [verifyDismissed, setVerifyDismissed] = useState(false);
@@ -239,11 +261,15 @@ export function MainShell() {
                   type="button"
                   onClick={() => selectTab(id)}
                   aria-current={active ? 'page' : undefined}
-                  aria-label={label}
                   title={label}
                   className={`bottom-nav-pill__item${active ? ' bottom-nav-pill__item--active' : ''}`}
                 >
                   <Icon width={22} height={22} strokeWidth={active ? 2.25 : 1.85} aria-hidden />
+                  {/* DW-1: the mobile dock had no hover state to reveal a tooltip, so its icons
+                      were unlabelled for sighted users. The label is the accessible name now (no
+                      separate aria-label), which keeps the screen-reader and visual names
+                      identical. */}
+                  <span className="bottom-nav-pill__label">{label}</span>
                 </button>
               );
             })}

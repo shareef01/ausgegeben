@@ -341,23 +341,36 @@
 
 .bottom-nav-pill__item {
   position: relative;
-  width: 3rem;
-  height: 3rem;
+  /* Column layout: icon above a visible label (DW-1). The item keeps a 44 px minimum touch
+     target in both axes — the label adds height, it does not shrink the icon. */
   min-width: 3rem;
   min-height: 3rem;
-  padding: 0;
+  padding: 0.3rem 0.5rem;
   border: none;
   border-radius: 999px;
   display: inline-flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0;
-  line-height: 0;
+  gap: 2px;
+  line-height: 1;
   color: var(--color-on-surface-variant);
   background: transparent;
   cursor: pointer;
   transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+/* Mobile nav label. Long locales ("einstellungen") must never widen the dock past the
+   viewport, so the label truncates rather than pushing the layout. */
+.bottom-nav-pill__label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+  max-width: 4.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .bottom-nav-pill__item:hover {
