@@ -158,10 +158,34 @@ Do not deploy Firestore rules without their indexes. The local emulator serves u
 - CSV is an interchange/report export, not disaster recovery: it omits preferences,
   categories and their stable IDs, budgets, migration metadata, and deletion state.
   Safe versioned JSON backup export and restore is implemented across Android and
-  the web using `ausgegeben-backup` schema version 1 (`schemaVersion: 1`),
-  validated by `web/src/services/backupFormat.ts` and described in `docs/local-backup-plan.md`. There is no schema v2 or v3.
-- Actual Firestore collections are strictly under `users/{userId}`: `categories`, `expenses`, `settings` (document `preferences`),
-  and `meta` (documents `dedupe`, `accountDeletion`). There are no recurring templates, recurring receipt subcollections, or restore snapshot paths.
+  the web using the `ausgegeben-backup` format. The current schema is **version 3**
+  (`BackupFormat.CURRENT_SCHEMA_VERSION` / `CURRENT_BACKUP_SCHEMA_VERSION`); versions 1 and 2
+  remain readable, and exports carry the version they were written with. Fields were added
+  per version: v2 added `categoryBudgets`, v3 added `recurring`. Validated by
+  `app/.../util/BackupFormat.kt` and `web/src/services/backupFormat.ts`, described in
+  `docs/local-backup-plan.md`, and pinned by `test-fixtures/` and `testdata/money-parity.json`.
+- Data lives only under `users/{userId}`. `app/.../data/FirestorePaths.kt` and
+  `web/src/repositories/firestorePaths.ts` are the single source of truth; both are
+  mirrored, and `FirestorePathsTest` / `firestorePaths.test.ts` fail if a path constant is
+  added without classifying it as deletable or intentionally retained. Current contents:
+  - subcollections `categories`, `expenses`, `categoryBudgets`, `recurringTransactions`,
+    `recurringOccurrences`, `restoreSnapshot` — all wiped by account deletion;
+  - documents `settings/preferences`, `meta/dedupe`, `meta/restoreOperation` — wiped by
+    account deletion;
+  - document `meta/accountDeletion` — the permanent write-freeze tombstone, intentionally
+    never deleted by a client (see the deletion protocol above).
+  There is no user profile document at `users/{userId}` itself: the rules deny `read`/`write`
+  there outright.
+- Backups do not replace `restoreSnapshot`: the safety snapshot written by a replace restore
+  is an internal recovery journal, is deleted when an operation completes, and is never part
+  of an export.
+- A replace restore cannot delete a recurring occurrence receipt. Receipts are immutable
+  replay guards and the rules allow their deletion only during account deletion, so a
+  template removed by a replace leaves its receipts behind. They are inert (the expense
+  document ID is derived from template id + date) but are re-exported by later backups.
+  Cleaning them up needs either a rules clause permitting deletion of a receipt whose
+  template no longer exists, or an export-side filter; until then this is a known
+  limitation, not a data-loss path.
 - Currency switching updates visual display formatting across all records; historical numerical amounts are preserved intact without automatic conversion.
 - Concurrent delete and update safety: Both Android and web employ atomic update semantics (`updateDoc` on Web, `DocumentReference.update` on Android)
   and batch updates for category reordering, preventing deleted expenses and categories from being resurrected by concurrent writes.

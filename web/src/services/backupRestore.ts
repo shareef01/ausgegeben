@@ -1,9 +1,9 @@
 import { categoryBudgetRepository } from '@/services/categoryBudgets';
 import { recurringRepository } from '@/services/recurringRepository';
-import { collection, doc, getDocs, setDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDocFromServer, getDocs, setDoc, writeBatch } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
-import { chunkByCategory } from '@/utils/restoreBatches';
+import { chunkByBudgetCheck, chunkByCategory } from '@/utils/restoreBatches';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { sanitizeSyncedPreferences } from '@/services/preferencesSync';
 import {
@@ -16,7 +16,7 @@ import {
   validateBackup,
   summarizeBackup,
   restoredCategoryRevision,
-  restoredPreferencesRevision,
+  writablePreferencesRevision,
   type AusgegebenBackup,
   type BackupSummary,
 } from '@/services/backupFormat';
@@ -95,6 +95,21 @@ export async function restoreBackup(
     throw new Error('FIRESTORE_UNAVAILABLE');
   }
 
+  // Pre-flight check (AUD-005): the preferences write is the LAST step, and the rules require
+  // its revision to exceed whatever is already stored while staying inside their five-minute
+  // future window. Compute it from the stored document now, so a window in which nothing can
+  // be written refuses the restore before a single category or expense lands.
+  const storedPrefsSnap = await getDocFromServer(
+    doc(db, 'users', expectedUid, SETTINGS_COLLECTION, PREFERENCES_DOC),
+  );
+  const storedRevision = storedPrefsSnap.exists()
+    ? (storedPrefsSnap.data()?.updatedAt as number | undefined) ?? null
+    : null;
+  const newTimestamp = writablePreferencesRevision(backup.preferences.preferencesUpdatedAt, storedRevision);
+  if (newTimestamp === null) {
+    throw new Error('PREFERENCES_REVISION_UNWRITABLE');
+  }
+
   // Pre-flight check: query existing categories to detect conflicting transactionType
   const catColRef = collection(db, 'users', expectedUid, CATEGORIES_COLLECTION);
   const existingCatsSnap = await getDocs(catColRef);
@@ -116,9 +131,15 @@ export async function restoreBackup(
     }
   }
 
-  // 1. Write categories in chunks of RESTORE_BATCH_CHUNK_SIZE
-  for (let i = 0; i < backup.categories.length; i += RESTORE_BATCH_CHUNK_SIZE) {
-    const chunk = backup.categories.slice(i, i + RESTORE_BATCH_CHUNK_SIZE);
+  // 1. Write categories in chunks of RESTORE_BATCH_CHUNK_SIZE, budgeted by document access:
+  // a non-expense category costs the rules one `existsAfter(categoryBudgets/{id})` call per
+  // batch, and the batch may only make 20 in total (AUD-001).
+  for (const chunk of chunkByBudgetCheck(
+    backup.categories,
+    RESTORE_BATCH_CHUNK_SIZE,
+    undefined,
+    (c) => c.transactionType !== 'expense',
+  )) {
     const batch = writeBatch(db);
     for (const c of chunk) {
       const ref = doc(db, 'users', expectedUid, CATEGORIES_COLLECTION, c.id);
@@ -173,9 +194,8 @@ export async function restoreBackup(
     await recurringRepository.restoreReceipts(expectedUid, backup.recurring.receipts);
   }
 
-  // 3. Restore preferences
+  // 3. Restore preferences — `newTimestamp` was computed and validated in the pre-flight.
   const currentPrefs = usePreferencesStore.getState();
-  const newTimestamp = restoredPreferencesRevision(backup.preferences.preferencesUpdatedAt);
   const synced: SyncedPreferences = sanitizeSyncedPreferences({
     currency: backup.preferences.currency,
     locale: backup.preferences.locale ?? currentPrefs.locale,

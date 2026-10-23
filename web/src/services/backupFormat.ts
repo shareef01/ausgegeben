@@ -114,6 +114,38 @@ export function restoredPreferencesRevision(backupRevision: number | undefined, 
   return Math.max(now, Math.min((backupRevision ?? 0) + 1, now + 240_000));
 }
 
+/** Margin kept below the rules' five-minute future bound; see writablePreferencesRevision. */
+export const PREFERENCES_RESTORE_LEAD_MS = 240_000;
+
+/**
+ * Revision a restore may write right now, or null when none exists yet (AUD-005).
+ *
+ * `restoredPreferencesRevision` only looks at the clock and the file, but the rules put two
+ * bounds on the write: `updatedAt` must strictly exceed the revision already stored on
+ * `settings/preferences`, and it must stay below `request.time + 300000`. The stored revision
+ * can legitimately sit almost five minutes in the future — the rules allow it, and any device
+ * whose clock ran fast produces it — so the file/clock-only value can be *older* than what is
+ * stored and be rejected at the last step, after categories, expenses, budgets and recurring
+ * data have all been written.
+ *
+ * The candidate is the greatest of now, file+1 and stored+1, capped at now +
+ * PREFERENCES_RESTORE_LEAD_MS (the same margin `restoredPreferencesRevision` already relies
+ * on). When even the cap cannot exceed the stored revision, nothing can be written until that
+ * stored value ages out; the caller must then refuse *before its first write*.
+ */
+export function writablePreferencesRevision(
+  backupRevision: number | undefined,
+  storedRevision: number | null | undefined,
+  now = Date.now(),
+): number | null {
+  const cap = now + PREFERENCES_RESTORE_LEAD_MS;
+  // Clamp before adding, mirroring the Android implementation: a corrupt far-future revision
+  // must be capped, not carried into the comparison.
+  const candidateOf = (revision: number | null | undefined) => Math.min(revision ?? 0, cap - 1) + 1;
+  const target = Math.max(now, candidateOf(backupRevision), candidateOf(storedRevision));
+  return (storedRevision ?? 0) < target ? target : null;
+}
+
 /** Category revision for a restore write: the file's value, never later than now. */
 export function restoredCategoryRevision(backupRevision: number | undefined, now = Date.now()): number {
   return typeof backupRevision === 'number' ? Math.min(backupRevision, now) : now;

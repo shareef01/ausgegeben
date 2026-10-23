@@ -40,6 +40,41 @@ object BackupFormat {
     fun restoredCategoryRevision(backupRevision: Long?, now: Long = System.currentTimeMillis()): Long =
         backupRevision?.let { minOf(it, now) } ?: now
 
+    /**
+     * Revision a restore may write right now, or null when none exists yet (AUD-005).
+     *
+     * [restoredPreferencesRevision] only looks at the clock and the file, but the rules put
+     * two bounds on the write: `updatedAt` must strictly exceed the revision already stored
+     * on `settings/preferences`, and it must stay below `request.time + 300000`. The stored
+     * revision can legitimately sit almost five minutes in the future — the rules allow it,
+     * and any device whose clock ran fast produces it — so the file/clock-only value can be
+     * *older* than what is stored and be rejected at the last step, after categories,
+     * expenses, budgets and recurring data have all been written.
+     *
+     * The candidate is the greatest of now, file+1 and stored+1, capped at
+     * now + [PREFERENCES_RESTORE_LEAD_MS] (the same margin [restoredPreferencesRevision]
+     * already relies on). When even the cap cannot exceed the stored revision, nothing can be
+     * written until that stored value ages out; the caller must then refuse *before its first
+     * write* rather than half-restoring.
+     *
+     * Mirrors web writablePreferencesRevision.
+     */
+    fun writablePreferencesRevision(
+        backupRevision: Long?,
+        storedRevision: Long?,
+        now: Long = System.currentTimeMillis(),
+    ): Long? {
+        val cap = now + PREFERENCES_RESTORE_LEAD_MS
+        // Clamp *before* adding: `Long.MAX_VALUE + 1` wraps to Long.MIN_VALUE, which would
+        // silently fall back to "now" and produce a revision the rules then refuse.
+        fun candidateOf(revision: Long?): Long = minOf(revision ?: 0L, cap - 1L) + 1L
+        val target = maxOf(now, candidateOf(backupRevision), candidateOf(storedRevision))
+        return target.takeIf { (storedRevision ?: 0L) < it }
+    }
+
+    /** Margin kept below the rules' five-minute future bound; see [writablePreferencesRevision]. */
+    const val PREFERENCES_RESTORE_LEAD_MS = 240_000L
+
     data class BackupPreferences(
         val currency: String,
         val monthlyBudget: Double?,

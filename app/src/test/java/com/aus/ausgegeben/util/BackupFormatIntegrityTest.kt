@@ -5,6 +5,7 @@ import com.aus.ausgegeben.data.entity.Expense
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -138,5 +139,32 @@ class BackupFormatIntegrityTest {
         assertEquals(now - 5, BackupFormat.restoredCategoryRevision(now - 5, now))
         assertEquals(now, BackupFormat.restoredCategoryRevision(now + 3_600_000, now))
         assertEquals(now + 240_000, BackupFormat.restoredPreferencesRevision(Long.MAX_VALUE, now))
+    }
+
+    // AUD-005: the revision already stored on settings/preferences bounds the write too, and
+    // the rules only accept it when it strictly increases while staying inside their window.
+    @Test
+    fun writableRevisionBeatsTheStoredDocument() {
+        val now = 1_800_000_000_000L
+        assertEquals(now, BackupFormat.writablePreferencesRevision(null, null, now))
+        assertEquals(now, BackupFormat.writablePreferencesRevision(null, now - 60_000, now))
+        assertEquals(now, BackupFormat.writablePreferencesRevision(now - 10, null, now))
+        // A stored revision ahead of the clock (a device whose clock ran fast) must be beaten.
+        assertEquals(now + 100_001, BackupFormat.writablePreferencesRevision(null, now + 100_000, now))
+        assertEquals(now + 100_001, BackupFormat.writablePreferencesRevision(now - 5, now + 100_000, now))
+        // A corrupt far-future file value is clamped, but still beats the stored document.
+        assertEquals(
+            now + BackupFormat.PREFERENCES_RESTORE_LEAD_MS,
+            BackupFormat.writablePreferencesRevision(Long.MAX_VALUE, now - 1_000, now),
+        )
+    }
+
+    @Test
+    fun writableRevisionIsNullWhenNothingCanBeWrittenYet() {
+        val now = 1_800_000_000_000L
+        val cap = now + BackupFormat.PREFERENCES_RESTORE_LEAD_MS
+        assertNull(BackupFormat.writablePreferencesRevision(null, cap, now))
+        assertNull(BackupFormat.writablePreferencesRevision(null, now + 299_000, now))
+        assertEquals(cap, BackupFormat.writablePreferencesRevision(null, cap - 1, now))
     }
 }

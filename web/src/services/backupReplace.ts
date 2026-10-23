@@ -1,5 +1,5 @@
 import { fromMinorUnits, toMinorUnits } from '@/utils/money';
-import { restoredCategoryRevision, restoredPreferencesRevision } from '@/services/backupFormat';
+import { restoredCategoryRevision, writablePreferencesRevision } from '@/services/backupFormat';
 import { categoryBudgetRepository, type CategoryBudget } from '@/services/categoryBudgets';
 import { recurringRepository } from '@/services/recurringRepository';
 import type { RecurringTemplate } from '@/services/recurrence';
@@ -19,7 +19,7 @@ import {
 } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
-import { chunkByCategory } from '@/utils/restoreBatches';
+import { chunkByBudgetCheck, chunkByCategory } from '@/utils/restoreBatches';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { sanitizeSyncedPreferences } from '@/services/preferencesSync';
 import {
@@ -291,8 +291,16 @@ export function planReplace(params: {
     .filter((c) => !backupCatMap.has(c.id))
     .map((c) => c.id);
 
-  // Preferences update
-  const newTimestamp = restoredPreferencesRevision(backup.preferences.preferencesUpdatedAt);
+  // Preferences update (AUD-005): the write is the last step of a replace and the rules
+  // require its revision to beat the stored document inside their five-minute window. Plan
+  // nothing when no such revision exists yet — the plan is computed before any write.
+  const newTimestamp = writablePreferencesRevision(
+    backup.preferences.preferencesUpdatedAt,
+    currentPreferences?.updatedAt,
+  );
+  if (newTimestamp === null) {
+    conflicts.push('PREFERENCES_REVISION_UNWRITABLE');
+  }
   const preferencesToUpdate: SyncedPreferences = sanitizeSyncedPreferences({
     currency: backup.preferences.currency,
     locale: backup.preferences.locale ?? currentPreferences?.locale ?? 'en',
@@ -302,7 +310,9 @@ export function planReplace(params: {
     reminderHour: currentPreferences?.reminderHour ?? 19,
     reminderMinute: currentPreferences?.reminderMinute ?? 0,
     analyticsPeriod: currentPreferences?.analyticsPeriod ?? 'this_month',
-    updatedAt: newTimestamp,
+    // Unreachable as a value: a null revision pushes a conflict, and the caller refuses the
+    // plan before any write (see the conflicts check in executeReplace).
+    updatedAt: newTimestamp ?? 0,
     monthlyBudget: backup.preferences.monthlyBudget !== undefined ? backup.preferences.monthlyBudget : (currentPreferences?.monthlyBudget ?? null),
   });
 
@@ -831,11 +841,17 @@ export async function executeReplace(
       },
     });
 
-    // 9. Apply categories in batches of RESTORE_BATCH_CHUNK_SIZE
+    // 9. Apply categories in batches of RESTORE_BATCH_CHUNK_SIZE, budgeted by document
+    // access: a non-expense category costs the rules one `existsAfter(categoryBudgets/{id})`
+    // call per batch (AUD-001). The journal update in the same batch costs none.
     await verifyAndRenewRecoveryLease(db, expectedUid, currentTabId, fencingToken);
     let categoryBatchIndex = 0;
-    for (let i = 0; i < plan.categoriesToUpsert.length; i += RESTORE_BATCH_CHUNK_SIZE) {
-      const chunk = plan.categoriesToUpsert.slice(i, i + RESTORE_BATCH_CHUNK_SIZE);
+    for (const chunk of chunkByBudgetCheck(
+      plan.categoriesToUpsert,
+      RESTORE_BATCH_CHUNK_SIZE,
+      undefined,
+      (c) => c.transactionType !== 'expense',
+    )) {
       const batch = writeBatch(db);
       for (const c of chunk) {
         const ref = doc(db, 'users', expectedUid, CATEGORIES_COLLECTION, c.id);
@@ -1143,10 +1159,16 @@ export async function rollbackReplace(
 
     // 2. Upsert snapshot categories with { merge: true } so live fields the failed
     // replace never touched (deletionState, recurringTemplateCount, migration markers)
-    // survive the round trip; the snapshot does not capture them.
+    // survive the round trip; the snapshot does not capture them. Budgeted by document
+    // access, exactly like the apply step — a rollback that cannot commit leaves the
+    // account half-replaced (AUD-001).
     await verifyAndRenewRecoveryLease(db, expectedUid, currentTabId, fencingToken);
-    for (let i = 0; i < snapshot.categories.length; i += RESTORE_BATCH_CHUNK_SIZE) {
-      const chunk = snapshot.categories.slice(i, i + RESTORE_BATCH_CHUNK_SIZE);
+    for (const chunk of chunkByBudgetCheck(
+      snapshot.categories,
+      RESTORE_BATCH_CHUNK_SIZE,
+      undefined,
+      (c) => c.transactionType !== 'expense',
+    )) {
       const batch = writeBatch(db);
       for (const c of chunk) {
         const ref = doc(db, 'users', expectedUid, CATEGORIES_COLLECTION, c.id);
@@ -1192,9 +1214,16 @@ export async function rollbackReplace(
       .filter((d) => !snapshotCategoryIds.has(d.id))
       .map((d) => d.id);
 
-    // Stage deletionState: 'deleting' first, matching firestore.rules
-    for (let i = 0; i < extraCategoryIds.length; i += RESTORE_BATCH_CHUNK_SIZE) {
-      const chunk = extraCategoryIds.slice(i, i + RESTORE_BATCH_CHUNK_SIZE);
+    // Stage deletionState: 'deleting' first, matching firestore.rules. The merged document
+    // keeps its stored transactionType, which is not known here, so every row is budgeted
+    // as if it needs the `existsAfter(categoryBudgets/{id})` access a non-expense category
+    // costs — the conservative reading (AUD-001).
+    for (const chunk of chunkByBudgetCheck(
+      extraCategoryIds,
+      RESTORE_BATCH_CHUNK_SIZE,
+      undefined,
+      () => true,
+    )) {
       const batch = writeBatch(db);
       for (const id of chunk) {
         batch.set(
@@ -1214,9 +1243,15 @@ export async function rollbackReplace(
       await batch.commit();
     }
 
-    // Delete extra categories and any associated budgets
-    for (let i = 0; i < extraCategoryIds.length; i += RESTORE_BATCH_CHUNK_SIZE) {
-      const chunk = extraCategoryIds.slice(i, i + RESTORE_BATCH_CHUNK_SIZE);
+    // Delete extra categories and any associated budgets. A category delete spends one
+    // `existsAfter(categoryBudgets/{id})` access per row (the budget delete costs none), so
+    // the same per-batch budget applies (AUD-001).
+    for (const chunk of chunkByBudgetCheck(
+      extraCategoryIds,
+      RESTORE_BATCH_CHUNK_SIZE,
+      undefined,
+      () => true,
+    )) {
       const batch = writeBatch(db);
       for (const id of chunk) {
         batch.delete(doc(db, 'users', expectedUid, CATEGORY_BUDGETS_COLLECTION, id));

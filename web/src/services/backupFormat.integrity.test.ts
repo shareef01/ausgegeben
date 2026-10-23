@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   createBackup,
+  PREFERENCES_RESTORE_LEAD_MS,
   restoredCategoryRevision,
   restoredPreferencesRevision,
   validateBackup,
+  writablePreferencesRevision,
   type AusgegebenBackup,
 } from './backupFormat';
 import type { Category, Expense } from '@/models/types';
@@ -137,6 +139,34 @@ describe('restore revision stamps stay inside the rules\' clock window', () => {
     expect(restoredCategoryRevision(undefined, now)).toBe(now);
     expect(restoredCategoryRevision(now - 5, now)).toBe(now - 5);
     expect(restoredCategoryRevision(now + 3_600_000, now)).toBe(now);
+  });
+
+  // AUD-005: the stored document, not just the file, bounds what may be written.
+  it('beats the stored revision when the stored document is ahead of the clock', () => {
+    // Rules allow a stored updatedAt up to now+300000 (any device with a fast clock).
+    expect(writablePreferencesRevision(undefined, now + 100_000, now)).toBe(now + 100_001);
+    expect(writablePreferencesRevision(now - 5, now + 100_000, now)).toBe(now + 100_001);
+  });
+
+  it('keeps the ordinary case unchanged', () => {
+    expect(writablePreferencesRevision(undefined, null, now)).toBe(now);
+    expect(writablePreferencesRevision(undefined, now - 60_000, now)).toBe(now);
+    expect(writablePreferencesRevision(now - 10, undefined, now)).toBe(now);
+  });
+
+  it('clamps a corrupt far-future file revision but still beats the stored one', () => {
+    expect(writablePreferencesRevision(9_000_000_000_000_000, now - 1_000, now)).toBe(now + PREFERENCES_RESTORE_LEAD_MS);
+  });
+
+  it('returns null when no legal revision exists yet', () => {
+    // Stored inside the last minute of the rules' window: nothing can beat it and stay
+    // inside the bound, so the caller must refuse before its first write.
+    expect(writablePreferencesRevision(undefined, now + PREFERENCES_RESTORE_LEAD_MS, now)).toBeNull();
+    expect(writablePreferencesRevision(undefined, now + 299_000, now)).toBeNull();
+    // One millisecond short of the cap is still writable.
+    expect(writablePreferencesRevision(undefined, now + PREFERENCES_RESTORE_LEAD_MS - 1, now)).toBe(
+      now + PREFERENCES_RESTORE_LEAD_MS,
+    );
   });
 
   it('exports drop a category revision the validator would refuse', () => {

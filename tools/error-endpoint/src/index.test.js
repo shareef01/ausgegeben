@@ -71,6 +71,38 @@ test('receiver independently drops sensitive context and redacts message data', 
   assert.equal(entry.context.operation, 'save');
 });
 
+/**
+ * The audit asked explicitly whether telemetry protects financial data. It does not, and this
+ * test pins that boundary so nobody mistakes `logSafe` for a data-loss-prevention filter:
+ * it recognises credentials *by their shape* (Bearer tokens, JWTs, emails, `password=…`), and
+ * a merchant name or an amount is ordinary free text it cannot distinguish from a stack frame.
+ * The real protection is upstream: `safeContext` drops every key it does not allowlist, and
+ * the TEL-1 lint (web/scripts/check-telemetry-throw-sites.mjs) fails CI when a throw site
+ * dumps a whole object into an Error message. A throw site that interpolates a single note or
+ * amount into a message would still ship — that residual risk is documented, not hidden.
+ */
+test('receiver redacts credentials but leaves financial free text in the message intact', () => {
+  const entry = summarize({
+    source: 'manual',
+    error: {
+      message: 'Save failed for "REWE SAGT DANKE" 12,50 EUR — password=hunter2',
+      stack: 'Error: at save (app.js:1:2) note="Miete Oktober"',
+    },
+    context: { operation: 'save', amount: 1250, note: 'Miete Oktober' },
+  });
+  const serialized = JSON.stringify(entry);
+
+  // Credential-shaped data never survives, in message or stack.
+  assert.doesNotMatch(serialized, /hunter2/);
+  // Structured financial fields are dropped, because safeContext allowlists keys…
+  assert.doesNotMatch(serialized, /"amount"/);
+  // …but free text a throw site put into message or stack is logged as-is, because no regex
+  // can tell a merchant name, an amount or a note apart from a legitimate message.
+  assert.match(serialized, /REWE SAGT DANKE/);
+  assert.match(serialized, /12,50 EUR/);
+  assert.match(serialized, /Miete Oktober/);
+});
+
 function b64url(value) {
   return Buffer.from(value).toString('base64url');
 }

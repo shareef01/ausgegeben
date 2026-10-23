@@ -914,6 +914,17 @@ class AppRepository @Inject constructor(
         }
         requireVerifiedEmail()
 
+        // AUD-005 pre-flight: the preferences write is the LAST step, and the rules require
+        // its revision to exceed whatever is already stored while also staying inside their
+        // five-minute future window. Work that out from the stored document now, so an
+        // unwritable window refuses the restore before a single category or expense lands.
+        val storedPreferencesRevision = settingsPrefsDoc(u).get(Source.SERVER).await()
+            .getLong("updatedAt")
+        val newTimestamp = BackupFormat.writablePreferencesRevision(
+            backup.preferences.preferencesUpdatedAt,
+            storedPreferencesRevision,
+        ) ?: throw IllegalStateException("PREFERENCES_REVISION_UNWRITABLE")
+
         // Pre-flight check: query categories to detect conflicting transactionType
         val existingCatsSnap = catCol(u).get().await()
         val existingCatsById = existingCatsSnap.documents.associateBy { it.id }
@@ -934,8 +945,11 @@ class AppRepository @Inject constructor(
             }
         }
 
-        // 1. Categories in chunks of 400
-        val categoryChunks = backup.categories.chunked(400)
+        // 1. Categories, chunked by the rules' per-batch document-access budget: a
+        // non-expense category makes the update rule read categoryBudgets (AUD-001).
+        val categoryChunks = RestoreBatches.chunkByBudgetCheck(backup.categories, 400) {
+            it.transactionType != "expense"
+        }
         for (chunk in categoryChunks) {
             val batch = firestore.batch()
             for (c in chunk) {
@@ -978,8 +992,7 @@ class AppRepository @Inject constructor(
             batch.commit().await()
         }
 
-        // 3. Preferences
-        val newTimestamp = BackupFormat.restoredPreferencesRevision(backup.preferences.preferencesUpdatedAt)
+        // 3. Preferences — `newTimestamp` was computed and validated in the pre-flight above.
         val validCurrencies = setOf("EUR", "USD", "GBP", "CHF")
         val validLocales = setOf("en", "de")
         val validThemes = setOf(
@@ -1714,9 +1727,12 @@ class AppRepository @Inject constructor(
                 ),
             )
 
-            // 1. Categories in chunks of 400
+            // 1. Categories, chunked by the rules' per-batch document-access budget (AUD-001).
+            // The lease renewal in the same batch costs no document access.
             verifyAndRenewRecoveryLease(expectedUid, currentClientId, fencingToken)
-            val categoryChunks = plan.categoriesToUpsert.chunked(400)
+            val categoryChunks = RestoreBatches.chunkByBudgetCheck(plan.categoriesToUpsert, 400) {
+                it.transactionType != "expense"
+            }
             var categoryBatchIndex = 0
             for (chunk in categoryChunks) {
                 val batch = firestore.batch()
@@ -2019,9 +2035,12 @@ class AppRepository @Inject constructor(
                 throw IllegalStateException("FAULT_INJECTED_DURING_ROLLBACK")
             }
 
-            // 1. Categories
+            // 1. Categories — budgeted exactly like the apply step: a rollback that cannot
+            // commit its category batch leaves the account half-replaced (AUD-001).
             verifyAndRenewRecoveryLease(expectedUid, currentClientId, fencingToken)
-            for (chunk in snapshot.categories.chunked(400)) {
+            for (chunk in RestoreBatches.chunkByBudgetCheck(snapshot.categories, 400) {
+                it.transactionType != "expense"
+            }) {
                 val batch = firestore.batch()
                 for (c in chunk) {
                     val ref = catDoc(expectedUid, c.id)

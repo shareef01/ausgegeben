@@ -519,6 +519,48 @@ describe('backupReplace on real Firestore emulator with rules enforced', () => {
     await rollbackReplace(emptyOp,TEST_UID);
     expect((await repo.getAll(TEST_UID))[0].monthlyLimit).toBe(400);
   });
+
+  /**
+   * AUD-001. The replace path writes every backed-up category in one batch that also
+   * carries the restore-journal lease renewal. A category whose type is not `expense`
+   * spends a rules document-access call on `existsAfter(categoryBudgets/{id})`; the
+   * journal update spends none. Before the fix this batch was chunked by row count only,
+   * so a 25-income-category account failed at the first APPLYING batch — and the rollback
+   * that follows writes categories the same way, so recovery failed too.
+   */
+  it('17. replace applies and rolls back more non-expense categories than one batch may read', async () => {
+    const db = enforcedFirestore();
+    const categories = Array.from({ length: 25 }, (_, i) => ({
+      id: `inc-${i}`,
+      name: `Income ${i}`,
+      iconName: 'wallet',
+      colorInt: 1,
+      transactionType: 'income' as const,
+      sortOrder: i,
+      updatedAt: 1_700_000_000_000,
+    }));
+
+    // Pre-existing rows: every write is an UPDATE, which is the rule that costs an access.
+    await rulesEnv().withSecurityRulesDisabled(async (ctx) => {
+      const raw = ctx.firestore();
+      for (const c of categories) {
+        await setDoc(doc(raw, `users/${TEST_UID}/categories/${c.id}`), { ...c, updatedAt: 1000 });
+      }
+    });
+
+    const backup = { ...createTestBackup({ numExpenses: 0 }), categories, expenses: [] };
+    const result = await executeReplace(backup, TEST_UID);
+    expect(result.success).toBe(true);
+
+    const stored = await getDocs(collection(db, 'users', TEST_UID, 'categories'));
+    expect(stored.size).toBe(25);
+    expect(stored.docs.every((d) => d.data().transactionType === 'income')).toBe(true);
+
+    // Rollback restores snapshot categories through the same budget; it must also commit.
+    const op = await getRestoreOperation(TEST_UID);
+    await rollbackReplace(op!, TEST_UID);
+    expect((await getDocs(collection(db, 'users', TEST_UID, 'categories'))).size).toBe(25);
+  });
   it('v2 merge upserts represented budgets and preserves omitted budgets', async () => {
     const { categoryBudgetRepository: repo } = await import('@/services/categoryBudgets');
     const base=createTestBackup();
