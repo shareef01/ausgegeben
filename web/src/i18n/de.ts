@@ -122,6 +122,8 @@ export const de: Record<TranslationKey, string> = {
   summaryEarned: 'einnahmen',
   summarySpent: 'ausgaben',
   summaryBalance: 'netto im zeitraum',
+  summaryTransferred: 'übertragen',
+  summaryTransferredCount: '{count} übertragungen',
   budgetMonthlyLabel: 'monatsbudget',
   budgetProgress: '{spent} / {budget}',
   budgetOverBy: '{amount} über budget',

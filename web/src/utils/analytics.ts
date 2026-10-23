@@ -36,16 +36,22 @@ export function computeTotals(expenses: Expense[]) {
   let totalExpensesMinor = 0;
   let totalIncomeMinor = 0;
   let totalTransfersMinor = 0;
+  let transferCount = 0;
   for (const e of expenses) {
     const minor = toMinorUnits(e.amount);
     if (isExpense(e)) totalExpensesMinor += minor;
     else if (isIncome(e)) totalIncomeMinor += minor;
-    else totalTransfersMinor += minor;
+    else {
+      totalTransfersMinor += minor;
+      transferCount += 1;
+    }
   }
   return {
     totalExpenses: fromMinorUnits(totalExpensesMinor),
     totalIncome: fromMinorUnits(totalIncomeMinor),
     totalTransfers: fromMinorUnits(totalTransfersMinor),
+    /** How many transfer rows contributed to `totalTransfers` (0 when there are none). */
+    transferCount,
     net: fromMinorUnits(totalIncomeMinor - totalExpensesMinor),
   };
 }

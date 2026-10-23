@@ -251,3 +251,49 @@ vite build          ok
 Playwright/Chromium 16/16 passed — authLifecycle, categoryBudgets, recordFilters,
                     recurring, tabHistory, periodSelector, layout (the whole suite)
 ```
+
+---
+
+# Round 6 additions — summary explainability, day labels, and a dock bug the screenshot found
+
+## Changed
+
+| # | Change | Evidence |
+|---|---|---|
+| UX-2 (follow-up) | The summary now shows **transferred** (amount + count, via `computeTotals().transferCount`) whenever the period contains transfers, so `net cash flow` (income − expenses) is explainable instead of looking like it dropped rows. | `FinanceSummaryCard.tsx`, `analytics.ts`, `.finance-stat-chip--transfer` in `premium.css`; analytics unit test |
+| DW-2 (partial) | Day-group labels were an 11px all-caps micro-label; now 13px sentence case at weight 600 (desktop 14px), in both `layout.css` and `polish.css`, with the inline Tailwind utilities removed so one source governs. | `RecordView.tsx`, `layout.css`, `polish.css` |
+| DW-1 (fix) | Once the dock items gained labels, the nav pill widened **over the FAB** at 390px. The pill can now shrink (`flex: 0 1 auto; min-width: 0`), items shrink to their 44px minimum, and the FAB is `flex: 0 0 auto`. | `polish.css` |
+
+## How that dock bug was found — and why the test now catches it
+
+The captured 390px screenshot showed "settings" half-hidden behind the + button, while
+`e2e/layout.spec.ts` was green. The assertion measured **document** overflow, which an overlapping
+*flex sibling* does not cause. `layout.spec.ts` now also asserts
+`pill.right <= fab.left + 1` at every mobile width, so the class of bug cannot come back silently.
+
+Screenshots were captured (Playwright, emulator-backed, seeded inline) to a **temporary directory
+outside the repo**: record at 1280x880 and 390x844 in light and dark, insights desktop light, and
+the editor desktop light. They are working evidence for this round, not committed assets — the
+published README images were not touched, and there is still no *before* set for these rounds (that
+needs a second worktree plus a second seeded emulator run).
+
+## Still visible in the captures (next slice)
+
+* The summary eyebrow ("NET CASH FLOW · THIS MONTH") is still an 11px all-caps micro-label, and
+  "MOST SPENT ON GROCERIES" is a full-width uppercase bar that reads like an alert rather than
+  information. Both are the DW-2 antipattern the spec names; they need the typography pass, not a
+  one-line change.
+* The card's hero number is 36px+ with a gradient/shadow treatment; the spec's target is 28-36px
+  with tabular figures and no glow on data.
+* Android equivalents (`summary_balance_period` is `uppercase()`-ed in Compose, `labelStyle()`
+  everywhere) — same pass, second platform.
+
+## Test evidence
+
+```
+web unit            41 files / 423 tests passed   (+1: transfers counted for the summary)
+tsc --noEmit        clean
+lint:css            527 class tokens, no undefined utilities
+vite build          ok
+Playwright/Chromium 16/16 full suite + layout spec re-run after the dock fix (3 targeted, green)
+```

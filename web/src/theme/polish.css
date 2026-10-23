@@ -51,10 +51,12 @@
   border-bottom-color: var(--hairline-divider, var(--glass-border));
   box-shadow: 0 8px 24px color-mix(in srgb, var(--color-background) 35%, transparent);
   color: var(--color-on-surface-variant);
-  letter-spacing: 0.12em;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  text-transform: uppercase;
+  /* Day labels are essential context, not decoration: 13px sentence case instead of an 11px
+     all-caps micro-label — the size the design spec forbids for information a user must read. */
+  letter-spacing: 0.01em;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: none;
 }
 
 [data-theme='light'] .txn-day-header.transaction-list-bare__day {
@@ -337,15 +339,21 @@
   box-shadow: var(--shadow-nav-pill);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
+  /* The pill shares the dock with the FAB: it must be able to shrink, or the two overlap once
+     the items carry labels (caught by the captured mobile screenshot, not by the overflow test). */
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .bottom-nav-pill__item {
   position: relative;
   /* Column layout: icon above a visible label (DW-1). The item keeps a 44 px minimum touch
-     target in both axes — the label adds height, it does not shrink the icon. */
-  min-width: 3rem;
+     target in both axes — the label adds height, it does not shrink the icon. Items may shrink
+     down to that minimum so a long label can never push the FAB out of the dock. */
+  flex: 1 1 auto;
+  min-width: 2.75rem;
   min-height: 3rem;
-  padding: 0.3rem 0.5rem;
+  padding: 0.3rem 0.4rem;
   border: none;
   border-radius: 999px;
   display: inline-flex;
@@ -368,6 +376,7 @@
   line-height: 1.1;
   letter-spacing: 0.01em;
   max-width: 4.25rem;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -404,6 +413,9 @@
   box-shadow:
     0 0 0 2px color-mix(in srgb, var(--color-income) 18%, transparent),
     0 4px 24px color-mix(in srgb, var(--color-income) 40%, transparent);
+  /* In the mobile dock the FAB is a flex sibling of the pill: it must never shrink or be
+     overlapped by a widening pill. */
+  flex: 0 0 auto;
 }
 
 .fab-add--desktop {

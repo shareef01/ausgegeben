@@ -120,6 +120,8 @@ export const en = {
   summaryEarned: 'earned',
   summarySpent: 'spent',
   summaryBalance: 'net cash flow',
+  summaryTransferred: 'transferred',
+  summaryTransferredCount: '{count} transfers',
   budgetMonthlyLabel: 'monthly budget',
   budgetProgress: '{spent} / {budget}',
   budgetOverBy: '{amount} over budget',

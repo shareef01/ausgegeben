@@ -379,7 +379,10 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
               {grouped.map(({ key, label, items, dayIncome, dayExpense }) => (
                 <section key={key} className="transaction-list-bare__section">
                   <div className="txn-day-header transaction-list-bare__day">
-                    <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-on-surface-variant">{label}</span>
+                    {/* The day label inherits the header's type from CSS (13px sentence case).
+                        The old inline utilities forced 11px all-caps tracking, which the design
+                        spec rules out for information the user must read. */}
+                    <span className="txn-day-header__label">{label}</span>
                     {(dayIncome > 0 || dayExpense > 0) ? (
                       <span className="txn-day-header__totals" aria-label={`${t('filterIncome')} ${formatAmount(dayIncome, currency)}, ${t('filterExpense')} ${formatAmount(dayExpense, currency)}`}>
                         {dayIncome > 0 ? (

@@ -58,6 +58,17 @@ test('mobile dock: labels are visible and nothing overflows at 320-430px', async
     expect(dockBox.x).toBeGreaterThanOrEqual(0);
     expect(dockBox.x + dockBox.width).toBeLessThanOrEqual(width + 1);
 
+    // ...and its two children must not collide. The overflow check above cannot see this: a
+    // widening pill overlapped the FAB once the items gained labels, and the document still did
+    // not scroll. Caught by the captured mobile screenshot; now caught here.
+    const pillBox = (await dock.locator('.bottom-nav-pill').boundingBox())!;
+    const fabBox = (await dock.locator('.fab-add').boundingBox())!;
+    expect(
+      pillBox.x + pillBox.width,
+      `nav pill and FAB overlap at ${width}px (pill ends ${pillBox.x + pillBox.width}, FAB starts ${fabBox.x})`,
+    ).toBeLessThanOrEqual(fabBox.x + 1);
+    expect(fabBox.x + fabBox.width).toBeLessThanOrEqual(width + 1);
+
     // Sign out so the next width starts from the auth screen.
     await page.evaluate(async () => {
       const path = '/src/services/authService.ts';

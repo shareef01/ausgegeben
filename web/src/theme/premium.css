@@ -254,6 +254,17 @@
   color: var(--color-expense);
 }
 
+/* Transfers are neither income nor expense; the chip exists so the net above is explainable. */
+.finance-stat-chip--transfer .finance-stat-chip__icon {
+  color: var(--color-transfer);
+  background: color-mix(in srgb, var(--color-transfer) 14%, transparent);
+}
+
+.finance-stat-chip--transfer .finance-stat-chip__value,
+.finance-stat-chip--transfer .money {
+  color: var(--color-transfer);
+}
+
 /* ── Transaction List Restoration ── */
 /* .transaction-list-bare__day styling lives in polish.css's
    .txn-day-header.transaction-list-bare__day (the only way this class is ever
