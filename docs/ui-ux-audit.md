@@ -153,6 +153,29 @@ live regions, per-row action labels) rather than every line. No claim is made ab
 |---|---|
 | UX-3 day totals | Android's `RecordScreen` still shows period-level day totals while the list is filtered. Decide the same semantics (filtered totals) and add the equivalent note, or document the divergence deliberately. |
 | UX-5 period selector | Android already uses a modal sheet with real buttons; verify TalkBack announces the selected period and that the sheet traps/restores focus. No code change expected. |
-| UX-1 dirty check | Still create-only in `AddTransactionScreen.kt`; must mirror `isFormDirty` (amount in cents, date as calendar day, trimmed note) with unit tests. |
+| UX-1 dirty check | ✅ **Done in Round 3.** `util/TransactionDraft.kt` mirrors the web comparison (amount in cents, date as calendar day, trimmed note) and `AddExpenseViewModel` now exposes the loaded `baseline`. While doing it, a second defect surfaced: the top-bar **✕ called `onBack` directly**, bypassing the guard entirely — so a half-typed *new* transaction was discarded with no prompt even though Back was guarded. Both close paths now go through one `requestClose`. 15 unit tests. |
 | UX-4 | Not applicable — Android has no URL. |
 | Copy | Done: `netto im zeitraum` in `values-de`. |
+---
+
+# Round 3 additions — Android parity (UX-1)
+
+## Two defects, not one
+
+Parity work on the Android editor uncovered a second, wider instance of the same defect:
+
+| # | Issue | Severity | Evidence | Fix |
+|---|---|---|---|---|
+| UX-7 | The top-bar **✕** called `onBack()` directly, so it discarded a half-typed **new** transaction with no confirmation — the `BackHandler` guard only ever covered the system Back gesture. | High | `AddTransactionScreen.kt` `ObsidianTopBar(onBack = onBack)` → `AppIconButton(onClick = onBack)` | Both paths now call one `requestClose` lambda |
+
+## What changed
+
+* `util/TransactionDraft.kt` — pure, zone-injectable comparison mirroring the web `toTransactionBaseline` / `isFormDirty`: amount in minor units (so `12,5 ≡ 12,50`), type, category id, trimmed note, and the local calendar day (a stored timestamp's time-of-day is not an edit). `isDirty` is false while no baseline exists, so an unloaded editor never prompts.
+* `AddExpenseViewModel` — records the baseline once the fields are seeded (`loadForEdit` after the amount is formatted for the display currency; `resetForm` for a new transaction). The baseline uses the **selected** category id, so a row whose stored category is an orphan or the `0` sentinel (selection null) is not reported dirty on open.
+* `AddTransactionScreen` — the create-only gate is gone; both the Back gesture and the ✕ route through `requestClose`.
+
+## Tests
+
+`TransactionDraftTest` — 15 cases: untouched create, unloaded editor, typed amount, whitespace-only note, type/category change, placeholder `"0"` vs empty, untouched edit (the regression), edit-then-undo, date-only change, pure reformat (`12,5` / `012,50` / USD `12.5`), same-day time drift, orphan-category row, minor-unit parsing (EUR and USD separators), local day key, note trimming.
+
+Android suite: **42 suites / 348 tests, 0 failures** (9 emulator-only skips) plus `lintProdDebug`. No web or Firestore behaviour touched.

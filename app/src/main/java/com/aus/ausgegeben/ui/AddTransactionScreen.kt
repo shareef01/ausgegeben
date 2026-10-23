@@ -159,16 +159,37 @@ fun AddTransactionScreen(
     val hasCategory = selectedCategory != null
     val canSave = hasCategory && hasAmount
     val hasCategories = categories.isNotEmpty()
-    val hasUnsavedChanges = remarkText.isNotBlank() || hasAmount || hasCategory || selectedTab != 0
 
-    BackHandler {
-        if (hasUnsavedChanges && !isEditing) {
+    // UX-1: prompt whenever closing would discard a real change — for a new transaction and an
+    // edit alike. The old guard asked "does this form look non-empty?" and had to exclude edits
+    // (a loaded row always looks non-empty), which is exactly why Back on an edited transaction
+    // threw the change away silently. `TransactionDraft` compares against the values the form
+    // opened with, on what Save would persist (amount in cents, date as a local day, note
+    // trimmed), so a reformatted amount or an untouched form never prompts.
+    val baseline by viewModel.baseline.collectAsStateWithLifecycle()
+    val currentDraft = TransactionDraft.of(
+        amountText = amountText,
+        currencyCode = currencyCode,
+        transactionType = transactionType.storageKey,
+        categoryId = selectedCategory?.id,
+        note = remarkText,
+        dateMillis = dateMillis,
+    )
+    val isDirty = TransactionDraft.isDirty(currentDraft, baseline)
+
+    // Every close path goes through this: the system Back gesture and the top-bar ✕. The ✕ used
+    // to call `onBack` directly, so a half-typed new transaction was discarded with no prompt at
+    // all.
+    val requestClose = {
+        if (isDirty) {
             haptics.light()
             showDiscardConfirm = true
         } else {
             onBack()
         }
     }
+
+    BackHandler { requestClose() }
 
     if (showDiscardConfirm) {
         AppDestructiveConfirmDialog(
@@ -201,7 +222,7 @@ fun AddTransactionScreen(
                     topBar = {
                         ObsidianTopBar(
                             isEditing = isEditing,
-                            onBack = onBack,
+                            onBack = requestClose,
                             accentColor = typeAccent
                         )
                     }
