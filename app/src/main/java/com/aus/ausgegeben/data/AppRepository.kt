@@ -16,6 +16,7 @@ import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.RestoreUtils
 import com.aus.ausgegeben.util.RestoreBatches
 import com.aus.ausgegeben.util.ReplacePlanner
+import com.aus.ausgegeben.util.SafetySnapshot
 import com.aus.ausgegeben.util.dateRangeMillis
 import com.aus.ausgegeben.util.expenseDocumentId
 import com.aus.ausgegeben.util.runSuspendCatching
@@ -1471,105 +1472,68 @@ class AppRepository @Inject constructor(
         val recurringReceipts: List<OccurrenceReceipt>?,
     )
 
+    /**
+     * Reads the safety snapshot back as authoritative state for a rollback (AUD-006).
+     *
+     * Every field goes through [SafetySnapshot], which is strict and fail-closed: a malformed
+     * row throws `SNAPSHOT_INVALID: <path>` instead of being defaulted or dropped, because the
+     * rollback writes what it reads back as the account's state (and deletes templates and
+     * expenses that are not in it). The declared totals in the metadata are cross-checked
+     * against what was actually read, so a truncated or mis-read chunk cannot silently shrink
+     * the recovery set.
+     */
     private suspend fun readSafetySnapshot(u: String): SnapshotData {
         val metaSnap = snapshotDoc(u, "meta").get(Source.SERVER).await()
         if (!metaSnap.exists()) {
             throw IllegalStateException("SNAPSHOT_NOT_FOUND")
         }
-        val operationId = metaSnap.getString("operationId") ?: ""
-        val chunkCount = (metaSnap.getLong("chunkCount") ?: 1L).toInt()
+        val meta = metaSnap.data.orEmpty()
+        val operationId = SafetySnapshot.operationId(meta)
+        val chunkCount = SafetySnapshot.chunkCount(meta, "chunkCount")
 
-        val rawCategories = metaSnap.get("categories") as? List<Map<String, Any?>> ?: emptyList()
-        val categories = rawCategories.mapNotNull { m ->
-            val name = (m["name"] as? String)?.trim().orEmpty()
-            if (name.isEmpty()) null
-            else Category(
-                id = (m["id"] as? String).orEmpty(),
-                name = name,
-                iconName = (m["iconName"] as? String) ?: "shopping_bag",
-                colorInt = ((m["colorInt"] as? Number)?.toLong() ?: 0xff6a9fd4).toInt(),
-                transactionType = (m["transactionType"] as? String) ?: "expense",
-                sortOrder = ((m["sortOrder"] as? Number)?.toInt() ?: 0),
-            )
-        }
-
-        val rawPrefs = metaSnap.get("preferences") as? Map<String, Any?>
-        val preferences = if (rawPrefs != null && rawPrefs.isNotEmpty()) {
-            SyncedPreferences(
-                currency = (rawPrefs["currency"] as? String) ?: "EUR",
-                locale = (rawPrefs["locale"] as? String) ?: "en",
-                themeMode = (rawPrefs["themeMode"] as? String) ?: "system",
-                onboardingComplete = (rawPrefs["onboardingComplete"] as? Boolean) ?: true,
-                dailyReminder = (rawPrefs["dailyReminder"] as? Boolean) ?: true,
-                reminderHour = ((rawPrefs["reminderHour"] as? Number)?.toInt()) ?: 19,
-                reminderMinute = ((rawPrefs["reminderMinute"] as? Number)?.toInt()) ?: 0,
-                analyticsPeriod = (rawPrefs["analyticsPeriod"] as? String) ?: "this_month",
-                monthlyBudget = (rawPrefs["monthlyBudget"] as? Number)?.toDouble(),
-                updatedAt = (rawPrefs["updatedAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
-            )
-        } else null
+        val categories = SafetySnapshot.categories(meta)
+        SafetySnapshot.requireCount(
+            SafetySnapshot.declaredCount(meta, "totalCategories"), categories.size, "meta.totalCategories",
+        )
+        val preferences = SafetySnapshot.preferences(meta)
 
         val expenses = mutableListOf<Expense>()
         val expenseLegacyFields = mutableMapOf<String, Map<String, Any>>()
         for (i in 0 until chunkCount) {
             val chunkSnap = snapshotDoc(u, "chunk_$i").get(Source.SERVER).await()
             check(chunkSnap.exists() && chunkSnap.getString("operationId") == operationId) { "SNAPSHOT_CHUNK_MISSING_OR_CHANGED" }
-            if (chunkSnap.exists()) {
-                val rawExpenses = chunkSnap.get("expenses") as? List<Map<String, Any?>> ?: emptyList()
-                for (m in rawExpenses) {
-                    val id = (m["id"] as? String).orEmpty()
-                    if (id.isNotEmpty()) {
-                        legacyExpenseFields(m).takeIf { it.isNotEmpty() }?.let { expenseLegacyFields[id] = it }
-                        expenses.add(
-                            Expense(
-                                id = id,
-                                amount = (m["amount"] as? Number)?.toDouble() ?: 0.0,
-                                dateMillis = (m["dateMillis"] as? Number)?.toLong() ?: 0L,
-                                categoryId = (m["categoryId"] as? String) ?: UNCATEGORIZED_ID,
-                                note = (m["note"] as? String) ?: "",
-                                transactionType = (m["transactionType"] as? String) ?: "expense",
-                                deleted = (m["deleted"] as? Boolean) ?: false,
-                            ),
-                        )
-                    }
-                }
+            for (row in SafetySnapshot.expenses(chunkSnap.data.orEmpty(), "chunk_$i") { legacyExpenseFields(it) }) {
+                expenses.add(row.expense)
+                if (row.legacy.isNotEmpty()) expenseLegacyFields[row.expense.id] = row.legacy
             }
         }
+        SafetySnapshot.requireCount(
+            SafetySnapshot.declaredCount(meta, "totalExpenses"), expenses.size, "meta.totalExpenses",
+        )
 
-        val budgets = (metaSnap.get("categoryBudgets") as? List<Map<String, Any?>>)?.map { m -> com.aus.ausgegeben.data.entity.CategoryBudget(m["categoryId"] as String, (m["monthlyLimit"] as Number).toDouble(), (m["warningThresholdPercent"] as Number).toInt(), (m["updatedAt"] as Number).toLong()) }
-        val recurringTemplates = (metaSnap.get("recurringTemplates") as? List<Map<String, Any?>>)?.mapNotNull { m ->
-            val id = m["id"] as? String ?: return@mapNotNull null
-            runCatching { RecurringTemplate.from(id, m) }.getOrNull()
-        }
-        val receiptChunkCount = (metaSnap.getLong("receiptChunkCount") ?: 0L).toInt()
-        val recurringReceipts = mutableListOf<OccurrenceReceipt>()
-        if (receiptChunkCount > 0) {
+        val budgets = SafetySnapshot.budgets(meta)
+        val recurringTemplates = SafetySnapshot.templates(meta)
+
+        val receiptChunkCount = SafetySnapshot.chunkCount(meta, "receiptChunkCount", default = 0)
+        val recurringReceipts = if (receiptChunkCount > 0) {
+            val collected = mutableListOf<OccurrenceReceipt>()
             for (i in 0 until receiptChunkCount) {
                 val chunkSnap = snapshotDoc(u, "receipt_chunk_$i").get(Source.SERVER).await()
                 // Fail closed like the expense chunks: rollback replaces the receipts
                 // collection with this list, so a dropped chunk re-materialises occurrences.
                 check(chunkSnap.exists() && chunkSnap.getString("operationId") == operationId) { "SNAPSHOT_CHUNK_MISSING_OR_CHANGED" }
-                val rawReceipts = chunkSnap.get("recurringReceipts") as? List<Map<String, Any?>> ?: emptyList()
-                for (m in rawReceipts) {
-                    val id = m["id"] as? String ?: continue
-                    val templateId = m["templateId"] as? String ?: continue
-                    val scheduledDate = m["scheduledDate"] as? String ?: continue
-                    val expenseId = m["expenseId"] as? String ?: continue
-                    val createdAt = (m["createdAt"] as? Number)?.toLong() ?: 0L
-                    recurringReceipts.add(OccurrenceReceipt(id, templateId, scheduledDate, expenseId, createdAt))
-                }
+                collected += SafetySnapshot.receipts(
+                    chunkSnap.data.orEmpty()["recurringReceipts"], "receipt_chunk_$i.recurringReceipts",
+                )
             }
+            collected
         } else {
-            val rawReceipts = (metaSnap.get("recurringReceipts") as? List<Map<String, Any?>>) ?: emptyList()
-            for (m in rawReceipts) {
-                val id = m["id"] as? String ?: continue
-                val templateId = m["templateId"] as? String ?: continue
-                val scheduledDate = m["scheduledDate"] as? String ?: continue
-                val expenseId = m["expenseId"] as? String ?: continue
-                val createdAt = (m["createdAt"] as? Number)?.toLong() ?: 0L
-                recurringReceipts.add(OccurrenceReceipt(id, templateId, scheduledDate, expenseId, createdAt))
-            }
+            SafetySnapshot.receipts(meta["recurringReceipts"], "meta.recurringReceipts")
         }
+        SafetySnapshot.requireCount(
+            SafetySnapshot.declaredCount(meta, "totalReceipts"), recurringReceipts.size, "meta.totalReceipts",
+        )
+
         return SnapshotData(
             categoryBudgets = budgets,
             recurringTemplates = recurringTemplates,

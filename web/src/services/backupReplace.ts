@@ -22,6 +22,7 @@ import { useAuthStore } from '@/services/authStore';
 import { chunkByBudgetCheck, chunkByCategory } from '@/utils/restoreBatches';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { sanitizeSyncedPreferences } from '@/services/preferencesSync';
+import * as safety from '@/services/safetySnapshot';
 import {
   CATEGORIES_COLLECTION,
   CATEGORY_BUDGETS_COLLECTION,
@@ -467,65 +468,58 @@ export async function readSafetySnapshot(userId: string): Promise<{
   if (!metaSnap.exists()) {
     throw new Error('SNAPSHOT_NOT_FOUND');
   }
-  const metaData = metaSnap.data() as {
-    operationId: string;
-    chunkCount: number;
-    receiptChunkCount?: number;
-    categories?: Category[];
-    preferences?: SyncedPreferences;
-    categoryBudgets?: CategoryBudget[];
-    recurringTemplates?: RecurringTemplate[];
-    recurringReceipts?: OccurrenceReceipt[];
-  };
+  // AUD-006: strict, count-checked reading. A malformed row must fail the rollback here — with
+  // the journal and the snapshot intact — instead of being defaulted or dropped and then
+  // written back as authoritative state.
+  const metaData = (metaSnap.data() ?? {}) as Record<string, unknown>;
+  const snapshotOperationId = safety.operationId(metaData);
+  const snapshotChunkCount = safety.chunkCount(metaData, 'chunkCount');
+  const snapshotCategories = safety.categories(metaData);
+  safety.requireCount(
+    safety.declaredCount(metaData, 'totalCategories'),
+    snapshotCategories.length,
+    'meta.totalCategories',
+  );
+  const snapshotPreferences = safety.preferences(metaData);
+  const snapshotBudgets = safety.budgets(metaData);
+  const snapshotTemplates = safety.templates(metaData);
 
   const allExpenses: Expense[] = [];
-  for (let i = 0; i < metaData.chunkCount; i++) {
+  for (let i = 0; i < snapshotChunkCount; i++) {
     const chunkRef = doc(db, 'users', userId, RESTORE_SNAPSHOT_COLLECTION, `chunk_${i}`);
     const chunkSnap = await getDocFromServer(chunkRef);
-    if (!chunkSnap.exists() || chunkSnap.data().operationId !== metaData.operationId) throw new Error('SNAPSHOT_CHUNK_MISSING_OR_CHANGED');
-    if (chunkSnap.exists()) {
-      const data = chunkSnap.data() as { expenses?: Expense[] };
-      if (data.expenses) {
-        allExpenses.push(...data.expenses.map((e) => ({
-          ...e,
-          idempotencyKey: e.idempotencyKey ? String(e.idempotencyKey) : undefined,
-          deleted: e.deleted === true ? true : undefined,
-          cloudId: e.cloudId ? String(e.cloudId) : undefined,
-          categoryCloudId: e.categoryCloudId != null ? e.categoryCloudId : undefined,
-          receiptImagePath: e.receiptImagePath != null ? String(e.receiptImagePath) : undefined,
-        })));
-      }
-    }
+    if (!chunkSnap.exists() || chunkSnap.data().operationId !== snapshotOperationId) throw new Error('SNAPSHOT_CHUNK_MISSING_OR_CHANGED');
+    allExpenses.push(...safety.expenses(chunkSnap.data() as Record<string, unknown>, `chunk_${i}`));
   }
+  safety.requireCount(safety.declaredCount(metaData, 'totalExpenses'), allExpenses.length, 'meta.totalExpenses');
 
   const allReceipts: OccurrenceReceipt[] = [];
-  const receiptChunkCount = Number(metaData.receiptChunkCount) || 0;
+  const receiptChunkCount = safety.chunkCount(metaData, 'receiptChunkCount', 'meta', 0);
   if (receiptChunkCount > 0) {
     for (let i = 0; i < receiptChunkCount; i++) {
       const chunkRef = doc(db, 'users', userId, RESTORE_SNAPSHOT_COLLECTION, `receipt_chunk_${i}`);
       const chunkSnap = await getDocFromServer(chunkRef);
       // Fail closed like the expense chunks: rollback replaces the receipts collection
       // with this list, so a dropped chunk would re-materialise those occurrences.
-      if (!chunkSnap.exists() || chunkSnap.data().operationId !== metaData.operationId) {
+      if (!chunkSnap.exists() || chunkSnap.data().operationId !== snapshotOperationId) {
         throw new Error('SNAPSHOT_CHUNK_MISSING_OR_CHANGED');
       }
-      const data = chunkSnap.data() as { recurringReceipts?: OccurrenceReceipt[] };
-      if (data.recurringReceipts) {
-        allReceipts.push(...data.recurringReceipts);
-      }
+      const data = chunkSnap.data() as Record<string, unknown>;
+      allReceipts.push(...safety.receipts(data.recurringReceipts, `receipt_chunk_${i}.recurringReceipts`));
     }
-  } else if (metaData.recurringReceipts) {
-    allReceipts.push(...metaData.recurringReceipts);
+  } else {
+    allReceipts.push(...safety.receipts(metaData.recurringReceipts, 'meta.recurringReceipts'));
   }
+  safety.requireCount(safety.declaredCount(metaData, 'totalReceipts'), allReceipts.length, 'meta.totalReceipts');
 
   return {
-    categoryBudgets: metaData.categoryBudgets,
-    recurringTemplates: metaData.recurringTemplates,
+    categoryBudgets: snapshotBudgets,
+    recurringTemplates: snapshotTemplates,
     recurringReceipts: allReceipts,
-    operationId: metaData.operationId,
+    operationId: snapshotOperationId,
     expenses: allExpenses,
-    categories: metaData.categories ?? [],
-    preferences: metaData.preferences && Object.keys(metaData.preferences).length > 0 ? metaData.preferences : null,
+    categories: snapshotCategories,
+    preferences: snapshotPreferences,
   };
 }
 
