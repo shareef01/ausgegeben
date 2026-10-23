@@ -57,7 +57,7 @@ control is a real control, and every icon-only control carries an `aria-label` +
 * **H-1** The transaction editor's field order (type → amount → date → category → note) puts the category rail — a long horizontal scroll — above the note, which may bury the primary action on small screens. Measure with a scroll-depth/tap-count probe at 320 px.
 * **H-2** The editor's "Save" label is lower-cased in the button (`t('actionSave').toLowerCase()`) while other buttons keep sentence case; users may read the all-lowercase style as disabled/secondary. Needs a quick preference test.
 * **H-3** Swipe-to-delete discoverability on the transaction list is unknown; the gesture has no visible affordance until used.
-* **H-4** Insights charts have accessible names (`chartCashFlow` etc.) but the *data* is not exposed as text; screen-reader users may get a picture description with no numbers.
+* ~~**H-4** Insights charts expose a picture description with no numbers.~~ **Withdrawn in Round 9 — the hypothesis was wrong.** `CashFlowChart` announces its label *and* both totals (`role="img"` + `aria-label` containing income and expense, `CashFlowChart.tsx:162,208-209`), and `DonutChart` announces the total plus **every category with its percentage** (`DonutChart.tsx:103-113`). Verified by reading the label construction, not by assuming. No change was needed here, and none was invented.
 
 ## Optional enhancements (explicitly not required by the current brief)
 
@@ -372,3 +372,56 @@ This Android slice is verified by **compilation, lint and the unit suite** (42 s
 seed script, which is the same gap the web rounds closed with Playwright. The Compose changes are
 mechanical (one shared TextStyle, one Text, one removed helper) precisely because they cannot be
 inspected here.
+---
+
+# Round 9 additions — Insights labels, and a hypothesis withdrawn
+
+## H-4 withdrawn (evidence beats hypothesis)
+
+I had recorded "charts have accessible names but the data is not exposed as text". Reading the label
+construction shows that is false on both charts:
+
+* `CashFlowChart.tsx:162` builds `ariaSummary` from the *totals* — `"cash flow chart. income: X. expense: Y."`
+  — and puts it on `role="img"` (lines 208-209).
+* `DonutChart.tsx:103-106` builds a summary of **every segment** with its rounded percentage, and
+  lines 111-113 prepend the chart name and the centre total.
+
+So Insights already gives screen-reader users the numbers, and there was nothing to fix. Recorded as
+withdrawn rather than replaced with unrelated "improvements" to fill the slot.
+
+## Changed: the remaining black-caps label family on Insights
+
+The captured Insights screenshot showed the screen's dominant texture was all-caps tracked
+micro-labels. Three classes carried it; all now match the sentence-case treatment used elsewhere
+(12px, weight 600, 0.01em tracking):
+
+| Class | Was | Now |
+|---|---|---|
+| `.insights-period-card__label` | 11px, w800, uppercase, 0.12em | 12px, w600, sentence case |
+| `.insights-summary-dock__label` | 11px, w800, uppercase, 0.12em | 12px, w600, sentence case |
+| `.insights-cashflow-card__label` | 10px, w800, uppercase, 0.12em | 12px, w600, sentence case |
+
+`.insights-metric-card__stat-label` was already correct (12px, w600) and was left alone.
+
+## What the Insights capture shows is still needed (next slice)
+
+The hierarchy, not the type, is now the main weakness — and it is a product-shape change, so it is
+stated rather than silently reordered:
+
+1. **"Category budgets" occupies the largest card and sits first**, showing only "No category
+   budgets configured", while the spending/income distributions are below the fold. The brief's
+   intended narrative is overview -> change -> drivers -> distribution -> trend -> budget.
+2. Nine cards of near-equal weight: no visual hierarchy between the period summary, the metrics,
+   the shifts and the charts.
+3. Section titles ("SPENDING PACE", "VS PREVIOUS MONTH", "TOP SHIFTS VS LAST MONTH", "EXPENSE",
+   "INCOME") are still rendered by `AccentTitle`/card titles in caps; they need the same treatment,
+   which means touching a shared title component across screens.
+
+## Test evidence
+
+```
+web unit            41 files / 423 tests passed
+tsc --noEmit        clean
+lint:css            527 class tokens, no undefined utilities
+vite build          ok
+```

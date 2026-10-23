@@ -136,10 +136,10 @@
 }
 
 .insights-period-card__label {
-  font-size: 0.6875rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.01em;
   color: var(--color-on-surface-variant);
   margin: 0;
   padding: 0 2px;
@@ -168,10 +168,10 @@
 }
 
 .insights-summary-dock__label {
-  font-size: 0.6875rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.01em;
   color: var(--color-on-surface-variant);
 }
 
