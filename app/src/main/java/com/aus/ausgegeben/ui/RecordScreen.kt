@@ -89,6 +89,12 @@ fun RecordScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val allExpenses by viewModel.pagedExpenses.collectAsStateWithLifecycle(initialValue = emptyList<Expense>())
+
+    // Whether anything is narrowing the list right now (UX-3): used to explain that the day
+    // totals follow the rows, while the period summary above does not.
+    val filtersActive = uiState.toolbar.searchQuery.isNotBlank() ||
+        uiState.toolbar.typeFilter != TransactionTypeFilter.ALL ||
+        uiState.toolbar.composite.activeCount > 0
     
     // Performance: Memoize derived calculations
     val dayTotalsByDay = remember(uiState.dayTotalsByDay) { uiState.dayTotalsByDay }
@@ -249,6 +255,19 @@ fun RecordScreen(
                 if (uiState.dataTruncated && !uiState.isLoading) {
                     item(key = "truncated") {
                         Text(stringResource(R.string.record_cache_incomplete), modifier = Modifier.padding(16.dp))
+                    }
+                }
+
+                // UX-3: the period summary above is filter-independent; these day totals follow
+                // the rows on screen. Say so while a filter is narrowing the list, so the two
+                // numbers can never look like they disagree (web parity).
+                if (filtersActive && allExpenses.isNotEmpty() && !uiState.isLoading) {                    item(key = "totals-filtered") {
+                        Text(
+                            stringResource(R.string.record_totals_filtered),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
 

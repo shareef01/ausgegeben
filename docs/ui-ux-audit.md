@@ -151,7 +151,7 @@ live regions, per-row action labels) rather than every line. No claim is made ab
 
 | Item | Obligation |
 |---|---|
-| UX-3 day totals | Android's `RecordScreen` still shows period-level day totals while the list is filtered. Decide the same semantics (filtered totals) and add the equivalent note, or document the divergence deliberately. |
+| UX-3 day totals | ✅ **Done in Round 4.** `ExpenseViewModel.uiState` now computes `dayTotalsByDay` from the same `filterRecords` call (same inputs) that feeds `pagedExpenses`, and `RecordScreen` shows the `record_totals_filtered` note while a filter is active. Regression test: `ExpenseViewModelTest.dayTotals_followTheFilteredRows`. |
 | UX-5 period selector | Android already uses a modal sheet with real buttons; verify TalkBack announces the selected period and that the sheet traps/restores focus. No code change expected. |
 | UX-1 dirty check | ✅ **Done in Round 3.** `util/TransactionDraft.kt` mirrors the web comparison (amount in cents, date as calendar day, trimmed note) and `AddExpenseViewModel` now exposes the loaded `baseline`. While doing it, a second defect surfaced: the top-bar **✕ called `onBack` directly**, bypassing the guard entirely — so a half-typed *new* transaction was discarded with no prompt even though Back was guarded. Both close paths now go through one `requestClose`. 15 unit tests. |
 | UX-4 | Not applicable — Android has no URL. |
@@ -179,3 +179,28 @@ Parity work on the Android editor uncovered a second, wider instance of the same
 `TransactionDraftTest` — 15 cases: untouched create, unloaded editor, typed amount, whitespace-only note, type/category change, placeholder `"0"` vs empty, untouched edit (the regression), edit-then-undo, date-only change, pure reformat (`12,5` / `012,50` / USD `12.5`), same-day time drift, orphan-category row, minor-unit parsing (EUR and USD separators), local day key, note trimming.
 
 Android suite: **42 suites / 348 tests, 0 failures** (9 emulator-only skips) plus `lintProdDebug`. No web or Firestore behaviour touched.
+---
+
+# Round 4 additions — Android UX-3 parity
+
+**Defect (same class as the web UX-3):** `ExpenseViewModel` computed `dayTotalsByDay` from
+`listExpensesShared` — the *unfiltered* period — while the rendered rows came from `pagedExpenses`
+(search/type/category/amount filtered). Every day header therefore contradicted the rows under it
+whenever a filter was active.
+
+**Fix:** the totals are now derived inside the `uiState` combine from the same `filterRecords(...)`
+call, with the same inputs, that `pagedExpenses` uses; `RecordScreen` shows
+`record_totals_filtered` ("day totals reflect the active filters" / "tagesummen folgen den aktiven
+filtern") while a filter is active. The period summary card stays filter-independent on both
+platforms.
+
+**One approach rejected, and why:** the first implementation made `pagedExpenses` a shared flow
+(`shareIn`) and derived the totals from it, so there would be literally one filter pass. It broke six
+existing view-model tests: sharing couples a public flow to the view-model lifecycle, and
+`WhileSubscribed` restart behaviour under virtual time is not what those tests assert. Reverted in
+favour of "one predicate, two call sites", which keeps the guarantee that matters (the rows and the
+totals cannot disagree about *which* rows are visible) without changing any flow's lifecycle.
+
+**Tests:** `ExpenseViewModelTest.dayTotals_followTheFilteredRows` — 16.0 unfiltered → 12.5 with a
+search → 16.0 after clearing, all read from `uiState.dayTotalsByDay`. Android suite: 42 suites /
+349 tests, 0 failures (9 emulator-only skips) + `lintProdDebug`.

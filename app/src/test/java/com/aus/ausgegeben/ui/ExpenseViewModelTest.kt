@@ -7,6 +7,7 @@ import com.aus.ausgegeben.data.TransactionPreferences
 import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.util.RecordListPeriod
+import com.aus.ausgegeben.util.localDayStartMillis
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -69,6 +70,34 @@ class ExpenseViewModelTest {
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+    }
+
+    /**
+     * UX-3 regression: the day-group totals must be computed from the rows the list is showing,
+     * not from the unfiltered period. Before this they came from the period list, so filtering
+     * to one note left a day header that added up everything on that day.
+     */
+    @Test
+    fun dayTotals_followTheFilteredRows() = runTest(dispatcher) {
+        val coffee = expense.copy(id = "coffee", amount = 12.5, note = "coffee")
+        val tea = expense.copy(id = "tea", amount = 3.5, note = "tea")
+        fakeExpenses.expenses.value = listOf(coffee, tea)
+
+        val job = launch { viewModel.uiState.collect {} }
+        advanceUntilIdle()
+
+        val dayStart = localDayStartMillis(coffee.dateMillis)
+        assertEquals(16.0, viewModel.uiState.value.dayTotalsByDay[dayStart]?.second ?: -1.0, 0.001)
+
+        viewModel.setSearchQuery("coffee")
+        advanceUntilIdle()
+        assertEquals(12.5, viewModel.uiState.value.dayTotalsByDay[dayStart]?.second ?: -1.0, 0.001)
+
+        viewModel.setSearchQuery("")
+        advanceUntilIdle()
+        assertEquals(16.0, viewModel.uiState.value.dayTotalsByDay[dayStart]?.second ?: -1.0, 0.001)
+
+        job.cancel()
     }
 
     @Test
