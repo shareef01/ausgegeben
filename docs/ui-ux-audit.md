@@ -297,3 +297,42 @@ lint:css            527 class tokens, no undefined utilities
 vite build          ok
 Playwright/Chromium 16/16 full suite + layout spec re-run after the dock fix (3 targeted, green)
 ```
+---
+
+# Round 7 additions — typography pass on the summary and the day list
+
+## Changed (web)
+
+| Element | Before | After |
+|---|---|---|
+| Summary eyebrow | 10px, weight 800, **all caps**, 0.12em tracking | 13px, weight 600, sentence case |
+| Hero metric | `clamp(2.5rem, 8vw, 4rem)` (up to 64px), weight 900, glow/gradient | `clamp(1.875rem, 5vw, 2.25rem)` (30-36px), weight 700, no text-shadow; tabular figures come from the global rule |
+| Stat chip labels | 11px, weight 800, all caps, 0.1em | 12px, weight 600, sentence case |
+| "most spent on X" | 12px all caps on a red-tinted bar (read as an alert) | 14px sentence case on a neutral surface with a hairline border |
+| Day-group labels | 11px all caps, 0.14em | 13px sentence case, weight 600 (14px desktop); inline utilities removed so CSS governs |
+
+Verified by re-capturing the emulator-backed screenshots (390x844 and 1280x880, light and dark): the
+record screen now reads as data rather than as chrome, and the day headers and group totals are
+legible at a glance.
+
+## Not done in this slice (queued, with the reason)
+
+* **Android typography parity**: `summary_balance_period` is `.uppercase()`-ed in Compose, the hero
+  is 52.sp, and `labelStyle()` (a shared all-caps style used across many screens) drives the small
+  labels. Changing `labelStyle()` is an app-wide visual change, so it belongs in a slice of its own
+  rather than being smuggled in with a single-card fix.
+* **"FILTERS" sidebar heading** is still an all-caps label; it is part of the same family and will go
+  with the shared style change.
+* The dock still floats over content while scrolling. Checked, not a bug: `.app-shell__main` already
+  reserves 10rem of bottom padding on mobile; content passing under a floating dock mid-scroll is the
+  intended pattern here.
+
+## Test evidence
+
+```
+web unit            41 files / 423 tests passed
+tsc --noEmit        clean
+lint:css            527 class tokens, no undefined utilities
+vite build          ok
+Playwright/Chromium 16/16 passed (full suite)
+```
