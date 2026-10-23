@@ -1,6 +1,12 @@
 import type { Category, Expense, SyncedPreferences, TransactionType } from '@/models/types';
 import type { CategoryBudget } from '@/services/categoryBudgets';
-import type { RecurringTemplate } from '@/services/recurrence';
+import {
+  occurrenceDate,
+  occurrenceMillis,
+  UUID_PATTERN,
+  validDate,
+  type RecurringTemplate,
+} from '@/services/recurrence';
 import type { OccurrenceReceipt } from '@/services/recurringBackupSection';
 
 /**
@@ -114,6 +120,19 @@ function intIn(source: Row, key: string, path: string, min: number, max: number)
   return value;
 }
 
+/**
+ * A 32-bit signed integer, as `firestore.rules` requires of `colorInt`. Mirrors the Android
+ * reader, which uses `Int`; without this the web reader accepted a colour the rules would reject
+ * and handed it to a rollback write that could only fail. Found by the shared parity fixture.
+ */
+function int32(source: Row, key: string, path: string): number {
+  const value = whole(source, key, path);
+  if (value < -2_147_483_648 || value > 2_147_483_647) {
+    return fail(`${path}.${key}`, 'outside 32-bit range');
+  }
+  return value;
+}
+
 function flag(source: Row, key: string, path: string, fallback: boolean): boolean {
   const value = source[key];
   if (value === undefined || value === null) return fallback;
@@ -157,7 +176,7 @@ export function categories(meta: Row, path = 'meta'): Category[] {
       id: text(rowValue, 'id', rowPath, { max: 64 }),
       name: text(rowValue, 'name', rowPath, { max: 512 }),
       iconName: text(rowValue, 'iconName', rowPath, { allowBlank: true, max: 512 }) || 'shopping_bag',
-      colorInt: num(rowValue, 'colorInt', rowPath),
+      colorInt: int32(rowValue, 'colorInt', rowPath),
       transactionType: choice(rowValue, 'transactionType', rowPath, TRANSACTION_TYPES, 'expense'),
       sortOrder: intIn(rowValue, 'sortOrder', rowPath, 0, 9_999),
     } satisfies Category;
@@ -239,24 +258,45 @@ export function templates(meta: Row, path = 'meta'): RecurringTemplate[] | undef
   });
 }
 
+/**
+ * Mirrors `RecurringTemplate.valid()` on Android, which is what decides whether the rollback can
+ * write this row back at all. The earlier web version checked only types and ranges, so it accepted
+ * a template whose `nextDate` disagreed with its `nextIndex` and one whose `startDate` was not a real
+ * date — rows the rules refuse, which the rollback would then fail on half-way through the
+ * collection. Found by the shared parity fixture (`testdata/safety-snapshot-parity.json`).
+ */
 function isWritableTemplate(template: RecurringTemplate): boolean {
-  return (
-    typeof template.id === 'string' &&
-    typeof template.amount === 'number' && Number.isFinite(template.amount) &&
-    template.amount > 0 && template.amount < 1e9 &&
-    typeof template.categoryId === 'string' && template.categoryId.length > 0 &&
-    typeof template.note === 'string' && template.note.length <= 2000 &&
-    TRANSACTION_TYPES.includes(template.transactionType) &&
-    ['daily', 'weekly', 'monthly', 'yearly'].includes(template.frequency) &&
-    Number.isInteger(template.interval) && template.interval >= 1 && template.interval <= 365 &&
-    typeof template.startDate === 'string' && template.startDate.length > 0 &&
-    (template.endDate === null || typeof template.endDate === 'string') &&
-    typeof template.timeZone === 'string' && template.timeZone.length > 0 && template.timeZone.length <= 100 &&
-    typeof template.enabled === 'boolean' &&
-    Number.isInteger(template.nextIndex) && template.nextIndex >= 0 && template.nextIndex <= 40_000 &&
-    Number.isFinite(template.createdAt) && template.createdAt > 0 &&
-    Number.isFinite(template.updatedAt) && template.updatedAt >= template.createdAt
-  );
+  try {
+    if (
+      typeof template.id !== 'string' || !UUID_PATTERN.test(template.id) ||
+      typeof template.amount !== 'number' || !Number.isFinite(template.amount) ||
+      template.amount <= 0 || template.amount >= 1e9 ||
+      Math.abs(template.amount * 100 - Math.round(template.amount * 100)) >= 0.0001 ||
+      typeof template.categoryId !== 'string' || template.categoryId.length === 0 ||
+      template.categoryId.length >= 64 || template.categoryId.includes('/') ||
+      typeof template.note !== 'string' || template.note.length > 2000 ||
+      !TRANSACTION_TYPES.includes(template.transactionType) ||
+      !['daily', 'weekly', 'monthly', 'yearly'].includes(template.frequency) ||
+      !Number.isInteger(template.interval) || template.interval < 1 || template.interval > 365 ||
+      !validDate(template.startDate) ||
+      typeof template.timeZone !== 'string' || template.timeZone.length === 0 || template.timeZone.length > 100 ||
+      typeof template.enabled !== 'boolean' ||
+      !Number.isInteger(template.nextIndex) || template.nextIndex < 0 || template.nextIndex > 40_000 ||
+      !Number.isFinite(template.createdAt) || template.createdAt <= 0 ||
+      !Number.isFinite(template.updatedAt) || template.updatedAt < template.createdAt
+    ) {
+      return false;
+    }
+    // Throws RangeError for an unknown zone, which the catch below turns into "not writable".
+    const startMillis = occurrenceMillis(template.startDate, template.timeZone);
+    if (!(startMillis >= 946_684_800_000 && startMillis < 4_102_444_800_000)) return false;
+    if (template.endDate !== null) {
+      if (!validDate(template.endDate) || template.endDate < template.startDate) return false;
+    }
+    return template.nextDate === occurrenceDate(template, template.nextIndex);
+  } catch {
+    return false;
+  }
 }
 
 export function receipts(value: unknown, path: string): OccurrenceReceipt[] {

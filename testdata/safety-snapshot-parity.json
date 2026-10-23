@@ -1,0 +1,424 @@
+{
+  "format": "ausgegeben-safety-snapshot-parity",
+  "version": 1,
+  "note": "Same file as app/src/test/java/com/aus/ausgegeben/util/SafetySnapshotParityTest.kt and web/src/services/safetySnapshot.parity.test.ts. Each case drives one section of the strict safety-snapshot reader (AUD-006) on both clients and asserts the same accept/reject decision and the same path-anchored error. Only the path is compared, never the human-readable reason, so the two languages may word it differently.",
+  "cases": [
+    {
+      "name": "categories: accepts a well-formed row",
+      "section": "categories",
+      "expect": "accept",
+      "count": 1,
+      "payload": {
+        "categories": [
+          { "id": "cat-food", "name": "Food", "iconName": "restaurant", "colorInt": -16731948, "transactionType": "expense", "sortOrder": 0 }
+        ]
+      }
+    },
+    {
+      "name": "categories: refuses a container that is an object, not an array",
+      "section": "categories",
+      "expect": "reject",
+      "path": "meta.categories",
+      "payload": { "categories": { "id": "cat-food" } }
+    },
+    {
+      "name": "categories: refuses a blank name rather than dropping the row",
+      "section": "categories",
+      "expect": "reject",
+      "path": "meta.categories[0].name",
+      "payload": {
+        "categories": [
+          { "id": "cat-food", "name": "   ", "iconName": "x", "colorInt": 1, "transactionType": "expense", "sortOrder": 0 }
+        ]
+      }
+    },
+    {
+      "name": "categories: refuses a sort order the rules would reject",
+      "section": "categories",
+      "expect": "reject",
+      "path": "meta.categories[0].sortOrder",
+      "payload": {
+        "categories": [
+          { "id": "cat-food", "name": "Food", "iconName": "x", "colorInt": 1, "transactionType": "expense", "sortOrder": 12000 }
+        ]
+      }
+    },
+    {
+      "name": "categories: refuses a color that is not a 32-bit integer",
+      "section": "categories",
+      "expect": "reject",
+      "path": "meta.categories[0].colorInt",
+      "payload": {
+        "categories": [
+          { "id": "cat-food", "name": "Food", "iconName": "x", "colorInt": 5000000000, "transactionType": "expense", "sortOrder": 0 }
+        ]
+      }
+    },
+    {
+      "name": "categories: refuses an unsupported transaction type",
+      "section": "categories",
+      "expect": "reject",
+      "path": "meta.categories[0].transactionType",
+      "payload": {
+        "categories": [
+          { "id": "cat-food", "name": "Food", "iconName": "x", "colorInt": 1, "transactionType": "refund", "sortOrder": 0 }
+        ]
+      }
+    },
+    {
+      "name": "categories: refuses a row with no id",
+      "section": "categories",
+      "expect": "reject",
+      "path": "meta.categories[0].id",
+      "payload": {
+        "categories": [
+          { "name": "Food", "iconName": "x", "colorInt": 1, "transactionType": "expense", "sortOrder": 0 }
+        ]
+      }
+    },
+    {
+      "name": "expenses: accepts a well-formed row",
+      "section": "expenses",
+      "expect": "accept",
+      "count": 1,
+      "payload": {
+        "expenses": [
+          { "id": "exp-1", "amount": 12.5, "dateMillis": 1700000000000, "categoryId": "cat-food", "note": "lunch", "transactionType": "expense" }
+        ]
+      }
+    },
+    {
+      "name": "expenses: accepts the normalizations the writer itself produces",
+      "section": "expenses",
+      "expect": "accept",
+      "count": 1,
+      "payload": {
+        "expenses": [
+          { "id": "legacy-1", "amount": 0, "dateMillis": 0, "categoryId": "0", "note": "", "transactionType": "expense" }
+        ]
+      }
+    },
+    {
+      "name": "expenses: refuses a missing amount rather than defaulting it to zero",
+      "section": "expenses",
+      "expect": "reject",
+      "path": "chunk_0.expenses[0].amount",
+      "payload": {
+        "expenses": [
+          { "id": "exp-1", "dateMillis": 1700000000000, "categoryId": "cat-food", "note": "", "transactionType": "expense" }
+        ]
+      }
+    },
+    {
+      "name": "expenses: refuses a non-numeric amount",
+      "section": "expenses",
+      "expect": "reject",
+      "path": "chunk_0.expenses[0].amount",
+      "payload": {
+        "expenses": [
+          { "id": "exp-1", "amount": "12,50", "dateMillis": 1700000000000, "categoryId": "cat-food", "note": "", "transactionType": "expense" }
+        ]
+      }
+    },
+    {
+      "name": "expenses: refuses a negative amount",
+      "section": "expenses",
+      "expect": "reject",
+      "path": "chunk_0.expenses[0].amount",
+      "payload": {
+        "expenses": [
+          { "id": "exp-1", "amount": -1, "dateMillis": 1700000000000, "categoryId": "cat-food", "note": "", "transactionType": "expense" }
+        ]
+      }
+    },
+    {
+      "name": "expenses: refuses a missing date rather than dating the row to 1970",
+      "section": "expenses",
+      "expect": "reject",
+      "path": "chunk_0.expenses[0].dateMillis",
+      "payload": {
+        "expenses": [
+          { "id": "exp-1", "amount": 1, "categoryId": "cat-food", "note": "", "transactionType": "expense" }
+        ]
+      }
+    },
+    {
+      "name": "expenses: refuses a row with no id rather than skipping it",
+      "section": "expenses",
+      "expect": "reject",
+      "path": "chunk_0.expenses[0].id",
+      "payload": {
+        "expenses": [
+          { "amount": 1, "dateMillis": 1700000000000, "categoryId": "cat-food", "note": "", "transactionType": "expense" }
+        ]
+      }
+    },
+    {
+      "name": "expenses: refuses a container that is an object, not an array",
+      "section": "expenses",
+      "expect": "reject",
+      "path": "chunk_0.expenses",
+      "payload": { "expenses": { "amount": 1 } }
+    },
+    {
+      "name": "budgets: accepts a well-formed budget",
+      "section": "budgets",
+      "expect": "accept",
+      "count": 1,
+      "payload": {
+        "categoryBudgets": [
+          { "categoryId": "cat-food", "monthlyLimit": 400, "warningThresholdPercent": 80, "updatedAt": 1700000000000 }
+        ]
+      }
+    },
+    {
+      "name": "budgets: refuses an unreadable limit instead of throwing a raw cast error",
+      "section": "budgets",
+      "expect": "reject",
+      "path": "meta.categoryBudgets[0].monthlyLimit",
+      "payload": {
+        "categoryBudgets": [
+          { "categoryId": "cat-food", "monthlyLimit": "400", "warningThresholdPercent": 80, "updatedAt": 1700000000000 }
+        ]
+      }
+    },
+    {
+      "name": "budgets: refuses a limit the rules would reject",
+      "section": "budgets",
+      "expect": "reject",
+      "path": "meta.categoryBudgets[0]",
+      "payload": {
+        "categoryBudgets": [
+          { "categoryId": "cat-food", "monthlyLimit": 0, "warningThresholdPercent": 80, "updatedAt": 1700000000000 }
+        ]
+      }
+    },
+    {
+      "name": "budgets: refuses an out-of-range warning threshold",
+      "section": "budgets",
+      "expect": "reject",
+      "path": "meta.categoryBudgets[0].warningThresholdPercent",
+      "payload": {
+        "categoryBudgets": [
+          { "categoryId": "cat-food", "monthlyLimit": 400, "warningThresholdPercent": 0, "updatedAt": 1700000000000 }
+        ]
+      }
+    },
+    {
+      "name": "templates: accepts a well-formed template",
+      "section": "templates",
+      "expect": "accept",
+      "count": 1,
+      "payload": {
+        "recurringTemplates": [
+          {
+            "id": "11111111-2222-4333-8444-555555555555",
+            "amount": 12.5,
+            "categoryId": "cat-food",
+            "note": "rent",
+            "transactionType": "expense",
+            "frequency": "monthly",
+            "interval": 1,
+            "startDate": "2026-01-01",
+            "endDate": null,
+            "timeZone": "UTC",
+            "enabled": true,
+            "nextIndex": 0,
+            "nextDate": "2026-01-01",
+            "createdAt": 1700000000000,
+            "updatedAt": 1700000000000
+          }
+        ]
+      }
+    },
+    {
+      "name": "templates: refuses an unreadable template rather than dropping it",
+      "section": "templates",
+      "expect": "reject",
+      "path": "meta.recurringTemplates[0]",
+      "payload": {
+        "recurringTemplates": [
+          {
+            "id": "11111111-2222-4333-8444-555555555555",
+            "amount": null,
+            "categoryId": "cat-food",
+            "note": "rent",
+            "transactionType": "expense",
+            "frequency": "monthly",
+            "interval": 1,
+            "startDate": "2026-01-01",
+            "endDate": null,
+            "timeZone": "UTC",
+            "enabled": true,
+            "nextIndex": 0,
+            "nextDate": "2026-01-01",
+            "createdAt": 1700000000000,
+            "updatedAt": 1700000000000
+          }
+        ]
+      }
+    },
+    {
+      "name": "templates: refuses a template whose nextDate disagrees with its nextIndex",
+      "section": "templates",
+      "expect": "reject",
+      "path": "meta.recurringTemplates[0]",
+      "payload": {
+        "recurringTemplates": [
+          {
+            "id": "11111111-2222-4333-8444-555555555555",
+            "amount": 12.5,
+            "categoryId": "cat-food",
+            "note": "rent",
+            "transactionType": "expense",
+            "frequency": "monthly",
+            "interval": 1,
+            "startDate": "2026-01-01",
+            "endDate": null,
+            "timeZone": "UTC",
+            "enabled": true,
+            "nextIndex": 0,
+            "nextDate": "2026-02-01",
+            "createdAt": 1700000000000,
+            "updatedAt": 1700000000000
+          }
+        ]
+      }
+    },
+    {
+      "name": "receipts: accepts a rules-shaped receipt",
+      "section": "receipts",
+      "expect": "accept",
+      "count": 1,
+      "payload": {
+        "recurringReceipts": [
+          {
+            "id": "11111111-2222-4333-8444-555555555555_2026-01-01",
+            "templateId": "11111111-2222-4333-8444-555555555555",
+            "scheduledDate": "2026-01-01",
+            "expenseId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "createdAt": 1700000000000
+          }
+        ]
+      }
+    },
+    {
+      "name": "receipts: refuses a non-positive createdAt rather than skipping the row",
+      "section": "receipts",
+      "expect": "reject",
+      "path": "meta.recurringReceipts[0].createdAt",
+      "payload": {
+        "recurringReceipts": [
+          {
+            "id": "11111111-2222-4333-8444-555555555555_2026-01-01",
+            "templateId": "11111111-2222-4333-8444-555555555555",
+            "scheduledDate": "2026-01-01",
+            "expenseId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "createdAt": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "receipts: refuses an expense id that is not a SHA-256 hash",
+      "section": "receipts",
+      "expect": "reject",
+      "path": "meta.recurringReceipts[0].expenseId",
+      "payload": {
+        "recurringReceipts": [
+          {
+            "id": "11111111-2222-4333-8444-555555555555_2026-01-01",
+            "templateId": "11111111-2222-4333-8444-555555555555",
+            "scheduledDate": "2026-01-01",
+            "expenseId": "e1",
+            "createdAt": 1700000000000
+          }
+        ]
+      }
+    },
+    {
+      "name": "receipts: refuses an id that does not encode template and date",
+      "section": "receipts",
+      "expect": "reject",
+      "path": "meta.recurringReceipts[0].id",
+      "payload": {
+        "recurringReceipts": [
+          {
+            "id": "r1",
+            "templateId": "11111111-2222-4333-8444-555555555555",
+            "scheduledDate": "2026-01-01",
+            "expenseId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "createdAt": 1700000000000
+          }
+        ]
+      }
+    },
+    {
+      "name": "preferences: accepts a minimal map with documented defaults",
+      "section": "preferences",
+      "expect": "accept",
+      "payload": { "preferences": { "currency": "EUR" } }
+    },
+    {
+      "name": "preferences: refuses a lowercase currency the rules would reject",
+      "section": "preferences",
+      "expect": "reject",
+      "path": "meta.preferences.currency",
+      "payload": { "preferences": { "currency": "eur" } }
+    },
+    {
+      "name": "preferences: refuses an out-of-range reminder hour",
+      "section": "preferences",
+      "expect": "reject",
+      "path": "meta.preferences.reminderHour",
+      "payload": { "preferences": { "currency": "EUR", "reminderHour": 25 } }
+    },
+    {
+      "name": "preferences: refuses an unsupported analytics period",
+      "section": "preferences",
+      "expect": "reject",
+      "path": "meta.preferences.analyticsPeriod",
+      "payload": { "preferences": { "currency": "EUR", "analyticsPeriod": "yesterday" } }
+    },
+    {
+      "name": "counts: accepts a declared total that matches what was read",
+      "section": "counts",
+      "expect": "accept",
+      "payload": { "declared": 2, "actual": 2 }
+    },
+    {
+      "name": "counts: refuses a declared total larger than what was read",
+      "section": "counts",
+      "expect": "reject",
+      "path": "meta.totalExpenses",
+      "payload": { "declared": 5, "actual": 1 }
+    },
+    {
+      "name": "counts: skips an absent declared total",
+      "section": "counts",
+      "expect": "accept",
+      "payload": { "declared": null, "actual": 3 }
+    },
+    {
+      "name": "chunkCount: accepts a bounded count",
+      "section": "chunkCount",
+      "expect": "accept",
+      "count": 3,
+      "payload": { "chunkCount": 3 }
+    },
+    {
+      "name": "chunkCount: defaults when absent",
+      "section": "chunkCount",
+      "expect": "accept",
+      "count": 1,
+      "payload": {}
+    },
+    {
+      "name": "chunkCount: refuses an unbounded count",
+      "section": "chunkCount",
+      "expect": "reject",
+      "path": "meta.chunkCount",
+      "payload": { "chunkCount": 100000 }
+    }
+  ]
+}
