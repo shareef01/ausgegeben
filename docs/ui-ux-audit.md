@@ -357,10 +357,13 @@ removed here.
 
 ## Deliberately not done: the other 12 uppercase call sites
 
-`BillsScreen.kt` (9), `AddTransactionScreen.kt` (5) still force `.uppercase()` on section labels. That
-is the Insights and editor visual pass, and it needs a screen-by-screen check on a device — with no
-AVD in this environment I would be changing layouts I cannot look at. Recorded as the next Android
-slice.
+**30 `.uppercase()` call sites remain across 9 UI files** (corrected count; the commit message
+said 14 and undercounted): `BillsScreen` 9, `AddTransactionScreen` 5, `AuthScreen` 3,
+`FinanceSummaryCard` 3 (labels other than the summary eyebrow), `IosSurfaces` 3,
+`CategoryBudgetSection` 2, `OnboardingScreen` 2, `RecordScreen` 1, `components/Charts` 1.
+That is the Insights/editor/auth visual pass, and it needs a screen-by-screen check on a device —
+with no AVD in this environment I would be changing layouts I cannot look at. Recorded as the next
+Android slice.
 
 ## Verification limitation, stated plainly
 
