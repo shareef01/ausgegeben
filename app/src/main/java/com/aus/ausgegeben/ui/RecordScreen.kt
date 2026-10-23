@@ -317,7 +317,7 @@ fun RecordScreen(
                                         )
                                     }
                                     Text(
-                                        text = mostSpentLabel.uppercase(),
+                                        text = mostSpentLabel,
                                         style = RecordAuroraTokens.labelStyle(),
                                     )
                                 }

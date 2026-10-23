@@ -336,3 +336,36 @@ lint:css            527 class tokens, no undefined utilities
 vite build          ok
 Playwright/Chromium 16/16 passed (full suite)
 ```
+---
+
+# Round 8 additions — Android typography parity (shared style + hero)
+
+## Changed (Android)
+
+| Element | Before | After |
+|---|---|---|
+| `SectionLabelStyle` (shared, 7 files) | 11sp Bold, 1.5sp tracking | 12sp SemiBold, 0.2sp tracking |
+| Summary eyebrow | `summary_balance_period`.uppercase() | sentence case |
+| Summary hero | 52sp Bold, gradient brush + 24px coloured shadow | 36sp SemiBold, solid tone colour, tabular, no glow |
+| "most spent on X" | `.uppercase()` | sentence case |
+| Dead code | `AuroraTokens.balanceBrush` + now-unused `Brush`/`Shadow`/`Offset` imports | removed |
+
+The shared style is the small lever that reaches every screen: it keeps the size in the 12sp
+territory and drops the wide tracking, which *reduces* text width, so nothing that fitted before
+can start wrapping. Only the two labels whose case differed from the web build had `.uppercase()`
+removed here.
+
+## Deliberately not done: the other 12 uppercase call sites
+
+`BillsScreen.kt` (9), `AddTransactionScreen.kt` (5) still force `.uppercase()` on section labels. That
+is the Insights and editor visual pass, and it needs a screen-by-screen check on a device — with no
+AVD in this environment I would be changing layouts I cannot look at. Recorded as the next Android
+slice.
+
+## Verification limitation, stated plainly
+
+This Android slice is verified by **compilation, lint and the unit suite** (42 suites / 349 tests,
+0 failures) — *not* visually. No Android screenshot exists for it: capturing one needs an AVD and the
+seed script, which is the same gap the web rounds closed with Playwright. The Compose changes are
+mechanical (one shared TextStyle, one Text, one removed helper) precisely because they cannot be
+inspected here.
