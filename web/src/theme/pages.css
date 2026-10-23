@@ -1172,10 +1172,13 @@
 
 .insights-category-card__title {
   margin: 0;
-  font-size: 0.6875rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  /* A real h2 (AccentTitle renders one), so it reads as a heading instead of an 11px all-caps
+     eyebrow. 16px rather than the spec's 18-20px page-level size: the card's job is to make the
+     distribution number dominant, and the title must not compete with it. */
+  font-size: 1rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.01em;
   color: var(--card-accent, var(--color-on-surface));
 }
 
@@ -1318,10 +1321,10 @@
 }
 
 .insights-metric-card__title {
-  font-size: 0.6875rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.01em;
   color: var(--color-on-surface-variant);
 }
 

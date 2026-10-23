@@ -464,3 +464,37 @@ tsc --noEmit        clean
 vite build          ok
 screenshot          1280x880 Insights after the reorder, captured and inspected
 ```
+---
+
+# Round 11 additions — Insights card titles, and an honest inventory of what is left
+
+## Changed
+
+| Class | Role | Before | After |
+|---|---|---|---|
+| `.insights-category-card__title` | real `h2` via `AccentTitle` | 11px, w800, uppercase, 0.12em | 16px, w600, sentence case |
+| `.insights-metric-card__title` | card heading | 11px, w800, uppercase, 0.12em | 15px, w600, sentence case |
+
+One deliberate deviation from the design spec, recorded rather than hidden: the spec gives section
+headings 18-20px, but these are **card-level** headings whose job is to let the distribution number
+dominate. 16px/15px keeps the numbers the largest thing in the card, which is the screen's purpose.
+
+## Remaining all-caps inventory (this is the honest list)
+
+**19 CSS rules still set `text-transform: uppercase`**, plus **30 `.uppercase()` call sites in Kotlin**
+across 9 Android files. They are not all wrong: some label secondary chrome where caps are a
+deliberate device. Flipping them in bulk without looking at each screen is exactly the kind of blind
+change this work has avoided, so they are enumerated rather than guessed at:
+
+* Web: `layout.css` 1 rule; `pages.css` 18 rules (settings rows, badges, chips, sheet headers,
+  footer labels). The Insights titles fixed here were the two that were semantically headings.
+* Android: `BillsScreen` 9, `AddTransactionScreen` 5, `AuthScreen` 3, `FinanceSummaryCard` 3,
+  `IosSurfaces` 3, `CategoryBudgetSection` 2, `OnboardingScreen` 2, `RecordScreen` 1, `Charts` 1.
+
+## Test evidence
+
+```
+web unit            41 files / 423 tests passed
+lint:css            527 class tokens, no undefined utilities
+vite build          ok
+```
