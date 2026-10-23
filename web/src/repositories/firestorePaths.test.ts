@@ -123,3 +123,29 @@ describe('firestorePaths registry (DEL-1)', () => {
     expect(docIdLiterals).toEqual(new Set([PREFERENCES_DOC, DEDUPE_DOC, ACCOUNT_DELETION_DOC, RESTORE_OPERATION_DOC]));
   });
 });
+
+/**
+ * AUD-002: the maintenance guide is the document a maintainer reads while reasoning about
+ * account-deletion coverage and backup compatibility, so a stale collection list there is a
+ * correctness hazard, not cosmetics. It previously claimed the app had no recurring
+ * collections, no restore-snapshot path and no backup schema above v1.
+ */
+describe('maintenance guide matches the registries (AUD-002)', () => {
+  const guide = readFileSync(path.resolve(__dirname, '../../../docs/maintenance.md'), 'utf8');
+
+  it('names every collection and named document the app actually writes', () => {
+    const paths = [
+      ...DELETABLE_USER_COLLECTIONS,
+      ...DELETABLE_USER_DOCS.flatMap((d) => [d.collection, d.id]),
+      ...INTENTIONALLY_RETAINED_USER_DOCS.flatMap((d) => [d.collection, d.id]),
+    ];
+    for (const name of new Set(paths)) {
+      expect(guide, `docs/maintenance.md must mention ${name}`).toContain(name);
+    }
+  });
+
+  it('states the backup schema version the clients actually write', async () => {
+    const format = await import('./../services/backupFormat');
+    expect(guide).toContain(`version ${format.CURRENT_BACKUP_SCHEMA_VERSION}`);
+  });
+});

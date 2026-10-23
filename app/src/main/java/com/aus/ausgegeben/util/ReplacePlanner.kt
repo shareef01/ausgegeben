@@ -220,7 +220,13 @@ object ReplacePlanner {
         val categoriesToUpsert = backup.categories
         val categoryIdsToPreserve = currentCategories.filter { it.id !in backupCatMap }.map { it.id }
 
-        val newTimestamp = BackupFormat.restoredPreferencesRevision(backup.preferences.preferencesUpdatedAt)
+        // AUD-005: the preferences write is the last step of a replace and the rules require
+        // its revision to beat the stored document inside their five-minute window. Refuse
+        // the plan (before any write) when no such revision exists yet.
+        val newTimestamp = BackupFormat.writablePreferencesRevision(
+            backup.preferences.preferencesUpdatedAt,
+            currentPreferences?.updatedAt,
+        ) ?: throw IllegalStateException("PREFERENCES_REVISION_UNWRITABLE")
         val validCurrencies = setOf("EUR", "USD", "GBP", "CHF")
         val validLocales = setOf("en", "de")
         val validThemes = setOf(

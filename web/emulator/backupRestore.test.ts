@@ -3,6 +3,7 @@ import { collection, doc, getDoc, getDocs, setDoc } from 'firebase/firestore';
 import {
   enforcedFirestore,
   resetEnforcedHarness,
+  rulesEnv,
   startEnforcedHarness,
   stopEnforcedHarness,
   TEST_UID,
@@ -17,6 +18,23 @@ vi.mock('@/services/firebase', async (importOriginal) => {
 });
 
 const { restoreBackup } = await import('@/services/backupRestore');
+
+type CategoryType = 'expense' | 'income' | 'transfer';
+
+function categoriesOfType(n: number, transactionType: CategoryType, prefix: string) {
+  return Array.from({ length: n }, (_, i) => ({
+    id: `${prefix}-${i}`,
+    name: `${prefix} ${i}`,
+    iconName: 'wallet',
+    colorInt: 1,
+    transactionType,
+    sortOrder: i,
+    updatedAt: 1_700_000_000_000,
+  }));
+}
+
+const incomeCategories = (n: number, prefix = 'inc') => categoriesOfType(n, 'income', prefix);
+const expenseCategories = (n: number, prefix = 'exp') => categoriesOfType(n, 'expense', prefix);
 
 describe('backupRestore on real Firestore emulator with rules enforced', () => {
   beforeAll(async () => {
@@ -231,5 +249,92 @@ describe('backupRestore on real Firestore emulator with rules enforced', () => {
 
     const allExpenses = await getDocs(collection(db, 'users', TEST_UID, 'expenses'));
     expect(allExpenses.size).toBe(450);
+  });
+
+  /**
+   * AUD-001. A category UPDATE spends one rules document-access call on
+   * `existsAfter(categoryBudgets/{id})` unless its type is `expense`, and a batched write
+   * may spend at most 20 in total (one of which the shared `meta/accountDeletion` read
+   * takes). Chunking categories by row count alone therefore fails the whole batch — and
+   * with it the entire restore — once an account has enough income/transfer categories.
+   * Measured on the emulator: 19 pass, 20 fail.
+   */
+  it('merge-restores more non-expense categories than one rules batch may read', async () => {
+    const db = enforcedFirestore();
+    const categories = incomeCategories(25);
+
+    // Pre-existing rows so every write exercises the UPDATE rule (not CREATE).
+    await rulesEnv().withSecurityRulesDisabled(async (ctx) => {
+      const raw = ctx.firestore();
+      for (const c of categories) {
+        await setDoc(doc(raw, 'users', TEST_UID, 'categories', c.id), { ...c, updatedAt: 1000 });
+      }
+    });
+
+    const backup: AusgegebenBackup = { ...createTestBackup(0), categories, expenses: [] };
+    const result = await restoreBackup(backup, TEST_UID);
+
+    expect(result.success).toBe(true);
+    expect(result.categoriesRestored).toBe(25);
+    const stored = await getDocs(collection(db, 'users', TEST_UID, 'categories'));
+    expect(stored.size).toBe(25);
+    expect(stored.docs.every((d) => d.data().transactionType === 'income')).toBe(true);
+  });
+
+  it('merge-restores a mixed backup whose expense rows do not consume the access budget', async () => {    const db = enforcedFirestore();
+    const categories = [...expenseCategories(10, 'exp'), ...incomeCategories(20, 'inc')];
+
+    await rulesEnv().withSecurityRulesDisabled(async (ctx) => {
+      const raw = ctx.firestore();
+      for (const c of categories) {
+        await setDoc(doc(raw, 'users', TEST_UID, 'categories', c.id), { ...c, updatedAt: 1000 });
+      }
+    });
+
+    const backup: AusgegebenBackup = { ...createTestBackup(0), categories, expenses: [] };
+    const result = await restoreBackup(backup, TEST_UID);
+
+    expect(result.success).toBe(true);
+    expect(result.categoriesRestored).toBe(30);
+    const stored = await getDocs(collection(db, 'users', TEST_UID, 'categories'));
+    expect(stored.size).toBe(30);
+  });
+
+  /**
+   * AUD-005. The preferences write is the last step of a merge restore, so a revision the
+   * rules would refuse must be detected *before* the first write — otherwise categories,
+   * expenses, budgets and recurring rows land and only the preference step fails, leaving a
+   * half-restored account behind a generic error.
+   */
+  it('refuses before its first write when the stored preferences revision blocks the window', async () => {
+    const db = enforcedFirestore();
+    const categories = incomeCategories(3);
+
+    // Written with rules disabled: a stored revision inside the last minute of the rules'
+    // five-minute future window, which is exactly what a device with a fast clock produces.
+    await rulesEnv().withSecurityRulesDisabled(async (ctx) => {
+      const raw = ctx.firestore();
+      await setDoc(doc(raw, 'users', TEST_UID, 'settings', 'preferences'), {
+        currency: 'EUR',
+        locale: 'en',
+        themeMode: 'system',
+        onboardingComplete: true,
+        dailyReminder: false,
+        reminderHour: 7,
+        reminderMinute: 30,
+        analyticsPeriod: 'all_time',
+        monthlyBudget: null,
+        updatedAt: Date.now() + 290_000,
+      });
+    });
+
+    const backup: AusgegebenBackup = { ...createTestBackup(0), categories, expenses: [] };
+    await expect(restoreBackup(backup, TEST_UID)).rejects.toThrow('PREFERENCES_REVISION_UNWRITABLE');
+
+    // Nothing was written.
+    expect((await getDocs(collection(db, 'users', TEST_UID, 'categories'))).size).toBe(0);
+    const prefs = await getDoc(doc(db, 'users', TEST_UID, 'settings', 'preferences'));
+    expect(prefs.data()?.reminderHour).toBe(7);
+    expect(prefs.data()?.dailyReminder).toBe(false);
   });
 });
