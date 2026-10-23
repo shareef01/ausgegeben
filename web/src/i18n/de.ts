@@ -119,7 +119,7 @@ export const de: Record<TranslationKey, string> = {
   searchTransactions: 'transaktionen suchen',
   summaryEarned: 'einnahmen',
   summarySpent: 'ausgaben',
-  summaryBalance: 'saldo',
+  summaryBalance: 'überschuss',
   budgetMonthlyLabel: 'monatsbudget',
   budgetProgress: '{spent} / {budget}',
   budgetOverBy: '{amount} über budget',

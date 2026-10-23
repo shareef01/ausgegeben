@@ -117,7 +117,7 @@ export const en = {
   searchTransactions: 'search transactions',
   summaryEarned: 'earned',
   summarySpent: 'spent',
-  summaryBalance: 'balance',
+  summaryBalance: 'net cash flow',
   budgetMonthlyLabel: 'monthly budget',
   budgetProgress: '{spent} / {budget}',
   budgetOverBy: '{amount} over budget',

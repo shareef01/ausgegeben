@@ -5,10 +5,10 @@ import { SignatureText } from '@/components/ui';
 import { CategoryLucideIcon } from '@/components/CategoryLucideIcon';
 import { IosSegmentedControl } from '@/components/IosSegmentedControl';
 import { IconClose } from '@/components/Icons';
-import { colorIntToHex, parseAmount, currencySymbol } from '@/utils/currency';
+import { colorIntToHex, currencySymbol } from '@/utils/currency';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useToastStore } from '@/services/toastStore';
-import { useRef, useEffect, useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useRef, useEffect, useCallback, useState, type ReactNode } from 'react';
 import { useCssProps } from '@/utils/cssVars';
 import { toDateInputValue, withDateInputValue } from '@/utils/periodUtils';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -40,27 +40,19 @@ export function AddTransactionView({
   const catsRailRef = useRef<HTMLDivElement>(null);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
-  // Match Android: prompt only for new transactions that have any draft signal
-  // (amount, note, category, or a non-expense type). Edits close immediately.
-  const hasUnsavedChanges = useMemo(() => {
-    const amount = parseAmount(vm.form.amountInput, currency) ?? 0;
-    return (
-      vm.form.note.trim().length > 0 ||
-      amount > 0 ||
-      Boolean(vm.form.categoryId) ||
-      vm.form.transactionType !== 'expense'
-    );
-  }, [vm.form, currency]);
-
+  // UX-1: prompt whenever closing would discard a real change — for a new transaction and
+  // for an edit alike. `vm.isDirty` compares the form against the values it was opened with
+  // (amount in cents, date as a calendar day, note trimmed), so an untouched form, a
+  // reformatted amount, or a create with a pre-selected category never prompts.
   const requestClose = useCallback(() => {
     if (suspended) return;
-    if (!vm.isEditing && hasUnsavedChanges) {
+    if (vm.isDirty) {
       haptics.light();
       setShowDiscardConfirm(true);
       return;
     }
     onClose();
-  }, [suspended, vm.isEditing, hasUnsavedChanges, haptics, onClose]);
+  }, [suspended, vm.isDirty, haptics, onClose]);
 
   const handleEscape = useCallback(() => {
     requestClose();

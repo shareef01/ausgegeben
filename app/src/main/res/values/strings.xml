@@ -336,7 +336,7 @@
     <string name="category_error_unwritable">Can\'t reorder: fix or rename this category first — %1$s</string>
 
     <!-- Finance summary -->
-    <string name="summary_balance_period">Balance · %1$s</string>
+    <string name="summary_balance_period">Net cash flow · %1$s</string>
     <string name="summary_spent">Spent</string>
     <string name="summary_earned">Earned</string>
     <plurals name="summary_transfers">
