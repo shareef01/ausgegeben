@@ -71,6 +71,7 @@ function handleSessionInvalidatedElsewhere(): void {
   useAuthStore.getState().setUser(null);
   usePreferencesStore.getState().resetPreferences();
   invalidateAllExpensesCache();
+  resetTabParamForNewSession();
   void clearFirebaseAuthSessionLocally().catch((error) => {
     // Failure here leaves this tab's durable session copy behind (a reload could
     // restore it) — make that visible instead of silently ignoring it, matching how
@@ -262,6 +263,8 @@ export const authService = {
     invalidateAllExpensesCache();
     // See AUTH-2: tell every other open tab this account is gone.
     broadcastSessionInvalidated();
+    // Account deletion starts on Settings; without this the next sign-in lands there (UX-4).
+    resetTabParamForNewSession();
     try {
       await clearLocalFirestoreCache();
     } catch (error) {
@@ -280,7 +283,8 @@ export const authService = {
  * Put the tab back to `record` in the URL after a session ends (UX-4).
  *
  * The shell mounts with the tab it finds in `?tab=`, so a sign-out on Settings used to hand that
- * tab to whoever signed in next on the same browser. Guarded for non-browser environments, and a
+ * tab to whoever signed in next on the same browser. Called from every path that ends a session:
+ * sign-out, account deletion, and a sign-out or deletion broadcast from another tab. Guarded for non-browser environments, and a
  * no-op when the current URL does not name a tab at all.
  */
 function resetTabParamForNewSession(): void {

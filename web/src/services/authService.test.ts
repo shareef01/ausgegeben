@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { authService } from './authService';
 import * as firebaseServices from './firebase';
+import { expenseRepository } from '@/repositories/expenseRepository';
 
 vi.mock('firebase/auth', () => ({
   signInWithEmailAndPassword: vi.fn().mockResolvedValue({ user: { uid: 'u1' } }),
@@ -14,6 +15,9 @@ vi.mock('firebase/auth', () => ({
   browserLocalPersistence: { type: 'LOCAL' },
   indexedDBLocalPersistence: { type: 'INDEXEDDB' },
   inMemoryPersistence: { type: 'NONE' },
+  reauthenticateWithCredential: vi.fn().mockResolvedValue(undefined),
+  EmailAuthProvider: { credential: vi.fn().mockReturnValue({}) },
+  deleteUser: vi.fn().mockResolvedValue(undefined),
 }));
 
 describe('authService persistence integration', () => {
@@ -76,5 +80,67 @@ describe('authService persistence integration', () => {
     await authService.signOut();
 
     expect(firebaseServices.isPersistentStorageEnabled()).toBe(false);
+  });
+
+  // UX-4: the shell mounts on whatever `?tab=` names, so every path that ends a session must
+  // put it back to Record, or the next person to sign in on this browser lands on the previous
+  // session's screen (account deletion always starts on Settings).
+  describe('resets the tab named in the URL when a session ends', () => {
+    let replaceState: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      replaceState = vi.fn();
+      vi.stubGlobal('window', {
+        location: { search: '?tab=settings', hash: '' },
+        history: { state: null, replaceState },
+      });
+    });
+
+    it('on signOut', async () => {
+      vi.spyOn(firebaseServices, 'getFirebaseAuth').mockReturnValue({ currentUser: { uid: 'u1' } } as any);
+
+      await authService.signOut();
+
+      expect(replaceState).toHaveBeenCalledWith(null, '', '?tab=record');
+    });
+
+    it('on deleteAccount', async () => {
+      const user = { uid: 'u1', email: 'a@example.com', getIdToken: vi.fn().mockResolvedValue('t') };
+      vi.spyOn(firebaseServices, 'getFirebaseAuth').mockReturnValue({ currentUser: user } as any);
+      vi.spyOn(expenseRepository, 'markAccountDeletionPending').mockResolvedValue(undefined as any);
+      vi.spyOn(expenseRepository, 'deleteAllUserData').mockResolvedValue(undefined as any);
+
+      await authService.deleteAccount('password123');
+
+      expect(replaceState).toHaveBeenCalledWith(null, '', '?tab=record');
+    });
+
+    it('on a sign-out broadcast from another tab', () => {
+      let onInvalidated: (() => void) | undefined;
+      vi.spyOn(firebaseServices, 'getFirebaseAuth').mockReturnValue({} as any);
+      vi.spyOn(firebaseServices, 'onSessionInvalidatedBroadcast').mockImplementation((handler) => {
+        onInvalidated = handler;
+        return () => {};
+      });
+      authService.startListener();
+      try {
+        onInvalidated?.();
+        expect(replaceState).toHaveBeenCalledWith(null, '', '?tab=record');
+      } finally {
+        authService.stopListener();
+      }
+    });
+
+    it('leaves a URL without a tab alone', async () => {
+      vi.stubGlobal('window', {
+        location: { search: '', hash: '' },
+        history: { state: null, replaceState },
+      });
+      vi.spyOn(firebaseServices, 'getFirebaseAuth').mockReturnValue({ currentUser: { uid: 'u1' } } as any);
+
+      await authService.signOut();
+
+      expect(replaceState).not.toHaveBeenCalled();
+    });
   });
 });
