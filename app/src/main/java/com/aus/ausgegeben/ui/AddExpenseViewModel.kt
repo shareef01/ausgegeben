@@ -110,6 +110,9 @@ class AddExpenseViewModel @Inject constructor(
         _dateMillis.value = expense.dateMillis
         _selectedCategory.value = categories.find { it.id == expense.categoryId }
         _loadedTransactionType.value = TransactionType.fromKey(expense.transactionType)
+        // This view model outlives one editor session; drop the previous baseline so the
+        // screen never compares the new fields against the last form while this one loads.
+        _baseline.value = null
         viewModelScope.launch {
             val currency = preferenceManager.currencyFlow.first()
             _amount.value = CurrencyUtils.formatAmountForInput(expense.amount, currency)
@@ -274,6 +277,8 @@ class AddExpenseViewModel @Inject constructor(
         _dateMillis.value = System.currentTimeMillis()
         _loadedTransactionType.value = TransactionType.EXPENSE
         // A fresh form's baseline is what it starts as, so an untouched create is not dirty.
+        // Cleared first for the same reason as in loadForEdit.
+        _baseline.value = null
         viewModelScope.launch {
             val currency = preferenceManager.currencyFlow.first()
             _baseline.value = TransactionDraft.of(

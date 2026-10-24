@@ -453,7 +453,7 @@
     <string name="record_sort_oldest">Älteste zuerst</string>
     <string name="record_sort_highest">Höchster Betrag</string>
     <string name="record_sort_lowest">Niedrigster Betrag</string>
-    <string name="record_totals_filtered">tagesummen folgen den aktiven filtern</string>
+    <string name="record_totals_filtered">tagessummen folgen den aktiven filtern</string>
     <string name="record_cache_incomplete">Cache-Ergebnisse sind möglicherweise unvollständig. Verbinde dich, um den gesamten gewählten Verlauf zu durchsuchen.</string>
     <string name="category_budget_title">Kategoriebudgets</string>
     <string name="category_budget_repeat">Limits gelten jeden Kalendermonat. Währungsänderungen rechnen Beträge nicht um.</string>

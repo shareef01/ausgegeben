@@ -76,7 +76,7 @@ export const de: Record<TranslationKey, string> = {
   periodSelectorLabel: 'zeitraum',
   recordPeriodThisMonth: 'dieser monat',
   recordPeriodAllTime: 'gesamt',
-  recordTotalsFiltered: 'tagesummen folgen den aktiven filtern',
+  recordTotalsFiltered: 'tagessummen folgen den aktiven filtern',
   recordMostSpentOn: 'am meisten ausgegeben für {name}',
   recordSwipeDelete: 'löschen',
   editOrTap: 'bearbeiten',

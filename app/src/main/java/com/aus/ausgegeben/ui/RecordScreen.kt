@@ -261,7 +261,8 @@ fun RecordScreen(
                 // UX-3: the period summary above is filter-independent; these day totals follow
                 // the rows on screen. Say so while a filter is narrowing the list, so the two
                 // numbers can never look like they disagree (web parity).
-                if (filtersActive && allExpenses.isNotEmpty() && !uiState.isLoading) {                    item(key = "totals-filtered") {
+                if (filtersActive && allExpenses.isNotEmpty() && !uiState.isLoading) {
+                    item(key = "totals-filtered") {
                         Text(
                             stringResource(R.string.record_totals_filtered),
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
