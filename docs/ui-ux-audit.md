@@ -575,3 +575,26 @@ lint:css            527 class tokens, no undefined utilities
 vite build          ok
 screenshot          1280x1400 Settings viewport capture, crisp, inspected
 ```
+---
+
+# Round 14 — the brief's full validation command, executed
+
+`./gradlew testProdDebugUnitTest lintProdDebug assembleProdDebug` (the exact command the assignment
+specifies) now runs end to end:
+
+```
+BUILD SUCCESSFUL in 35s
+app/build/outputs/apk/prod/debug/app-prod-debug.apk   81,609,376 bytes
+unit tests: 349, failures: 0
+lint:       green (report at app/build/reports/lint-results-prodDebug.html)
+```
+
+That closes the last unexercised item on the validation list. The remaining gaps are not commands I
+have skipped; they are measurements that need hardware or a second checkout:
+
+| Gap | Why it is still open |
+|---|---|
+| TalkBack / VoiceOver passes | Needs a device with assistive tech; not available here. |
+| Android visual verification of the 30 remaining `.uppercase()` sites | Needs an AVD to look at each screen before changing it. |
+| A "before" screenshot set for these rounds | Needs a second worktree at the base commit plus a second seeded emulator run. |
+| `assembleProdRelease` / R8 | Release signing needs the keystore secrets; the release workflow does this on a tag. |
