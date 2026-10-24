@@ -533,3 +533,45 @@ lint:css            527 class tokens, no undefined utilities
 vite build          ok
 Playwright/Chromium 5/5 (layout + tab history, re-run after the CSS change)
 ```
+---
+
+# Round 13 additions — Settings section headings, and a capture-tooling trap
+
+## Changed
+
+`.settings-section__title` (a real `h2`, rendered by `SettingsView`'s `Section`): 11px, weight 800,
+uppercase, 0.12em tracking → **13px, weight 600, sentence case**. "preferences", "data", "about" are
+headings a user scans; they were styled as eyebrows.
+
+## A false positive I caught in my own tooling (worth recording)
+
+The first Settings capture came back **washed out** — content at roughly 15% opacity while the nav and
+FAB stayed crisp. It looked like a severe rendering bug. It was not:
+
+* the diagnostic showed the active tab panel at `opacity: 1`, no overlay/backdrop/sheet layers present,
+  and the page settled after 2s;
+* the crisp elements were exactly the ones using `backdrop-filter`;
+* the washed captures were the ones taken with Playwright's `fullPage: true`.
+
+**Chromium composites `backdrop-filter` layers incorrectly in full-page screenshots.** Re-capturing
+viewport-only produced a crisp, correct image. Rule for future rounds: capture the viewport, or scroll
+and capture sections — never `fullPage` on this UI. Nothing was "fixed" in the app for a bug that
+existed only in the screenshot.
+
+## Observed on the settled Settings capture (queued, not changed)
+
+* "CLOUD SYNC ENABLED" is still an all-caps badge; the remaining caps live in badges/chips rather than
+  headings, which is the legitimate use the spec allows for status markers.
+* The left column ("data") is much taller than the right ("category budgets", "about"), leaving a large
+  empty area on desktop. A balanced two-column split is layout work for the wider Settings pass.
+* "recurring transactions" renders as a wide outlined button with a bold label, unlike the icon+title+
+  subtitle+chevron rows around it — an inconsistent row treatment worth normalising.
+
+## Test evidence
+
+```
+web unit            41 files / 423 tests passed
+lint:css            527 class tokens, no undefined utilities
+vite build          ok
+screenshot          1280x1400 Settings viewport capture, crisp, inspected
+```
