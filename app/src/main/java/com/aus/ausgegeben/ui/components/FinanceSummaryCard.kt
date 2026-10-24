@@ -164,8 +164,9 @@ private fun SummaryPane(
         
         Spacer(Modifier.height(8.dp))
         
+        // Sentence case, like the "Net cash flow" eyebrow above it (web parity: .finance-stat-chip__label).
         Text(
-            text = label.uppercase(),
+            text = label,
             style = AuroraTokens.labelStyle(),
         )
         

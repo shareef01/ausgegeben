@@ -488,8 +488,11 @@ change this work has avoided, so they are enumerated rather than guessed at:
 
 * Web: `layout.css` 1 rule; `pages.css` 18 rules (settings rows, badges, chips, sheet headers,
   footer labels). The Insights titles fixed here were the two that were semantically headings.
-* Android: `BillsScreen` 9, `AddTransactionScreen` 5, `AuthScreen` 3, `FinanceSummaryCard` 3,
-  `IosSurfaces` 3, `CategoryBudgetSection` 2, `OnboardingScreen` 2, `RecordScreen` 1, `Charts` 1.
+* Android: `BillsScreen` 9, `AddTransactionScreen` 5, `AuthScreen` 3, `FinanceSummaryCard` 2,
+  `IosSurfaces` 2, `CategoryBudgetSection` 2, `OnboardingScreen` 2, `Charts` 1 (27 in all).
+  Since this list was written, three were removed after checking them on a Pixel 7: the summary
+  card's Earned/Spent labels, the Record day header, and `GroupedSectionLabel` (Settings, category
+  and period-picker section headings), each matching its web counterpart.
 
 ## Test evidence
 

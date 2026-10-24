@@ -215,12 +215,15 @@ fun GroupedSectionLabel(
             .padding(top = 24.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Section headings read in sentence case at a heading weight, not as a tracked all-caps
+        // eyebrow (web parity: .settings-section__title).
         Text(
-            text = text.uppercase(),
+            text = text,
             style = MaterialTheme.typography.labelSmall.copy(
                 color = readableSecondaryColor(),
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.5.sp
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.2.sp
             )
         )
     }

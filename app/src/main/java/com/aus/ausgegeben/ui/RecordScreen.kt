@@ -930,7 +930,8 @@ private fun DateSectionHeader(
             Spacer(Modifier.width(8.dp))
 
             Text(
-                text = date.uppercase(),
+                // Sentence case, matching the web day header (.txn-day-header__label).
+                text = date,
                 style = RecordAuroraTokens.labelStyle(),
                 modifier = Modifier.weight(1f),
             )
