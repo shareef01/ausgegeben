@@ -98,6 +98,7 @@ export function InsightsView({ onAdd, onManageBudgets }: { onAdd?: () => void; o
                 </p>
               ) : null}
               {!hasData ? (
+            <>
             <EmptyState
               title={t('billsEmptyTitle')}
               subtitle={t('billsEmptySubtitle')}
@@ -109,6 +110,17 @@ export function InsightsView({ onAdd, onManageBudgets }: { onAdd?: () => void; o
                 ) : undefined
               }
             />
+            {/* Budgets are set per month and still mean something with no transactions in the
+                period (nothing spent yet), so the card is not part of what "no data" hides. */}
+            {showCategoryBudgets ? (
+              <CategoryBudgetInsights
+                categories={categories}
+                expenses={budgetExpenses}
+                incomplete={budgetIncomplete}
+                onManage={onManageBudgets}
+              />
+            ) : null}
+            </>
           ) : (
             <div className="insights-main">
               {uiState.pace || uiState.comparison ? (
