@@ -136,10 +136,13 @@
 }
 
 .finance-summary-card__eyebrow {
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  /* The label says what the number is; it does not need to shout. 13px sentence case replaced a
+     10px all-caps tracked micro-label, which the design spec rules out for information a user
+     must read (DW-2). */
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.01em;
   color: var(--color-on-surface-variant);
   text-align: center;
 }
@@ -148,11 +151,13 @@
   display: block;
   width: 100%;
   text-align: center;
-  font-size: clamp(1.75rem, 4vw, 2.25rem);
-  font-weight: 800;
-  letter-spacing: -0.04em;
+  /* Metric scale from the spec: 30-36px, tabular (global rule), no glow on data. */
+  font-size: clamp(1.875rem, 5vw, 2.25rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
   line-height: 1.05;
   margin: 0;
+  text-shadow: none;
 }
 
 .finance-summary-card__balance--positive {
@@ -174,17 +179,19 @@
 }
 
 .record-most-spent {
+  /* Information, not an alert: "most spent on Groceries" is a fact about the period, so it gets
+     neutral chrome and readable type instead of an uppercase label on a red-tinted bar (DW-2). */
   margin: 0;
-  padding: 12px 14px;
+  padding: 10px 14px;
   border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--color-outline) 35%, transparent);
-  background: color-mix(in srgb, var(--color-expense) 8%, transparent);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-on-surface);
-  line-height: 1.35;
+  border: 1px solid color-mix(in srgb, var(--color-outline) 30%, transparent);
+  background: color-mix(in srgb, var(--color-on-surface) 4%, transparent);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--color-on-surface-variant);
+  line-height: 1.4;
 }
 
 .finance-stat-chip {
@@ -225,10 +232,11 @@
 }
 
 .finance-stat-chip__label {
-  font-size: 11px !important;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  /* Last of the all-caps micro-labels on this screen: 12px sentence case, still quiet. */
+  font-size: 0.75rem !important;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.01em;
   color: var(--color-on-surface-variant);
   line-height: 1.2;
 }
@@ -252,6 +260,17 @@
 .finance-stat-chip--expense .finance-stat-chip__value,
 .finance-stat-chip--expense .money {
   color: var(--color-expense);
+}
+
+/* Transfers are neither income nor expense; the chip exists so the net above is explainable. */
+.finance-stat-chip--transfer .finance-stat-chip__icon {
+  color: var(--color-transfer);
+  background: color-mix(in srgb, var(--color-transfer) 14%, transparent);
+}
+
+.finance-stat-chip--transfer .finance-stat-chip__value,
+.finance-stat-chip--transfer .money {
+  color: var(--color-transfer);
 }
 
 /* ── Transaction List Restoration ── */

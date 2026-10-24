@@ -106,10 +106,17 @@ val AmountTextStyle = TextStyle(
     fontFeatureSettings = "tnum, lnum",
 )
 
-/** Unified section / label style for uppercase metadata across screens. */
+/**
+ * Shared style for section headings and supporting metadata.
+ *
+ * 12sp SemiBold with near-zero tracking (was 11sp Bold at 1.5sp). The all-caps-with-tracking
+ * treatment this style was built around is what the UI/UX design spec rules out for information a
+ * user must read; call sites that still `.uppercase()` it are queued for the screen-by-screen pass,
+ * and this alone makes every one of them denser and easier to read.
+ */
 val SectionLabelStyle = TextStyle(
     fontFamily = InterFontFamily,
-    fontSize = 11.sp,
-    fontWeight = FontWeight.Bold,
-    letterSpacing = 1.5.sp,
+    fontSize = 12.sp,
+    fontWeight = FontWeight.SemiBold,
+    letterSpacing = 0.2.sp,
 )

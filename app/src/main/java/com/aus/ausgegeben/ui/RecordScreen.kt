@@ -89,6 +89,12 @@ fun RecordScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val allExpenses by viewModel.pagedExpenses.collectAsStateWithLifecycle(initialValue = emptyList<Expense>())
+
+    // Whether anything is narrowing the list right now (UX-3): used to explain that the day
+    // totals follow the rows, while the period summary above does not.
+    val filtersActive = uiState.toolbar.searchQuery.isNotBlank() ||
+        uiState.toolbar.typeFilter != TransactionTypeFilter.ALL ||
+        uiState.toolbar.composite.activeCount > 0
     
     // Performance: Memoize derived calculations
     val dayTotalsByDay = remember(uiState.dayTotalsByDay) { uiState.dayTotalsByDay }
@@ -252,6 +258,20 @@ fun RecordScreen(
                     }
                 }
 
+                // UX-3: the period summary above is filter-independent; these day totals follow
+                // the rows on screen. Say so while a filter is narrowing the list, so the two
+                // numbers can never look like they disagree (web parity).
+                if (filtersActive && allExpenses.isNotEmpty() && !uiState.isLoading) {
+                    item(key = "totals-filtered") {
+                        Text(
+                            stringResource(R.string.record_totals_filtered),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
                 when {
                     uiState.isLoading -> {
                         item(key = "loading") {
@@ -298,7 +318,7 @@ fun RecordScreen(
                                         )
                                     }
                                     Text(
-                                        text = mostSpentLabel.uppercase(),
+                                        text = mostSpentLabel,
                                         style = RecordAuroraTokens.labelStyle(),
                                     )
                                 }
@@ -910,7 +930,8 @@ private fun DateSectionHeader(
             Spacer(Modifier.width(8.dp))
 
             Text(
-                text = date.uppercase(),
+                // Sentence case, matching the web day header (.txn-day-header__label).
+                text = date,
                 style = RecordAuroraTokens.labelStyle(),
                 modifier = Modifier.weight(1f),
             )

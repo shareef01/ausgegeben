@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Category, Expense, TransactionType } from '@/models/types';
 import { expenseRepository, EmailNotVerifiedError, UNCATEGORIZED_ID } from '@/repositories/expenseRepository';
 import { formatAmount, formatAmountForInput, parseAmount, sanitizeAmountInput } from '@/utils/currency';
-import { isInThisMonth, thisMonthRange } from '@/utils/periodUtils';
+import { isInThisMonth, thisMonthRange, toDateInputValue } from '@/utils/periodUtils';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useTranslation } from '@/i18n';
 import { useAuthStore } from '@/services/authStore';
@@ -131,6 +131,63 @@ export async function runExclusive<T>(
   }
 }
 
+/**
+ * The state a freshly-opened editor started from, in the same normalised shape the dirty
+ * check compares against (UX-1).
+ *
+ * Normalised on purpose, so "the user changed something" means a change the save would
+ * actually persist — not a side effect of formatting:
+ *  - `amountMinor` is in cents, so `12,5` and `12,50` are the same amount (the form
+ *    round-trips through `formatAmountForInput`, which prints two decimals);
+ *  - `dateKey` is the calendar day, so the time-of-day a stored `dateMillis` carries is
+ *    not counted as an edit when only the date field is on screen;
+ *  - `note` is trimmed, matching `save()`.
+ */
+export interface TransactionBaseline {
+  amountMinor: number;
+  transactionType: TransactionType;
+  categoryId: string | null;
+  note: string;
+  dateKey: string;
+}
+
+export function toTransactionBaseline(form: AddTransactionForm, currency: string): TransactionBaseline {
+  return {
+    amountMinor: Math.round((parseAmount(form.amountInput, currency) ?? 0) * 100),
+    transactionType: form.transactionType,
+    categoryId: form.categoryId,
+    note: form.note.trim(),
+    dateKey: toDateInputValue(form.dateMillis),
+  };
+}
+
+/**
+ * Whether closing the editor would throw away something the user changed (UX-1).
+ *
+ * `baseline` is null until the editor has finished loading; an unloaded form is never
+ * dirty. This is the only thing that may gate the discard prompt — the previous check
+ * asked "does this form look non-empty?", which is why an *edit* closed silently: a loaded
+ * row always looks non-empty, so edits had to be excluded, and excluding them lost the
+ * user's changes. Comparing against the loaded values fixes both directions: a create with
+ * a pre-selected category is not dirty, and an edit that only reformats its amount is not
+ * dirty either.
+ */
+export function isFormDirty(
+  form: AddTransactionForm,
+  baseline: TransactionBaseline | null,
+  currency: string,
+): boolean {
+  if (!baseline) return false;
+  const current = toTransactionBaseline(form, currency);
+  return (
+    current.amountMinor !== baseline.amountMinor ||
+    current.transactionType !== baseline.transactionType ||
+    current.categoryId !== baseline.categoryId ||
+    current.note !== baseline.note ||
+    current.dateKey !== baseline.dateKey
+  );
+}
+
 export function useAddTransactionViewModel(expenseId?: string) {
   const { t } = useTranslation();
   const [form, setForm] = useState<AddTransactionForm>(defaultForm);
@@ -140,6 +197,13 @@ export function useAddTransactionViewModel(expenseId?: string) {
   const [ready, setReady] = useState(false);
   /** Edit load failed (missing doc / fetch error) — block Save so we never recreate the id. */
   const [loadFailed, setLoadFailed] = useState(false);
+  /**
+   * The normalised values the editor opened with (UX-1). Null until `load()` has seeded the
+   * form, so an unloaded editor can never be "dirty". Set in both branches — a new
+   * transaction's baseline is the seeded default (first category of the current type), which
+   * is why an untouched create no longer reads as unsaved.
+   */
+  const [baseline, setBaseline] = useState<TransactionBaseline | null>(null);
   /**
    * The transaction type the category selection was last reconciled against.
    *
@@ -172,8 +236,12 @@ export function useAddTransactionViewModel(expenseId?: string) {
 
   const load = useCallback(async () => {
     setLoadFailed(false);
+    // A reload re-seeds the whole form, so the old baseline is meaningless until the new one
+    // is captured; clearing it first also stops a one-frame "dirty" flash during reload.
+    setBaseline(null);
     editorOwnerUid.current = useAuthStore.getState().user?.uid ?? null;
     try {
+      const currency = usePreferencesStore.getState().currency;
       const CATEGORY_TIMEOUT_MS = 8000;
       const catsPromise = expenseRepository.getAllCategories();
       const timeoutPromise = new Promise<Category[]>((_, reject) =>
@@ -195,13 +263,17 @@ export function useAddTransactionViewModel(expenseId?: string) {
           );
           setCategoryUnresolved(!selectable);
           if (!selectable) setError(t('errorChooseCategory'));
-          setForm({
-            amountInput: formatAmountForInput(existing.amount, usePreferencesStore.getState().currency),
+          const loaded: AddTransactionForm = {
+            amountInput: formatAmountForInput(existing.amount, currency),
             transactionType: existing.transactionType,
             categoryId: existing.categoryId,
             note: existing.note,
             dateMillis: existing.dateMillis,
-          });
+          };
+          setForm(loaded);
+          // The whole point of UX-1: an *edited* row now has a baseline too, so closing it
+          // after a change can be caught instead of silently dropped.
+          setBaseline(toTransactionBaseline(loaded, currency));
         } else {
           // The expense was deleted elsewhere (another tab/device) between opening this
           // edit view and this fetch. Without this branch the form silently stayed blank
@@ -214,7 +286,9 @@ export function useAddTransactionViewModel(expenseId?: string) {
         }
       } else {
         const first = cats.find((c) => c.transactionType === 'expense');
-        setForm({ ...defaultForm(), categoryId: first?.id ?? null });
+        const initial: AddTransactionForm = { ...defaultForm(), categoryId: first?.id ?? null };
+        setForm(initial);
+        setBaseline(toTransactionBaseline(initial, currency));
       }
       setReady(true);
     } catch (err) {
@@ -373,6 +447,15 @@ export function useAddTransactionViewModel(expenseId?: string) {
     }
   }, []);
 
+  /**
+   * True when closing the editor would discard a change the user made (UX-1). Derived, never
+   * stored, so it cannot go stale; `baseline` is null until the form is loaded.
+   */
+  const isDirty = useMemo(
+    () => isFormDirty(form, baseline, usePreferencesStore.getState().currency),
+    [form, baseline],
+  );
+
   return {
     form,
     setForm,
@@ -388,6 +471,8 @@ export function useAddTransactionViewModel(expenseId?: string) {
     /** True while the stored category is the Uncategorized sentinel or an orphan. */
     categoryUnresolved,
     isEditing: Boolean(expenseId),
+    /** True when the current form differs from the values it was opened with (UX-1). */
+    isDirty,
     reloadCategories,
     reload: load,
   };

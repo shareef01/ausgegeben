@@ -714,10 +714,12 @@ html {
   border-bottom: 0.5px solid var(--hairline-divider);
   border-radius: 1rem 1rem 0 0;
   color: var(--color-on-surface-variant);
-  letter-spacing: 0.14em;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  text-transform: uppercase;
+  /* Matches .txn-day-header.transaction-list-bare__day in polish.css: readable sentence-case
+     day labels rather than an 11px all-caps micro-label. */
+  letter-spacing: 0.01em;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: none;
 }
 
 .txn-day-header__totals {
@@ -745,4 +747,13 @@ html {
     padding: 12px 20px;
     font-size: 0.75rem;
   }
+}
+
+.txn-day-header__label {
+  /* Explicit colour so the label does not depend on inherited text colour from a parent that
+     may be styled for a different purpose. */
+  color: var(--color-on-surface-variant);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

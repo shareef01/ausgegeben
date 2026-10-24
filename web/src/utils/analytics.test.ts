@@ -58,6 +58,21 @@ describe('analytics', () => {
     expect(totals.net).toBe(70);
   });
 
+  it('computeTotals counts transfers so the summary can explain what net leaves out', () => {
+    // UX-2 follow-up: `net` is income - expenses, so a period containing transfers needs both the
+    // transfer total and its count on screen to be explainable rather than looking like the
+    // summary dropped rows.
+    const totals = computeTotals([
+      expense({ amount: 20, transactionType: 'transfer' }),
+      expense({ amount: 5.5, transactionType: 'transfer' }),
+      expense({ amount: 12, transactionType: 'expense' }),
+    ]);
+    expect(totals.transferCount).toBe(2);
+    expect(totals.totalTransfers).toBe(25.5);
+    expect(totals.net).toBe(-12);
+    expect(computeTotals([]).transferCount).toBe(0);
+  });
+
   it('groupByCategory sums per category', () => {
     const map = groupByCategory(
       [

@@ -12,6 +12,7 @@ import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.util.CurrencyUtils
+import com.aus.ausgegeben.util.TransactionDraft
 import com.aus.ausgegeben.util.dateRangeMillis
 import com.aus.ausgegeben.util.datePickerMillisToLocalDayStart
 import com.aus.ausgegeben.util.runSuspendCatching
@@ -60,6 +61,14 @@ class AddExpenseViewModel @Inject constructor(
     private val _loadedTransactionType = MutableStateFlow(TransactionType.EXPENSE)
     val loadedTransactionType = _loadedTransactionType.asStateFlow()
 
+    /**
+     * The draft the editor opened with (UX-1). Null until the fields have been seeded, so an
+     * unloaded editor can never be "dirty". Set by `loadForEdit` (once the amount has been
+     * formatted for the display currency) and by `resetForm`; read by the screen's close guard.
+     */
+    private val _baseline = MutableStateFlow<TransactionDraft?>(null)
+    val baseline = _baseline.asStateFlow()
+
     private val _isSaving = MutableStateFlow(false)
     val isSaving = _isSaving.asStateFlow()
 
@@ -101,9 +110,23 @@ class AddExpenseViewModel @Inject constructor(
         _dateMillis.value = expense.dateMillis
         _selectedCategory.value = categories.find { it.id == expense.categoryId }
         _loadedTransactionType.value = TransactionType.fromKey(expense.transactionType)
+        // This view model outlives one editor session; drop the previous baseline so the
+        // screen never compares the new fields against the last form while this one loads.
+        _baseline.value = null
         viewModelScope.launch {
             val currency = preferenceManager.currencyFlow.first()
             _amount.value = CurrencyUtils.formatAmountForInput(expense.amount, currency)
+            // Captured after the amount is formatted for the display currency, and using the
+            // *selected* category id: an orphan/stored-but-unselectable category leaves the
+            // selection null, so an untouched edit of such a row is not reported as dirty.
+            _baseline.value = TransactionDraft.of(
+                amountText = _amount.value,
+                currencyCode = currency,
+                transactionType = expense.transactionType,
+                categoryId = _selectedCategory.value?.id,
+                note = _note.value,
+                dateMillis = _dateMillis.value,
+            )
         }
     }
 
@@ -253,5 +276,19 @@ class AddExpenseViewModel @Inject constructor(
         _selectedCategory.value = null
         _dateMillis.value = System.currentTimeMillis()
         _loadedTransactionType.value = TransactionType.EXPENSE
+        // A fresh form's baseline is what it starts as, so an untouched create is not dirty.
+        // Cleared first for the same reason as in loadForEdit.
+        _baseline.value = null
+        viewModelScope.launch {
+            val currency = preferenceManager.currencyFlow.first()
+            _baseline.value = TransactionDraft.of(
+                amountText = _amount.value,
+                currencyCode = currency,
+                transactionType = TransactionType.EXPENSE.storageKey,
+                categoryId = null,
+                note = _note.value,
+                dateMillis = _dateMillis.value,
+            )
+        }
     }
 }
