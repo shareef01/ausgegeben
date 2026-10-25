@@ -10,6 +10,8 @@ import { applyTheme, resolveTheme, resolvedThemeName, writeStoredThemeMode } fro
 import { t as translate } from '@/i18n';
 import { preferencesSync } from '@/services/preferencesSync';
 import { seedOnboardingForUser } from '@/services/preferencesStore';
+import { isPreferencesSettled, preferencesScreenFor } from '@/services/prefsLoadState';
+import { PreferencesRecoveryView } from '@/views/PreferencesRecoveryView';
 import { expenseRepository } from '@/repositories/expenseRepository';
 
 try {
@@ -20,7 +22,8 @@ try {
 
 export function App(): JSX.Element {
   const onboardingComplete = usePreferencesStore((s) => s.onboardingComplete);
-  const preferencesReady = usePreferencesStore((s) => s.preferencesReady);
+  const onboardingKnown = usePreferencesStore((s) => s.onboardingKnown);
+  const preferencesStatus = usePreferencesStore((s) => s.preferencesStatus);
   const themeMode = usePreferencesStore((s) => s.themeMode);
   const locale = usePreferencesStore((s) => s.locale);
   const completeOnboarding = usePreferencesStore((s) => s.completeOnboarding);
@@ -71,10 +74,11 @@ export function App(): JSX.Element {
 
   // Seed after prefs (locale) are ready and email is verified — category and
   // preferences writes require email_verified in Firestore rules.
+  const preferencesSettled = isPreferencesSettled(preferencesStatus);
   useEffect(() => {
-    if (!user || !preferencesReady || !user.emailVerified) return;
+    if (!user || !preferencesSettled || !user.emailVerified) return;
     void expenseRepository.ensureSeeded();
-  }, [user, preferencesReady]);
+  }, [user, preferencesSettled]);
 
   // Wait for Firebase Auth to initialize before deciding what to show
   if (!authReady) {
@@ -96,8 +100,11 @@ export function App(): JSX.Element {
     return <AuthView />;
   }
 
-  // Wait for Firestore preferences before onboarding gate (avoids flash)
-  if (!preferencesReady) {
+  const screen = preferencesScreenFor({ status: preferencesStatus, onboardingKnown, onboardingComplete });
+
+  // Loading, then an explicit retry/continue recovery state if the answer never
+  // arrives — never a silent decision based on local defaults.
+  if (screen === 'loading') {
     return (
       <div
         className="loading-screen"
@@ -111,8 +118,12 @@ export function App(): JSX.Element {
     );
   }
 
-  // Onboarding only after Auth + prefs loaded
-  if (!onboardingComplete) {
+  if (screen === 'recovery') {
+    return <PreferencesRecoveryView />;
+  }
+
+  // Onboarding only for a known, incomplete account (see preferencesScreenFor).
+  if (screen === 'onboarding') {
     return (
       <Suspense fallback={null}>
         <OnboardingView onComplete={completeOnboarding} />

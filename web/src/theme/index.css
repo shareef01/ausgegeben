@@ -29,6 +29,12 @@
   --color-income: #10B981;
   --color-expense: #FB7185;
   --color-transfer: #94A3B8;
+  /* Pre-JS fallbacks; applyTheme() replaces these with per-palette AA-safe
+     variants (see readableOn() in tokens.ts). */
+  --color-income-text: #10B981;
+  --color-expense-text: #FB7185;
+  --color-transfer-text: #94A3B8;
+  --color-error-text: #FB7185;
   --color-accent: #FFFFFF;
   --color-on-accent: #09090B;
   --color-focus: #3B82F6;
@@ -106,6 +112,10 @@
     --color-income: #157A3A;
     --color-expense: #FB7185;
     --color-transfer: #52525B;
+    --color-income-text: #157A3A;
+    --color-expense-text: #B55160;
+    --color-transfer-text: #52525B;
+    --color-error-text: #B55160;
     --color-accent: #09090B;
     --color-on-accent: #FFFFFF;
     --color-focus: #3B82F6;
@@ -120,7 +130,7 @@
     --color-label-muted: #52525B;
     --color-placeholder: #52525B;
     --color-balance-positive: #157A3A;
-    --color-balance-negative: #FB7185;
+    --color-balance-negative: #B55160;
     --color-stat-value: #09090B;
     --overlay-scrim: rgba(15, 15, 20, 0.36);
     --shadow-elevated: 0 8px 28px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);

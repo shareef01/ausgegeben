@@ -13,6 +13,7 @@ import com.aus.ausgegeben.data.entity.Expense
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -373,6 +374,183 @@ class AddExpenseViewModelTest {
     }
 
     @Test
+    fun hasUnsavedChanges_falseForAFreshDraftUntilTheUserTypes() {
+        viewModel.resetForm()
+
+        assertFalse(viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"))
+
+        viewModel.onAmountChange("4,50")
+        assertTrue(viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"))
+    }
+
+    @Test
+    fun hasUnsavedChanges_falseForAnUntouchedLoadedEdit() = runTest(dispatcher) {
+        val existing = Expense(
+            id = "e1",
+            amount = 15.5,
+            dateMillis = 1700000000000L,
+            categoryId = "c1",
+            note = "Groceries",
+            transactionType = "expense",
+        )
+        viewModel.loadForEdit(existing, listOf(expenseCategory))
+        advanceUntilIdle()
+
+        // The loaded values are the baseline: an edit is not dirty just by existing.
+        assertFalse(viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"))
+    }
+
+    @Test
+    fun hasUnsavedChanges_trueWhenALoadedEditIsModified() = runTest(dispatcher) {
+        val existing = Expense(
+            id = "e1",
+            amount = 15.5,
+            dateMillis = 1700000000000L,
+            categoryId = "c1",
+            note = "Groceries",
+            transactionType = "expense",
+        )
+        viewModel.loadForEdit(existing, listOf(expenseCategory))
+        advanceUntilIdle()
+
+        viewModel.onAmountChange("15,50")
+        assertFalse(
+            "re-typing the same amount is not a change",
+            viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"),
+        )
+
+        viewModel.onNoteChange("Groceries and coffee")
+        assertTrue(viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"))
+
+        viewModel.onNoteChange("Groceries")
+        viewModel.onCategorySelect(incomeCategory)
+        assertTrue(
+            "switching the category/type is a change",
+            viewModel.hasUnsavedChanges(TransactionType.INCOME, "EUR"),
+        )
+    }
+
+    @Test
+    fun hasUnsavedChanges_clearedAgainAfterResetForm() = runTest(dispatcher) {
+        val existing = Expense(
+            id = "e1",
+            amount = 15.5,
+            dateMillis = 1700000000000L,
+            categoryId = "c1",
+            note = "Groceries",
+            transactionType = "expense",
+        )
+        viewModel.loadForEdit(existing, listOf(expenseCategory))
+        advanceUntilIdle()
+        viewModel.onNoteChange("changed")
+
+        viewModel.resetForm()
+
+        assertFalse(viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"))
+    }
+
+    /**
+     * The edit form is not interactive until the transaction (amount included) and the
+     * dirty baseline are loaded. Rendering it earlier let a keystroke be overwritten by
+     * the asynchronously loaded amount and left "close" with no baseline to compare to.
+     */
+    @Test
+    fun loadForEdit_reportsDraftLoadingUntilValuesAndBaselineExist() = runTest(dispatcher) {
+        val existing = Expense(
+            id = "e1",
+            amount = 15.5,
+            dateMillis = 1700000000000L,
+            categoryId = "c1",
+            note = "Groceries",
+            transactionType = "expense",
+        )
+        viewModel.loadForEdit(existing, listOf(expenseCategory))
+
+        assertTrue("form must not be interactive yet", viewModel.isDraftLoading.value)
+        assertFalse(
+            "no baseline yet, so nothing can be dirty",
+            viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"),
+        )
+
+        advanceUntilIdle()
+
+        assertFalse(viewModel.isDraftLoading.value)
+        assertEquals("15,50", viewModel.amount.value)
+        assertFalse(viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"))
+    }
+
+    /**
+     * Closing an edit while it is still loading and opening Add must give a blank form:
+     * the superseded load used to finish afterwards and write the old amount (and a
+     * matching baseline, so no discard prompt) into the new transaction.
+     */
+    @Test
+    fun resetForm_cancelsAPendingEditLoad() = runTest(dispatcher) {
+        val existing = Expense(
+            id = "e1",
+            amount = 15.5,
+            dateMillis = 1700000000000L,
+            categoryId = "c1",
+            note = "Groceries",
+            transactionType = "expense",
+        )
+        viewModel.loadForEdit(existing, listOf(expenseCategory))
+        viewModel.resetForm()
+        advanceUntilIdle()
+
+        assertEquals("0", viewModel.amount.value)
+        assertFalse(viewModel.isDraftLoading.value)
+        assertFalse(viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"))
+
+        viewModel.onAmountChange("3,00")
+        assertTrue(viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"))
+    }
+
+    /**
+     * A view model that never saw resetForm() (the form restored after process death)
+     * must still guard typed input instead of treating a missing baseline as clean.
+     */
+    @Test
+    fun hasUnsavedChanges_guardsAFreshViewModelWithoutResetForm() {
+        assertFalse(viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"))
+
+        viewModel.onAmountChange("4,50")
+        viewModel.onNoteChange("Lunch")
+
+        assertTrue(viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"))
+    }
+
+    @Test
+    fun resetForm_clearsTheDraftLoadingState() {
+        viewModel.resetForm()
+        assertFalse(viewModel.isDraftLoading.value)
+        assertFalse(viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"))
+    }
+
+    /**
+     * A preferences read failure must not leave the edit form stuck on its spinner: the
+     * transaction still opens (with default formatting) and closing stays safe.
+     */
+    @Test
+    fun loadForEdit_currencyUnavailable_stillOpensTheForm() = runTest(dispatcher) {
+        fakePreferences.currencyThrows = true
+        val existing = Expense(
+            id = "e1",
+            amount = 15.5,
+            dateMillis = 1700000000000L,
+            categoryId = "c1",
+            note = "Groceries",
+            transactionType = "expense",
+        )
+        viewModel.loadForEdit(existing, listOf(expenseCategory))
+        advanceUntilIdle()
+
+        assertFalse(viewModel.isDraftLoading.value)
+        assertEquals("15,50", viewModel.amount.value)
+        assertFalse(viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"))
+    }
+
+    @Test
     fun andE1_editStateInitializedFromExistingTransaction() = runTest(dispatcher) {
         val existing = Expense(id = "e1", amount = 15.5, dateMillis = 1700000000000L, categoryId = "c1", note = "Groceries", transactionType = "expense")
         viewModel.loadForEdit(existing, listOf(expenseCategory), ownerUid = "user-1")
@@ -600,13 +778,17 @@ class AddExpenseViewModelTest {
         val monthlyBudget = MutableStateFlow<Double?>(null)
         val analyticsPeriod = MutableStateFlow("this_month")
 
+        /** Mirrors a DataStore read failure (device storage unavailable). */
+        var currencyThrows = false
+
         /** Every unresolved submission attempt, mirroring production's durable journal. */
         var journal: List<PendingExpenseOperation> = emptyList()
             private set
 
         val pendingOperationIds: List<String> get() = journal.map { it.operationId }
 
-        override val currencyFlow: Flow<String> = currency
+        override val currencyFlow: Flow<String>
+            get() = if (currencyThrows) flow { throw IllegalStateException("preferences unavailable") } else currency
         override val monthlyBudgetFlow: Flow<Double?> = monthlyBudget
         override val analyticsPeriodFlow: Flow<String> = analyticsPeriod
 

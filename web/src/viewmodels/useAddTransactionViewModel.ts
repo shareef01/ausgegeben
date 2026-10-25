@@ -3,6 +3,7 @@ import type { Category, Expense, TransactionType } from '@/models/types';
 import { expenseRepository, EmailNotVerifiedError, UNCATEGORIZED_ID } from '@/repositories/expenseRepository';
 import { formatAmount, formatAmountForInput, parseAmount, sanitizeAmountInput } from '@/utils/currency';
 import { isInThisMonth, thisMonthRange } from '@/utils/periodUtils';
+import { isTransactionDraftDirty } from '@/viewmodels/transactionDirty';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useTranslation } from '@/i18n';
 import { useAuthStore } from '@/services/authStore';
@@ -138,6 +139,12 @@ export function useAddTransactionViewModel(expenseId?: string) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  /**
+   * The values this form opened with (a blank draft, or the loaded transaction).
+   * Dirty state is "differs from this", not "any field is filled in" — the latter is
+   * always true for an edit and silently disabled discard protection for it.
+   */
+  const [baseline, setBaseline] = useState<AddTransactionForm | null>(null);
   /** Edit load failed (missing doc / fetch error) — block Save so we never recreate the id. */
   const [loadFailed, setLoadFailed] = useState(false);
   /**
@@ -172,6 +179,7 @@ export function useAddTransactionViewModel(expenseId?: string) {
 
   const load = useCallback(async () => {
     setLoadFailed(false);
+    setBaseline(null);
     editorOwnerUid.current = useAuthStore.getState().user?.uid ?? null;
     try {
       const CATEGORY_TIMEOUT_MS = 8000;
@@ -195,13 +203,15 @@ export function useAddTransactionViewModel(expenseId?: string) {
           );
           setCategoryUnresolved(!selectable);
           if (!selectable) setError(t('errorChooseCategory'));
-          setForm({
+          const loadedForm: AddTransactionForm = {
             amountInput: formatAmountForInput(existing.amount, usePreferencesStore.getState().currency),
             transactionType: existing.transactionType,
             categoryId: existing.categoryId,
             note: existing.note,
             dateMillis: existing.dateMillis,
-          });
+          };
+          setForm(loadedForm);
+          setBaseline(loadedForm);
         } else {
           // The expense was deleted elsewhere (another tab/device) between opening this
           // edit view and this fetch. Without this branch the form silently stayed blank
@@ -214,7 +224,9 @@ export function useAddTransactionViewModel(expenseId?: string) {
         }
       } else {
         const first = cats.find((c) => c.transactionType === 'expense');
-        setForm({ ...defaultForm(), categoryId: first?.id ?? null });
+        const blankForm: AddTransactionForm = { ...defaultForm(), categoryId: first?.id ?? null };
+        setForm(blankForm);
+        setBaseline(blankForm);
       }
       setReady(true);
     } catch (err) {
@@ -388,6 +400,11 @@ export function useAddTransactionViewModel(expenseId?: string) {
     /** True while the stored category is the Uncategorized sentinel or an orphan. */
     categoryUnresolved,
     isEditing: Boolean(expenseId),
+    /**
+     * Whether closing now would throw away user input. Derived from the opened values,
+     * so it works for edits (which are non-empty at rest) as well as new drafts.
+     */
+    isDirty: isTransactionDraftDirty(baseline, form, usePreferencesStore.getState().currency),
     reloadCategories,
     reload: load,
   };

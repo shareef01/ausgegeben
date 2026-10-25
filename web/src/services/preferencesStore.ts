@@ -3,6 +3,10 @@ import type { AppPreferences, ThemeMode, SyncedPreferences } from '@/models/type
 import type { Locale } from '@/i18n';
 import { readStoredThemeMode, writeStoredThemeMode } from '@/theme/tokens';
 import { useAuthStore } from '@/services/authStore';
+import {
+  preferencesScreenFor,
+  type PreferencesStatus,
+} from '@/services/prefsLoadState';
 
 const storedTheme = readStoredThemeMode();
 
@@ -51,8 +55,29 @@ function writeStoredOnboarding(uid: string, complete: boolean) {
 export function seedOnboardingForUser(uid: string): void {
   if (usePreferencesStore.getState().onboardingComplete) return;
   if (readStoredOnboarding(uid)) {
-    usePreferencesStore.setState({ onboardingComplete: true });
+    // `onboardingKnown` marks this as a real answer rather than a default: the gate
+    // only treats onboarding as "not completed" when the value was actually loaded.
+    usePreferencesStore.setState({ onboardingComplete: true, onboardingKnown: true });
   }
+}
+
+/**
+ * Whether the onboarding flow should be shown.
+ *
+ * Three states, not two: completed, not completed, and *not known yet*. Rendering
+ * onboarding on "unknown" is what made a reload intermittently re-enter onboarding
+ * for a returning account (the preference snapshot had not resolved, so the store was
+ * still on its `false` default). Unknown renders the app shell instead — the safe
+ * direction is to never re-onboard an existing account, and a genuinely new account
+ * gets onboarding as soon as the (server-confirmed) missing-document path marks the
+ * preference known.
+ */
+export function shouldShowOnboarding(state: {
+  status: PreferencesStatus;
+  onboardingKnown: boolean;
+  onboardingComplete: boolean;
+}): boolean {
+  return preferencesScreenFor(state) === 'onboarding';
 }
 
 const DEFAULT_PREFERENCES: AppPreferences = {
@@ -73,8 +98,19 @@ function touchPrefs(previous: number): number {
 }
 
 interface PreferencesStore extends AppPreferences {
-  /** True after the first Firestore preferences snapshot for the signed-in user. */
-  preferencesReady: boolean;
+  /** Where preference loading stands (see prefsLoadState.ts). */
+  preferencesStatus: PreferencesStatus;
+  /**
+   * The account whose preferences the store currently holds. Used to detect a switch
+   * that never passed through a signed-out state (authService signs in directly), so
+   * one account's settings and onboarding answer cannot leak into another's session.
+   */
+  preferencesActiveUid: string | null;
+  /**
+   * Whether `onboardingComplete` reflects a real answer (local seed, cloud snapshot,
+   * or an explicit completion) rather than the store's default.
+   */
+  onboardingKnown: boolean;
   setCurrency: (currency: string) => void;
   setLocale: (locale: Locale) => void;
   setThemeMode: (mode: ThemeMode) => void;
@@ -84,13 +120,46 @@ interface PreferencesStore extends AppPreferences {
   setAnalyticsPeriod: (key: string) => void;
   setMonthlyBudget: (amount: number | null) => void;
   applySyncedPreferences: (prefs: SyncedPreferences) => void;
-  markPreferencesReady: () => void;
+  /** Advance the loading state (see prefsLoadState.ts); never used for guesses. */
+  setPreferencesStatus: (status: PreferencesStatus) => void;
+  /** Start loading preferences for `uid`, resetting state if this is a different account. */
+  beginPreferencesForUser: (uid: string) => void;
+  /** Stop loading; the store no longer belongs to a specific account. */
+  endPreferences: () => void;
   resetPreferences: () => void;
 }
 
 export const usePreferencesStore = create<PreferencesStore>()((set) => ({
   ...DEFAULT_PREFERENCES,
-  preferencesReady: false,
+  preferencesStatus: 'idle',
+  preferencesActiveUid: null,
+  onboardingKnown: false,
+  beginPreferencesForUser: (uid) =>
+    set((state) => {
+      // A switch that never emitted a signed-out state (direct sign-in as another
+      // account) must not keep the previous account's currency/locale/budget or its
+      // onboarding answer: those would be shown to the new user and could be pushed
+      // onto their document.
+      const switchingAccount = state.preferencesActiveUid !== null && state.preferencesActiveUid !== uid;
+      return {
+        ...(switchingAccount
+          ? {
+              ...DEFAULT_PREFERENCES,
+              themeMode: readStoredThemeMode() as ThemeMode,
+              onboardingKnown: false,
+            }
+          : {}),
+        preferencesStatus: 'loading',
+        preferencesActiveUid: uid,
+      };
+    }),
+  /**
+   * Stop loading. Deliberately keeps `preferencesActiveUid`: it still identifies whose
+   * values are in the store, so a later sign-in as a different account is detected as a
+   * switch (and reset) instead of inheriting them. A genuine sign-out goes through
+   * `resetPreferences`, which clears it.
+   */
+  endPreferences: () => set({ preferencesStatus: 'idle' }),
   setCurrency: (currency) => {
     set((state) => ({ currency, preferencesUpdatedAt: touchPrefs(state.preferencesUpdatedAt) }));
   },
@@ -106,6 +175,7 @@ export const usePreferencesStore = create<PreferencesStore>()((set) => ({
     if (uid) writeStoredOnboarding(uid, true);
     set((state) => ({
       onboardingComplete: true,
+      onboardingKnown: true,
       preferencesUpdatedAt: touchPrefs(state.preferencesUpdatedAt),
     }));
   },
@@ -127,24 +197,31 @@ export const usePreferencesStore = create<PreferencesStore>()((set) => ({
   },
   applySyncedPreferences: (prefs) => {
     writeStoredThemeMode(prefs.themeMode);
-    set({
+    set((state) => ({
       currency: prefs.currency,
       locale: prefs.locale,
       themeMode: prefs.themeMode,
-      onboardingComplete: prefs.onboardingComplete,
+      // Completion is one-way per account: a cloud snapshot that predates this
+      // device's local completion (the write was still in flight, or the account was
+      // verified later) must not send the user back through onboarding.
+      onboardingComplete: prefs.onboardingComplete || state.onboardingComplete,
+      // The cloud document is an authoritative answer, including "not completed".
+      onboardingKnown: true,
       dailyReminder: prefs.dailyReminder,
       reminderHour: prefs.reminderHour,
       reminderMinute: prefs.reminderMinute,
       analyticsPeriod: prefs.analyticsPeriod,
       monthlyBudget: prefs.monthlyBudget,
       preferencesUpdatedAt: prefs.updatedAt,
-    });
+    }));
   },
-  markPreferencesReady: () => set({ preferencesReady: true }),
+  setPreferencesStatus: (preferencesStatus) => set({ preferencesStatus }),
   resetPreferences: () =>
     set({
       ...DEFAULT_PREFERENCES,
       themeMode: readStoredThemeMode() as ThemeMode,
-      preferencesReady: false,
+      preferencesStatus: 'idle',
+      preferencesActiveUid: null,
+      onboardingKnown: false,
     }),
 }));

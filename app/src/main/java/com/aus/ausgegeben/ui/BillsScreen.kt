@@ -461,13 +461,13 @@ private fun InsightsStatGrid(
         StatCard(
             label = stringResource(R.string.summary_spent),
             value = CurrencyUtils.formatAmount(expense, currencyCode),
-            color = financeExpenseColor(),
+            color = financeExpenseTextColor(),
             modifier = Modifier.weight(1f)
         )
         StatCard(
             label = stringResource(R.string.chart_net_label),
             value = CurrencyUtils.formatAmount(net, currencyCode),
-            color = if (net >= 0) financeIncomeColor() else financeExpenseColor(),
+            color = if (net >= 0) financeIncomeColor() else financeExpenseTextColor(),
             modifier = Modifier.weight(1f)
         )
         StatCard(
@@ -614,7 +614,7 @@ private fun CategoryAnalyticsIsland(
     val accentColor = when (kind) {
         AnalyticsKind.Income -> financeIncomeColor()
         AnalyticsKind.Transfer -> financeTransferColor()
-        AnalyticsKind.Expense -> financeExpenseColor()
+        AnalyticsKind.Expense -> financeExpenseTextColor()
     }
     val totalLabelRes = when (kind) {
         AnalyticsKind.Income -> R.string.bills_total_income
@@ -762,7 +762,7 @@ private fun SpendingPaceCard(
                             CurrencyUtils.formatAmount(overBudget, currencyCode)
                         ),
                         backgroundColor = financeExpenseColor().copy(alpha = 0.15f),
-                        contentColor = financeExpenseColor(),
+                        contentColor = financeExpenseTextColor(),
                     )
                 } else if (pace.budget != null) {
                     InsightsBadge(
@@ -879,14 +879,14 @@ private fun PeriodComparisonCard(
             val expDelta = comparison.expenseDelta
             val isExpLess = expDelta < 0
             val isExpMore = expDelta > 0
-            val expColor = if (isExpLess) financeIncomeColor() else if (isExpMore) financeExpenseColor() else MaterialTheme.colorScheme.onSurface
+            val expColor = if (isExpLess) financeIncomeColor() else if (isExpMore) financeExpenseTextColor() else MaterialTheme.colorScheme.onSurface
             val expSign = if (isExpMore) "+" else if (isExpLess) "-" else ""
             val expPctStr = if (comparison.expensePercentageDelta != null) {
                 " (${if (comparison.expensePercentageDelta > 0) "+" else ""}${comparison.expensePercentageDelta}%)"
             } else ""
 
             val netDelta = comparison.netDelta
-            val netColor = if (netDelta >= 0) financeIncomeColor() else financeExpenseColor()
+            val netColor = if (netDelta >= 0) financeIncomeColor() else financeExpenseTextColor()
 
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(
@@ -1002,7 +1002,7 @@ private fun CategoryMoversCard(
                         )
                     }
                     val isDecrease = mover.delta < 0
-                    val toneColor = if (isDecrease) financeIncomeColor() else financeExpenseColor()
+                    val toneColor = if (isDecrease) financeIncomeColor() else financeExpenseTextColor()
                     val sign = if (mover.delta > 0) "+" else "-"
                     val pctStr = if (mover.percentageDelta != null) {
                         " (${if (mover.percentageDelta > 0) "+" else ""}${mover.percentageDelta}%)"
@@ -1083,13 +1083,13 @@ private fun AllTimeAveragesCard(
                 StatCard(
                     label = stringResource(R.string.insights_avg_monthly_expenses),
                     value = CurrencyUtils.formatAmount(averages.averageMonthlyExpenses, currencyCode),
-                    color = financeExpenseColor(),
+                    color = financeExpenseTextColor(),
                     modifier = Modifier.weight(1f)
                 )
                 StatCard(
                     label = stringResource(R.string.insights_avg_monthly_net),
                     value = CurrencyUtils.formatAmount(averages.averageMonthlyNet, currencyCode),
-                    color = if (averages.averageMonthlyNet >= 0) financeIncomeColor() else financeExpenseColor(),
+                    color = if (averages.averageMonthlyNet >= 0) financeIncomeColor() else financeExpenseTextColor(),
                     modifier = Modifier.weight(1f)
                 )
                 StatCard(

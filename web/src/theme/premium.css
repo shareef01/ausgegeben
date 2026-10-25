@@ -96,6 +96,63 @@
   border: 1px solid var(--surface-border);
 }
 
+.record-filters__advanced {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* `hidden` must win over the display rule above, otherwise collapsing the block
+   on phones leaves the controls in the layout. */
+.record-filters__advanced[hidden] {
+  display: none;
+}
+
+/* Collapse control for the advanced filter block on phones. Period + search
+   stay visible, so the default view is content-first instead of chrome-first. */
+.record-filters-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--surface-border);
+  background: color-mix(in srgb, var(--color-on-surface) 4%, transparent);
+  color: var(--color-on-surface);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.record-filters-toggle:hover {
+  background: color-mix(in srgb, var(--color-on-surface) 7%, transparent);
+}
+
+.record-filters-toggle:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.record-filters-toggle__chevron {
+  flex-shrink: 0;
+  transition: transform 0.2s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.record-filters-toggle__chevron--open {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .record-filters-toggle__chevron {
+    transition: none;
+  }
+}
+
 .record-toolbar {
   display: flex;
   flex-direction: column;
@@ -156,11 +213,11 @@
 }
 
 .finance-summary-card__balance--positive {
-  color: var(--color-income);
+  color: var(--color-income-text);
 }
 
 .finance-summary-card__balance--negative {
-  color: var(--color-expense);
+  color: var(--color-expense-text);
 }
 
 .finance-summary-card__balance--neutral {
@@ -173,17 +230,28 @@
   gap: 8px;
 }
 
+/* At 320px the two chips are ~140px wide, which ellipsized the amounts
+   ("€3,00…"). A finance app must never abbreviate a balance: stack them. */
+@media (max-width: 359px) {
+  .finance-summary-card__stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Informational, not an error: the pink wash read as an alert banner sitting
+   right under the balance. Keep a quiet accent edge instead of a tinted card. */
 .record-most-spent {
   margin: 0;
-  padding: 12px 14px;
+  padding: 11px 14px;
   border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--color-outline) 35%, transparent);
-  background: color-mix(in srgb, var(--color-expense) 8%, transparent);
+  border: 1px solid var(--surface-border);
+  border-left: 3px solid var(--color-expense);
+  background: color-mix(in srgb, var(--color-on-surface) 3%, transparent);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--color-on-surface);
+  color: var(--color-on-surface-variant);
   line-height: 1.35;
 }
 
@@ -208,12 +276,12 @@
 }
 
 .finance-stat-chip--income .finance-stat-chip__icon {
-  color: var(--color-income);
+  color: var(--color-income-text);
   background: color-mix(in srgb, var(--color-income) 14%, transparent);
 }
 
 .finance-stat-chip--expense .finance-stat-chip__icon {
-  color: var(--color-expense);
+  color: var(--color-expense-text);
   background: color-mix(in srgb, var(--color-expense) 14%, transparent);
 }
 
@@ -246,12 +314,12 @@
 
 .finance-stat-chip--income .finance-stat-chip__value,
 .finance-stat-chip--income .money {
-  color: var(--color-income);
+  color: var(--color-income-text);
 }
 
 .finance-stat-chip--expense .finance-stat-chip__value,
 .finance-stat-chip--expense .money {
-  color: var(--color-expense);
+  color: var(--color-expense-text);
 }
 
 /* ── Transaction List Restoration ── */

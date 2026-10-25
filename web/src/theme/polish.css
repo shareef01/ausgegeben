@@ -183,19 +183,19 @@
 }
 
 .insights-summary-dock__row--expense .insights-summary-dock__value {
-  color: var(--color-expense);
+  color: var(--color-expense-text);
 }
 
 .insights-summary-dock__row--income .insights-summary-dock__value {
-  color: var(--color-income);
+  color: var(--color-income-text);
 }
 
 .insights-summary-dock__row--net-positive .insights-summary-dock__value {
-  color: var(--color-income);
+  color: var(--color-income-text);
 }
 
 .insights-summary-dock__row--net-negative .insights-summary-dock__value {
-  color: var(--color-expense);
+  color: var(--color-expense-text);
 }
 
 @media (min-width: 768px) {
@@ -341,23 +341,31 @@
 
 .bottom-nav-pill__item {
   position: relative;
-  width: 3rem;
-  height: 3rem;
-  min-width: 3rem;
-  min-height: 3rem;
-  padding: 0;
+  width: auto;
+  min-width: 3.5rem;
+  height: 3.25rem;
+  min-height: 3.25rem;
+  padding: 0.3rem 0.6rem;
   border: none;
   border-radius: 999px;
   display: inline-flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0;
-  line-height: 0;
+  gap: 3px;
+  line-height: 1;
   color: var(--color-on-surface-variant);
   background: transparent;
   cursor: pointer;
   transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.bottom-nav-pill__label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .bottom-nav-pill__item:hover {
@@ -375,7 +383,7 @@
 }
 
 .bottom-nav-pill__item--active {
-  color: var(--color-income);
+  color: var(--color-income-text);
   background: color-mix(in srgb, var(--color-income) 12%, transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-income) 22%, transparent);
 }

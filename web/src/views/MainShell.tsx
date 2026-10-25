@@ -194,6 +194,7 @@ export function MainShell() {
                   className={`bottom-nav-pill__item${active ? ' bottom-nav-pill__item--active' : ''}`}
                 >
                   <Icon width={22} height={22} strokeWidth={active ? 2.25 : 1.85} aria-hidden />
+                  <span className="bottom-nav-pill__label" aria-hidden>{label}</span>
                 </button>
               );
             })}
@@ -284,6 +285,7 @@ function DesktopHeaderNav({
             className={`app-header__nav-item${active ? ' app-header__nav-item--active' : ''}`}
           >
             <Icon width={20} height={20} className="app-header__nav-icon" aria-hidden />
+            <span className="app-header__nav-label" aria-hidden>{itemLabel}</span>
           </button>
         );
       })}

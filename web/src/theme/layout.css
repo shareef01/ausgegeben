@@ -376,7 +376,7 @@ html {
 .border-expense\/20 { border-color: color-mix(in srgb, var(--color-expense) 20%, transparent); }
 
 .text-accent { color: var(--color-accent); }
-.text-\[\#10B981\] { color: var(--color-income); }
+.text-\[\#10B981\] { color: var(--color-income-text); }
 .text-\[\#0C0C0E\] { color: var(--color-on-income, #09090B); }
 .bg-zinc-700 { background: var(--color-on-surface-variant); }
 .text-zinc-400 { color: var(--color-on-surface-variant); }
@@ -386,12 +386,12 @@ html {
 .text-zinc-100 { color: var(--color-on-surface); }
 .text-zinc-200 { color: var(--color-on-surface); }
 .text-zinc-300 { color: color-mix(in srgb, var(--color-on-surface) 88%, transparent); }
-.text-emerald-400 { color: var(--color-income); }
-.text-rose-500 { color: var(--color-expense); }
+.text-emerald-400 { color: var(--color-income-text); }
+.text-rose-500 { color: var(--color-expense-text); }
 .text-white { color: var(--color-on-background); }
 .text-black { color: #000000; }
-.text-income { color: var(--color-income); }
-.text-expense { color: var(--color-expense); }
+.text-income { color: var(--color-income-text); }
+.text-expense { color: var(--color-expense-text); }
 .text-on-surface { color: var(--color-on-surface); }
 .text-on-surface-variant { color: var(--color-on-surface-variant); }
 .text-on-income { color: var(--color-on-income, #09090B); }
@@ -600,6 +600,14 @@ html {
   min-width: 0;
 }
 
+/* The floating dock (nav pill + add button) sits over the page on phones;
+   without this the last transaction row scrolls underneath it. */
+@media (max-width: 767px) {
+  .content-col {
+    padding-bottom: calc(7rem + var(--safe-bottom-pad, 0px));
+  }
+}
+
 @media (min-width: 1024px) {
   .content-col {
     gap: 20px;
@@ -648,7 +656,7 @@ html {
   flex-shrink: 0;
   width: 1.15em;
   height: 1.15em;
-  color: var(--color-income);
+  color: var(--color-income-text);
 }
 
 .page-title__icon svg {
@@ -732,11 +740,11 @@ html {
 }
 
 .txn-day-header__total--income {
-  color: var(--color-income);
+  color: var(--color-income-text);
 }
 
 .txn-day-header__total--expense {
-  color: var(--color-expense);
+  color: var(--color-expense-text);
 }
 
 @media (min-width: 1024px) {

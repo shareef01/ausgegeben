@@ -63,6 +63,37 @@ fun financeIncomeColor(): Color {
 @Composable
 fun financeExpenseColor(): Color = MaterialTheme.colorScheme.error
 
+/**
+ * AA-safe sibling of [financeExpenseColor] for text and icon tints.
+ *
+ * Fills, progress tracks and chart strokes must keep using [financeExpenseColor]
+ * so the visualisation stays on-brand; anything that renders the coral *as ink*
+ * on a surface uses this instead. In dark themes the brand coral already passes,
+ * so the value is returned unchanged there.
+ */
+@Composable
+fun financeExpenseTextColor(): Color =
+    ensureAaTextColor(
+        base = MaterialTheme.colorScheme.error,
+        backgrounds = listOf(
+            MaterialTheme.colorScheme.surface,
+            MaterialTheme.colorScheme.surfaceVariant,
+            MaterialTheme.colorScheme.background,
+        ),
+    )
+
+/** Ink-safe sibling of [financeIncomeColor]; see [financeExpenseTextColor]. */
+@Composable
+fun financeIncomeTextColor(): Color =
+    ensureAaTextColor(
+        base = financeIncomeColor(),
+        backgrounds = listOf(
+            MaterialTheme.colorScheme.surface,
+            MaterialTheme.colorScheme.surfaceVariant,
+            MaterialTheme.colorScheme.background,
+        ),
+    )
+
 @Composable
 fun financeTransferColor(): Color =
     if (isAppDarkTheme()) TransferGray else TransferGrayLight
