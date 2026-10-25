@@ -61,9 +61,13 @@ test('an unreadable preferences document offers retry or continue, and retry rec
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
-test('continuing on the device never re-enters onboarding for an unknown account', async ({ page }) => {
+test('continuing on the device never re-enters onboarding for a returning account', async ({ page }) => {
   const email = `prefs-continue-${test.info().workerIndex}@example.com`;
   await createVerifiedUser(email, PASSWORD);
+  // A brand-new account (last sign-in == creation, second resolution) is sent to
+  // onboarding when continuing offline. Waiting past the next second makes the UI
+  // sign-in below a genuine *returning* sign-in instead of depending on timing.
+  await new Promise((resolve) => setTimeout(resolve, 1_100));
 
   await page.route('**/*:8080/**', (route) => route.abort());
   await page.route('**/localhost:8080/**', (route) => route.abort());
@@ -73,7 +77,7 @@ test('continuing on the device never re-enters onboarding for an unknown account
   await expect(recovery).toBeVisible({ timeout: 20_000 });
   await recovery.getByRole('button', { name: en.prefsContinueOffline }).click();
 
-  // Unknown onboarding state renders the app, never the onboarding flow again.
+  // Unknown onboarding state for a returning account renders the app, never onboarding.
   await expect(page.locator('#app-main')).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole('button', { name: en.onboardingSkip })).toHaveCount(0);
 });

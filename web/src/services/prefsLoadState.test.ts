@@ -63,7 +63,13 @@ describe('isNewlyCreatedAccount', () => {
   it('is true when the account has not signed in again since creation', () => {
     const t = 'Sun, 25 Oct 2026 10:00:00 GMT';
     expect(isNewlyCreatedAccount(t, t)).toBe(true);
-    expect(isNewlyCreatedAccount(t, 'Sun, 25 Oct 2026 10:00:30 GMT')).toBe(true);
+  });
+
+  it('is false for a sign-in shortly after creation', () => {
+    // A returning account that signed in again seconds later must not be re-onboarded.
+    expect(
+      isNewlyCreatedAccount('Sun, 25 Oct 2026 10:00:00 GMT', 'Sun, 25 Oct 2026 10:00:03 GMT'),
+    ).toBe(false);
   });
 
   it('is false for a later sign-in', () => {

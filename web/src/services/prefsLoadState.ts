@@ -74,12 +74,11 @@ export function preferencesScreenFor(input: {
   return 'onboarding';
 }
 
-/** Slack for the two auth timestamps, which are written separately at sign-up. */
-const NEW_ACCOUNT_TOLERANCE_MS = 60_000;
-
 /**
  * Whether Firebase reports an account that has not signed in again since it was
- * created (`creationTime` and `lastSignInTime` are the same moment). Such an account
+ * created. Sign-up stamps `creationTime` and `lastSignInTime` with the same instant
+ * (second resolution), so they must match exactly: any window would also catch a
+ * returning account that signed in again shortly after creation. Such an account
  * cannot have finished onboarding on another device. Missing or unparsable timestamps
  * read as "not new", the direction that never re-onboards a returning account.
  */
@@ -91,5 +90,5 @@ export function isNewlyCreatedAccount(
   const created = Date.parse(creationTime);
   const lastSignIn = Date.parse(lastSignInTime);
   if (Number.isNaN(created) || Number.isNaN(lastSignIn)) return false;
-  return Math.abs(lastSignIn - created) <= NEW_ACCOUNT_TOLERANCE_MS;
+  return lastSignIn === created;
 }
