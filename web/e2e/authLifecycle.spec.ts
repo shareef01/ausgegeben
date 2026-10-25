@@ -185,3 +185,24 @@ test.describe('AUTH-2/AUTH-3: cross-tab logout propagation', () => {
     await expect(tabB.locator('#app-main')).toHaveCount(0);
   });
 });
+
+/**
+ * Onboarding-preference race: the gate used to render onboarding whenever
+ * `onboardingComplete` was false, including while the preference snapshot was still
+ * loading or had reported a cache-only "no document". A returning account could
+ * therefore land back in onboarding on a plain reload. The value is now tri-state
+ * (completed / not completed / not known yet) and completion is one-way.
+ */
+test.describe('onboarding persistence', () => {
+  test('a reload never re-enters onboarding for an account that completed it', async ({ page }) => {
+    const email = `onboarded-${test.info().workerIndex}@example.com`;
+    await createVerifiedUser(email, PASSWORD);
+    await signIn(page, email, PASSWORD);
+    await expect(page.locator('#app-main')).toBeVisible({ timeout: 15_000 });
+
+    await page.reload();
+    await expect(page.locator('#app-main')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('button', { name: en.onboardingSkip })).toHaveCount(0);
+    await expect(page.getByText(en.onboardingPage1Title, { exact: true })).toHaveCount(0);
+  });
+});

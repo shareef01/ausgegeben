@@ -73,6 +73,9 @@ private object ObsidianTokens {
     fun expense() = financeExpenseColor()
 
     @Composable
+    fun expenseText() = financeExpenseTextColor()
+
+    @Composable
     fun transfer() = financeTransferColor()
 
     @Composable
@@ -120,17 +123,16 @@ fun AddTransactionScreen(
     val loadedTransactionType by viewModel.loadedTransactionType.collectAsStateWithLifecycle()
     val dateMillis by viewModel.dateMillis.collectAsStateWithLifecycle()
     val isSaving by viewModel.isSaving.collectAsStateWithLifecycle()
+    val isDraftLoading by viewModel.isDraftLoading.collectAsStateWithLifecycle()
     val isReorderingCategories by categoryViewModel.isReordering.collectAsStateWithLifecycle()
 
     val isEditing = editingExpenseId != null
-    var initialLoadDone by remember { mutableStateOf(!isEditing) }
     val scope = rememberCoroutineScope()
     val haptics = rememberAppHaptics()
 
     LaunchedEffect(editingExpenseId, loadedTransactionType) {
         if (isEditing) {
             selectedTab = TransactionType.entries.indexOf(loadedTransactionType).coerceAtLeast(0)
-            initialLoadDone = true
         }
     }
 
@@ -149,6 +151,17 @@ fun AddTransactionScreen(
         label = "typeAccent"
     )
 
+    // Ink variant of the same accent: the icon tints and the amount read as text,
+    // so they must clear AA on light surfaces where the coral fill does not.
+    val typeAccentText by animateColorAsState(
+        targetValue = when (transactionType) {
+            TransactionType.INCOME -> ObsidianTokens.income()
+            TransactionType.TRANSFER -> ObsidianTokens.transfer()
+            else -> ObsidianTokens.expenseText()
+        },
+        label = "typeAccentText"
+    )
+
     val filteredCategories = remember(transactionType, categories) {
         categories.filter { 
             it.id != "0" && it.name.isNotBlank() && CategoryGroups.matches(transactionType, it) 
@@ -159,16 +172,36 @@ fun AddTransactionScreen(
     val hasCategory = selectedCategory != null
     val canSave = hasCategory && hasAmount
     val hasCategories = categories.isNotEmpty()
-    val hasUnsavedChanges = remarkText.isNotBlank() || hasAmount || hasCategory || selectedTab != 0
+    // Compared against the values this form opened with, so an edited transaction is
+    // only "dirty" once the user actually changes something. Both the system back
+    // gesture and the close button go through `requestClose`.
+    //
+    // Every input is read *inside* the lambda on purpose. `isDraftLoading` and
+    // `transactionType` are values computed during composition; capturing them is the
+    // same staleness class that made an earlier version of this guard miss edits
+    // entirely (the composition that produced the lambda does not re-run for a keystroke
+    // that only updates the view model). Reading `selectedTab` (a state read) and the
+    // view model's loading flag at click time keeps the decision current.
+    fun typeNow(): TransactionType = when (selectedTab) {
+        1 -> TransactionType.INCOME
+        2 -> TransactionType.TRANSFER
+        else -> TransactionType.EXPENSE
+    }
 
-    BackHandler {
-        if (hasUnsavedChanges && !isEditing) {
+    val requestClose: () -> Unit = {
+        if (
+            discardPromptRequired(viewModel.isDraftLoading.value) {
+                viewModel.hasUnsavedChanges(typeNow(), currencyCode)
+            }
+        ) {
             haptics.light()
             showDiscardConfirm = true
         } else {
             onBack()
         }
     }
+
+    BackHandler { requestClose() }
 
     if (showDiscardConfirm) {
         AppDestructiveConfirmDialog(
@@ -185,7 +218,7 @@ fun AddTransactionScreen(
     }
 
     AppScreen(aurora = true) {
-        if (!initialLoadDone) {
+        if (isDraftLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
@@ -201,7 +234,7 @@ fun AddTransactionScreen(
                     topBar = {
                         ObsidianTopBar(
                             isEditing = isEditing,
-                            onBack = onBack,
+                            onBack = requestClose,
                             accentColor = typeAccent
                         )
                     }
@@ -271,7 +304,7 @@ fun AddTransactionScreen(
                                 ObsidianFieldGroup {
                                     DatePickerRow(
                                         dateMillis = dateMillis,
-                                        accentColor = typeAccent,
+                                        accentColor = typeAccentText,
                                         onClick = { showDatePicker = true }
                                     )
                                     
@@ -280,7 +313,7 @@ fun AddTransactionScreen(
                                     ObsidianNoteField(
                                         remark = remarkText,
                                         onRemarkChange = { viewModel.onNoteChange(it) },
-                                        accentColor = typeAccent,
+                                        accentColor = typeAccentText,
                                     )
                                 }
 
@@ -740,6 +773,12 @@ private fun ObsidianNumpadContainer(
         TransactionType.TRANSFER -> ObsidianTokens.transfer()
         else -> ObsidianTokens.expense()
     }
+    // The amount is ink on the form surface; the button below keeps the fill.
+    val accentTextColor = when (transactionType) {
+        TransactionType.INCOME -> ObsidianTokens.income()
+        TransactionType.TRANSFER -> ObsidianTokens.transfer()
+        else -> ObsidianTokens.expenseText()
+    }
 
     Column(
         modifier = Modifier
@@ -768,7 +807,7 @@ private fun ObsidianNumpadContainer(
         // largest element, carries the type accent once it has a value, and drops
         // the symbol to a clearly subordinate size aligned to the digits' baseline.
         val amountColor by animateColorAsState(
-            targetValue = if (hasAmount) accentColor else ObsidianTokens.slate().copy(alpha = 0.35f),
+            targetValue = if (hasAmount) accentTextColor else ObsidianTokens.slate().copy(alpha = 0.35f),
             label = "amountColor",
         )
 

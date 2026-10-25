@@ -47,7 +47,7 @@
   font-weight: 800;
   font-size: 1.15rem;
   background: color-mix(in srgb, var(--color-income) 18%, transparent);
-  color: var(--color-income);
+  color: var(--color-income-text);
   text-transform: uppercase;
 }
 
@@ -78,7 +78,7 @@
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--color-income);
+  color: var(--color-income-text);
 }
 
 .settings-account__actions {
@@ -117,7 +117,7 @@
   border-radius: 9999px;
   border: 1px solid color-mix(in srgb, var(--color-expense) 40%, transparent);
   background: transparent;
-  color: var(--color-expense);
+  color: var(--color-expense-text);
   font-size: 0.8125rem;
   font-weight: 700;
   cursor: pointer;
@@ -158,7 +158,7 @@
   border-radius: 9999px;
   border: 1px solid color-mix(in srgb, var(--color-expense) 40%, transparent);
   background: transparent;
-  color: var(--color-expense);
+  color: var(--color-expense-text);
   font-size: 0.8125rem;
   font-weight: 700;
   cursor: pointer;
@@ -212,7 +212,7 @@
 
 .settings-replace-unresolved__action--destructive {
   border-color: color-mix(in srgb, var(--color-expense) 40%, transparent);
-  color: var(--color-expense);
+  color: var(--color-expense-text);
 }
 
 .settings-replace-unresolved__action:disabled {
@@ -279,7 +279,7 @@
 }
 
 .settings-budget-edit__clear {
-  color: var(--color-expense);
+  color: var(--color-expense-text);
   border-color: color-mix(in srgb, var(--color-expense) 40%, transparent);
 }
 
@@ -569,7 +569,7 @@
 }
 
 .swipeable-row__action--danger {
-  color: var(--color-expense);
+  color: var(--color-expense-text);
 }
 
 /* Touch: there is no hover, so actions have to stay visible — but all three of
@@ -810,7 +810,7 @@
 }
 
 .confirm-dialog--destructive .confirm-dialog__title {
-  color: var(--color-expense);
+  color: var(--color-expense-text);
 }
 
 .confirm-dialog__message {
@@ -828,7 +828,7 @@
   padding: 0 4px;
   font-size: 0.75rem;
   font-weight: 650;
-  color: var(--color-expense);
+  color: var(--color-expense-text);
 }
 
 .confirm-dialog__actions {
@@ -981,7 +981,7 @@
 }
 
 .budget-bar__labels .budget-bar__spent--over {
-  color: var(--color-expense);
+  color: var(--color-expense-text);
 }
 
 .budget-bar__fill {
@@ -1009,7 +1009,7 @@
   margin-top: 8px;
   font-size: 0.75rem;
   font-weight: 700;
-  color: var(--color-expense);
+  color: var(--color-expense-text);
 }
 
 /* ═══════════════════════════════════════════════════
@@ -1193,15 +1193,52 @@
 
 .insights-category-card__row {
   display: grid;
-  grid-template-columns: 8px minmax(0, 1fr) auto 2.75rem;
+  grid-template-columns: 9px minmax(0, 1fr) auto 2.75rem;
+  grid-template-areas:
+    'dot name amount pct'
+    'dot bar bar bar';
   align-items: center;
-  gap: 10px;
+  column-gap: 10px;
+  row-gap: 6px;
   min-width: 0;
   padding: 10px 12px;
   border: none;
   border-radius: 0;
   background: transparent;
   transition: background 0.15s ease;
+}
+
+.insights-category-card__dot {
+  grid-area: dot;
+}
+
+.insights-category-card__name {
+  grid-area: name;
+}
+
+.insights-category-card__amount {
+  grid-area: amount;
+}
+
+.insights-category-card__pct {
+  grid-area: pct;
+}
+
+/* Proportional bar under each row: the same data as the donut arc, but directly
+   comparable across categories. Decorative — the amount and percentage are text. */
+.insights-category-card__bar {
+  grid-area: bar;
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-on-surface) 9%, transparent);
+  overflow: hidden;
+}
+
+.insights-category-card__bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
 }
 
 .insights-category-card__row + .insights-category-card__row {
@@ -1330,12 +1367,12 @@
 
 .insights-badge--success {
   background: color-mix(in srgb, var(--color-income, #2e7d32) 16%, transparent);
-  color: var(--color-income, #2e7d32);
+  color: var(--color-income-text, #2e7d32);
 }
 
 .insights-badge--alert {
   background: color-mix(in srgb, var(--color-expense, #c62828) 16%, transparent);
-  color: var(--color-expense, #c62828);
+  color: var(--color-expense-text, #c62828);
 }
 
 .insights-badge--neutral {
@@ -1369,11 +1406,11 @@
 }
 
 .insights-metric-card__stat-val--success {
-  color: var(--color-income, #2e7d32);
+  color: var(--color-income-text, #2e7d32);
 }
 
 .insights-metric-card__stat-val--alert {
-  color: var(--color-expense, #c62828);
+  color: var(--color-expense-text, #c62828);
 }
 
 .insights-metric-card__stat-val--accent {
@@ -1521,7 +1558,7 @@
  *  ═══════════════════════════════════════════════════ */
 
 .signature-text::first-letter {
-  color: var(--color-income);
+  color: var(--color-income-text);
 }
 
 .modal-title,
@@ -1563,6 +1600,45 @@
   height: 100dvh;
   background: var(--color-background);
   color: var(--color-accent);
+}
+
+/* Preference-load recovery: an explicit choice (retry / continue on this device)
+   instead of silently continuing with local defaults. */
+.prefs-recovery {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 420px;
+  padding: 24px;
+  text-align: center;
+}
+
+.prefs-recovery__title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--color-on-background);
+}
+
+.prefs-recovery__body {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--color-on-surface-variant);
+}
+
+.prefs-recovery__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.prefs-recovery__actions .btn {
+  min-height: 44px;
 }
 
 /* Shown by ErrorBoundary when a render throw would otherwise leave a blank page.
@@ -1628,7 +1704,7 @@
   overflow-x: auto;
   border-radius: 10px;
   background: var(--color-surface-variant);
-  color: var(--color-error);
+  color: var(--color-error-text);
   font-size: 0.6875rem;
   white-space: pre-wrap;
   word-break: break-word;
@@ -2149,8 +2225,8 @@
   margin-left: auto;
 }
 
-.transaction-row__amount--income { color: var(--color-income); }
-.transaction-row__amount--transfer { color: var(--color-transfer); }
+.transaction-row__amount--income { color: var(--color-income-text); }
+.transaction-row__amount--transfer { color: var(--color-transfer-text); }
 .transaction-row__amount--expense { color: var(--color-on-background); }
 
 .transaction-row__icon-fallback {
@@ -2184,17 +2260,17 @@
 }
 
 .transaction-row__type-badge--income {
-  color: var(--color-income);
+  color: var(--color-income-text);
   background: color-mix(in srgb, var(--color-income) 18%, var(--color-background));
 }
 
 .transaction-row__type-badge--expense {
-  color: var(--color-expense);
+  color: var(--color-expense-text);
   background: color-mix(in srgb, var(--color-expense) 18%, var(--color-background));
 }
 
 .transaction-row__type-badge--transfer {
-  color: var(--color-transfer);
+  color: var(--color-transfer-text);
   background: color-mix(in srgb, var(--color-transfer) 18%, var(--color-background));
 }
 
@@ -2301,6 +2377,28 @@
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
   border-radius: 10px;
+}
+
+/* Category rows: at phone widths the icon + three 44px controls left ~80px for
+   the name, so "Groceries" rendered as "Gro...". Below 520px the name wraps
+   instead of truncating and the row loses its extra horizontal padding. */
+@media (max-width: 519px) {
+  .category-manage-row {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .category-manage-row .category-row-edit .truncate {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
+  }
+
+  .category-manage-row__actions {
+    gap: 2px;
+  }
 }
 
 /* Categories empty state */
@@ -2728,7 +2826,7 @@
 }
 
 .period-picker-option__icon--history {
-  color: var(--color-income);
+  color: var(--color-income-text);
   background: color-mix(in srgb, var(--color-income) 12%, transparent);
   border-color: color-mix(in srgb, var(--color-income) 22%, transparent);
 }
@@ -3140,7 +3238,7 @@
   padding: 0 4px;
   font-size: 0.75rem;
   font-weight: 650;
-  color: var(--color-expense);
+  color: var(--color-expense-text);
 }
 
 .add-txn__save {
@@ -3521,7 +3619,7 @@
 }
 
 .auth-page__field-hint--error {
-  color: var(--color-expense);
+  color: var(--color-expense-text);
 }
 
 .auth-page__error {
@@ -3532,7 +3630,7 @@
   border-radius: 10px;
   font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--color-expense);
+  color: var(--color-expense-text);
 }
 
 .auth-page__info {
@@ -3543,7 +3641,7 @@
   border-radius: 10px;
   font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--color-income);
+  color: var(--color-income-text);
 }
 
 .auth-page__sync {
@@ -3572,7 +3670,7 @@
   font-size: 0.8125rem;
   font-weight: 600;
   text-align: center;
-  color: var(--color-expense);
+  color: var(--color-expense-text);
   line-height: 1.5;
 }
 
@@ -3615,7 +3713,7 @@
   border-radius: 9999px;
   border: 1px solid color-mix(in srgb, var(--color-expense) 40%, transparent);
   background: transparent;
-  color: var(--color-expense);
+  color: var(--color-expense-text);
   font-size: 0.8125rem;
   font-weight: 700;
   cursor: pointer;
@@ -3747,7 +3845,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-income);
+  color: var(--color-income-text);
   margin-bottom: 24px;
   animation: icon-pop-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -3888,14 +3986,14 @@
 }
 
 .icon-btn--danger {
-  color: var(--color-expense);
+  color: var(--color-expense-text);
   border-color: transparent;
   background: transparent;
 }
 
 .icon-btn--danger:hover {
   background: color-mix(in srgb, var(--color-expense) 12%, transparent);
-  color: var(--color-expense);
+  color: var(--color-expense-text);
 }
 
 .icon-btn:disabled {
@@ -3983,7 +4081,7 @@
 
 .settings-row__icon-tile[data-tint='income'] {
   background: color-mix(in srgb, var(--color-income) 12%, transparent);
-  color: var(--color-income);
+  color: var(--color-income-text);
 }
 
 .settings-row__icon-tile[data-tint='neutral'] {
@@ -4009,7 +4107,7 @@
 }
 
 .settings-row__sub--error {
-  color: var(--color-expense);
+  color: var(--color-expense-text);
 }
 
 .settings-row__chevron {
@@ -4040,7 +4138,7 @@
   font-weight: 800;
   font-size: 1.25rem;
   background: color-mix(in srgb, var(--color-income) 18%, transparent);
-  color: var(--color-income);
+  color: var(--color-income-text);
   text-transform: uppercase;
 }
 
@@ -4059,7 +4157,7 @@
 }
 
 .settings-signout-btn:hover {
-  color: var(--color-expense);
+  color: var(--color-expense-text);
   border-color: color-mix(in srgb, var(--color-expense) 40%, transparent);
 }
 
@@ -4069,7 +4167,7 @@
 }
 
 .settings-delete-account-btn {
-  color: var(--color-expense);
+  color: var(--color-expense-text);
   border-color: color-mix(in srgb, var(--color-expense) 35%, transparent);
 }
 
@@ -4185,4 +4283,41 @@
 }
 .category-budgets progress {
   width: 100%;
+}
+
+/* Budget cards used raw <h2>/<p> defaults, which rendered a 24px+ headline with
+   body copy — louder than the analysis cards around them. Match the section
+   label scale used by every other insights card. */
+.category-budgets {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+}
+
+.category-budgets h2 {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-on-surface-variant);
+}
+
+.category-budgets h3 {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.category-budgets p {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--color-on-surface-variant);
+}
+
+.category-budgets--empty {
+  gap: 8px;
+  padding: 16px 20px;
 }

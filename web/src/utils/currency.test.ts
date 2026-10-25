@@ -9,6 +9,7 @@ import {
   sanitizeAmountInput,
   SUPPORTED_CURRENCIES,
 } from '@/utils/currency';
+import { expenseWritePayload } from '@/utils/firestorePayloads';
 
 describe('currency', () => {
   it('currencySymbol returns expected symbols', () => {
@@ -85,5 +86,39 @@ describe('currency', () => {
   it('SUPPORTED_CURRENCIES includes core codes', () => {
     expect(SUPPORTED_CURRENCIES).toContain('EUR');
     expect(SUPPORTED_CURRENCIES).toContain('USD');
+  });
+});
+
+/**
+ * Data-safety contract: the currency setting is a display preference. Switching it
+ * must never rescale, reinterpret or rewrite a stored amount, and there is no
+ * per-expense currency or exchange-rate field to migrate. If real conversion is ever
+ * added it needs its own design (rates, effective dates, migration) — these tests make
+ * that deliberate rather than an accidental side effect.
+ */
+describe('currency is presentation-only', () => {
+  it('reformats the same stored amount instead of converting it', () => {
+    const stored = 1234.56;
+    expect(formatAmount(stored, 'EUR', true, 'en')).toContain('1,234.56');
+    expect(formatAmount(stored, 'USD', true, 'en')).toContain('1,234.56');
+    expect(parseAmount(formatAmountForInput(stored, 'EUR'), 'EUR')).toBeCloseTo(stored, 10);
+    expect(parseAmount(formatAmountForInput(stored, 'USD'), 'USD')).toBeCloseTo(stored, 10);
+  });
+
+  it('writes expenses with no currency or exchange-rate field', () => {
+    const payload = expenseWritePayload(
+      { amount: 10, dateMillis: 1, categoryId: 'cat', note: 'note', transactionType: 'expense' },
+      { updatedAt: 2 },
+    );
+    expect(Object.keys(payload).sort()).toEqual([
+      'amount',
+      'categoryId',
+      'dateMillis',
+      'note',
+      'transactionType',
+      'updatedAt',
+    ]);
+    expect(payload).not.toHaveProperty('currency');
+    expect(payload).not.toHaveProperty('exchangeRate');
   });
 });

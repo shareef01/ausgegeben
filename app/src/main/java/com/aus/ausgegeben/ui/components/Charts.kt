@@ -53,7 +53,9 @@ import com.aus.ausgegeben.ui.theme.ChartStrokeWidth
 import com.aus.ausgegeben.ui.theme.appDividerColor
 import com.aus.ausgegeben.ui.theme.chartColorAt
 import com.aus.ausgegeben.ui.theme.financeExpenseColor
+import com.aus.ausgegeben.ui.theme.financeExpenseTextColor
 import com.aus.ausgegeben.ui.theme.financeIncomeColor
+import com.aus.ausgegeben.ui.theme.financeIncomeTextColor
 import com.aus.ausgegeben.ui.theme.forChartDisplay
 import com.aus.ausgegeben.ui.theme.readableSecondaryColor
 import com.aus.ausgegeben.util.CurrencyUtils
@@ -88,6 +90,10 @@ fun IncomeExpenseOverviewChart(
     val chartTrack = appDividerColor().copy(alpha = 0.55f)
     val expenseColor = financeExpenseColor()
     val incomeColor = financeIncomeColor()
+    // Ink variants for the legend values and the centre label: the fill hues are tuned
+    // for arcs and do not clear AA as small text on a light surface.
+    val expenseTextColor = financeExpenseTextColor()
+    val incomeTextColor = financeIncomeTextColor()
     val chartDescription = stringResource(R.string.chart_content_desc_income_expense)
     Column(
         modifier = modifier
@@ -190,8 +196,8 @@ fun IncomeExpenseOverviewChart(
                     text = CurrencyUtils.formatAmount(net, currencyCode),
                     size = MoneySize.Headline,
                     color = when {
-                        net > 0 -> incomeColor
-                        net < 0 -> expenseColor
+                        net > 0 -> incomeTextColor
+                        net < 0 -> expenseTextColor
                         else -> onBackground
                     }
                 )
@@ -212,6 +218,7 @@ fun IncomeExpenseOverviewChart(
         ) {
             OverviewLegendItem(
                 color = expenseColor,
+                valueColor = expenseTextColor,
                 label = stringResource(R.string.summary_spent),
                 value = CurrencyUtils.formatAmount(expenseTotal, currencyCode),
                 percent = (expenseRatio * 100).toInt(),
@@ -220,6 +227,7 @@ fun IncomeExpenseOverviewChart(
             )
             OverviewLegendItem(
                 color = incomeColor,
+                valueColor = incomeTextColor,
                 label = stringResource(R.string.summary_earned),
                 value = CurrencyUtils.formatAmount(incomeTotal, currencyCode),
                 percent = (incomeRatio * 100).toInt(),
@@ -233,6 +241,7 @@ fun IncomeExpenseOverviewChart(
 @Composable
 private fun OverviewLegendItem(
     color: Color,
+    valueColor: Color,
     label: String,
     value: String,
     percent: Int,
@@ -258,7 +267,7 @@ private fun OverviewLegendItem(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.Normal
             )
-            MoneyText(text = value, size = MoneySize.Body, color = color)
+            MoneyText(text = value, size = MoneySize.Body, color = valueColor)
             Text(
                 text = "$percent%",
                 style = MaterialTheme.typography.labelSmall,

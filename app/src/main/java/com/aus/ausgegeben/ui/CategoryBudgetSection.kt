@@ -130,7 +130,7 @@ fun CategoryBudgetManager(repository: AppRepository, uid: String, currency: Stri
             Text(
                 text = stringResource(R.string.category_budget_above) + ": " + CurrencyUtils.formatAmount(allocation.overAllocated, currency),
                 style = MaterialTheme.typography.bodySmall,
-                color = financeExpenseColor()
+                color = financeExpenseTextColor()
             )
         }
         if (snapshot.incomplete || snapshot.error) {
@@ -299,7 +299,7 @@ fun CategoryBudgetManager(repository: AppRepository, uid: String, currency: Stri
                     enabled = !saving,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                 ) {
-                    Text(stringResource(R.string.category_budget_remove), color = financeExpenseColor())
+                    Text(stringResource(R.string.category_budget_remove), color = financeExpenseTextColor())
                 }
             }
         }
@@ -411,8 +411,13 @@ fun CategoryBudgetProgressSection(
 
             progress.forEach { p ->
                 val catColor = Color(p.category.colorInt)
-                val statusColor = when (p.state) {
+                val statusBarColor = when (p.state) {
                     "over" -> financeExpenseColor()
+                    "warning", "reached" -> Color(0xFFF59E0B)
+                    else -> financeIncomeColor()
+                }
+                val statusColor = when (p.state) {
+                    "over" -> financeExpenseTextColor()
                     "warning", "reached" -> Color(0xFFF59E0B)
                     else -> financeIncomeColor()
                 }
@@ -464,7 +469,7 @@ fun CategoryBudgetProgressSection(
 
                     LinearProgressIndicator(
                         progress = { (p.percent / 100).toFloat().coerceIn(0f, 1f) },
-                        color = statusColor,
+                        color = statusBarColor,
                         trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -494,7 +499,7 @@ fun CategoryBudgetProgressSection(
                         Text(
                             text = stringResource(if (p.overspent > 0) R.string.category_budget_overspent else R.string.category_budget_remaining) + ": " + CurrencyUtils.formatAmount(if (p.overspent > 0) p.overspent else p.remaining, currency),
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                            color = if (p.overspent > 0) financeExpenseColor() else readableSecondaryColor()
+                            color = if (p.overspent > 0) financeExpenseTextColor() else readableSecondaryColor()
                         )
                     }
                 }

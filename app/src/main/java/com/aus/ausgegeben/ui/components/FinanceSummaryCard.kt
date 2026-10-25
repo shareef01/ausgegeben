@@ -42,6 +42,9 @@ private object AuroraTokens {
     fun crimson() = financeExpenseColor()
 
     @Composable
+    fun crimsonText() = financeExpenseTextColor()
+
+    @Composable
     fun slate() = MaterialTheme.colorScheme.onSurfaceVariant
     
     // Pillar 3: Dynamic Multi-tone Brush for Balance
@@ -137,7 +140,7 @@ fun FinanceSummaryCard(
                 SummaryPane(
                     label = stringResource(R.string.summary_spent),
                     value = CurrencyUtils.formatAmount(expenseTotal, currencyCode),
-                    color = AuroraTokens.crimson(),
+                    color = AuroraTokens.crimsonText(),
                     isIncome = false,
                     modifier = Modifier.weight(1f)
                 )

@@ -37,6 +37,6 @@
 }
 
 .signature-text::first-letter {
-  color: var(--color-income);
+  color: var(--color-income-text);
   font-weight: inherit;
 }

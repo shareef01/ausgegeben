@@ -293,7 +293,7 @@ fun RecordScreen(
                                         Icon(
                                             imageVector = Icons.Rounded.Insights,
                                             contentDescription = stringResource(R.string.nav_bills),
-                                            tint = financeExpenseColor(),
+                                            tint = financeExpenseTextColor(),
                                             modifier = Modifier.size(14.dp),
                                         )
                                     }
@@ -889,7 +889,7 @@ private fun DateSectionHeader(
     modifier: Modifier = Modifier
 ) {
     val incomeColor = financeIncomeColor()
-    val expenseColor = financeExpenseColor()
+    val expenseColor = financeExpenseTextColor()
     Box(
         modifier = modifier
             .fillMaxWidth()

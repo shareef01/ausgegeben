@@ -67,10 +67,11 @@ export function CategoryBudgetInsights({ categories, expenses, incomplete, onMan
   const currency = usePreferencesStore(s => s.currency);
   const progress = useMemo(() => categoryBudgetProgress(state.rows, categories, expenses), [state.rows, categories, expenses]);
   const cached = incomplete || state.incomplete;
-  return <section className="card settings-budget-edit category-budgets" aria-label={t('categoryBudgetTitle')}>
+  const empty = progress.length === 0;
+  return <section className={`card settings-budget-edit category-budgets${empty ? ' category-budgets--empty' : ''}`} aria-label={t('categoryBudgetTitle')}>
     <h2>{t('categoryBudgetTitle')}</h2><p>{t('categoryBudgetCurrent')}</p>
     {cached && <p role="status">{t('categoryBudgetIncomplete')}</p>}
-    {!progress.length && <><p>{t('categoryBudgetEmpty')}</p>{onManage && <button className="btn btn-secondary" onClick={onManage}>{t('categoryBudgetTitle')}</button>}</>}
+    {empty && <><p>{t('categoryBudgetEmpty')}</p>{onManage && <button className="btn btn-secondary" onClick={onManage}>{t('categoryBudgetTitle')}</button>}</>}
     {progress.map(p => <div className="settings-budget-edit" key={p.categoryId}>
       <CategoryIconTile iconName={p.category.iconName} color={colorIntToHex(p.category.colorInt)} size={32} /><h3>{p.category.name}</h3><p>{t('categoryBudgetSpent')}: {formatAmount(p.spent, currency)} / {formatAmount(p.monthlyLimit, currency)} · {Math.round(p.percent)}%</p>
       <progress aria-label={p.category.name} max="100" value={Math.min(100, p.percent)} />
