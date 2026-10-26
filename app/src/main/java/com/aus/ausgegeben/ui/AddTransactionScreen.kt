@@ -70,6 +70,9 @@ private object ObsidianTokens {
     fun income() = financeIncomeColor()
 
     @Composable
+    fun incomeText() = financeIncomeTextColor()
+
+    @Composable
     fun expense() = financeExpenseColor()
 
     @Composable
@@ -155,7 +158,7 @@ fun AddTransactionScreen(
     // so they must clear AA on light surfaces where the coral fill does not.
     val typeAccentText by animateColorAsState(
         targetValue = when (transactionType) {
-            TransactionType.INCOME -> ObsidianTokens.income()
+            TransactionType.INCOME -> ObsidianTokens.incomeText()
             TransactionType.TRANSFER -> ObsidianTokens.transfer()
             else -> ObsidianTokens.expenseText()
         },
@@ -775,7 +778,7 @@ private fun ObsidianNumpadContainer(
     }
     // The amount is ink on the form surface; the button below keeps the fill.
     val accentTextColor = when (transactionType) {
-        TransactionType.INCOME -> ObsidianTokens.income()
+        TransactionType.INCOME -> ObsidianTokens.incomeText()
         TransactionType.TRANSFER -> ObsidianTokens.transfer()
         else -> ObsidianTokens.expenseText()
     }

@@ -33,10 +33,7 @@ import androidx.compose.material.icons.rounded.*
 
 private object AuroraTokens {
     @Composable
-    fun emerald() = financeIncomeColor()
-
-    @Composable
-    fun crimson() = financeExpenseColor()
+    fun emeraldText() = financeIncomeTextColor()
 
     @Composable
     fun crimsonText() = financeExpenseTextColor()
@@ -94,7 +91,7 @@ fun FinanceSummaryCard(
             Text(
                 text = CurrencyUtils.formatAmount(net, currencyCode),
                 style = TextStyle(
-                    color = if (net >= 0) AuroraTokens.emerald() else AuroraTokens.crimson(),
+                    color = if (net >= 0) AuroraTokens.emeraldText() else AuroraTokens.crimsonText(),
                     fontSize = 36.sp,
                     fontWeight = FontWeight.SemiBold,
                     fontFeatureSettings = "tnum",
@@ -112,7 +109,7 @@ fun FinanceSummaryCard(
                 SummaryPane(
                     label = stringResource(R.string.summary_earned),
                     value = CurrencyUtils.formatAmount(incomeTotal, currencyCode),
-                    color = AuroraTokens.emerald(),
+                    color = AuroraTokens.emeraldText(),
                     isIncome = true,
                     modifier = Modifier.weight(1f)
                 )

@@ -213,7 +213,10 @@ fun RecurringManagerSheet(
                             row.nextDate == null -> stringResource(R.string.recurring_ended)
                             else -> stringResource(R.string.recurring_active)
                         }
-                        val statusColor = if (row.enabled && row.nextDate != null) financeIncomeColor() else readableSecondaryColor()
+                        val isScheduled = row.enabled && row.nextDate != null
+                        // The pill keeps the brand fill; its label and the icon are ink.
+                        val statusColor = if (isScheduled) financeIncomeTextColor() else readableSecondaryColor()
+                        val statusFill = if (isScheduled) financeIncomeColor() else readableSecondaryColor()
 
                         Box(
                             modifier = Modifier
@@ -258,7 +261,7 @@ fun RecurringManagerSheet(
                                     Text(
                                         text = CurrencyUtils.formatAmount(row.amount, currencyCode),
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = if (row.transactionType == "income") financeIncomeColor() else financeExpenseTextColor(),
+                                        color = if (row.transactionType == "income") financeIncomeTextColor() else financeExpenseTextColor(),
                                     )
                                 }
 
@@ -274,7 +277,7 @@ fun RecurringManagerSheet(
                                         Box(
                                             modifier = Modifier
                                                 .clip(RoundedCornerShape(AppRadius.pill))
-                                                .background(statusColor.copy(alpha = 0.15f))
+                                                .background(statusFill.copy(alpha = 0.15f))
                                                 .padding(horizontal = 8.dp, vertical = 4.dp),
                                         ) {
                                             Text(

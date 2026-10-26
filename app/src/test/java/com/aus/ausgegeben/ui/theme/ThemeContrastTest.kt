@@ -1,6 +1,5 @@
 package com.aus.ausgegeben.ui.theme
 
-import androidx.compose.ui.graphics.luminance
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -64,6 +63,35 @@ class ThemeContrastTest {
         }
     }
 
+    /**
+     * The budget "warning" amber was ~2:1 as label text on every light surface. Its ink
+     * variant must clear AA everywhere it can be drawn.
+     */
+    @Test
+    fun financeWarningText_passesAaInEveryTheme() {
+        for (mode in ThemeMode.entries) {
+            val scheme = colorSchemeFor(mode, systemDark = false)
+            val surfaces = listOf(scheme.surface, scheme.surfaceVariant, scheme.background)
+            val ink = ensureAaTextColor(WarningAmber, surfaces)
+            for (surface in surfaces) {
+                val ratio = contrastRatio(ink, surface)
+                assertTrue("$mode warning text on $surface: $ratio", ratio >= AA_TEXT_CONTRAST)
+            }
+        }
+    }
+
+    @Test
+    fun lightTheme_warningText_isDarkenedButStaysAmber() {
+        val scheme = colorSchemeFor(ThemeMode.LIGHT, systemDark = false)
+        val ink = ensureAaTextColor(
+            WarningAmber,
+            listOf(scheme.surface, scheme.surfaceVariant, scheme.background),
+        )
+        assertTrue("light warning ink should differ from the fill", ink != WarningAmber)
+        // Amber, not brown-grey: red and green both clearly above blue.
+        assertTrue("expected an amber ink, was $ink", ink.red > ink.blue && ink.green > ink.blue)
+    }
+
     @Test
     fun lightTheme_expenseText_isDarkenedButKeepsTheHue() {
         val lightScheme = colorSchemeFor(ThemeMode.LIGHT, systemDark = false)
@@ -95,19 +123,14 @@ class ThemeContrastTest {
 
     /**
      * Income ink follows the same rule as expense: the emerald/primary fill is tuned for
-     * bars and arcs, and the chart legend renders small values with it.
+     * bars and arcs. Soft Light's beige surfaceVariant took it to 4.46:1 as text.
      */
     @Test
     fun financeIncomeText_passesAaInEveryTheme() {
         for (mode in ThemeMode.entries) {
             val scheme = colorSchemeFor(mode, systemDark = false)
             val surfaces = listOf(scheme.surface, scheme.surfaceVariant, scheme.background)
-            val base = when {
-                scheme.background.luminance() >= 0.5f -> IncomeGreenLight
-                scheme.primary.luminance() > 0.82f -> IncomeGreen
-                else -> scheme.primary
-            }
-            val ink = ensureAaTextColor(base, surfaces)
+            val ink = ensureAaTextColor(incomeFillFor(scheme), surfaces)
             for (surface in surfaces) {
                 val ratio = contrastRatio(ink, surface)
                 assertTrue("$mode income text on $surface: $ratio", ratio >= AA_TEXT_CONTRAST)

@@ -60,6 +60,8 @@ val OnSurfaceVariantLight = Color(0xFF52525B)
 
 val IncomeGreenLight = Color(0xFF157A3A)
 val TransferGrayLight = Color(0xFF52525B)
+/** Budget "approaching the limit" amber; a fill colour, see financeWarningTextColor for ink. */
+val WarningAmber = Color(0xFFF59E0B)
 val SystemViolet = Color(0xFF8B5CF6)
 
 val ShadowDark = Color(0x80000000)
