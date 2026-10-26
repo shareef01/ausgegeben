@@ -49,8 +49,14 @@ export async function resetFirestoreEmulator(): Promise<void> {
 }
 
 /** Sign in through the real UI form and wait for the authenticated shell to render. */
-export async function signIn(page: Page, email: string, password: string, rememberMe = false): Promise<void> {
-  await page.goto('/');
+export async function signIn(
+  page: Page,
+  email: string,
+  password: string,
+  rememberMe = false,
+  path = '/',
+): Promise<void> {
+  await page.goto(path);
   await page.locator('#auth-email').fill(email);
   await page.locator('#auth-password').fill(password);
   // The checkbox itself is visually hidden (a custom checkbox is rendered inside the

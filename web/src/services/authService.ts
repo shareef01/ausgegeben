@@ -25,6 +25,7 @@ import { useAuthStore } from '@/services/authStore';
 import { expenseRepository, invalidateAllExpensesCache } from '@/repositories/expenseRepository';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { clearExpenseSubmissionJournal } from '@/services/expenseSubmissionJournal';
+import { TAB_PARAM } from '@/utils/tabHistory';
 
 let unsubscribe: (() => void) | null = null;
 let unsubscribeSessionInvalidated: (() => void) | null = null;
@@ -70,6 +71,7 @@ function handleSessionInvalidatedElsewhere(): void {
   useAuthStore.getState().setUser(null);
   usePreferencesStore.getState().resetPreferences();
   invalidateAllExpensesCache();
+  resetTabParamForNewSession();
   void clearFirebaseAuthSessionLocally().catch((error) => {
     // Failure here leaves this tab's durable session copy behind (a reload could
     // restore it) — make that visible instead of silently ignoring it, matching how
@@ -201,6 +203,11 @@ export const authService = {
     // itself sign out could keep rendering as authenticated and keep writing to
     // Firestore indefinitely.
     broadcastSessionInvalidated();
+    // A signed-out session must not leave its tab named in the URL (UX-4): the shell reads the
+    // tab from `?tab=`, so without this the next person signing in on this browser lands on
+    // whichever screen the previous one was on. Reset here because the shell unmounts on sign-out
+    // and cannot clean up after itself.
+    resetTabParamForNewSession();
     await clearLocalFirestoreCache();
   },
 
@@ -256,6 +263,8 @@ export const authService = {
     invalidateAllExpensesCache();
     // See AUTH-2: tell every other open tab this account is gone.
     broadcastSessionInvalidated();
+    // Account deletion starts on Settings; without this the next sign-in lands there (UX-4).
+    resetTabParamForNewSession();
     try {
       await clearLocalFirestoreCache();
     } catch (error) {
@@ -269,3 +278,24 @@ export const authService = {
     return isFirebaseConfigured();
   },
 };
+
+/**
+ * Put the tab back to `record` in the URL after a session ends (UX-4).
+ *
+ * The shell mounts with the tab it finds in `?tab=`, so a sign-out on Settings used to hand that
+ * tab to whoever signed in next on the same browser. Called from every path that ends a session:
+ * sign-out, account deletion, and a sign-out or deletion broadcast from another tab. Guarded for non-browser environments, and a
+ * no-op when the current URL does not name a tab at all.
+ */
+function resetTabParamForNewSession(): void {
+  if (typeof window === 'undefined') return;
+  const params = new URLSearchParams(window.location.search);
+  if (!params.has(TAB_PARAM)) return;
+  params.set(TAB_PARAM, 'record');
+  const query = params.toString();
+  window.history.replaceState(
+    window.history.state,
+    '',
+    `${query ? `?${query}` : ''}${window.location.hash || ''}`,
+  );
+}

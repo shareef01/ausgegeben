@@ -22,6 +22,21 @@ export function AuthView() {
   const passwordTooShort = tab === 'signup' && password.length > 0 && password.length < 8;
   const passwordMismatch = tab === 'signup' && confirmPassword.length > 0 && password !== confirmPassword;
 
+  // UX-6: mark the field the rejection actually concerns. The single `role="alert"` announces the
+  // message once; without `aria-invalid` a screen-reader user who tabs back to the field later has
+  // no indication it was the one rejected. "invalid email or password" marks both, because either
+  // could be wrong and guessing would be worse.
+  const emailInvalid =
+    error === t('authErrorEmailRequired') ||
+    error === t('authErrorEmailInUse') ||
+    error === t('authErrorInvalid');
+  const passwordInvalid =
+    passwordTooShort ||
+    passwordMismatch ||
+    error === t('authErrorWeakPassword') ||
+    error === t('authErrorPasswordMismatch') ||
+    error === t('authErrorInvalid');
+
   const switchTab = (next: 'signin' | 'signup') => {
     setTab(next);
     setError(null);
@@ -133,6 +148,7 @@ export function AuthView() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={!firebaseReady || busy}
+              aria-invalid={emailInvalid || undefined}
             />
           </div>
           <div>
@@ -148,6 +164,7 @@ export function AuthView() {
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={!firebaseReady || busy}
                 aria-describedby={passwordTooShort ? 'auth-password-hint' : undefined}
+                aria-invalid={passwordInvalid || undefined}
               />
               <button
                 type="button"

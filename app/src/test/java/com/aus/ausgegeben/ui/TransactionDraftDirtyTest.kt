@@ -70,6 +70,35 @@ class TransactionDraftDirtyTest {
     }
 
     @Test
+    fun undoingAnEditIsCleanAgain() {
+        val baseline = draft()
+        assertTrue(isTransactionDraftDirty(baseline, draft(amountText = "13,00"), "EUR"))
+        assertFalse(isTransactionDraftDirty(baseline, draft(amountText = "12,50"), "EUR"))
+        assertTrue(isTransactionDraftDirty(baseline, draft(categoryId = "other"), "EUR"))
+        assertFalse(isTransactionDraftDirty(baseline, draft(categoryId = "food"), "EUR"))
+    }
+
+    @Test
+    fun amountsAreReadWithTheDisplayCurrencySeparators() {
+        assertFalse(isTransactionDraftDirty(draft(amountText = "12,50"), draft(amountText = "012,50"), "EUR"))
+        assertFalse(isTransactionDraftDirty(draft(amountText = "12.50"), draft(amountText = "12.5"), "USD"))
+        assertFalse(isTransactionDraftDirty(draft(amountText = "1234,56"), draft(amountText = "1.234,56"), "EUR"))
+        assertFalse(isTransactionDraftDirty(draft(amountText = "1234.56"), draft(amountText = "1,234.56"), "USD"))
+    }
+
+    @Test
+    fun placeholderZeroEmptyAndUnparsableAmountsAreTheSame() {
+        // The editor starts at "0" and clears to "" while typing; a lone "-" parses to nothing.
+        assertFalse(isTransactionDraftDirty(draft(amountText = "0"), draft(amountText = ""), "EUR"))
+        assertFalse(isTransactionDraftDirty(draft(amountText = ""), draft(amountText = "-"), "EUR"))
+    }
+
+    @Test
+    fun whitespaceOnlyNoteOnABlankFormIsClean() {
+        assertFalse(isTransactionDraftDirty(draft(note = ""), draft(note = "   "), "EUR"))
+    }
+
+    @Test
     fun noBaselineNeverReportsDirty() {
         assertFalse(isTransactionDraftDirty(null, draft(), "EUR"))
     }

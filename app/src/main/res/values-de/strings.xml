@@ -313,7 +313,7 @@
     <string name="category_error_unwritable">neu sortieren nicht möglich: kategorie zuerst korrigieren oder umbenennen — %1$s</string>
 
     <!-- Finance summary -->
-    <string name="summary_balance_period">saldo · %1$s</string>
+    <string name="summary_balance_period">netto im zeitraum · %1$s</string>
     <string name="summary_spent">ausgegeben</string>
     <string name="summary_earned">eingenommen</string>
 
@@ -453,6 +453,7 @@
     <string name="record_sort_oldest">Älteste zuerst</string>
     <string name="record_sort_highest">Höchster Betrag</string>
     <string name="record_sort_lowest">Niedrigster Betrag</string>
+    <string name="record_totals_filtered">tagessummen folgen den aktiven filtern</string>
     <string name="record_cache_incomplete">Cache-Ergebnisse sind möglicherweise unvollständig. Verbinde dich, um den gesamten gewählten Verlauf zu durchsuchen.</string>
     <string name="category_budget_title">Kategoriebudgets</string>
     <string name="category_budget_repeat">Limits gelten jeden Kalendermonat. Währungsänderungen rechnen Beträge nicht um.</string>

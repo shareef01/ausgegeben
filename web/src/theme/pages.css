@@ -238,6 +238,15 @@
   color: var(--color-on-background);
 }
 
+/* Explains that the day-group totals follow the active filters (UX-3). Informational, not a
+ * warning, so it is quiet: no border, no background, secondary text. */
+.record-totals-note {
+  margin: 0 0 12px;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--color-on-surface-variant, var(--color-on-background));
+}
+
 .settings-section {
   display: flex;
   flex-direction: column;
@@ -248,10 +257,13 @@
 .settings-section__title {
   margin: 0;
   padding: 0 4px;
-  font-size: 0.6875rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  /* A real h2, styled as a 11px all-caps eyebrow. Section headings a user scans ("preferences",
+     "data", "about") read better in sentence case at a heading weight; the caps family was the
+     last of its kind on this screen. */
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.01em;
   color: var(--color-on-surface-variant);
 }
 
@@ -1163,10 +1175,13 @@
 
 .insights-category-card__title {
   margin: 0;
-  font-size: 0.6875rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  /* A real h2 (AccentTitle renders one), so it reads as a heading instead of an 11px all-caps
+     eyebrow. 16px rather than the spec's 18-20px page-level size: the card's job is to make the
+     distribution number dominant, and the title must not compete with it. */
+  font-size: 1rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.01em;
   color: var(--card-accent, var(--color-on-surface));
 }
 
@@ -1301,10 +1316,10 @@
 
 .insights-cashflow-card__label {
   margin-bottom: 0.35rem;
-  font-size: 0.625rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.01em;
   color: var(--color-on-surface-variant);
 }
 
@@ -1346,10 +1361,10 @@
 }
 
 .insights-metric-card__title {
-  font-size: 0.6875rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.01em;
   color: var(--color-on-surface-variant);
 }
 
@@ -2930,10 +2945,13 @@
 }
 
 .field__label {
-  font-size: 10px;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  /* Form labels are read, not decorated: 13px sentence case replaces a 10px weight-900
+     all-caps label with 0.1em tracking. Used by every form (editor, auth, settings), so this one
+     rule fixes the whole family, and sentence case is narrower, so no label can start wrapping. */
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.01em;
   color: var(--color-on-surface-variant);
   padding: 0 4px;
 }

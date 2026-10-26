@@ -142,10 +142,24 @@ class ExpenseViewModel @Inject constructor(
     }.distinctUntilChanged()
         .flowOn(Dispatchers.Default)
 
-    private val dayTotalsFlow = listExpensesShared
-        .map { expenses -> computeDayTotals(expenses) }
-        .distinctUntilChanged()
-        .flowOn(Dispatchers.Default)
+    /**
+     * Rows the list is showing: period data filtered by search/type/category/amount.
+     *
+     * The day totals in [uiState] are produced by the *same* [filterRecords] call with the same
+     * inputs, so the two can never disagree about what "the visible rows" means (UX-3). They
+     * used to be computed from the unfiltered period, which made every day header contradict the
+     * rows underneath it as soon as a filter was active.
+     *
+     * Deliberately not a shared flow: making this one shared stream (and deriving the totals from
+     * it) couples this public Flow to the view model's lifecycle and broke cancellation-sensitive
+     * tests, for no correctness gain — the predicate is shared, which is what matters.
+     */
+    val pagedExpenses: Flow<List<Expense>> = combine(
+        listExpensesShared, _searchQuery, _typeFilter, _composite,
+        combine(categoriesShared, currencyFlow) { cats, currency -> cats to currency },
+    ) { expenses, query, type, filter, metadata ->
+        filterRecords(expenses, query, type, filter, metadata.first.associate { it.id to it.name }, metadata.second)
+    }.flowOn(Dispatchers.Default)
 
     val uiState: StateFlow<RecordUiState> = combine(
         combine(listExpensesShared, categoriesShared, monthExpensesShared, budgetFlow, currencyFlow) { list, cats, month, budget, curr ->
@@ -155,15 +169,25 @@ class ExpenseViewModel @Inject constructor(
             RecordToolbarState(query, filter, composite.categoryIds.singleOrNull(), period, composite)
         },
         insightsFlow,
-        dayTotalsFlow,
         // Snapshot metadata provides an honest offline coverage indication.
         expenseActions.recordIncomplete,
-    ) { data, toolbar, insights, totals, truncated ->
+    ) { data, toolbar, insights, truncated ->
+        // Filter once, with the same predicate and inputs `pagedExpenses` uses, and total exactly
+        // those rows (UX-3). One source of truth for "which rows are visible"; the filter itself
+        // is a cheap in-memory pass over the already-loaded period.
+        val visible = filterRecords(
+            data.headerExpenses,
+            toolbar.searchQuery,
+            toolbar.typeFilter,
+            toolbar.composite,
+            data.categories.associate { it.id to it.name },
+            data.currencyCode,
+        )
         RecordUiState(
             data,
             toolbar,
             insights,
-            totals,
+            computeDayTotals(visible),
             isLoading = false,
             dataTruncated = truncated,
         )
@@ -172,14 +196,6 @@ class ExpenseViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = RecordUiState(),
     )
-
-    // Period data from [listExpensesShared]; type + category + search filtered here (web parity).
-    val pagedExpenses: Flow<List<Expense>> = combine(
-        listExpensesShared, _searchQuery, _typeFilter, _composite,
-        combine(categoriesShared, currencyFlow) { cats, currency -> cats to currency },
-    ) { expenses, query, type, filter, metadata ->
-        filterRecords(expenses, query, type, filter, metadata.first.associate { it.id to it.name }, metadata.second)
-    }.flowOn(Dispatchers.Default)
 
     init {
         viewModelScope.launch {

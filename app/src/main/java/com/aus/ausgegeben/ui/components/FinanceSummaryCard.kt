@@ -15,10 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
@@ -46,14 +43,6 @@ private object AuroraTokens {
 
     @Composable
     fun slate() = MaterialTheme.colorScheme.onSurfaceVariant
-    
-    // Pillar 3: Dynamic Multi-tone Brush for Balance
-    @Composable
-    fun balanceBrush(isPositive: Boolean) = if (isPositive) {
-        Brush.verticalGradient(colors = listOf(Color(0xFF6EE7B7), emerald()))
-    } else {
-        Brush.verticalGradient(colors = listOf(Color(0xFFFDA4AF), crimson()))
-    }
 
     @Composable
     fun labelStyle() = sectionLabelStyle()
@@ -92,25 +81,23 @@ fun FinanceSummaryCard(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = stringResource(R.string.summary_balance_period, periodLabel).uppercase(),
+                // Sentence case, like the web build: this label explains the number, it is not a
+                // decorative heading (typography parity, DW-2).
+                text = stringResource(R.string.summary_balance_period, periodLabel),
                 style = AuroraTokens.labelStyle(),
             )
             
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Pillar 3: Dynamic Radiant Typography
+            // Metric scale from the design spec: 36sp SemiBold, tabular, and no glow on data.
+            // This used to be a 52sp Bold gradient with a 24px coloured shadow.
             Text(
                 text = CurrencyUtils.formatAmount(net, currencyCode),
                 style = TextStyle(
-                    brush = AuroraTokens.balanceBrush(net >= 0),
-                    fontSize = 52.sp,
-                    fontWeight = FontWeight.Bold,
+                    color = if (net >= 0) AuroraTokens.emerald() else AuroraTokens.crimson(),
+                    fontSize = 36.sp,
+                    fontWeight = FontWeight.SemiBold,
                     fontFeatureSettings = "tnum",
-                    shadow = Shadow(
-                        color = (if (net >= 0) AuroraTokens.emerald() else AuroraTokens.crimson()).copy(alpha = 0.25f),
-                        blurRadius = 24f,
-                        offset = Offset(0f, 4f)
-                    )
                 )
             )
 
@@ -180,8 +167,9 @@ private fun SummaryPane(
         
         Spacer(Modifier.height(8.dp))
         
+        // Sentence case, like the "Net cash flow" eyebrow above it (web parity: .finance-stat-chip__label).
         Text(
-            text = label.uppercase(),
+            text = label,
             style = AuroraTokens.labelStyle(),
         )
         

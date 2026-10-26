@@ -9,7 +9,7 @@ import { SwipeableRow } from '@/components/SwipeableRow';
 import { useRecordViewModel } from '@/viewmodels/useRecordViewModel';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useTranslation, type Locale } from '@/i18n';
-import { formatDateLabel, dayKey } from '@/utils/periodUtils';
+import { groupRecordRows } from '@/utils/recordGrouping';
 import type { Expense, Category, TransactionTypeFilter, TransactionSortOrder } from '@/models/types';
 import { formatAmount, colorIntToHex } from '@/utils/currency';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -69,25 +69,16 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
     });
   }, [uiState.categories, uiState.typeFilter]);
 
-  const grouped = useMemo(() => {
-    const map = new Map<string, Expense[]>();
-    for (const e of uiState.expenses) {
-      const key = uiState.sortOrder.startsWith('amount') ? e.id : dayKey(e.dateMillis);
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(e);
-    }
-    return [...map.entries()].map(([key, items]) => {
-      const [dayIncome, dayExpense] = uiState.dayTotalsByLabel[key] ?? [0, 0];
-      return {
-        key,
-        label: formatDateLabel(items[0].dateMillis, locale),
-        items,
-        dayIncome,
-        dayExpense,
-      };
-    });
-    // Period day totals stay unfiltered (Android parity); list rows stay search/type-filtered.
-  }, [uiState.expenses, uiState.dayTotalsByLabel, uiState.sortOrder, locale]);
+  const grouped = useMemo(
+    () =>
+      groupRecordRows({
+        expenses: uiState.expenses,
+        sortOrder: uiState.sortOrder,
+        dayTotalsByLabel: uiState.dayTotalsByLabel,
+        locale,
+      }),
+    [uiState.expenses, uiState.dayTotalsByLabel, uiState.sortOrder, locale],
+  );
 
   const catMap = useMemo(() => new Map(uiState.categories.map((c) => [c.id, c])), [uiState.categories]);
 
@@ -388,6 +379,12 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
                   {t('recordCacheIncomplete')}
                 </p>
               ) : null}
+              {/* UX-3: the period summary above is filter-independent; these day totals follow
+               * the rows on screen. Say so while a filter is narrowing the list, so the two
+               * numbers can never look like they disagree. */}
+              {filtersActive && uiState.expenses.length > 0 ? (
+                <p className="record-totals-note">{t('recordTotalsFiltered')}</p>
+              ) : null}
               {uiState.expenses.length === 0 ? (
             filtersActive ? (
               <EmptyState
@@ -418,7 +415,10 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
               {grouped.map(({ key, label, items, dayIncome, dayExpense }) => (
                 <section key={key} className="transaction-list-bare__section">
                   <div className="txn-day-header transaction-list-bare__day">
-                    <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-on-surface-variant">{label}</span>
+                    {/* The day label inherits the header's type from CSS (13px sentence case).
+                        The old inline utilities forced 11px all-caps tracking, which the design
+                        spec rules out for information the user must read. */}
+                    <span className="txn-day-header__label">{label}</span>
                     {(dayIncome > 0 || dayExpense > 0) ? (
                       <span className="txn-day-header__totals" aria-label={`${t('filterIncome')} ${formatAmount(dayIncome, currency)}, ${t('filterExpense')} ${formatAmount(dayExpense, currency)}`}>
                         {dayIncome > 0 ? (

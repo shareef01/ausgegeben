@@ -46,6 +46,40 @@ export function resolveCompatibleCategoryFilters(
   });
 }
 
+/**
+ * The record list and its day totals, derived in one place (UX-3).
+ *
+ * The rows come from `filterRecordExpenses`; the totals are computed from **those same rows**, so
+ * a day header can never disagree with the list beneath it. Exported and pure so the whole
+ * pipeline — every filter, both sort directions, transfers, same-day rows, DST/midnight edges —
+ * is covered by unit tests instead of by a screenshot.
+ *
+ * Callers that want the unfiltered period summary must keep using their own list: the summary is
+ * a different contract ("how did the period go") from the list ("what do these rows add up to").
+ */
+export function buildRecordList(params: {
+  expenses: Expense[];
+  typeFilter: TransactionTypeFilter;
+  categoryIdsFilter?: string[];
+  searchQuery?: string;
+  minAmount?: number | null;
+  maxAmount?: number | null;
+  sortOrder?: TransactionSortOrder;
+  categories: Category[];
+  locale?: Locale;
+}): { expenses: Expense[]; dayTotalsByLabel: Record<string, [number, number]> } {
+  const expenses = filterRecordExpenses(params);
+  const totals = computeDayTotals(expenses);
+  const dayTotalsByLabel: Record<string, [number, number]> = {};
+  for (const [key, value] of Object.entries(totals)) {
+    dayTotalsByLabel[key] = [
+      Math.round(value.income * 100) / 100,
+      Math.round(value.expense * 100) / 100,
+    ];
+  }
+  return { expenses, dayTotalsByLabel };
+}
+
 export function filterRecordExpenses(params: {
   expenses: Expense[];
   typeFilter: TransactionTypeFilter;
@@ -291,19 +325,33 @@ export function useRecordViewModel() {
     [periodExpenses, softDeletedIds],
   );
 
-  const filteredExpenses = useMemo(() => {
-    return filterRecordExpenses({
-      expenses: amountError ? [] : summaryExpenses,
-      typeFilter,
-      categoryIdsFilter,
-      searchQuery: normalizedSearch,
-      minAmount,
-      maxAmount,
-      sortOrder,
-      categories,
-      locale,
-    });
-  }, [amountError, summaryExpenses, typeFilter, categoryIdsFilter, normalizedSearch, minAmount, maxAmount, sortOrder, categories, locale]);
+  /**
+   * The list and its day totals, derived together so they can never come from different inputs
+   * (UX-3). Before this they were two independent memos: the rows were filtered, the totals were
+   * not, and every day header disagreed with the rows under it as soon as a filter was active.
+   *
+   * The period summary card deliberately keeps the unfiltered `summaryExpenses`: "how did the
+   * period go" is filter-independent, "what do these rows add up to" follows the rows, and
+   * `RecordView` labels the difference while a filter is active.
+   */
+  const recordList = useMemo(
+    () =>
+      buildRecordList({
+        expenses: amountError ? [] : summaryExpenses,
+        typeFilter,
+        categoryIdsFilter,
+        searchQuery: normalizedSearch,
+        minAmount,
+        maxAmount,
+        sortOrder,
+        categories,
+        locale,
+      }),
+    [amountError, summaryExpenses, typeFilter, categoryIdsFilter, normalizedSearch, minAmount, maxAmount, sortOrder, categories, locale],
+  );
+
+  const filteredExpenses = recordList.expenses;
+  const dayTotalsByLabel = recordList.dayTotalsByLabel;
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -314,18 +362,6 @@ export function useRecordViewModel() {
     if (sortOrder !== 'date_desc') count++;
     return count;
   }, [normalizedSearch, typeFilter, categoryIdsFilter, minAmount, maxAmount, minAmountInput, maxAmountInput, sortOrder]);
-
-  const dayTotalsByLabel = useMemo(() => {
-    const totals = computeDayTotals(summaryExpenses);
-    const out: Record<string, [number, number]> = {};
-    for (const [key, value] of Object.entries(totals)) {
-      out[key] = [
-        Math.round(value.income * 100) / 100,
-        Math.round(value.expense * 100) / 100,
-      ];
-    }
-    return out;
-  }, [summaryExpenses]);
 
   const topExpenseCategory = useMemo(() => {
     const names = new Map(categories.map((c) => [c.id, c.name]));

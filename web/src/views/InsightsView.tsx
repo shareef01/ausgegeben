@@ -98,6 +98,7 @@ export function InsightsView({ onAdd, onManageBudgets }: { onAdd?: () => void; o
                 </p>
               ) : null}
               {!hasData ? (
+            <>
             <EmptyState
               title={t('billsEmptyTitle')}
               subtitle={t('billsEmptySubtitle')}
@@ -109,6 +110,17 @@ export function InsightsView({ onAdd, onManageBudgets }: { onAdd?: () => void; o
                 ) : undefined
               }
             />
+            {/* Budgets are set per month and still mean something with no transactions in the
+                period (nothing spent yet), so the card is not part of what "no data" hides. */}
+            {showCategoryBudgets ? (
+              <CategoryBudgetInsights
+                categories={categories}
+                expenses={budgetExpenses}
+                incomplete={budgetIncomplete}
+                onManage={onManageBudgets}
+              />
+            ) : null}
+            </>
           ) : (
             <div className="insights-main">
               {uiState.pace || uiState.comparison ? (
@@ -118,10 +130,6 @@ export function InsightsView({ onAdd, onManageBudgets }: { onAdd?: () => void; o
                     <PeriodComparisonCard comparison={uiState.comparison} currency={currency} />
                   ) : null}
                 </div>
-              ) : null}
-
-              {uiState.allTimeAverages ? (
-                <AllTimeAveragesCard averages={uiState.allTimeAverages} currency={currency} />
               ) : null}
 
               {uiState.categoryMovers && uiState.categoryMovers.length > 0 ? (
@@ -143,22 +151,29 @@ export function InsightsView({ onAdd, onManageBudgets }: { onAdd?: () => void; o
               {uiState.cashFlowTrend.length > 0 ? (
                 <CashFlowCard trend={uiState.cashFlowTrend} currency={currency} />
               ) : null}
+
+              {/* Budget performance is the last step of the narrative the brief asks for
+                  (overview -> change -> drivers -> distribution -> trend -> budget), and it was
+                  the first and largest card on the screen — showing "no budgets configured" in
+                  the most valuable position while the distributions sat below the fold. */}
+              {showCategoryBudgets ? (
+                <CategoryBudgetInsights
+                  categories={categories}
+                  expenses={budgetExpenses}
+                  incomplete={budgetIncomplete}
+                  onManage={onManageBudgets}
+                />
+              ) : null}
+
+              {/* "Additional detail" closes the narrative: all-time averages are context, not the
+                  headline, so they no longer interrupt the period story. */}
+              {uiState.allTimeAverages ? (
+                <AllTimeAveragesCard averages={uiState.allTimeAverages} currency={currency} />
+              ) : null}
             </div>
           )}
             </>
           )}
-
-          {/* Budgets are a management concern, so they close the page instead of
-              sitting above the spending analysis they depend on (on phones the
-              empty budget card used to fill most of the first screen). */}
-          {showCategoryBudgets ? (
-            <CategoryBudgetInsights
-              categories={categories}
-              expenses={budgetExpenses}
-              incomplete={budgetIncomplete}
-              onManage={onManageBudgets}
-            />
-          ) : null}
         </div>
 
       </div>

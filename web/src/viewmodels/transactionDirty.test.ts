@@ -49,6 +49,29 @@ describe('isTransactionDraftDirty', () => {
     expect(isTransactionDraftDirty(draft(), draft({ dateMillis: nextDay }), 'EUR')).toBe(true);
   });
 
+  it('is clean again once an edit is undone', () => {
+    const baseline = draft();
+    expect(isTransactionDraftDirty(baseline, draft({ amountInput: '13,00' }), 'EUR')).toBe(true);
+    expect(isTransactionDraftDirty(baseline, draft({ amountInput: '12,50' }), 'EUR')).toBe(false);
+    expect(isTransactionDraftDirty(baseline, draft({ categoryId: 'cat-other' }), 'EUR')).toBe(true);
+    expect(isTransactionDraftDirty(baseline, draft({ categoryId: 'cat-food' }), 'EUR')).toBe(false);
+  });
+
+  it('reads the separators of the display currency', () => {
+    expect(isTransactionDraftDirty(draft({ amountInput: '12,50' }), draft({ amountInput: '012,50' }), 'EUR')).toBe(false);
+    expect(isTransactionDraftDirty(draft({ amountInput: '12.50' }), draft({ amountInput: '12.5' }), 'USD')).toBe(false);
+    expect(isTransactionDraftDirty(draft({ amountInput: '1234,56' }), draft({ amountInput: '1.234,56' }), 'EUR')).toBe(false);
+    expect(isTransactionDraftDirty(draft({ amountInput: '1234.56' }), draft({ amountInput: '1,234.56' }), 'USD')).toBe(false);
+  });
+
+  it('treats an unparsable amount like an empty one', () => {
+    expect(isTransactionDraftDirty(draft({ amountInput: '' }), draft({ amountInput: '-' }), 'EUR')).toBe(false);
+  });
+
+  it('treats a whitespace-only note on a blank form as unchanged', () => {
+    expect(isTransactionDraftDirty(draft({ note: '' }), draft({ note: '   ' }), 'EUR')).toBe(false);
+  });
+
   it('never reports dirty before a baseline exists', () => {
     expect(isTransactionDraftDirty(null, draft(), 'EUR')).toBe(false);
   });
