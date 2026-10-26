@@ -174,18 +174,6 @@ export function InsightsView({ onAdd, onManageBudgets }: { onAdd?: () => void; o
           )}
             </>
           )}
-
-          {/* Budgets are a management concern, so they close the page instead of
-              sitting above the spending analysis they depend on (on phones the
-              empty budget card used to fill most of the first screen). */}
-          {showCategoryBudgets ? (
-            <CategoryBudgetInsights
-              categories={categories}
-              expenses={budgetExpenses}
-              incomplete={budgetIncomplete}
-              onManage={onManageBudgets}
-            />
-          ) : null}
         </div>
 
       </div>
