@@ -908,7 +908,7 @@ private fun DateSectionHeader(
     currencyCode: String,
     modifier: Modifier = Modifier
 ) {
-    val incomeColor = financeIncomeColor()
+    val incomeColor = financeIncomeTextColor()
     val expenseColor = financeExpenseTextColor()
     Box(
         modifier = modifier
@@ -1125,8 +1125,9 @@ fun TransactionRow(
     val isTransfer = expense.isTransfer()
     val transferColor = financeTransferColor()
     
+    // The amount is ink; [incomeColor] stays the fill for the income badge below.
     val amountColor = when {
-        isIncome -> incomeColor
+        isIncome -> financeIncomeTextColor()
         isTransfer -> transferColor
         else -> MaterialTheme.colorScheme.onSurface
     }

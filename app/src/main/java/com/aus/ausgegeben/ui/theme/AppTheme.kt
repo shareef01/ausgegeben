@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.TextFieldColors
@@ -54,9 +55,12 @@ fun settingsIconTintMuted(): Color = readableSecondaryColor()
 fun settingsDestructiveColor(): Color = MaterialTheme.colorScheme.error
 
 @Composable
-fun financeIncomeColor(): Color {
-    if (!isAppDarkTheme()) return IncomeGreenLight
-    val primary = MaterialTheme.colorScheme.primary
+fun financeIncomeColor(): Color = incomeFillFor(MaterialTheme.colorScheme)
+
+/** [financeIncomeColor] for a given scheme; plain so the contrast tests can use it too. */
+internal fun incomeFillFor(scheme: ColorScheme): Color {
+    if (scheme.background.luminance() >= 0.5f) return IncomeGreenLight
+    val primary = scheme.primary
     return if (primary.luminance() > 0.82f) IncomeGreen else primary
 }
 
@@ -73,26 +77,35 @@ fun financeExpenseColor(): Color = MaterialTheme.colorScheme.error
  */
 @Composable
 fun financeExpenseTextColor(): Color =
-    ensureAaTextColor(
-        base = MaterialTheme.colorScheme.error,
-        backgrounds = listOf(
-            MaterialTheme.colorScheme.surface,
-            MaterialTheme.colorScheme.surfaceVariant,
-            MaterialTheme.colorScheme.background,
-        ),
-    )
+    ensureAaTextColor(base = MaterialTheme.colorScheme.error, backgrounds = textSurfaces())
 
-/** Ink-safe sibling of [financeIncomeColor]; see [financeExpenseTextColor]. */
+/**
+ * Ink-safe sibling of [financeIncomeColor]; see [financeExpenseTextColor]. Only Soft Light's
+ * beige surfaceVariant pushes the green below AA, so elsewhere this returns the fill unchanged.
+ */
 @Composable
 fun financeIncomeTextColor(): Color =
-    ensureAaTextColor(
-        base = financeIncomeColor(),
-        backgrounds = listOf(
-            MaterialTheme.colorScheme.surface,
-            MaterialTheme.colorScheme.surfaceVariant,
-            MaterialTheme.colorScheme.background,
-        ),
-    )
+    ensureAaTextColor(base = financeIncomeColor(), backgrounds = textSurfaces())
+
+/** Budget "warning" / "limit reached" fill: progress bars and tinted badges. */
+@Composable
+fun financeWarningColor(): Color = WarningAmber
+
+/**
+ * Ink-safe sibling of [financeWarningColor]. The amber is about 2:1 on every light surface,
+ * so warning labels darken to a readable amber there; dark themes keep the fill.
+ */
+@Composable
+fun financeWarningTextColor(): Color =
+    ensureAaTextColor(base = financeWarningColor(), backgrounds = textSurfaces())
+
+/** Surfaces finance text can sit on; the text variants must clear AA on all of them. */
+@Composable
+private fun textSurfaces(): List<Color> = listOf(
+    MaterialTheme.colorScheme.surface,
+    MaterialTheme.colorScheme.surfaceVariant,
+    MaterialTheme.colorScheme.background,
+)
 
 @Composable
 fun financeTransferColor(): Color =

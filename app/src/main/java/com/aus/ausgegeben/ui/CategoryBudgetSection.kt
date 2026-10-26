@@ -120,7 +120,7 @@ fun CategoryBudgetManager(repository: AppRepository, uid: String, currency: Stri
                     Text(
                         text = CurrencyUtils.formatAmount(unallocated, currency),
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = financeIncomeColor()
+                        color = financeIncomeTextColor()
                     )
                 }
             }
@@ -413,13 +413,13 @@ fun CategoryBudgetProgressSection(
                 val catColor = Color(p.category.colorInt)
                 val statusBarColor = when (p.state) {
                     "over" -> financeExpenseColor()
-                    "warning", "reached" -> Color(0xFFF59E0B)
+                    "warning", "reached" -> financeWarningColor()
                     else -> financeIncomeColor()
                 }
                 val statusColor = when (p.state) {
                     "over" -> financeExpenseTextColor()
-                    "warning", "reached" -> Color(0xFFF59E0B)
-                    else -> financeIncomeColor()
+                    "warning", "reached" -> financeWarningTextColor()
+                    else -> financeIncomeTextColor()
                 }
 
                 Column(
