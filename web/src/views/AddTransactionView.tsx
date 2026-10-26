@@ -40,19 +40,20 @@ export function AddTransactionView({
   const catsRailRef = useRef<HTMLDivElement>(null);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
-  // UX-1: prompt whenever closing would discard a real change — for a new transaction and
-  // for an edit alike. `vm.isDirty` compares the form against the values it was opened with
-  // (amount in cents, date as a calendar day, note trimmed), so an untouched form, a
-  // reformatted amount, or a create with a pre-selected category never prompts.
+  // Dirty state comes from the view model, which compares the current values against
+  // the ones this form opened with — for a new draft *and* for an edited transaction.
+  // Prompting only for new drafts meant Escape/backdrop taps discarded edits silently.
+  const hasUnsavedChanges = vm.isDirty;
+
   const requestClose = useCallback(() => {
     if (suspended) return;
-    if (vm.isDirty) {
+    if (hasUnsavedChanges) {
       haptics.light();
       setShowDiscardConfirm(true);
       return;
     }
     onClose();
-  }, [suspended, vm.isDirty, haptics, onClose]);
+  }, [suspended, hasUnsavedChanges, haptics, onClose]);
 
   const handleEscape = useCallback(() => {
     requestClose();

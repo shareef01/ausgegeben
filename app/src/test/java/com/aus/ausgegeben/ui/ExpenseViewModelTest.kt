@@ -85,17 +85,21 @@ class ExpenseViewModelTest {
 
         val job = launch { viewModel.uiState.collect {} }
         advanceUntilIdle()
+        // insightsFlow runs on Dispatchers.Default, which advanceUntilIdle() does not wait for,
+        // so the first real emission has to be awaited (see toolbarFilters_andSearchQuery_…).
+        viewModel.uiState.first { !it.isLoading }
 
         val dayStart = localDayStartMillis(coffee.dateMillis)
-        assertEquals(16.0, viewModel.uiState.value.dayTotalsByDay[dayStart]?.second ?: -1.0, 0.001)
+        fun expenseTotal() = viewModel.uiState.value.dayTotalsByDay[dayStart]?.second ?: -1.0
+        assertEquals(16.0, expenseTotal(), 0.001)
 
         viewModel.setSearchQuery("coffee")
         advanceUntilIdle()
-        assertEquals(12.5, viewModel.uiState.value.dayTotalsByDay[dayStart]?.second ?: -1.0, 0.001)
+        assertEquals(12.5, expenseTotal(), 0.001)
 
         viewModel.setSearchQuery("")
         advanceUntilIdle()
-        assertEquals(16.0, viewModel.uiState.value.dayTotalsByDay[dayStart]?.second ?: -1.0, 0.001)
+        assertEquals(16.0, expenseTotal(), 0.001)
 
         job.cancel()
     }

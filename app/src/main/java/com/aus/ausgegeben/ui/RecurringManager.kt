@@ -258,7 +258,7 @@ fun RecurringManagerSheet(
                                     Text(
                                         text = CurrencyUtils.formatAmount(row.amount, currencyCode),
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = if (row.transactionType == "income") financeIncomeColor() else financeExpenseColor(),
+                                        color = if (row.transactionType == "income") financeIncomeColor() else financeExpenseTextColor(),
                                     )
                                 }
 

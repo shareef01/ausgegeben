@@ -12,12 +12,12 @@ import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.util.AnalyticsPeriod
 import com.aus.ausgegeben.util.CurrencyUtils
-import com.aus.ausgegeben.util.TransactionDraft
 import com.aus.ausgegeben.util.dateRangeMillis
 import com.aus.ausgegeben.util.datePickerMillisToLocalDayStart
 import com.aus.ausgegeben.util.runSuspendCatching
 import com.aus.ausgegeben.util.withLocalTimeOfDay
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -61,16 +61,20 @@ class AddExpenseViewModel @Inject constructor(
     private val _loadedTransactionType = MutableStateFlow(TransactionType.EXPENSE)
     val loadedTransactionType = _loadedTransactionType.asStateFlow()
 
-    /**
-     * The draft the editor opened with (UX-1). Null until the fields have been seeded, so an
-     * unloaded editor can never be "dirty". Set by `loadForEdit` (once the amount has been
-     * formatted for the display currency) and by `resetForm`; read by the screen's close guard.
-     */
-    private val _baseline = MutableStateFlow<TransactionDraft?>(null)
-    val baseline = _baseline.asStateFlow()
-
     private val _isSaving = MutableStateFlow(false)
     val isSaving = _isSaving.asStateFlow()
+
+    /**
+     * True while an edit's original values are still being loaded.
+     *
+     * The form cannot be treated as ready before the amount (loaded asynchronously with
+     * the currency) and the dirty baseline exist: rendering the editable form earlier
+     * let a keystroke be overwritten when the loaded amount arrived, and made "close"
+     * ambiguous because there was no baseline yet. While this is true the screen shows a
+     * spinner and closing cannot lose anything, because nothing can be typed.
+     */
+    private val _isDraftLoading = MutableStateFlow(false)
+    val isDraftLoading = _isDraftLoading.asStateFlow()
 
     val categories: StateFlow<List<Category>> = categoryActions.allCategories
         .stateIn(
@@ -80,6 +84,42 @@ class AddExpenseViewModel @Inject constructor(
         )
 
     val isEditing: Boolean get() = _editingExpenseId.value != null
+
+    /** The form's current values, with [type] supplied by the screen's tab state. */
+    private fun currentSnapshot(type: TransactionType) = TransactionDraftSnapshot(
+        amountText = _amount.value,
+        transactionType = type,
+        categoryId = _selectedCategory.value?.id,
+        note = _note.value,
+        dateMillis = _dateMillis.value,
+    )
+
+    /**
+     * Values the form opened with — blank for a new transaction, otherwise the loaded
+     * expense. Null only while an edit is loading, which reads as "not dirty".
+     *
+     * Starts as the blank draft rather than null: a view model created without
+     * resetForm() (e.g. the form restored after process death) must still guard what
+     * the user types, and null would have reported every draft as clean.
+     */
+    private var baseline: TransactionDraftSnapshot? = currentSnapshot(TransactionType.EXPENSE)
+
+    /** The in-flight [loadForEdit] amount load; cancelled when the form is reset or reloaded. */
+    private var editLoadJob: Job? = null
+
+    /**
+     * Whether closing the form now would discard user input.
+     *
+     * [currentType] is owned by the screen's tab state, so it is passed in rather than
+     * mirrored here. Works for edits too: the baseline is the loaded transaction, not
+     * an empty draft.
+     */
+    fun hasUnsavedChanges(currentType: TransactionType, currencyCode: String = "EUR"): Boolean =
+        isTransactionDraftDirty(
+            baseline = baseline,
+            current = currentSnapshot(currentType),
+            currencyCode = currencyCode,
+        )
 
     fun onAmountChange(newAmount: String) {
         _amount.value = newAmount
@@ -110,23 +150,30 @@ class AddExpenseViewModel @Inject constructor(
         _dateMillis.value = expense.dateMillis
         _selectedCategory.value = categories.find { it.id == expense.categoryId }
         _loadedTransactionType.value = TransactionType.fromKey(expense.transactionType)
-        // This view model outlives one editor session; drop the previous baseline so the
-        // screen never compares the new fields against the last form while this one loads.
-        _baseline.value = null
-        viewModelScope.launch {
-            val currency = preferenceManager.currencyFlow.first()
-            _amount.value = CurrencyUtils.formatAmountForInput(expense.amount, currency)
-            // Captured after the amount is formatted for the display currency, and using the
-            // *selected* category id: an orphan/stored-but-unselectable category leaves the
-            // selection null, so an untouched edit of such a row is not reported as dirty.
-            _baseline.value = TransactionDraft.of(
-                amountText = _amount.value,
-                currencyCode = currency,
-                transactionType = expense.transactionType,
-                categoryId = _selectedCategory.value?.id,
-                note = _note.value,
-                dateMillis = _dateMillis.value,
-            )
+        // No baseline until the amount is loaded: reporting "dirty" while the form is
+        // still populating would prompt the user to discard a transaction they have not
+        // touched yet.
+        baseline = null
+        _isDraftLoading.value = true
+        // A previous load still waiting on the currency would otherwise finish into this
+        // form with the other transaction's amount.
+        editLoadJob?.cancel()
+        editLoadJob = viewModelScope.launch {
+            try {
+                val currency = preferenceManager.currencyFlow.first()
+                _amount.value = CurrencyUtils.formatAmountForInput(expense.amount, currency)
+            } catch (cancelled: CancellationException) {
+                // Superseded by resetForm() or another loadForEdit(): that call owns the
+                // form now, so leave the amount, baseline and loading flag alone.
+                throw cancelled
+            } catch (e: Exception) {
+                // Settings unavailable must not leave the form stuck on a spinner: fall
+                // back to the default decimal format so the transaction still opens.
+                Log.w(TAG, "currency unavailable while loading edit; using default formatting", e)
+                _amount.value = CurrencyUtils.formatAmountForInput(expense.amount, "EUR")
+            }
+            baseline = currentSnapshot(_loadedTransactionType.value)
+            _isDraftLoading.value = false
         }
     }
 
@@ -276,19 +323,9 @@ class AddExpenseViewModel @Inject constructor(
         _selectedCategory.value = null
         _dateMillis.value = System.currentTimeMillis()
         _loadedTransactionType.value = TransactionType.EXPENSE
-        // A fresh form's baseline is what it starts as, so an untouched create is not dirty.
-        // Cleared first for the same reason as in loadForEdit.
-        _baseline.value = null
-        viewModelScope.launch {
-            val currency = preferenceManager.currencyFlow.first()
-            _baseline.value = TransactionDraft.of(
-                amountText = _amount.value,
-                currencyCode = currency,
-                transactionType = TransactionType.EXPENSE.storageKey,
-                categoryId = null,
-                note = _note.value,
-                dateMillis = _dateMillis.value,
-            )
-        }
+        editLoadJob?.cancel()
+        editLoadJob = null
+        _isDraftLoading.value = false
+        baseline = currentSnapshot(_loadedTransactionType.value)
     }
 }

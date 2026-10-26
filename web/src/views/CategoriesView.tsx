@@ -215,7 +215,7 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 z-[200] safe-overlay bg-background/80 backdrop-blur-xl flex items-center justify-center" onClick={handleEscape}>
       <div
         ref={dialogRef}
-        className="card--pro max-w-2xl w-full p-8 sm:p-10 flex flex-col gap-8 shadow-2xl overflow-y-auto max-h-[90vh]"
+        className="card--pro max-w-2xl w-full p-5 sm:p-10 flex flex-col gap-8 shadow-2xl overflow-y-auto max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -356,7 +356,7 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
                  ) : (
                  <div className="flex flex-col gap-3">
                    {filtered.map((cat, index) => (
-                      <div key={cat.id} className="card--pro p-4 flex items-center gap-3 bg-surface border border-white/5 shadow-none">
+                      <div key={cat.id} className="category-manage-row card--pro p-4 flex items-center gap-3 bg-surface border border-white/5 shadow-none">
                           <button
                             type="button"
                             className="category-row-edit flex items-center gap-3.5 flex-1 min-w-0 text-left"
@@ -366,7 +366,7 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
                             <CategoryIconTile iconName={cat.iconName} color={colorIntToHex(cat.colorInt)} />
                             <span className="flex-1 text-sm font-semibold text-on-background truncate">{cat.name}</span>
                           </button>
-                          <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="category-manage-row__actions flex items-center gap-1.5 shrink-0">
                             <button
                               type="button"
                               className="icon-btn"

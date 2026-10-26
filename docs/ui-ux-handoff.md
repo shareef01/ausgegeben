@@ -51,9 +51,10 @@ things I got wrong and withdrew.
 2. **`web/src/components/PeriodSelector.tsx`** — hand-written WAI-ARIA listbox (roving tabindex,
    focus-on-open, Escape/Tab restoring focus). **Verify with a real screen reader**, not only the
    Playwright spec: the spec proves focus and keyboard, not announcement quality.
-3. **`web/src/viewmodels/useAddTransactionViewModel.ts` + `AddTransactionView.tsx` (UX-1 web)** and
-   **`util/TransactionDraft.kt` + `AddExpenseViewModel`/`AddTransactionScreen` (UX-1 Android)** —
-   the dirty-check compares *normalised* values (cents, calendar day, trimmed note). **Verify:** the
+3. **UX-1 (unsaved-edit guard)** — this branch's own implementation was dropped in favour of the
+   one `main` shipped in #91 (`viewmodels/transactionDirty.ts` on web; `ui/TransactionDraftDirty.kt`
+   + `ui/DiscardGuard.kt` on Android); only extra test cases remain from this branch. The check
+   compares *normalised* values (amount, calendar day, trimmed note). **Verify:** the
    normalisation cannot make a real edit look clean (e.g. a sub-cent legacy amount, a timezone where
    the local day differs from UTC, a category that is unselectable). Persistence paths were not
    touched — confirm that by reading the diff, not the description.

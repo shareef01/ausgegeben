@@ -266,6 +266,7 @@ input[type='number'] {
 
 .app-header__nav {
   --nav-item: 40px;
+  --nav-w: 40px;
   --nav-gap: 2px;
   --nav-pad: 3px;
   --nav-radius: 999px;
@@ -299,7 +300,7 @@ input[type='number'] {
   z-index: 0;
   top: var(--nav-pad);
   left: var(--nav-pad);
-  width: var(--nav-item);
+  width: var(--nav-w);
   height: var(--nav-item);
   border-radius: var(--nav-radius);
   pointer-events: none;
@@ -307,7 +308,7 @@ input[type='number'] {
   box-shadow:
     0 1px 0 color-mix(in srgb, #ffffff 28%, transparent) inset,
     0 4px 16px color-mix(in srgb, var(--color-income) 36%, transparent);
-  transform: translateX(calc(var(--nav-i) * (var(--nav-item) + var(--nav-gap))));
+  transform: translateX(calc(var(--nav-i) * (var(--nav-w) + var(--nav-gap))));
   transition:
     transform var(--dur-base, 0.28s) var(--ease-spring, cubic-bezier(0.22, 1, 0.36, 1)),
     background-color var(--dur-base, 0.2s) ease,
@@ -317,9 +318,10 @@ input[type='number'] {
 @media (min-width: 768px) {
   .app-header__nav {
     --nav-item: 46px;
+    --nav-w: 110px;
     --nav-gap: 4px;
     --nav-pad: 5px;
-    --nav-icon: 22px;
+    --nav-icon: 19px;
   }
 
   .app-header {
@@ -330,9 +332,10 @@ input[type='number'] {
 @media (min-width: 1024px) {
   .app-header__nav {
     --nav-item: 52px;
+    --nav-w: 116px;
     --nav-gap: 5px;
     --nav-pad: 5px;
-    --nav-icon: 24px;
+    --nav-icon: 21px;
   }
 
   .app-header {
@@ -350,9 +353,10 @@ input[type='number'] {
 @media (min-width: 1280px) {
   .app-header__nav {
     --nav-item: 56px;
+    --nav-w: 124px;
     --nav-gap: 6px;
     --nav-pad: 6px;
-    --nav-icon: 26px;
+    --nav-icon: 23px;
   }
 }
 
@@ -361,9 +365,9 @@ input[type='number'] {
   z-index: 1;
   flex: 0 0 auto;
   box-sizing: border-box;
-  width: var(--nav-item);
+  width: var(--nav-w);
   height: var(--nav-item);
-  min-width: var(--nav-item);
+  min-width: var(--nav-w);
   min-height: var(--nav-item);
   padding: 0;
   margin: 0;
@@ -372,8 +376,8 @@ input[type='number'] {
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 0;
-  line-height: 0;
+  gap: 8px;
+  line-height: 1;
   color: color-mix(in srgb, var(--color-on-surface) 48%, var(--color-on-surface-variant));
   background: transparent;
   border: none;
@@ -381,6 +385,23 @@ input[type='number'] {
   transition:
     color 0.18s ease,
     transform 0.14s ease;
+}
+
+/* Visible destination labels: icon-only chrome made "record / insights /
+   settings" a guess for first-time users, and tooltips are not available on
+   touch. Labels match the accessible names. */
+.app-header__nav-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+@media (min-width: 1024px) {
+  .app-header__nav-label {
+    font-size: 0.8125rem;
+  }
 }
 
 .app-header__nav-icon,

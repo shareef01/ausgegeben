@@ -42,6 +42,11 @@ export interface ThemePalette {
   incomeLight: string;
   expense: string;
   transfer: string;
+  /** WCAG-AA-safe variants of the finance hues, for text/icons on surfaces. */
+  incomeText: string;
+  expenseText: string;
+  transferText: string;
+  errorText: string;
   focusRing: string;
   isDark: boolean;
 }
@@ -80,6 +85,52 @@ export function contrastOn(fill: string): string {
   return contrastRatio(dark, fill) >= contrastRatio(light, fill) ? dark : light;
 }
 
+/** WCAG 2.2 AA minimum for normal-size body text. */
+export const AA_TEXT_CONTRAST = 4.5;
+
+function parseHex(hex: string): [number, number, number] {
+  const h = hex.replace('#', '');
+  return [
+    parseInt(h.slice(0, 2), 16),
+    parseInt(h.slice(2, 4), 16),
+    parseInt(h.slice(4, 6), 16),
+  ];
+}
+
+function toHex(r: number, g: number, b: number): string {
+  const part = (v: number) => Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, '0');
+  return `#${part(r)}${part(g)}${part(b)}`.toUpperCase();
+}
+
+/** Linear sRGB mix: t=0 returns `from`, t=1 returns `to`. */
+export function mixHex(from: string, to: string, t: number): string {
+  const [r1, g1, b1] = parseHex(from);
+  const [r2, g2, b2] = parseHex(to);
+  return toHex(r1 + (r2 - r1) * t, g1 + (g2 - g1) * t, b1 + (b2 - b1) * t);
+}
+
+/**
+ * The semantic finance hues (#FB7185 expense, #10B981 income) are tuned as fills
+ * and chart accents. Used directly as *text* on light surfaces they miss WCAG AA
+ * (rose-on-white is ~2.7:1), which made every expense amount and destructive
+ * action hard to read. This walks the hue toward black (on light surfaces) or
+ * white (on dark surfaces) in small steps until it clears AA against every
+ * background it can land on, so the shipped palette keeps its identity without
+ * failing contrast. Fills keep using the untouched base token.
+ */
+export function readableOn(color: string, backgrounds: string[], target = AA_TEXT_CONTRAST): string {
+  const worst = (candidate: string) =>
+    Math.min(...backgrounds.map((bg) => contrastRatio(candidate, bg)));
+  if (worst(color) >= target) return color;
+  const lighter = backgrounds.every((bg) => relativeLuminance(bg) < 0.5);
+  const toward = lighter ? '#FFFFFF' : '#000000';
+  for (let step = 1; step <= 50; step += 1) {
+    const candidate = mixHex(color, toward, step / 50);
+    if (worst(candidate) >= target) return candidate;
+  }
+  return toward;
+}
+
 /**
  * Matches Android financeIncomeColor():
  * light → IncomeGreenLight; dark + near-white primary → IncomeGreen; else primary.
@@ -87,6 +138,19 @@ export function contrastOn(fill: string): string {
 function resolveIncome(isDark: boolean, primary: string): string {
   if (!isDark) return INCOME_LIGHT;
   return relativeLuminance(primary) > 0.82 ? INCOME_DARK : primary;
+}
+
+/**
+ * Fill in the AA-safe text variants once every surface color is known. Cards sit
+ * on `surface`, page text on `background`, and some chips on `surfaceVariant`, so
+ * all three have to pass for a color to be safe for text anywhere in the app.
+ */
+function applyReadableTextTokens(palette: ThemePalette): void {
+  const surfaces = [palette.surface, palette.surfaceVariant, palette.background];
+  palette.incomeText = readableOn(palette.income, surfaces);
+  palette.expenseText = readableOn(palette.expense, surfaces);
+  palette.transferText = readableOn(palette.transfer, surfaces);
+  palette.errorText = readableOn(palette.error, surfaces);
 }
 
 const baseDark = (overrides: Partial<ThemePalette> = {}): ThemePalette => {
@@ -106,6 +170,10 @@ const baseDark = (overrides: Partial<ThemePalette> = {}): ThemePalette => {
     incomeLight: INCOME_DARK,
     expense: EXPENSE,
     transfer: TRANSFER_DARK,
+    incomeText: INCOME_DARK,
+    expenseText: EXPENSE,
+    transferText: TRANSFER_DARK,
+    errorText: EXPENSE,
     focusRing: FOCUS_DARK,
     isDark: true,
     ...overrides,
@@ -116,6 +184,7 @@ const baseDark = (overrides: Partial<ThemePalette> = {}): ThemePalette => {
   if (!overrides.expense) merged.expense = merged.error;
   if (!overrides.transfer) merged.transfer = TRANSFER_DARK;
   if (!overrides.focusRing) merged.focusRing = FOCUS_DARK;
+  applyReadableTextTokens(merged);
   return merged;
 };
 
@@ -135,6 +204,10 @@ const baseLight = (overrides: Partial<ThemePalette> = {}): ThemePalette => {
     incomeLight: INCOME_LIGHT,
     expense: EXPENSE,
     transfer: TRANSFER_LIGHT,
+    incomeText: INCOME_LIGHT,
+    expenseText: EXPENSE,
+    transferText: TRANSFER_LIGHT,
+    errorText: EXPENSE,
     focusRing: '#09090B',
     isDark: false,
     ...overrides,
@@ -144,6 +217,7 @@ const baseLight = (overrides: Partial<ThemePalette> = {}): ThemePalette => {
   if (!overrides.expense) merged.expense = merged.error;
   if (!overrides.transfer) merged.transfer = TRANSFER_LIGHT;
   if (!overrides.focusRing) merged.focusRing = merged.primary;
+  applyReadableTextTokens(merged);
   return merged;
 };
 
@@ -300,14 +374,19 @@ export function applyTheme(palette: ThemePalette): void {
   root.style.setProperty('--color-income-light', palette.incomeLight);
   root.style.setProperty('--color-expense', palette.expense);
   root.style.setProperty('--color-transfer', palette.transfer);
+  // AA-safe siblings of the finance fills — use these for text and icons.
+  root.style.setProperty('--color-income-text', palette.incomeText);
+  root.style.setProperty('--color-expense-text', palette.expenseText);
+  root.style.setProperty('--color-transfer-text', palette.transferText);
+  root.style.setProperty('--color-error-text', palette.errorText);
   root.style.setProperty('--color-accent', accent);
   root.style.setProperty('--color-on-accent', onAccent);
   root.style.setProperty('--color-focus', palette.focusRing);
 
   root.style.setProperty('--color-label-muted', palette.onSurfaceVariant);
   root.style.setProperty('--color-placeholder', palette.onSurfaceVariant);
-  root.style.setProperty('--color-balance-positive', palette.income);
-  root.style.setProperty('--color-balance-negative', palette.expense);
+  root.style.setProperty('--color-balance-positive', palette.incomeText);
+  root.style.setProperty('--color-balance-negative', palette.expenseText);
   root.style.setProperty('--color-stat-value', palette.onBackground);
   root.style.setProperty('--color-on-income', onIncome);
   root.style.setProperty('--color-on-expense', onExpense);

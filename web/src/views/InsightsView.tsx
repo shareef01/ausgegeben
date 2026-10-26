@@ -138,13 +138,13 @@ export function InsightsView({ onAdd, onManageBudgets }: { onAdd?: () => void; o
 
               <div className="insights-breakdown">
                 {uiState.expensesByCategory.size > 0 ? (
-                  <CategoryCard title={t('filterExpense')} map={uiState.expensesByCategory} categories={categories} currency={currency} accent="var(--color-expense)" />
+                  <CategoryCard title={t('filterExpense')} map={uiState.expensesByCategory} categories={categories} currency={currency} accent="var(--color-expense-text)" />
                 ) : null}
                 {uiState.incomeByCategory.size > 0 ? (
-                  <CategoryCard title={t('filterIncome')} map={uiState.incomeByCategory} categories={categories} currency={currency} accent="var(--color-income)" />
+                  <CategoryCard title={t('filterIncome')} map={uiState.incomeByCategory} categories={categories} currency={currency} accent="var(--color-income-text)" />
                 ) : null}
                 {uiState.transfersByCategory.size > 0 ? (
-                  <CategoryCard title={t('filterTransfer')} map={uiState.transfersByCategory} categories={categories} currency={currency} accent="var(--color-transfer, var(--color-outline))" />
+                  <CategoryCard title={t('filterTransfer')} map={uiState.transfersByCategory} categories={categories} currency={currency} accent="var(--color-transfer-text, var(--color-outline))" />
                 ) : null}
               </div>
 
@@ -174,6 +174,18 @@ export function InsightsView({ onAdd, onManageBudgets }: { onAdd?: () => void; o
           )}
             </>
           )}
+
+          {/* Budgets are a management concern, so they close the page instead of
+              sitting above the spending analysis they depend on (on phones the
+              empty budget card used to fill most of the first screen). */}
+          {showCategoryBudgets ? (
+            <CategoryBudgetInsights
+              categories={categories}
+              expenses={budgetExpenses}
+              incomplete={budgetIncomplete}
+              onManage={onManageBudgets}
+            />
+          ) : null}
         </div>
 
       </div>
@@ -260,15 +272,32 @@ function CategoryCard({ title, map, categories, currency, accent }: CategoryCard
       <div className="insights-category-card__chart">
         <DonutChart segments={segments} size={148} center={{ value: formatCompactAmount(total, currency) }} />
       </div>
-      <ul className="insights-category-card__list">
+      <ul className="insights-category-card__list" aria-label={title}>
         {displayEntries.map(({ key, name, value, color }) => {
           const pct = Math.round((value / total) * 100);
           return (
-            <li key={key} className="insights-category-card__row">
+            <li
+              key={key}
+              className="insights-category-card__row"
+              aria-label={t('insightsCategoryRowDesc', {
+                category: name,
+                amount: formatAmount(value, currency),
+                percent: String(pct),
+                total: formatAmount(total, currency),
+              })}
+            >
               <AccentDot color={color} />
-              <span className="insights-category-card__name">{name}</span>
-              <span className="insights-category-card__amount">{formatAmount(value, currency)}</span>
-              <span className="insights-category-card__pct">{pct}%</span>
+              <span className="insights-category-card__name" aria-hidden>{name}</span>
+              <span className="insights-category-card__amount" aria-hidden>{formatAmount(value, currency)}</span>
+              <span className="insights-category-card__pct" aria-hidden>{pct}%</span>
+              {/* Horizontal comparison bar: easier to rank categories than the
+                  donut, and it keeps its exact amount + percentage as text. */}
+              <span className="insights-category-card__bar" aria-hidden>
+                <span
+                  className="insights-category-card__bar-fill"
+                  style={{ width: `${pct}%`, backgroundColor: color }}
+                />
+              </span>
             </li>
           );
         })}

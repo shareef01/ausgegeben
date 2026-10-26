@@ -185,19 +185,19 @@
 }
 
 .insights-summary-dock__row--expense .insights-summary-dock__value {
-  color: var(--color-expense);
+  color: var(--color-expense-text);
 }
 
 .insights-summary-dock__row--income .insights-summary-dock__value {
-  color: var(--color-income);
+  color: var(--color-income-text);
 }
 
 .insights-summary-dock__row--net-positive .insights-summary-dock__value {
-  color: var(--color-income);
+  color: var(--color-income-text);
 }
 
 .insights-summary-dock__row--net-negative .insights-summary-dock__value {
-  color: var(--color-expense);
+  color: var(--color-expense-text);
 }
 
 @media (min-width: 768px) {
@@ -397,7 +397,7 @@
 }
 
 .bottom-nav-pill__item--active {
-  color: var(--color-income);
+  color: var(--color-income-text);
   background: color-mix(in srgb, var(--color-income) 12%, transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-income) 22%, transparent);
 }

@@ -329,7 +329,7 @@ private fun CategoryListItem(
                     onClick = onDelete,
                     icon = Icons.Rounded.DeleteOutline,
                     contentDescription = stringResource(R.string.action_delete),
-                    tint = financeExpenseColor(),
+                    tint = financeExpenseTextColor(),
                 )
             }
         }

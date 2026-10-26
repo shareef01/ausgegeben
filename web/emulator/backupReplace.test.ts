@@ -417,6 +417,9 @@ describe('backupReplace on real Firestore emulator with rules enforced', () => {
     // Expense chunks already fail closed; a silently skipped receipt chunk would let
     // rollback replace the receipts collection with a partial list, and the deleted
     // receipts' occurrences would then be materialised a second time.
+    // The receipt below is rules-shaped (id encodes template + date, expenseId is a
+    // lowercase SHA-256 hex id) so this exercises the missing *chunk*, not row validation.
+    const templateId = '11111111-2222-4333-8444-555555555555';
     await rulesEnv().withSecurityRulesDisabled(async (ctx) => {
       const adminDb = ctx.firestore();
       const base = { operationId: 'replace_test', ownerUid: TEST_UID, createdAt: 1000 };
@@ -427,7 +430,13 @@ describe('backupReplace on real Firestore emulator with rules enforced', () => {
       await adminDb.doc(`users/${TEST_UID}/restoreSnapshot/chunk_0`).set({ ...base, chunkIndex: 0, chunkCount: 1, expenses: [] });
       await adminDb.doc(`users/${TEST_UID}/restoreSnapshot/receipt_chunk_0`).set({
         ...base, chunkIndex: 0, chunkCount: 2,
-        recurringReceipts: [{ id: 'r1', templateId: 't1', scheduledDate: '2026-01-01', expenseId: 'e1', createdAt: 1 }],
+        recurringReceipts: [{
+          id: `${templateId}_2026-01-01`,
+          templateId,
+          scheduledDate: '2026-01-01',
+          expenseId: 'a'.repeat(64),
+          createdAt: 1,
+        }],
       });
     });
     await expect(readSafetySnapshot(TEST_UID)).rejects.toThrow('SNAPSHOT_CHUNK_MISSING_OR_CHANGED');
@@ -519,6 +528,116 @@ describe('backupReplace on real Firestore emulator with rules enforced', () => {
     await rollbackReplace(emptyOp,TEST_UID);
     expect((await repo.getAll(TEST_UID))[0].monthlyLimit).toBe(400);
   });
+
+  /**
+   * AUD-001. The replace path writes every backed-up category in one batch that also
+   * carries the restore-journal lease renewal. A category whose type is not `expense`
+   * spends a rules document-access call on `existsAfter(categoryBudgets/{id})`; the
+   * journal update spends none. Before the fix this batch was chunked by row count only,
+   * so a 25-income-category account failed at the first APPLYING batch — and the rollback
+   * that follows writes categories the same way, so recovery failed too.
+   */
+  it('17. replace applies and rolls back more non-expense categories than one batch may read', async () => {
+    const db = enforcedFirestore();
+    const categories = Array.from({ length: 25 }, (_, i) => ({
+      id: `inc-${i}`,
+      name: `Income ${i}`,
+      iconName: 'wallet',
+      colorInt: 1,
+      transactionType: 'income' as const,
+      sortOrder: i,
+      updatedAt: 1_700_000_000_000,
+    }));
+
+    // Pre-existing rows: every write is an UPDATE, which is the rule that costs an access.
+    await rulesEnv().withSecurityRulesDisabled(async (ctx) => {
+      const raw = ctx.firestore();
+      for (const c of categories) {
+        await setDoc(doc(raw, `users/${TEST_UID}/categories/${c.id}`), { ...c, updatedAt: 1000 });
+      }
+    });
+
+    const backup = { ...createTestBackup({ numExpenses: 0 }), categories, expenses: [] };
+    const result = await executeReplace(backup, TEST_UID);
+    expect(result.success).toBe(true);
+
+    const stored = await getDocs(collection(db, 'users', TEST_UID, 'categories'));
+    expect(stored.size).toBe(25);
+    expect(stored.docs.every((d) => d.data().transactionType === 'income')).toBe(true);
+
+    // Rollback restores snapshot categories through the same budget; it must also commit.
+    const op = await getRestoreOperation(TEST_UID);
+    await rollbackReplace(op!, TEST_UID);
+    expect((await getDocs(collection(db, 'users', TEST_UID, 'categories'))).size).toBe(25);
+  });
+
+  /**
+   * AUD-006. The snapshot is the only recovery path, and rollback writes it back as
+   * authoritative state. A malformed row must therefore abort the rollback with a path-anchored
+   * code *before* anything is written, and must leave both the journal (so the failure is
+   * visible and retryable) and the snapshot documents (so the data is still there) intact —
+   * never defaulted to 0, dropped, or read as "the account had no expenses".
+   */
+  it('18. a corrupt safety snapshot fails the rollback closed and preserves journal and snapshot', async () => {
+    const db = enforcedFirestore();
+
+    // Seed the account *before* the replace: the safety snapshot captures the pre-replace
+    // state, so without a pre-existing row the snapshot would be empty and there would be
+    // nothing to corrupt.
+    await setDoc(doc(db, 'users', TEST_UID, 'categories', 'cat-food'), {
+      name: 'Food',
+      iconName: 'food',
+      colorInt: -1,
+      transactionType: 'expense',
+      sortOrder: 0,
+      updatedAt: 1000,
+    });
+    await setDoc(doc(db, 'users', TEST_UID, 'expenses', 'exp-original'), {
+      amount: 42.0,
+      dateMillis: 1700000000000,
+      categoryId: 'cat-food',
+      note: 'Crucial original expense',
+      transactionType: 'expense',
+      updatedAt: 1000,
+    });
+
+    const backup = createTestBackup({ numExpenses: 2, prefix: 'kept' });
+    await executeReplace(backup, TEST_UID);
+    const op = await getRestoreOperation(TEST_UID);
+    expect(op?.phase).toBe('COMPLETED');
+
+    // Corrupt the snapshot row the way a truncated or foreign-shape write would: the amount
+    // becomes a string. The old reader defaulted this to 0.00 and rolled it back as the
+    // account's real value.
+    await rulesEnv().withSecurityRulesDisabled(async (ctx) => {
+      const chunkRef = doc(ctx.firestore(), `users/${TEST_UID}/restoreSnapshot/chunk_0`);
+      const chunk = (await getDoc(chunkRef)).data() as { expenses: Record<string, unknown>[] };
+      expect(chunk.expenses).toHaveLength(1);
+      await setDoc(chunkRef, { ...chunk, expenses: [{ ...chunk.expenses[0], amount: '12,50' }] });
+    });
+
+    // The reader refuses with the exact path, and the rollback surfaces it before writing.
+    await expect(readSafetySnapshot(TEST_UID)).rejects.toThrow(/SNAPSHOT_INVALID: chunk_0\.expenses\[0\]\.amount/);
+    await expect(rollbackReplace(op!, TEST_UID)).rejects.toThrow(/SNAPSHOT_INVALID: chunk_0\.expenses\[0\]\.amount/);
+
+    // Fail-closed and side-effect free: the read happens before the journal is touched on both
+    // clients, so the operation keeps its truthful COMPLETED state rather than claiming a
+    // rollback ran. Nothing was written and nothing was deleted.
+    const after = await getRestoreOperation(TEST_UID);
+    expect(after?.phase).toBe('COMPLETED');
+
+    // …and nothing was deleted from the snapshot, so the data is still recoverable.
+    const snapshotMeta = await getDoc(doc(db, 'users', TEST_UID, 'restoreSnapshot', 'meta'));
+    expect(snapshotMeta.exists()).toBe(true);
+    expect((await getDoc(doc(db, 'users', TEST_UID, 'restoreSnapshot', 'chunk_0'))).exists()).toBe(true);
+
+    // The corrupt payload was never written back: the account still holds exactly the two
+    // replaced rows at their real amounts, and no row was defaulted to 0.00.
+    const expensesAfter = await getDocs(collection(db, 'users', TEST_UID, 'expenses'));
+    expect(expensesAfter.docs.map((d) => d.data().amount).sort((a, b) => a - b)).toEqual([10.5, 11.5]);
+    expect(expensesAfter.docs.every((d) => typeof d.data().amount === 'number')).toBe(true);
+  });
+
   it('v2 merge upserts represented budgets and preserves omitted budgets', async () => {
     const { categoryBudgetRepository: repo } = await import('@/services/categoryBudgets');
     const base=createTestBackup();

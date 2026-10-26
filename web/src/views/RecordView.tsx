@@ -1,6 +1,6 @@
 import { useMemo, useState, memo, useCallback } from 'react';
 import { EmptyState, LoadingListSkeleton, PageTitle, CategoryIconTile } from '@/components/ui';
-import { IconSearch, IconClose, IconArrowUp, IconArrowDown, IconTransfer, IconRecord } from '@/components/Icons';
+import { IconSearch, IconClose, IconArrowUp, IconArrowDown, IconTransfer, IconRecord, IconChevronDown } from '@/components/Icons';
 import { IosSegmentedControl } from '@/components/IosSegmentedControl';
 import { FinanceSummaryCard } from '@/components/FinanceSummaryCard';
 import { BudgetProgressBar } from '@/components/BudgetProgressBar';
@@ -13,6 +13,7 @@ import { groupRecordRows } from '@/utils/recordGrouping';
 import type { Expense, Category, TransactionTypeFilter, TransactionSortOrder } from '@/models/types';
 import { formatAmount, colorIntToHex } from '@/utils/currency';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 interface RecordViewProps {
   onEdit: (id: string) => void;
@@ -47,6 +48,12 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
   );
   const periodLabel = selectedPeriod.label;
   const [searchFocused, setSearchFocused] = useState(false);
+  // Phones start with the advanced filter controls collapsed: period + search
+  // stay at hand, while the type/category/amount/sort block no longer pushes
+  // the transaction list more than a screen down. Desktop keeps them visible.
+  const isDesktop = useMediaQuery('(min-width: 768px)');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const showAdvanced = isDesktop || advancedOpen;
   const handleMinAmountChange = setMinAmountInput;
   const handleMaxAmountChange = setMaxAmountInput;
   const clearFilters = resetFilters;
@@ -175,119 +182,147 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
 
             <hr className="record-filters__divider" />
 
-            <IosSegmentedControl
-              className="record-type-segmented w-full"
-              aria-label={t('recordTypeFilter')}
-              options={([
-                { value: 'all' as const, icon: <IconRecord width={18} height={18} aria-hidden /> },
-                { value: 'expense' as const, icon: <IconArrowDown width={18} height={18} strokeWidth={2.5} aria-hidden /> },
-                { value: 'income' as const, icon: <IconArrowUp width={18} height={18} strokeWidth={2.5} aria-hidden /> },
-                { value: 'transfer' as const, icon: <IconTransfer width={18} height={18} aria-hidden /> },
-              ]).map((opt) => ({
-                ...opt,
-                label: filterLabel(opt.value, t),
-              }))}
-              value={uiState.typeFilter}
-              onChange={setTypeFilter}
-            />
+            {!isDesktop ? (
+              <button
+                type="button"
+                className="record-filters-toggle"
+                aria-expanded={advancedOpen}
+                aria-controls="record-advanced-filters"
+                onClick={() => {
+                  haptics.light();
+                  setAdvancedOpen((open) => !open);
+                }}
+              >
+                <span className="record-filters-toggle__label">
+                  {advancedOpen ? t('recordHideFilters') : t('recordShowFilters')}
+                </span>
+                <IconChevronDown
+                  className={`record-filters-toggle__chevron${advancedOpen ? ' record-filters-toggle__chevron--open' : ''}`}
+                  width={16}
+                  height={16}
+                  aria-hidden
+                />
+              </button>
+            ) : null}
 
-            {(availableCategories.length > 0 || uiState.categoryIdsFilter.length > 0) && (
-              <>
-                <hr className="record-filters__divider" />
-                <div
-                  className="record-category-filter"
-                  role="group"
-                  aria-label={t('recordCategoryFilter')}
-                >
-                  <button
-                    type="button"
-                    className={`record-category-chip ${uiState.categoryIdsFilter.length === 0 ? 'record-category-chip--active' : ''}`}
-                    onClick={() => {
-                      haptics.light();
-                      setCategoryIdsFilter([]);
-                    }}
-                    aria-pressed={uiState.categoryIdsFilter.length === 0}
+            <div
+              id="record-advanced-filters"
+              className="record-filters__advanced"
+              hidden={!showAdvanced}
+            >
+              <IosSegmentedControl
+                className="record-type-segmented w-full"
+                aria-label={t('recordTypeFilter')}
+                options={([
+                  { value: 'all' as const, icon: <IconRecord width={18} height={18} aria-hidden /> },
+                  { value: 'expense' as const, icon: <IconArrowDown width={18} height={18} strokeWidth={2.5} aria-hidden /> },
+                  { value: 'income' as const, icon: <IconArrowUp width={18} height={18} strokeWidth={2.5} aria-hidden /> },
+                  { value: 'transfer' as const, icon: <IconTransfer width={18} height={18} aria-hidden /> },
+                ]).map((opt) => ({
+                  ...opt,
+                  label: filterLabel(opt.value, t),
+                }))}
+                value={uiState.typeFilter}
+                onChange={setTypeFilter}
+              />
+
+              {(availableCategories.length > 0 || uiState.categoryIdsFilter.length > 0) && (
+                <>
+                  <hr className="record-filters__divider" />
+                  <div
+                    className="record-category-filter"
+                    role="group"
+                    aria-label={t('recordCategoryFilter')}
                   >
-                    <span>{t('filterAllCategories')}</span>
-                  </button>
-                  {uiState.categoryIdsFilter.map((id) => {
-                    if (availableCategories.some((cat) => cat.id === id)) return null;
-                    const catName = uiState.categories.find((cat) => cat.id === id)?.name ?? t('recordUnknownCategory');
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        className="record-category-chip record-category-chip--active"
-                        aria-pressed="true"
-                        onClick={() => {
-                          haptics.light();
-                          toggleCategoryIdFilter(id);
-                        }}
-                      >
-                        <span className="record-category-chip__name">{catName}</span>
-                      </button>
-                    );
-                  })}
-                  {availableCategories.map((cat) => {
-                    const isSelected = uiState.categoryIdsFilter.includes(cat.id);
-                    const hex = colorIntToHex(cat.colorInt);
-                    return (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        className={`record-category-chip ${isSelected ? 'record-category-chip--active' : ''}`}
-                        onClick={() => {
-                          haptics.light();
-                          toggleCategoryIdFilter(cat.id);
-                        }}
-                        aria-pressed={isSelected}
-                      >
-                        <span
-                          className="record-category-chip__dot"
-                          style={{ backgroundColor: hex }}
-                          aria-hidden="true"
-                        />
-                        <span className="record-category-chip__name">{cat.name}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            )}
+                    <button
+                      type="button"
+                      className={`record-category-chip ${uiState.categoryIdsFilter.length === 0 ? 'record-category-chip--active' : ''}`}
+                      onClick={() => {
+                        haptics.light();
+                        setCategoryIdsFilter([]);
+                      }}
+                      aria-pressed={uiState.categoryIdsFilter.length === 0}
+                    >
+                      <span>{t('filterAllCategories')}</span>
+                    </button>
+                    {uiState.categoryIdsFilter.map((id) => {
+                      if (availableCategories.some((cat) => cat.id === id)) return null;
+                      const catName = uiState.categories.find((cat) => cat.id === id)?.name ?? t('recordUnknownCategory');
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          className="record-category-chip record-category-chip--active"
+                          aria-pressed="true"
+                          onClick={() => {
+                            haptics.light();
+                            toggleCategoryIdFilter(id);
+                          }}
+                        >
+                          <span className="record-category-chip__name">{catName}</span>
+                        </button>
+                      );
+                    })}
+                    {availableCategories.map((cat) => {
+                      const isSelected = uiState.categoryIdsFilter.includes(cat.id);
+                      const hex = colorIntToHex(cat.colorInt);
+                      return (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          className={`record-category-chip ${isSelected ? 'record-category-chip--active' : ''}`}
+                          onClick={() => {
+                            haptics.light();
+                            toggleCategoryIdFilter(cat.id);
+                          }}
+                          aria-pressed={isSelected}
+                        >
+                          <span
+                            className="record-category-chip__dot"
+                            style={{ backgroundColor: hex }}
+                            aria-hidden="true"
+                          />
+                          <span className="record-category-chip__name">{cat.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
 
-            <hr className="record-filters__divider" />
+              <hr className="record-filters__divider" />
 
-            <div className="record-filter-section">
-              <span className="record-filter-label">{t('filterAmountRange')}</span>
-              <div className="record-amount-range">
-                <div className="record-amount-field">
-                  <label htmlFor="record-min-amount" className="sr-only">{t('filterMinAmount')}</label>
-                  <input
-                    id="record-min-amount"
-                    type="text"
-                    inputMode="decimal"
-                    aria-invalid={amountError}
-                    placeholder={t('filterMinAmount')}
-                    className="record-amount-input"
-                    value={minAmountInput}
-                    onChange={(e) => handleMinAmountChange(e.target.value)}
-                  />
-                </div>
-                <span className="record-amount-separator" aria-hidden="true">–</span>
-                <div className="record-amount-field">
-                  <label htmlFor="record-max-amount" className="sr-only">{t('filterMaxAmount')}</label>
-                  <input
-                    id="record-max-amount"
-                    type="text"
-                    inputMode="decimal"
-                    aria-invalid={amountError}
-                    placeholder={t('filterMaxAmount')}
-                    className="record-amount-input"
-                    value={maxAmountInput}
-                    onChange={(e) => handleMaxAmountChange(e.target.value)}
-                  />
-                </div>
-              </div>
+              <div className="record-filter-section">
+                <span className="record-filter-label">{t('filterAmountRange')}</span>
+                <div className="record-amount-range">
+                  <div className="record-amount-field">
+                    <label htmlFor="record-min-amount" className="sr-only">{t('filterMinAmount')}</label>
+                    <input
+                      id="record-min-amount"
+                      type="text"
+                      inputMode="decimal"
+                      aria-invalid={amountError}
+                      placeholder={t('filterMinAmount')}
+                      className="record-amount-input"
+                      value={minAmountInput}
+                      onChange={(e) => handleMinAmountChange(e.target.value)}
+                    />
+                  </div>
+                  <span className="record-amount-separator" aria-hidden="true">–</span>
+                  <div className="record-amount-field">
+                    <label htmlFor="record-max-amount" className="sr-only">{t('filterMaxAmount')}</label>
+                    <input
+                      id="record-max-amount"
+                      type="text"
+                      inputMode="decimal"
+                      aria-invalid={amountError}
+                      placeholder={t('filterMaxAmount')}
+                      className="record-amount-input"
+                      value={maxAmountInput}
+                      onChange={(e) => handleMaxAmountChange(e.target.value)}
+                    />
+                  </div>
+            </div>
             </div>
 
             <hr className="record-filters__divider" />
@@ -308,6 +343,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
                 <option value="amount_asc">{t('sortLowestAmount')}</option>
               </select>
             </div>
+              </div>
           </div>
         </aside>
 
