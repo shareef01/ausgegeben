@@ -2,27 +2,21 @@ import { fromMinorUnits, toMinorUnits } from '@/utils/money';
 import { restoredCategoryRevision, writablePreferencesRevision } from '@/services/backupFormat';
 import { categoryBudgetRepository, type CategoryBudget } from '@/services/categoryBudgets';
 import { recurringRepository } from '@/services/recurringRepository';
-import type { RecurringTemplate } from '@/services/recurrence';
-import type { OccurrenceReceipt, RecurringBackupSection } from '@/services/recurringBackupSection';
+import type { RecurringBackupSection } from '@/services/recurringBackupSection';
 import {
   collection,
-  deleteDoc,
   doc,
-  getDoc,
   getDocFromServer,
   getDocs,
   getDocsFromServer,
   setDoc,
   writeBatch,
-  runTransaction,
-  type Firestore,
 } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
 import { chunkByBudgetCheck, chunkByCategory } from '@/utils/restoreBatches';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { sanitizeSyncedPreferences } from '@/services/preferencesSync';
-import * as safety from '@/services/safetySnapshot';
 import {
   CATEGORIES_COLLECTION,
   CATEGORY_BUDGETS_COLLECTION,
@@ -30,7 +24,6 @@ import {
   META_COLLECTION,
   PREFERENCES_DOC,
   RESTORE_OPERATION_DOC,
-  RESTORE_SNAPSHOT_COLLECTION,
   SETTINGS_COLLECTION,
 } from '@/repositories/firestorePaths';
 import type { Category, Expense, SyncedPreferences, TransactionType } from '@/models/types';
@@ -39,9 +32,30 @@ import type {
   BackupCategory,
   BackupExpense,
 } from '@/services/backupFormat';
+import { RESTORE_BATCH_CHUNK_SIZE, SNAPSHOT_CHUNK_SIZE } from '@/services/restoreLimits';
+import { createSafetySnapshot, deleteSafetySnapshot, readSafetySnapshot } from '@/services/backupSnapshot';
+import {
+  RECOVERY_LEASE_DURATION_MS,
+  acquireRecoveryLease,
+  deleteRestoreOperation,
+  getRestoreOperation,
+  setRestoreOperation,
+  verifyAndRenewRecoveryLease,
+} from '@/services/restoreOperation';
 
-export const RESTORE_BATCH_CHUNK_SIZE = 400;
-export const SNAPSHOT_CHUNK_SIZE = 100;
+// The safety snapshot, the operation document and the recovery lease live in their own
+// modules; re-exported here so existing imports from this module keep working.
+export { RESTORE_BATCH_CHUNK_SIZE, SNAPSHOT_CHUNK_SIZE };
+export { createSafetySnapshot, deleteSafetySnapshot, readSafetySnapshot };
+export {
+  RECOVERY_LEASE_DURATION_MS,
+  acquireRecoveryLease,
+  deleteRestoreOperation,
+  getRestoreOperation,
+  setRestoreOperation,
+  verifyAndRenewRecoveryLease,
+};
+
 
 export type RestorePhase =
   | 'PREPARING'
@@ -333,321 +347,6 @@ export function planReplace(params: {
       categoriesPreservedCount: categoryIdsToPreserve.length,
     },
   };
-}
-
-/**
- * Creates persistent, chunked safety snapshot documents under /users/{userId}/restoreSnapshot/.
- */
-/**
- * Creates persistent, chunked safety snapshot documents under /users/{userId}/restoreSnapshot/.
- */
-export async function createSafetySnapshot(
-  userId: string,
-  operationId: string,
-  expenses: Expense[],
-  categories: Category[],
-  preferences: SyncedPreferences | null,
-  categoryBudgets?: CategoryBudget[],
-  recurringTemplates?: RecurringTemplate[],
-  recurringReceipts?: OccurrenceReceipt[],
-): Promise<{ chunkCount: number; totalExpenses: number; totalCategories: number; receiptChunkCount?: number }> {
-  const db = getFirebaseFirestore();
-  if (!db) throw new Error('FIRESTORE_UNAVAILABLE');
-
-  const now = Date.now();
-  const chunkCount = Math.ceil(expenses.length / SNAPSHOT_CHUNK_SIZE) || 1;
-  const receiptChunkCount = recurringReceipts && recurringReceipts.length > 0
-    ? Math.ceil(recurringReceipts.length / SNAPSHOT_CHUNK_SIZE)
-    : 0;
-
-  // Write snapshot metadata (unbounded recurring receipts are chunked separately to obey 1MB Firestore limit)
-  const metaRef = doc(db, 'users', userId, RESTORE_SNAPSHOT_COLLECTION, 'meta');
-  await setDoc(metaRef, {
-    operationId,
-    ownerUid: userId,
-    createdAt: now,
-    chunkCount,
-    receiptChunkCount,
-    totalExpenses: expenses.length,
-    totalCategories: categories.length,
-    totalReceipts: recurringReceipts?.length ?? 0,
-    preferences: preferences ?? {},
-    ...(categoryBudgets ? { categoryBudgets } : {}),
-    ...(recurringTemplates ? { recurringTemplates } : {}),
-    categories: categories.map((c) => ({
-      id: c.id,
-      name: c.name,
-      iconName: c.iconName,
-      colorInt: c.colorInt,
-      transactionType: c.transactionType,
-      sortOrder: c.sortOrder,
-      updatedAt: c.updatedAt ?? now,
-    })),
-  });
-
-  // Write expense chunks
-  for (let i = 0; i < chunkCount; i++) {
-    const chunkExpenses = expenses.slice(i * SNAPSHOT_CHUNK_SIZE, (i + 1) * SNAPSHOT_CHUNK_SIZE);
-    const chunkRef = doc(db, 'users', userId, RESTORE_SNAPSHOT_COLLECTION, `chunk_${i}`);
-    await setDoc(chunkRef, {
-      operationId,
-      ownerUid: userId,
-      createdAt: now,
-      chunkIndex: i,
-      chunkCount,
-      expenses: chunkExpenses.map((e) => ({
-        id: e.id,
-        amount: e.amount,
-        dateMillis: e.dateMillis,
-        categoryId: e.categoryId,
-        note: e.note,
-        transactionType: e.transactionType,
-        updatedAt: e.updatedAt ?? now,
-        ...(e.idempotencyKey ? { idempotencyKey: e.idempotencyKey } : {}),
-        ...(e.deleted !== undefined ? { deleted: e.deleted } : {}),
-        ...(e.cloudId ? { cloudId: e.cloudId } : {}),
-        ...(e.categoryCloudId != null ? { categoryCloudId: e.categoryCloudId } : {}),
-        ...(e.receiptImagePath != null ? { receiptImagePath: e.receiptImagePath } : {}),
-      })),
-    });
-  }
-
-  // Write recurring receipt chunks (chunked separately to prevent exceeding 1MB per document)
-  if (recurringReceipts && receiptChunkCount > 0) {
-    for (let i = 0; i < receiptChunkCount; i++) {
-      const chunkReceipts = recurringReceipts.slice(i * SNAPSHOT_CHUNK_SIZE, (i + 1) * SNAPSHOT_CHUNK_SIZE);
-      const chunkRef = doc(db, 'users', userId, RESTORE_SNAPSHOT_COLLECTION, `receipt_chunk_${i}`);
-      await setDoc(chunkRef, {
-        operationId,
-        ownerUid: userId,
-        createdAt: now,
-        chunkIndex: i,
-        chunkCount: receiptChunkCount,
-        recurringReceipts: chunkReceipts.map((r) => ({
-          id: r.id,
-          templateId: r.templateId,
-          scheduledDate: r.scheduledDate,
-          expenseId: r.expenseId,
-          createdAt: r.createdAt,
-        })),
-      });
-    }
-  }
-
-  // Verify write back
-  const metaSnap = await getDoc(metaRef);
-  if (!metaSnap.exists()) {
-    throw new Error('SNAPSHOT_VERIFICATION_FAILED: meta missing');
-  }
-
-  return {
-    chunkCount,
-    receiptChunkCount,
-    totalExpenses: expenses.length,
-    totalCategories: categories.length,
-  };
-}
-
-/**
- * Reads back the stored safety snapshot.
- */
-export async function readSafetySnapshot(userId: string): Promise<{
-  operationId: string;
-  expenses: Expense[];
-  categories: Category[];
-  preferences: SyncedPreferences | null;
-  categoryBudgets?: CategoryBudget[];
-  recurringTemplates?: RecurringTemplate[];
-  recurringReceipts?: OccurrenceReceipt[];
-}> {
-  const db = getFirebaseFirestore();
-  if (!db) throw new Error('FIRESTORE_UNAVAILABLE');
-
-  const metaRef = doc(db, 'users', userId, RESTORE_SNAPSHOT_COLLECTION, 'meta');
-  const metaSnap = await getDocFromServer(metaRef);
-  if (!metaSnap.exists()) {
-    throw new Error('SNAPSHOT_NOT_FOUND');
-  }
-  // AUD-006: strict, count-checked reading. A malformed row must fail the rollback here — with
-  // the journal and the snapshot intact — instead of being defaulted or dropped and then
-  // written back as authoritative state.
-  const metaData = (metaSnap.data() ?? {}) as Record<string, unknown>;
-  const snapshotOperationId = safety.operationId(metaData);
-  const snapshotChunkCount = safety.chunkCount(metaData, 'chunkCount');
-  const snapshotCategories = safety.categories(metaData);
-  safety.requireCount(
-    safety.declaredCount(metaData, 'totalCategories'),
-    snapshotCategories.length,
-    'meta.totalCategories',
-  );
-  const snapshotPreferences = safety.preferences(metaData);
-  const snapshotBudgets = safety.budgets(metaData);
-  const snapshotTemplates = safety.templates(metaData);
-
-  const allExpenses: Expense[] = [];
-  for (let i = 0; i < snapshotChunkCount; i++) {
-    const chunkRef = doc(db, 'users', userId, RESTORE_SNAPSHOT_COLLECTION, `chunk_${i}`);
-    const chunkSnap = await getDocFromServer(chunkRef);
-    if (!chunkSnap.exists() || chunkSnap.data().operationId !== snapshotOperationId) throw new Error('SNAPSHOT_CHUNK_MISSING_OR_CHANGED');
-    allExpenses.push(...safety.expenses(chunkSnap.data() as Record<string, unknown>, `chunk_${i}`));
-  }
-  safety.requireCount(safety.declaredCount(metaData, 'totalExpenses'), allExpenses.length, 'meta.totalExpenses');
-
-  const allReceipts: OccurrenceReceipt[] = [];
-  const receiptChunkCount = safety.chunkCount(metaData, 'receiptChunkCount', 'meta', 0);
-  if (receiptChunkCount > 0) {
-    for (let i = 0; i < receiptChunkCount; i++) {
-      const chunkRef = doc(db, 'users', userId, RESTORE_SNAPSHOT_COLLECTION, `receipt_chunk_${i}`);
-      const chunkSnap = await getDocFromServer(chunkRef);
-      // Fail closed like the expense chunks: rollback replaces the receipts collection
-      // with this list, so a dropped chunk would re-materialise those occurrences.
-      if (!chunkSnap.exists() || chunkSnap.data().operationId !== snapshotOperationId) {
-        throw new Error('SNAPSHOT_CHUNK_MISSING_OR_CHANGED');
-      }
-      const data = chunkSnap.data() as Record<string, unknown>;
-      allReceipts.push(...safety.receipts(data.recurringReceipts, `receipt_chunk_${i}.recurringReceipts`));
-    }
-  } else {
-    allReceipts.push(...safety.receipts(metaData.recurringReceipts, 'meta.recurringReceipts'));
-  }
-  safety.requireCount(safety.declaredCount(metaData, 'totalReceipts'), allReceipts.length, 'meta.totalReceipts');
-
-  return {
-    categoryBudgets: snapshotBudgets,
-    recurringTemplates: snapshotTemplates,
-    recurringReceipts: allReceipts,
-    operationId: snapshotOperationId,
-    expenses: allExpenses,
-    categories: snapshotCategories,
-    preferences: snapshotPreferences,
-  };
-}
-
-/**
- * Deletes all snapshot documents.
- */
-export async function deleteSafetySnapshot(userId: string): Promise<void> {
-  const db = getFirebaseFirestore();
-  if (!db) return;
-
-  const colRef = collection(db, 'users', userId, RESTORE_SNAPSHOT_COLLECTION);
-  const snap = await getDocs(colRef);
-  if (snap.empty) return;
-
-  for (let i = 0; i < snap.docs.length; i += RESTORE_BATCH_CHUNK_SIZE) {
-    const chunk = snap.docs.slice(i, i + RESTORE_BATCH_CHUNK_SIZE);
-    const batch = writeBatch(db);
-    chunk.forEach((d) => batch.delete(d.ref));
-    await batch.commit();
-  }
-}
-
-/**
- * Reads the current durable restore operation document, if any.
- */
-export async function getRestoreOperation(userId: string): Promise<RestoreOperationDoc | null> {
-  const db = getFirebaseFirestore();
-  if (!db) return null;
-
-  const ref = doc(db, 'users', userId, META_COLLECTION, RESTORE_OPERATION_DOC);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) return null;
-
-  return snap.data() as RestoreOperationDoc;
-}
-
-/**
- * Writes or updates the durable restore operation document.
- */
-export async function setRestoreOperation(userId: string, op: RestoreOperationDoc): Promise<void> {
-  const db = getFirebaseFirestore();
-  if (!db) throw new Error('FIRESTORE_UNAVAILABLE');
-
-  const ref = doc(db, 'users', userId, META_COLLECTION, RESTORE_OPERATION_DOC);
-  await setDoc(ref, op);
-}
-
-/**
- * Deletes the durable restore operation document.
- */
-export async function deleteRestoreOperation(userId: string): Promise<void> {
-  const db = getFirebaseFirestore();
-  if (!db) return;
-
-  const ref = doc(db, 'users', userId, META_COLLECTION, RESTORE_OPERATION_DOC);
-  await deleteDoc(ref);
-}
-
-export const RECOVERY_LEASE_DURATION_MS = 60_000;
-
-export async function acquireRecoveryLease(
-  db: Firestore,
-  userId: string,
-  holderId: string,
-  isResume: boolean,
-): Promise<{ fencingToken: number; operationId: string; existingOp: RestoreOperationDoc | null }> {
-  const ref = doc(db, 'users', userId, META_COLLECTION, RESTORE_OPERATION_DOC);
-  return await runTransaction(db, async (tx) => {
-    const snap = await tx.get(ref);
-    const now = Date.now();
-    let fencingToken = 1;
-    let existingOp: RestoreOperationDoc | null = null;
-    let operationId = `replace_${now}_${Math.random().toString(36).slice(2, 8)}`;
-
-    if (snap.exists()) {
-      existingOp = snap.data() as RestoreOperationDoc;
-      const isInFlight = existingOp.phase !== 'COMPLETED' && existingOp.phase !== 'ROLLED_BACK';
-      const isActivelyProcessing = isInFlight && existingOp.phase !== 'FAILED_RECOVERABLE';
-      const currentHolder = existingOp.progress?.leaseHolder;
-      const expiresAt = existingOp.progress?.leaseExpiresAt ?? 0;
-      fencingToken = (existingOp.progress?.fencingToken ?? 0) + 1;
-
-      if (!isResume && isInFlight) {
-        if (isActivelyProcessing && currentHolder && currentHolder !== holderId && expiresAt > now) {
-          throw new Error('CONCURRENT_OPERATION_LEASE_ACTIVE: Another browser tab or device is actively processing this restore operation');
-        }
-        throw new Error(`UNRESOLVED_RESTORE_OPERATION: ${existingOp.phase}`);
-      }
-
-      if (isActivelyProcessing) {
-        if (currentHolder && currentHolder !== holderId && expiresAt > now) {
-          throw new Error('CONCURRENT_OPERATION_LEASE_ACTIVE: Another browser tab or device is actively processing this restore operation');
-        }
-        operationId = existingOp.operationId;
-      } else {
-        operationId = existingOp.operationId;
-      }
-    }
-    return { fencingToken, operationId, existingOp };
-  });
-}
-
-export async function verifyAndRenewRecoveryLease(
-  db: Firestore,
-  userId: string,
-  holderId: string,
-  fencingToken: number,
-): Promise<void> {
-  const ref = doc(db, 'users', userId, META_COLLECTION, RESTORE_OPERATION_DOC);
-  const snap = await getDocFromServer(ref);
-  if (!snap.exists()) {
-    throw new Error('LEASE_LOST: Restore operation document was removed');
-  }
-  const data = snap.data() as RestoreOperationDoc;
-  if (data.progress?.leaseHolder !== holderId) {
-    throw new Error(`LEASE_LOST: Lease was taken over by ${data.progress?.leaseHolder}`);
-  }
-  if (data.progress?.fencingToken !== fencingToken) {
-    throw new Error(`FENCING_TOKEN_MISMATCH: Expected token ${fencingToken}, got ${data.progress?.fencingToken}`);
-  }
-  // Extend lease expiration
-  await setDoc(ref, {
-    progress: {
-      ...data.progress,
-      leaseExpiresAt: Date.now() + RECOVERY_LEASE_DURATION_MS,
-    },
-    updatedAt: Date.now(),
-  }, { merge: true });
 }
 
 /**
