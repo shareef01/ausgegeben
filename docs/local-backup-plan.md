@@ -11,7 +11,8 @@ section win.
   recurring templates ([Recurring transactions](recurring-transactions.md)).
 - **Merge** adds and updates records from the backup and removes nothing.
 - **Replace** makes transactions match the backup. It keeps current categories that are
-  not in the backup. It runs as a journalled,
+  not in the backup, and its confirmation dialog on both clients says how many
+  ("Current categories kept (not in the backup): N"). It runs as a journalled,
   resumable sequence: it takes a lease, saves a safety snapshot of the account in
   Firestore, applies categories, transactions and deletions in batches of 400, writes
   preferences last, then checks the result against the server
