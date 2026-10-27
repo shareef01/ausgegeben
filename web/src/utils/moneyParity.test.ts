@@ -14,7 +14,8 @@ const fixture = JSON.parse(
     showSymbol: boolean;
     formatted: string;
   }>;
-  parse: Array<{ input: string; currency: string; value: number }>;
+  /** `value: null` means the input must be rejected. */
+  parse: Array<{ input: string; currency: string; value: number | null }>;
   csv: Array<{ amount: number; cell: string }>;
   input: Array<{ amount: number; currency: string; text: string }>;
 };
@@ -39,7 +40,7 @@ describe('money-parity.json (shared with Android MoneyParityTest)', () => {
 
   it('parse matches Android CurrencyUtils vectors', () => {
     for (const row of fixture.parse) {
-      expect(parseAmount(row.input, row.currency)).toBe(row.value);
+      expect(parseAmount(row.input, row.currency), `${JSON.stringify(row.input)} ${row.currency}`).toBe(row.value);
     }
   });
 
