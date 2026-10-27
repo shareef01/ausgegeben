@@ -1,13 +1,17 @@
 const STORAGE_KEY = 'ausgegeben-report-errors';
 
-/** Default on — matches the pre-opt-out behaviour when an endpoint is configured. */
+/**
+ * Default off: crash reports leave the device only after the user turns them on in
+ * Settings. Error messages and stacks are kept free of entered values by construction
+ * (see errorSink.ts), but that is a promise about our code, not a filter, so sending
+ * them is the user's choice rather than the default — in line with the memory-only
+ * cache and session-only sign-in this app starts with.
+ */
 export function readErrorReportingEnabled(): boolean {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === null) return true;
-    return stored === 'true';
+    return localStorage.getItem(STORAGE_KEY) === 'true';
   } catch {
-    return true;
+    return false;
   }
 }
 

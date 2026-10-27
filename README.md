@@ -72,7 +72,7 @@ Both clients store cloud data below the authenticated user's Firestore document.
 
 Ausgegeben contains no advertising or analytics SDKs. Financial records are stored in the user's Cloud Firestore account and may be cached locally for offline access. Web authentication defaults to session-based persistence so shared computers do not retain account access across browser restarts; persistent login and offline financial data caching are decoupled opt-in settings. Signing out and account deletion attempt to clear local application data on both clients.
 
-Optional web error reporting can send bounded technical diagnostics—including an error message, stack trace, page path, browser user-agent, and limited runtime context—to the project's Cloudflare Worker. It can be disabled in Settings. Account identifiers, authentication material, and financial fields are filtered before transmission.
+Optional web error reporting can send bounded technical diagnostics—including an error message, stack trace, page path, browser user-agent, and limited runtime context—to the project's Cloudflare Worker. It is off until the user turns it on in Settings. No account identifier is attached, and token-, email- and password-shaped values are redacted before sending. That redaction is not a filter for financial data: amounts, notes and category names are kept out of error messages at the source, and a CI check (`web/scripts/check-telemetry-throw-sites.mjs`) fails the build if a thrown error interpolates entered values.
 
 The security model, operational constraints, and release procedure are documented in [Firebase setup](FIREBASE_SETUP.md), [audit remediation notes](docs/audit-remediation.md), and the [maintenance guide](docs/maintenance.md).
 
