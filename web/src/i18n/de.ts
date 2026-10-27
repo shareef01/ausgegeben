@@ -359,7 +359,7 @@ export const de: Record<TranslationKey, string> = {
   settingsReplaceBackupExplain:
     'Dies ersetzt Ihre aktuellen Daten durch den Inhalt der Sicherung. Vor Beginn der Änderungen wird automatisch ein Sicherheits-Snapshot erstellt.',
   settingsReplaceBackupPreflight:
-    'Backup-Transaktionen: {backupExpenses}\nBackup-Kategorien: {backupCategories}\n\nZu entfernende aktuelle Transaktionen: {toDelete}\nBetroffene aktuelle Kategorien: {toUpsertCategories}\n\nVor Beginn der Änderungen wird ein Sicherheits-Snapshot erstellt.',
+    'Backup-Transaktionen: {backupExpenses}\nBackup-Kategorien: {backupCategories}\n\nZu entfernende aktuelle Transaktionen: {toDelete}\nBetroffene aktuelle Kategorien: {toUpsertCategories}\nBehaltene aktuelle Kategorien (nicht in der Sicherung): {keptCategories}\n\nVor Beginn der Änderungen wird ein Sicherheits-Snapshot erstellt.',
   settingsReplaceSuccess: 'Daten erfolgreich ersetzt',
   settingsReplaceFailed: 'Ersetzen der Daten fehlgeschlagen: {error}',
   settingsReplaceUnresolvedBanner: 'Eine vorherige Backup-Ersetzung wurde nicht abgeschlossen.',

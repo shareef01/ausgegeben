@@ -20,4 +20,19 @@ describe('i18n', () => {
       expect(de[key].length, key).toBeGreaterThan(0);
     }
   });
+
+  it('de strings use the same {placeholders} as English, so no value is silently dropped', () => {
+    const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
+    for (const key of Object.keys(en) as TranslationKey[]) {
+      expect(placeholders(de[key]), key).toEqual(placeholders(en[key]));
+    }
+  });
+
+  it('the Replace preflight shows how many current categories are kept', () => {
+    const text = t('settingsReplaceBackupPreflight', {
+      backupExpenses: '3', backupCategories: '2', toDelete: '1', toUpsertCategories: '2', keptCategories: '4',
+    });
+    expect(text).toContain('Current categories kept (not in the backup): 4');
+    expect(text).not.toMatch(/\{\w+\}/);
+  });
 });

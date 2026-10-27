@@ -122,7 +122,7 @@
     <string name="settings_replace_backup_title">Replace current data</string>
     <string name="settings_replace_backup_action">Confirm replace</string>
     <string name="settings_replace_backup_explain">This will replace your current data with the backup contents. An automatic safety snapshot will be created before any changes begin.</string>
-    <string name="settings_replace_backup_preflight">Backup transactions: %1$d\nBackup categories: %2$d\n\nCurrent transactions to remove: %3$d\nCurrent categories affected: %4$d\n\nA recovery snapshot will be created before changes begin.</string>
+    <string name="settings_replace_backup_preflight">Backup transactions: %1$d\nBackup categories: %2$d\n\nCurrent transactions to remove: %3$d\nCurrent categories affected: %4$d\nCurrent categories kept (not in the backup): %5$d\n\nA recovery snapshot will be created before changes begin.</string>
     <string name="settings_replace_success">Data replaced successfully</string>
     <string name="settings_replace_failed">Failed to replace data: %1$s</string>
     <string name="settings_replace_unresolved_banner">A previous backup replacement did not finish.</string>

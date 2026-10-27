@@ -861,6 +861,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
                   backupCategories: String(pendingReplace.plan.counts.backupCategoryCount),
                   toDelete: String(pendingReplace.plan.counts.expensesToDeleteCount),
                   toUpsertCategories: String(pendingReplace.plan.counts.categoriesToUpsertCount),
+                  keptCategories: String(pendingReplace.plan.counts.categoriesPreservedCount),
                 })}
               </div>
             </div>
