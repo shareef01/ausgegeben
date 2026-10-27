@@ -231,6 +231,17 @@ export function useRecordViewModel() {
     return analyticsDateRangeMillis(listPeriod) ?? thisMonthRange();
   }, [listPeriod]);
 
+  // Declared before the effect below, which lists it as a dependency: a dependency array
+  // is evaluated during render, so naming a const declared further down would throw.
+  const resetFilters = useCallback(() => {
+    setSearchQuery('');
+    setTypeFilter('all');
+    setCategoryIdsFilterState([]);
+    setMinAmountInput('');
+    setMaxAmountInput('');
+    setSortOrder('date_desc');
+  }, []);
+
   // Categories (small collection) + period-scoped expenses
   useEffect(() => {
     let alive = true;
@@ -297,7 +308,7 @@ export function useRecordViewModel() {
       unsubList();
       unsubBudget();
     };
-  }, [userId, listPeriod, listRange, viewingCurrentMonth, reloadEpoch]);
+  }, [userId, listPeriod, listRange, viewingCurrentMonth, reloadEpoch, resetFilters]);
 
   useEffect(() => () => {
     if (useAuthStore.getState().user?.uid !== userId) {
@@ -361,7 +372,7 @@ export function useRecordViewModel() {
     if (minAmountInput.trim() || maxAmountInput.trim()) count++;
     if (sortOrder !== 'date_desc') count++;
     return count;
-  }, [normalizedSearch, typeFilter, categoryIdsFilter, minAmount, maxAmount, minAmountInput, maxAmountInput, sortOrder]);
+  }, [normalizedSearch, typeFilter, categoryIdsFilter, minAmountInput, maxAmountInput, sortOrder]);
 
   const topExpenseCategory = useMemo(() => {
     const names = new Map(categories.map((c) => [c.id, c.name]));
@@ -394,15 +405,6 @@ export function useRecordViewModel() {
     setCategoryIdsFilterState((prev) =>
       prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
     );
-  }, []);
-
-  const resetFilters = useCallback(() => {
-    setSearchQuery('');
-    setTypeFilter('all');
-    setCategoryIdsFilterState([]);
-    setMinAmountInput('');
-    setMaxAmountInput('');
-    setSortOrder('date_desc');
   }, []);
 
   const uiState: RecordUiState = useMemo(() => ({

@@ -72,10 +72,11 @@ export function AddTransactionView({
   }, [vm.ready, suspended, vm.form.categoryId, vm.categories]);
 
   const wasSuspended = useRef(false);
+  const { reloadCategories } = vm;
   useEffect(() => {
-    if (wasSuspended.current && !suspended) void vm.reloadCategories();
+    if (wasSuspended.current && !suspended) void reloadCategories();
     wasSuspended.current = suspended;
-  }, [suspended, vm.reloadCategories]);
+  }, [suspended, reloadCategories]);
 
   const amountError = vm.error === t('errorValidAmount');
   const categoryError = vm.error === t('errorChooseCategory');

@@ -25,13 +25,17 @@ export function syncRecurring(): Promise<void> {
 /** Mounted once by the authenticated shell; snapshots never trigger write loops. */
 export function useRecurringSync() {
   const user=useAuthStore(s=>s.user);
+  // Keyed on the id and verification flag, not the user object, so a token refresh that
+  // swaps the object does not tear down and rebuild the listener.
+  const uid=user?.uid;
+  const emailVerified=user?.emailVerified;
   useEffect(()=>{
-    useRecurringStore.setState({owner:user?.uid??null,rows:[],incomplete:true,error:false,syncing:false});
-    if(!user) return;
-    const stop=recurringRepository.observe(user.uid,(rows,incomplete,error)=>useRecurringStore.setState({owner:user.uid,rows,incomplete,error}));
+    useRecurringStore.setState({owner:uid??null,rows:[],incomplete:true,error:false,syncing:false});
+    if(!uid) return;
+    const stop=recurringRepository.observe(uid,(rows,incomplete,error)=>useRecurringStore.setState({owner:uid,rows,incomplete,error}));
     const online=()=>{void syncRecurring();};
     const visible=()=>{if(document.visibilityState==='visible') online();};
     online(); window.addEventListener('online',online); document.addEventListener('visibilitychange',visible);
     return ()=>{stop();window.removeEventListener('online',online);document.removeEventListener('visibilitychange',visible);useRecurringStore.setState({owner:null,rows:[],incomplete:true,error:false,syncing:false});};
-  },[user?.uid,user?.emailVerified]);
+  },[uid,emailVerified]);
 }
