@@ -823,6 +823,7 @@ fun SettingsScreen(
                             plan.counts.backupCategoryCount,
                             plan.counts.expensesToDeleteCount,
                             plan.counts.categoriesToUpsertCount,
+                            plan.counts.categoriesPreservedCount,
                         ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface,

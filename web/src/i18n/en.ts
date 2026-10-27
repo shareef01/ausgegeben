@@ -357,7 +357,7 @@ export const en = {
   settingsReplaceBackupExplain:
     'This will replace your current data with the backup contents. An automatic safety snapshot will be created before any changes begin.',
   settingsReplaceBackupPreflight:
-    'Backup transactions: {backupExpenses}\nBackup categories: {backupCategories}\n\nCurrent transactions to remove: {toDelete}\nCurrent categories affected: {toUpsertCategories}\n\nA recovery snapshot will be created before changes begin.',
+    'Backup transactions: {backupExpenses}\nBackup categories: {backupCategories}\n\nCurrent transactions to remove: {toDelete}\nCurrent categories affected: {toUpsertCategories}\nCurrent categories kept (not in the backup): {keptCategories}\n\nA recovery snapshot will be created before changes begin.',
   settingsReplaceSuccess: 'Data replaced successfully',
   settingsReplaceFailed: 'Failed to replace data: {error}',
   settingsReplaceUnresolvedBanner: 'A previous backup replacement did not finish.',
