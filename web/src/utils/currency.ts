@@ -45,37 +45,56 @@ export function decimalSeparatorFor(currency: string): ',' | '.' {
 }
 
 /**
- * Currency-aware parse. Locale-formatted input matches Android
- * CurrencyUtils.parseAmount ("1.234,56" EUR / "1,234.56" USD), and a single
- * separator with 1–2 trailing digits is always a decimal point, so "12.50"
- * typed on a dot-only mobile keyboard still parses as 12.5 for EUR users.
+ * Strict, currency-aware parse. The same rules as Android CurrencyUtils.parseAmount,
+ * pinned for both by testdata/money-parity.json:
+ *
+ * - Only digits, "." and "," after trimming; any letter, sign, symbol or inner space
+ *   rejects the whole input ("12abc" and "1-2" are null, not 12 or 1).
+ * - With both separators, the later one is the decimal point ("1.234,56", "1,234.56").
+ * - A lone separator that repeats, or is the currency's grouping separator followed by
+ *   exactly three digits, is thousands grouping ("1.234.567", "1.234" for EUR).
+ *   Otherwise it is the decimal point, so "12.50" typed on a dot-only keyboard is 12.5
+ *   for EUR users too.
+ * - Grouping must be well formed (1–3 digits, then groups of exactly 3), and at most two
+ *   decimals are allowed, so ambiguous input such as "1,234" for EUR is refused rather
+ *   than guessed. A trailing decimal separator ("12,") is accepted, for half-typed input.
  */
 export function parseAmount(input: string, currency = 'EUR'): number | null {
-  const cleaned = input.replace(/[^\d.,-]/g, '');
-  if (!cleaned) return null;
-  const lastDot = cleaned.lastIndexOf('.');
-  const lastComma = cleaned.lastIndexOf(',');
-  let normalized: string;
+  const s = input.trim();
+  if (!/^[\d.,]+$/.test(s) || !/\d/.test(s)) return null;
+  const lastDot = s.lastIndexOf('.');
+  const lastComma = s.lastIndexOf(',');
+  let intPart = s;
+  let fraction: string | null = null;
+  let grouping: string | null = null;
   if (lastDot !== -1 && lastComma !== -1) {
-    // Both present: the later one is the decimal separator, the other is grouping.
     const dec = lastDot > lastComma ? '.' : ',';
-    const other = dec === '.' ? ',' : '.';
-    normalized = cleaned.split(other).join('').replace(dec, '.');
+    const decAt = s.indexOf(dec);
+    if (decAt !== s.lastIndexOf(dec)) return null;
+    intPart = s.slice(0, decAt);
+    fraction = s.slice(decAt + 1);
+    grouping = dec === '.' ? ',' : '.';
   } else if (lastDot !== -1 || lastComma !== -1) {
     const sep = lastDot !== -1 ? '.' : ',';
     const last = Math.max(lastDot, lastComma);
-    const repeated = cleaned.indexOf(sep) !== last;
-    const grouping = decimalSeparatorFor(currency) === ',' ? '.' : ',';
-    const digitsAfter = cleaned.length - last - 1;
-    if (repeated || (sep === grouping && digitsAfter === 3)) {
-      normalized = cleaned.split(sep).join(''); // thousands grouping
+    const repeated = s.indexOf(sep) !== last;
+    const currencyGrouping = decimalSeparatorFor(currency) === ',' ? '.' : ',';
+    if (repeated || (sep === currencyGrouping && s.length - last - 1 === 3)) {
+      grouping = sep;
     } else {
-      normalized = cleaned.replace(sep, '.'); // decimal
+      intPart = s.slice(0, last);
+      fraction = s.slice(last + 1);
     }
-  } else {
-    normalized = cleaned;
   }
-  const value = Number.parseFloat(normalized);
+  if (grouping !== null) {
+    const wellGrouped = grouping === '.' ? /^\d{1,3}(?:\.\d{3})+$/ : /^\d{1,3}(?:,\d{3})+$/;
+    if (!wellGrouped.test(intPart)) return null;
+    intPart = intPart.split(grouping).join('');
+  }
+  if (!/^\d*$/.test(intPart)) return null;
+  if (fraction !== null && !/^\d{0,2}$/.test(fraction)) return null;
+  if (intPart === '' && !fraction) return null;
+  const value = Number(`${intPart || '0'}.${fraction || '0'}`);
   return Number.isFinite(value) ? value : null;
 }
 

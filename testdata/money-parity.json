@@ -45,6 +45,131 @@
       "input": "1,234.56",
       "currency": "USD",
       "value": 1234.56
+    },
+    {
+      "input": "1.234.567",
+      "currency": "EUR",
+      "value": 1234567
+    },
+    {
+      "input": "1,234",
+      "currency": "USD",
+      "value": 1234
+    },
+    {
+      "input": "1.234",
+      "currency": "EUR",
+      "value": 1234
+    },
+    {
+      "input": "0,5",
+      "currency": "EUR",
+      "value": 0.5
+    },
+    {
+      "input": "12,",
+      "currency": "EUR",
+      "value": 12
+    },
+    {
+      "input": " 12,50 ",
+      "currency": "EUR",
+      "value": 12.5
+    },
+    {
+      "input": ".5",
+      "currency": "USD",
+      "value": 0.5
+    },
+    {
+      "input": "1,234.56",
+      "currency": "EUR",
+      "value": 1234.56
+    },
+    {
+      "input": "1.234,5",
+      "currency": "EUR",
+      "value": 1234.5
+    },
+    {
+      "input": "0",
+      "currency": "EUR",
+      "value": 0
+    },
+    {
+      "input": "12abc",
+      "currency": "EUR",
+      "value": null
+    },
+    {
+      "input": "1-2",
+      "currency": "EUR",
+      "value": null
+    },
+    {
+      "input": "-5",
+      "currency": "EUR",
+      "value": null
+    },
+    {
+      "input": "€12",
+      "currency": "EUR",
+      "value": null
+    },
+    {
+      "input": "12 345",
+      "currency": "EUR",
+      "value": null
+    },
+    {
+      "input": "1,234",
+      "currency": "EUR",
+      "value": null
+    },
+    {
+      "input": "12.345",
+      "currency": "USD",
+      "value": null
+    },
+    {
+      "input": "12,345",
+      "currency": "EUR",
+      "value": null
+    },
+    {
+      "input": "1.2.3",
+      "currency": "EUR",
+      "value": null
+    },
+    {
+      "input": "12.34,5",
+      "currency": "EUR",
+      "value": null
+    },
+    {
+      "input": "1,2,3.45",
+      "currency": "USD",
+      "value": null
+    },
+    {
+      "input": "1.234,56,7",
+      "currency": "EUR",
+      "value": null
+    },
+    {
+      "input": ",",
+      "currency": "EUR",
+      "value": null
+    },
+    {
+      "input": "",
+      "currency": "EUR",
+      "value": null
+    },
+    {
+      "input": "1e3",
+      "currency": "EUR",
+      "value": null
     }
   ],
   "csv": [

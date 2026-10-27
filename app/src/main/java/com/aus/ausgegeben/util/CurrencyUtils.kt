@@ -85,38 +85,61 @@ object CurrencyUtils {
         return DecimalFormat("0.00", symbols).format(amount)
     }
 
+    private val DOT_GROUPED = Regex("""\d{1,3}(\.\d{3})+""")
+    private val COMMA_GROUPED = Regex("""\d{1,3}(,\d{3})+""")
+
     /**
-     * Currency-aware parse. Matches web `parseAmount`: a lone separator with 1–2
-     * trailing digits is always a decimal (so `"12.50"` is 12.5 even for EUR),
-     * while three digits after the grouping separator are thousands.
+     * Strict, currency-aware parse. The same rules as web `parseAmount`, pinned for both
+     * by testdata/money-parity.json:
+     *
+     * - Only digits, "." and "," after trimming; any letter, sign, symbol or inner space
+     *   rejects the whole input (`"12abc"` and `"1-2"` are null, not 12 or 1).
+     * - With both separators, the later one is the decimal point.
+     * - A lone separator that repeats, or is the currency's grouping separator followed
+     *   by exactly three digits, is thousands grouping; otherwise it is the decimal point,
+     *   so `"12.50"` is 12.5 even for EUR.
+     * - Grouping must be well formed and at most two decimals are allowed, so ambiguous
+     *   input such as `"1,234"` for EUR is refused rather than guessed. A trailing decimal
+     *   separator (`"12,"`) is accepted, for half-typed input.
      */
     fun parseAmount(input: String, currencyCode: String = "EUR"): Double? {
-        val cleaned = input.trim().filter { it.isDigit() || it == '.' || it == ',' || it == '-' }
-        if (cleaned.isEmpty()) return null
-        val decimal = decimalSeparator(currencyCode)
-        val grouping = if (decimal == ',') '.' else ','
-        val lastDot = cleaned.lastIndexOf('.')
-        val lastComma = cleaned.lastIndexOf(',')
-        val normalized = when {
-            lastDot != -1 && lastComma != -1 -> {
-                val dec = if (lastDot > lastComma) '.' else ','
-                val other = if (dec == '.') ',' else '.'
-                cleaned.replace(other.toString(), "").replace(dec, '.')
-            }
-            lastDot != -1 || lastComma != -1 -> {
-                val sep = if (lastDot != -1) '.' else ','
-                val last = maxOf(lastDot, lastComma)
-                val repeated = cleaned.indexOf(sep) != last
-                val digitsAfter = cleaned.length - last - 1
-                if (repeated || (sep == grouping && digitsAfter == 3)) {
-                    cleaned.replace(sep.toString(), "")
-                } else {
-                    cleaned.replace(sep, '.')
-                }
-            }
-            else -> cleaned
+        val s = input.trim()
+        if (s.isEmpty() || s.any { !(it in '0'..'9' || it == '.' || it == ',') } || s.none { it in '0'..'9' }) {
+            return null
         }
-        return normalized.toDoubleOrNull()
+        val lastDot = s.lastIndexOf('.')
+        val lastComma = s.lastIndexOf(',')
+        var intPart = s
+        var fraction: String? = null
+        var grouping: Char? = null
+        if (lastDot != -1 && lastComma != -1) {
+            val dec = if (lastDot > lastComma) '.' else ','
+            val decAt = s.indexOf(dec)
+            if (decAt != s.lastIndexOf(dec)) return null
+            intPart = s.substring(0, decAt)
+            fraction = s.substring(decAt + 1)
+            grouping = if (dec == '.') ',' else '.'
+        } else if (lastDot != -1 || lastComma != -1) {
+            val sep = if (lastDot != -1) '.' else ','
+            val last = maxOf(lastDot, lastComma)
+            val repeated = s.indexOf(sep) != last
+            val currencyGrouping = if (decimalSeparator(currencyCode) == ',') '.' else ','
+            if (repeated || (sep == currencyGrouping && s.length - last - 1 == 3)) {
+                grouping = sep
+            } else {
+                intPart = s.substring(0, last)
+                fraction = s.substring(last + 1)
+            }
+        }
+        if (grouping != null) {
+            val wellGrouped = if (grouping == '.') DOT_GROUPED else COMMA_GROUPED
+            if (!wellGrouped.matches(intPart)) return null
+            intPart = intPart.replace(grouping.toString(), "")
+        }
+        if (intPart.any { it !in '0'..'9' }) return null
+        if (fraction != null && (fraction.length > 2 || fraction.any { it !in '0'..'9' })) return null
+        if (intPart.isEmpty() && fraction.isNullOrEmpty()) return null
+        return "${intPart.ifEmpty { "0" }}.${fraction.orEmpty().ifEmpty { "0" }}".toDoubleOrNull()
     }
 }
 

@@ -2,6 +2,7 @@ package com.aus.ausgegeben.util
 
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
@@ -37,11 +38,14 @@ class MoneyParityTest {
         val rows = fixture.getJSONArray("parse")
         for (i in 0 until rows.length()) {
             val row = rows.getJSONObject(i)
-            assertEquals(
-                row.getDouble("value"),
-                CurrencyUtils.parseAmount(row.getString("input"), row.getString("currency"))!!,
-                0.001,
-            )
+            val label = "\"${row.getString("input")}\" ${row.getString("currency")}"
+            val parsed = CurrencyUtils.parseAmount(row.getString("input"), row.getString("currency"))
+            // A null value means the input must be rejected, exactly as on the web.
+            if (row.isNull("value")) {
+                assertNull(label, parsed)
+            } else {
+                assertEquals(label, row.getDouble("value"), parsed ?: Double.NaN, 0.001)
+            }
         }
     }
 
