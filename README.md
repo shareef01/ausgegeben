@@ -53,7 +53,7 @@ Every screenshot is generated from a verified demo account against local Firebas
 - Searches and duplicates transactions, deletes with a brief undo window, exports to CSV, and provides safe versioned JSON backup export and restore across platforms (see `docs/local-backup-plan.md`)
 - Synchronizes data and preferences between Android and the web
 - Supports English and German, a choice of display currency (EUR, USD, GBP, CHF; amounts are relabelled, not converted), and several light and dark themes
-- Works offline through Firestore's local cache, with browser persistence controlled per device
+- Works offline through Firestore's local cache: a save made with no connection finishes at once and syncs when the connection returns. On the web, unsynced entries survive closing the tab only on a "trusted device"; otherwise the tab asks before it closes
 - Provides configurable daily reminders on Android
 - Installs as a PWA and updates its cached application shell automatically
 

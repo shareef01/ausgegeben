@@ -306,13 +306,13 @@ class FirestoreEmulatorRecoveryTest {
         return category.getString("name").substringAfterLast("/")
     }
 
-    private fun configureFirestore(instance: FirebaseFirestore) {
+    private fun configureFirestore(instance: FirebaseFirestore, port: Int = 8080) {
         // Robolectric cannot execute this SDK's persistent SQLite cache. The durable
         // journal remains real DataStore; only the Firestore cache is memory-only.
         instance.firestoreSettings = FirebaseFirestoreSettings.Builder()
             .setLocalCacheSettings(MemoryCacheSettings.newBuilder().build())
             .build()
-        instance.useEmulator("127.0.0.1", 8080)
+        instance.useEmulator("127.0.0.1", port)
     }
 
     @After
@@ -520,42 +520,62 @@ class FirestoreEmulatorRecoveryTest {
     // ---- INT-3b (H1) -------------------------------------------------------------
 
     /**
-     * H1: a transaction can be recorded with no connectivity at all. The write is
-     * accepted while offline and, once the connection returns, converges on exactly one
+     * H1: a transaction can be recorded with no connectivity at all. The save returns while
+     * offline instead of waiting for a server acknowledgement that cannot arrive, the entry
+     * is in the local cache, and once the connection returns it converges on exactly one
      * remote document. The retry reuses the same operation id, so it must return the same
      * identity instead of queueing a second write.
      *
-     * Deliberately does not assert local-cache visibility (`Source.CACHE`): a queued
-     * mutation is not observable that way in this harness — an offline read of the
-     * pending document fails with "Failed to get document from cache" — so the durable
-     * contract is asserted against the emulator instead. Convergence is awaited through
-     * `waitForPendingWrites()` rather than read straight after `enableNetwork()`, which
-     * would race the sync.
+     * The outage is real: the SDK reaches the emulator only through a [CuttableProxy], and
+     * cutting it refuses every connection. `disableNetwork()` was used here before, but
+     * transactions do not honour it, so the insert's transaction could commit straight to
+     * the server and the offline fallback never ran. The assertion that the emulator has no
+     * expense while the proxy is cut is what proves the offline branch was exercised.
      */
     @Test
     fun int3b_offlineInsertAndRetryWithSameOperationId_commitsExactlyOneRemoteDocument() = runRecoveryTest {
-        val operationId = preferenceManager.beginExpenseSubmission()
+        CuttableProxy("127.0.0.1", 8080).use { proxy ->
+            // Route this test's SDK client through the relay. The emulator REST API used
+            // by remoteExpenses() stays direct, as the independent view of the server.
+            db.terminate().await()
+            db = FirebaseFirestore.getInstance(firebaseApp)
+            configureFirestore(db, proxy.port)
+            buildProductionGraph()
 
-        db.disableNetwork().await()
-        try {
+            val operationId = preferenceManager.beginExpenseSubmission()
+            proxy.cut()
+
+            val started = System.nanoTime()
             val first = repository.insertExpense(expense("INT-3b offline"), operationId)
             val second = repository.insertExpense(expense("INT-3b offline"), operationId)
+            val elapsedMs = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)
             assertTrue("offline insert failed: ${first.exceptionOrNull()}", first.isSuccess)
             assertTrue("offline retry failed: ${second.exceptionOrNull()}", second.isSuccess)
             assertEquals("the deterministic identity must be stable offline", first.getOrThrow(), second.getOrThrow())
-        } finally {
+            // Before the fix this never returned; the bound only has to be finite and short.
+            assertTrue("offline save took ${elapsedMs}ms", elapsedMs < 30_000)
+            assertTrue(
+                "the queued entry must be readable from the local cache",
+                db.document("users/$uid/expenses/${first.getOrThrow()}").get(Source.CACHE).await().exists(),
+            )
+            assertTrue("nothing may reach the server while the connection is cut", remoteExpenses().isEmpty())
+
+            proxy.restore()
+            // Restarting the client's network only resets its reconnect backoff, which
+            // can otherwise outgrow the test budget during the outage; the outage was real.
+            db.disableNetwork().await()
             db.enableNetwork().await()
+            // Resolves once the queued mutation has been acknowledged by the emulator.
+            db.waitForPendingWrites().await()
+
+            preferenceManager.completeExpenseSubmission(operationId)
+
+            val remote = remoteExpenses()
+            assertEquals("an offline insert plus retry must land exactly one remote expense", 1, remote.size)
+            assertEquals(expenseDocumentId(operationId), remote.keys.single())
+            assertEquals(operationId, fieldString(remote.values.single(), "idempotencyKey"))
+            assertTrue(pendingJournalIds().isEmpty())
         }
-        // Resolves once the queued mutation has been acknowledged by the emulator.
-        db.waitForPendingWrites().await()
-
-        preferenceManager.completeExpenseSubmission(operationId)
-
-        val remote = remoteExpenses()
-        assertEquals("an offline insert plus retry must land exactly one remote expense", 1, remote.size)
-        assertEquals(expenseDocumentId(operationId), remote.keys.single())
-        assertEquals(operationId, fieldString(remote.values.single(), "idempotencyKey"))
-        assertTrue(pendingJournalIds().isEmpty())
     }
 
     // ---- INT-4 -------------------------------------------------------------------

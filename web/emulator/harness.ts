@@ -23,8 +23,8 @@ import { useAuthStore } from '@/services/authStore';
 export const PROJECT_ID = 'demo-ausgegeben-repo';
 export const TEST_UID = 'repo-test-user';
 
-const HOST = process.env.FIRESTORE_EMULATOR_HOST ? process.env.FIRESTORE_EMULATOR_HOST.split(':')[0] : '127.0.0.1';
-const PORT = process.env.FIRESTORE_EMULATOR_HOST ? Number(process.env.FIRESTORE_EMULATOR_HOST.split(':')[1]) : 8088;
+export const HOST = process.env.FIRESTORE_EMULATOR_HOST ? process.env.FIRESTORE_EMULATOR_HOST.split(':')[0] : '127.0.0.1';
+export const PORT = process.env.FIRESTORE_EMULATOR_HOST ? Number(process.env.FIRESTORE_EMULATOR_HOST.split(':')[1]) : 8088;
 
 let app: FirebaseApp | null = null;
 let db: Firestore | null = null;

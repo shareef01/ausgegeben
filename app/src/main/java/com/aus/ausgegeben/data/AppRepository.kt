@@ -50,6 +50,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
+import com.google.android.gms.tasks.Task
 import java.util.UUID
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
@@ -78,6 +80,12 @@ class AppRepository @Inject constructor(
     companion object {
         const val UNCATEGORIZED_ID = "0"
         private const val TAG = "AppRepository"
+
+        /**
+         * How long a save waits for the server to acknowledge a write before treating it
+         * as queued in the on-disk cache. Online acknowledgements normally arrive well inside it.
+         */
+        internal const val QUEUED_WRITE_GRACE_MS = 4_000L
         /** Soft cap matching web getAllExpensesCapped — unbounded listeners burn quota. */
         const val ALL_EXPENSES_SOFT_CAP = 5_000L
         private const val CATEGORY_MIGRATION_STATE = "migrating"
@@ -783,6 +791,23 @@ class AppRepository @Inject constructor(
     override suspend fun insertExpense(expense: Expense, idempotencyKey: String?): Result<String> =
         insertExpenseScoped(expense, idempotencyKey, null)
 
+    /**
+     * Wait for a write's server acknowledgement, but only up to [graceMs].
+     *
+     * The SDK applies a write to the persistent local cache immediately and completes its
+     * Task only when the server confirms it, so with no connection `await()` never returns
+     * and Save spun forever over an entry that was already safe on disk. Past the grace
+     * period the write stays queued (and syncs on reconnect, even after a restart) and this
+     * returns. A failure inside the grace period still throws, so online errors stay visible;
+     * a later one is logged — the SDK has already rolled the entry back out of the local view.
+     */
+    private suspend fun Task<Void>.awaitOrQueue(graceMs: Long = QUEUED_WRITE_GRACE_MS) {
+        val acknowledged = withTimeoutOrNull(graceMs) { await(); true } ?: false
+        if (!acknowledged) {
+            addOnFailureListener { e -> Log.w(TAG, "queued write rejected by the server", e) }
+        }
+    }
+
     private suspend fun isRestoreOperationActive(u: String): Boolean {
         return try {
             val snap = restoreOpDoc(u).get().await()
@@ -839,7 +864,10 @@ class AppRepository @Inject constructor(
                 // If transaction fails (e.g. offline / network unavailable), fall back to setDoc check-and-set
                 val existingDoc = try { ref.get().await() } catch (_: Exception) { null }
                 if (existingDoc == null || !existingDoc.exists()) {
-                    ref.set(payload).await()
+                    // Known unreachable: the acknowledgement cannot arrive, so don't wait for it.
+                    val unreachable = (txEx as? FirebaseFirestoreException)?.code ==
+                        FirebaseFirestoreException.Code.UNAVAILABLE
+                    ref.set(payload).awaitOrQueue(if (unreachable) 0L else QUEUED_WRITE_GRACE_MS)
                 }
             }
             return@runSuspendCatching id
@@ -851,7 +879,7 @@ class AppRepository @Inject constructor(
             amount = roundAmount(expense.amount),
             note = expense.note.trim().take(2000)
         )
-        expDoc(u, id).set(expensePayload(e, idempotencyKey)).await()
+        expDoc(u, id).set(expensePayload(e, idempotencyKey)).awaitOrQueue()
         id
     }
 
@@ -870,7 +898,7 @@ class AppRepository @Inject constructor(
         val payload = expensePayload(e).toMutableMap()
         payload["idempotencyKey"] = FieldValue.delete()
         try {
-            expDoc(u, expense.id).update(payload).await()
+            expDoc(u, expense.id).update(payload).awaitOrQueue()
         } catch (e: FirebaseFirestoreException) {
             if (e.code == FirebaseFirestoreException.Code.NOT_FOUND) {
                 throw IllegalStateException("EXPENSE_NOT_FOUND", e)
@@ -885,7 +913,7 @@ class AppRepository @Inject constructor(
         if (isRestoreOperationActive(u)) {
             throw IllegalStateException("ACCOUNT_RESTORE_IN_PROGRESS")
         }
-        expDoc(u, expense.id).delete().await()
+        expDoc(u, expense.id).delete().awaitOrQueue()
     }
 
     override suspend fun deleteRecordExpense(expense: Expense, expectedUid: String): Result<Unit> = runSuspendCatching {
@@ -895,7 +923,7 @@ class AppRepository @Inject constructor(
         if (isRestoreOperationActive(u)) {
             throw IllegalStateException("ACCOUNT_RESTORE_IN_PROGRESS")
         }
-        expDoc(u, expense.id).delete().await()
+        expDoc(u, expense.id).delete().awaitOrQueue()
     }
 
     override suspend fun duplicateRecordExpense(expense: Expense, expectedUid: String): Result<Unit> =

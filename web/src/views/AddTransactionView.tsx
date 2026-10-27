@@ -85,7 +85,9 @@ export function AddTransactionView({
     const result = await vm.save();
     if (result.ok) {
       haptics.success();
-      const savedNotice = vm.isEditing ? t('transactionUpdated') : t('transactionSaved');
+      const savedNotice = result.queued
+        ? t(result.queuedInTabOnly ? 'transactionQueuedTabOnly' : 'transactionQueued')
+        : vm.isEditing ? t('transactionUpdated') : t('transactionSaved');
       const message = result.budgetAlert
         ? `${savedNotice} · ${result.budgetAlert}`
         : savedNotice;
