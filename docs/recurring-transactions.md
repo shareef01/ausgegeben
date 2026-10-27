@@ -18,7 +18,7 @@ The Firestore emulator may report permission denied for a losing optimistic writ
 
 ## Validation and integration boundary
 
-Local validation across Android and Web suites:
+Validation recorded when schema v3 landed (the test counts are a snapshot from that time and have grown since; CI is the current source of truth):
 - Web: 317 unit tests passed across 35 test files, 120 Firestore rules tests passed under emulators, 111 emulator repository and replace tests passed, bundle build and lint passed.
 - Android: Unit tests passed (`BackupFormatTest`, `ReplacePlannerTest`, `CategoryBudgetsTest`, `RecurringRepositoryTest`, etc.), `lintProdDebug` passed with 0 errors, and `assembleProdDebug` passed.
 - Shared contract: Canonical `test-fixtures/recurring-transactions/shared-v3-empty.json` and `shared-v3-multiple.json` verify cross-platform parity for Schema v3 parsing, serialization, and fingerprint matching.

@@ -9,7 +9,7 @@ if (!googleServicesFile.exists()) {
     example.copyTo(googleServicesFile)
     logger.lifecycle(
         "Created app/google-services.json from example. " +
-            "Replace with your Firebase download for real Auth/Google Sign-In."
+            "Replace with your Firebase download for real Auth (email and password)."
     )
 }
 

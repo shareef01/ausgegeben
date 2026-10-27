@@ -1,8 +1,30 @@
 # Local backup and restore plan
 
-This document records the original v1 plan. Current v2 category budget semantics
-and legacy v1 preservation behavior are specified in [Category budgets](category-budgets.md),
-and schema v3 recurring transaction semantics in [Recurring transactions](recurring-transactions.md).
+## Current behaviour
+
+Backup export and restore are implemented on Android and the web. Most of this file is
+the original v1 plan, kept for its reasoning. Where the two differ, the code and this
+section win.
+
+- **Format:** `ausgegeben-backup`, currently schema version 3. Versions 1 and 2 are still
+  read. v2 added category budgets ([Category budgets](category-budgets.md)); v3 added
+  recurring templates ([Recurring transactions](recurring-transactions.md)).
+- **Merge** adds and updates records from the backup and removes nothing.
+- **Replace** makes transactions match the backup. It keeps current categories that are
+  not in the backup. It runs as a journalled,
+  resumable sequence: it takes a lease, saves a safety snapshot of the account in
+  Firestore, applies categories, transactions and deletions in batches of 400, writes
+  preferences last, then checks the result against the server
+  (`PREPARING` → `SNAPSHOT_READY` → `APPLYING` → `VERIFYING` → `COMPLETED`). An interrupted
+  Replace can be resumed, and a Replace can be rolled back to its safety snapshot.
+- **Rollback, unlike the plan's item 5:** rollback exists, but it is the same multi-step
+  protocol, not an atomic whole-account restore. Changes made from another device while
+  a Replace or rollback runs are not isolated.
+- **Code:** `web/src/services/backupFormat.ts` and `backupReplace.ts`;
+  `app/.../util/BackupFormat.kt`, `util/ReplacePlanner.kt` and the replace functions in
+  `data/AppRepository.kt`.
+
+## Original v1 plan (historical)
 
 The current CSV export is accurate for reporting transactions, but it is not a
 restorable account backup. Ausgegeben must not use Cloud Storage or Firestore's
