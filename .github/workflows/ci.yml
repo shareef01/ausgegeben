@@ -179,6 +179,12 @@ jobs:
       - run: npm run lint:telemetry
         working-directory: web
 
+      # Rules of hooks and exhaustive effect/callback dependencies only (see
+      # web/eslint.config.js): a missing dependency leaves an effect running with a
+      # stale value, which no type check or unit test reliably catches.
+      - run: npm run lint:hooks
+        working-directory: web
+
       - run: npm run build
         working-directory: web
 

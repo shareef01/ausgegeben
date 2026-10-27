@@ -28,6 +28,7 @@ npm run preview
 npm test                 # Vitest unit tests
 npm run lint             # TypeScript checks
 npm run lint:css         # Detect utility classes without matching CSS
+npm run lint:hooks       # React rules of hooks and effect dependencies (ESLint)
 npm run test:rules       # Firestore rules against the emulator
 npm run test:emulator    # Repository integration tests against Firestore
 npm run validate:prod-env
