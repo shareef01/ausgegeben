@@ -291,9 +291,19 @@ describe('startup error handling (PRIV-1)', () => {
     remove();
   });
 
+  it('sends nothing at startup when the user never opted in (reporting is off by default)', async () => {
+    localStorage.removeItem('ausgegeben-report-errors');
+    reportError('manual', new Error('pre-main crash, never opted in'));
+    const remove = installStartupErrorHandling(new EventTarget());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(fetch).not.toHaveBeenCalled();
+    remove();
+  });
+
   it('still replays an early pre-sink error when reporting was enabled from startup', async () => {
     // Module-level side effects can report before the startup wiring runs; with
-    // reporting enabled (the default) such an error must survive buffering and ship.
+    // reporting already enabled such an error must survive buffering and ship.
+    writeErrorReportingEnabled(true);
     reportError('manual', new Error('pre-main early crash'));
 
     installStartupErrorHandling(new EventTarget());
