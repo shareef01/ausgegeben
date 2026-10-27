@@ -1,6 +1,6 @@
 import { CATEGORY_BUDGETS_COLLECTION } from '@/repositories/firestorePaths';
 import {
-  collection, doc, setDoc, deleteDoc, getDoc, getDocFromCache, getDocs, getDocsFromServer,
+  collection, doc, setDoc, deleteDoc, getDoc, getDocFromCache, getDocs, getDocsFromCache, getDocsFromServer,
   getDocFromServer, query, where, orderBy, limit,
   onSnapshot, updateDoc, getAggregateFromServer, sum, type Unsubscribe, writeBatch,
   runTransaction, deleteField, type QueryDocumentSnapshot, type Query, type DocumentData,
@@ -15,6 +15,7 @@ import { categoryWritePayload, expenseWritePayload } from '@/utils/firestorePayl
 import { expenseDocumentId } from '@/utils/idempotency';
 import { KeyedSingleFlight } from '@/utils/keyedSingleFlight';
 import { reconcilePendingExpenseSubmissions } from '@/services/expenseSubmissionJournal';
+import { trackQueuedWrite } from '@/services/queuedWrites';
 import {
   ACCOUNT_DELETION_DOC,
   CATEGORIES_COLLECTION,
@@ -336,6 +337,41 @@ function isOfflineOrNetworkError(error: unknown): boolean {
   );
 }
 
+/** The browser reports no network at all, so server round trips can be skipped. */
+function isKnownOffline(): boolean {
+  return typeof navigator !== 'undefined' && navigator.onLine === false;
+}
+
+/**
+ * How long Save waits for the server to acknowledge a write before reporting it as
+ * queued on this device instead. Online acknowledgements normally arrive well inside it.
+ */
+const QUEUED_WRITE_GRACE_MS = 4_000;
+
+/**
+ * Wait for `ack` (a write's server acknowledgement), but only up to `graceMs`.
+ *
+ * The SDK applies a write to the local cache as soon as it is issued and resolves its
+ * promise only when the server confirms it, so with no connection the promise never
+ * settles. Past the grace period the write is handed to the queued-writes tracker (which
+ * reports a late rejection and guards the tab against closing) and this returns, so
+ * callers stop waiting on a server that is not there. A rejection inside the grace period
+ * still throws, keeping online errors such as permission-denied visible to the caller.
+ */
+async function settleOrQueue(ack: Promise<void>, graceMs = QUEUED_WRITE_GRACE_MS): Promise<'synced' | 'queued'> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const queued = new Promise<'queued'>((resolve) => {
+    timer = setTimeout(() => resolve('queued'), graceMs);
+  });
+  try {
+    const outcome = await Promise.race([ack.then(() => 'synced' as const), queued]);
+    if (outcome === 'queued') trackQueuedWrite(ack);
+    return outcome;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function deleteCategoryInto(userId: string, id: string, targetId?: string): Promise<void> {
   const source = catDoc(userId, id);
   if (((await getDocFromServer(source)).data()?.recurringTemplateCount ?? 0) > 0) throw new Error('CATEGORY_HAS_RECURRING');
@@ -540,7 +576,10 @@ export const expenseRepository = {
     const userId = uid();
     if (!userId || !fs()) return false;
     try {
-      const snap = await getDoc(metaDoc(userId, RESTORE_OPERATION_DOC));
+      // Offline, a server read only waits out the SDK's connection timeout before
+      // falling back to the cache anyway. The rules still refuse writes during a restore.
+      const ref = metaDoc(userId, RESTORE_OPERATION_DOC);
+      const snap = isKnownOffline() ? await getDocFromCache(ref) : await getDoc(ref);
       if (!snap.exists()) return false;
       const phase = snap.data()?.phase;
       return phase === 'APPLYING' || phase === 'ROLLING_BACK';
@@ -788,7 +827,8 @@ export const expenseRepository = {
       // Historical releases used random document ids. Find those first so upgrading a
       // user cannot create a deterministic second copy of an already-recorded expense.
       try {
-        const dupSnap = await getDocs(query(expCol(userId), where('idempotencyKey', '==', idempotencyKey), limit(1)));
+        const dupQuery = query(expCol(userId), where('idempotencyKey', '==', idempotencyKey), limit(1));
+        const dupSnap = isKnownOffline() ? await getDocsFromCache(dupQuery) : await getDocs(dupQuery);
         if (!dupSnap.empty) return dupSnap.docs[0].id;
       } catch {
         // Query may fail offline if not indexed/cached; proceed with deterministic id.
@@ -811,8 +851,10 @@ export const expenseRepository = {
         // Not in local cache
       }
 
-      // Primary online path: atomic transaction guarantees create-if-absent across concurrent devices/tabs
+      // Primary online path: atomic transaction guarantees create-if-absent across concurrent devices/tabs.
+      // A transaction needs the server, so with no network go straight to the queued write.
       try {
+        if (isKnownOffline()) throw new Error('client is offline');
         const created = await runTransaction(fs()!, async (transaction) => {
           const existing = await transaction.get(ref);
           if (existing.exists()) return false;
@@ -830,7 +872,9 @@ export const expenseRepository = {
           } catch {
             // Document unavailable while offline
           }
-          await setDoc(ref, payload);
+          // Known offline: the server acknowledgement cannot arrive, so report the
+          // entry as queued at once rather than after the grace period.
+          await settleOrQueue(setDoc(ref, payload), 0);
           emitDataChanged();
           return id;
         }
@@ -838,13 +882,13 @@ export const expenseRepository = {
       }
     }
     const id = crypto.randomUUID();
-    await setDoc(
+    await settleOrQueue(setDoc(
       expDoc(userId, id),
       expenseWritePayload(
         { ...expense, id },
         { updatedAt: now(), idempotencyKey },
       ),
-    );
+    ));
     emitDataChanged();
     return id;
   },
@@ -862,13 +906,13 @@ export const expenseRepository = {
       throw new Error('EXPENSE_NOT_FOUND');
     }
     try {
-      await updateDoc(
+      await settleOrQueue(updateDoc(
         expDoc(userId, expense.id),
         {
           ...expenseWritePayload(expense, { updatedAt: now() }),
           idempotencyKey: deleteField(),
         } as Record<string, any>,
-      );
+      ));
     } catch (err: any) {
       if (err?.code === 'not-found' || err?.message?.includes('not-found') || err?.message?.includes('No document to update')) {
         throw new Error('EXPENSE_NOT_FOUND');
@@ -887,7 +931,7 @@ export const expenseRepository = {
     }
     const exp = await this.getExpenseById(id);
     if (!exp) return null;
-    await deleteDoc(expDoc(userId, id));
+    await settleOrQueue(deleteDoc(expDoc(userId, id)));
     emitDataChanged();
     return exp;
   },

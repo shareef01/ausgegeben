@@ -48,6 +48,7 @@ export function isFirebaseConfigured(): boolean {
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let firestore: Firestore | null = null;
+let firestoreCachePersistent = false;
 let appCheck: AppCheck | null = null;
 const CACHE_CLEAR_MESSAGE = 'clear-firestore-cache';
 const PERSISTENT_STORAGE_KEY = 'ausgegeben-trusted-device-persistence';
@@ -183,8 +184,9 @@ export function getFirebaseFirestore(): Firestore | null {
     // browser restart; IndexedDB is enabled only after the user opts in.
     // Must be the FIRST call that touches Firestore for this app instance:
     // initializeFirestore throws if getFirestore() was already called for `app`.
+    firestoreCachePersistent = isPersistentStorageEnabled();
     firestore = initializeFirestore(firebaseApp, {
-      localCache: isPersistentStorageEnabled()
+      localCache: firestoreCachePersistent
         ? persistentLocalCache({ tabManager: persistentMultipleTabManager() })
         : memoryLocalCache(),
     });
@@ -241,6 +243,16 @@ export async function getBackendAppCheckToken(): Promise<string | null> {
 }
 
 /** Persistent financial caches are opt-in for devices the user explicitly trusts. */
+/**
+ * Whether this tab's Firestore instance keeps its write queue on disk. Fixed when the
+ * instance is created, so it can differ from the trusted-device preference until the
+ * next reload. False means a write still waiting for the server lives only in this
+ * tab's memory.
+ */
+export function isFirestoreCachePersistent(): boolean {
+  return firestore !== null && firestoreCachePersistent;
+}
+
 export function isPersistentStorageEnabled(): boolean {
   try {
     return localStorage.getItem(PERSISTENT_STORAGE_KEY) === 'true';

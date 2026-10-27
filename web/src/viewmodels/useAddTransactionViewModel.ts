@@ -11,6 +11,8 @@ import {
   beginExpenseSubmission,
   completeExpenseSubmission,
 } from '@/services/expenseSubmissionJournal';
+import { hasQueuedWrites } from '@/services/queuedWrites';
+import { isFirestoreCachePersistent } from '@/services/firebase';
 
 export interface AddTransactionForm {
   amountInput: string;
@@ -20,7 +22,13 @@ export interface AddTransactionForm {
   dateMillis: number;
 }
 
-export type SaveResult = { ok: false } | { ok: true; budgetAlert?: string };
+/**
+ * `queued` is set when the write is on this device but not yet on the server; with
+ * `queuedInTabOnly` it also exists only in this tab's memory (no trusted-device storage).
+ */
+export type SaveResult =
+  | { ok: false }
+  | { ok: true; budgetAlert?: string; queued?: boolean; queuedInTabOnly?: boolean };
 
 const defaultForm = (): AddTransactionForm => ({
   amountInput: '',
@@ -346,6 +354,11 @@ export function useAddTransactionViewModel(expenseId?: string) {
       try {
         const uid = useAuthStore.getState().user?.uid;
         const savedId = await writeExpense({ uid, expenseId, payload });
+        // Writes reach the server in order, so anything still pending includes this one.
+        if (hasQueuedWrites()) {
+          // The budget projection is a server-side sum and cannot run offline.
+          return { ok: true, queued: true, queuedInTabOnly: !isFirestoreCachePersistent() };
+        }
         // Budget check is best-effort — a failed projection must not look like a failed save.
         let budgetAlert: string | undefined;
         try {
