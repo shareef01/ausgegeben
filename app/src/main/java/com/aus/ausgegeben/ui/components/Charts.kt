@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -118,7 +119,7 @@ fun IncomeExpenseOverviewChart(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(176.dp),
+                .heightIn(min = 176.dp),
             contentAlignment = Alignment.Center
         ) {
             val chartSize = 160.dp
@@ -186,15 +187,18 @@ fun IncomeExpenseOverviewChart(
                 }
             }
 
+            // Kept inside the ring: a seven-digit net used to run across it.
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
+                    .width(chartSize - DONUT_STROKE * 4)
                     .scale(0.88f + 0.12f * progress.value)
                     .alpha(((progress.value - 0.2f) / 0.8f).coerceIn(0f, 1f))
             ) {
                 MoneyText(
                     text = CurrencyUtils.formatAmount(net, currencyCode),
                     size = MoneySize.Headline,
+                    minFontScale = 0.4f,
                     color = when {
                         net > 0 -> incomeTextColor
                         net < 0 -> expenseTextColor
@@ -205,6 +209,7 @@ fun IncomeExpenseOverviewChart(
                     text = stringResource(R.string.chart_net_label),
                     style = MaterialTheme.typography.labelSmall,
                     color = onSurfaceVariant,
+                    textAlign = TextAlign.Center,
                     modifier = Modifier.padding(top = 2.dp)
                 )
             }
@@ -214,7 +219,7 @@ fun IncomeExpenseOverviewChart(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = AppSpacing.md),
-            horizontalArrangement = Arrangement.SpaceEvenly
+            horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm)
         ) {
             OverviewLegendItem(
                 color = expenseColor,
@@ -224,6 +229,7 @@ fun IncomeExpenseOverviewChart(
                 percent = (expenseRatio * 100).toInt(),
                 reveal = progress.value,
                 stagger = 0.1f,
+                modifier = Modifier.weight(1f),
             )
             OverviewLegendItem(
                 color = incomeColor,
@@ -233,6 +239,7 @@ fun IncomeExpenseOverviewChart(
                 percent = (incomeRatio * 100).toInt(),
                 reveal = progress.value,
                 stagger = 0.25f,
+                modifier = Modifier.weight(1f),
             )
         }
     }
@@ -247,11 +254,15 @@ private fun OverviewLegendItem(
     percent: Int,
     reveal: Float = 1f,
     stagger: Float = 0f,
+    modifier: Modifier = Modifier,
 ) {
     val itemAlpha = ((reveal - stagger) / (1f - stagger)).coerceIn(0f, 1f)
+    // Half the card each; the label and amount shrink to fit instead of breaking
+    // mid-word as they did when each item sized itself.
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.alpha(itemAlpha),
+        horizontalArrangement = Arrangement.Center,
+        modifier = modifier.alpha(itemAlpha),
     ) {
         Box(
             modifier = Modifier
@@ -260,14 +271,15 @@ private fun OverviewLegendItem(
                 .background(color)
         )
         Spacer(modifier = Modifier.width(AppSpacing.xs))
-        Column {
-            Text(
+        Column(modifier = Modifier.weight(1f, fill = false)) {
+            AutoScalingText(
                 text = label,
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Normal),
+                minFontSize = 9.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Normal
+                textAlign = TextAlign.Start,
             )
-            MoneyText(text = value, size = MoneySize.Body, color = valueColor)
+            MoneyText(text = value, size = MoneySize.Body, color = valueColor, textAlign = TextAlign.Start)
             Text(
                 text = "$percent%",
                 style = MaterialTheme.typography.labelSmall,
@@ -406,13 +418,14 @@ fun DonutChart(
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
-                        .padding(horizontal = AppSpacing.sm)
+                        .width(chartSize - 12.dp * 4)
                         .scale(0.9f + 0.1f * progress.value)
                         .alpha(((progress.value - 0.15f) / 0.85f).coerceIn(0f, 1f))
                 ) {
                     MoneyText(
                         text = centerLabel,
                         size = if (compact) MoneySize.Title else MoneySize.Headline,
+                        minFontScale = 0.4f,
                         color = MaterialTheme.colorScheme.onBackground,
                         modifier = Modifier.padding(horizontal = AppSpacing.xxs)
                     )

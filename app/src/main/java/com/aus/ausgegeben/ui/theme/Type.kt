@@ -5,6 +5,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.unit.sp
 import com.aus.ausgegeben.R
 
@@ -15,7 +16,7 @@ val InterFontFamily = FontFamily(
     Font(R.font.inter_bold, FontWeight.Bold)
 )
 
-val Typography = Typography(
+private val BaseTypography = Typography(
     /** Massive Hero Balance */
     displayLarge = TextStyle(
         fontFamily = InterFontFamily,
@@ -100,6 +101,33 @@ val Typography = Typography(
     )
 )
 
+/**
+ * Long German words broke at any letter at large text on a narrow phone ("kontaktiere / n",
+ * "eingenomm / en"). With hyphenation on they break at a syllable, with a hyphen. It only
+ * applies to a word that has to break; digits are never hyphenated.
+ */
+val Typography = BaseTypography.run {
+    copy(
+        displayLarge = displayLarge.hyphenated(),
+        displayMedium = displayMedium.hyphenated(),
+        displaySmall = displaySmall.hyphenated(),
+        headlineLarge = headlineLarge.hyphenated(),
+        headlineMedium = headlineMedium.hyphenated(),
+        headlineSmall = headlineSmall.hyphenated(),
+        titleLarge = titleLarge.hyphenated(),
+        titleMedium = titleMedium.hyphenated(),
+        titleSmall = titleSmall.hyphenated(),
+        bodyLarge = bodyLarge.hyphenated(),
+        bodyMedium = bodyMedium.hyphenated(),
+        bodySmall = bodySmall.hyphenated(),
+        labelLarge = labelLarge.hyphenated(),
+        labelMedium = labelMedium.hyphenated(),
+        labelSmall = labelSmall.hyphenated(),
+    )
+}
+
+private fun TextStyle.hyphenated() = copy(hyphens = Hyphens.Auto)
+
 val AmountTextStyle = TextStyle(
     fontFamily = InterFontFamily,
     fontWeight = FontWeight.SemiBold,
@@ -116,6 +144,7 @@ val AmountTextStyle = TextStyle(
  */
 val SectionLabelStyle = TextStyle(
     fontFamily = InterFontFamily,
+    hyphens = Hyphens.Auto,
     fontSize = 12.sp,
     fontWeight = FontWeight.SemiBold,
     letterSpacing = 0.2.sp,

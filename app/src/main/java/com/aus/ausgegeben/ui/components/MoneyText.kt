@@ -7,13 +7,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import com.aus.ausgegeben.ui.theme.AmountTextStyle
@@ -35,7 +34,9 @@ fun MoneyText(
     fontWeight: FontWeight? = null,
     fontSize: TextUnit? = null,
     animateChanges: Boolean = false,
-    maxLines: Int = 1,
+    textAlign: TextAlign = TextAlign.Center,
+    /** How far the amount may shrink to fit its slot before it wraps. */
+    minFontScale: Float = 0.6f,
 ) {
     val base = when (size) {
         MoneySize.Body -> MaterialTheme.typography.bodyMedium
@@ -79,7 +80,8 @@ fun MoneyText(
                 modifier = modifier,
                 style = style,
                 color = color,
-                maxLines = maxLines,
+                textAlign = textAlign,
+                minFontScale = minFontScale,
             )
         }
     } else {
@@ -88,25 +90,31 @@ fun MoneyText(
             modifier = modifier,
             style = style,
             color = color,
-            maxLines = maxLines,
+            textAlign = textAlign,
+            minFontScale = minFontScale,
         )
     }
 }
 
+/**
+ * Amounts are never ellipsised: a cut-off "1.104.064,…" reads as a different number. They
+ * shrink to fit their slot, down to [minFontScale] of the size, and wrap if that is still too wide.
+ */
 @Composable
 private fun MoneyTextContent(
     text: String,
     modifier: Modifier,
     style: TextStyle,
     color: Color,
-    maxLines: Int,
+    textAlign: TextAlign,
+    minFontScale: Float,
 ) {
-    Text(
+    AutoScalingText(
         text = text,
-        modifier = modifier,
         style = style,
+        modifier = modifier,
+        minFontSize = style.fontSize * minFontScale,
         color = color,
-        maxLines = maxLines,
-        overflow = TextOverflow.Ellipsis,
+        textAlign = textAlign,
     )
 }

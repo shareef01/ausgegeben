@@ -88,14 +88,18 @@ fun FinanceSummaryCard(
 
             // Metric scale from the design spec: 36sp SemiBold, tabular, and no glow on data.
             // This used to be a 52sp Bold gradient with a 24px coloured shadow.
-            Text(
+            // Shrinks rather than breaking mid-number when a seven-digit total meets a narrow
+            // phone or large text; it only wraps if even 22sp is too wide.
+            AutoScalingText(
                 text = CurrencyUtils.formatAmount(net, currencyCode),
                 style = TextStyle(
                     color = if (net >= 0) AuroraTokens.emeraldText() else AuroraTokens.crimsonText(),
                     fontSize = 36.sp,
                     fontWeight = FontWeight.SemiBold,
                     fontFeatureSettings = "tnum",
-                )
+                ),
+                minFontSize = 22.sp,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = AppSpacing.md),
             )
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -142,7 +146,7 @@ private fun SummaryPane(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.padding(vertical = 12.dp),
+        modifier = modifier.padding(vertical = 12.dp, horizontal = AppSpacing.xs),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -165,22 +169,27 @@ private fun SummaryPane(
         Spacer(Modifier.height(8.dp))
         
         // Sentence case, like the "Net cash flow" eyebrow above it (web parity: .finance-stat-chip__label).
-        Text(
+        AutoScalingText(
             text = label,
             style = AuroraTokens.labelStyle(),
+            minFontSize = 9.sp,
+            modifier = Modifier.fillMaxWidth(),
         )
         
         Spacer(modifier = Modifier.height(4.dp))
         
-        // Pillar 3: Amount text pop with colored drop shadow
-        Text(
+        // Half the card each: "1.250.000,00" at 20sp does not fit 130dp, so it shrinks
+        // (web parity: the stat chips scale to fit, never ellipsise).
+        AutoScalingText(
             text = value,
             style = TextStyle(
                 color = color,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 fontFeatureSettings = "tnum"
-            )
+            ),
+            minFontSize = 13.sp,
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }
