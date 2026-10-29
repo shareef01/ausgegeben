@@ -129,11 +129,67 @@ be re-run (emulator).
 
 | Severity | Issue |
 | --- | --- |
-| High (verification) | **Blocked:** the full app and e2e suite (including the new `e2e/recordRowActions.spec.ts`) were not run; the Firestore emulator will not start on this machine. Run `npm run test:e2e` where it does. |
-| Medium | Batch 3 (controlled CSS cleanup of the nine-file override stack) was **not started**: no duplicate/conflict inventory and no iOS/Android scroll-lock check. |
+| — | ~~Blocked: e2e suite not run~~ — resolved: CI ran all 23 e2e tests on PR #107, including `recordRowActions.spec.ts`; all passed. |
+| — | ~~Batch 3 not started~~ — done; see section 6. |
+| Medium | 52 `!important` declarations remain, mostly the `premium.css` "master override" fighting earlier files (section 6). Untangling them changes specificity everywhere and needs its own pass. |
 | Low | Category tiles clamp at two lines, so "Lebensmittel – Wochenmarkt" can show as "Lebensmittel –…" (the full name is in the tooltip and accessible name). |
 | Low | The chart tooltip sits over the top tick label while open (same as before). |
 | Low | The QA matrix covered the harness sizes and themes listed above, not screens that need live data (Settings, onboarding, offline/pending states, the 200% text-scale pass). |
+
+## 6. Batch 3 — controlled CSS cleanup (web)
+
+Checked against the **real app**: the emulator now starts, using the workaround of a real
+`TEMP` plus `-Djdk.net.unixdomain.tmpdir` outside Temp. Seed with `scripts/seed-demo-data.mjs`
+and `scripts/seed-qa-data.mjs`.
+
+**Inventory** (`node web/scripts/css-inventory.mjs`). The stylesheets cascade in this order:
+global → recurring → layout → pages → brand → oled → polish → ios → premium → index. Across them:
+
+- 50 provably dead declarations: 48 exact repeats, and 2 already beaten by an
+  identical-selector `!important`.
+- Only 4 cases where the same selector is overridden in a later file. Almost all
+  overriding happens through *different* selectors, so it can't be merged mechanically.
+- 52 `!important` declarations, in these groups:
+
+| Group | Where | Why it exists |
+| --- | --- | --- |
+| Reduced motion | global, pages, polish | must beat every component animation; correct as is |
+| Scroll lock and body | ios.css (`body`, `body.is-scroll-locked`) | an inline style can't beat these, so `useBodyScrollLock` uses a class (documented in the hook) |
+| Safe-area overlay padding | ios.css `.safe-overlay` | beats the per-dialog padding |
+| Record list "master override" | premium.css (`.transaction-row`, `.transaction-list-bare__rows`, …) | restyles earlier pages.css rules; `ActionRow` needed its own `!important` (pages.css:560) to win back the right padding |
+| Insights card padding/radius | pages.css `.insights-*-card` | beats the generic `.card` padding |
+| Light-theme shadows | polish.css `[data-theme='light'] …` | beats the dark-theme glow shadows |
+| Utility escapes | layout.css `.!p-0`, `.!text-5xl` | intentional "important" utilities |
+
+**Removed** (commit "remove 50 overridden CSS declarations"). A declaration was removed only
+when a later rule with the *identical* selector and *identical* @media/@supports context sets the
+same property with at least the same importance. That later rule wins for every element and
+state either way. Fallback pairs (`100vh` before `100dvh`, `env()`, `color-mix`) were kept.
+
+**Proof** (`web/qa/style-snapshot.mjs`). The script records every element's full computed style,
+including `::before`/`::after`, across 98 states:
+
+- two accounts: en/EUR, and de/CHF with 306 rows
+- 375 and 1440 wide
+- dark, light, midnight and lavender themes
+- Record (plus row menu and period popup), Insights, Settings, the edit sheet, and signed out
+
+A control run on unchanged CSS was **identical**. That required sorting properties, because
+Chrome reports custom properties in an unstable order. After the cleanup, all **104,310 element
+styles are identical**. lightningcss reports all ten files valid.
+
+**Scroll lock** (`web/qa/scroll-lock.mjs`). With the list scrolled 1200px and the edit sheet open,
+the page neither jumps nor scrolls behind the sheet, and its position is restored on close.
+This passed in Chromium (Android Chrome's engine) and WebKit (Safari's). It was not run on a
+physical iPhone.
+
+**Responsive fix found by the sweep** (`web/qa/overflow.mjs`, separate commit). On every phone
+width, Insights for the German/CHF account was 446px wide. The all-time-averages card used three
+`1fr` columns, which can't shrink below "1.104.064,70 CHF". The page scrolled sideways and, on a
+real phone, the zoom-out pushed the fixed bottom nav **off-screen**. At 320px the cash-flow
+legend also overflowed. The stat rows now wrap by content and the card header wraps. The sweep
+now shows no overflow on Record, Insights or Settings at 320/375/390/430 for either account
+(`css/before|after-overflow-heavy-375-insights.png`).
 
 ## 5. Files
 

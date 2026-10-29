@@ -4,7 +4,6 @@
 
 /* ── Global Layout Reset ── */
 :root {
-  --workspace-padding: 16px;
   --app-max-width: 1360px;
 }
 
