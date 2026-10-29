@@ -1335,9 +1335,10 @@
 
 .insights-cashflow-card__header {
   display: flex;
+  flex-wrap: wrap; /* the German legend does not fit beside the title at 320px */
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1.25rem;
+  gap: 0.75rem 1.25rem;
   margin-bottom: 1.5rem;
 }
 
@@ -1422,10 +1423,24 @@
   color: var(--color-on-surface-variant);
 }
 
-.insights-metric-card__grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
+/* Stat rows wrap by content instead of fixed 1fr columns. A 1fr column cannot shrink below
+   its widest unbreakable amount, so "1.104.064,70 CHF" in a three-column row made the
+   averages card ~70px wider than a phone, scrolling the page sideways and pushing the fixed
+   bottom nav off-screen. Each stat keeps its column share and moves to its own line only
+   when its amount does not fit. */
+.insights-metric-card__grid,
+.insights-averages-card__grid {
+  display: flex;
+  flex-wrap: wrap;
   gap: 12px;
+}
+
+.insights-metric-card__grid > .insights-metric-card__stat {
+  flex: 1 1 calc(50% - 6px);
+}
+
+.insights-averages-card__grid > .insights-metric-card__stat {
+  flex: 1 1 calc((100% - 24px) / 3);
 }
 
 .insights-metric-card__stat {
@@ -1581,12 +1596,6 @@
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--color-on-surface-variant);
-}
-
-.insights-averages-card__grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
 }
 
 @media (min-width: 768px) {
