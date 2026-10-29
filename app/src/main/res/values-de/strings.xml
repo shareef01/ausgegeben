@@ -261,7 +261,7 @@
     <string name="onboarding_get_started">loslegen</string>
     <string name="onboarding_enable_reminders">erinnerungen aktivieren &amp; fortfahren</string>
     <string name="onboarding_title_gestures">schnelle gesten</string>
-    <string name="onboarding_body_gestures">nach links wischen zum löschen. lange drücken zum duplizieren.</string>
+    <string name="onboarding_body_gestures">nach links wischen zum löschen. lange drücken oder ⋮ für weitere aktionen.</string>
 
     <!-- Notifications -->
     <string name="notification_channel_name">tägliche erinnerungen</string>
@@ -403,6 +403,7 @@
     <string name="desc_expense_row">%1$s Ausgabe von %2$s. %3$s</string>
     <string name="a11y_action_delete">Transaktion löschen</string>
     <string name="a11y_action_duplicate">Für heute duplizieren</string>
+    <string name="record_row_actions_for">Weitere Aktionen: %1$s</string>
     <string name="desc_transfer_row">%1$s Transfer von %2$s. %3$s</string>
     <string name="desc_finance_summary">Finanzübersicht für %1$s. Netto-Saldo %2$s. Gesamteinnahmen %3$s. Gesamtausgaben %4$s.</string>
     <string name="record_filter">Nach Typ filtern</string>
@@ -410,7 +411,7 @@
     <string name="filter_all_categories">Alle Kategorien</string>
     <string name="record_pick_month">monat wählen</string>
     <string name="record_clear_month_filter">zurück zu diesem monat</string>
-    <string name="record_gesture_hints">Nach links wischen zum Löschen · Nach rechts wischen zum Bearbeiten · Lange drücken zum Duplizieren</string>
+    <string name="record_gesture_hints">Nach links wischen zum Löschen · Nach rechts wischen zum Bearbeiten · Lange drücken für mehr</string>
     <string name="state_loading">Lade…</string>
     <string name="add_confirm_transaction">Transaktion bestätigen</string>
     <string name="add_needs_amount">betrag eingeben</string>
