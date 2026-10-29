@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -207,11 +206,6 @@ private fun separatedByScroller(a: SemanticsNode, b: SemanticsNode): Boolean {
     return common.config.getOrNull(SemanticsProperties.VerticalScrollAxisRange) != null
 }
 
-private fun Rect.intersect(other: Rect) = Rect(
-    maxOf(left, other.left), maxOf(top, other.top),
-    minOf(right, other.right), minOf(bottom, other.bottom),
-)
-
 /**
  * Walks the main vertical scroller from top to bottom, checking each page and saving a
  * screenshot of each when [shotPrefix] is set. Returns every problem found, by page.
@@ -251,7 +245,10 @@ fun QaRule.saveShot(name: String) {
     val bitmap = Bitmap.createScaledBitmap(full, full.width / 2, full.height / 2, true)
     val dir = File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), "design-qa")
     dir.mkdirs()
-    File(dir, "$name.webp").outputStream().use { bitmap.compress(Bitmap.CompressFormat.WEBP_LOSSY, 85, it) }
+    // WEBP_LOSSY only exists from API 30; CI runs the minSdk (29) emulator.
+    @Suppress("DEPRECATION")
+    val format = if (Build.VERSION.SDK_INT >= 30) Bitmap.CompressFormat.WEBP_LOSSY else Bitmap.CompressFormat.WEBP
+    File(dir, "$name.webp").outputStream().use { bitmap.compress(format, 85, it) }
 }
 
 fun isEmulator(): Boolean =

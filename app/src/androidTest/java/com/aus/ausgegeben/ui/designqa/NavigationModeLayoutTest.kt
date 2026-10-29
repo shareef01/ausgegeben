@@ -1,6 +1,7 @@
 package com.aus.ausgegeben.ui.designqa
 
 import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -100,6 +101,9 @@ class NavigationModeLayoutTest(
 
     @Test
     fun tabsSitAboveTheSystemBar_andLastRowClearsTheAddButton() {
+        // Draw behind the system bars as MainActivity does. Android 15+ forces it; on the
+        // minSdk 29 emulator in CI the window would otherwise stop above the bar.
+        compose.activityRule.scenario.onActivity { it.enableEdgeToEdge() }
         val prefs = QaPreferences(DesignQaFixtures.CURRENCY, budget = null)
         compose.setQaContent(device, fontScale, language) {
             val vm = remember {
