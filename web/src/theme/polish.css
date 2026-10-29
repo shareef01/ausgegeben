@@ -457,7 +457,7 @@
 
 [data-theme='light'] .ledger-container,
 [data-theme='light'] .transaction-list-bare__rows {
-  background: var(--color-surface) !important;
+  background: var(--color-surface);
 }
 
 [data-theme='light'] .card--pro,

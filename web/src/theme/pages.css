@@ -546,7 +546,7 @@
 
 /* The button supplies the trailing space, so the row's own right padding shrinks. */
 .action-row__content .transaction-row {
-  padding-right: 8px !important;
+  padding-right: 8px;
 }
 
 .action-row__more {
@@ -1193,18 +1193,21 @@
     gap: 18px;
   }
 }
-
 .insights-category-card {
   display: flex;
   flex-direction: column;
   gap: 14px;
   height: 100%;
   min-height: 0;
-  padding: 18px 18px 16px !important;
-  border-radius: 1.25rem !important;
   background: var(--glass-bg-elevated);
   border: 1px solid var(--surface-border);
   box-shadow: none;
+}
+
+.card.insights-category-card {
+  /* Outranks the generic .card padding/radius further down (was !important). */
+  padding: 18px 18px 16px;
+  border-radius: 1.25rem;
 }
 
 .insights-category-card__title {
@@ -1396,15 +1399,18 @@
     gap: 18px;
   }
 }
-
 .insights-metric-card {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 18px 20px 16px !important;
-  border-radius: 1.25rem !important;
   background: var(--glass-bg-elevated);
   border: 1px solid var(--surface-border);
+}
+
+.card.insights-metric-card {
+  /* Outranks the generic .card padding/radius further down (was !important). */
+  padding: 18px 20px 16px;
+  border-radius: 1.25rem;
 }
 
 .insights-metric-card__header {
@@ -1527,15 +1533,18 @@
   color: var(--color-on-surface-variant);
   margin: 0;
 }
-
 .insights-movers-card {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 18px 20px 16px !important;
-  border-radius: 1.25rem !important;
   background: var(--glass-bg-elevated);
   border: 1px solid var(--surface-border);
+}
+
+.card.insights-movers-card {
+  /* Outranks the generic .card padding/radius further down (was !important). */
+  padding: 18px 20px 16px;
+  border-radius: 1.25rem;
 }
 
 .insights-movers-card__header {
@@ -1599,15 +1608,18 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-
 .insights-averages-card {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 18px 20px 16px !important;
-  border-radius: 1.25rem !important;
   background: var(--glass-bg-elevated);
   border: 1px solid var(--surface-border);
+}
+
+.card.insights-averages-card {
+  /* Outranks the generic .card padding/radius further down (was !important). */
+  padding: 18px 20px 16px;
+  border-radius: 1.25rem;
 }
 
 .insights-averages-card__header {

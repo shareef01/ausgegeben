@@ -301,7 +301,7 @@
 
 .finance-stat-chip__label {
   /* Last of the all-caps micro-labels on this screen: 12px sentence case, still quiet. */
-  font-size: 0.75rem !important;
+  font-size: 0.75rem;
   font-weight: 600;
   text-transform: none;
   letter-spacing: 0.01em;
@@ -313,8 +313,8 @@
 .finance-stat-chip .money--stat,
 .finance-stat-chip .money {
   /* 72px = chip padding, icon and gap: the room left for the amount on a row of its own. */
-  font-size: min(0.875rem, calc((100cqi - 72px) / (var(--group-money-chars, var(--money-chars, 10)) * 0.62))) !important;
-  font-weight: 800 !important;
+  font-size: min(0.875rem, calc((100cqi - 72px) / (var(--group-money-chars, var(--money-chars, 10)) * 0.62)));
+  font-weight: 800;
   line-height: 1.15;
   white-space: nowrap;
 }
@@ -347,12 +347,12 @@
    here was pure redundant dead weight. */
 
 .transaction-list-bare__rows {
-  background: var(--glass-bg) !important;
-  backdrop-filter: blur(24px) !important;
-  border: 1px solid var(--surface-border) !important;
-  border-radius: 2.5rem !important;
-  overflow: hidden !important;
-  box-shadow: var(--shadow-elevated, 0 10px 40px rgba(0, 0, 0, 0.3)) !important;
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--surface-border);
+  border-radius: 2.5rem;
+  overflow: hidden;
+  box-shadow: var(--shadow-elevated, 0 10px 40px rgba(0, 0, 0, 0.3));
 }
 
 .transaction-list-bare__rows .txn-row-wrap {
@@ -381,12 +381,12 @@
 }
 
 .transaction-list-bare .action-row__content {
-  background: transparent !important;
+  background: transparent;
 }
 
 .transaction-row {
-  border-bottom: none !important;
-  padding: 18px 24px !important;
-  background: transparent !important;
+  border-bottom: none;
+  padding: 18px 24px;
+  background: transparent;
 }
 
