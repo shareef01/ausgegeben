@@ -330,6 +330,7 @@ export function CashFlowChart({ trend, currency = 'EUR' }: CashFlowChartProps) {
         {point && hoverIdx !== null ? (
           <CashFlowTooltip
             anchorX={incomePts[hoverIdx].x}
+            minLeft={padLeft}
             containerWidth={width}
             label={point.label}
             income={formatAmount(point.income, currency, true, locale)}
@@ -372,6 +373,7 @@ export function CashFlowChart({ trend, currency = 'EUR' }: CashFlowChartProps) {
 
 function CashFlowTooltip({
   anchorX,
+  minLeft,
   containerWidth,
   label,
   income,
@@ -380,6 +382,8 @@ function CashFlowTooltip({
   expenseLabel,
 }: {
   anchorX: number;
+  /** Left edge of the plot area: the tooltip stays right of the y-axis labels when it can. */
+  minLeft: number;
   containerWidth: number;
   label: string;
   income: string;
@@ -395,9 +399,10 @@ function CashFlowTooltip({
     const el = ref.current;
     if (!el) return;
     const w = el.offsetWidth;
-    const left = Math.min(Math.max(TOOLTIP_EDGE, anchorX - w / 2), Math.max(TOOLTIP_EDGE, containerWidth - w - TOOLTIP_EDGE));
+    // Where the plot is too narrow for both, staying on screen wins over clearing the axis.
+    const left = Math.min(Math.max(minLeft, anchorX - w / 2), Math.max(TOOLTIP_EDGE, containerWidth - w - TOOLTIP_EDGE));
     applyCss(el, { '--tooltip-left': `${left}px` });
-  }, [anchorX, containerWidth, label, income, expense]);
+  }, [anchorX, minLeft, containerWidth, label, income, expense]);
 
   return (
     <div ref={ref} className="cashflow-tooltip" role="status">

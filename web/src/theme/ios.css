@@ -163,15 +163,11 @@ body {
   }
 }
 
-/* Narrow phones (SE / mini): keep the dock from overflowing */
+/* Narrow phones (SE / mini): keep the dock from overflowing. The nav items are not pinned to
+   a fixed width here any more: that rule predates the visible labels and squeezed every item
+   to 44px, so "einblicke" and "einstellungen" ran into each other. Items size to their
+   labels (polish.css) and only shrink, truncating the label, when the dock really is full. */
 @media (max-width: 379px) {
-  .bottom-nav-pill__item {
-    width: 2.75rem;
-    height: 2.75rem;
-    min-width: 2.75rem;
-    min-height: 2.75rem;
-  }
-
   .mobile-dock {
     gap: 0.35rem;
     bottom: calc(0.85rem + var(--safe-bottom-pad, var(--safe-bottom, 0px)));

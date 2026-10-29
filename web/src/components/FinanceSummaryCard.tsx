@@ -4,6 +4,7 @@ import { MoneyText } from '@/components/ui';
 import { useTranslation } from '@/i18n';
 import { IconArrowUp, IconArrowDown, IconTransfer } from '@/components/Icons';
 import { formatAmount } from '@/utils/currency';
+import { useCssProps } from '@/utils/cssVars';
 
 interface FinanceSummaryCardProps {
   expenses: Expense[];
@@ -15,6 +16,14 @@ export function FinanceSummaryCard({ expenses, currency, periodLabel }: FinanceS
   const { t } = useTranslation();
   const { totalExpenses, totalIncome, totalTransfers, transferCount, net } = computeTotals(expenses);
   const tone = net > 0 ? 'positive' : net < 0 ? 'negative' : 'neutral';
+  // The chips' amounts share one size, set by the longest, so a short "250,00 CHF" does not
+  // render larger than the totals beside it when they are shrunk to fit.
+  const statsRef = useCssProps<HTMLDivElement>({
+    '--group-money-chars': Math.max(
+      ...[totalIncome, totalExpenses, ...(totalTransfers > 0 ? [totalTransfers] : [])].map((v) => formatAmount(v, currency).length),
+      4,
+    ),
+  });
 
   return (
     <div className="finance-summary-card card--pro">
@@ -26,7 +35,7 @@ export function FinanceSummaryCard({ expenses, currency, periodLabel }: FinanceS
         currency={currency}
         className={`finance-summary-card__balance finance-summary-card__balance--${tone}`}
       />
-      <div className="finance-summary-card__stats">
+      <div ref={statsRef} className="finance-summary-card__stats">
         <StatChip variant="income" label={t('summaryEarned')} value={totalIncome} currency={currency} />
         <StatChip variant="expense" label={t('summarySpent')} value={totalExpenses} currency={currency} />
         {/* Transfers are neither income nor expense, so `net` above excludes them. Showing the

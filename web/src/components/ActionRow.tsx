@@ -64,6 +64,18 @@ export function ActionRow({ children, onEdit, onDuplicate, onDelete, ariaLabel }
     if (restoreFocus) moreRef.current?.focus({ preventScroll: true });
   }, []);
 
+  // Deleting removes this row, so focus would fall to <body> and a keyboard or screen-reader
+  // user would lose their place. Hand it to the next row first (or the previous one at the
+  // end of the list).
+  const deleteAndRefocus = useCallback(() => {
+    const rows = [...document.querySelectorAll<HTMLElement>('.action-row__content')];
+    const own = moreRef.current?.closest('.action-row')?.querySelector<HTMLElement>('.action-row__content');
+    const index = own ? rows.indexOf(own) : -1;
+    const neighbour = index >= 0 ? rows[index + 1] ?? rows[index - 1] : undefined;
+    neighbour?.focus();
+    onDelete();
+  }, [onDelete]);
+
   const onPointerDown = (e: ReactPointerEvent) => {
     // A long press that ended without a click (Android fires contextmenu instead) must not
     // swallow the next genuine tap.
@@ -110,7 +122,7 @@ export function ActionRow({ children, onEdit, onDuplicate, onDelete, ariaLabel }
     } else if (e.key === 'Delete') {
       // Undo-able (the delete toast offers Undo), so a direct shortcut is safe.
       e.preventDefault();
-      onDelete();
+      deleteAndRefocus();
     } else if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
       e.preventDefault();
       setMenuOpen('keyboard');
@@ -154,7 +166,7 @@ export function ActionRow({ children, onEdit, onDuplicate, onDelete, ariaLabel }
           items={[
             { key: 'edit', label: t('editOrTap'), icon: <IconEdit width={16} height={16} aria-hidden />, run: onEdit },
             { key: 'duplicate', label: t('recordDuplicate'), icon: <IconLayers width={16} height={16} aria-hidden />, run: onDuplicate },
-            { key: 'delete', label: t('recordSwipeDelete'), icon: <IconDelete width={16} height={16} aria-hidden />, run: onDelete, danger: true },
+            { key: 'delete', label: t('recordSwipeDelete'), icon: <IconDelete width={16} height={16} aria-hidden />, run: deleteAndRefocus, danger: true },
           ]}
         />
       ) : null}

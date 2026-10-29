@@ -131,7 +131,12 @@ be re-run (emulator).
 | --- | --- |
 | — | ~~Blocked: e2e suite not run~~ — resolved: CI ran all 23 e2e tests on PR #107, including `recordRowActions.spec.ts`; all passed. |
 | — | ~~Batch 3 not started~~ — done; see section 6. |
-| Medium | 52 `!important` declarations remain, mostly the `premium.css` "master override" fighting earlier files (section 6). Untangling them changes specificity everywhere and needs its own pass. |
+| — | ~~52 `!important` declarations~~ — 23 removed with a zero-diff proof; the 29 left are deliberate (section 7). |
+| — | ~~Screens needing live data unchecked~~ — checked; 200% text on phones clipped amounts and is fixed (section 7). |
+| — | ~~Focus after deleting a row, tooltip over the axis, two-line category clamp~~ — fixed (section 7). |
+| Low | Category names longer than ~30 characters still clamp after three lines (full name in the tooltip and accessible name). |
+| Low | At 200% text the bottom-nav labels truncate inside their buttons; icons and accessible names are unaffected. |
+| Low | WebKit checks ran in Playwright on Windows, not on a physical iPhone. |
 | Low | Category tiles clamp at two lines, so "Lebensmittel – Wochenmarkt" can show as "Lebensmittel –…" (the full name is in the tooltip and accessible name). |
 | Low | The chart tooltip sits over the top tick label while open (same as before). |
 | Low | The QA matrix covered the harness sizes and themes listed above, not screens that need live data (Settings, onboarding, offline/pending states, the 200% text-scale pass). |
@@ -190,6 +195,64 @@ real phone, the zoom-out pushed the fixed bottom nav **off-screen**. At 320px th
 legend also overflowed. The stat rows now wrap by content and the card header wraps. The sweep
 now shows no overflow on Record, Insights or Settings at 320/375/390/430 for either account
 (`css/before|after-overflow-heavy-375-insights.png`).
+
+## 7. Round 2 — live-data screens, 200% text, `!important` (web)
+
+**Live-data screens** (`web/qa/states.mjs`). Checked: onboarding (en/de, phone and desktop), the
+empty account, the offline banner, a save queued while offline ("saved in this tab · keep it open
+until you're back online"), the unsaved-changes guard, and every main screen at 200% text.
+Everything passed except **200% text on a phone, where money was clipped**:
+
+- **Record:** the balance ran off the card, and the income/spending chips read "1…." / "13…".
+- **Insights:** the three totals were clipped.
+- **Page titles:** "einstellungen" and "SYNCHRONISIERUNG" were cut off.
+- **Bottom nav:** labels overlapped.
+
+Fixes:
+
+- Hero and total amounts keep their size when they fit, and otherwise shrink to fit the card.
+  `MoneyText` exposes the string length as `--money-chars`, and each group of figures shares
+  one size, set by its longest member.
+- Chips and rows wrap by content.
+- Category rows switch to two lines when narrow relative to their own text (an em-based
+  container query).
+- Long single words hyphenate.
+
+The chip fix also covers a bug on `main` **at normal size**: on a 375px phone with large CHF
+totals, the chips read "1.239.99…".
+
+The nav overlap had an older cause: an `ios.css` rule pinned each nav item to 44px under 380px.
+It predates the visible labels, so even at normal size "einblicke" and "einstellungen" ran
+together. With that rule removed, all labels are complete at 320/375/430, and they only
+truncate (inside their own button) at 200%.
+
+**Polish** (`web/qa/polish-checks.mjs`):
+
+- Deleting a row by key or from the menu now moves focus to the next row.
+- The tooltip stays right of the y-axis labels.
+- Category tiles grow up to 8.5rem and allow three lines.
+
+**`!important`.** I removed 23 of the 52:
+
+- the whole `premium.css` "master override" on the Record list
+- the counter-`!important` that `ActionRow` needed to beat it
+- the stat-chip fonts
+- the Insights card padding/radius, which now outranks `.card` through a `.card.insights-*` rule
+- the light-theme list background, which only existed to beat the premium one
+
+The computed-style diff against the previous commit is **identical across 98 states / 107,910
+element styles**. A static check found no `:hover`/`:focus`/`[aria-*]` rule on those classes
+that the flags had been suppressing.
+
+The 29 left are deliberate:
+
+| File | Kept `!important` for |
+| --- | --- |
+| global.css (7) | reduced motion (5); logo mark size (2) |
+| layout.css (2) | the `!`-prefixed utility escapes |
+| pages.css (4) | donut reduced motion (2); auth form (2) |
+| polish.css (6) | reduced motion (2); light-theme shadows (3); `.text-black` |
+| ios.css (10) | body and scroll lock, which must beat inline styles (6); safe-area overlay (4) |
 
 ## 5. Files
 

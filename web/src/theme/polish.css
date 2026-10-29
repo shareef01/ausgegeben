@@ -148,6 +148,7 @@
 .insights-summary-dock {
   display: flex;
   flex-direction: column;
+  container-type: inline-size; /* the values size themselves against this width */
   padding: 6px 0;
   background: var(--glass-bg-elevated);
   border: 1px solid var(--surface-border);
@@ -157,9 +158,10 @@
 
 .insights-summary-dock__row {
   display: flex;
+  flex-wrap: wrap; /* the amount drops under its label rather than run off the card */
   align-items: baseline;
   justify-content: space-between;
-  gap: 16px;
+  gap: 4px 16px;
   padding: 14px 18px;
 }
 
@@ -176,7 +178,9 @@
 }
 
 .insights-summary-dock__value {
-  font-size: 1.25rem;
+  margin-left: auto;
+  /* 36px = the row's horizontal padding. */
+  font-size: min(1.25rem, calc((100cqi - 36px) / (var(--group-money-chars, var(--money-chars, 10)) * 0.62)));
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
@@ -202,7 +206,7 @@
 
 @media (min-width: 768px) {
   .insights-summary-dock__value {
-    font-size: 1.375rem;
+    font-size: min(1.375rem, calc((100cqi - 36px) / (var(--group-money-chars, var(--money-chars, 10)) * 0.62)));
   }
 }
 
@@ -375,7 +379,9 @@
   font-weight: 600;
   line-height: 1.1;
   letter-spacing: 0.01em;
-  max-width: 4.25rem;
+  /* 100% too: when large text makes the items shrink below the label, the label truncates
+     inside its own item instead of running into the next one. */
+  max-width: min(4.25rem, 100%);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -451,7 +457,7 @@
 
 [data-theme='light'] .ledger-container,
 [data-theme='light'] .transaction-list-bare__rows {
-  background: var(--color-surface) !important;
+  background: var(--color-surface);
 }
 
 [data-theme='light'] .card--pro,
