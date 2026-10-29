@@ -97,3 +97,6 @@ docs/audit-summary.md
 docs/AUDIT_*.md
 CLEANUP_REPORT.md
 cleanup-deletions.json
+
+# Computed-style snapshots (hundreds of MB; regenerate with web/qa/style-snapshot.mjs)
+docs/design-qa/css/*.json

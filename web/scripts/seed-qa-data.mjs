@@ -16,7 +16,7 @@
  */
 import { initializeApp } from 'firebase/app';
 import { connectAuthEmulator, createUserWithEmailAndPassword, getAuth, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { connectFirestoreEmulator, doc, getFirestore, writeBatch } from 'firebase/firestore';
+import { connectFirestoreEmulator, doc, getFirestore, setDoc, writeBatch } from 'firebase/firestore';
 
 const PROJECT_ID = process.env.PROJECT_ID ?? 'demo-ausgegeben';
 const PASSWORD = 'qa-password-123';
@@ -109,14 +109,14 @@ async function signInFresh(auth, email) {
   return fresh.user.uid;
 }
 
+// One write per document: the rules look up the category for every expense, and a batch
+// request may only make a handful of such lookups in total.
 async function writeAll(db, uid, collection, docs) {
   const now = Date.now();
-  for (let i = 0; i < docs.length; i += 400) {
-    const batch = writeBatch(db);
-    for (const d of docs.slice(i, i + 400)) {
-      batch.set(doc(db, 'users', uid, collection, d.id), { ...d, updatedAt: now });
-    }
-    await batch.commit();
+  for (let i = 0; i < docs.length; i += 25) {
+    await Promise.all(
+      docs.slice(i, i + 25).map((d) => setDoc(doc(db, 'users', uid, collection, d.id), { ...d, updatedAt: now })),
+    );
   }
 }
 
@@ -131,6 +131,7 @@ async function main() {
   const batch = writeBatch(db);
   batch.set(doc(db, 'users', emptyUid, 'settings', 'preferences'), {
     currency: 'EUR', locale: 'en', themeMode: 'system', onboardingComplete: true,
+    dailyReminder: false, reminderHour: 19, reminderMinute: 0,
     analyticsPeriod: 'this_month', updatedAt: Date.now(),
   });
   await batch.commit();
@@ -143,7 +144,8 @@ async function main() {
   const prefs = writeBatch(db);
   prefs.set(doc(db, 'users', heavyUid, 'settings', 'preferences'), {
     currency: 'CHF', locale: 'de', themeMode: 'system', onboardingComplete: true,
-    analyticsPeriod: 'last_6_months', monthlyBudget: 2500, updatedAt: Date.now(),
+    dailyReminder: false, reminderHour: 19, reminderMinute: 0,
+    analyticsPeriod: 'all_time', monthlyBudget: 2500, updatedAt: Date.now(),
   });
   await prefs.commit();
 

@@ -264,7 +264,6 @@
   font-weight: 600;
   text-transform: none;
   letter-spacing: 0.01em;
-  color: var(--color-on-surface-variant);
 }
 
 .settings-group {
@@ -305,17 +304,6 @@
   .settings-page {
     gap: 28px;
   }
-
-  .settings-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px 24px;
-    align-items: start;
-  }
-
-  .settings-grid > :last-child:nth-child(odd) {
-    grid-column: 1 / -1;
-  }
 }
 
 /* ═══════════════════════════════════════════════════
@@ -334,7 +322,6 @@
   justify-content: center;
   padding: max(16px, var(--safe-top, 0px)) max(16px, var(--safe-right, 0px)) max(16px, var(--safe-bottom, 0px)) max(16px, var(--safe-left, 0px));
   animation: overlay-fade-in 0.2s ease both;
-  box-sizing: border-box;
 }
 
 @keyframes overlay-fade-in {
@@ -905,7 +892,6 @@
 }
 
 [data-theme='light'] .confirm-dialog {
-  background: var(--color-surface);
   box-shadow:
     0 2px 8px rgba(0, 0, 0, 0.04),
     0 16px 40px rgba(0, 0, 0, 0.1),
@@ -1613,10 +1599,6 @@
  *  SIGNATURE TEXT (brand first-letter accent)
  *  ═══════════════════════════════════════════════════ */
 
-.signature-text::first-letter {
-  color: var(--color-income-text);
-}
-
 .modal-title,
 .sheet--settings__title {
   width: fit-content;
@@ -2180,7 +2162,6 @@
   bottom: calc(100px + var(--safe-bottom-pad, var(--safe-bottom)));
   left: 50%;
   transform: translateX(-50%);
-  z-index: 190;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -3721,10 +3702,6 @@
   line-height: 1;
 }
 
-.auth-page__tagline {
-  color: var(--color-on-surface-variant);
-}
-
 .auth-page__tabs {
   width: 100%;
   margin-bottom: 28px;
@@ -4297,7 +4274,6 @@
 .settings-row__sub {
   margin-top: 2px;
   font-size: 0.8125rem;
-  color: var(--color-on-surface-variant);
 }
 
 .settings-row__sub--error {
