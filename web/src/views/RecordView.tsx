@@ -5,7 +5,7 @@ import { IosSegmentedControl } from '@/components/IosSegmentedControl';
 import { FinanceSummaryCard } from '@/components/FinanceSummaryCard';
 import { BudgetProgressBar } from '@/components/BudgetProgressBar';
 import { recordPeriodOptions, PremiumPeriodSelector } from '@/components/PeriodSelector';
-import { SwipeableRow } from '@/components/SwipeableRow';
+import { ActionRow } from '@/components/ActionRow';
 import { useRecordViewModel } from '@/viewmodels/useRecordViewModel';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useTranslation, type Locale } from '@/i18n';
@@ -433,10 +433,9 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
                    <div className="transaction-list-bare__rows flex flex-col">
                   {items.map((expense) => (
                     <div key={expense.id} className="txn-row-wrap">
-                      <SwipeableRow
+                      <ActionRow
                         onDelete={() => handleDelete(expense.id)}
-                        onTap={() => handleEdit(expense.id)}
-                        onLongPress={() => handleDuplicate(expense)}
+                        onEdit={() => handleEdit(expense.id)}
                         onDuplicate={() => handleDuplicate(expense)}
                         ariaLabel={recordRowAriaLabel(expense, catMap.get(expense.categoryId), currency, locale, t)}
                       >
@@ -445,7 +444,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
                           category={catMap.get(expense.categoryId)}
                           currency={currency}
                         />
-                      </SwipeableRow>
+                      </ActionRow>
                     </div>
                   ))}
                   </div>
@@ -461,7 +460,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
   );
 }
 
-const TransactionRow = memo(({ expense, category, currency }: {
+export const TransactionRow = memo(({ expense, category, currency }: {
   expense: Expense;
   category?: Category;
   currency: string;
@@ -475,7 +474,8 @@ const TransactionRow = memo(({ expense, category, currency }: {
     : isTransfer
       ? 'transaction-row__amount--transfer'
       : 'transaction-row__amount--expense';
-  const prefix = isIncome ? '+' : expense.transactionType === 'expense' ? '-' : '';
+  // No sign on a zero amount: "-0,00 €" reads like a debt.
+  const prefix = expense.amount === 0 ? '' : isIncome ? '+' : expense.transactionType === 'expense' ? '-' : '';
 
   const note = expense.note?.trim();
   const categoryName = category?.name || t('recordUnknownCategory');
@@ -532,7 +532,9 @@ function recordRowAriaLabel(
   const categoryName = category?.name || t('recordUnknownCategory');
   const formatted = formatAmount(expense.amount, currency, true, locale);
   const amount =
-    expense.transactionType === 'income'
+    expense.amount === 0
+      ? formatted
+      : expense.transactionType === 'income'
       ? `+${formatted}`
       : expense.transactionType === 'expense'
         ? `−${formatted}`

@@ -36,8 +36,8 @@ test('editing a transaction requires confirmation before discarding changes', as
     });
   });
 
-  // Open the row for editing (tap-to-edit on the swipeable row).
-  await page.locator('.swipeable-row__content').first().click();
+  // Open the row for editing (tap-to-edit on the action row).
+  await page.locator('.action-row__content').first().click();
   const dialog = page.getByRole('dialog', { name: en.editTransaction });
   await expect(dialog).toBeVisible({ timeout: 15_000 });
 
@@ -46,7 +46,7 @@ test('editing a transaction requires confirmation before discarding changes', as
   await expect(dialog).toHaveCount(0);
 
   // Re-open, change the note, then try to leave.
-  await page.locator('.swipeable-row__content').first().click();
+  await page.locator('.action-row__content').first().click();
   await expect(dialog).toBeVisible({ timeout: 15_000 });
   await page.locator('#txn-note').fill('Changed note');
   await page.keyboard.press('Escape');

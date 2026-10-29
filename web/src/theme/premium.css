@@ -378,7 +378,7 @@
   pointer-events: none;
 }
 
-.transaction-list-bare .swipeable-row__content {
+.transaction-list-bare .action-row__content {
   background: transparent !important;
 }
 

@@ -107,6 +107,34 @@ export function parseAmount(input: string, currency = 'EUR'): number | null {
  * opened it. Both re-parse correctly, so nothing was miscalculated; it was purely a
  * visible parity gap. Asserted by MoneyParityTest / moneyParity.test.ts.
  */
+/**
+ * Short currency label for chart axes, in the app locale: "€1.2K" / "1,2 Tsd. €".
+ *
+ * Intl's German compact notation leaves thousands unabbreviated ("123.456,8 €"), which does
+ * not fit an axis gutter, so German thousands use the standard "Tsd." abbreviation. Axis
+ * labels only — summaries and tooltips keep exact amounts via formatAmount.
+ */
+export function formatAxisAmount(amount: number, currency = 'EUR', locale?: Locale): string {
+  const loc = locale ?? getLocale();
+  const tag = localeTag(loc);
+  const abs = Math.abs(amount);
+  if (abs < 1000) {
+    return new Intl.NumberFormat(tag, { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount);
+  }
+  if (loc === 'de' && abs < 1_000_000) {
+    return new Intl.NumberFormat(tag, { style: 'currency', currency, maximumFractionDigits: 1 })
+      .formatToParts(amount / 1000)
+      .map((part) => (part.type === 'literal' && /\s/.test(part.value) ? ` Tsd.${part.value}` : part.value))
+      .join('');
+  }
+  return new Intl.NumberFormat(tag, {
+    style: 'currency',
+    currency,
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(amount);
+}
+
 export function formatAmountForInput(amount: number, currency = 'EUR'): string {
   const text = amount.toFixed(2);
   return decimalSeparatorFor(currency) === ',' ? text.replace('.', ',') : text;

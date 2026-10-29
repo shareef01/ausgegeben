@@ -18,6 +18,7 @@ import type {
 import { useHaptics } from '@/hooks/useHaptics';
 import { IconInsights } from '@/components/Icons';
 import { useCssProps } from '@/utils/cssVars';
+import { useThemeRevision } from '@/hooks/useThemeRevision';
 
 export function InsightsView({ onAdd, onManageBudgets }: { onAdd?: () => void; onManageBudgets?: () => void }) {
   const { t } = useTranslation();
@@ -214,8 +215,10 @@ interface CategoryCardProps {
 
 const TOP_CATEGORY_COUNT = 6;
 
-function CategoryCard({ title, map, categories, currency, accent }: CategoryCardProps) {
+export function CategoryCard({ title, map, categories, currency, accent }: CategoryCardProps) {
   const { t } = useTranslation();
+  // segmentColor() and the "other" swatch resolve against the live palette.
+  const themeRevision = useThemeRevision();
   const entries = useMemo(() => [...map.entries()].sort((a, b) => b[1] - a[1]), [map]);
   const total = useMemo(() => entries.reduce((s, [, v]) => s + v, 0), [entries]);
 
@@ -245,7 +248,8 @@ function CategoryCard({ title, map, categories, currency, accent }: CategoryCard
       });
     }
     return rows;
-  }, [entries, categories, t]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- themeRevision invalidates resolved colours
+  }, [entries, categories, t, themeRevision]);
 
   const segments = useMemo(() => {
     if (total <= 0) return [];
@@ -456,6 +460,8 @@ function PeriodComparisonCard({ comparison, currency }: { comparison: PeriodComp
 
 function CategoryMoversCard({ movers, currency }: { movers: CategoryMover[]; currency: string }) {
   const { t } = useTranslation();
+  // Re-render on palette changes: segmentColor() below reads the live theme.
+  useThemeRevision();
 
   if (movers.length === 0) return null;
 
