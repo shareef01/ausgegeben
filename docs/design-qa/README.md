@@ -117,6 +117,7 @@ be re-run (emulator).
 | Finding | Status |
 | --- | --- |
 | Duplicate only by long press on touch; long press acted immediately | implemented, verified |
+| Android: long press on a Record row duplicated at once, with no visible duplicate control | fixed in #108: a 48dp more button opens Edit, Duplicate, Delete; long press opens the same menu |
 | Row exposed as `group`; actions only appeared on hover/focus | implemented, verified |
 | Chart values unreachable without a pointer | implemented, verified |
 | Selected category conveyed by colour only (and invisible in light themes) | implemented, verified |
@@ -129,7 +130,6 @@ be re-run (emulator).
 | Severity | Issue |
 | --- | --- |
 | High (verification) | **Blocked:** the full app and e2e suite (including the new `e2e/recordRowActions.spec.ts`) were not run; the Firestore emulator will not start on this machine. Run `npm run test:e2e` where it does. |
-| Medium | **Android:** long press on a Record row still duplicates immediately (`RecordScreen.kt` `onLongClick`). Swipe works and there are TalkBack custom actions, but sighted touch users have no visible duplicate control. This now differs from web. |
 | Medium | Batch 3 (controlled CSS cleanup of the nine-file override stack) was **not started**: no duplicate/conflict inventory and no iOS/Android scroll-lock check. |
 | Low | Category tiles clamp at two lines, so "Lebensmittel – Wochenmarkt" can show as "Lebensmittel –…" (the full name is in the tooltip and accessible name). |
 | Low | The chart tooltip sits over the top tick label while open (same as before). |
