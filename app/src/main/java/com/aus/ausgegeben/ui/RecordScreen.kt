@@ -25,6 +25,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -387,7 +388,7 @@ fun RecordScreen(
                                         icon = iconForCategory(category?.iconName, category?.name),
                                         currencyCode = currencyCode,
                                         onClick = { onExpenseClick(expense) },
-                                        onLongClick = {
+                                        onDuplicate = {
                                             viewModel.duplicateExpense(expense) { success, error ->
                                                 if (success) onExpenseDuplicated() else onExpenseDuplicateFailed(error)
                                             }
@@ -971,16 +972,23 @@ private fun DateSectionHeader(
     }
 }
 
+/**
+ * Tap edits, the trailing "more" button opens a menu (edit, duplicate, delete), and long
+ * press opens that same menu. Long press used to duplicate straight away: a hidden
+ * gesture with an immediate side effect, and the only way a sighted touch user could
+ * duplicate. Swipes stay as accelerators; delete always goes through [onDeleteRequest],
+ * which asks for confirmation.
+ */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-private fun SwipeableTransactionRow(
+internal fun SwipeableTransactionRow(
     expense: Expense,
     categoryName: String,
     categoryColor: Int?,
     icon: ImageVector,
     currencyCode: String,
     onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    onDuplicate: () -> Unit,
     onDeleteRequest: () -> Unit
 ) {
     val incomeColor = financeIncomeColor()
@@ -988,6 +996,7 @@ private fun SwipeableTransactionRow(
     val haptics = rememberAppHaptics()
     val deleteColor = financeExpenseColor()
     val editSwipeColor = MaterialTheme.colorScheme.primary
+    var menuOpen by remember { mutableStateOf(false) }
 
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { 
@@ -1090,7 +1099,7 @@ private fun SwipeableTransactionRow(
                     },
                     onLongClick = {
                         haptics.medium()
-                        onLongClick()
+                        menuOpen = true
                     },
                 )
         ) {
@@ -1103,8 +1112,103 @@ private fun SwipeableTransactionRow(
                 incomeColor,
                 expenseColor,
                 onDeleteAction = onDeleteRequest,
-                onDuplicateAction = onLongClick,
+                onDuplicateAction = onDuplicate,
+                trailing = { rowDescription ->
+                    TransactionRowMenu(
+                        rowDescription = rowDescription,
+                        expanded = menuOpen,
+                        onExpandedChange = { menuOpen = it },
+                        onEdit = onClick,
+                        onDuplicate = onDuplicate,
+                        onDelete = onDeleteRequest,
+                    )
+                },
             )
+        }
+    }
+}
+
+@Composable
+private fun TransactionRowMenu(
+    rowDescription: String,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    onEdit: () -> Unit,
+    onDuplicate: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val deleteColor = MaterialTheme.colorScheme.error
+    Box {
+        AppIconButton(
+            onClick = { onExpandedChange(true) },
+            icon = Icons.Rounded.MoreVert,
+            contentDescription = stringResource(R.string.record_row_actions_for, rowDescription),
+            tint = RecordAuroraTokens.slate(),
+        )
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { onExpandedChange(false) },
+        ) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.action_edit)) },
+                leadingIcon = { Icon(Icons.Rounded.Edit, contentDescription = null) },
+                onClick = {
+                    onExpandedChange(false)
+                    onEdit()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.a11y_action_duplicate)) },
+                leadingIcon = { Icon(Icons.Rounded.ContentCopy, contentDescription = null) },
+                onClick = {
+                    onExpandedChange(false)
+                    onDuplicate()
+                },
+            )
+            HorizontalDivider()
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.a11y_action_delete), color = deleteColor) },
+                leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null, tint = deleteColor) },
+                onClick = {
+                    onExpandedChange(false)
+                    onDelete()
+                },
+            )
+        }
+    }
+}
+
+/**
+ * Category name (with note) beside the amount when both fit; otherwise the amount drops
+ * under the name, end-aligned. A very large amount at 320dp or a big font scale would
+ * otherwise squeeze the name to zero width.
+ */
+@Composable
+private fun NameAmountLayout(
+    name: @Composable () -> Unit,
+    amount: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Layout(contents = listOf(name, amount), modifier = modifier) { (nameMeasurables, amountMeasurables), constraints ->
+        val gap = 8.dp.roundToPx()
+        val minNameWidth = 96.dp.roundToPx()
+        val width = constraints.maxWidth
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val amount = amountMeasurables.first().measure(loose)
+        if (width - amount.width - gap >= minNameWidth) {
+            val name = nameMeasurables.first().measure(loose.copy(maxWidth = width - amount.width - gap))
+            val height = maxOf(name.height, amount.height).coerceAtLeast(constraints.minHeight)
+            layout(width, height) {
+                name.placeRelative(0, (height - name.height) / 2)
+                amount.placeRelative(width - amount.width, (height - amount.height) / 2)
+            }
+        } else {
+            val name = nameMeasurables.first().measure(loose)
+            val height = (name.height + amount.height).coerceAtLeast(constraints.minHeight)
+            layout(width, height) {
+                name.placeRelative(0, 0)
+                amount.placeRelative(width - amount.width, name.height)
+            }
         }
     }
 }
@@ -1120,6 +1224,7 @@ fun TransactionRow(
     expenseColor: Color,
     onDeleteAction: (() -> Unit)? = null,
     onDuplicateAction: (() -> Unit)? = null,
+    trailing: (@Composable (rowDescription: String) -> Unit)? = null,
 ) {
     val isIncome = expense.isIncome()
     val isTransfer = expense.isTransfer()
@@ -1240,50 +1345,55 @@ fun TransactionRow(
         
         Spacer(modifier = Modifier.width(12.dp))
         
-        // [Column containing Category/Note]
-        Column(
+        // [Category/Note beside the amount, or the amount under them when space runs out]
+        NameAmountLayout(
             modifier = Modifier
                 .weight(1f)
-                .padding(vertical = 16.dp)
-                .padding(end = 8.dp)
-        ) {
-            Text(
-                text = categoryName, 
-                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), 
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (expense.note.isNotBlank()) {
-                Text(
-                    text = expense.note, 
-                    style = MaterialTheme.typography.labelMedium, 
-                    color = RecordAuroraTokens.slate(), 
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-        
-        Spacer(Modifier.width(8.dp))
-
-        // SECURE: Amount has a dedicated non-shrinking boundary to prevent overlap
-        Text(
-            text = when {
-                isIncome -> "+" + CurrencyUtils.formatAmount(expense.amount, currencyCode)
-                isTransfer -> CurrencyUtils.formatAmount(expense.amount, currencyCode)
-                else -> "-" + CurrencyUtils.formatAmount(expense.amount, currencyCode)
+                .padding(vertical = 16.dp),
+            name = {
+                Column {
+                    Text(
+                        text = categoryName,
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (expense.note.isNotBlank()) {
+                        Text(
+                            text = expense.note,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = RecordAuroraTokens.slate(),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
             },
-            modifier = Modifier
-                .widthIn(min = 80.dp)
-                .padding(end = 14.dp),
-            style = TextStyle(
-                fontSize = 15.sp, 
-                fontWeight = FontWeight.Bold,
-                fontFeatureSettings = "tnum",
-                color = amountColor,
-                textAlign = TextAlign.End
-            )
+            amount = {
+                Text(
+                    text = when {
+                        isIncome -> "+" + CurrencyUtils.formatAmount(expense.amount, currencyCode)
+                        isTransfer -> CurrencyUtils.formatAmount(expense.amount, currencyCode)
+                        else -> "-" + CurrencyUtils.formatAmount(expense.amount, currencyCode)
+                    },
+                    style = TextStyle(
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFeatureSettings = "tnum",
+                        color = amountColor,
+                        textAlign = TextAlign.End
+                    )
+                )
+            },
         )
+
+        if (trailing != null) {
+            Spacer(Modifier.width(4.dp))
+            trailing(rowDescription)
+            Spacer(Modifier.width(2.dp))
+        } else {
+            Spacer(Modifier.width(14.dp))
+        }
     }
 }

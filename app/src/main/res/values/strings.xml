@@ -284,7 +284,7 @@
     <string name="onboarding_get_started">Get started</string>
     <string name="onboarding_enable_reminders">Enable reminders &amp; continue</string>
     <string name="onboarding_title_gestures">Quick gestures</string>
-    <string name="onboarding_body_gestures">Swipe left on a transaction to delete. Long-press to duplicate. Tap + anytime to add a new entry.</string>
+    <string name="onboarding_body_gestures">Swipe left on a transaction to delete. Long-press or tap ⋮ for more actions. Tap + anytime to add a new entry.</string>
 
     <!-- Notifications -->
     <string name="notification_channel_name">Daily reminders</string>
@@ -401,6 +401,7 @@
     <string name="desc_expense_row">%1$s expense of %2$s. %3$s</string>
     <string name="a11y_action_delete">Delete transaction</string>
     <string name="a11y_action_duplicate">Duplicate for today</string>
+    <string name="record_row_actions_for">More actions: %1$s</string>
     <string name="desc_transfer_row">%1$s transfer of %2$s. %3$s</string>
     <string name="desc_finance_summary">Finance summary for %1$s. Net balance %2$s. Total earned %3$s. Total spent %4$s.</string>
     <string name="record_filter">Filter by type</string>
@@ -408,7 +409,7 @@
     <string name="filter_all_categories">All categories</string>
     <string name="record_pick_month">Pick a month</string>
     <string name="record_clear_month_filter">Back to this month</string>
-    <string name="record_gesture_hints">Swipe left to delete · Swipe right to edit · Long-press to duplicate</string>
+    <string name="record_gesture_hints">Swipe left to delete · Swipe right to edit · Long-press for more</string>
     <string name="state_loading">Loading…</string>
     <string name="add_confirm_transaction">Confirm Transaction</string>
     <!-- Shown on the save button while it is disabled, so it says what is missing
