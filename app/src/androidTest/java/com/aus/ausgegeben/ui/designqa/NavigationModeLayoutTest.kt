@@ -31,7 +31,6 @@ import com.aus.ausgegeben.ui.components.AppFab
 import com.aus.ausgegeben.ui.components.MainBottomNavigation
 import org.junit.After
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -58,8 +57,11 @@ class NavigationModeLayoutTest(
         @JvmStatic
         @Parameterized.Parameters(name = "{0}-{3}-{1}-x{2}")
         fun matrix(): List<Array<Any>> =
-            listOf("gesture", "3button").flatMap { mode ->
-                listOf(SmallPhone.copy(heightDp = null), TypicalPhone).flatMap { d ->
+            // Switching the navigation mode is system-wide: emulator only, and only where
+            // there is a navigation bar to switch.
+            if (!isEmulator() || !hasSoftwareNavigationBar()) emptyList()
+            else listOf("gesture", "3button").flatMap { mode ->
+                qaDevicesThatFit().map { if (it == SmallPhone) it.copy(heightDp = null) else it }.flatMap { d ->
                     listOf(arrayOf<Any>(mode, d, 2.0f, "de"), arrayOf<Any>(mode, d, 1.0f, "en"))
                 }
             }
@@ -84,7 +86,6 @@ class NavigationModeLayoutTest(
 
     @Before
     fun setNavMode() {
-        assumeTrue("switches the system navigation mode; emulator only", isEmulator())
         shell("cmd overlay enable-exclusive --category ${if (navMode == "3button") THREE_BUTTON else GESTURAL}")
         val threeButtonMinPx = compose.density.run { 40f * density }
         // The bar animates in; wait until the inset reports the new mode.
@@ -96,7 +97,7 @@ class NavigationModeLayoutTest(
 
     @After
     fun restoreGestures() {
-        if (isEmulator()) shell("cmd overlay enable-exclusive --category $GESTURAL")
+        shell("cmd overlay enable-exclusive --category $GESTURAL")
     }
 
     @Test

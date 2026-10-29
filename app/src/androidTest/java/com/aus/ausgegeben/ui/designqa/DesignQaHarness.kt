@@ -251,5 +251,35 @@ fun QaRule.saveShot(name: String) {
     File(dir, "$name.webp").outputStream().use { bitmap.compress(format, 85, it) }
 }
 
+/**
+ * The phones this device can stand in for. A 411dp phone cannot be laid out on a narrower
+ * screen (the frame would silently shrink), so such cases are left out rather than skipped:
+ * Gradle's connected-test report counts a skipped (assumption-failed) test as a failure.
+ */
+fun qaDevicesThatFit(): List<QaDevice> {
+    val screenWidthDp = InstrumentationRegistry.getInstrumentation().targetContext.resources.configuration.screenWidthDp
+    return listOf(SmallPhone, TypicalPhone).filter { it.widthDp <= screenWidthDp }
+}
+
+/**
+ * Whether the device draws a software navigation bar. An AVD made without a device profile
+ * has hardware keys (qemu.hw.mainkeys=1) and none, so there is no navigation mode to test.
+ */
+fun hasSoftwareNavigationBar(): Boolean {
+    val res = android.content.res.Resources.getSystem()
+    val id = res.getIdentifier("config_showNavigationBar", "bool", "android")
+    val configured = id != 0 && res.getBoolean(id)
+    val mainKeys = runCatching {
+        Class.forName("android.os.SystemProperties")
+            .getMethod("get", String::class.java, String::class.java)
+            .invoke(null, "qemu.hw.mainkeys", "") as String
+    }.getOrDefault("")
+    return when (mainKeys) {
+        "1" -> false
+        "0" -> true
+        else -> configured
+    }
+}
+
 fun isEmulator(): Boolean =
     Build.FINGERPRINT.contains("generic") || Build.HARDWARE.contains("ranchu") || Build.PRODUCT.contains("sdk")

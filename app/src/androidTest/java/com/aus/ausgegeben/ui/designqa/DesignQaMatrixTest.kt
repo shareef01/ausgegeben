@@ -50,7 +50,7 @@ class DesignQaMatrixTest(
         @JvmStatic
         @Parameterized.Parameters(name = "{2}-{0}-x{1}")
         fun matrix(): List<Array<Any>> =
-            listOf(SmallPhone, TypicalPhone).flatMap { d ->
+            qaDevicesThatFit().flatMap { d ->
                 listOf(1.0f, 1.3f, 2.0f).flatMap { s -> listOf("de", "en").map { arrayOf<Any>(d, s, it) } }
             }
     }

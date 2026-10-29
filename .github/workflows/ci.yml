@@ -142,6 +142,10 @@ jobs:
           api-level: 29
           target: google_apis
           arch: x86_64
+          # A phone-sized screen with a software navigation bar. Without a profile the AVD is
+          # 320x640 with hardware keys, so the 411dp design-QA cases and the gesture/3-button
+          # navigation test have nothing to run against.
+          profile: pixel_6
           disable-animations: true
           script: ./gradlew connectedProdDebugAndroidTest --no-daemon
 
