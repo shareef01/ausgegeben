@@ -291,26 +291,14 @@ fun MainApp(
             },
             bottomBar = {
                 if (overlay.showBottomNav) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.background),
-                    ) {
-                        MainBottomBar(
-                            currentRoute = overlay.selectedTab,
-                            onNavigate = { route ->
-                                if (overlay.selectedTab != route) {
-                                    overlay.selectedTab = route
-                                }
-                            },
-                        )
-                        Spacer(
-                            Modifier
-                                .fillMaxWidth()
-                                .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                                .background(MaterialTheme.colorScheme.background),
-                        )
-                    }
+                    MainBottomNavigation(
+                        currentRoute = overlay.selectedTab,
+                        onNavigate = { route ->
+                            if (overlay.selectedTab != route) {
+                                overlay.selectedTab = route
+                            }
+                        },
+                    )
                 }
             }
         ) { innerPadding ->

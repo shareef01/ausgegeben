@@ -3,7 +3,8 @@ package com.aus.ausgegeben.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,12 +17,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.financeExpenseColor
 import com.aus.ausgegeben.ui.theme.financeIncomeColor
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun BudgetProgressBar(
     spent: Double,
@@ -43,10 +46,12 @@ fun BudgetProgressBar(
             .fillMaxWidth()
             .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs),
     ) {
-        Row(
+        // "Spent / budget" moves under the label when both do not fit on one line; it used
+        // to be ellipsised to "145.93..." beside the label.
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            itemVerticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = androidx.compose.ui.res.stringResource(
@@ -62,7 +67,8 @@ fun BudgetProgressBar(
                     com.aus.ausgegeben.util.CurrencyUtils.formatAmount(budget, currencyCode)
                 ),
                 size = MoneySize.Body,
-                color = if (overBudget) expenseColor else MaterialTheme.colorScheme.onBackground
+                color = if (overBudget) expenseColor else MaterialTheme.colorScheme.onBackground,
+                textAlign = TextAlign.End,
             )
         }
         Spacer(modifier = Modifier.height(AppSpacing.sm))

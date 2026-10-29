@@ -324,17 +324,20 @@ fun IosSegmentedControl(
                             modifier = Modifier.size(20.dp),
                         )
                     } else {
-                        Text(
+                        // Shrinks, then wraps, rather than clipping: "Einnahme" was cut to
+                        // "einnahm" at large text on a 320dp phone.
+                        AutoScalingText(
                             text = label,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                            ),
+                            minFontSize = 9.sp,
                             color = when {
                                 selected && accent != null -> accent
                                 selected -> MaterialTheme.colorScheme.onSurface
                                 else -> readableSecondaryColor()
                             },
-                            maxLines = 1,
-                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 4.dp),
                         )
                     }
                 }

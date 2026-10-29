@@ -1,6 +1,7 @@
 # Precision UI/UX polish — audit, batch 1–2 (web)
 
 Date: 2026-10-29 · Scope: web app only · Not deployed.
+The Android half (font scale, navigation modes, small phones) is in [android.md](android.md).
 
 Status words: **implemented** = code changed; **verified** = checked in a real browser (headless
 Chromium via `web/qa/capture.mjs`) and/or the unit suite; **blocked** = could not be checked here.

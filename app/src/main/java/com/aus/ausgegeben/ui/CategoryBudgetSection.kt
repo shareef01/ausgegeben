@@ -321,15 +321,13 @@ fun CategoryBudgetProgressSection(
                 .appGlassCard(shape = RoundedCornerShape(AppRadius.card))
                 .padding(16.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            // The button sits under the text: beside it, at large text on a narrow phone, it
+            // left the title and hint a column a few letters wide.
+            Column(horizontalAlignment = Alignment.End) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Box(
                         modifier = Modifier
@@ -344,7 +342,7 @@ fun CategoryBudgetProgressSection(
                             modifier = Modifier.size(20.dp)
                         )
                     }
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = stringResource(R.string.category_budget_title),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),

@@ -34,10 +34,13 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.Hyphens
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -242,16 +245,36 @@ fun AddTransactionScreen(
                         )
                     }
                 ) { innerPadding ->
-                    Column(
+                    BoxWithConstraints(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
+                    // The keypad is pinned under a scrolling form. At large text or on a short
+                    // phone the keypad alone filled the screen and squeezed the form (type,
+                    // date, note, category) to nothing; then the whole sheet scrolls as one.
+                    val scrollTogether = maxHeight < 600.dp || LocalDensity.current.fontScale > 1.3f
+                    val sheetHeight = maxHeight
+                    Column(
+                        modifier = if (scrollTogether) {
+                            Modifier
                                 .fillMaxWidth()
                                 .verticalScroll(rememberScrollState())
+                                .heightIn(min = sheetHeight)
+                        } else {
+                            Modifier.fillMaxSize()
+                        },
+                        verticalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Column(
+                            modifier = if (scrollTogether) {
+                                Modifier.fillMaxWidth()
+                            } else {
+                                Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth()
+                                    .verticalScroll(rememberScrollState())
+                            }
                         ) {
                             IosSegmentedControl(
                                 options = listOf(
@@ -372,6 +395,7 @@ fun AddTransactionScreen(
                                 )
                             },
                         )
+                    }
                     }
                 }
             }
@@ -687,8 +711,10 @@ private fun ObsidianCategorySlider(
             )
 
             Column(
+                // Capped so "Haushaltsversicherung und Nebenkosten der Wohnung" cannot make
+                // one tile wider than the screen; its name wraps to two lines instead.
                 modifier = Modifier
-                    .wrapContentWidth()
+                    .widthIn(min = 64.dp, max = 112.dp)
                     .clip(RoundedCornerShape(AppRadius.interactive))
                     .background(categoryColor.copy(alpha = animatedAlpha))
                     .border(
@@ -726,9 +752,15 @@ private fun ObsidianCategorySlider(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = category.name,
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Medium,
+                        hyphens = Hyphens.Auto,
+                        lineBreak = LineBreak.Paragraph,
+                    ),
                     color = if (isSelected) MaterialTheme.colorScheme.onSurface else ObsidianTokens.slate(),
-                    maxLines = 1
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
@@ -844,14 +876,17 @@ private fun ObsidianNumpadContainer(
                 ),
                 modifier = Modifier.padding(end = 6.dp)
             )
-            Text(
+            // maxLines = 1 with no room to shrink clipped "1104064,70" to "110406" on a
+            // narrow phone: the amount being entered must always show every digit.
+            AutoScalingText(
                 text = amountText,
                 style = MaterialTheme.typography.displayLarge.copy(
                     fontWeight = FontWeight.Bold,
                     fontFeatureSettings = "tnum"
                 ),
+                minFontSize = 24.sp,
                 color = amountColor,
-                maxLines = 1,
+                modifier = Modifier.weight(1f, fill = false),
             )
         }
 
@@ -908,17 +943,17 @@ private fun ObsidianNumpadContainer(
             onClick = onSave,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
+                .heightIn(min = 56.dp)
                 .padding(horizontal = 16.dp)
                 .glassShine(canSave),
             enabled = canSave,
             containerColor = accentColor,
             contentColor = contrastColorOn(accentColor),
         ) {
-            Text(
+            AutoScalingText(
                 text = saveLabel.uppercase(),
                 style = TextStyle(fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, letterSpacing = 1.2.sp),
-                maxLines = 1,
+                minFontSize = 11.sp,
             )
         }
     }
@@ -942,7 +977,7 @@ private fun ObsidianKey(
     val keyBg = if (isAppDarkTheme()) Color(0xFF141417) else Color(0xFFF1F1F4)
     Box(
         modifier = modifier
-            .height(46.dp)
+            .heightIn(min = 46.dp)
             .clip(RoundedCornerShape(AppRadius.interactive))
             .background(keyBg)
             .border(

@@ -43,12 +43,23 @@ function makeFakeCache(latencyMs = 0) {
   };
 }
 
+// The rate-limit counters are keyed by a 60-second window from Date.now(). A test loop that
+// straddled a window boundary got a fresh counter halfway through and admitted more than the
+// limit (CI once saw 324 for the global cap of 300), so the clock is pinned while a fake
+// cache is installed.
+const FROZEN_NOW = Date.UTC(2026, 0, 1, 12, 0, 30);
+
 function withFakeCache(cache, fn) {
   const previous = globalThis.caches;
+  const realNow = Date.now;
   globalThis.caches = { default: cache };
+  Date.now = () => FROZEN_NOW;
   return Promise.resolve()
     .then(fn)
-    .finally(() => { globalThis.caches = previous; });
+    .finally(() => {
+      globalThis.caches = previous;
+      Date.now = realNow;
+    });
 }
 
 function reportRequest(ip) {

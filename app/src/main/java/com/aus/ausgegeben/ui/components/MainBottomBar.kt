@@ -7,11 +7,16 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.List
@@ -50,6 +55,31 @@ private data class NavDestination(
     val icon: ImageVector,
     val label: String,
 )
+
+/**
+ * The bottom bar plus a filler as tall as the system navigation bar, so the tabs sit above
+ * the gesture handle or the 3-button bar and nothing shows through beneath them.
+ */
+@Composable
+fun MainBottomNavigation(
+    currentRoute: Route?,
+    onNavigate: (Route) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.background),
+    ) {
+        MainBottomBar(currentRoute = currentRoute, onNavigate = onNavigate)
+        Spacer(
+            Modifier
+                .fillMaxWidth()
+                .windowInsetsBottomHeight(WindowInsets.navigationBars)
+                .background(MaterialTheme.colorScheme.background),
+        )
+    }
+}
 
 @Composable
 fun MainBottomBar(

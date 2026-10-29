@@ -21,10 +21,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -452,44 +455,72 @@ private fun InsightsStatGrid(
     modifier: Modifier = Modifier
 ) {
     val net = income - expense
-    Row(
+    StatCardRow(
+        stats = listOf(
+            StatValue(stringResource(R.string.summary_spent), CurrencyUtils.formatAmount(expense, currencyCode), financeExpenseTextColor()),
+            StatValue(
+                stringResource(R.string.chart_net_label),
+                CurrencyUtils.formatAmount(net, currencyCode),
+                if (net >= 0) financeIncomeTextColor() else financeExpenseTextColor(),
+            ),
+            StatValue(stringResource(R.string.summary_earned), CurrencyUtils.formatAmount(income, currencyCode), financeIncomeTextColor()),
+        ),
+        spacing = AppSpacing.sm,
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = AppSpacing.md),
-        horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm)
-    ) {
-        StatCard(
-            label = stringResource(R.string.summary_spent),
-            value = CurrencyUtils.formatAmount(expense, currencyCode),
-            color = financeExpenseTextColor(),
-            modifier = Modifier.weight(1f)
-        )
-        StatCard(
-            label = stringResource(R.string.chart_net_label),
-            value = CurrencyUtils.formatAmount(net, currencyCode),
-            color = if (net >= 0) financeIncomeTextColor() else financeExpenseTextColor(),
-            modifier = Modifier.weight(1f)
-        )
-        StatCard(
-            label = stringResource(R.string.summary_earned),
-            value = CurrencyUtils.formatAmount(income, currencyCode),
-            color = financeIncomeTextColor(),
-            modifier = Modifier.weight(1f)
-        )
+    )
+}
+
+private data class StatValue(val label: String, val value: String, val color: Color)
+
+private val StatValueStyle = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum")
+private val StatValueMinSize = 11.sp
+private val StatCardHorizontalPadding = 6.dp
+
+/**
+ * Three cards side by side when every amount fits its third at a readable size, otherwise
+ * one full-width card per value. "1.104.064,70" cannot fit a third of a 320dp phone, and
+ * the cards used to shrink it to 9.5sp and then ellipsise it (web parity: the averages
+ * row stacks on narrow screens).
+ */
+@Composable
+private fun StatCardRow(
+    stats: List<StatValue>,
+    spacing: Dp,
+    modifier: Modifier = Modifier,
+) {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    BoxWithConstraints(modifier) {
+        val columnWidthPx = with(density) {
+            ((maxWidth - spacing * (stats.size - 1)) / stats.size - StatCardHorizontalPadding * 2).roundToPx()
+        }
+        val fitsSideBySide = remember(stats, columnWidthPx, density) {
+            val minStyle = StatValueStyle.copy(fontSize = StatValueMinSize)
+            stats.all { measurer.measure(it.value, minStyle, softWrap = false, maxLines = 1).size.width <= columnWidthPx }
+        }
+        if (fitsSideBySide) {
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing)) {
+                stats.forEach { StatCard(it, Modifier.weight(1f)) }
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.xs)) {
+                stats.forEach { StackedStatCard(it) }
+            }
+        }
     }
 }
 
 @Composable
 private fun StatCard(
-    label: String,
-    value: String,
-    color: Color,
+    stat: StatValue,
     modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
             .appGlassCard(RoundedCornerShape(AppRadius.md))
-            .padding(vertical = 12.dp, horizontal = 6.dp),
+            .padding(vertical = 12.dp, horizontal = StatCardHorizontalPadding),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -497,32 +528,50 @@ private fun StatCard(
             modifier = Modifier.fillMaxWidth()
         ) {
             AutoScalingText(
-                text = label.uppercase(),
+                text = stat.label.uppercase(),
                 style = BillsAuroraTokens.labelStyle().copy(
                     fontSize = 11.sp,
                     letterSpacing = 0.5.sp
                 ),
                 minFontSize = 8.sp,
-                maxLines = 1,
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(4.dp))
             AutoScalingText(
-                text = value,
-                style = TextStyle(
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFeatureSettings = "tnum",
-                    color = color
-                ),
-                minFontSize = 9.5.sp,
-                maxLines = 1,
+                text = stat.value,
+                style = StatValueStyle.copy(color = stat.color),
+                minFontSize = StatValueMinSize,
                 modifier = Modifier.fillMaxWidth()
             )
         }
     }
 }
 
+@Composable
+private fun StackedStatCard(stat: StatValue) {
+    // Label above the amount, so the amount gets the card's full width.
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .appGlassCard(RoundedCornerShape(AppRadius.md))
+            .padding(vertical = 10.dp, horizontal = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(
+            text = stat.label.uppercase(),
+            style = BillsAuroraTokens.labelStyle().copy(fontSize = 11.sp, letterSpacing = 0.5.sp),
+        )
+        AutoScalingText(
+            text = stat.value,
+            style = StatValueStyle.copy(fontSize = 15.sp, color = stat.color),
+            minFontSize = StatValueMinSize,
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CashFlowCard(
     trend: List<CashFlowPoint>,
@@ -540,12 +589,13 @@ private fun CashFlowCard(
             .padding(horizontal = 20.dp, vertical = 24.dp)
     ) {
         Column {
-            Row(
+            // The legend wraps under the title when the totals line leaves it no room.
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Column {
+                Column(modifier = Modifier.padding(end = AppSpacing.sm)) {
                     Text(
                         text = stringResource(R.string.chart_cash_flow_title).uppercase(),
                         style = BillsAuroraTokens.labelStyle(),
@@ -696,33 +746,42 @@ private fun CategoryMetricRow(
             )
         }
         Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = category.name,
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = "$percent%",
-                style = MaterialTheme.typography.labelSmall,
-                color = BillsAuroraTokens.slate(),
-            )
-        }
-        Spacer(Modifier.width(16.dp))
-        Text(
-            text = CurrencyUtils.formatAmount(amount, currencyCode),
-            style = TextStyle(
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                fontFeatureSettings = "tnum",
-                color = MaterialTheme.colorScheme.onSurface,
-            ),
+        // The amount drops under the name when both do not fit: beside a seven-digit amount
+        // at large text, the name column was a few letters wide ("100%" split in two).
+        NameAmountLayout(
+            modifier = Modifier.weight(1f),
+            name = {
+                Column {
+                    Text(
+                        text = category.name,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = "$percent%",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = BillsAuroraTokens.slate(),
+                    )
+                }
+            },
+            amount = {
+                Text(
+                    text = CurrencyUtils.formatAmount(amount, currencyCode),
+                    style = TextStyle(
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        fontFeatureSettings = "tnum",
+                        color = MaterialTheme.colorScheme.onSurface,
+                    ),
+                )
+            },
         )
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SpendingPaceCard(
     pace: SpendingPace,
@@ -740,14 +799,18 @@ private fun SpendingPaceCard(
             .padding(16.dp)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(
+            // FlowRow: the badge moves under the title when both do not fit. In a Row the badge
+            // ("Voraussichtlich 5.999,75 über Budget") was squeezed to one letter per line.
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                itemVerticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = stringResource(R.string.insights_pace_title).uppercase(),
                     style = BillsAuroraTokens.labelStyle(),
+                    modifier = Modifier.padding(end = AppSpacing.xs),
                 )
                 if (isCompleted) {
                     InsightsBadge(
@@ -794,13 +857,15 @@ private fun SpendingPaceCard(
                         color = BillsAuroraTokens.slate(),
                     )
                     Spacer(Modifier.height(2.dp))
-                    Text(
+                    AutoScalingText(
                         text = CurrencyUtils.formatAmount(pace.dailyAverage, currencyCode),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontFeatureSettings = "tnum",
                             color = MaterialTheme.colorScheme.onSurface,
                         ),
+                        minFontSize = 11.sp,
+                        textAlign = TextAlign.Start,
                     )
                 }
                 Column(modifier = Modifier.weight(1f)) {
@@ -810,13 +875,15 @@ private fun SpendingPaceCard(
                         color = BillsAuroraTokens.slate(),
                     )
                     Spacer(Modifier.height(2.dp))
-                    Text(
+                    AutoScalingText(
                         text = CurrencyUtils.formatAmount(pace.projectedTotal, currencyCode),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontFeatureSettings = "tnum",
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.primary,
                         ),
+                        minFontSize = 11.sp,
+                        textAlign = TextAlign.Start,
                     )
                 }
             }
@@ -840,6 +907,7 @@ private fun SpendingPaceCard(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PeriodComparisonCard(
     comparison: PeriodComparison,
@@ -854,14 +922,16 @@ private fun PeriodComparisonCard(
     ) {
         if (!comparison.hasPriorData) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    itemVerticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = stringResource(R.string.insights_comparison_title).uppercase(),
                         style = BillsAuroraTokens.labelStyle(),
+                        modifier = Modifier.padding(end = AppSpacing.xs),
                     )
                     InsightsBadge(
                         text = stringResource(R.string.insights_no_prior_period),
@@ -889,14 +959,16 @@ private fun PeriodComparisonCard(
             val netColor = if (netDelta >= 0) financeIncomeTextColor() else financeExpenseTextColor()
 
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    itemVerticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = stringResource(R.string.insights_comparison_title).uppercase(),
                         style = BillsAuroraTokens.labelStyle(),
+                        modifier = Modifier.padding(end = AppSpacing.xs),
                     )
                     InsightsBadge(
                         text = (if (isExpLess) stringResource(R.string.insights_favorable_less)
@@ -918,13 +990,15 @@ private fun PeriodComparisonCard(
                             color = BillsAuroraTokens.slate(),
                         )
                         Spacer(Modifier.height(2.dp))
-                        Text(
+                        AutoScalingText(
                             text = "$expSign${CurrencyUtils.formatAmount(abs(expDelta), currencyCode)}",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontFeatureSettings = "tnum",
-                                color = expColor
+                                color = expColor,
                             ),
+                            minFontSize = 11.sp,
+                            textAlign = TextAlign.Start,
                         )
                     }
 
@@ -935,13 +1009,15 @@ private fun PeriodComparisonCard(
                             color = BillsAuroraTokens.slate(),
                         )
                         Spacer(Modifier.height(2.dp))
-                        Text(
+                        AutoScalingText(
                             text = "${if (netDelta >= 0) "+" else "-"}${CurrencyUtils.formatAmount(abs(netDelta), currencyCode)}",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontFeatureSettings = "tnum",
-                                color = netColor
+                                color = netColor,
                             ),
+                            minFontSize = 11.sp,
+                            textAlign = TextAlign.Start,
                         )
                     }
                 }
@@ -960,6 +1036,7 @@ private fun PeriodComparisonCard(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CategoryMoversCard(
     movers: List<CategoryMover>,
@@ -1021,25 +1098,35 @@ private fun CategoryMoversCard(
                                 .clip(CircleShape)
                                 .background(Color(mover.colorInt))
                         )
-                        Text(
-                            text = mover.categoryName,
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Text(
-                            text = "${CurrencyUtils.formatAmount(mover.priorAmount, currencyCode)} → ${CurrencyUtils.formatAmount(mover.currentAmount, currencyCode)}",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontFeatureSettings = "tnum"
-                            ),
-                            color = BillsAuroraTokens.slate(),
-                        )
-                        InsightsBadge(
-                            text = "$sign${CurrencyUtils.formatAmount(abs(mover.delta), currencyCode)}$pctStr",
-                            backgroundColor = toneColor.copy(alpha = 0.15f),
-                            contentColor = toneColor,
-                        )
+                        // Name on top, amounts and change below and wrapping as needed: in one
+                        // row, two seven-digit amounts and the badge squeezed the name to nothing
+                        // and pushed the badge off a 320dp screen.
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = mover.categoryName,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                                itemVerticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = "${CurrencyUtils.formatAmount(mover.priorAmount, currencyCode)} → ${CurrencyUtils.formatAmount(mover.currentAmount, currencyCode)}",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontFeatureSettings = "tnum"
+                                    ),
+                                    color = BillsAuroraTokens.slate(),
+                                )
+                                InsightsBadge(
+                                    text = "$sign${CurrencyUtils.formatAmount(abs(mover.delta), currencyCode)}$pctStr",
+                                    backgroundColor = toneColor.copy(alpha = 0.15f),
+                                    contentColor = toneColor,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -1047,6 +1134,7 @@ private fun CategoryMoversCard(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AllTimeAveragesCard(
     averages: AllTimeAverages,
@@ -1060,14 +1148,16 @@ private fun AllTimeAveragesCard(
             .padding(16.dp)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                itemVerticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = stringResource(R.string.insights_all_time_averages_title).uppercase(),
                     style = BillsAuroraTokens.labelStyle(),
+                    modifier = Modifier.padding(end = AppSpacing.xs),
                 )
                 InsightsBadge(
                     text = stringResource(R.string.insights_across_months, averages.monthsCount),
@@ -1076,29 +1166,26 @@ private fun AllTimeAveragesCard(
                 )
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                StatCard(
-                    label = stringResource(R.string.insights_avg_monthly_expenses),
-                    value = CurrencyUtils.formatAmount(averages.averageMonthlyExpenses, currencyCode),
-                    color = financeExpenseTextColor(),
-                    modifier = Modifier.weight(1f)
-                )
-                StatCard(
-                    label = stringResource(R.string.insights_avg_monthly_net),
-                    value = CurrencyUtils.formatAmount(averages.averageMonthlyNet, currencyCode),
-                    color = if (averages.averageMonthlyNet >= 0) financeIncomeTextColor() else financeExpenseTextColor(),
-                    modifier = Modifier.weight(1f)
-                )
-                StatCard(
-                    label = stringResource(R.string.insights_avg_monthly_income),
-                    value = CurrencyUtils.formatAmount(averages.averageMonthlyIncome, currencyCode),
-                    color = financeIncomeTextColor(),
-                    modifier = Modifier.weight(1f)
-                )
-            }
+            StatCardRow(
+                stats = listOf(
+                    StatValue(
+                        stringResource(R.string.insights_avg_monthly_expenses),
+                        CurrencyUtils.formatAmount(averages.averageMonthlyExpenses, currencyCode),
+                        financeExpenseTextColor(),
+                    ),
+                    StatValue(
+                        stringResource(R.string.insights_avg_monthly_net),
+                        CurrencyUtils.formatAmount(averages.averageMonthlyNet, currencyCode),
+                        if (averages.averageMonthlyNet >= 0) financeIncomeTextColor() else financeExpenseTextColor(),
+                    ),
+                    StatValue(
+                        stringResource(R.string.insights_avg_monthly_income),
+                        CurrencyUtils.formatAmount(averages.averageMonthlyIncome, currencyCode),
+                        financeIncomeTextColor(),
+                    ),
+                ),
+                spacing = 8.dp,
+            )
         }
     }
 }
@@ -1125,7 +1212,6 @@ private fun InsightsBadge(
                 fontFeatureSettings = "tnum",
                 color = contentColor
             ),
-            maxLines = 1
         )
     }
 }

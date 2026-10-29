@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -47,6 +48,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.graphicsLayer
@@ -573,6 +575,27 @@ private fun RecordListToolbar(
     ) {
         val thisMonthLabel = stringResource(R.string.record_period_this_month)
         val allTimeLabel = stringResource(R.string.record_period_all_time)
+        // What the period control needs to show its labels whole. When that and the three
+        // buttons do not fit one line (large text on a narrow phone), the buttons move to a
+        // line of their own; the period switch used to be squeezed to "die-/ser/mo-/nat".
+        val measurer = rememberTextMeasurer()
+        val density = LocalDensity.current
+        val segmentStyle = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+        val chipStyle = MaterialTheme.typography.labelLarge
+        val periodMinWidth = remember(thisMonthLabel, allTimeLabel, listPeriodLabel, segmentStyle, chipStyle, density) {
+            with(density) {
+                val segment = maxOf(
+                    measurer.measure(thisMonthLabel, segmentStyle).size.width,
+                    measurer.measure(allTimeLabel, segmentStyle).size.width,
+                ).toDp() + 8.dp
+                val chip = measurer.measure(listPeriodLabel, chipStyle).size.width.toDp() + 16.dp + 48.dp + 40.dp
+                maxOf(segment * 2 + 4.dp, chip)
+            }
+        }
+        // The toolbar card's inner width: screen, centred column cap, card margins and padding.
+        val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+        val toolbarWidth = minOf(if (isWideScreen()) screenWidth - 64.dp else screenWidth, 800.dp) - 32.dp - 24.dp
+        val stackPeriod = periodMinWidth + 48.dp * 3 + 8.dp * 3 > toolbarWidth
         
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -589,16 +612,11 @@ private fun RecordListToolbar(
                 modifier = Modifier.weight(1f)
             ) { expanded ->
                 if (!expanded) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+                    val periodControl: @Composable (Modifier) -> Unit = { periodModifier ->
                         if (isMonthPeriod) {
                             // Active month scope — chip with a clear affordance back to "this month"
                             Row(
-                                modifier = Modifier
-                                    .weight(1f)
+                                modifier = periodModifier
                                     .appGlassCard(RoundedCornerShape(AppRadius.pill))
                                     .border(
                                         0.5.dp,
@@ -646,10 +664,11 @@ private fun RecordListToolbar(
                                         if (index == 0) RecordListPeriod.THIS_MONTH.key else RecordListPeriod.ALL_TIME.key,
                                     )
                                 },
-                                modifier = Modifier.weight(1f)
+                                modifier = periodModifier
                             )
                         }
-
+                    }
+                    val actions: @Composable () -> Unit = {
                         Box(
                             modifier = Modifier
                                 .size(48.dp)
@@ -706,6 +725,24 @@ private fun RecordListToolbar(
                                 tint = if (searchQuery.isNotBlank()) MaterialTheme.colorScheme.primary else navigationInactiveColor(),
                                 modifier = Modifier.size(20.dp)
                             )
+                        }
+                    }
+                    if (stackPeriod) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            periodControl(Modifier.fillMaxWidth())
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                            ) { actions() }
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            periodControl(Modifier.weight(1f))
+                            actions()
                         }
                     }
                 } else {
@@ -930,44 +967,62 @@ private fun DateSectionHeader(
             )
             Spacer(Modifier.width(8.dp))
 
-            Text(
-                // Sentence case, matching the web day header (.txn-day-header__label).
-                text = date,
-                style = RecordAuroraTokens.labelStyle(),
+            // Big day totals drop under the date instead of squeezing it to nothing.
+            NameAmountLayout(
                 modifier = Modifier.weight(1f),
+                name = {
+                    Text(
+                        // Sentence case, matching the web day header (.txn-day-header__label).
+                        text = date,
+                        style = RecordAuroraTokens.labelStyle(),
+                    )
+                },
+                amount = { DayTotals(dayTotals, currencyCode, incomeColor, expenseColor) },
             )
+        }
+    }
+}
 
-            Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm), verticalAlignment = Alignment.CenterVertically) {
-                val (dayIncome, dayExpense) = dayTotals
-                if (dayIncome > 0) {
-                    val incomeFormatted = CurrencyUtils.formatAmount(dayIncome, currencyCode)
-                    val incomeLabel = stringResource(R.string.filter_income)
-                    Text(
-                        text = "+$incomeFormatted",
-                        style = MaterialTheme.typography.labelLarge.copy(
-                            color = incomeColor,
-                            textAlign = TextAlign.End,
-                        ),
-                        modifier = Modifier.semantics {
-                            contentDescription = "$incomeLabel: +$incomeFormatted"
-                        }
-                    )
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DayTotals(
+    dayTotals: Pair<Double, Double>,
+    currencyCode: String,
+    incomeColor: Color,
+    expenseColor: Color,
+) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm, Alignment.End),
+        itemVerticalAlignment = Alignment.CenterVertically,
+    ) {
+        val (dayIncome, dayExpense) = dayTotals
+        if (dayIncome > 0) {
+            val incomeFormatted = CurrencyUtils.formatAmount(dayIncome, currencyCode)
+            val incomeLabel = stringResource(R.string.filter_income)
+            Text(
+                text = "+$incomeFormatted",
+                style = MaterialTheme.typography.labelLarge.copy(
+                    color = incomeColor,
+                    textAlign = TextAlign.End,
+                ),
+                modifier = Modifier.semantics {
+                    contentDescription = "$incomeLabel: +$incomeFormatted"
                 }
-                if (dayExpense > 0) {
-                    val expenseFormatted = CurrencyUtils.formatAmount(dayExpense, currencyCode)
-                    val expenseLabel = stringResource(R.string.filter_expense)
-                    Text(
-                        text = "-$expenseFormatted",
-                        style = MaterialTheme.typography.labelLarge.copy(
-                            color = expenseColor,
-                            textAlign = TextAlign.End,
-                        ),
-                        modifier = Modifier.semantics {
-                            contentDescription = "$expenseLabel: -$expenseFormatted"
-                        }
-                    )
+            )
+        }
+        if (dayExpense > 0) {
+            val expenseFormatted = CurrencyUtils.formatAmount(dayExpense, currencyCode)
+            val expenseLabel = stringResource(R.string.filter_expense)
+            Text(
+                text = "-$expenseFormatted",
+                style = MaterialTheme.typography.labelLarge.copy(
+                    color = expenseColor,
+                    textAlign = TextAlign.End,
+                ),
+                modifier = Modifier.semantics {
+                    contentDescription = "$expenseLabel: -$expenseFormatted"
                 }
-            }
+            )
         }
     }
 }
@@ -1184,7 +1239,7 @@ private fun TransactionRowMenu(
  * otherwise squeeze the name to zero width.
  */
 @Composable
-private fun NameAmountLayout(
+internal fun NameAmountLayout(
     name: @Composable () -> Unit,
     amount: @Composable () -> Unit,
     modifier: Modifier = Modifier,
