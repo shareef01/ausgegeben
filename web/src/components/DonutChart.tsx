@@ -83,7 +83,11 @@ function DonutSegCircle({
 export function DonutChart({ segments, size = 140, center }: DonutChartProps) {
   const { t } = useTranslation();
   const uid = useId().replace(/:/g, '');
-  const wrapRef = useCssProps<HTMLDivElement>({ '--donut-size': `${size}px` });
+  const wrapRef = useCssProps<HTMLDivElement>({
+    '--donut-size': `${size}px`,
+    // Lets the centre value size itself to fit the hole instead of ellipsising the total.
+    '--donut-center-chars': Math.max(center?.value.length ?? 0, 4),
+  });
   const { total, arcs, r, c, summary } = useMemo(() => {
     const total = segments.reduce((s, x) => s + x.value, 0);
     const r = (size - STROKE) / 2;

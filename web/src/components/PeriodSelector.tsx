@@ -60,11 +60,13 @@ export function PremiumPeriodSelector<T>({
   // actually pressed, and stealing focus back to the trigger would undo that.
   useEffect(() => {
     if (!open) return;
-    const onPointerDown = (e: MouseEvent) => {
+    // pointerdown, not mousedown: touch browsers only synthesise mousedown after the finger
+    // lifts (and not at all for a scroll), so a tap elsewhere left the menu hanging open.
+    const onPointerDown = (e: PointerEvent) => {
       if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
     };
-    document.addEventListener('mousedown', onPointerDown);
-    return () => document.removeEventListener('mousedown', onPointerDown);
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
   }, [open]);
 
   // Opening moves focus into the popup, onto the selected option. Without this the widget is

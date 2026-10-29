@@ -4,7 +4,7 @@ import { useTranslation } from '@/i18n';
 import { SignatureText } from '@/components/ui';
 import { CategoryLucideIcon } from '@/components/CategoryLucideIcon';
 import { IosSegmentedControl } from '@/components/IosSegmentedControl';
-import { IconClose } from '@/components/Icons';
+import { IconCheck, IconClose } from '@/components/Icons';
 import { colorIntToHex, currencySymbol } from '@/utils/currency';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useToastStore } from '@/services/toastStore';
@@ -68,7 +68,8 @@ export function AddTransactionView({
   useEffect(() => {
     if (!vm.ready || suspended || !vm.form.categoryId) return;
     const selected = catsRailRef.current?.querySelector<HTMLElement>('.add-txn__cat--selected');
-    selected?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    selected?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', inline: 'center', block: 'nearest' });
   }, [vm.ready, suspended, vm.form.categoryId, vm.categories]);
 
   const wasSuspended = useRef(false);
@@ -201,7 +202,13 @@ export function AddTransactionView({
                       className={`add-txn__cat${selected ? ' add-txn__cat--selected' : ''}`}
                       onClick={() => vm.setForm((f) => ({ ...f, categoryId: cat.id! }))}
                       aria-pressed={selected}
+                      title={cat.name}
                     >
+                      {selected ? (
+                        <span className="add-txn__cat-check" aria-hidden>
+                          <IconCheck width={12} height={12} strokeWidth={3} />
+                        </span>
+                      ) : null}
                       <CatIcon color={colorIntToHex(cat.colorInt)}>
                         <CategoryLucideIcon iconName={cat.iconName} size={22} />
                       </CatIcon>

@@ -47,8 +47,8 @@
   border-color: var(--hairline-divider);
 }
 
-[data-theme='dark'] .transaction-list-bare .swipeable-row__content,
-[data-theme='light'] .transaction-list-bare .swipeable-row__content {
+[data-theme='dark'] .transaction-list-bare .action-row__content,
+[data-theme='light'] .transaction-list-bare .action-row__content {
   background: transparent;
 }
 

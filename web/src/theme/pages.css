@@ -526,86 +526,120 @@
  *  SWIPEABLE ROW
  *  ═══════════════════════════════════════════════════ */
 
-.swipeable-row {
-  position: relative;
-  overflow: hidden;
+/* ── Transaction row actions (ActionRow.tsx) ──
+   The row surface edits; everything else sits behind one always-visible "more" button.
+   It used to be hover-revealed buttons that shifted the row 132px on desktop and, on
+   touch, a lone delete button with duplicate hidden behind long press. A single 44px
+   button keeps the amount column stable on every pointer type and still leaves a 320px
+   row room for the category name. */
+.action-row {
+  display: flex;
+  align-items: center;
   width: 100%;
   min-width: 0;
 }
 
-.swipeable-row__content {
-  position: relative;
-  z-index: 1;
-  width: 100%;
+.action-row__content {
+  flex: 1 1 auto;
+  min-width: 0;
   background: var(--color-background);
-  transition: padding-right 0.15s ease;
+  cursor: pointer;
+  /* Long press opens the menu; stop iOS from raising its own callout over it. */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
-.swipeable-row__content:focus-visible {
+.action-row__content:focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: -2px;
 }
 
-.swipeable-row__actions {
-  display: none;
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 2;
-  gap: 6px;
+/* The button supplies the trailing space, so the row's own right padding shrinks. */
+.action-row__content .transaction-row {
+  padding-right: 8px !important;
 }
 
-.swipeable-row:hover .swipeable-row__actions,
-.swipeable-row:focus-within .swipeable-row__actions {
-  display: flex;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .swipeable-row:hover .swipeable-row__content,
-  .swipeable-row:focus-within .swipeable-row__content {
-    padding-right: 132px;
-  }
-}
-
-.swipeable-row__action {
+.action-row__more {
+  flex: 0 0 auto;
   width: 44px;
   height: 44px;
+  margin-right: 12px;
+  border: 1px solid transparent;
   border-radius: 12px;
-  border: 1px solid var(--color-outline);
-  background: var(--color-surface);
+  background: transparent;
   color: var(--color-on-surface-variant);
   display: grid;
   place-items: center;
   cursor: pointer;
 }
 
-.swipeable-row__action--danger {
+.action-row__more:hover,
+.action-row__more--open {
+  background: color-mix(in srgb, var(--color-on-surface) 8%, transparent);
+  border-color: color-mix(in srgb, var(--color-outline) 70%, transparent);
+  color: var(--color-on-surface);
+}
+
+.action-row__more:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.action-row-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  visibility: hidden; /* ActionRowMenu measures, places, then shows it */
+  min-width: 11rem;
+  max-width: calc(100vw - 16px);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: 14px;
+}
+
+.action-row-menu:focus {
+  outline: none;
+}
+
+.action-row-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--color-on-surface);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.action-row-menu__item:hover,
+.action-row-menu__item:focus-visible {
+  background: color-mix(in srgb, var(--color-on-surface) 8%, transparent);
+  outline: none;
+}
+
+.action-row-menu__item:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--color-focus);
+}
+
+.action-row-menu__item--danger {
   color: var(--color-expense-text);
 }
 
-/* Touch: there is no hover, so actions have to stay visible — but all three of
-   them reserved 148px of a ~341px row, which left the category name 3px to
-   render in on a 375px phone. Tapping a row already opens it for editing and
-   long-pressing already duplicates it, so only delete actually needs a button
-   here; it is also the one action that should never be a bare gesture. */
-@media (pointer: coarse) {
-  .swipeable-row__actions {
-    display: flex !important;
-  }
-
-  .swipeable-row__action:not(.swipeable-row__action--danger) {
-    display: none;
-  }
-
-  .swipeable-row__action {
-    width: 44px;
-    height: 44px;
-  }
-
-  .swipeable-row__content {
-    padding-right: 60px;
-  }
+.action-row-menu__separator {
+  height: 1px;
+  margin: 4px 6px;
+  background: color-mix(in srgb, var(--color-outline) 60%, transparent);
 }
 
 /* ═══════════════════════════════════════════════════
@@ -1115,7 +1149,14 @@
 }
 
 .donut-center__value {
-  font-size: clamp(0.8rem, 2.8vw, 1.25rem);
+  /* Sized from the donut and the string, not the viewport: 2.8vw grew the text on desktop
+     while the hole stayed 148px, and "2.717,89 CHF" was cut to "2.717,89 C…". ~0.62em is
+     the advance of a 900-weight tabular digit. */
+  font-size: clamp(
+    0.75rem,
+    calc(var(--donut-size, 140px) * 0.74 / (var(--donut-center-chars, 9) * 0.62)),
+    1.25rem
+  );
   font-weight: 900;
   letter-spacing: -0.035em;
   font-variant-numeric: tabular-nums;
@@ -2208,9 +2249,17 @@
  *  TRANSACTION ROW — text layout
  *  ═══════════════════════════════════════════════════ */
 
+/* At 320px a six- or seven-digit amount used to take the whole row and squeeze the
+   category name to zero width. The name now keeps a 3.5rem floor; when name and amount
+   cannot share a line, the amount wraps under it, right-aligned, instead of hiding either. */
+.transaction-row {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+
 .transaction-row__meta {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 3.5rem;
+  min-width: 3.5rem;
   padding-right: 12px;
 }
 
@@ -2477,18 +2526,28 @@
  *  ═══════════════════════════════════════════════════ */
 
 .cashflow-chart {
+  width: 100%;
+  min-width: 0;
+}
+
+.cashflow-chart__plot {
   position: relative;
   width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  border-radius: 12px;
+  /* Horizontal drags explore points; vertical ones still scroll the page. */
+  touch-action: pan-y;
+}
+
+.cashflow-chart__plot:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 4px;
 }
 
 /* ── Hover crosshair tooltip ── */
 .cashflow-tooltip {
   position: absolute;
   top: 0;
-  left: var(--tooltip-left, 0%);
-  transform: var(--tooltip-transform, translateX(-50%));
+  left: var(--tooltip-left, 0px); /* clamped in px by CashFlowTooltip */
   pointer-events: none;
   min-width: 148px;
   padding: 8px 10px;
@@ -2545,9 +2604,103 @@
 
 .cashflow-chart__svg {
   display: block;
+  max-width: 100%;
+}
+
+.cashflow-table {
+  margin-top: 12px;
+  container: cashflow-table / inline-size;
+}
+
+.cashflow-table__summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  color: var(--color-on-surface-variant);
+  cursor: pointer;
+}
+
+.cashflow-table__summary:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.cashflow-table__scroll {
+  overflow-x: auto;
+}
+
+.cashflow-table__table {
   width: 100%;
-  height: auto;
-  min-width: 320px;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.cashflow-table__table th,
+.cashflow-table__table td {
+  padding: 8px 6px;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-outline) 40%, transparent);
+}
+
+.cashflow-table__table th:first-child {
+  text-align: left;
+}
+
+.cashflow-table__table thead th {
+  font-weight: 650;
+  color: var(--color-on-surface-variant);
+}
+
+.cashflow-table__table tbody th {
+  font-weight: 600;
+  color: var(--color-on-surface);
+}
+
+/* Four columns of "−3.867,90 CHF" need ~380px; below that each period becomes a small
+   block of label/value pairs instead of a table you have to scroll sideways. */
+@container cashflow-table (max-width: 420px) {
+  .cashflow-table__table,
+  .cashflow-table__table tbody,
+  .cashflow-table__table tr,
+  .cashflow-table__table th,
+  .cashflow-table__table td {
+    display: block;
+  }
+
+  .cashflow-table__table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .cashflow-table__table tr {
+    padding: 8px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-outline) 40%, transparent);
+  }
+
+  .cashflow-table__table th,
+  .cashflow-table__table td {
+    padding: 2px 0;
+    border: 0;
+  }
+
+  .cashflow-table__table td {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .cashflow-table__table td::before {
+    content: attr(data-label);
+    color: var(--color-on-surface-variant);
+    font-weight: 600;
+  }
 }
 
 .cashflow-legend {
@@ -3177,14 +3330,15 @@
 }
 
 .add-txn__cat {
+  position: relative;
   display: flex;
   flex: 0 0 auto;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  width: 5.75rem;
-  min-width: 5.75rem;
+  width: 6.25rem;
+  min-width: 6.25rem;
   min-height: 5.5rem;
   padding: 12px 10px;
   border-radius: 18px;
@@ -3211,12 +3365,28 @@
   outline-offset: 2px;
 }
 
-.add-txn__cat--selected {
-  border-color: color-mix(in srgb, var(--color-income) 70%, transparent);
-  background: color-mix(in srgb, var(--color-income) 14%, var(--color-surface));
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--color-income) 28%, transparent),
-    inset 0 0 0 1px color-mix(in srgb, var(--color-income) 12%, transparent);
+/* Selection is a control state, not a finance meaning: it used the income green even while
+   entering an expense. Theme accent plus a check badge, so it never relies on colour alone. */
+/* The [data-theme] form outranks the light-theme .add-txn__cat fill further down, which used
+   to wipe the selected border and background in every light palette. */
+.add-txn__cat.add-txn__cat--selected,
+[data-theme] .add-txn__cat.add-txn__cat--selected {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+
+.add-txn__cat-check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
 }
 
 .add-txn__cat-icon {
@@ -3238,12 +3408,18 @@
   font-weight: 650;
   line-height: 1.2;
   letter-spacing: -0.01em;
-  text-transform: lowercase;
+  /* User-entered names are shown as typed ("IKEA" is not "ikea"), and get two lines before
+     clamping so "Lebensmittel – Discounter" and "… – Biomarkt" stay distinguishable. The
+     full name is still the button's accessible name and its title tooltip. */
   text-align: center;
   color: var(--color-on-surface);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: break-word;
+  hyphens: auto; /* follows <html lang>, which App sets from the UI locale */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .add-txn__cat--selected .add-txn__cat-name {

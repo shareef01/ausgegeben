@@ -1,7 +1,8 @@
-import { useId, useMemo, useRef, useState, type PointerEvent } from 'react';
+import { useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { useTranslation } from '@/i18n';
-import { formatAmount } from '@/utils/currency';
-import { useCssProps } from '@/utils/cssVars';
+import { formatAmount, formatAxisAmount } from '@/utils/currency';
+import { applyCss } from '@/utils/cssVars';
+import { usePreferencesStore } from '@/services/preferencesStore';
 
 interface CashFlowPoint {
   label: string;
@@ -14,28 +15,29 @@ interface CashFlowChartProps {
   currency?: string;
 }
 
-const CHART_WIDTH = 400;
+// The SVG is drawn at its real pixel width (measured), not scaled from a fixed 400-wide
+// viewBox: scaling shrank 11px labels to ~8px on a 320px phone, and the old 320px min-width
+// made the card scroll sideways there.
+const DEFAULT_WIDTH = 400;
 const CHART_HEIGHT = 168;
-const PAD_X_LEFT = 44;
 const PAD_X_RIGHT = 10;
 const PAD_Y_TOP = 12;
 const PAD_Y_BOTTOM = 28;
-const TOP_PADDING_RATIO = 0.2;
-const CHART_W = CHART_WIDTH - PAD_X_LEFT - PAD_X_RIGHT;
+const TOP_PADDING_RATIO = 0.15;
 const CHART_H = CHART_HEIGHT - PAD_Y_TOP - PAD_Y_BOTTOM;
-const MIN_LABEL_GAP_PX = 48;
+const LABEL_FONT_PX = 11;
+/** Rough advance width of the 11px semibold label font; only used to space labels. */
+const LABEL_CHAR_PX = 6.4;
+const TOOLTIP_EDGE = 4;
 
-function yFor(value: number, minV: number, maxV: number): number {
-  const range = Math.max(maxV - minV, 1);
-  const paddedMax = maxV + range * TOP_PADDING_RATIO;
-  const paddedRange = paddedMax - minV;
-  const t = (value - minV) / paddedRange;
-  return PAD_Y_TOP + CHART_H * (1 - t);
-}
-
-function xFor(index: number, count: number): number {
-  if (count <= 1) return PAD_X_LEFT + CHART_W / 2;
-  return PAD_X_LEFT + (index / (count - 1)) * CHART_W;
+/** Round up to 1/2/2.5/5 × 10ⁿ so the axis shows "€2K", not "€1,873". */
+function niceCeil(value: number): number {
+  if (value <= 0) return 1;
+  const exp = Math.floor(Math.log10(value));
+  const base = 10 ** exp;
+  const f = value / base;
+  const step = f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10;
+  return step * base;
 }
 
 function polylinePath(points: { x: number; y: number }[]): string {
@@ -46,39 +48,30 @@ function polylinePath(points: { x: number; y: number }[]): string {
   for (let i = 0; i < points.length - 1; i++) {
     const from = points[i];
     const to = points[i + 1];
-    const cp1x = (from.x + to.x) / 2;
-    const cp2x = (from.x + to.x) / 2;
-    d += ` C ${cp1x} ${from.y}, ${cp2x} ${to.y}, ${to.x} ${to.y}`;
+    const cpx = (from.x + to.x) / 2;
+    d += ` C ${cpx} ${from.y}, ${cpx} ${to.y}, ${to.x} ${to.y}`;
   }
   return d;
 }
 
-function areaPath(points: { x: number; y: number }[], bottomY: number): string {
+function areaPath(points: { x: number; y: number }[], baseY: number): string {
   if (points.length === 0) return '';
   const line = polylinePath(points);
   const last = points[points.length - 1];
   const first = points[0];
-  return `${line} L ${last.x} ${bottomY} L ${first.x} ${bottomY} Z`;
-}
-
-function compactAmount(value: number, currency: string): string {
-  const abs = Math.abs(value);
-  if (abs >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (abs >= 10_000) return `${Math.round(value / 1000)}k`;
-  if (abs >= 1000) return `${(value / 1000).toFixed(1)}k`;
-  return formatAmount(value, currency).replace(/[^\d.,\-]/g, '').slice(0, 8) || String(Math.round(value));
+  return `${line} L ${last.x} ${baseY} L ${first.x} ${baseY} Z`;
 }
 
 function CashFlowSeries({
   points,
   color,
   gradId,
-  bottomY,
+  baseY,
 }: {
   points: { x: number; y: number }[];
   color: string;
   gradId: string;
-  bottomY: number;
+  baseY: number;
 }) {
   const line = polylinePath(points);
   if (!line) return null;
@@ -87,7 +80,7 @@ function CashFlowSeries({
 
   return (
     <g>
-      <path d={areaPath(points, bottomY)} fill={`url(#${gradId})`} />
+      <path d={areaPath(points, baseY)} fill={`url(#${gradId})`} />
       <path
         d={line}
         fill="none"
@@ -115,223 +108,296 @@ function CashFlowSeries({
 
 export function CashFlowChart({ trend, currency = 'EUR' }: CashFlowChartProps) {
   const { t } = useTranslation();
+  const locale = usePreferencesStore((s) => s.locale);
   const uid = useId().replace(/:/g, '');
   const incomeGradId = `cf-income-${uid}`;
   const expenseGradId = `cf-expense-${uid}`;
-  const bottomY = PAD_Y_TOP + CHART_H;
-  const svgRef = useRef<SVGSVGElement>(null);
+  const hintId = `cf-hint-${uid}`;
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(DEFAULT_WIDTH);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const hasData = trend.length > 0;
 
-  const onPointerMove = (e: PointerEvent<SVGSVGElement>) => {
-    const rect = svgRef.current?.getBoundingClientRect();
-    if (!rect || rect.width === 0 || trend.length === 0) return;
-    const px = ((e.clientX - rect.left) / rect.width) * CHART_WIDTH;
-    const idx = trend.length === 1
-      ? 0
-      : Math.round(((px - PAD_X_LEFT) / CHART_W) * (trend.length - 1));
-    setHoverIdx(Math.max(0, Math.min(trend.length - 1, idx)));
-  };
-  const onPointerLeave = () => setHoverIdx(null);
+  useLayoutEffect(() => {
+    const el = wrapRef.current;
+    if (!hasData || !el) return;
+    const measure = () => {
+      const w = Math.round(el.clientWidth);
+      if (w > 0) setWidth(w);
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+    // The plot only mounts once there is data; measure again when it appears.
+  }, [hasData]);
 
-  const { incomePts, expensePts, yTicks, ariaSummary } = useMemo(() => {
+  const geometry = useMemo(() => {
     const values = trend.flatMap((p) => [p.income, p.expense]);
-    const minV = Math.min(0, ...values);
-    const maxV = Math.max(...values, 1);
+    const rawMax = Math.max(0, ...values);
+    const rawMin = Math.min(0, ...values);
+    // Floor of 10 so an empty or cents-only period gets distinct ticks ("$10 · $5 · $0"),
+    // not "$1 · $1 · $0" from rounding 0.5.
+    const top = niceCeil(Math.max(rawMax * (1 + TOP_PADDING_RATIO), 10));
+    const bottom = rawMin < 0 ? -niceCeil(-rawMin * (1 + TOP_PADDING_RATIO)) : 0;
+    const tickValues = bottom < 0 ? [top, 0, bottom] : [top, top / 2, 0];
+    const tickLabels = tickValues.map((v) => formatAxisAmount(v, currency, locale));
+    const padLeft = Math.min(
+      96,
+      Math.max(36, Math.ceil(Math.max(...tickLabels.map((l) => l.length)) * LABEL_CHAR_PX) + 10),
+    );
+    const chartW = Math.max(width - padLeft - PAD_X_RIGHT, 1);
+    const yFor = (v: number) => PAD_Y_TOP + CHART_H * (1 - (v - bottom) / (top - bottom));
+    const xFor = (i: number) =>
+      trend.length <= 1 ? padLeft + chartW / 2 : padLeft + (i / (trend.length - 1)) * chartW;
 
-    const incomePts = trend.map((p, i) => ({
-      x: xFor(i, trend.length),
-      y: yFor(p.income, minV, maxV),
-    }));
-    const expensePts = trend.map((p, i) => ({
-      x: xFor(i, trend.length),
-      y: yFor(p.expense, minV, maxV),
-    }));
+    const incomePts = trend.map((p, i) => ({ x: xFor(i), y: yFor(p.income) }));
+    const expensePts = trend.map((p, i) => ({ x: xFor(i), y: yFor(p.expense) }));
+    const yTicks = tickValues.map((v, i) => ({ y: yFor(v), label: tickLabels[i], zero: v === 0 }));
 
-    const yTicks = [0, 0.5, 1].map((tVal) => {
-      const range = Math.max(maxV - minV, 1);
-      const paddedMax = maxV + range * TOP_PADDING_RATIO;
-      const valueAt = paddedMax - tVal * (paddedMax - minV);
-      return {
-        y: PAD_Y_TOP + CHART_H * tVal,
-        label: compactAmount(valueAt, currency),
-      };
-    });
+    // Labels are spaced by their own measured length, so long month names ("Sept. 2026")
+    // drop out rather than overprint each other. The first and last always stay.
+    const gap = Math.max(...trend.map((p) => p.label.length), 3) * LABEL_CHAR_PX + 12;
+    const xLabels: { x: number; label: string; anchor: 'start' | 'middle' | 'end' }[] = [];
+    const lastIdx = trend.length - 1;
+    for (let i = 0; i <= lastIdx; i++) {
+      const x = xFor(i);
+      const prev = xLabels[xLabels.length - 1];
+      const isLast = i === lastIdx && lastIdx > 0;
+      if (prev && x - prev.x < gap) {
+        if (isLast) xLabels[xLabels.length - 1] = { x, label: trend[i].label, anchor: 'middle' };
+        continue;
+      }
+      xLabels.push({ x, label: trend[i].label, anchor: 'middle' });
+    }
+    // Keep end labels inside the plot instead of half outside the SVG.
+    if (xLabels.length > 0 && trend.length > 1) {
+      xLabels[0].anchor = 'start';
+      if (xLabels.length > 1) xLabels[xLabels.length - 1].anchor = 'end';
+    }
 
+    return { incomePts, expensePts, yTicks, xLabels, padLeft, zeroY: yFor(0), chartW };
+  }, [trend, currency, locale, width]);
+
+  const ariaSummary = useMemo(() => {
     const totalIncome = trend.reduce((s, p) => s + p.income, 0);
     const totalExpense = trend.reduce((s, p) => s + p.expense, 0);
-    const ariaSummary = `${t('chartCashFlow')}. ${t('filterIncome')}: ${formatAmount(totalIncome, currency)}. ${t('filterExpense')}: ${formatAmount(totalExpense, currency)}.`;
-
-    return { incomePts, expensePts, yTicks, ariaSummary };
-  }, [trend, t, currency]);
-
-  const xLabels = useMemo(() => {
-    const labels: { x: number; label: string }[] = [];
-    let lastX = -Infinity;
-    let lastLabel = '';
-    for (let i = 0; i < trend.length; i++) {
-      const px = xFor(i, trend.length);
-      const lbl = trend[i].label;
-      if (px - lastX >= MIN_LABEL_GAP_PX && lbl !== lastLabel) {
-        labels.push({ x: px, label: lbl });
-        lastX = px;
-        lastLabel = lbl;
-      } else if (i === 0) {
-        labels.push({ x: px, label: lbl });
-        lastX = px;
-        lastLabel = lbl;
-      }
-    }
-    if (trend.length > 1) {
-      const lastPx = xFor(trend.length - 1, trend.length);
-      const lastLbl = trend[trend.length - 1].label;
-      const prevLabel = labels[labels.length - 1];
-      if (!prevLabel || (lastPx - prevLabel.x >= MIN_LABEL_GAP_PX && lastLbl !== prevLabel.label)) {
-        labels.push({ x: lastPx, label: lastLbl });
-      } else if (prevLabel && lastLbl !== prevLabel.label) {
-        labels[labels.length - 1] = { x: lastPx, label: lastLbl };
-      }
-    }
-    return labels;
-  }, [trend]);
+    return `${t('chartCashFlow')}. ${t('filterIncome')}: ${formatAmount(totalIncome, currency, true, locale)}. ${t('filterExpense')}: ${formatAmount(totalExpense, currency, true, locale)}.`;
+  }, [trend, t, currency, locale]);
 
   if (trend.length === 0) return null;
 
+  const { incomePts, expensePts, yTicks, xLabels, padLeft, zeroY, chartW } = geometry;
+
+  const indexAt = (clientX: number) => {
+    const rect = wrapRef.current?.getBoundingClientRect();
+    if (!rect || trend.length === 1) return 0;
+    const px = clientX - rect.left;
+    return Math.max(0, Math.min(trend.length - 1, Math.round(((px - padLeft) / chartW) * (trend.length - 1))));
+  };
+
+  const onPointerMove = (e: PointerEvent<SVGSVGElement>) => setHoverIdx(indexAt(e.clientX));
+  // Touch lifts fire pointerleave right away; keep the readout until the next interaction
+  // so a tapped value can actually be read.
+  const onPointerLeave = (e: PointerEvent<SVGSVGElement>) => {
+    if (e.pointerType === 'mouse') setHoverIdx(null);
+  };
+
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const last = trend.length - 1;
+    const current = hoverIdx ?? last;
+    let next: number | null = null;
+    if (e.key === 'ArrowRight') next = Math.min(last, current + 1);
+    else if (e.key === 'ArrowLeft') next = Math.max(0, current - 1);
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = last;
+    else if (e.key === 'Escape' && hoverIdx !== null) {
+      e.preventDefault();
+      setHoverIdx(null);
+      return;
+    }
+    if (next === null) return;
+    e.preventDefault();
+    setHoverIdx(next);
+  };
+
+  const point = hoverIdx !== null ? trend[hoverIdx] : null;
+
   return (
     <div className="cashflow-chart">
-      <svg
-        ref={svgRef}
-        className="cashflow-chart__svg"
-        width="100%"
-        height={CHART_HEIGHT}
-        viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-        preserveAspectRatio="xMidYMid meet"
-        role="img"
+      <div
+        ref={wrapRef}
+        className="cashflow-chart__plot"
+        tabIndex={0}
+        role="group"
         aria-label={ariaSummary}
-        onPointerMove={onPointerMove}
-        onPointerDown={onPointerMove}
-        onPointerLeave={onPointerLeave}
+        aria-describedby={hintId}
+        onKeyDown={onKeyDown}
+        onFocus={() => setHoverIdx((idx) => idx ?? trend.length - 1)}
+        onBlur={() => setHoverIdx(null)}
       >
-        <defs>
-          <linearGradient id={incomeGradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-income)" stopOpacity="0.28" />
-            <stop offset="100%" stopColor="var(--color-income)" stopOpacity="0.0" />
-          </linearGradient>
-          <linearGradient id={expenseGradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-expense)" stopOpacity="0.28" />
-            <stop offset="100%" stopColor="var(--color-expense)" stopOpacity="0.0" />
-          </linearGradient>
-        </defs>
+        <span id={hintId} className="sr-only">{t('chartKeyboardHint')}</span>
+        <svg
+          className="cashflow-chart__svg"
+          width={width}
+          height={CHART_HEIGHT}
+          viewBox={`0 0 ${width} ${CHART_HEIGHT}`}
+          aria-hidden
+          onPointerMove={onPointerMove}
+          onPointerDown={onPointerMove}
+          onPointerLeave={onPointerLeave}
+        >
+          <defs>
+            <linearGradient id={incomeGradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--color-income)" stopOpacity="0.28" />
+              <stop offset="100%" stopColor="var(--color-income)" stopOpacity="0.0" />
+            </linearGradient>
+            <linearGradient id={expenseGradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--color-expense)" stopOpacity="0.28" />
+              <stop offset="100%" stopColor="var(--color-expense)" stopOpacity="0.0" />
+            </linearGradient>
+          </defs>
 
-        {yTicks.map((tick, index) => (
-          <g key={index}>
-            <line
-              x1={PAD_X_LEFT}
-              y1={tick.y}
-              x2={CHART_WIDTH - PAD_X_RIGHT}
-              y2={tick.y}
-              stroke="var(--color-on-surface)"
-              strokeOpacity={index === yTicks.length - 1 ? '0.2' : '0.08'}
-              strokeWidth={1}
-            />
+          {yTicks.map((tick, index) => (
+            <g key={index}>
+              <line
+                x1={padLeft}
+                y1={tick.y}
+                x2={width - PAD_X_RIGHT}
+                y2={tick.y}
+                stroke="var(--color-on-surface)"
+                strokeOpacity={tick.zero ? '0.2' : '0.08'}
+                strokeWidth={1}
+              />
+              <text
+                x={padLeft - 6}
+                y={tick.y + 3.5}
+                textAnchor="end"
+                fill="var(--color-on-surface-variant)"
+                fontSize={LABEL_FONT_PX}
+                fontFamily="var(--font-family, Inter, sans-serif)"
+                fontWeight="600"
+              >
+                {tick.label}
+              </text>
+            </g>
+          ))}
+
+          <CashFlowSeries points={incomePts} color="var(--color-income)" gradId={incomeGradId} baseY={zeroY} />
+          <CashFlowSeries points={expensePts} color="var(--color-expense)" gradId={expenseGradId} baseY={zeroY} />
+
+          {hoverIdx !== null && incomePts[hoverIdx] ? (
+            <g pointerEvents="none">
+              <line
+                x1={incomePts[hoverIdx].x}
+                y1={PAD_Y_TOP}
+                x2={incomePts[hoverIdx].x}
+                y2={PAD_Y_TOP + CHART_H}
+                stroke="var(--color-on-surface)"
+                strokeOpacity="0.25"
+                strokeWidth={1}
+                strokeDasharray="3 3"
+              />
+              {[
+                { pt: incomePts[hoverIdx], color: 'var(--color-income)' },
+                { pt: expensePts[hoverIdx], color: 'var(--color-expense)' },
+              ].map(({ pt, color }, i) => (
+                <g key={i}>
+                  <circle cx={pt.x} cy={pt.y} r={5} fill="var(--color-surface)" />
+                  <circle cx={pt.x} cy={pt.y} r={3.25} fill={color} />
+                </g>
+              ))}
+            </g>
+          ) : null}
+
+          {xLabels.map((lbl, i) => (
             <text
-              x={PAD_X_LEFT - 6}
-              y={tick.y + 3.5}
-              textAnchor="end"
+              key={i}
+              x={lbl.x}
+              y={CHART_HEIGHT - 8}
+              textAnchor={lbl.anchor}
               fill="var(--color-on-surface-variant)"
-              fontSize="11"
+              fontSize={LABEL_FONT_PX}
               fontFamily="var(--font-family, Inter, sans-serif)"
               fontWeight="600"
             >
-              {tick.label}
+              {lbl.label}
             </text>
-          </g>
-        ))}
+          ))}
+        </svg>
 
-        <CashFlowSeries points={incomePts} color="var(--color-income)" gradId={incomeGradId} bottomY={bottomY} />
-        <CashFlowSeries points={expensePts} color="var(--color-expense)" gradId={expenseGradId} bottomY={bottomY} />
-
-        {hoverIdx !== null && incomePts[hoverIdx] ? (
-          <g pointerEvents="none">
-            <line
-              x1={incomePts[hoverIdx].x}
-              y1={PAD_Y_TOP}
-              x2={incomePts[hoverIdx].x}
-              y2={bottomY}
-              stroke="var(--color-on-surface)"
-              strokeOpacity="0.25"
-              strokeWidth={1}
-              strokeDasharray="3 3"
-            />
-            {[
-              { pt: incomePts[hoverIdx], color: 'var(--color-income)' },
-              { pt: expensePts[hoverIdx], color: 'var(--color-expense)' },
-            ].map(({ pt, color }, i) => (
-              <g key={i}>
-                <circle cx={pt.x} cy={pt.y} r={5} fill="var(--color-surface)" />
-                <circle cx={pt.x} cy={pt.y} r={3.25} fill={color} />
-              </g>
-            ))}
-          </g>
+        {point && hoverIdx !== null ? (
+          <CashFlowTooltip
+            anchorX={incomePts[hoverIdx].x}
+            containerWidth={width}
+            label={point.label}
+            income={formatAmount(point.income, currency, true, locale)}
+            expense={formatAmount(point.expense, currency, true, locale)}
+            incomeLabel={t('filterIncome')}
+            expenseLabel={t('filterExpense')}
+          />
         ) : null}
+      </div>
 
-        {xLabels.map((lbl, i) => (
-          <text
-            key={i}
-            x={lbl.x}
-            y={CHART_HEIGHT - 8}
-            textAnchor="middle"
-            fill="var(--color-on-surface-variant)"
-            fontSize="11"
-            fontFamily="var(--font-family, Inter, sans-serif)"
-            fontWeight="600"
-          >
-            {lbl.label}
-          </text>
-        ))}
-      </svg>
-
-      {hoverIdx !== null && trend[hoverIdx] ? (
-        <CashFlowTooltip
-          left={(incomePts[hoverIdx].x / CHART_WIDTH) * 100}
-          transform={
-            incomePts[hoverIdx].x > CHART_WIDTH * 0.62
-              ? '-100%'
-              : incomePts[hoverIdx].x < CHART_WIDTH * 0.2
-                ? '0%'
-                : '-50%'
-          }
-          label={trend[hoverIdx].label}
-          income={formatAmount(trend[hoverIdx].income, currency)}
-          expense={formatAmount(trend[hoverIdx].expense, currency)}
-          incomeLabel={t('filterIncome')}
-          expenseLabel={t('filterExpense')}
-        />
-      ) : null}
+      {/* Exact figures without reading a graph: every period, both series and the net. */}
+      <details className="cashflow-table">
+        <summary className="cashflow-table__summary">{t('chartShowValues')}</summary>
+        <div className="cashflow-table__scroll">
+          <table className="cashflow-table__table tabular-nums">
+            <thead>
+              <tr>
+                <th scope="col">{t('chartPeriodColumn')}</th>
+                <th scope="col">{t('filterIncome')}</th>
+                <th scope="col">{t('filterExpense')}</th>
+                <th scope="col">{t('billsNet')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {trend.map((p, i) => (
+                <tr key={i}>
+                  <th scope="row">{p.label}</th>
+                  <td data-label={t('filterIncome')}>{formatAmount(p.income, currency, true, locale)}</td>
+                  <td data-label={t('filterExpense')}>{formatAmount(p.expense, currency, true, locale)}</td>
+                  <td data-label={t('billsNet')}>{formatAmount(p.income - p.expense, currency, true, locale)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
     </div>
   );
 }
 
 function CashFlowTooltip({
-  left,
-  transform,
+  anchorX,
+  containerWidth,
   label,
   income,
   expense,
   incomeLabel,
   expenseLabel,
 }: {
-  left: number;
-  transform: string;
+  anchorX: number;
+  containerWidth: number;
   label: string;
   income: string;
   expense: string;
   incomeLabel: string;
   expenseLabel: string;
 }) {
-  const ref = useCssProps<HTMLDivElement>({
-    '--tooltip-left': `${left}%`,
-    '--tooltip-transform': `translateX(${transform})`,
-  });
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Centre on the point, then clamp by the tooltip's real width so it never pokes out of the
+  // card (the old percentage thresholds clipped at 320px with long CHF/German amounts).
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const w = el.offsetWidth;
+    const left = Math.min(Math.max(TOOLTIP_EDGE, anchorX - w / 2), Math.max(TOOLTIP_EDGE, containerWidth - w - TOOLTIP_EDGE));
+    applyCss(el, { '--tooltip-left': `${left}px` });
+  }, [anchorX, containerWidth, label, income, expense]);
 
   return (
     <div ref={ref} className="cashflow-tooltip" role="status">

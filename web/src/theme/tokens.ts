@@ -352,6 +352,21 @@ export function financeIncome(palette: ThemePalette): string {
   return palette.income;
 }
 
+// Bumped by every applyTheme(). Charts that bake resolved colours into data (gradient stops,
+// `segmentColor`, the "other" swatch) memoise on it, otherwise a theme switch leaves them
+// painted in the previous palette until something else re-renders them.
+let themeRevision = 0;
+const themeListeners = new Set<() => void>();
+
+export function subscribeThemeRevision(listener: () => void): () => void {
+  themeListeners.add(listener);
+  return () => themeListeners.delete(listener);
+}
+
+export function getThemeRevision(): number {
+  return themeRevision;
+}
+
 export function applyTheme(palette: ThemePalette): void {
   const root = document.documentElement;
   const accent = brandAccent(palette);
@@ -439,4 +454,7 @@ export function applyTheme(palette: ThemePalette): void {
   document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
     meta.setAttribute('content', palette.background);
   });
+
+  themeRevision += 1;
+  themeListeners.forEach((listener) => listener());
 }

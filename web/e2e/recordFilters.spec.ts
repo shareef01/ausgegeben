@@ -89,7 +89,7 @@ test('Records composite filters, reactive results, clear and account boundary', 
   });
   await expect(page.getByText('coffee stale', { exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => (window as unknown as { recordMetrics: { active: number } }).recordMetrics.active)).toBe(1);
-  await page.locator('.swipeable-row__content').first().press('Delete');
+  await page.locator('.action-row__content').first().press('Delete');
   await expect(page.locator('.txn-row-wrap')).toHaveCount(0);
   await page.evaluate(async () => {
     const path = '/src/services/toastStore.ts';

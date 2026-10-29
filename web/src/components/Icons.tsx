@@ -12,6 +12,7 @@ import {
   Cloud,
   CreditCard,
   Download,
+  Ellipsis,
   Gauge,
   Globe,
   History,
@@ -139,6 +140,10 @@ export function IconDelete(props: IconProps) {
 
 export function IconEdit(props: IconProps) {
   return <Pencil strokeWidth={STROKE} {...props} />;
+}
+
+export function IconMore(props: IconProps) {
+  return <Ellipsis strokeWidth={STROKE} {...props} />;
 }
 
 

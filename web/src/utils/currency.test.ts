@@ -5,6 +5,7 @@ import {
   currencySymbol,
   formatAmount,
   formatAmountForInput,
+  formatAxisAmount,
   parseAmount,
   sanitizeAmountInput,
   SUPPORTED_CURRENCIES,
@@ -46,6 +47,18 @@ describe('currency', () => {
     const formatted = formatAmount(1234.56, 'USD', true, 'en');
     expect(formatted).toContain('1,234.56');
     expect(formatted).toContain('$');
+  });
+
+  it('formatAxisAmount abbreviates per locale and keeps the currency', () => {
+    expect(formatAxisAmount(0, 'EUR', 'en')).toBe('€0');
+    expect(formatAxisAmount(850, 'USD', 'en')).toBe('$850');
+    expect(formatAxisAmount(1234.56, 'GBP', 'en')).toBe('£1.2K');
+    expect(formatAxisAmount(1_234_567.89, 'CHF', 'en')).toBe('CHF 1.2M');
+    expect(formatAxisAmount(-2500, 'EUR', 'en')).toBe('-€2.5K');
+    // German compact notation would print "123.456,8 €" in full.
+    expect(formatAxisAmount(123_456.78, 'EUR', 'de')).toBe('123,5 Tsd. €');
+    expect(formatAxisAmount(-2500, 'CHF', 'de')).toBe('-2,5 Tsd. CHF');
+    expect(formatAxisAmount(1_234_567.89, 'EUR', 'de')).toBe('1,2 Mio. €');
   });
 
   it('parseAmount handles comma and dot decimals', () => {
