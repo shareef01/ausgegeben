@@ -49,10 +49,20 @@ export function PageTitle({
   );
 }
 
+/**
+ * Ref that publishes `text.length` as `--money-chars`, so CSS can shrink an amount to fit its
+ * container (`calc(100cqi / (var(--money-chars) * 0.62))`) instead of ellipsising it — at large
+ * text sizes a clipped balance is a wrong balance.
+ */
+export function useMoneyChars<T extends HTMLElement>(text: string) {
+  return useCssProps<T>({ '--money-chars': Math.max(text.length, 4) });
+}
+
 export function MoneyText({ amount, currency, className = 'money--body' }: { amount: number; currency: string; className?: string }) {
   const { locale } = useTranslation();
   const formatted = formatAmount(amount, currency, true, locale);
-  return <span className={`money tabular-nums ${className}`}>{formatted}</span>;
+  const ref = useMoneyChars<HTMLSpanElement>(formatted);
+  return <span ref={ref} className={`money tabular-nums ${className}`}>{formatted}</span>;
 }
 
 export function EmptyState({ title, subtitle, hint, action }: { title: string; subtitle: string; hint?: string; action?: ReactNode }) {

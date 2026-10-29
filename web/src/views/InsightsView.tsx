@@ -186,9 +186,13 @@ function InsightsStatGrid({ income, expense, currency }: { income: number; expen
   const { t } = useTranslation();
   const net = income - expense;
   const netTone = net >= 0 ? 'net-positive' : 'net-negative';
+  // One size for all three totals, set by the longest (see .insights-summary-dock__value).
+  const dockRef = useCssProps<HTMLDivElement>({
+    '--group-money-chars': Math.max(...[expense, income, net].map((v) => formatAmount(v, currency).length), 4),
+  });
 
   return (
-    <div className="insights-summary-dock card" role="group" aria-label={t('screenInsights')}>
+    <div ref={dockRef} className="insights-summary-dock card" role="group" aria-label={t('screenInsights')}>
       <div className="insights-summary-dock__row insights-summary-dock__row--expense">
         <div className="insights-summary-dock__label">{t('summarySpent')}</div>
         <div className="insights-summary-dock__value">{formatAmount(expense, currency)}</div>
