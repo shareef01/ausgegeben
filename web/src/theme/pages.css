@@ -2005,43 +2005,89 @@
  *  RECORD — category filter chips
  * ═══════════════════════════════════════════════════ */
 
-.record-category-filter {
+.record-category-header {
   display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding: 2px 0;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
   flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: -4px; /* sits closer to its chips than the advanced block's 12px gap */
 }
 
-.record-category-filter::-webkit-scrollbar {
-  display: none;
+.record-category-header__count {
+  color: var(--color-on-surface);
+}
+
+.record-category-header__reset {
+  /* A text action, not another chip: it only appears while a selection exists. */
+  min-height: 32px;
+  padding: 0 4px;
+  margin: -6px -4px -6px 0; /* taller hit area without growing the header; no right overhang past the panel */
+  border: none;
+  background: none;
+  color: var(--color-income-text);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.record-category-header__reset:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.record-category-header__reset:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.record-category-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .record-category-chip {
+  --chip-color: var(--color-on-surface-variant);
   min-height: 44px;
   max-width: 100%;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 11px;
-  border-radius: 9999px;
-  border: 1px solid color-mix(in srgb, var(--color-outline) 36%, transparent);
-  background: color-mix(in srgb, var(--color-on-surface) 4%, var(--color-surface));
+  padding: 0 12px 0 10px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--color-outline) 28%, transparent);
+  background: transparent;
   color: var(--color-on-surface-variant);
   font-size: 0.8125rem;
   font-weight: 550;
+  line-height: 1.25;
+  text-align: start;
   cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.15s ease;
-  line-height: 1.2;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 
-.record-category-chip:hover {
-  background: color-mix(in srgb, var(--color-on-surface) 8%, var(--color-surface));
-  color: var(--color-on-surface);
-  border-color: color-mix(in srgb, var(--color-outline) 55%, transparent);
+/* A mouse needs no 44px target; denser chips keep a long list from filling the sidebar. */
+@media (pointer: fine) {
+  .record-category-chip {
+    min-height: 32px;
+  }
+}
+
+/* Hover only where there is one: on touch screens it would stick to the last tapped chip. */
+@media (hover: hover) {
+  .record-category-chip:hover {
+    background: color-mix(in srgb, var(--color-on-surface) 6%, transparent);
+    color: var(--color-on-surface);
+  }
+
+  .record-category-chip--active:hover {
+    background: color-mix(in srgb, var(--chip-color) 26%, transparent);
+  }
 }
 
 .record-category-chip:focus-visible {
@@ -2049,12 +2095,12 @@
   outline-offset: 2px;
 }
 
+/* Selected: the category's own colour, so a filtered list and its chips read as one. */
 .record-category-chip--active {
-  background: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface));
-  color: var(--color-primary);
-  border-color: color-mix(in srgb, var(--color-primary) 55%, transparent);
+  background: color-mix(in srgb, var(--chip-color) 18%, transparent);
+  border-color: color-mix(in srgb, var(--chip-color) 65%, transparent);
+  color: var(--color-on-surface);
   font-weight: 650;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 20%, transparent);
 }
 
 .record-category-chip__dot {
@@ -2062,13 +2108,25 @@
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
+  background: var(--chip-color);
 }
 
+.record-category-chip__check {
+  flex-shrink: 0;
+  margin: 0 -3px; /* a 14px icon in an 8px dot's place, without shifting the label */
+  color: color-mix(in srgb, var(--chip-color) 70%, var(--color-on-surface));
+}
+
+/* Long names wrap inside the chip rather than being cut off: two categories can share a prefix. */
 .record-category-chip__name {
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
+  padding-block: 6px;
+  overflow-wrap: anywhere;
+}
+
+.record-category-chip--more {
+  border-style: dashed;
+  color: var(--color-on-surface-variant);
 }
 
 /* ═══════════════════════════════════════════════════
