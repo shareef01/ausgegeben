@@ -20,7 +20,7 @@ import type { Category, Expense, SyncedPreferences } from '@/models/types';
 import type { CategoryBudget } from '@/services/categoryBudgets';
 import type { RecurringTemplate } from '@/services/recurrence';
 import type { OccurrenceReceipt } from '@/services/recurringBackupSection';
-import { RESTORE_BATCH_CHUNK_SIZE, SNAPSHOT_CHUNK_SIZE } from '@/services/restoreLimits';
+import { MAX_SNAPSHOT_CHUNKS, RESTORE_BATCH_CHUNK_SIZE, SNAPSHOT_CHUNK_SIZE } from '@/services/restoreLimits';
 
 /**
  * Creates persistent, chunked safety snapshot documents under /users/{userId}/restoreSnapshot/.
@@ -46,6 +46,11 @@ export async function createSafetySnapshot(
   const receiptChunkCount = recurringReceipts && recurringReceipts.length > 0
     ? Math.ceil(recurringReceipts.length / SNAPSHOT_CHUNK_SIZE)
     : 0;
+  // Refuse before writing anything: the rules would reject chunk_100 onward, and failing
+  // here leaves the account untouched rather than with a partial snapshot.
+  if (chunkCount > MAX_SNAPSHOT_CHUNKS || receiptChunkCount > MAX_SNAPSHOT_CHUNKS) {
+    throw new Error('SNAPSHOT_TOO_LARGE');
+  }
 
   // Write snapshot metadata (unbounded recurring receipts are chunked separately to obey 1MB Firestore limit)
   const metaRef = doc(db, 'users', userId, RESTORE_SNAPSHOT_COLLECTION, 'meta');

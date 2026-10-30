@@ -462,6 +462,27 @@ service cloud.firestore {
         && (!('preferences' in d) || d.preferences is map);
     }
 
+    // Rules cannot inspect the items of a list, so one snapshot document can hold up to
+    // Firestore's 1 MiB of arbitrary data. What can be bounded is how many there are:
+    // only the IDs both clients write (meta, chunk_0..99, receipt_chunk_0..99), so one
+    // account holds at most ~200 MiB here instead of filling the project's shared Spark
+    // storage. At SNAPSHOT_CHUNK_SIZE = 300 that covers 30,000 transactions; clients
+    // refuse a larger replace before writing any snapshot document, while the account
+    // is still untouched. Keep these numbers in step with
+    // web/src/services/restoreLimits.ts and BackupRestoreRepository.createSafetySnapshot.
+    function validSnapshotChunkId(id) {
+      return id == 'meta' || id.matches('^(receipt_)?chunk_([0-9]|[1-9][0-9])$');
+    }
+
+    // Snapshots are written only between the PREPARING journal write and SNAPSHOT_READY,
+    // by the operation that journal names. Outside a restore there is nothing to write.
+    function snapshotBelongsToPreparingRestore(userId) {
+      let opPath = /databases/$(database)/documents/users/$(userId)/meta/restoreOperation;
+      return exists(opPath)
+        && get(opPath).data.phase == 'PREPARING'
+        && get(opPath).data.operationId == request.resource.data.operationId;
+    }
+
     function recurringId(id) {
       return id is string && id.matches('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
     }
@@ -663,7 +684,9 @@ service cloud.firestore {
         allow create, update: if isOwner(userId)
           && accountAcceptsWrites(userId)
           && isEmailVerified()
-          && validSnapshotDoc();
+          && validSnapshotChunkId(chunkId)
+          && validSnapshotDoc()
+          && snapshotBelongsToPreparingRestore(userId);
         allow delete: if canDeleteOwned(userId);
       }
     }

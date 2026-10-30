@@ -15,9 +15,12 @@ import {
   type AusgegebenBackup,
 } from '@/services/backupFormat';
 import { restoreBackup } from '@/services/backupRestore';
+import { MAX_SNAPSHOT_CHUNKS } from '@/services/restoreLimits';
 import {
+  createSafetySnapshot,
   executeReplace,
   getRestoreOperation,
+  SNAPSHOT_CHUNK_SIZE,
   resumeReplace,
   rollbackReplace,
   readSafetySnapshot,
@@ -48,6 +51,16 @@ describe('backupReplace on real Firestore emulator with rules enforced', () => {
         emailVerified: true,
       },
     });
+  });
+
+  it('refuses a snapshot past the rules chunk cap before writing anything', async () => {
+    const row = {
+      id: 'x', amount: 1, dateMillis: 1700000000000, categoryId: 'c', note: '', transactionType: 'expense' as const,
+    };
+    const expenses = Array.from({ length: SNAPSHOT_CHUNK_SIZE * MAX_SNAPSHOT_CHUNKS + 1 }, (_, i) => ({ ...row, id: `e${i}` }));
+    await expect(createSafetySnapshot(TEST_UID, 'op-too-large', expenses, [], null)).rejects.toThrow('SNAPSHOT_TOO_LARGE');
+    const written = await getDocs(collection(enforcedFirestore(), 'users', TEST_UID, 'restoreSnapshot'));
+    expect(written.empty).toBe(true);
   });
 
   function createTestBackup(params?: {

@@ -1170,7 +1170,13 @@ describe('firestore.rules', () => {
       await assertFails(updateDoc(opRef, { operationId: 'op-456' }));
     });
 
+    const seedOp = (overrides: Record<string, unknown> = {}) =>
+      testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(doc(ctx.firestore(), 'users/alice/meta/restoreOperation'), { ...validOp, ...overrides });
+      });
+
     it('allows verified owner to create, read, update, and delete restoreSnapshot docs', async () => {
+      await seedOp();
       const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
       const chunkRef = doc(db, 'users/alice/restoreSnapshot/chunk_0');
       const validChunk = {
@@ -1190,6 +1196,7 @@ describe('firestore.rules', () => {
     });
 
     it('rejects restoreSnapshot creation if unverified, wrong ownerUid, or extra fields', async () => {
+      await seedOp();
       const unverified = testEnv.authenticatedContext('alice', { email_verified: false }).firestore();
       const validChunk = {
         operationId: 'op-123',
@@ -1206,6 +1213,47 @@ describe('firestore.rules', () => {
       await assertFails(
         setDoc(doc(verified, 'users/alice/restoreSnapshot/chunk_0'), { ...validChunk, unexpected: true }),
       );
+    });
+
+    /**
+     * Rules cannot check list items, so each snapshot doc can carry ~1 MiB of anything.
+     * Without these limits one verified account could park unlimited such docs and fill
+     * the project's shared Spark storage (docs/SECURITY_AUDIT_2026-10-30.md, finding 2).
+     */
+    describe('restoreSnapshot storage bounds', () => {
+      const chunk = { operationId: 'op-123', ownerUid: 'alice', createdAt: Date.now(), chunkIndex: 0, expenses: [] };
+      const alice = () => testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+
+      it('refuses snapshot writes when no restore is running', async () => {
+        await assertFails(setDoc(doc(alice(), 'users/alice/restoreSnapshot/chunk_0'), chunk));
+        await assertFails(setDoc(doc(alice(), 'users/alice/restoreSnapshot/meta'), chunk));
+      });
+
+      it('refuses snapshot writes once the restore has left PREPARING', async () => {
+        for (const phase of ['SNAPSHOT_READY', 'APPLYING', 'COMPLETED', 'ROLLED_BACK', 'FAILED_RECOVERABLE']) {
+          await seedOp({ phase });
+          await assertFails(setDoc(doc(alice(), 'users/alice/restoreSnapshot/chunk_0'), chunk));
+        }
+      });
+
+      it('refuses snapshot writes for a different operation', async () => {
+        await seedOp();
+        await assertFails(setDoc(doc(alice(), 'users/alice/restoreSnapshot/chunk_0'), { ...chunk, operationId: 'op-other' }));
+      });
+
+      it('accepts exactly the document ids the clients write', async () => {
+        await seedOp();
+        for (const id of ['meta', 'chunk_0', 'chunk_9', 'chunk_10', 'chunk_99', 'receipt_chunk_0', 'receipt_chunk_99']) {
+          await assertSucceeds(setDoc(doc(alice(), `users/alice/restoreSnapshot/${id}`), chunk));
+        }
+      });
+
+      it('refuses any other document id', async () => {
+        await seedOp();
+        for (const id of ['junk-0', 'chunk_100', 'chunk_05', 'chunk_', 'receipt_chunk_100', 'meta2', 'chunk_1a', 'xchunk_1']) {
+          await assertFails(setDoc(doc(alice(), `users/alice/restoreSnapshot/${id}`), chunk));
+        }
+      });
     });
   });
 
