@@ -94,6 +94,31 @@ jobs:
       - name: Build release (runs R8)
         run: ./gradlew assembleProdRelease --no-daemon
 
+  # GitHub cannot read the Kotlin DSL + version catalog on its own, so the dependency
+  # graph held no Android packages and Dependabot never alerted on them (security audit
+  # 2026-10-30, finding 4). Submitting the resolved Gradle graph fixes that. Push to
+  # main only: it needs contents: write, and main is already-reviewed code.
+  android_dependency_graph:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # Resolution only configures the project; the CI-only config is enough and
+      # keeps the real one out of a job holding a write token.
+      - run: cp app/google-services.ci.json app/google-services.json
+
+      - uses: gradle/actions/dependency-submission@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+
   # ExportFileProviderTest guards a security boundary — that file_paths.xml exposes
   # the exports subdir and nothing above it — and MainActivityLaunchTest catches a
   # broken Hilt graph, which compiles cleanly and only fails at runtime. Both
