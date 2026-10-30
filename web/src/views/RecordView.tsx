@@ -1,6 +1,6 @@
-import { useMemo, useState, memo, useCallback } from 'react';
+import { useMemo, useState, memo, useCallback, type CSSProperties } from 'react';
 import { EmptyState, LoadingListSkeleton, PageTitle, CategoryIconTile } from '@/components/ui';
-import { IconSearch, IconClose, IconArrowUp, IconArrowDown, IconTransfer, IconRecord, IconChevronDown } from '@/components/Icons';
+import { IconSearch, IconClose, IconArrowUp, IconArrowDown, IconTransfer, IconRecord, IconChevronDown, IconCheck } from '@/components/Icons';
 import { IosSegmentedControl } from '@/components/IosSegmentedControl';
 import { FinanceSummaryCard } from '@/components/FinanceSummaryCard';
 import { BudgetProgressBar } from '@/components/BudgetProgressBar';
@@ -19,6 +19,9 @@ interface RecordViewProps {
   onEdit: (id: string) => void;
   onAdd?: () => void;
 }
+
+/** Category chips shown before the list collapses behind a "+N more" chip. */
+const CATEGORY_CHIPS_COLLAPSED = 8;
 
 export function RecordView({ onEdit, onAdd }: RecordViewProps) {
   const { t } = useTranslation();
@@ -68,6 +71,18 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
       return cat.transactionType === uiState.typeFilter;
     });
   }, [uiState.categories, uiState.typeFilter]);
+
+  // Long category lists collapse to the first few; selected ones always stay visible so the
+  // current filter can be read and undone without expanding.
+  const [showAllCategories, setShowAllCategories] = useState(false);
+  const collapsible = availableCategories.length > CATEGORY_CHIPS_COLLAPSED + 2;
+  const visibleCategories = useMemo(() => {
+    if (showAllCategories || !collapsible) return availableCategories;
+    return availableCategories.filter(
+      (cat, i) => i < CATEGORY_CHIPS_COLLAPSED || uiState.categoryIdsFilter.includes(cat.id),
+    );
+  }, [availableCategories, showAllCategories, collapsible, uiState.categoryIdsFilter]);
+  const hiddenCategoryCount = availableCategories.length - visibleCategories.length;
 
   const grouped = useMemo(
     () =>
@@ -229,22 +244,31 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
               {(availableCategories.length > 0 || uiState.categoryIdsFilter.length > 0) && (
                 <>
                   <hr className="record-filters__divider" />
+                  <div className="record-category-header">
+                    <span className="record-filter-label" id="record-category-label">
+                      {t('filterCategories')}
+                      {uiState.categoryIdsFilter.length > 0 ? (
+                        <span className="record-category-header__count"> · {uiState.categoryIdsFilter.length}</span>
+                      ) : null}
+                    </span>
+                    {uiState.categoryIdsFilter.length > 0 ? (
+                      <button
+                        type="button"
+                        className="record-category-header__reset"
+                        onClick={() => {
+                          haptics.light();
+                          setCategoryIdsFilter([]);
+                        }}
+                      >
+                        {t('filterClearCategories')}
+                      </button>
+                    ) : null}
+                  </div>
                   <div
                     className="record-category-filter"
                     role="group"
-                    aria-label={t('recordCategoryFilter')}
+                    aria-labelledby="record-category-label"
                   >
-                    <button
-                      type="button"
-                      className={`record-category-chip ${uiState.categoryIdsFilter.length === 0 ? 'record-category-chip--active' : ''}`}
-                      onClick={() => {
-                        haptics.light();
-                        setCategoryIdsFilter([]);
-                      }}
-                      aria-pressed={uiState.categoryIdsFilter.length === 0}
-                    >
-                      <span>{t('filterAllCategories')}</span>
-                    </button>
                     {uiState.categoryIdsFilter.map((id) => {
                       if (availableCategories.some((cat) => cat.id === id)) return null;
                       const catName = uiState.categories.find((cat) => cat.id === id)?.name ?? t('recordUnknownCategory');
@@ -259,33 +283,46 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
                             toggleCategoryIdFilter(id);
                           }}
                         >
+                          <IconCheck className="record-category-chip__check" width={14} height={14} aria-hidden />
                           <span className="record-category-chip__name">{catName}</span>
                         </button>
                       );
                     })}
-                    {availableCategories.map((cat) => {
+                    {visibleCategories.map((cat) => {
                       const isSelected = uiState.categoryIdsFilter.includes(cat.id);
-                      const hex = colorIntToHex(cat.colorInt);
                       return (
                         <button
                           key={cat.id}
                           type="button"
-                          className={`record-category-chip ${isSelected ? 'record-category-chip--active' : ''}`}
+                          className={`record-category-chip${isSelected ? ' record-category-chip--active' : ''}`}
+                          style={{ '--chip-color': colorIntToHex(cat.colorInt) } as CSSProperties}
                           onClick={() => {
                             haptics.light();
                             toggleCategoryIdFilter(cat.id);
                           }}
                           aria-pressed={isSelected}
                         >
-                          <span
-                            className="record-category-chip__dot"
-                            style={{ backgroundColor: hex }}
-                            aria-hidden="true"
-                          />
+                          {isSelected ? (
+                            <IconCheck className="record-category-chip__check" width={14} height={14} aria-hidden />
+                          ) : (
+                            <span className="record-category-chip__dot" aria-hidden="true" />
+                          )}
                           <span className="record-category-chip__name">{cat.name}</span>
                         </button>
                       );
                     })}
+                    {hiddenCategoryCount > 0 || showAllCategories ? (
+                      <button
+                        type="button"
+                        className="record-category-chip record-category-chip--more"
+                        aria-expanded={showAllCategories}
+                        onClick={() => setShowAllCategories((open) => !open)}
+                      >
+                        {showAllCategories
+                          ? t('recordFewerCategories')
+                          : t('recordMoreCategories', { count: String(hiddenCategoryCount) })}
+                      </button>
+                    ) : null}
                   </div>
                 </>
               )}
