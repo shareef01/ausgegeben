@@ -27,6 +27,20 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.tasks.await
 
 /**
+ * Records per safety-snapshot document, matching web's restoreLimits.ts. 300 keeps a
+ * worst-case chunk (2,000-character notes plus every bounded legacy field) under
+ * Firestore's 1 MiB document limit.
+ */
+internal const val SNAPSHOT_CHUNK_SIZE = 300
+
+/**
+ * Most expense or receipt chunks one snapshot may have. firestore.rules accepts only
+ * chunk_0..99 and receipt_chunk_0..99, which caps how much one account can park in
+ * restoreSnapshot; keep the two in step.
+ */
+internal const val MAX_SNAPSHOT_CHUNKS = 100
+
+/**
  * What [BackupRestoreRepository] borrows from [AppRepository]: Firestore paths, the
  * signed-in user, the document mappers and the budget/recurring writers. Implemented by
  * a private object inside AppRepository, so those helpers stay private there and the
@@ -520,12 +534,15 @@ internal class BackupRestoreRepository(
         expenseLegacyFields: Map<String, Map<String, Any>> = emptyMap(),
     ): ReplacePlanner.SnapshotMeta {
         val now = System.currentTimeMillis()
-        val chunkSize = 100
+        val chunkSize = SNAPSHOT_CHUNK_SIZE
         val chunkCount = if (expenses.isEmpty()) 1 else (expenses.size + chunkSize - 1) / chunkSize
 
         val currentRecurring = getRecurringBackupSection(u)
-        val receiptsChunkSize = 250
+        val receiptsChunkSize = SNAPSHOT_CHUNK_SIZE
         val receiptChunkCount = if (currentRecurring.receipts.isEmpty()) 0 else (currentRecurring.receipts.size + receiptsChunkSize - 1) / receiptsChunkSize
+        // Refuse before writing anything: the rules reject chunk_100 onward, and failing
+        // here leaves the account untouched rather than with a partial snapshot.
+        check(chunkCount <= MAX_SNAPSHOT_CHUNKS && receiptChunkCount <= MAX_SNAPSHOT_CHUNKS) { "SNAPSHOT_TOO_LARGE" }
 
         val metaPayload = buildMap<String, Any?> {
             put("operationId", operationId)
