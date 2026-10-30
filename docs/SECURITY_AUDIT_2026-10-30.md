@@ -16,6 +16,18 @@ outbound requests were read-only: GitHub API reads of repository settings, `GET`
 the public Hosting sites, one Identity Toolkit request with an obviously fake address
 to test an old API key, and an OSV advisory lookup of public package versions.
 
+## Follow-up status (2026-10-30, done at the maintainer's request)
+
+| Finding | Status |
+|---|---|
+| 1. Signing secrets | **Partly done.** `production-release` now accepts deployments only from `main` and `v*` tags. The secrets themselves are still repository-wide: GitHub never reveals secret values, and the key has no offline copy, so only the maintainer can re-create them in the environment. Don't delete the repository copies until the environment copies are confirmed by a successful release. |
+| 2. Restore snapshot storage | **Partly fixed and deployed.** The rules from #115 are live in production since 2026-10-30. The 300-records-per-document client change ships with the next web/Android release. |
+| 3. Old default site | **Fixed and deployed.** `ausgegeben01.web.app` / `.firebaseapp.com` now serve a "moved to aus01.web.app" page with a strict CSP and `X-Frame-Options: DENY`, plus a service worker that removes the old cached app (checked in a browser on a preview channel). Firebase's `/__/auth/*` pages, which the live app's email links use, are byte-identical to before. A backup of the old content is in the `pre-redirect-backup` preview channel, which expires after 7 days. |
+| 4. Android dependency alerts | In this PR: a `android_dependency_graph` CI job submits the Gradle graph on pushes to `main`. |
+| 5. npm advisories | In this PR: Vitest 4.1.12 fixes both `@vitest/mocker` advisories. |
+| 6. Repo settings | **Done.** "Require actions to be pinned to a full-length commit SHA" is on. Every action in use is a JavaScript action already pinned, so none calls other actions by tag. |
+| Password policy | Not done. It is a Firebase Console setting that may require the Identity Platform upgrade, which `docs/maintenance.md` says needs an explicit decision. |
+
 ## Summary
 
 No way was found for one user to read or change another user's data. The rules held
