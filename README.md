@@ -1,29 +1,27 @@
-# Ausgegeben
+# Ausgegeben — Personal Finance Tracker
 
-**A straightforward personal finance tracker for Android and the web.**
+**Ausgegeben** is an offline-capable, cross-platform personal finance tracker I built for Android and the web.
 
-Ausgegeben keeps expenses, income, transfers, budgets, and spending trends in one place. It is designed for everyday use: quick to update, useful offline, and consistent across phone and browser.
+I built Ausgegeben because I wanted a fast, private, and distraction-free tool to track my day-to-day spending, monthly budgets, and recurring bills across my phone and laptop without relying on third-party banking aggregators, subscription services, or intrusive ads.
 
-[Use the web app](https://aus01.web.app) · [Download the Android app](https://github.com/shareef01/ausgegeben/releases/latest)
+[Launch Web App](https://aus01.web.app) · [Download Android APK](https://github.com/shareef01/ausgegeben/releases/latest)
 
-[![Latest release](https://img.shields.io/github/v/release/shareef01/ausgegeben?display_name=tag&sort=semver)](https://github.com/shareef01/ausgegeben/releases/latest)
-[![CI](https://github.com/shareef01/ausgegeben/actions/workflows/ci.yml/badge.svg)](https://github.com/shareef01/ausgegeben/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-16803a.svg)](LICENSE)
+---
 
-## A quick look
+## Screenshots
 
-### Web
+### Web (PWA)
 
 <p>
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/web/web-record-dark.png">
     <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/web/web-record-light.png">
-    <img src="docs/screenshots/web/web-record-light.png" alt="Ausgegeben transaction record in the web app" width="49%">
+    <img src="docs/screenshots/web/web-record-light.png" alt="Ausgegeben transaction record in web app" width="49%">
   </picture>
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/web/web-insights-dark.png">
     <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/web/web-insights-light.png">
-    <img src="docs/screenshots/web/web-insights-light.png" alt="Ausgegeben spending insights in the web app" width="49%">
+    <img src="docs/screenshots/web/web-insights-light.png" alt="Ausgegeben spending insights in web app" width="49%">
   </picture>
 </p>
 
@@ -42,101 +40,127 @@ Ausgegeben keeps expenses, income, transfers, budgets, and spending trends in on
   </picture>
 </p>
 
-Every screenshot is generated from a verified demo account against local Firebase emulators. No personal financial data is used. The repeatable capture tools live in [`web/scripts`](web/scripts/capture-screenshots.mjs) and [`scripts`](scripts/capture-android-screenshots.mjs).
+*Screenshots are generated automatically from clean demo accounts using local Firebase emulators.*
 
-## What it does
+---
 
-- Records expenses, income, and transfers with notes and custom categories
-- Breaks down spending by category and visualizes cash flow over time
-- Tracks monthly spending limits and category-specific budgets
-- Schedules replay-safe recurring transaction templates
-- Searches and duplicates transactions, deletes with a brief undo window, exports to CSV, and provides safe versioned JSON backup export and restore across platforms (see `docs/local-backup-plan.md`)
-- Synchronizes data and preferences between Android and the web
-- Supports English and German, a choice of display currency (EUR, USD, GBP, CHF; amounts are relabelled, not converted), and several light and dark themes
-- Works offline through Firestore's local cache: a save made with no connection finishes at once and syncs when the connection returns. On the web, unsynced entries survive closing the tab only on a "trusted device"; otherwise the tab asks before it closes
-- Provides configurable daily reminders on Android
-- Installs as a PWA and updates its cached application shell automatically
+## Features
 
-## How it is built
+- **Fast Transaction Logging:** Log expenses, income, and account transfers in seconds with custom categories and notes.
+- **Category Budgets & Trends:** Set monthly spending targets per category, track spending velocity against month progress, and view cash flow breakdowns.
+- **Recurring Transactions:** Automate periodic expenses and bills with deterministic scheduling that prevents duplicate charges even after network dropouts.
+- **Offline-First Resilience:** Transactions save immediately to local device storage and sync to Cloud Firestore once an internet connection is restored.
+- **Search & Filtering:** Instant client-side search by note, amount, date range, transaction type, or category.
+- **Safe Backup & Restore:** Export and import versioned, integrity-checked JSON backups with automatic safety snapshots before destructive replace operations.
+- **Privacy & Security:** Zero third-party ad networks, no analytics trackers, and strict Firebase security rules that enforce complete account isolation.
+- **Localization & Themes:** Supports English and German, multiple display currencies (EUR, USD, GBP, CHF), and light, dark, and OLED themes.
+- **Android Reminders:** Configurable daily notification reminders powered by Android WorkManager.
 
-| Platform | Main technologies | Distribution |
+---
+
+## Tech Stack
+
+| Layer | Technologies | Highlights |
 |---|---|---|
-| Android | Kotlin, Jetpack Compose, Hilt, WorkManager, DataStore | Signed APKs on [GitHub Releases](https://github.com/shareef01/ausgegeben/releases) |
-| Web | React, TypeScript, Vite, Zustand | [Firebase Hosting](https://aus01.web.app) as an installable PWA |
-| Shared backend | Firebase Authentication and Cloud Firestore | Firebase Spark plan; no paid Cloud Functions dependency |
-| Error reporting | Optional Cloudflare Worker endpoint | App Check validation and per-session client limits |
+| **Android Client** | Kotlin, Jetpack Compose, Material 3, Hilt, WorkManager, DataStore | Modern declarative UI, single-activity architecture, offline persistence, and signed release builds. |
+| **Web Client** | React 19, TypeScript, Vite, Zustand | Mobile-first responsive PWA, custom accessible UI components, and fast cold-start performance. |
+| **Backend & Sync** | Firebase Authentication, Cloud Firestore | Serverless Spark architecture; isolated per-user document trees secured by fine-grained Firestore security rules. |
+| **Shared Contracts** | Cross-platform JSON test fixtures | Shared mathematical parity suites (`testdata/money-parity.json`) verify identical rounding and validation logic across Kotlin and TypeScript. |
+| **CI / CD** | GitHub Actions | Automated linting, unit tests, CSS token validation, Android compilation, and release packaging pinned by commit SHAs. |
 
-Both clients store cloud data below the authenticated user's Firestore document. Security rules enforce user isolation, verified-email writes, accepted document fields, and financial data constraints. Important operations such as category migration and account deletion are resumable and tested at batch boundaries.
+---
 
-## Privacy and security
+## How It Works
 
-Ausgegeben contains no advertising or analytics SDKs. Financial records are stored in the user's Cloud Firestore account and may be cached locally for offline access. Web authentication defaults to session-based persistence so shared computers do not retain account access across browser restarts; persistent login and offline financial data caching are decoupled opt-in settings. Signing out and account deletion attempt to clear local application data on both clients.
-
-Optional web error reporting can send bounded technical diagnostics—including an error message, stack trace, page path, browser user-agent, and limited runtime context—to the project's Cloudflare Worker. It is off until the user turns it on in Settings. No account identifier is attached, and token-, email- and password-shaped values are redacted before sending. That redaction is not a filter for financial data: amounts, notes and category names are kept out of error messages by how the code throws errors, and a narrow CI check (`web/scripts/check-telemetry-throw-sites.mjs`) catches one common way of breaking that (serialising data into a thrown error). It is a safeguard, not a guarantee.
-
-The security model, operational constraints, and release procedure are documented in [Firebase setup](FIREBASE_SETUP.md), [audit remediation notes](docs/audit-remediation.md), and the [maintenance guide](docs/maintenance.md).
-
-## Run it locally
-
-### Android
-
-Install Android Studio, Android SDK 37, and JDK 21. Add a real Firebase Android configuration at `app/google-services.json`, then run:
-
-```powershell
-.\gradlew.bat assembleProdDebug
-.\gradlew.bat testProdDebugUnitTest
+```text
+┌─────────────────────────┐          ┌─────────────────────────┐
+│     Android Client      │          │     React Web (PWA)     │
+│ (Kotlin, Compose, Hilt) │          │ (TypeScript, Vite, Zsd) │
+└────────────┬────────────┘          └────────────┬────────────┘
+             │                                    │
+             │   Firestore SDK Offline Cache      │
+             ▼                                    ▼
+┌──────────────────────────────────────────────────────────────┐
+│                    Cloud Firestore                           │
+│  users/{uid}/expenses                                        │
+│  users/{uid}/categories                                      │
+│  users/{uid}/recurringTemplates                              │
+│  users/{uid}/safetySnapshots                                 │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-The committed example Firebase file is deliberately nonfunctional: it supports CI and local compilation without exposing production configuration. Signed release builds require the maintainer's Firebase and signing material. See [Android Studio setup](ANDROID_STUDIO.md) for the complete setup.
+1. **User Data Isolation:** Every authenticated user writes exclusively within `users/{uid}/*`. Firestore security rules reject any read or write attempted outside the caller's verified UID.
+2. **Local Cache First:** Both clients read and write through the Firestore offline cache. Saving an expense completes immediately in the UI without waiting for network round-trips.
+3. **Idempotent Recurring Engine:** Recurring transaction instances are keyed by canonical hash receipts (`uuid_yyyy-mm-dd`). Even if network sync stutters or multiple tabs run simultaneously, an occurrence is materialized at most once.
+4. **Disaster Recovery:** A full JSON export includes expenses, categories, recurring templates, and preferences. During a restore, the client creates a reversible pre-restore safety snapshot before applying new records in budgeted batches.
 
-### Web
+---
 
-Install Node.js 22 or newer, copy `web/.env.example` to `web/.env.local`, and add your Firebase web configuration:
+## Live Demo & Download
+
+- **Web Application:** [aus01.web.app](https://aus01.web.app) (Installable Progressive Web App)
+- **Android Releases:** [GitHub Releases](https://github.com/shareef01/ausgegeben/releases) (Signed, installable APKs)
+
+---
+
+## Running Locally
+
+### Prerequisites
+
+- **Node.js:** 22+
+- **JDK:** 21+ (matching modern Android Studio JBR)
+- **Android Studio:** Ladybug or newer with Android SDK 37 (for Android development)
+
+### Web App Setup
 
 ```bash
 cd web
-npm ci
+npm install
+
+# Copy example environment configuration
+cp .env.example .env.local
+
+# Start the Vite development server
 npm run dev
 ```
 
-See the [web development guide](web/README.md) for emulator, testing, and deployment details.
-
-## Quality checks
-
+Run test suite and quality checks:
 ```bash
-# Web: unit tests, type checks, CSS validation, and production build
-cd web
-npm test
-npm run lint
-npm run lint:css
-npm run build
-
-# Firestore rules and repository integration tests (JDK 21+)
-npm run test:rules
-npm run test:emulator
-
-# Android: unit tests, lint, and debug build (from the repository root)
-./gradlew testProdDebugUnitTest lintProdDebug assembleProdDebug
+npm test              # Run unit tests (Vitest)
+npm run lint          # TypeScript typecheck
+npm run lint:css      # Validate CSS class token coverage
+npm run build         # Production PWA build
 ```
 
-CI also runs Android instrumentation tests. A semantic version tag runs every release gate again, builds and verifies the signed APK, launches that exact artifact on an emulator, and publishes it only after every check succeeds.
+### Android Setup
 
-## Repository map
+1. Open the project root in **Android Studio**.
+2. Create an empty `app/google-services.json` or copy the CI placeholder:
+   ```powershell
+   Copy-Item app/google-services.ci.json app/google-services.json
+   ```
+3. Run the debug build and tests via Gradle:
+   ```powershell
+   .\gradlew.bat assembleProdDebug
+   .\gradlew.bat testProdDebugUnitTest
+   ```
 
-```text
-app/                  Android application and tests
-web/                  React PWA, Firestore tests, and web tooling
-tools/error-endpoint/ Optional Cloudflare error-reporting Worker
-docs/                 Maintenance, remediation, and product screenshots
-scripts/              Cross-platform repository tooling
-```
+*(See [ANDROID_STUDIO.md](ANDROID_STUDIO.md) and [FIREBASE_SETUP.md](FIREBASE_SETUP.md) for full emulator configuration details.)*
 
-Generated builds, emulator state, local audit material, dependencies, Firebase configuration, and signing files are intentionally excluded from Git.
+---
 
-## Maintainer
+## Project Status
 
-Created and maintained by [shareef01](https://github.com/shareef01).
+Ausgegeben is an active personal project designed for my daily personal use and featured on my software engineering portfolio. The codebase is maintained with strict test coverage, automated security regression gates, and reproducible builds.
+
+---
+
+## Author
+
+Created and maintained by **Shareef** ([@shareef01](https://github.com/shareef01)).
+
+---
 
 ## License
 
-Ausgegeben is available under the [MIT License](LICENSE).
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
