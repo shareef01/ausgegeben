@@ -95,8 +95,13 @@ AUDIT_REPORT.md
 docs/audit-baseline.md
 docs/audit-summary.md
 docs/AUDIT_*.md
+docs/SECURITY_AUDIT_*.md
 CLEANUP_REPORT.md
 cleanup-deletions.json
+
+# Design-QA visual diff outputs (local test outputs, regenerate via scripts)
+docs/design-qa/**/*.png
+docs/design-qa/**/*.webp
 
 # Computed-style snapshots (hundreds of MB; regenerate with web/qa/style-snapshot.mjs)
 docs/design-qa/css/*.json
