@@ -1218,7 +1218,7 @@ describe('firestore.rules', () => {
     /**
      * Rules cannot check list items, so each snapshot doc can carry ~1 MiB of anything.
      * Without these limits one verified account could park unlimited such docs and fill
-     * the project's shared Spark storage (docs/SECURITY_AUDIT_2026-10-30.md, finding 2).
+     * the project's shared Spark storage (Spark storage bound protection).
      */
     describe('restoreSnapshot storage bounds', () => {
       const chunk = { operationId: 'op-123', ownerUid: 'alice', createdAt: Date.now(), chunkIndex: 0, expenses: [] };
