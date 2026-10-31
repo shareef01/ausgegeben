@@ -1,6 +1,7 @@
 {
   "name": "ausgegeben-error-endpoint",
   "private": true,
+  "author": "shareef01 (https://github.com/shareef01)",
   "type": "module",
   "description": "Cloudflare Worker receiving crash reports from the Ausgegeben PWA (see README.md).",
   "scripts": {

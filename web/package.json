@@ -2,6 +2,7 @@
   "name": "ausgegeben-web",
   "private": true,
   "version": "2.1.9",
+  "author": "shareef01 (https://github.com/shareef01)",
   "type": "module",
   "scripts": {
     "dev": "vite",
