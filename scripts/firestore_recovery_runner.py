@@ -29,6 +29,10 @@ TESTS = (
     "int6_signOutClearsPendingOperations_nextAccountCannotReconcileThem",
     "rel1_replaceAndMergeRestoreOverExpenseEditedAfterBackup_succeed",
     "rel2_failedResumeKeepsOriginalSnapshot_andRollbackRestoresDeletedLegacyRow",
+    "rel3_mergeRestoreOverExpenseWhoseRevisionIsAheadOfTheClock_succeeds",
+    "rel4_mergeRestoreRefusesRevisionItCannotLegallyExceed",
+    "rel5_unrelatedAuthorizationRefusalIsNotReportedAsClockSkew",
+    "rel6_replaceAndRollbackOverFutureRevision_keepJournalAndSnapshot",
 )
 REPORT = f"TEST-{TEST_CLASS}.xml"
 # SDK, CLI hub/logging, and Firestore websocket ports.

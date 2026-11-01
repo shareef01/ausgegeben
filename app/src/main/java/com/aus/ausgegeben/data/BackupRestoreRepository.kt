@@ -20,6 +20,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.Source
+import com.google.firebase.firestore.WriteBatch
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.roundToLong
@@ -158,7 +159,23 @@ internal class BackupRestoreRepository(
         // the stored row, and that row may sit ahead of this device's clock (AUD-006).
         val expenseChunks = RestoreBatches.chunkByCategory(backup.expenses, 400) { it.categoryId }
         for (chunk in expenseChunks) {
-            commitRestoredExpenses(u, chunk)
+            commitRestoredExpenses(
+                u,
+                chunk.map { e ->
+                    RestoredExpenseWrite(
+                        e.id,
+                        buildMap<String, Any> {
+                            put("amount", (e.amount * 100.0).roundToLong() / 100.0)
+                            put("dateMillis", e.dateMillis)
+                            put("categoryId", e.categoryId)
+                            // 2000 is the rules' and every other writer's cap; 200 cut notes.
+                            put("note", e.note.take(2000))
+                            put("transactionType", e.transactionType)
+                            put("id", e.id)
+                        },
+                    )
+                },
+            )
         }
 
         // 3. Preferences — `newTimestamp` was computed and validated in the pre-flight above.
@@ -226,33 +243,35 @@ internal class BackupRestoreRepository(
      * Commits one batch of restored expenses, reconciling the one refusal the backup file
      * cannot predict: a stored revision ahead of this device's clock (AUD-006).
      *
-     * The first attempt is what the restore always wrote. A batch commits entirely or not at
-     * all, so when the rules refuse it nothing was written: the stored revisions are read
-     * back from the server and only the offending rows are retried, stepped just past their
-     * stored value, so the retry cannot plant future timestamps on rows that never needed
-     * them. A revision no legal write can exceed throws `EXPENSE_REVISION_UNWRITABLE` instead
-     * of leaving the caller with a bare PERMISSION_DENIED. Mirrors web commitRestoredExpenses.
+     * The first attempt is what every restore path always wrote. A batch commits entirely or
+     * not at all, so when the rules refuse it nothing was written: the stored revisions are
+     * read back from the server and only the offending rows are retried, stepped just past
+     * their stored value, so the retry cannot plant future timestamps on rows that never
+     * needed them. [patchBatch] adds the journalled replace flow's restore-operation/lease
+     * update to the same atomic batch on every attempt, so a retry never commits expenses
+     * without their journal progress.
+     *
+     * A revision no legal write can exceed throws `EXPENSE_REVISION_UNWRITABLE` instead of
+     * leaving the caller with a bare PERMISSION_DENIED. Exactly one retry is attempted: a row
+     * whose revision moves again between the lookup and that retry fails the batch (fail
+     * closed) rather than looping. Mirrors web commitRestoredExpenses.
      */
-    private suspend fun commitRestoredExpenses(u: String, chunk: List<BackupFormat.ParsedExpense>) {
+    private suspend fun commitRestoredExpenses(
+        u: String,
+        entries: List<RestoredExpenseWrite>,
+        merge: Boolean = true,
+        patchBatch: ((WriteBatch) -> Unit)? = null,
+    ) {
         val now = System.currentTimeMillis()
-        val payloads = chunk.associate { e ->
-            e.id to buildMap<String, Any> {
-                put("amount", (e.amount * 100.0).roundToLong() / 100.0)
-                put("dateMillis", e.dateMillis)
-                put("categoryId", e.categoryId)
-                // 2000 is the rules' and every other writer's cap; 200 silently cut notes.
-                put("note", e.note.take(2000))
-                put("transactionType", e.transactionType)
-                put("id", e.id)
-            }
-        }
 
         suspend fun writeAll(revisions: Map<String, Long>) {
             val batch = firestore.batch()
-            for (e in chunk) {
-                val payload = payloads.getValue(e.id) + ("updatedAt" to (revisions[e.id] ?: now))
-                batch.set(expDoc(u, e.id), payload, SetOptions.merge())
+            for (entry in entries) {
+                val payload = entry.payload + ("updatedAt" to (revisions[entry.id] ?: now))
+                val ref = expDoc(u, entry.id)
+                if (merge) batch.set(ref, payload, SetOptions.merge()) else batch.set(ref, payload)
             }
+            patchBatch?.invoke(batch)
             batch.commit().await()
         }
 
@@ -261,23 +280,33 @@ internal class BackupRestoreRepository(
             return
         } catch (error: FirebaseFirestoreException) {
             if (error.code != FirebaseFirestoreException.Code.PERMISSION_DENIED) throw error
-            val stored = readStoredExpenseRevisions(u, chunk.map { it.id })
+            val stored = readStoredExpenseRevisions(u, entries.map { it.id })
             val limit = now + BackupFormat.RESTORE_REVISION_MAX_LEAD_MS -
                 BackupFormat.RESTORE_REVISION_LEAD_MARGIN_MS
             val bumped = HashMap<String, Long>()
-            for (e in chunk) {
-                val revision = stored[e.id] ?: continue
+            for (entry in entries) {
+                val revision = stored[entry.id] ?: continue
                 if (revision < now) continue
                 val stepped = BackupFormat.restoredExpenseRevision(now, revision)
                 if (stepped > limit) throw IllegalStateException("EXPENSE_REVISION_UNWRITABLE")
-                bumped[e.id] = stepped
+                bumped[entry.id] = stepped
             }
-            // Refused for a reason the file cannot explain (a category staged for deletion, a
-            // type migration in flight): surface the original error rather than a second one.
+            // Refused for a reason the revision bump cannot address (a category staged for
+            // deletion, an account-deletion tombstone, a migration in flight): surface the
+            // original error rather than a second, identical one.
             if (bumped.isEmpty()) throw error
-            writeAll(bumped)
+            try {
+                writeAll(bumped)
+            } catch (retryError: FirebaseFirestoreException) {
+                // A retry the rules still refuse is the failure the caller already had.
+                if (retryError.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) throw error
+                throw retryError
+            }
         }
     }
+
+    /** One restored expense: its document id and the allowlisted payload minus `updatedAt`. */
+    private data class RestoredExpenseWrite(val id: String, val payload: Map<String, Any>)
 
     /**
      * Stored expense revisions, read from the server rather than the cache: the retry exists
@@ -984,41 +1013,44 @@ internal class BackupRestoreRepository(
                 }
             }
 
-            // 2. Expenses upsert in chunks of 400
+            // 2. Expenses upsert in chunks of 400. The journal/lease update rides in the same
+            // atomic batch, so the AUD-006 revision reconciliation retries both together and a
+            // batch can never commit expenses without its progress.
             verifyAndRenewRecoveryLease(expectedUid, currentClientId, fencingToken)
             val expenseUpsertChunks = RestoreBatches.chunkByCategory(plan.expensesToUpsert, 400) { it.categoryId }
             var expenseUpsertBatchIndex = 0
             for (chunk in expenseUpsertChunks) {
-                val batch = firestore.batch()
-                for (e in chunk) {
-                    val ref = expDoc(expectedUid, e.id)
-                    val roundedAmount = (e.amount * 100.0).roundToLong() / 100.0
-                    val payload = buildMap<String, Any> {
-                        put("amount", roundedAmount)
-                        put("dateMillis", e.dateMillis)
-                        put("categoryId", e.categoryId)
-                        put("note", e.note.take(2000))
-                        put("transactionType", e.transactionType)
-                        // A restore is a new write, not a replay of the backup's clock: the
-                        // rules deny an updatedAt older than the stored row, so writing the
-                        // backup's value failed every replace over an expense edited since.
-                        put("updatedAt", System.currentTimeMillis())
-                        put("id", e.id)
-                    }
-                    batch.set(ref, payload, SetOptions.merge())
-                }
-                batch.update(
-                    restoreOpDoc(expectedUid),
-                    mapOf(
-                        "updatedAt" to System.currentTimeMillis(),
-                        "progress.fencingToken" to fencingToken,
-                        "progress.leaseHolder" to currentClientId,
-                        "progress.leaseExpiresAt" to (System.currentTimeMillis() + 60_000L),
-                        "progress.lastBatchCommittedAt" to System.currentTimeMillis(),
-                        "progress.step" to "expenses_upsert",
-                    ),
+                val batchIndex = expenseUpsertBatchIndex
+                commitRestoredExpenses(
+                    expectedUid,
+                    chunk.map { e ->
+                        RestoredExpenseWrite(
+                            e.id,
+                            buildMap<String, Any> {
+                                put("amount", (e.amount * 100.0).roundToLong() / 100.0)
+                                put("dateMillis", e.dateMillis)
+                                put("categoryId", e.categoryId)
+                                put("note", e.note.take(2000))
+                                put("transactionType", e.transactionType)
+                                put("id", e.id)
+                            },
+                        )
+                    },
+                    patchBatch = { batch ->
+                        batch.update(
+                            restoreOpDoc(expectedUid),
+                            mapOf(
+                                "updatedAt" to System.currentTimeMillis(),
+                                "progress.fencingToken" to fencingToken,
+                                "progress.leaseHolder" to currentClientId,
+                                "progress.leaseExpiresAt" to (System.currentTimeMillis() + 60_000L),
+                                "progress.lastBatchCommittedAt" to System.currentTimeMillis(),
+                                "progress.batchIndex" to batchIndex,
+                                "progress.step" to "expenses_upsert",
+                            ),
+                        )
+                    },
                 )
-                batch.commit().await()
                 expenseUpsertBatchIndex++
                 if (faultHooks?.failAfterExpenseUpsertBatch == expenseUpsertBatchIndex) {
                     throw IllegalStateException("FAULT_INJECTED_AFTER_EXPENSE_UPSERT_BATCH")
@@ -1336,43 +1368,45 @@ internal class BackupRestoreRepository(
                 batch.commit().await()
             }
 
-            // 2. Expenses upsert
+            // 2. Expenses upsert. The journal/lease update stays in the same atomic batch, so the
+            // AUD-006 revision reconciliation retries the pair and a rollback never advances its
+            // journal without its expenses.
             verifyAndRenewRecoveryLease(expectedUid, currentClientId, fencingToken)
             val snapshotExpenseIds = snapshot.expenses.map { it.id }.toSet()
             for (chunk in RestoreBatches.chunkByCategory(snapshot.expenses, 400) { it.categoryId }) {
-                val batch = firestore.batch()
-                for (e in chunk) {
-                    val ref = expDoc(expectedUid, e.id)
-                    val roundedAmount = (e.amount * 100.0).roundToLong() / 100.0
-                    val payload = buildMap<String, Any> {
-                        put("amount", roundedAmount)
-                        put("dateMillis", e.dateMillis)
-                        put("categoryId", e.categoryId)
-                        put("note", e.note.take(2000))
-                        put("transactionType", e.transactionType)
-                        put("deleted", e.deleted)
-                        put("updatedAt", System.currentTimeMillis())
-                        put("id", e.id)
-                        // A row the failed replace deleted comes back from the snapshot
-                        // alone, so its legacy fields must come from there too.
-                        putAll(snapshot.expenseLegacyFields[e.id].orEmpty())
-                    }
-                    // Merge so legacy fields (cloudId, categoryCloudId, receiptImagePath)
-                    // still present on the doc are not erased by the rollback write.
-                    batch.set(ref, payload, SetOptions.merge())
-                }
-                batch.update(
-                    restoreOpDoc(expectedUid),
-                    mapOf(
-                        "updatedAt" to System.currentTimeMillis(),
-                        "progress.fencingToken" to fencingToken,
-                        "progress.leaseHolder" to currentClientId,
-                        "progress.leaseExpiresAt" to (System.currentTimeMillis() + 60_000L),
-                        "progress.lastBatchCommittedAt" to System.currentTimeMillis(),
-                        "progress.step" to "rollback_expenses",
-                    ),
+                commitRestoredExpenses(
+                    expectedUid,
+                    chunk.map { e ->
+                        RestoredExpenseWrite(
+                            e.id,
+                            buildMap<String, Any> {
+                                put("amount", (e.amount * 100.0).roundToLong() / 100.0)
+                                put("dateMillis", e.dateMillis)
+                                put("categoryId", e.categoryId)
+                                put("note", e.note.take(2000))
+                                put("transactionType", e.transactionType)
+                                put("deleted", e.deleted)
+                                put("id", e.id)
+                                // A row the failed replace deleted comes back from the snapshot
+                                // alone, so its legacy fields must come from there too.
+                                putAll(snapshot.expenseLegacyFields[e.id].orEmpty())
+                            },
+                        )
+                    },
+                    patchBatch = { batch ->
+                        batch.update(
+                            restoreOpDoc(expectedUid),
+                            mapOf(
+                                "updatedAt" to System.currentTimeMillis(),
+                                "progress.fencingToken" to fencingToken,
+                                "progress.leaseHolder" to currentClientId,
+                                "progress.leaseExpiresAt" to (System.currentTimeMillis() + 60_000L),
+                                "progress.lastBatchCommittedAt" to System.currentTimeMillis(),
+                                "progress.step" to "rollback_expenses",
+                            ),
+                        )
+                    },
                 )
-                batch.commit().await()
             }
 
             // 3. Delete expenses not in snapshot

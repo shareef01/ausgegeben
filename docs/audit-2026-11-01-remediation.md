@@ -1,11 +1,13 @@
-# Audit 2026-11-01 — remediation batch 1
+# Audit 2026-11-01 — remediation batches 1 and 2
 
 Baseline: `c17ede1` on `main` (`docs: rewrite README for personal portfolio and add author metadata`).
 Working branch: `fix/ausgegeben-audit-remediation`. Nothing here is deployed, pushed or merged.
 
-This batch validates the suspected issues raised in the 2026-11-01 audit request, fixes the
-one that reproduced, and records what was *verified* rather than assumed. Findings keep the
-request's AUD-x identifiers.
+Batch 1 (below) validated the suspected issues raised in the 2026-11-01 audit request, fixed the
+one that reproduced, and recorded what was *verified* rather than assumed. Batch 2 (§ "Batch 2")
+extends the same fix to the journalled replace/rollback flow, adds adversarial coverage for the
+retry, and supplies real Android emulator execution evidence. Findings keep the request's AUD-x
+identifiers.
 
 ## Test baseline (before any change)
 
@@ -117,4 +119,89 @@ no legal write can exceed throws `EXPENSE_REVISION_UNWRITABLE` instead of a bare
 - **Replace-flow expense writes still use the plain clock.** A refusal there lands in the
   journalled `FAILED_RECOVERABLE` path (and the rollback can also be refused), so it is
   bounded but not reconciled like the merge restore. Recorded in `docs/maintenance.md`
-  "Known limitations" and queued for the next batch.
+  "Known limitations" and queued for the next batch. *(Resolved in batch 2 — see below.)*
+
+## Batch 2 — replace/rollback, retry safety, Android execution
+
+### AUD-006 in the journalled replace flow (confirmed, fixed)
+
+Batch 1 reconciled the merge restore only. `executeReplace`'s expense upsert and
+`rollbackReplace`'s expense restore had the same defect, and were worse in one respect: each
+batch also carries the restore-operation/lease update, so a revision refusal failed an
+operation that was already half-applied. Reproduced before the change (rules-enforced
+emulator, `backupReplace.test.ts`): both new tests failed with
+`7 PERMISSION_DENIED: evaluation error at L603/L610`; after the change they pass.
+
+The reconciliation is now a single narrowed helper used by every expense write:
+
+| Path | Web | Android |
+|---|---|---|
+| Merge restore | `restoreBackup` → `commitRestoredExpenses` | `restoreBackup` → `commitRestoredExpenses` |
+| Replace upsert | `executeReplace` step 10 (journalled) | `executeReplace` step 2 (journalled) |
+| Rollback | `rollbackReplace` step 3 (journalled, full overwrite) | `rollbackReplace` step 2 (journalled, merge) |
+
+`patchBatch` re-adds the journal/lease write to every attempt, so the retry is still one
+atomic batch and there is no unjournalled expense write path. Fencing tokens, lease holder and
+`progress.step`/`batchIndex` are recomputed per attempt inside the callback, exactly as the
+single-shot batch did.
+
+### Retry safety (answers to the review questions)
+
+| Question | Answer |
+|---|---|
+| Runs only after `permission-denied`? | Yes — `isPermissionDenied` on the first attempt's error; any other error is rethrown untouched. |
+| Distinguishes clock conflict from unrelated authorization failure? | It does not *guess*: it reads the batch's stored revisions and only retries when at least one row is actually ahead of `now`. Otherwise the original error is rethrown (`if (bumped.size === 0) throw error`). If the retry is refused again with `permission-denied`, the *original* error is rethrown — the message never claims clock skew. |
+| Server reads, not cache? | `getDocsFromServer` (web) / `.get(Source.SERVER)` (Android) over `documentId() in [...]` pages of 30. |
+| Legacy `Timestamp` revisions? | `storedExpenseRevision` accepts a number, a `Timestamp` (`toMillis`) and — on Android — `Timestamp`/`Date`; tested by adversarial case D. |
+| Original financial payload preserved? | Only `updatedAt` is overridden; every other field is the caller's payload, including legacy `cloudId`/`categoryCloudId`/`receiptImagePath`/`deleted` on rollback. |
+| At most one retry? | Yes. Tested: a hook that keeps pushing the revision forward observes exactly one retry and then a failure. |
+| Recomputes only the revisions that need it? | Per row: `Math.max(now, stored + 1)` is applied only to rows whose stored revision is `>= now`; others keep the plain clock value (adversarial case A asserts this). |
+| Document deleted between read and retry? | The retry is an upsert, so it recreates the row — documented restore semantics, tested by case L. |
+| Stays inside the five-minute window? | A step above `now + 295 000` throws `EXPENSE_REVISION_UNWRITABLE` instead of writing; cases B and C cover both sides of that boundary. |
+| Can it overwrite a newer concurrent edit silently? | Yes, and that is unchanged restore semantics (last-writer-wins): the retry writes `stored + 1`, so it beats a row written up to that instant. A row that moves *again* after the lookup defeats the retry and the batch fails closed (case K). |
+
+Read cost: zero extra reads on a successful batch; on a refusal, one read per existing row in
+that batch (30 per query), capped by the batch size. No collection scans.
+
+### Adversarial coverage (web, rules enforced)
+
+`web/emulator/restoreRevisionAdversarial.test.ts` — A–N as requested: 4-minutes-ahead (A),
+near-boundary step (B), unstoppable revision (C), legacy `Timestamp` (D), foreign account (E),
+unrelated authorization refusal (F), category mid-deletion (G), account-deletion tombstone (H),
+`idempotencyKey` replay (I), changed amount (J), concurrent bump between lookup and retry (K),
+deleted between lookup and retry (L), interrupted restore resumed and replayed without
+duplicates (M/N), and the single-retry bound. All 14 pass; each states its expected outcome in
+the test body.
+
+### Android execution evidence
+
+`FirestoreEmulatorRecoveryTest` now has `rel3`–`rel6`, executed against the real Firestore and
+Auth emulators through `scripts/firestore_recovery_runner.py` (they are in the runner's
+`TESTS` tuple, so the gate fails if they are skipped):
+
+| Test | Asserts |
+|---|---|
+| `rel3_…RevisionIsAheadOfTheClock_succeeds` | merge restore over a +4 min row succeeds and steps past it |
+| `rel4_…RefusesRevisionItCannotLegallyExceed` | `EXPENSE_REVISION_UNWRITABLE`, row untouched |
+| `rel5_unrelatedAuthorizationRefusalIsNotReportedAsClockSkew` | a missing-category refusal surfaces as `PERMISSION_DENIED`, never as clock skew |
+| `rel6_replaceAndRollbackOverFutureRevision_keepJournalAndSnapshot` | replace upsert reconciled; failure keeps `FAILED_RECOVERABLE` + `snapshotMeta`; rollback steps over the new revision and reaches `ROLLED_BACK` |
+
+Runner result after the change: `Recovery integration suite: PASS (13 executed, 0 skipped)`.
+Failing-before evidence: with only the Android replace/rollback wiring reverted,
+`rel6` fails with `org.junit.ComparisonFailure` (the expected
+`FAULT_INJECTED_AFTER_EXPENSE_UPSERT_BATCH` message is instead the rules' `PERMISSION_DENIED`).
+
+### Suite stability (batch 1's two timeouts)
+
+Re-ran the full emulator suite with nothing else on the machine: **150 passed / 15 files, exit
+0, 141 s**, no timeouts. The batch-1 failures were CPU contention with a concurrent Gradle lint
+build (the same file passes 33/33 in isolation, and took 204 s under load versus 44 s alone).
+No test, timeout or implementation change was made to accommodate them.
+
+### Financial parity (phase 6) — outstanding
+
+`testdata/money-parity.json` pins display, parsing (31 cases), CSV rounding (5) and input
+handling (7) across Kotlin and TypeScript, and both suites pass. Aggregate parity — totals,
+income/transfer split, net balance, monthly and category totals, budget remaining, recurring
+values — has no shared fixture on either platform, so it was **not** verified in this batch.
+That is the top item for the next one.
