@@ -337,7 +337,8 @@ export const en = {
   settingsExportTruncatedConfirm:
     'only the latest 5000 transactions will be included. older rows will be missing. continue?',
   settingsExportTruncatedContinue: 'export anyway',
-  settingsExportBackupSub: 'complete account data for portability',
+  settingsExportBackupSub:
+    'complete account data for portability. the file is unencrypted, so store and share it only where you trust the destination',
   settingsExportBackupOk: 'backup ready',
   settingsExportBackupTruncated: 'backup ready (latest 5000 rows)',
   settingsExportBackupTruncatedConfirm:

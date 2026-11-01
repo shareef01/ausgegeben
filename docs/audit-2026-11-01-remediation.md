@@ -205,3 +205,70 @@ handling (7) across Kotlin and TypeScript, and both suites pass. Aggregate parit
 income/transfer split, net balance, monthly and category totals, budget remaining, recurring
 values — has no shared fixture on either platform, so it was **not** verified in this batch.
 That is the top item for the next one.
+## Batch 3 — financial parity, restore concurrency, privacy disclosure
+
+### Concurrency of the AUD-006 retry (verified, no defect)
+
+`web/emulator/restoreConcurrency.test.ts` drives a **second authenticated client** (a separate
+Firestore instance for the same uid) between the revision read and the retry commit, at all
+three legal orderings:
+
+| Concurrent edit revision | Result |
+|---|---|
+| below the proposed restore revision | concurrent write accepted, then overwritten by the restore; final `updatedAt` = stored + 1 |
+| equal to the proposed restore revision | concurrent write accepted, then overwritten — `>=` is an ordering check, not a CAS |
+| above the proposed restore revision | concurrent edit survives, restore fails closed with `PERMISSION_DENIED`, nothing written |
+
+Also pinned: a refused retry writes **nothing**, not even the rows in the same batch that were
+individually writable (batch atomicity), and a validation refusal (the category staged for
+deletion between lookup and retry) cannot be turned into a write by advancing `updatedAt`.
+
+Conclusion: merge restore and the journalled replace are both intentional overwrites
+(last-writer-wins for the whole document, already documented in `docs/maintenance.md`). The
+retry neither adds nor removes conflict protection — it only stops the *ordering* rule from
+rejecting an otherwise legal restore. No code change was needed; the semantics are now pinned
+by tests and stated explicitly in the maintenance contract.
+
+### Cross-platform financial parity (verified)
+
+New shared fixture `testdata/financial-parity.json` (synthetic only) with expected values
+derived by hand from the documented rules. Consumed by production code on both platforms:
+
+| Metric | Web | Android |
+|---|---|---|
+| totals / transfers / net | `computeTotals` (`web/src/utils/analytics.ts`) | `buildInsightsState` (`ui/InsightsViewModel.kt`) |
+| category totals | `groupByCategory` | `buildInsightsState().expensesByCategory` etc. |
+| day totals | `computeDayTotals` (`utils/analytics.ts`) | `computeDayTotals` (`util/PeriodUtils.kt`) |
+| all-time averages | `computeAllTimeAverages` | `computeAllTimeAverages` (`util/InsightsAnalytics.kt`) |
+| budget progress / remaining / state | `categoryBudgetProgress` (`services/categoryBudgets.ts`) | `categoryBudgetProgress` (`data/entity/CategoryBudget.kt`) |
+| budget allocation | `budgetAllocation` | `budgetAllocation` |
+| period comparison | `computePeriodComparison` | `computePeriodComparison` |
+| spending pace | `computeSpendingPace` | `computeSpendingPace` |
+| month ranges (incl. DST) | `analyticsDateRangeMillis` | `analyticsDateRangeMillis` |
+| CSV cell amounts | `formatCsvAmount` | `ExportUtils.formatAmountCell` |
+| JSON backup amounts | `createBackup` | `BackupFormat.createBackupJson` |
+
+Results: 11 web cases and 12 Android cases pass against the same expected values, so both
+clients implement the rules rather than merely agreeing with each other. Coverage in the
+fixture: ordinary expenses/income, transfers excluded from spending and net, multiple
+categories with budgets, a soft-deleted row, an orphaned category, a migrating category, a
+large amount under the rules ceiling, cent-boundary values (0.05/0.10/0.20/0.30), month and
+year boundaries at millisecond precision, a Europe/Berlin DST day, a DST-length month, and
+restore-then-recalculate (exported amounts re-aggregate to the same totals).
+
+Deliberate divergence recorded, not "fixed": a transfer-only day produces a zero entry on web
+and no entry on Android; no money differs.
+
+Not covered (unchanged): Firestore server-side `sumMonthExpenses` (needs the emulator and a
+composite index; its client-side counterparts are covered), and exchange-rate behaviour — the
+app relabels currency without converting by design.
+
+### Privacy disclosure (confirmed gap, fixed)
+
+Nothing in either client told the user that a JSON backup is an unencrypted copy of their whole
+financial history. The export row now says so in both languages on both platforms
+(`settingsExportBackupSub` / `settings_export_backup_subtitle`), and `web/src/i18n/index.test.ts`
+fails if the disclosure is dropped. Reviewed and found clean: Android logging (messages and
+exception objects only, no amounts/notes/tokens; the App Check debug secret is behind
+`BuildConfig.DEBUG` plus a system property), and the web error sink's credential-shape
+redaction with its documented limitation that free text is not filtered.

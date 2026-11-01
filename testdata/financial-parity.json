@@ -1,0 +1,152 @@
+{
+  "description": "Cross-platform financial parity fixture. Synthetic data only. Expected values were derived from the documented business rules (integer-cent aggregation, transfers excluded from spending/income and from net, soft-deleted rows excluded, migrating categories excluded from budget progress, local-calendar day/month buckets) - not copied from either implementation's output. Both testdata consumers must run production code: web/src/utils/financialParity.test.ts and app/src/test/java/com/aus/ausgegeben/util/FinancialParityTest.kt.",
+  "timeZone": "Europe/Berlin",
+  "currency": "EUR",
+  "categories": [
+    { "id": "cat-food", "name": "Food", "iconName": "restaurant", "colorInt": 1, "transactionType": "expense", "sortOrder": 0 },
+    { "id": "cat-rent", "name": "Rent", "iconName": "home", "colorInt": 2, "transactionType": "expense", "sortOrder": 1 },
+    { "id": "cat-bus", "name": "Transit", "iconName": "bus", "colorInt": 3, "transactionType": "expense", "sortOrder": 2 },
+    { "id": "cat-salary", "name": "Salary", "iconName": "cash", "colorInt": 4, "transactionType": "income", "sortOrder": 3 },
+    { "id": "cat-refund", "name": "Refund", "iconName": "undo", "colorInt": 5, "transactionType": "income", "sortOrder": 4 },
+    { "id": "cat-move", "name": "Account move", "iconName": "swap", "colorInt": 6, "transactionType": "transfer", "sortOrder": 5 },
+    { "id": "cat-frozen", "name": "Migrating", "iconName": "hourglass", "colorInt": 7, "transactionType": "expense", "sortOrder": 6, "migrationState": "migrating", "pendingTransactionType": "income" }
+  ],
+  "expenses": [
+    { "id": "e-1", "amount": 12.34, "dateMillis": 1768474800000, "categoryId": "cat-food", "note": "Lunch", "transactionType": "expense", "localDate": "2026-01-15" },
+    { "id": "e-2", "amount": 0.1, "dateMillis": 1769898600000, "categoryId": "cat-food", "note": "Cent boundary late evening", "transactionType": "expense", "localDate": "2026-01-31" },
+    { "id": "e-3", "amount": 0.2, "dateMillis": 1769902200000, "categoryId": "cat-food", "note": "Next month, first minute", "transactionType": "expense", "localDate": "2026-02-01" },
+    { "id": "e-4", "amount": 850.0, "dateMillis": 1767254400000, "categoryId": "cat-rent", "note": "Rent", "transactionType": "expense", "localDate": "2026-01-01" },
+    { "id": "e-5", "amount": 2.5, "dateMillis": 1774744200000, "categoryId": "cat-bus", "note": "Before the DST gap", "transactionType": "expense", "localDate": "2026-03-29" },
+    { "id": "e-6", "amount": 2.5, "dateMillis": 1774747800000, "categoryId": "cat-bus", "note": "After the DST gap", "transactionType": "expense", "localDate": "2026-03-29" },
+    { "id": "e-7", "amount": 2500.0, "dateMillis": 1769850000000, "categoryId": "cat-salary", "note": "Salary", "transactionType": "income", "localDate": "2026-01-31" },
+    { "id": "e-8", "amount": 0.3, "dateMillis": 1770714000000, "categoryId": "cat-refund", "note": "Refund", "transactionType": "income", "localDate": "2026-02-10" },
+    { "id": "e-9", "amount": 500.0, "dateMillis": 1768899600000, "categoryId": "cat-move", "note": "Transfer", "transactionType": "transfer", "localDate": "2026-01-20" },
+    { "id": "e-10", "amount": 0.05, "dateMillis": 1767221940000, "categoryId": "cat-food", "note": "Previous year, last minute", "transactionType": "expense", "localDate": "2025-12-31" },
+    { "id": "e-11", "amount": 0.05, "dateMillis": 1767222000000, "categoryId": "cat-food", "note": "New year, first millisecond", "transactionType": "expense", "localDate": "2026-01-01" },
+    { "id": "e-12", "amount": 7.77, "dateMillis": 1768474800000, "categoryId": "cat-food", "note": "Soft-deleted row", "transactionType": "expense", "deleted": true, "localDate": "2026-01-15" },
+    { "id": "e-13", "amount": 5.0, "dateMillis": 1768460400000, "categoryId": "cat-gone", "note": "Category no longer exists", "transactionType": "expense", "localDate": "2026-01-15" },
+    { "id": "e-14", "amount": 0.1, "dateMillis": 1769900399999, "categoryId": "cat-food", "note": "Last millisecond of January", "transactionType": "expense", "localDate": "2026-01-31" },
+    { "id": "e-15", "amount": 1234567.89, "dateMillis": 1767610800000, "categoryId": "cat-rent", "note": "Large amount, still under the 1e9 rules ceiling", "transactionType": "expense", "localDate": "2026-01-05" }
+  ],
+  "budgets": [
+    { "categoryId": "cat-food", "monthlyLimit": 100.0, "warningThresholdPercent": 80, "updatedAt": 1767222000000 },
+    { "categoryId": "cat-bus", "monthlyLimit": 10.0, "warningThresholdPercent": 50, "updatedAt": 1767222000000 },
+    { "categoryId": "cat-frozen", "monthlyLimit": 50.0, "warningThresholdPercent": 80, "updatedAt": 1767222000000 },
+    { "categoryId": "cat-gone", "monthlyLimit": 25.0, "warningThresholdPercent": 80, "updatedAt": 1767222000000 }
+  ],
+  "expected": {
+    "note": "Money values are exact cents. Every figure below is derived by hand from the rules in docs/maintenance.md; see the doc comment on each test for the derivation.",
+    "totals": {
+      "totalExpenses": 1235440.73,
+      "totalIncome": 2500.3,
+      "totalTransfers": 500.0,
+      "transferCount": 1,
+      "net": -1232940.43
+    },
+    "expenseByCategory": { "cat-food": 12.84, "cat-rent": 1235417.89, "cat-bus": 5.0, "cat-gone": 5.0 },
+    "incomeByCategory": { "cat-salary": 2500.0, "cat-refund": 0.3 },
+    "transfersByCategory": { "cat-move": 500.0 },
+    "dayTotals": {
+      "2025-12-31": { "income": 0.0, "expense": 0.05 },
+      "2026-01-01": { "income": 0.0, "expense": 850.05 },
+      "2026-01-05": { "income": 0.0, "expense": 1234567.89 },
+      "2026-01-15": { "income": 0.0, "expense": 17.34 },
+      "2026-01-31": { "income": 2500.0, "expense": 0.2 },
+      "2026-02-01": { "income": 0.0, "expense": 0.2 },
+      "2026-02-10": { "income": 0.3, "expense": 0.0 },
+      "2026-03-29": { "income": 0.0, "expense": 5.0 }
+    },
+    "dayTotalsTransferOnlyDay": "2026-01-20",
+    "allTimeAverages": {
+      "monthsCount": 4,
+      "averageMonthlyExpenses": 308860.18,
+      "averageMonthlyIncome": 625.08,
+      "averageMonthlyNet": -308235.11
+    },
+    "budgetProgress": [
+      { "categoryId": "cat-bus", "spent": 5.0, "remaining": 5.0, "overspent": 0.0, "percent": 50.0, "state": "warning" },
+      { "categoryId": "cat-food", "spent": 12.84, "remaining": 87.16, "overspent": 0.0, "percent": 12.84, "state": "normal" }
+    ],
+    "budgetAllocation": [
+      { "global": 200.0, "total": 185.0, "unallocated": 15.0, "overAllocated": 0.0 },
+      { "global": 150.0, "total": 185.0, "unallocated": 0.0, "overAllocated": 35.0 }
+    ],
+    "periodComparison": {
+      "currentExpenses": 100.0,
+      "currentIncome": 250.3,
+      "priorExpenses": 80.0,
+      "priorIncome": 200.0,
+      "hasPriorData": true,
+      "priorExpensesResult": 80.0,
+      "priorIncomeResult": 200.0,
+      "expenseDelta": 20.0,
+      "expensePercentageDelta": 25.0,
+      "incomeDelta": 50.3,
+      "incomePercentageDelta": 25.2,
+      "netDelta": 30.3
+    },
+    "spendingPace": [
+      {
+        "case": "active month",
+        "currentExpenses": 310.0,
+        "rangeStart": 1767222000000,
+        "rangeEnd": 1769900400000,
+        "nowMillis": 1768474800000,
+        "monthlyBudget": 500.0,
+        "daysElapsed": 15,
+        "daysInMonth": 31,
+        "dailyAverage": 20.67,
+        "projectedTotal": 640.77,
+        "budget": 500.0,
+        "projectedOverBudget": 140.77
+      },
+      {
+        "case": "past month",
+        "currentExpenses": 310.0,
+        "rangeStart": 1767222000000,
+        "rangeEnd": 1769900400000,
+        "nowMillis": 1770714000000,
+        "monthlyBudget": 500.0,
+        "daysElapsed": 31,
+        "daysInMonth": 31,
+        "dailyAverage": 10.0,
+        "projectedTotal": 310.0,
+        "budget": 500.0,
+        "projectedOverBudget": null
+      },
+      {
+        "case": "future month",
+        "currentExpenses": 310.0,
+        "rangeStart": 1767222000000,
+        "rangeEnd": 1769900400000,
+        "nowMillis": 1767221999999,
+        "monthlyBudget": 500.0,
+        "daysElapsed": 0,
+        "daysInMonth": 31,
+        "dailyAverage": 0.0,
+        "projectedTotal": 0.0,
+        "budget": 500.0,
+        "projectedOverBudget": null
+      }
+    ],
+    "periodRanges": {
+      "month:2026-01": [1767222000000, 1769900400000],
+      "month:2026-02": [1769900400000, 1772319600000],
+      "month:2026-03": [1772319600000, 1774994400000],
+      "month:2026-12": [1796079600000, 1798758000000]
+    },
+    "csvAmounts": {
+      "0.1": "0.10",
+      "0.05": "0.05",
+      "2.5": "2.50",
+      "12.34": "12.34",
+      "1234567.89": "1234567.89",
+      "999999999.99": "999999999.99"
+    },
+    "backupAmounts": {
+      "note": "createBackup/createBackupJson must emit every live row at its exact cent value and omit the soft-deleted one.",
+      "includedIds": ["e-1", "e-2", "e-3", "e-4", "e-5", "e-6", "e-7", "e-8", "e-9", "e-10", "e-11", "e-13", "e-14", "e-15"],
+      "excludedIds": ["e-12"]
+    }
+  }
+}

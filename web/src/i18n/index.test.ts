@@ -35,4 +35,14 @@ describe('i18n', () => {
     expect(text).toContain('Current categories kept (not in the backup): 4');
     expect(text).not.toMatch(/\{\w+\}/);
   });
+
+  /**
+   * PRIV-1: a JSON backup is a plaintext copy of the user's whole financial history. The export
+   * row is the only place the user is told, so both catalogs must say it (Android's
+   * `settings_export_backup_subtitle` carries the same sentence).
+   */
+  it('the backup export row discloses that the file is unencrypted', () => {
+    expect(en.settingsExportBackupSub.toLowerCase()).toContain('unencrypted');
+    expect(de.settingsExportBackupSub.toLowerCase()).toContain('unverschlüsselt');
+  });
 });

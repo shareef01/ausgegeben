@@ -339,7 +339,8 @@ export const de: Record<TranslationKey, string> = {
   settingsExportTruncatedConfirm:
     'nur die neuesten 5000 buchungen werden enthalten. ältere zeilen fehlen. fortfahren?',
   settingsExportTruncatedContinue: 'trotzdem exportieren',
-  settingsExportBackupSub: 'vollständige kontodaten zur sicherung',
+  settingsExportBackupSub:
+    'vollständige kontodaten zur sicherung. die datei ist unverschlüsselt – speichere und teile sie nur an vertrauenswürdigen orten',
   settingsExportBackupOk: 'backup bereit',
   settingsExportBackupTruncated: 'backup bereit (neueste 5000 zeilen)',
   settingsExportBackupTruncatedConfirm:
