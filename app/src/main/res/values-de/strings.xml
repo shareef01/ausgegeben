@@ -108,7 +108,7 @@
     <string name="settings_restore_backup_subtitle">Daten aus einer versionierten JSON-Sicherung importieren</string>
     <string name="settings_restore_backup_title">Sicherung wiederherstellen</string>
     <string name="settings_restore_backup_action">Wiederherstellen</string>
-    <string name="settings_restore_backup_explain">vorhandene übereinstimmende einträge werden aktualisiert. andere aktuelle daten bleiben unverändert.</string>
+    <string name="settings_restore_backup_explain">vorhandene übereinstimmende einträge werden auf die werte der sicherung aktualisiert – auch änderungen, die nach dem export auf einem anderen gerät vorgenommen wurden. anders als beim ersetzen lässt sich eine zusammenführung nicht automatisch rückgängig machen.</string>
     <string name="settings_restore_backup_summary">sicherung enthält %1$d ausgaben und %2$d kategorien. währung: %3$s.</string>
     <string name="settings_restore_backup_budget">monatliches budget: %1$s.</string>
     <string name="settings_restore_success">sicherung wiederhergestellt: %1$d ausgaben, %2$d kategorien</string>

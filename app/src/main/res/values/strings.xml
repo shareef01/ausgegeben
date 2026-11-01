@@ -107,7 +107,7 @@
     <string name="settings_restore_backup_subtitle">Import data from a versioned JSON backup</string>
     <string name="settings_restore_backup_title">Restore backup</string>
     <string name="settings_restore_backup_action">Restore</string>
-    <string name="settings_restore_backup_explain">Existing matching items will be updated. Other current data will remain unchanged.</string>
+    <string name="settings_restore_backup_explain">Existing matching items will be updated to the values in the backup, including edits made on another device after the export. Unlike replace, a merge restore cannot be undone automatically.</string>
     <string name="settings_restore_backup_summary">Backup contains %1$d expenses and %2$d categories. Currency: %3$s.</string>
     <string name="settings_restore_backup_budget">Monthly budget: %1$s.</string>
     <string name="settings_restore_success">Backup restored: %1$d expenses, %2$d categories</string>

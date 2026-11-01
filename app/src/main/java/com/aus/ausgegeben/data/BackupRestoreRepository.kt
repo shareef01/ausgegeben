@@ -119,7 +119,7 @@ internal class BackupRestoreRepository(
             val existing = existingCatsById[c.id] ?: continue
             val existingType = existing.getString("transactionType")
             if (existingType != null && existingType != c.transactionType) {
-                throw IllegalStateException("CATEGORY_TYPE_CONFLICT: ${c.name}")
+                throw IllegalStateException("CATEGORY_TYPE_CONFLICT: ${c.id}")
             }
             // The merge leaves these markers in place, and the rules refuse new expenses for
             // a category being deleted and budgets for one being migrated, so the restore
@@ -127,7 +127,7 @@ internal class BackupRestoreRepository(
             if (existing.getString("deletionState") == "deleting" ||
                 existing.getString("migrationState") == "migrating"
             ) {
-                throw IllegalStateException("CATEGORY_BUSY: ${c.name}")
+                throw IllegalStateException("CATEGORY_BUSY: ${c.id}")
             }
         }
 

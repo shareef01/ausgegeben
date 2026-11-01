@@ -184,7 +184,16 @@ describe('backupRestore on real Firestore emulator with rules enforced', () => {
 
     // Backup has cat-food with transactionType: 'expense'
     const backup = createTestBackup(1);
-    await expect(restoreBackup(backup, TEST_UID)).rejects.toThrow('CATEGORY_TYPE_CONFLICT');
+    // The refusal names the category by opaque id, never by the user-entered name: the message
+    // can reach telemetry through an unhandled rejection, and "Food & Dining" is user data.
+    const failure = await restoreBackup(backup, TEST_UID).then(
+      () => null,
+      (error: Error) => error,
+    );
+    expect(failure?.message).toContain('CATEGORY_TYPE_CONFLICT');
+    expect(failure?.message).toContain('cat-food');
+    expect(failure?.message).not.toContain('Food & Dining');
+    expect(failure?.message).not.toContain('Existing Income');
 
     // Verify expenses were NOT written
     const expSnap = await getDoc(doc(db, 'users', TEST_UID, 'expenses', 'exp-0'));

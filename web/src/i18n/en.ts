@@ -346,7 +346,7 @@ export const en = {
   settingsRestoreBackup: 'restore JSON backup',
   settingsRestoreBackupSub: 'import data from a versioned JSON backup',
   settingsRestoreBackupExplain:
-    'Existing matching items will be updated. Other current data will remain unchanged.',
+    'Existing matching items will be updated to the values in the backup, including edits made on another device after the export. Unlike replace, a merge restore cannot be undone automatically.',
   settingsRestoreBackupSummary:
     'Backup contains {expenses} expenses and {categories} categories. Currency: {currency}.',
   settingsRestoreBackupBudget: 'Monthly budget: {budget}.',
