@@ -33,6 +33,18 @@ export interface RestoreResult {
 }
 
 /**
+ * Fault-injection seam for the merge restore, the same shape as `ReplaceFaultHooks` in
+ * backupReplace.ts: it lets an emulator test put a concurrent write or a mid-restore failure at
+ * an exact point instead of guessing at timing. Nothing in production passes it.
+ */
+export interface RestoreFaultHooks {
+  /** Runs after the category batch committed and before the first expense batch starts. */
+  afterCategories?: () => Promise<void> | void;
+  /** Runs after the preference revision was computed and before the final preference write. */
+  beforePreferences?: () => Promise<void> | void;
+}
+
+/**
  * Validates and parses a user-selected backup file before any Firestore writes are attempted.
  * Enforces file size bounds and Schema v1 validation rules.
  */
@@ -81,6 +93,7 @@ export async function readAndValidateBackupFile(
 export async function restoreBackup(
   backup: AusgegebenBackup,
   expectedUid: string,
+  faultHooks?: RestoreFaultHooks,
 ): Promise<RestoreResult> {
   const user = useAuthStore.getState().user;
   if (!user || user.uid !== expectedUid) {
@@ -120,14 +133,14 @@ export async function restoreBackup(
   for (const c of backup.categories) {
     const existing = existingCatsById.get(c.id);
     if (existing && existing.transactionType && existing.transactionType !== c.transactionType) {
-      throw new Error(`CATEGORY_TYPE_CONFLICT: ${c.name}`);
+      throw new Error(`CATEGORY_TYPE_CONFLICT: ${c.id}`);
     }
     // The merge leaves these markers in place, and the rules refuse new expenses for a
     // category being deleted and budgets for one being migrated. Without this check the
     // restore failed only after every category (and earlier expense batches) had been
     // written. Refuse before the first write instead; the operation finishes on its own.
     if (existing && (existing.deletionState === 'deleting' || existing.migrationState === 'migrating')) {
-      throw new Error(`CATEGORY_BUSY: ${c.name}`);
+      throw new Error(`CATEGORY_BUSY: ${c.id}`);
     }
   }
 
@@ -159,6 +172,8 @@ export async function restoreBackup(
     }
     await batch.commit();
   }
+
+  await faultHooks?.afterCategories?.();
 
   // 2. Write expenses in chunks the rules' per-batch read limit accepts. A restore is a new
   // write, so `commitRestoredExpenses` re-stamps `updatedAt` — and reconciles the one row it
@@ -208,6 +223,7 @@ export async function restoreBackup(
   });
 
   const prefRef = doc(db, 'users', expectedUid, SETTINGS_COLLECTION, PREFERENCES_DOC);
+  await faultHooks?.beforePreferences?.();
   await setDoc(prefRef, synced, { merge: true });
   usePreferencesStore.getState().applySyncedPreferences(synced);
 

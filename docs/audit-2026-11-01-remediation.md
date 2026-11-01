@@ -272,3 +272,76 @@ fails if the disclosure is dropped. Reviewed and found clean: Android logging (m
 exception objects only, no amounts/notes/tokens; the App Check debug secret is behind
 `BuildConfig.DEBUG` plus a system property), and the web error sink's credential-shape
 redaction with its documented limitation that free text is not filtered.
+## Batch 4 — user-safety disclosure, aggregation, telemetry, pre-PR gate
+
+### RST-1: merge restore overwrites without an undo — disclosure added (confirmed gap, fixed)
+
+Verified in the UI and the services, not just in code comments:
+
+| Question | Answer before this batch |
+|---|---|
+| Additive or replacing? | Replacing: `restoreBackup` upserts onto the file's document ids, so a matching row is overwritten. |
+| Disclosed? | Partly — "Existing matching items will be updated" — but nothing said the file's values beat a newer edit from another device, and nothing said there is no undo. |
+| Previous version kept? | No. Only *replace* writes a safety snapshot (`restoreSnapshot`); a merge restore writes none. |
+| Recoverable? | No automatic path. |
+| Replace distinguished? | Yes: destructive dialog, preflight counts, journalled snapshot, resume/rollback banner. |
+| Concurrent-edit warning? | None (no mechanism; last-writer-wins is the documented model). |
+| Partial failures reported? | Yes — the restore throws and the toast says it did not finish; "nothing was removed, safe to try again" is accurate. |
+
+The confirmation dialog now states both facts in EN and DE on both clients
+(`settingsRestoreBackupExplain` / `settings_restore_backup_explain`), and
+`web/src/i18n/index.test.ts` fails if either sentence is dropped. No protocol change: adding
+CAS or a snapshot to merge restore would be a product decision, not a bug fix.
+
+### Restore fault injection (A–C)
+
+New `RestoreFaultHooks` seam on `restoreBackup` (same shape as `ReplaceFaultHooks`; nothing in
+production passes it) plus `web/emulator/restoreFaults.test.ts`:
+
+- **A. Category becomes unwritable mid-restore** — expense batch refused; the restore throws,
+  reports no success, and the category batch that already committed stays (documented partial
+  state, safe to retry).
+- **B. Preferences raised concurrently after the pre-flight** — the rules refuse the older
+  revision; the concurrent values survive and the caller sees a failure, never a half-applied
+  success.
+- **C. Failure after a committed batch (lost acknowledgement shape)** — no false success, no
+  expense, no preference, **no safety snapshot** (correct for merge), and a retry of the same
+  file completes with exactly one row.
+
+D and E were already covered: rollback validation failure
+(`18. a corrupt safety snapshot fails the rollback closed and preserves journal and snapshot`),
+`failDuringRollback`, and resume-after-restart (`rel2`, `resumeReplace`, and the M/N idempotency
+case).
+
+### Firestore monthly aggregation (`sumMonthExpenses`)
+
+`web/emulator/monthAggregation.test.ts` (6 cases, rules enforced) seeds synthetic rows and
+compares the server aggregate with hand-derived values: income/transfer/soft-deleted exclusion,
+first- and last-millisecond month boundaries, the `excludeExpenseId` subtraction for in-range and
+out-of-range rows, the zero clamp, a 999 999 999.99 + 0.01 sum, a category mid-migration, and
+per-account isolation (another account's rows are neither aggregated nor listable). All pass.
+Index caveat recorded in the test: the emulator invents composite indexes, so this does **not**
+prove the production indexes cover the query.
+
+### Telemetry data minimisation (verified, one fix)
+
+Added `web/src/services/telemetryPrivacy.test.ts` (5 cases) against the real payload builder:
+context fields are re-allowlisted at runtime (amounts, notes, category names/ids, uid, email,
+backup content are dropped even when a caller smuggles them in), credential-shaped text is
+redacted in context, message and stack, length caps hold, and the deliberate limitation that
+free text is not filtered is asserted explicitly.
+
+One demonstrated path was fixed: the restore pre-flight refusals interpolated the user-entered
+category **name** into the thrown message (`CATEGORY_TYPE_CONFLICT: ${c.name}`), which reaches
+telemetry through an unhandled rejection and logcat on Android, while both UIs only read the
+prefix. Both clients now interpolate the opaque category **id** (`BackupRestoreRepository`,
+`backupRestore.ts`), and the emulator test asserts the name never appears in the message.
+
+### Cumulative diff review
+
+Production surface of the whole branch: `BackupRestoreRepository.kt`, `BackupFormat.kt`,
+`backupReplace.ts`, `backupRestore.ts`, `restoreExpenseBatch.ts`, plus four localization files.
+No changes to `firestore.rules`, `firestore.indexes.json`, dependencies, or the data model. No
+unbounded loops (the revision retry is single-shot), no new empty catch blocks, no debug or
+test-only code in production paths beyond the two documented fault-hook interfaces, and every
+fixture is synthetic.
