@@ -7,6 +7,7 @@ import {
   where,
   writeBatch,
   type Firestore,
+  type WriteBatch,
 } from 'firebase/firestore';
 import { EXPENSES_COLLECTION } from '@/repositories/firestorePaths';
 
@@ -15,12 +16,12 @@ import { EXPENSES_COLLECTION } from '@/repositories/firestorePaths';
  * expense write whose revision is older than the stored row
  * (`monotonicallyIncreasingExpenseUpdatedAt`). A stored row may legitimately sit up to five
  * minutes *ahead* of the restoring device's clock: `validUpdatedAt` accepts that skew, and a
- * device whose clock ran fast produces it. The restore wrote `Date.now()`, so the whole
- * expense batch was refused — after the category batch had already committed — and the user
- * was left with a half-restored account behind a bare PERMISSION_DENIED (AUD-006).
+ * device whose clock ran fast produces it. Every restore path wrote `Date.now()`, so such a
+ * row refused the whole batch — after earlier batches had already committed — and the user was
+ * left with a half-restored account behind a bare PERMISSION_DENIED (AUD-006).
  *
  * The file cannot answer the question (it carries the revision from export time, not what is
- * stored now), so the fix reconciles *after* a refusal instead of reading on every restore: an
+ * stored now), so the fix reconciles *after* a refusal instead of reading on every write: an
  * ordinary restore still costs exactly the writes it always did, and only a batch the rules
  * rejected pays to read its own documents back.
  */
@@ -76,6 +77,27 @@ export interface RestoredExpenseWrite {
   payload: Record<string, unknown>;
 }
 
+export interface RestoreExpenseFaultHooks {
+  /**
+   * Runs after the stored revisions were read back and before the single retry commits.
+   * Same purpose as `ReplaceFaultHooks`: lets an emulator test put a concurrent write between
+   * the lookup and the retry, which nothing else can interleave deterministically.
+   */
+  beforeRetry?: (stored: ReadonlyMap<string, number>) => Promise<void> | void;
+}
+
+export interface CommitRestoredExpensesOptions {
+  /** `merge: false` is the rollback path's full overwrite. Defaults to a merge upsert. */
+  merge?: boolean;
+  /**
+   * Adds writes to the same atomic batch — the journalled replace flow puts its
+   * restore-operation/lease update beside the expenses, and a retry must keep that pairing
+   * rather than commit expenses without their journal progress.
+   */
+  patchBatch?: (batch: WriteBatch) => void;
+  faultHooks?: RestoreExpenseFaultHooks;
+}
+
 /**
  * Stored expense revisions, read from the server rather than the cache: the retry exists
  * because the stored value is unknown, and a stale cached copy would answer wrongly.
@@ -108,29 +130,39 @@ export async function readStoredExpenseRevisions(
  *
  * The first attempt is exactly what the restore wrote before. A batch commits entirely or not
  * at all, so a refused attempt wrote nothing; the stored revisions are then read back and the
- * batch is retried once with only the offending rows stepped over their stored value. Rows
- * that were already writable keep the plain clock revision, so the retry cannot plant future
- * timestamps on documents that never needed them.
+ * batch — expenses plus whatever `patchBatch` adds, journal and lease included — is retried
+ * once with only the offending rows stepped over their stored value. Rows that were already
+ * writable keep the plain clock revision, so the retry cannot plant future timestamps on
+ * documents that never needed them.
  *
  * A stored revision no legal write can exceed throws `EXPENSE_REVISION_UNWRITABLE` — the same
  * refuse-clinically shape preferences use — instead of a bare PERMISSION_DENIED.
+ *
+ * Nothing here can turn an authorization failure into a successful write: the retry re-sends
+ * the same payload through the same rules, and any refusal the revision bump does not address
+ * is re-thrown as the original permission error. Exactly one retry is attempted; a row whose
+ * revision moves again between the lookup and that retry fails the batch (fail closed) rather
+ * than looping.
  */
 export async function commitRestoredExpenses(
   db: Firestore,
   userId: string,
   entries: readonly RestoredExpenseWrite[],
+  options: CommitRestoredExpensesOptions = {},
 ): Promise<void> {
+  const merge = options.merge ?? true;
   const now = Date.now();
 
-  const commit = async (revisions: Map<string, number>): Promise<void> => {
+  const commit = async (revisions: ReadonlyMap<string, number>): Promise<void> => {
     const batch = writeBatch(db);
     for (const entry of entries) {
       batch.set(
         doc(db, 'users', userId, EXPENSES_COLLECTION, entry.id),
         { ...entry.payload, updatedAt: revisions.get(entry.id) ?? now },
-        { merge: true },
+        { merge },
       );
     }
+    options.patchBatch?.(batch);
     await batch.commit();
   };
 
@@ -153,9 +185,17 @@ export async function commitRestoredExpenses(
       if (stepped > limit) throw new Error('EXPENSE_REVISION_UNWRITABLE');
       bumped.set(entry.id, stepped);
     }
-    // Refused for a reason the file cannot explain (a category staged for deletion, a type
-    // migration in flight): rethrow the original error rather than a second identical one.
+    // Refused for a reason the revision bump cannot address (a category staged for deletion, an
+    // account-deletion tombstone, a migration in flight): surface the original error rather
+    // than a second, identical one.
     if (bumped.size === 0) throw error;
-    await commit(bumped);
+    await options.faultHooks?.beforeRetry?.(stored);
+    try {
+      await commit(bumped);
+    } catch (retryError) {
+      // A retry the rules still refuse is the same failure the caller already had; keep the
+      // original error (it names the first refusal) and only surface a different cause.
+      throw isPermissionDenied(retryError) ? error : retryError;
+    }
   }
 }

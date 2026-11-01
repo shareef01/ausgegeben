@@ -34,6 +34,7 @@ import type {
 } from '@/services/backupFormat';
 import { RESTORE_BATCH_CHUNK_SIZE, SNAPSHOT_CHUNK_SIZE } from '@/services/restoreLimits';
 import { createSafetySnapshot, deleteSafetySnapshot, readSafetySnapshot } from '@/services/backupSnapshot';
+import { commitRestoredExpenses } from '@/services/restoreExpenseBatch';
 import {
   RECOVERY_LEASE_DURATION_MS,
   acquireRecoveryLease,
@@ -579,42 +580,40 @@ export async function executeReplace(
       }
     }
 
-    // 10. Apply expenses upsert in batches
+    // 10. Apply expenses upsert in batches. The journal/lease update rides in the same atomic
+    // batch, so the revision reconciliation (AUD-006) retries both together and can never leave
+    // expenses committed without their progress.
     await verifyAndRenewRecoveryLease(db, expectedUid, currentTabId, fencingToken);
     let expenseUpsertBatchIndex = 0;
     for (const chunk of chunkByCategory(plan.expensesToUpsert, RESTORE_BATCH_CHUNK_SIZE)) {
-      const batch = writeBatch(db);
-      for (const e of chunk) {
-        const ref = doc(db, 'users', expectedUid, EXPENSES_COLLECTION, e.id);
-        const roundedAmount = Math.round(e.amount * 100) / 100;
-        // Omit idempotencyKey on replace so rules preserve existing key on updates
-        batch.set(
-          ref,
-          {
-            amount: roundedAmount,
+      const batchIndex = expenseUpsertBatchIndex;
+      await commitRestoredExpenses(
+        db,
+        expectedUid,
+        chunk.map((e) => ({
+          id: e.id,
+          payload: {
+            amount: Math.round(e.amount * 100) / 100,
             dateMillis: Math.trunc(e.dateMillis),
             categoryId: e.categoryId,
             note: e.note.slice(0, 2000),
             transactionType: e.transactionType,
-            // A restore is a new write, not a replay of the backup's clock: the rules
-            // reject an updatedAt older than the stored row, so writing the backup's
-            // own value failed every replace over an expense edited since the backup.
-            updatedAt: Date.now(),
             id: e.id,
           },
-          { merge: true },
-        );
-      }
-      batch.update(doc(db, 'users', expectedUid, META_COLLECTION, RESTORE_OPERATION_DOC), {
-        updatedAt: Date.now(),
-        'progress.fencingToken': fencingToken,
-        'progress.leaseHolder': currentTabId,
-        'progress.leaseExpiresAt': Date.now() + RECOVERY_LEASE_DURATION_MS,
-        'progress.lastBatchCommittedAt': Date.now(),
-        'progress.batchIndex': expenseUpsertBatchIndex,
-        'progress.step': 'expenses_upsert',
-      });
-      await batch.commit();
+        })),
+        {
+          patchBatch: (batch) =>
+            batch.update(doc(db, 'users', expectedUid, META_COLLECTION, RESTORE_OPERATION_DOC), {
+              updatedAt: Date.now(),
+              'progress.fencingToken': fencingToken,
+              'progress.leaseHolder': currentTabId,
+              'progress.leaseExpiresAt': Date.now() + RECOVERY_LEASE_DURATION_MS,
+              'progress.lastBatchCommittedAt': Date.now(),
+              'progress.batchIndex': batchIndex,
+              'progress.step': 'expenses_upsert',
+            }),
+        },
+      );
       expenseUpsertBatchIndex++;
 
       if (faultHooks?.failAfterExpenseUpsertBatch === expenseUpsertBatchIndex) {
@@ -968,37 +967,43 @@ export async function rollbackReplace(
     // (isLegitimateExpenseUpdate), and the failed replace may have changed the expense,
     // so including the key would abort the rollback into FAILED_RECOVERABLE. Omitting
     // it clears any leftover key on the doc — the same thing updateExpense does after
-    // a successful write.
+    // a successful write. The journal/lease update stays in the same atomic batch, so the
+    // revision reconciliation retries the pair and a rollback never advances its journal
+    // without its expenses (AUD-006).
     await verifyAndRenewRecoveryLease(db, expectedUid, currentTabId, fencingToken);
     const snapshotExpenseIds = new Set(snapshot.expenses.map((e) => e.id));
     for (const chunk of chunkByCategory(snapshot.expenses, RESTORE_BATCH_CHUNK_SIZE)) {
-      const batch = writeBatch(db);
-      for (const e of chunk) {
-        const ref = doc(db, 'users', expectedUid, EXPENSES_COLLECTION, e.id);
-        const roundedAmount = Math.round(e.amount * 100) / 100;
-        batch.set(ref, {
-          amount: roundedAmount,
-          dateMillis: Math.trunc(e.dateMillis),
-          categoryId: e.categoryId,
-          note: e.note.slice(0, 2000),
-          transactionType: e.transactionType,
+      await commitRestoredExpenses(
+        db,
+        expectedUid,
+        chunk.map((e) => ({
           id: e.id,
-          updatedAt: Date.now(),
-          ...(e.deleted !== undefined ? { deleted: e.deleted } : {}),
-          ...(e.cloudId ? { cloudId: e.cloudId } : {}),
-          ...(e.categoryCloudId != null ? { categoryCloudId: e.categoryCloudId } : {}),
-          ...(e.receiptImagePath != null ? { receiptImagePath: e.receiptImagePath } : {}),
-        });
-      }
-      batch.update(doc(db, 'users', expectedUid, META_COLLECTION, RESTORE_OPERATION_DOC), {
-        updatedAt: Date.now(),
-        'progress.fencingToken': fencingToken,
-        'progress.leaseHolder': currentTabId,
-        'progress.leaseExpiresAt': Date.now() + RECOVERY_LEASE_DURATION_MS,
-        'progress.lastBatchCommittedAt': Date.now(),
-        'progress.step': 'rollback_expenses',
-      });
-      await batch.commit();
+          payload: {
+            amount: Math.round(e.amount * 100) / 100,
+            dateMillis: Math.trunc(e.dateMillis),
+            categoryId: e.categoryId,
+            note: e.note.slice(0, 2000),
+            transactionType: e.transactionType,
+            id: e.id,
+            ...(e.deleted !== undefined ? { deleted: e.deleted } : {}),
+            ...(e.cloudId ? { cloudId: e.cloudId } : {}),
+            ...(e.categoryCloudId != null ? { categoryCloudId: e.categoryCloudId } : {}),
+            ...(e.receiptImagePath != null ? { receiptImagePath: e.receiptImagePath } : {}),
+          },
+        })),
+        {
+          merge: false,
+          patchBatch: (batch) =>
+            batch.update(doc(db, 'users', expectedUid, META_COLLECTION, RESTORE_OPERATION_DOC), {
+              updatedAt: Date.now(),
+              'progress.fencingToken': fencingToken,
+              'progress.leaseHolder': currentTabId,
+              'progress.leaseExpiresAt': Date.now() + RECOVERY_LEASE_DURATION_MS,
+              'progress.lastBatchCommittedAt': Date.now(),
+              'progress.step': 'rollback_expenses',
+            }),
+        },
+      );
     }
 
     // 4. Query current expenses and delete any that were NOT in the snapshot
