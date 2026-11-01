@@ -41,6 +41,26 @@ object BackupFormat {
         backupRevision?.let { minOf(it, now) } ?: now
 
     /**
+     * Revision a restore may write over an expense whose stored revision is [stored] (AUD-006).
+     *
+     * An expense write must carry an `updatedAt` at least as new as the stored row
+     * (`monotonicallyIncreasingExpenseUpdatedAt`), while `validUpdatedAt` accepts a stored
+     * revision up to five minutes ahead of the writer's clock. A restore that writes
+     * `System.currentTimeMillis()` therefore cannot overwrite a row another device — one whose
+     * clock ran fast — wrote moments earlier, and because the batch commits or fails whole,
+     * the restore aborts after the categories have already landed. Stepping over the stored
+     * value is the only legal write in that case. Mirrors web `restoredExpenseRevision`.
+     */
+    fun restoredExpenseRevision(now: Long, stored: Long?): Long =
+        if (stored != null && stored >= now) stored + 1L else now
+
+    /** What firestore.rules accepts as an expense `updatedAt` ahead of the server clock. */
+    const val RESTORE_REVISION_MAX_LEAD_MS = 300_000L
+
+    /** Margin kept under that window when a retry has to write ahead. */
+    const val RESTORE_REVISION_LEAD_MARGIN_MS = 5_000L
+
+    /**
      * Revision a restore may write right now, or null when none exists yet (AUD-005).
      *
      * [restoredPreferencesRevision] only looks at the clock and the file, but the rules put

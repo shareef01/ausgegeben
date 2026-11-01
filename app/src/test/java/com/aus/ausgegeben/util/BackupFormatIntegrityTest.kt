@@ -167,4 +167,23 @@ class BackupFormatIntegrityTest {
         assertNull(BackupFormat.writablePreferencesRevision(null, now + 299_000, now))
         assertEquals(cap, BackupFormat.writablePreferencesRevision(null, cap - 1, now))
     }
+
+    // AUD-006: an expense write must be at least as new as the stored row, while the rules
+    // accept a stored revision up to five minutes ahead of this device's clock. A restore that
+    // writes the clock alone is refused for such a row, so the revision has to step over it.
+    @Test
+    fun restoredExpenseRevisionStepsOverRowsAheadOfTheClock() {
+        val now = 1_800_000_000_000L
+        assertEquals(now, BackupFormat.restoredExpenseRevision(now, null))
+        assertEquals(now, BackupFormat.restoredExpenseRevision(now, now - 1))
+        assertEquals(now + 1, BackupFormat.restoredExpenseRevision(now, now))
+        assertEquals(now + 240_001, BackupFormat.restoredExpenseRevision(now, now + 240_000))
+        // The stepping value stays inside the rules' five-minute window, which is what bounds
+        // the retry: anything further ahead throws EXPENSE_REVISION_UNWRITABLE instead.
+        val stepped = BackupFormat.restoredExpenseRevision(now, now + BackupFormat.RESTORE_REVISION_MAX_LEAD_MS)
+        assertTrue(
+            stepped - now >
+                BackupFormat.RESTORE_REVISION_MAX_LEAD_MS - BackupFormat.RESTORE_REVISION_LEAD_MARGIN_MS,
+        )
+    }
 }

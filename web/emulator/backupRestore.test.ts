@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { collection, doc, getDoc, getDocs, setDoc } from 'firebase/firestore';
+import { collection, deleteField, doc, getDoc, getDocs, setDoc, updateDoc } from 'firebase/firestore';
 import {
   enforcedFirestore,
   resetEnforcedHarness,
@@ -10,6 +10,7 @@ import {
 } from './enforcedHarness';
 import { useAuthStore } from '@/services/authStore';
 import { BACKUP_FORMAT_IDENTIFIER, CURRENT_BACKUP_SCHEMA_VERSION, type AusgegebenBackup } from '@/services/backupFormat';
+import { expenseDocumentId } from '@/utils/idempotency';
 
 vi.mock('@/services/firebase', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/services/firebase')>();
@@ -306,6 +307,164 @@ describe('backupRestore on real Firestore emulator with rules enforced', () => {
    * expenses, budgets and recurring rows land and only the preference step fails, leaving a
    * half-restored account behind a generic error.
    */
+  /**
+   * AUD-006. `firestore.rules` refuses an expense write whose `updatedAt` is older than the
+   * stored row, while `validUpdatedAt` accepts a stored revision up to five minutes ahead of
+   * the restoring clock (a device whose clock ran fast writes exactly that). The restore
+   * wrote `Date.now()`, so the expense batch was refused after the category batch had
+   * already committed: a half-restored account and a bare PERMISSION_DENIED.
+   */
+  it('merge-restores over an expense whose stored revision is ahead of this device clock', async () => {
+    const db = enforcedFirestore();
+    const id = 'legacy-random-id-1';
+    const futureRevision = Date.now() + 240_000;
+    await setDoc(doc(db, 'users', TEST_UID, 'categories', 'cat-food'), {
+      id: 'cat-food',
+      name: 'Food',
+      iconName: 'restaurant',
+      colorInt: 1,
+      transactionType: 'expense',
+      sortOrder: 0,
+      updatedAt: 1_700_000_000_000,
+    });
+    // Legitimate state: the rules themselves accept a revision this far ahead.
+    await setDoc(doc(db, 'users', TEST_UID, 'expenses', id), {
+      amount: 5,
+      dateMillis: 1_700_000_000_000,
+      categoryId: 'cat-food',
+      note: 'Rent',
+      transactionType: 'expense',
+      updatedAt: futureRevision,
+    });
+
+    const backup = createTestBackup(0);
+    backup.expenses = [
+      {
+        id,
+        amount: 7,
+        dateMillis: 1_700_000_000_000,
+        categoryId: 'cat-food',
+        note: 'Rent',
+        transactionType: 'expense',
+      },
+    ];
+
+    await expect(restoreBackup(backup, TEST_UID)).resolves.toMatchObject({ success: true });
+
+    const restored = await getDoc(doc(db, 'users', TEST_UID, 'expenses', id));
+    expect(restored.data()?.amount).toBe(7);
+    // Stepped over the stored revision rather than landing on or behind it.
+    expect(restored.data()?.updatedAt).toBeGreaterThan(futureRevision);
+    // The restore ran to completion instead of stopping at the refused batch.
+    const prefs = await getDoc(doc(db, 'users', TEST_UID, 'settings', 'preferences'));
+    expect(prefs.exists()).toBe(true);
+  });
+
+  /**
+   * AUD-03. A document created through the keyed path keeps its `idempotencyKey`, and the
+   * rules only accept an update that carries one when it is an exact creation replay. The
+   * merge restore never writes the key back (it is not part of the format's write path), so
+   * the check that matters is whether the *merged* document still passes. It does, because
+   * restoring the exported values is that replay.
+   */
+  it('merge-restores an expense that still carries its idempotencyKey', async () => {
+    const db = enforcedFirestore();
+    const key = 'aud-03-key';
+    const id = await expenseDocumentId(key);
+    await setDoc(doc(db, 'users', TEST_UID, 'categories', 'cat-food'), {
+      id: 'cat-food',
+      name: 'Food',
+      iconName: 'restaurant',
+      colorInt: 1,
+      transactionType: 'expense',
+      sortOrder: 0,
+      updatedAt: 1_700_000_000_000,
+    });
+    await setDoc(doc(db, 'users', TEST_UID, 'expenses', id), {
+      amount: 12.34,
+      dateMillis: 1_700_000_000_000,
+      categoryId: 'cat-food',
+      note: 'Lunch',
+      transactionType: 'expense',
+      updatedAt: Date.now(),
+      idempotencyKey: key,
+    });
+
+    const backup = createTestBackup(0);
+    backup.expenses = [
+      {
+        id,
+        amount: 12.34,
+        dateMillis: 1_700_000_000_000,
+        categoryId: 'cat-food',
+        note: 'Lunch',
+        transactionType: 'expense',
+      },
+    ];
+
+    await expect(restoreBackup(backup, TEST_UID)).resolves.toMatchObject({ success: true });
+    const stored = await getDoc(doc(db, 'users', TEST_UID, 'expenses', id));
+    expect(stored.data()?.amount).toBe(12.34);
+    expect(stored.data()?.idempotencyKey).toBe(key);
+  });
+
+  /**
+   * AUD-03, the case the hypothesis is really about: the expense was edited through the
+   * supported path after the export. `updateExpense` clears `idempotencyKey`, so the merged
+   * document no longer carries one and `isLegitimateExpenseUpdate` accepts the restore.
+   */
+  it('merge-restores an expense that was edited after the export', async () => {
+    const db = enforcedFirestore();
+    const key = 'aud-03-edited-key';
+    const id = await expenseDocumentId(key);
+    await setDoc(doc(db, 'users', TEST_UID, 'categories', 'cat-food'), {
+      id: 'cat-food',
+      name: 'Food',
+      iconName: 'restaurant',
+      colorInt: 1,
+      transactionType: 'expense',
+      sortOrder: 0,
+      updatedAt: 1_700_000_000_000,
+    });
+    await setDoc(doc(db, 'users', TEST_UID, 'expenses', id), {
+      amount: 12.34,
+      dateMillis: 1_700_000_000_000,
+      categoryId: 'cat-food',
+      note: 'Lunch',
+      transactionType: 'expense',
+      updatedAt: Date.now(),
+      idempotencyKey: key,
+    });
+    // Exactly what expenseRepository.updateExpense writes.
+    await updateDoc(doc(db, 'users', TEST_UID, 'expenses', id), {
+      amount: 99.99,
+      dateMillis: 1_700_000_000_000,
+      categoryId: 'cat-food',
+      note: 'Edited',
+      transactionType: 'expense',
+      updatedAt: Date.now() + 1,
+      id,
+      idempotencyKey: deleteField(),
+    } as Record<string, unknown>);
+
+    const backup = createTestBackup(0);
+    backup.expenses = [
+      {
+        id,
+        amount: 12.34,
+        dateMillis: 1_700_000_000_000,
+        categoryId: 'cat-food',
+        note: 'Lunch',
+        transactionType: 'expense',
+      },
+    ];
+
+    await expect(restoreBackup(backup, TEST_UID)).resolves.toMatchObject({ success: true });
+    const stored = await getDoc(doc(db, 'users', TEST_UID, 'expenses', id));
+    expect(stored.data()?.amount).toBe(12.34);
+    expect(stored.data()?.note).toBe('Lunch');
+  });
+
   it('refuses before its first write when the stored preferences revision blocks the window', async () => {
     const db = enforcedFirestore();
     const categories = incomeCategories(3);
