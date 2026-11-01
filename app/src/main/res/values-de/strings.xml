@@ -102,7 +102,7 @@
     <string name="settings_export_truncated_continue">trotzdem exportieren</string>
     <string name="settings_export_failed">export fehlgeschlagen</string>
     <string name="settings_export_backup">Als JSON-Backup exportieren</string>
-    <string name="settings_export_backup_subtitle">Vollständige Kontodaten zur Sicherung</string>
+    <string name="settings_export_backup_subtitle">Vollständige Kontodaten zur Sicherung. Die Datei ist unverschlüsselt – speichere und teile sie nur an vertrauenswürdigen Orten</string>
     <string name="settings_export_backup_ok">backup bereit zum teilen</string>
     <string name="settings_restore_backup">Als JSON-Backup wiederherstellen</string>
     <string name="settings_restore_backup_subtitle">Daten aus einer versionierten JSON-Sicherung importieren</string>

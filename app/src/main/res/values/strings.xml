@@ -101,7 +101,7 @@
     <string name="settings_export_truncated_continue">Export anyway</string>
     <string name="settings_export_failed">Export failed</string>
     <string name="settings_export_backup">Export JSON backup</string>
-    <string name="settings_export_backup_subtitle">Complete account data for portability</string>
+    <string name="settings_export_backup_subtitle">Complete account data for portability. The file is unencrypted, so store and share it only where you trust the destination</string>
     <string name="settings_export_backup_ok">Backup ready to share</string>
     <string name="settings_restore_backup">Restore JSON backup</string>
     <string name="settings_restore_backup_subtitle">Import data from a versioned JSON backup</string>
