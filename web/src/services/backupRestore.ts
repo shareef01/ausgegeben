@@ -4,11 +4,11 @@ import { collection, doc, getDocFromServer, getDocs, setDoc, writeBatch } from '
 import { getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
 import { chunkByBudgetCheck, chunkByCategory } from '@/utils/restoreBatches';
+import { commitRestoredExpenses } from '@/services/restoreExpenseBatch';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { sanitizeSyncedPreferences } from '@/services/preferencesSync';
 import {
   CATEGORIES_COLLECTION,
-  EXPENSES_COLLECTION,
   PREFERENCES_DOC,
   SETTINGS_COLLECTION,
 } from '@/repositories/firestorePaths';
@@ -160,27 +160,25 @@ export async function restoreBackup(
     await batch.commit();
   }
 
-  // 2. Write expenses in chunks the rules' per-batch read limit accepts
+  // 2. Write expenses in chunks the rules' per-batch read limit accepts. A restore is a new
+  // write, so `commitRestoredExpenses` re-stamps `updatedAt` — and reconciles the one row it
+  // cannot predict, whose stored revision sits ahead of this device's clock (AUD-006).
   for (const chunk of chunkByCategory(backup.expenses, RESTORE_BATCH_CHUNK_SIZE)) {
-    const batch = writeBatch(db);
-    for (const e of chunk) {
-      const ref = doc(db, 'users', expectedUid, EXPENSES_COLLECTION, e.id);
-      batch.set(
-        ref,
-        {
+    await commitRestoredExpenses(
+      db,
+      expectedUid,
+      chunk.map((e) => ({
+        id: e.id,
+        payload: {
           amount: Math.round(e.amount * 100) / 100,
           dateMillis: Math.trunc(e.dateMillis),
           categoryId: e.categoryId,
           note: (e.note ?? '').slice(0, 2000),
           transactionType: e.transactionType,
-          // Rules reject an updatedAt older than the stored row; a restore is a new write.
-          updatedAt: Date.now(),
           id: e.id,
         },
-        { merge: true },
-      );
-    }
-    await batch.commit();
+      })),
+    );
   }
 
   for (const budget of backup.categoryBudgets ?? []) {

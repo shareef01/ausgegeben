@@ -15,7 +15,9 @@ import com.aus.ausgegeben.util.runSuspendCatching
 import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.Source
 import java.util.UUID
@@ -39,6 +41,12 @@ internal const val SNAPSHOT_CHUNK_SIZE = 300
  * restoreSnapshot; keep the two in step.
  */
 internal const val MAX_SNAPSHOT_CHUNKS = 100
+
+/**
+ * Firestore accepts at most 30 values in an `in`/`whereIn` filter, so the AUD-006 revision
+ * read-back is paged at that size. Mirrors web RESTORE_REVISION_QUERY_LIMIT.
+ */
+internal const val REVISION_QUERY_LIMIT = 30
 
 /**
  * What [BackupRestoreRepository] borrows from [AppRepository]: Firestore paths, the
@@ -145,28 +153,12 @@ internal class BackupRestoreRepository(
             batch.commit().await()
         }
 
-        // 2. Expenses in chunks the rules' per-batch read limit accepts
+        // 2. Expenses in chunks the rules' per-batch read limit accepts. A restore is a new
+        // write, so it re-stamps updatedAt — but the rules also refuse a revision older than
+        // the stored row, and that row may sit ahead of this device's clock (AUD-006).
         val expenseChunks = RestoreBatches.chunkByCategory(backup.expenses, 400) { it.categoryId }
         for (chunk in expenseChunks) {
-            val batch = firestore.batch()
-            for (e in chunk) {
-                val ref = expDoc(u, e.id)
-                val roundedAmount = (e.amount * 100.0).roundToLong() / 100.0
-                val payload = buildMap<String, Any> {
-                    put("amount", roundedAmount)
-                    put("dateMillis", e.dateMillis)
-                    put("categoryId", e.categoryId)
-                    // 2000 is the rules' and every other writer's cap; 200 silently cut notes.
-                    put("note", e.note.take(2000))
-                    put("transactionType", e.transactionType)
-                    // A restore is a new write: the rules deny an updatedAt older than the
-                    // stored row, so the backup's own clock failed any merge over an edit.
-                    put("updatedAt", System.currentTimeMillis())
-                    put("id", e.id)
-                }
-                batch.set(ref, payload, SetOptions.merge())
-            }
-            batch.commit().await()
+            commitRestoredExpenses(u, chunk)
         }
 
         // 3. Preferences — `newTimestamp` was computed and validated in the pre-flight above.
@@ -228,6 +220,88 @@ internal class BackupRestoreRepository(
             categoriesRestored = backup.categories.size,
             preferencesRestored = true,
         )
+    }
+
+    /**
+     * Commits one batch of restored expenses, reconciling the one refusal the backup file
+     * cannot predict: a stored revision ahead of this device's clock (AUD-006).
+     *
+     * The first attempt is what the restore always wrote. A batch commits entirely or not at
+     * all, so when the rules refuse it nothing was written: the stored revisions are read
+     * back from the server and only the offending rows are retried, stepped just past their
+     * stored value, so the retry cannot plant future timestamps on rows that never needed
+     * them. A revision no legal write can exceed throws `EXPENSE_REVISION_UNWRITABLE` instead
+     * of leaving the caller with a bare PERMISSION_DENIED. Mirrors web commitRestoredExpenses.
+     */
+    private suspend fun commitRestoredExpenses(u: String, chunk: List<BackupFormat.ParsedExpense>) {
+        val now = System.currentTimeMillis()
+        val payloads = chunk.associate { e ->
+            e.id to buildMap<String, Any> {
+                put("amount", (e.amount * 100.0).roundToLong() / 100.0)
+                put("dateMillis", e.dateMillis)
+                put("categoryId", e.categoryId)
+                // 2000 is the rules' and every other writer's cap; 200 silently cut notes.
+                put("note", e.note.take(2000))
+                put("transactionType", e.transactionType)
+                put("id", e.id)
+            }
+        }
+
+        suspend fun writeAll(revisions: Map<String, Long>) {
+            val batch = firestore.batch()
+            for (e in chunk) {
+                val payload = payloads.getValue(e.id) + ("updatedAt" to (revisions[e.id] ?: now))
+                batch.set(expDoc(u, e.id), payload, SetOptions.merge())
+            }
+            batch.commit().await()
+        }
+
+        try {
+            writeAll(emptyMap())
+            return
+        } catch (error: FirebaseFirestoreException) {
+            if (error.code != FirebaseFirestoreException.Code.PERMISSION_DENIED) throw error
+            val stored = readStoredExpenseRevisions(u, chunk.map { it.id })
+            val limit = now + BackupFormat.RESTORE_REVISION_MAX_LEAD_MS -
+                BackupFormat.RESTORE_REVISION_LEAD_MARGIN_MS
+            val bumped = HashMap<String, Long>()
+            for (e in chunk) {
+                val revision = stored[e.id] ?: continue
+                if (revision < now) continue
+                val stepped = BackupFormat.restoredExpenseRevision(now, revision)
+                if (stepped > limit) throw IllegalStateException("EXPENSE_REVISION_UNWRITABLE")
+                bumped[e.id] = stepped
+            }
+            // Refused for a reason the file cannot explain (a category staged for deletion, a
+            // type migration in flight): surface the original error rather than a second one.
+            if (bumped.isEmpty()) throw error
+            writeAll(bumped)
+        }
+    }
+
+    /**
+     * Stored expense revisions, read from the server rather than the cache: the retry exists
+     * because the stored value is unknown, and a stale cached copy would answer wrongly.
+     */
+    private suspend fun readStoredExpenseRevisions(u: String, ids: List<String>): Map<String, Long> {
+        val revisions = HashMap<String, Long>()
+        for (page in ids.chunked(REVISION_QUERY_LIMIT)) {
+            val snap = expCol(u).whereIn(FieldPath.documentId(), page).get(Source.SERVER).await()
+            for (doc in snap.documents) {
+                storedExpenseRevision(doc.get("updatedAt"))?.let { revisions[doc.id] = it }
+            }
+        }
+        return revisions
+    }
+
+    private fun storedExpenseRevision(value: Any?): Long? = when (value) {
+        is Long -> value
+        is Number -> value.toLong()
+        // Builds before updatedAt became a millisecond number wrote a real Timestamp, and the
+        // rules still accept both shapes on the same document.
+        is com.google.firebase.Timestamp -> value.seconds * 1000L + value.nanoseconds / 1_000_000L
+        is java.util.Date -> value.time
+        else -> null
     }
 
     suspend fun planReplace(backup: BackupFormat.ParsedBackup): Result<ReplacePlanner.ReplacePlan> = runSuspendCatching {
