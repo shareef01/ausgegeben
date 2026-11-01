@@ -11,6 +11,7 @@ import {
 import { useAuthStore } from '@/services/authStore';
 import { BACKUP_FORMAT_IDENTIFIER, CURRENT_BACKUP_SCHEMA_VERSION, type AusgegebenBackup } from '@/services/backupFormat';
 import { expenseDocumentId } from '@/utils/idempotency';
+import { buildPayload } from '@/services/errorSink';
 
 vi.mock('@/services/firebase', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/services/firebase')>();
@@ -194,6 +195,14 @@ describe('backupRestore on real Firestore emulator with rules enforced', () => {
     expect(failure?.message).toContain('cat-food');
     expect(failure?.message).not.toContain('Food & Dining');
     expect(failure?.message).not.toContain('Existing Income');
+
+    // …and that holds for the actual outbound telemetry payload, not just the message: the
+    // sink serializes message and stack, so both are checked through the production builder.
+    const payload = buildPayload({ source: 'promise', error: failure, at: Date.now() });
+    const serialized = JSON.stringify(payload);
+    expect(serialized).not.toContain('Food & Dining');
+    expect(serialized).not.toContain('Existing Income');
+    expect(payload.error.message).toContain('CATEGORY_TYPE_CONFLICT');
 
     // Verify expenses were NOT written
     const expSnap = await getDoc(doc(db, 'users', TEST_UID, 'expenses', 'exp-0'));
