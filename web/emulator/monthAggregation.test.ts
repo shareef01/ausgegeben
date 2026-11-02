@@ -22,6 +22,7 @@ import {
   TEST_UID,
 } from './enforcedHarness';
 import { useAuthStore } from '@/services/authStore';
+import { analyticsDateRangeMillis } from '@/utils/periodUtils';
 
 vi.mock('@/services/firebase', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/services/firebase')>();
@@ -43,9 +44,13 @@ const CATEGORY = {
 const INCOME_CATEGORY = { ...CATEGORY, id: 'cat-salary', name: 'Salary', transactionType: 'income' as const };
 const TRANSFER_CATEGORY = { ...CATEGORY, id: 'cat-move', name: 'Move', transactionType: 'transfer' as const };
 
-// October 2026 in Europe/Berlin: 2026-10-01T00:00 .. 2026-11-01T00:00 (31 days, DST ends 25 Oct).
-const MONTH_START = 1790550000000;
-const MONTH_END = 1793233200000;
+// October 2026 in Europe/Berlin, 2026-10-01T00:00 CEST .. 2026-11-01T00:00 CET. The month is
+// 31 days plus one hour because the DST switch on 25 October gives an hour back. Both constants
+// are asserted below against the local calendar and against the production period range, so a
+// wrong literal fails the suite instead of silently testing a different window (as an earlier
+// revision of this file did).
+const MONTH_START = 1790805600000;
+const MONTH_END = 1793487600000;
 
 function row(
   id: string,
@@ -68,6 +73,31 @@ function row(
 }
 
 describe('monthly aggregation under enforced rules', () => {
+  // Guard the window itself before anything is seeded: a wrong literal would still produce a
+  // self-consistent test over the wrong range, which is exactly how this file's first version
+  // passed while claiming a month it was not using.
+  it('uses a real October 2026 Europe/Berlin window (31 days + 1 DST hour)', () => {
+    const previousTz = process.env.TZ;
+    process.env.TZ = 'Europe/Berlin';
+    try {
+      const start = new Date(MONTH_START);
+      const end = new Date(MONTH_END);
+      expect([start.getFullYear(), start.getMonth(), start.getDate(), start.getHours(), start.getMinutes()]).toEqual([
+        2026, 9, 1, 0, 0,
+      ]);
+      expect([end.getFullYear(), end.getMonth(), end.getDate(), end.getHours(), end.getMinutes()]).toEqual([
+        2026, 10, 1, 0, 0,
+      ]);
+      // 31 * 24 h + the extra hour the October switch hands back.
+      expect((MONTH_END - MONTH_START) / 3_600_000).toBe(745);
+      // …and the production period resolver agrees with both literals.
+      expect(analyticsDateRangeMillis('month:2026-10')).toEqual([MONTH_START, MONTH_END]);
+    } finally {
+      if (previousTz === undefined) delete process.env.TZ;
+      else process.env.TZ = previousTz;
+    }
+  });
+
   beforeAll(async () => {
     await startEnforcedHarness();
   });

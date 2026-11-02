@@ -24,8 +24,10 @@ describe('restoredExpenseRevision', () => {
 
   it('keeps the retry inside the rules five-minute window', () => {
     const now = 1_000_000;
-    // A row stored at the very edge of the window cannot be stepped over legally; the
-    // caller refuses with EXPENSE_REVISION_UNWRITABLE instead of retrying into a rejection.
+    // A row stored at the very edge of the window lands beyond the retry's own margin (the
+    // rules' five minutes minus five seconds), so the caller refuses with
+    // EXPENSE_REVISION_UNWRITABLE instead of retrying into a rejection — conservatively, since
+    // the server might still accept a write there.
     const edge = now + RESTORE_REVISION_MAX_LEAD_MS;
     expect(restoredExpenseRevision(now, edge) - now).toBeGreaterThan(
       RESTORE_REVISION_MAX_LEAD_MS - RESTORE_REVISION_LEAD_MARGIN_MS,

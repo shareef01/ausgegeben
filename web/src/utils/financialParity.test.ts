@@ -48,7 +48,11 @@ describe('financial parity fixture (shared with Android FinancialParityTest)', (
     process.env.TZ = fixture.timeZone;
   });
   afterAll(() => {
-    process.env.TZ = originalTz;
+    // `process.env` coerces every value to a string, so assigning `undefined` would leave the
+    // literal "undefined" behind as the zone for every later test in this worker. Restore the
+    // variable's actual prior state instead.
+    if (originalTz === undefined) delete process.env.TZ;
+    else process.env.TZ = originalTz;
   });
 
   it('sums totals in integer cents and keeps transfers out of spending and net', () => {

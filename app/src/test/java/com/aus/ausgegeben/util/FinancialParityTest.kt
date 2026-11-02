@@ -304,9 +304,12 @@ class FinancialParityTest {
     }
 
     @Test
-    fun restoredAmountsStillAggregateToTheSameTotals() {
-        // A restore writes back the file's exact cent values; the aggregate after restore must
-        // equal the aggregate of the original rows (Phase 5: restore then recalculate).
+    fun roundTrippedBackupAmountsAggregateToTheSameTotals() {
+        // Scope: this is a serialization round trip, not a restore. It proves the JSON written by
+        // BackupFormat.createBackupJson re-reads to the same cent values, so re-aggregating those
+        // rows matches the aggregate of the originals. The Firestore round trip itself (rules,
+        // merge/replace/rollback, retries) is covered elsewhere: rel1/rel3/rel6 here and
+        // web/emulator/backupRestore.test.ts + restoreRevisionAdversarial.test.ts.
         val json = JSONObject(
             BackupFormat.createBackupJson(
                 preferences = BackupFormat.BackupPreferences(currency = fixture.getString("currency"), monthlyBudget = null),

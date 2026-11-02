@@ -6,7 +6,7 @@
  * row, and `validUpdatedAt` accepts a stored row up to five minutes ahead of this device's
  * clock — so the suite is mostly about proving the retry cannot do *more* than that: it must
  * not bypass authorization, must not swallow unrelated refusals, must not loop, and must not
- * advance a row that no legal write can exceed.
+ * advance a row the retry's own safety margin will not step past.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -156,9 +156,10 @@ describe('restore expense revision reconciliation under enforced rules', () => {
     expect(stored.updatedAt).toBe(nearBoundary + 1);
   });
 
-  it('C. refuses a revision no legal write can exceed, without writing the row', async () => {
-    // 299s ahead leaves no room: stepping to 299s+1ms would still be inside the rules'
-    // five-minute window, but the retry margin (295s) refuses to gamble on a clock offset.
+  it('C. refuses a revision inside the retry safety margin, without writing the row', async () => {
+    // 299s ahead is still inside the rules' five-minute window, so a write at 299s+1ms may well
+    // be legal on the server — but the retry stops at now+295s rather than gamble on this
+    // device's clock offset. This is the application's fail-closed margin, not an impossibility.
     const unwritable = Date.now() + 299_000;
     await seedExpense('unwritable', { updatedAt: unwritable, amount: 42 });
 
