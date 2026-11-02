@@ -339,7 +339,8 @@ export const de: Record<TranslationKey, string> = {
   settingsExportTruncatedConfirm:
     'nur die neuesten 5000 buchungen werden enthalten. ältere zeilen fehlen. fortfahren?',
   settingsExportTruncatedContinue: 'trotzdem exportieren',
-  settingsExportBackupSub: 'vollständige kontodaten zur sicherung',
+  settingsExportBackupSub:
+    'vollständige kontodaten zur sicherung. die datei ist unverschlüsselt – speichere und teile sie nur an vertrauenswürdigen orten',
   settingsExportBackupOk: 'backup bereit',
   settingsExportBackupTruncated: 'backup bereit (neueste 5000 zeilen)',
   settingsExportBackupTruncatedConfirm:
@@ -347,7 +348,7 @@ export const de: Record<TranslationKey, string> = {
   settingsRestoreBackup: 'JSON-Backup wiederherstellen',
   settingsRestoreBackupSub: 'daten aus einer versionierten JSON-sicherung importieren',
   settingsRestoreBackupExplain:
-    'Vorhandene übereinstimmende Einträge werden aktualisiert. Andere aktuelle Daten bleiben unverändert.',
+    'Vorhandene übereinstimmende Einträge werden auf die Werte der Sicherung aktualisiert – auch Änderungen, die nach dem Export auf einem anderen Gerät vorgenommen wurden. Anders als beim Ersetzen lässt sich eine Zusammenführung nicht automatisch rückgängig machen.',
   settingsRestoreBackupSummary:
     'Sicherung enthält {expenses} Ausgaben und {categories} Kategorien. Währung: {currency}.',
   settingsRestoreBackupBudget: 'Monatliches Budget: {budget}.',

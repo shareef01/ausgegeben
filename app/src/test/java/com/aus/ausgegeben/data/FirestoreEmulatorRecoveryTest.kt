@@ -932,4 +932,95 @@ class FirestoreEmulatorRecoveryTest {
         assertEquals("/legacy/img.jpg", original.getString("receiptImagePath"))
         assertFalse(expenseRef("rel-new-0").get(Source.SERVER).await().exists())
     }
+
+    /**
+     * AUD-006 on Android. `validUpdatedAt` accepts a stored revision up to five minutes ahead
+     * of the restoring device's clock (a device whose clock ran fast writes one), while the
+     * update rule refuses any expense write older than the stored row. A merge restore that
+     * wrote `System.currentTimeMillis()` therefore lost the whole expense batch — after the
+     * categories had landed. The reconciliation has to step over the stored value.
+     */
+    @Test
+    fun rel3_mergeRestoreOverExpenseWhoseRevisionIsAheadOfTheClock_succeeds() = runRecoveryTest {
+        val ahead = System.currentTimeMillis() + 240_000L
+        seedExpense("rel-ahead", "Fast clock row", ahead)
+
+        val merged = repository.restoreBackup(backupOf(backupExpense("rel-ahead", "From backup")), uid)
+        assertTrue("merge restore failed: ${merged.exceptionOrNull()}", merged.isSuccess)
+
+        val stored = expenseRef("rel-ahead").get(Source.SERVER).await()
+        assertEquals("From backup", stored.getString("note"))
+        assertTrue(
+            "restore must step past the stored revision, got ${stored.getLong("updatedAt")} vs $ahead",
+            stored.getLong("updatedAt")!! > ahead,
+        )
+    }
+
+    /**
+     * The other half of AUD-006: a stored revision inside the retry's own safety margin
+     * (`now + 295 s`, five seconds under the rules' window) must fail closed — with the explicit
+     * EXPENSE_REVISION_UNWRITABLE code — and leave the row untouched rather than half-written.
+     * That is a conservative refusal, not a proof that no legal server write exists.
+     */
+    @Test
+    fun rel4_mergeRestoreRefusesRevisionInsideRetryMargin() = runRecoveryTest {
+        val unwritable = System.currentTimeMillis() + 299_000L
+        seedExpense("rel-stuck", "Untouchable", unwritable)
+
+        val merged = repository.restoreBackup(backupOf(backupExpense("rel-stuck", "From backup")), uid)
+        assertEquals("EXPENSE_REVISION_UNWRITABLE", merged.exceptionOrNull()?.message)
+
+        val stored = expenseRef("rel-stuck").get(Source.SERVER).await()
+        assertEquals("Untouchable", stored.getString("note"))
+        assertEquals(unwritable, stored.getLong("updatedAt"))
+    }
+
+    /**
+     * The reconciliation must never reclassify an unrelated authorization refusal as clock skew:
+     * an expense whose category does not exist is refused by `exists(categories/{id})`, which no
+     * revision bump can satisfy, and the caller has to see that refusal.
+     */
+    @Test
+    fun rel5_unrelatedAuthorizationRefusalIsNotReportedAsClockSkew() = runRecoveryTest {
+        val missingCategory = backupExpense("rel-orphan", "Orphan").copy(categoryId = "missing-category")
+
+        val merged = repository.restoreBackup(backupOf(missingCategory).copy(categories = emptyList()), uid)
+        val message = merged.exceptionOrNull()?.message.orEmpty()
+        assertTrue("expected a rules refusal, got: $message", message.contains("PERMISSION_DENIED"))
+        assertFalse("must not be reported as clock skew", message.contains("EXPENSE_REVISION_UNWRITABLE"))
+        assertFalse(expenseRef("rel-orphan").get(Source.SERVER).await().exists())
+    }
+
+    /**
+     * AUD-006 in the journalled replace/rollback flow: the expense batch carries the restore
+     * operation's lease and fencing progress, so the reconciliation has to retry the pair. A
+     * failure must still leave the journal and the safety snapshot intact for recovery.
+     */
+    @Test
+    fun rel6_replaceAndRollbackOverFutureRevision_keepJournalAndSnapshot() = runRecoveryTest {
+        val ahead = System.currentTimeMillis() + 240_000L
+        seedExpense("rel-future", "Original", ahead)
+        val backup = backupOf(backupExpense("rel-future", "Replaced"))
+
+        val replaced = repository.executeReplace(
+            backup, uid, ReplacePlanner.ReplaceFaultHooks(failAfterExpenseUpsertBatch = 1),
+        )
+        assertEquals("FAULT_INJECTED_AFTER_EXPENSE_UPSERT_BATCH", replaced.exceptionOrNull()?.message)
+
+        // The upsert committed (reconciled past the stored revision) and the journal recorded the
+        // failure with its snapshot still available for rollback.
+        val afterReplace = expenseRef("rel-future").get(Source.SERVER).await()
+        assertEquals("Replaced", afterReplace.getString("note"))
+        assertTrue(afterReplace.getLong("updatedAt")!! > ahead)
+        var op = repository.getRestoreOperation(uid)
+        assertEquals(ReplacePlanner.RestorePhase.FAILED_RECOVERABLE, op?.phase)
+        assertNotNull("failure must keep snapshotMeta", op?.snapshotMeta)
+
+        // Rollback must step over the revision the replace left behind.
+        val rolledBack = repository.rollbackReplace(op!!, uid)
+        assertTrue("rollback failed: ${rolledBack.exceptionOrNull()}", rolledBack.isSuccess)
+        op = repository.getRestoreOperation(uid)
+        assertEquals(ReplacePlanner.RestorePhase.ROLLED_BACK, op?.phase)
+        assertEquals("Original", expenseRef("rel-future").get(Source.SERVER).await().getString("note"))
+    }
 }

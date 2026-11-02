@@ -35,4 +35,27 @@ describe('i18n', () => {
     expect(text).toContain('Current categories kept (not in the backup): 4');
     expect(text).not.toMatch(/\{\w+\}/);
   });
+
+  /**
+   * PRIV-1: a JSON backup is a plaintext copy of the user's whole financial history. The export
+   * row is the only place the user is told, so both catalogs must say it (Android's
+   * `settings_export_backup_subtitle` carries the same sentence).
+   */
+  it('the backup export row discloses that the file is unencrypted', () => {
+    expect(en.settingsExportBackupSub.toLowerCase()).toContain('unencrypted');
+    expect(de.settingsExportBackupSub.toLowerCase()).toContain('unverschlüsselt');
+  });
+
+  /**
+   * RST-1: a merge restore overwrites matching records with the file's values (last writer wins,
+   * verified in web/emulator/restoreConcurrency.test.ts) and, unlike replace, writes no safety
+   * snapshot, so it cannot be undone. The confirmation dialog is the only place the user can
+   * learn that before it happens.
+   */
+  it('the merge restore dialog discloses overwrites of newer edits and that it cannot be undone', () => {
+    expect(en.settingsRestoreBackupExplain.toLowerCase()).toContain('another device');
+    expect(en.settingsRestoreBackupExplain.toLowerCase()).toContain('cannot be undone');
+    expect(de.settingsRestoreBackupExplain.toLowerCase()).toContain('anderen gerät');
+    expect(de.settingsRestoreBackupExplain.toLowerCase()).toContain('rückgängig');
+  });
 });

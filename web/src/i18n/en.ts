@@ -337,7 +337,8 @@ export const en = {
   settingsExportTruncatedConfirm:
     'only the latest 5000 transactions will be included. older rows will be missing. continue?',
   settingsExportTruncatedContinue: 'export anyway',
-  settingsExportBackupSub: 'complete account data for portability',
+  settingsExportBackupSub:
+    'complete account data for portability. the file is unencrypted, so store and share it only where you trust the destination',
   settingsExportBackupOk: 'backup ready',
   settingsExportBackupTruncated: 'backup ready (latest 5000 rows)',
   settingsExportBackupTruncatedConfirm:
@@ -345,7 +346,7 @@ export const en = {
   settingsRestoreBackup: 'restore JSON backup',
   settingsRestoreBackupSub: 'import data from a versioned JSON backup',
   settingsRestoreBackupExplain:
-    'Existing matching items will be updated. Other current data will remain unchanged.',
+    'Existing matching items will be updated to the values in the backup, including edits made on another device after the export. Unlike replace, a merge restore cannot be undone automatically.',
   settingsRestoreBackupSummary:
     'Backup contains {expenses} expenses and {categories} categories. Currency: {currency}.',
   settingsRestoreBackupBudget: 'Monthly budget: {budget}.',

@@ -543,6 +543,86 @@ describe('backupReplace on real Firestore emulator with rules enforced', () => {
   });
 
   /**
+   * AUD-006 in the journalled replace flow. The expense upsert batch carries the
+   * restore-operation/lease update, so the revision reconciliation has to retry the pair:
+   * expenses committed without their journal progress would be an unjournalled write path.
+   */
+  it('replaces over an expense whose stored revision is ahead of this device clock', async () => {
+    const db = enforcedFirestore();
+    await setDoc(doc(db, 'users', TEST_UID, 'categories', 'cat-food'), {
+      name: 'Food', iconName: 'food', colorInt: -1, transactionType: 'expense', sortOrder: 0, updatedAt: 1000,
+    });
+    const ahead = Date.now() + 240_000;
+    await setDoc(doc(db, 'users', TEST_UID, 'expenses', 'exp-0'), {
+      amount: 99, dateMillis: 1700000000000, categoryId: 'cat-food', note: 'Fast clock row',
+      transactionType: 'expense', updatedAt: ahead,
+    });
+    const backup = createTestBackup({ numExpenses: 1, prefix: 'exp' });
+
+    const result = await executeReplace(backup, TEST_UID);
+    expect(result.phase).toBe('COMPLETED');
+
+    const row = (await getDoc(doc(db, 'users', TEST_UID, 'expenses', 'exp-0'))).data()!;
+    expect(row.amount).toBe(10.5);
+    expect(row.updatedAt).toBe(ahead + 1);
+    // The journal advanced with the batch it was paired with: no in-flight step survives the
+    // terminal write, and the lease/fencing pair the rules fence on is still there.
+    const op = await getRestoreOperation(TEST_UID);
+    expect(op?.phase).toBe('COMPLETED');
+    expect(op?.progress?.step).toBeUndefined();
+    expect(op?.progress?.fencingToken).toBeGreaterThan(0);
+    expect(op?.progress?.leaseHolder).toBeTruthy();
+  });
+
+  /**
+   * AUD-006 in rollback. The failed replace left the row on a future revision, so the rollback
+   * batch — expenses plus journal progress — has to step over it too. Before the fix this threw
+   * PERMISSION_DENIED and left the operation stuck in FAILED_RECOVERABLE.
+   */
+  it('rolls back over an expense whose stored revision is ahead of this device clock', async () => {
+    const db = enforcedFirestore();
+    await setDoc(doc(db, 'users', TEST_UID, 'categories', 'cat-food'), {
+      name: 'Food', iconName: 'food', colorInt: -1, transactionType: 'expense', sortOrder: 0, updatedAt: 1000,
+    });
+    const ahead = Date.now() + 240_000;
+    await setDoc(doc(db, 'users', TEST_UID, 'expenses', 'exp-0'), {
+      amount: 42, dateMillis: 1700000000000, categoryId: 'cat-food', note: 'Original',
+      transactionType: 'expense', updatedAt: ahead,
+    });
+
+    const backup = createTestBackup({ numExpenses: 1, prefix: 'exp' });
+    backup.expenses[0].amount = 10.5;
+
+    // The upsert commits (reconciled), then the injected failure leaves FAILED_RECOVERABLE.
+    await expect(executeReplace(backup, TEST_UID, { failAfterExpenseUpsertBatch: 1 }))
+      .rejects.toThrow('FAULT_INJECTED_AFTER_EXPENSE_UPSERT_BATCH');
+
+    let op = await getRestoreOperation(TEST_UID);
+    expect(op?.phase).toBe('FAILED_RECOVERABLE');
+    expect(op?.snapshotMeta).toBeDefined();
+    // The safety snapshot survives the failure: it is the only copy of the pre-replace rows.
+    const snapshotBeforeRollback = await readSafetySnapshot(TEST_UID);
+    expect(snapshotBeforeRollback.operationId).toBe(op!.operationId);
+    expect(snapshotBeforeRollback.expenses[0].amount).toBe(42);
+    const afterReplace = (await getDoc(doc(db, 'users', TEST_UID, 'expenses', 'exp-0'))).data()!;
+    expect(afterReplace.amount).toBe(10.5);
+    expect(afterReplace.updatedAt).toBeGreaterThan(ahead);
+
+    // Rollback must step over that revision, keep its journal progress, and only drop the
+    // snapshot once the restore is verified.
+    await rollbackReplace(op!, TEST_UID);
+
+    op = await getRestoreOperation(TEST_UID);
+    expect(op?.phase).toBe('ROLLED_BACK');
+    expect(op?.snapshotMeta).toBeDefined();
+    const restored = (await getDoc(doc(db, 'users', TEST_UID, 'expenses', 'exp-0'))).data()!;
+    expect(restored.amount).toBe(42);
+    expect(restored.note).toBe('Original');
+    await expect(readSafetySnapshot(TEST_UID)).rejects.toThrow('SNAPSHOT_NOT_FOUND');
+  });
+
+
+  /**
    * AUD-001. The replace path writes every backed-up category in one batch that also
    * carries the restore-journal lease renewal. A category whose type is not `expense`
    * spends a rules document-access call on `existsAfter(categoryBudgets/{id})`; the
