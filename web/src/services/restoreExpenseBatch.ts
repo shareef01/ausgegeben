@@ -135,14 +135,19 @@ export async function readStoredExpenseRevisions(
  * writable keep the plain clock revision, so the retry cannot plant future timestamps on
  * documents that never needed them.
  *
- * A stored revision no legal write can exceed throws `EXPENSE_REVISION_UNWRITABLE` — the same
- * refuse-clinically shape preferences use — instead of a bare PERMISSION_DENIED.
+ * A stored revision the retry cannot safely step past throws `EXPENSE_REVISION_UNWRITABLE` — the
+ * same refuse-clinically shape preferences use — instead of a bare PERMISSION_DENIED. That is the
+ * application's conservative margin (`now + 295 s`, five seconds under the rules' window), not a
+ * proof that no legal write exists: a revision inside that last margin could in principle be
+ * stepped over, but only by betting on this device's clock offset, so the restore declines and
+ * the row becomes writable once the margin ages out.
  *
  * Nothing here can turn an authorization failure into a successful write: the retry re-sends
  * the same payload through the same rules, and any refusal the revision bump does not address
- * is re-thrown as the original permission error. Exactly one retry is attempted; a row whose
- * revision moves again between the lookup and that retry fails the batch (fail closed) rather
- * than looping.
+ * is re-thrown as the original permission error. Exactly one retry is attempted. A concurrent
+ * write that lands *above* the revision the retry is about to write makes the batch fail closed
+ * rather than loop; one that lands at or below it is overwritten, because this is an upsert with
+ * last-writer-wins semantics, not a compare-and-swap.
  */
 export async function commitRestoredExpenses(
   db: Firestore,

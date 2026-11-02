@@ -78,7 +78,7 @@ rules refuse it, read that batch's stored revisions from the server (30-id pages
 once with just the offending rows stepped over their stored value. Nothing extra is read on
 a normal restore, and rows that were already writable keep the plain clock revision, so the
 retry cannot plant future timestamps on documents that never needed them. A stored revision
-no legal write can exceed throws `EXPENSE_REVISION_UNWRITABLE` instead of a bare
+the retry cannot safely step past (anything above `now + 295 s`, the application's five-second margin under the rules' window) throws `EXPENSE_REVISION_UNWRITABLE` instead of a bare
 `PERMISSION_DENIED`.
 
 - `web/src/services/restoreExpenseBatch.ts` — `commitRestoredExpenses`,
@@ -182,7 +182,7 @@ Auth emulators through `scripts/firestore_recovery_runner.py` (they are in the r
 | Test | Asserts |
 |---|---|
 | `rel3_…RevisionIsAheadOfTheClock_succeeds` | merge restore over a +4 min row succeeds and steps past it |
-| `rel4_…RefusesRevisionItCannotLegallyExceed` | `EXPENSE_REVISION_UNWRITABLE`, row untouched |
+| `rel4_…RefusesRevisionInsideRetryMargin` | `EXPENSE_REVISION_UNWRITABLE`, row untouched |
 | `rel5_unrelatedAuthorizationRefusalIsNotReportedAsClockSkew` | a missing-category refusal surfaces as `PERMISSION_DENIED`, never as clock skew |
 | `rel6_replaceAndRollbackOverFutureRevision_keepJournalAndSnapshot` | replace upsert reconciled; failure keeps `FAILED_RECOVERABLE` + `snapshotMeta`; rollback steps over the new revision and reaches `ROLLED_BACK` |
 

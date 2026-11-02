@@ -957,12 +957,13 @@ class FirestoreEmulatorRecoveryTest {
     }
 
     /**
-     * The other half of AUD-006: a stored revision so far inside the rules' five-minute window
-     * that no legal write can exceed it must fail closed — with the explicit
+     * The other half of AUD-006: a stored revision inside the retry's own safety margin
+     * (`now + 295 s`, five seconds under the rules' window) must fail closed — with the explicit
      * EXPENSE_REVISION_UNWRITABLE code — and leave the row untouched rather than half-written.
+     * That is a conservative refusal, not a proof that no legal server write exists.
      */
     @Test
-    fun rel4_mergeRestoreRefusesRevisionItCannotLegallyExceed() = runRecoveryTest {
+    fun rel4_mergeRestoreRefusesRevisionInsideRetryMargin() = runRecoveryTest {
         val unwritable = System.currentTimeMillis() + 299_000L
         seedExpense("rel-stuck", "Untouchable", unwritable)
 

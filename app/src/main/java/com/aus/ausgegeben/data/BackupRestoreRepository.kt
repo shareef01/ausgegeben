@@ -251,10 +251,14 @@ internal class BackupRestoreRepository(
      * update to the same atomic batch on every attempt, so a retry never commits expenses
      * without their journal progress.
      *
-     * A revision no legal write can exceed throws `EXPENSE_REVISION_UNWRITABLE` instead of
-     * leaving the caller with a bare PERMISSION_DENIED. Exactly one retry is attempted: a row
-     * whose revision moves again between the lookup and that retry fails the batch (fail
-     * closed) rather than looping. Mirrors web commitRestoredExpenses.
+     * A revision the retry cannot safely step past throws `EXPENSE_REVISION_UNWRITABLE` instead
+     * of leaving the caller with a bare PERMISSION_DENIED. That is the application's conservative
+     * margin (`now + 295 s`, five seconds under the rules' window), not proof that no legal write
+     * exists: a revision inside that last margin could in principle be stepped over, but only by
+     * betting on this device's clock offset. Exactly one retry is attempted. A concurrent write
+     * that lands *above* the revision the retry is about to write fails the batch closed rather
+     * than looping; one that lands at or below it is overwritten, because this is an upsert with
+     * last-writer-wins semantics, not a compare-and-swap. Mirrors web commitRestoredExpenses.
      */
     private suspend fun commitRestoredExpenses(
         u: String,

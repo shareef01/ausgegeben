@@ -30,7 +30,7 @@ TESTS = (
     "rel1_replaceAndMergeRestoreOverExpenseEditedAfterBackup_succeed",
     "rel2_failedResumeKeepsOriginalSnapshot_andRollbackRestoresDeletedLegacyRow",
     "rel3_mergeRestoreOverExpenseWhoseRevisionIsAheadOfTheClock_succeeds",
-    "rel4_mergeRestoreRefusesRevisionItCannotLegallyExceed",
+    "rel4_mergeRestoreRefusesRevisionInsideRetryMargin",
     "rel5_unrelatedAuthorizationRefusalIsNotReportedAsClockSkew",
     "rel6_replaceAndRollbackOverFutureRevision_keepJournalAndSnapshot",
 )
