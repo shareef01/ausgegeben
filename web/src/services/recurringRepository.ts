@@ -70,6 +70,35 @@ export function materializeFallbackAcceptance(
 }
 
 /**
+ * Decision made by the `permission-denied` catch in `materialize`, extracted so the real
+ * error-classification gate can be exercised deterministically (the emulator race that
+ * reaches this branch is not reproducible without timing control). `null` means "re-throw
+ * the original error": a genuine auth/network/permission failure is never reported as a
+ * completed occurrence, and an invalid receipt never authorizes recovery.
+ */
+export function materializeFallbackRecovery(
+  uid: string,
+  templateId: string,
+  ctx: {
+    error: unknown;
+    attempted: { date: string; revision: number } | null;
+    fresh: RecurringTemplate | null;
+    receipt: { exists(): boolean; data(): Record<string, unknown> | undefined };
+    expectedExpenseId: string;
+  },
+): RecurringTemplate | null {
+  const isPermissionDenied =
+    typeof ctx.error === 'object' && ctx.error !== null
+    && 'code' in ctx.error && (ctx.error as { code?: unknown }).code === 'permission-denied';
+  if (!isPermissionDenied || ctx.attempted === null) return null;
+  owned(uid);
+  if (materializeFallbackAcceptance(templateId, ctx.attempted, ctx.receipt, ctx.expectedExpenseId, ctx.fresh)) {
+    return ctx.fresh;
+  }
+  return null;
+}
+
+/**
  * Classification of the stored occurrence receipt for one scheduled date.
  *
  * `valid` is the only state that proves the occurrence was generated (Step 2 / AUD-008);
@@ -191,16 +220,22 @@ return {
       return updated;
     }); } catch (error) {
       // The emulator can evaluate rules for a losing optimistic write before its
-      // version precondition. Accept only a server-confirmed completed occurrence.
+      // version precondition. Re-read the server and accept only a confirmed, canonical
+      // completion; everything else re-throws the original error.
       const attempt = attempted as { date: string; revision: number } | null;
+      let freshTemplate: RecurringTemplate | null = null;
       if (attempt && typeof error === 'object' && error !== null && 'code' in error && error.code === 'permission-denied') {
         owned(uid);
         const [fresh, receipt] = await Promise.all([getDocFromServer(target), getDocFromServer(doc(db(), 'users', uid, OCCURRENCES_COLLECTION, receiptId(id, attempt.date)))]);
         owned(uid);
-        const next = fresh.exists() ? { ...fresh.data(), id } as RecurringTemplate : null;
-        // Same identity rule as the primary path: the receipt must prove this occurrence.
-        const fallbackExpenseId = await expenseDocumentId(occurrenceKey(id, attempt.date));
-        if (materializeFallbackAcceptance(id, attempt, receipt, fallbackExpenseId, next)) return next;
+        freshTemplate = fresh.exists() ? { ...fresh.data(), id } as RecurringTemplate : null;
+        const expectedExpenseId = await expenseDocumentId(occurrenceKey(id, attempt.date));
+        const recovered = materializeFallbackRecovery(uid, id, {
+          error, attempted: attempt, fresh: freshTemplate,
+          receipt: { exists: () => receipt.exists(), data: () => receipt.data() },
+          expectedExpenseId,
+        });
+        if (recovered) return recovered;
       }
       throw error;
     }
