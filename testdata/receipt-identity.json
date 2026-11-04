@@ -1,0 +1,104 @@
+{
+  "description": "Receipt identity cases shared by the Web (occReceiptState.test.ts) and Android (RecurrenceReceiptIdentityTest.kt) suites. expectedState is the result of the canonical receipt classifier; documentId, when present, is the id a receipt must NOT be matched against.",
+  "templateId": "550e8400-e29b-41d4-a716-446655440000",
+  "scheduledDate": "2024-01-31",
+  "expectedExpenseId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "cases": [
+    {
+      "name": "absent receipt",
+      "receiptExists": false,
+      "receipt": null,
+      "expectedState": "absent"
+    },
+    {
+      "name": "valid receipt",
+      "receiptExists": true,
+      "receipt": {
+        "templateId": "550e8400-e29b-41d4-a716-446655440000",
+        "scheduledDate": "2024-01-31",
+        "expenseId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "expectedState": "valid"
+    },
+    {
+      "name": "wrong template id",
+      "receiptExists": true,
+      "receipt": {
+        "templateId": "11111111-1111-4111-8111-111111111111",
+        "scheduledDate": "2024-01-31",
+        "expenseId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "expectedState": "invalid"
+    },
+    {
+      "name": "wrong scheduled date",
+      "receiptExists": true,
+      "receipt": {
+        "templateId": "550e8400-e29b-41d4-a716-446655440000",
+        "scheduledDate": "2024-02-29",
+        "expenseId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "expectedState": "invalid"
+    },
+    {
+      "name": "wrong receipt document id",
+      "receiptExists": false,
+      "receipt": null,
+      "documentId": "550e8400-e29b-41d4-a716-446655440000_2024-02-29",
+      "expectedState": "absent"
+    },
+    {
+      "name": "wrong canonical expense id",
+      "receiptExists": true,
+      "receipt": {
+        "templateId": "550e8400-e29b-41d4-a716-446655440000",
+        "scheduledDate": "2024-01-31",
+        "expenseId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "expectedState": "invalid"
+    },
+    {
+      "name": "missing required fields",
+      "receiptExists": true,
+      "receipt": {},
+      "expectedState": "invalid"
+    },
+    {
+      "name": "valid receipt with keyless edited expense",
+      "receiptExists": true,
+      "receipt": {
+        "templateId": "550e8400-e29b-41d4-a716-446655440000",
+        "scheduledDate": "2024-01-31",
+        "expenseId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "expenseExists": true,
+      "expenseHasKey": false,
+      "expectedState": "valid",
+      "expectIdentityConflict": false
+    },
+    {
+      "name": "valid receipt with deleted expense",
+      "receiptExists": true,
+      "receipt": {
+        "templateId": "550e8400-e29b-41d4-a716-446655440000",
+        "scheduledDate": "2024-01-31",
+        "expenseId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "expenseExists": false,
+      "expectedState": "valid",
+      "expectResurrection": false
+    },
+    {
+      "name": "invalid receipt during concurrent reconciliation",
+      "receiptExists": true,
+      "receipt": {
+        "templateId": "550e8400-e29b-41d4-a716-446655440000",
+        "scheduledDate": "2024-01-31",
+        "expenseId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "concurrent": true,
+      "expectedState": "invalid",
+      "expectQuarantine": true
+    }
+  ]
+}

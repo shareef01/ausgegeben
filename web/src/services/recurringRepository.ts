@@ -5,13 +5,89 @@ import { RECURRING_COLLECTION, OCCURRENCES_COLLECTION } from '@/repositories/fir
 import { expenseDocumentId } from '@/utils/idempotency';
 import { expenseWritePayload } from '@/utils/firestorePayloads';
 import type { OccurrenceReceipt } from './recurringBackupSection';
-import { MAX_OCCURRENCES_PER_PASS, indexAfter, localDateAt, occurrenceDate, occurrenceKey, occurrenceMillis, receiptId, validTemplate, type RecurringTemplate } from './recurrence';
+import { MAX_OCCURRENCES_PER_PASS, indexAfter, localDateAt, occurrenceDate, occurrenceKey, occurrenceMillis, receiptId, validOccurrenceReceipt, validTemplate, type RecurringTemplate } from './recurrence';
 
 function owned(uid: string) {
   const user = useAuthStore.getState().user;
   if (user?.uid !== uid) throw new Error('AUTH_ACCOUNT_CHANGED');
   if (!user.emailVerified) throw new Error('EMAIL_NOT_VERIFIED');
 }
+
+/** A recurring occurrence that cannot be reconciled without the owner's decision. */
+export interface RecurringIssue {
+  code: 'RECURRING_RECEIPT_INVALID';
+  templateId: string;
+  scheduledDate: string;
+  receiptId: string;
+  receiptExpenseId: string;
+  expectedExpenseId: string;
+}
+
+/**
+ * Fail-closed signal for an occurrence whose immutable receipt does not prove identity.
+ * Its own type (not a bare Error) so `reconcile` can quarantine that single occurrence and
+ * keep servicing every other template — it used to abort the whole pass.
+ */
+export class RecurringIssueError extends Error {
+  readonly issue: RecurringIssue;
+  constructor(issue: RecurringIssue) {
+    super(issue.code);
+    this.name = 'RecurringIssueError';
+    this.issue = issue;
+  }
+}
+
+export function isRecurringIssue(error: unknown): error is RecurringIssueError {
+  return error instanceof RecurringIssueError;
+}
+
+/**
+ * Acceptance rule for the optimistic-concurrency fallback in `materialize` (AUD-008).
+ *
+ * The emulator can refuse a losing optimistic write before it tests the transaction's
+ * version precondition. In that case a competing client may already have completed the
+ * occurrence, so the fallback re-reads the server and accepts the advance ONLY when the
+ * template moved past the attempted date AND the stored receipt proves the canonical
+ * identity. An invalid receipt never satisfies this rule, so the original error is
+ * re-thrown — a genuine permission failure is never converted into a successful
+ * materialization, and a malformed receipt is never treated as completion.
+ */
+export function materializeFallbackAcceptance(
+  templateId: string,
+  attempted: { date: string; revision: number },
+  receipt: { exists(): boolean; data(): Record<string, unknown> | undefined },
+  expectedExpenseId: string,
+  fresh: RecurringTemplate | null,
+): boolean {
+  const proves = receiptState(receipt.exists(), receipt.data(), {
+    templateId,
+    scheduledDate: attempted.date,
+    expenseId: expectedExpenseId,
+  }) === 'valid';
+  return proves && fresh !== null && validTemplate(fresh)
+    && fresh.updatedAt > attempted.revision
+    && fresh.nextDate !== attempted.date;
+}
+
+/**
+ * Classification of the stored occurrence receipt for one scheduled date.
+ *
+ * `valid` is the only state that proves the occurrence was generated (Step 2 / AUD-008);
+ * `absent` means the occurrence may still be owed; `invalid` is untrusted metadata and is
+ * always quarantined. Shared by the primary transaction and the optimistic-concurrency
+ * fallback so both paths apply the same rule.
+ */
+export function receiptState(
+  exists: boolean,
+  data: Record<string, unknown> | undefined,
+  expected: { templateId: string; scheduledDate: string; expenseId: string },
+): 'absent' | 'valid' | 'invalid' {
+  if (!exists) return 'absent';
+  return validOccurrenceReceipt(data ?? {}, expected) ? 'valid' : 'invalid';
+}
+
+/** Issues recorded by the most recent reconcile pass, per owner. */
+const lastIssuesByOwner = new Map<string, RecurringIssue[]>();
 export function createRecurringRepository(database?: Firestore) {
 function db() { const value = database ?? getFirebaseFirestore(); if (!value) throw new Error('FIRESTORE_UNAVAILABLE'); return value; }
 function ref(uid: string, id: string) { return doc(db(), 'users', uid, RECURRING_COLLECTION, id); }
@@ -86,7 +162,25 @@ return {
       const expense = doc(db(), 'users', uid, 'expenses', expenseId);
       const [receipt, existing, cat] = await Promise.all([tx.get(occurrence), tx.get(expense), tx.get(category(uid, template.categoryId))]);
       eligible(cat.data(), template.transactionType); owned(uid);
-      if (existing.exists() && existing.data().idempotencyKey !== key) throw new Error("RECURRING_IDENTITY_CONFLICT");
+      // Identity contract (R6): a receipt is authority only when it names this occurrence's
+      // deterministic expense id. Anything else is untrusted metadata — fail closed instead
+      // of suppressing the occurrence silently, and never act on the id it records.
+      const stored = receiptState(receipt.exists(), receipt.data(), { templateId: id, scheduledDate: date, expenseId });
+      if (stored === 'invalid') {
+        throw new RecurringIssueError({
+          code: 'RECURRING_RECEIPT_INVALID',
+          templateId: id,
+          scheduledDate: date,
+          receiptId: receiptId(id, date),
+          receiptExpenseId: String(receipt.data()?.expenseId ?? ''),
+          expectedExpenseId: expenseId,
+        });
+      }
+      // AUD-008: a proven receipt is authority for identity, so a generated row that lost its
+      // key (edited, category-reassigned, restored) reconciles instead of wedging the template.
+      if (stored === 'absent' && existing.exists() && existing.data().idempotencyKey !== key) {
+        throw new Error("RECURRING_IDENTITY_CONFLICT");
+      }
       if (!receipt.exists()) {
         if (!existing.exists()) tx.set(expense, expenseWritePayload({ id: expenseId, amount: template.amount, categoryId: template.categoryId, note: template.note, transactionType: template.transactionType, dateMillis: occurrenceMillis(date, template.timeZone) }, { idempotencyKey: key, updatedAt: now }));
         tx.set(occurrence, { templateId: id, scheduledDate: date, expenseId, createdAt: now });
@@ -104,7 +198,9 @@ return {
         const [fresh, receipt] = await Promise.all([getDocFromServer(target), getDocFromServer(doc(db(), 'users', uid, OCCURRENCES_COLLECTION, receiptId(id, attempt.date)))]);
         owned(uid);
         const next = fresh.exists() ? { ...fresh.data(), id } as RecurringTemplate : null;
-        if (next && validTemplate(next) && next.updatedAt > attempt.revision && next.nextDate !== attempt.date && receipt.exists()) return next;
+        // Same identity rule as the primary path: the receipt must prove this occurrence.
+        const fallbackExpenseId = await expenseDocumentId(occurrenceKey(id, attempt.date));
+        if (materializeFallbackAcceptance(id, attempt, receipt, fallbackExpenseId, next)) return next;
       }
       throw error;
     }
@@ -112,18 +208,34 @@ return {
   async reconcile(uid: string, now = Date.now()) {
     const templates = await this.getAll(uid);
     let count = 0;
+    const issues: RecurringIssue[] = [];
+    const quarantined = new Set<string>();
     // A fixed bound caps both network work and scans, without any history queries.
     for (let attempt = 0; attempt < MAX_OCCURRENCES_PER_PASS; attempt++) {
       let due: RecurringTemplate | undefined;
       for (const t of templates) {
+        if (quarantined.has(t.id)) continue;
         if (t.enabled && t.nextDate && t.nextDate <= localDateAt(now, t.timeZone) && (!due || t.nextDate < due.nextDate! || t.nextDate === due.nextDate && t.id < due.id)) due = t;
       }
       if (!due) break;
-      const next = await this.materialize(uid, due.id, now);
+      let next: RecurringTemplate | null;
+      try {
+        next = await this.materialize(uid, due.id, now);
+      } catch (error) {
+        // One unreconcilable occurrence must not stall every other template. Record it,
+        // stop retrying this template for the rest of the pass, and keep going.
+        if (isRecurringIssue(error)) { issues.push(error.issue); quarantined.add(due.id); continue; }
+        throw error;
+      }
       const index = templates.findIndex(t => t.id === due.id);
       if (next) { templates[index] = next; count++; } else templates.splice(index, 1);
     }
+    lastIssuesByOwner.set(uid, issues);
     return count;
+  },
+  /** Occurrences quarantined by the most recent reconcile pass (owner decision required). */
+  getRecurringIssues(uid: string): RecurringIssue[] {
+    return [...(lastIssuesByOwner.get(uid) ?? [])];
   },
   async getAllReceipts(uid: string): Promise<OccurrenceReceipt[]> {
     owned(uid);

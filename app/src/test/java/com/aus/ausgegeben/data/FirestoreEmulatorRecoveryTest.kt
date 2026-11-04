@@ -1023,4 +1023,204 @@ class FirestoreEmulatorRecoveryTest {
         assertEquals(ReplacePlanner.RestorePhase.ROLLED_BACK, op?.phase)
         assertEquals("Original", expenseRef("rel-future").get(Source.SERVER).await().getString("note"))
     }
+
+    // ---- rel11: recurring receipt identity + quarantine ---------------------------------
+
+    private fun recurringTemplate(id: String) = com.aus.ausgegeben.data.entity.RecurringTemplate(
+        id, 15.0, categoryId, "Rent", "expense", "monthly", 1, "2024-01-31", null,
+        "Europe/Berlin", true, 0, "2024-01-31", 1, 1,
+    )
+
+    private val recUser get() = db.collection("users").document(uid)
+
+    private suspend fun recTemplateUpdatedAt(id: String): Long =
+        recUser.collection("recurringTransactions").document(id).get(Source.SERVER).await()
+            .getLong("updatedAt") ?: 0L
+
+    private suspend fun recCursor(id: String): Pair<Long, String?> {
+        val snap = recUser.collection("recurringTransactions").document(id).get(Source.SERVER).await()
+        return (snap.getLong("nextIndex") ?: -1L) to snap.getString("nextDate")
+    }
+
+    private suspend fun recCountByKey(key: String): Int =
+        recUser.collection("expenses").whereEqualTo("idempotencyKey", key).get(Source.SERVER).await().size()
+
+    /** Expenses dated at the 2024-01-31 Europe/Berlin occurrence instant. */
+    private suspend fun recJanuaryCount(): Int =
+        recUser.collection("expenses").whereEqualTo("dateMillis", 1_706_655_600_000L)
+            .get(Source.SERVER).await().size()
+
+    private suspend fun recRewind(id: String) =
+        recurringRepo.save(uid, recurringTemplate(id), recTemplateUpdatedAt(id), 1_704_067_200_000L)
+
+    private lateinit var recurringRepo: RecurringRepository
+
+    /**
+     * rel11 - recurring receipt identity and per-template quarantine against the real
+     * Firestore rules. Seeding uses production paths (RecurringRepository.save /
+     * materialize); the receipt the rules forbid updating is created once, already
+     * malformed, because the receipt rule accepts any 64-hex expenseId on create.
+     */
+    @Test
+    fun rel11_recurringReceiptIdentityAndQuarantine() {
+        val tplA = "11111111-1111-4111-8111-111111111111"
+        val date = "2024-01-31"
+        val now = 1_712_750_400_000L // 2024-04-10, so 2024-01-31 is due
+
+        runRecoveryTest {
+            recurringRepo = RecurringRepository(firestoreClient, authRepository)
+            val keyA = com.aus.ausgegeben.data.entity.Recurrence.key(tplA, date)
+            val canonicalA = expenseDocumentId(keyA)
+
+            // (1) valid receipt + edited keyless expense: accepted, no conflict, no duplicate.
+            recurringRepo.save(uid, recurringTemplate(tplA), null, 1_704_067_200_000L)
+            recurringRepo.materialize(uid, tplA, now)
+            assertEquals("one generated expense", 1, recCountByKey(keyA))
+            assertEquals("one receipt", 1, recUser.collection("recurringOccurrences").get(Source.SERVER).await().size())
+            recUser.collection("expenses").document(canonicalA).update(
+                mapOf(
+                    "amount" to 17.0,
+                    "idempotencyKey" to com.google.firebase.firestore.FieldValue.delete(),
+                    "updatedAt" to now,
+                ),
+            ).await()
+            recRewind(tplA)
+            assertTrue("catch-up continues past a proven receipt", recurringRepo.reconcile(uid, now) > 0)
+            assertEquals("the edit is preserved", 17.0, recUser.collection("expenses").document(canonicalA)
+                .get(Source.SERVER).await().getDouble("amount")!!, 0.0)
+            assertEquals("no duplicate January expense", 1, recJanuaryCount())
+            assertTrue("a proven receipt raises no issue", recurringRepo.getRecurringIssues(uid).isEmpty())
+
+            // (2) valid receipt + missing expense: ledger history preserved, no resurrection.
+            recUser.collection("expenses").document(canonicalA).delete().await()
+            recRewind(tplA)
+            recurringRepo.reconcile(uid, now)
+            recurringRepo.reconcile(uid, now)
+            assertFalse(
+                "a receipt never resurrects a deleted generated transaction",
+                recUser.collection("expenses").document(canonicalA).get(Source.SERVER).await().exists(),
+            )
+
+            // (3) missing receipt + incorrect key: fail closed, cursor unchanged.
+            val tplC = "33333333-3333-4333-8333-333333333333"
+            val keyC = com.aus.ausgegeben.data.entity.Recurrence.key(tplC, date)
+            recurringRepo.save(uid, recurringTemplate(tplC), null, 1_704_067_200_000L)
+            recUser.collection("expenses").document(expenseDocumentId(keyC)).set(
+                mapOf(
+                    "amount" to 15.0, "dateMillis" to 1_706_655_600_000L, "categoryId" to categoryId,
+                    "note" to "Rent", "transactionType" to "expense", "updatedAt" to now,
+                    "idempotencyKey" to "not-the-occurrence-key",
+                ),
+            ).await()
+            val cursorC = recCursor(tplC)
+            var conflict = false
+            try {
+                recurringRepo.materialize(uid, tplC, now)
+            } catch (e: Exception) {
+                conflict = e.message?.contains("RECURRING_IDENTITY_CONFLICT") == true
+            }
+            assertTrue("an unproven row still fails closed", conflict)
+            assertEquals("cursor untouched after a refusal", cursorC, recCursor(tplC))
+
+            // (3b) unblock later reconciles: remove the wrong-key row we planted so template C
+            // becomes an ordinary pending occurrence again instead of wedging every reconcile.
+            recUser.collection("expenses").document(expenseDocumentId(keyC)).delete().await()
+
+            // (4) invalid receipt: quarantined, no write, cursor unchanged.
+            val tplD = "44444444-4444-4444-8444-444444444444"
+            val keyD = com.aus.ausgegeben.data.entity.Recurrence.key(tplD, date)
+            recurringRepo.save(uid, recurringTemplate(tplD), null, 1_704_067_200_000L)
+            recUser.collection("recurringOccurrences").document("${tplD}_$date").set(
+                mapOf(
+                    "templateId" to tplD, "scheduledDate" to date,
+                    "expenseId" to "c".repeat(64), "createdAt" to 1L,
+                ),
+            ).await()
+            val cursorD = recCursor(tplD)
+            var quarantined = false
+            try {
+                recurringRepo.materialize(uid, tplD, now)
+            } catch (e: RecurringReceiptInvalidException) {
+                quarantined = true
+            }
+            assertTrue("an invalid receipt is quarantined", quarantined)
+            assertEquals("no expense written for a quarantined occurrence", 0, recCountByKey(keyD))
+            assertEquals("cursor unchanged after quarantine", cursorD, recCursor(tplD))
+
+            // (5) a healthy template keeps processing while D is quarantined.
+            val tplE = "55555555-5555-4555-8555-555555555555"
+            val keyE = com.aus.ausgegeben.data.entity.Recurrence.key(tplE, date)
+            recurringRepo.save(uid, recurringTemplate(tplE), null, 1_704_067_200_000L)
+            assertTrue("a healthy template continues", recurringRepo.reconcile(uid, now) > 0)
+            assertEquals("healthy template generated its occurrence", 1, recCountByKey(keyE))
+            val issues = recurringRepo.getRecurringIssues(uid)
+            assertTrue("the quarantine is reported", issues.isNotEmpty())
+            assertEquals("quarantine names template D", tplD, issues.first().templateId)
+            assertEquals("quarantine names the scheduled date", date, issues.first().scheduledDate)
+
+            // (6) repeated reconciliation is idempotent.
+            val receiptsBefore = recUser.collection("recurringOccurrences").get(Source.SERVER).await().size()
+            val expensesBefore = recUser.collection("expenses").get(Source.SERVER).await().size()
+            recurringRepo.reconcile(uid, now)
+            recurringRepo.reconcile(uid, now)
+            assertEquals("no extra receipts", receiptsBefore,
+                recUser.collection("recurringOccurrences").get(Source.SERVER).await().size())
+            assertEquals("no extra expenses", expensesBefore,
+                recUser.collection("expenses").get(Source.SERVER).await().size())
+
+            // (7) issues are scoped by uid.
+            assertTrue("no cross-account issue leakage", recurringRepo.getRecurringIssues("someone-else").isEmpty())
+
+            // (8) authentication failures propagate and never become corruption issues.
+            val issuesBeforeSignOut = recurringRepo.getRecurringIssues(uid).size
+            firebaseAuth.signOut()
+            var propagated = false
+            try {
+                recurringRepo.reconcile(uid, now)
+            } catch (e: Exception) {
+                propagated = e.message?.contains("AUTH_ACCOUNT_CHANGED") == true
+            }
+            assertTrue("auth errors are not quarantined", propagated)
+            assertEquals("a failed pass invents no issues", issuesBeforeSignOut,
+                recurringRepo.getRecurringIssues(uid).size)
+        }
+    }
+
+
+    /**
+     * rel11b - deterministic concurrency outcome: two clients cannot duplicate an
+     * occurrence. Sequential double-materialization is the deterministic projection of the
+     * two-client race (the second call re-reads the same server state); a true parallel race
+     * is covered on Web. Asserts exactly one canonical expense and one receipt, a correct
+     * cursor, and idempotent reconciliation.
+     */
+    @Test
+    fun rel11b_concurrentMaterializationIsIdempotent() {
+        val tpl = "66666666-6666-4666-8666-666666666666"
+        val date = "2024-01-31"
+        val now = 1_712_750_400_000L
+        lateinit var recurring: RecurringRepository
+        runRecoveryTest {
+            recurring = RecurringRepository(firestoreClient, authRepository)
+            val key = com.aus.ausgegeben.data.entity.Recurrence.key(tpl, date)
+            val canonical = expenseDocumentId(key)
+
+            recurring.save(uid, recurringTemplate(tpl), null, 1_704_067_200_000L)
+            recurring.materialize(uid, tpl, now)
+            recurring.reconcile(uid, now) // a second-client catch-up pass must not duplicate
+
+            assertEquals("one canonical expense", 1,
+                recUser.collection("expenses").whereEqualTo("idempotencyKey", key).get(Source.SERVER).await().size())
+            assertEquals("one receipt", 1,
+                recUser.collection("recurringOccurrences").get(Source.SERVER).await().documents.count { it.id == "${tpl}_$date" })
+            assertTrue("canonical expense exists", recUser.collection("expenses").document(canonical).get(Source.SERVER).await().exists())
+
+            val before = recUser.collection("expenses").get(Source.SERVER).await().size()
+            recurring.reconcile(uid, now)
+            recurring.reconcile(uid, now)
+            assertEquals("reconciliation is idempotent", before, recUser.collection("expenses").get(Source.SERVER).await().size())
+            assertTrue("no issue for a healthy occurrence", recurring.getRecurringIssues(uid).isEmpty())
+        }
+    }
+
 }

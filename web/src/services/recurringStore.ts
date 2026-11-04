@@ -1,10 +1,10 @@
 import { create } from 'zustand';
 import { useEffect } from 'react';
 import { useAuthStore } from './authStore';
-import { recurringRepository } from './recurringRepository';
+import { recurringRepository, type RecurringIssue } from './recurringRepository';
 import type { RecurringTemplate } from './recurrence';
-interface State { owner: string | null; rows: RecurringTemplate[]; incomplete: boolean; error: boolean; syncing: boolean }
-export const useRecurringStore = create<State>(() => ({owner:null,rows:[],incomplete:true,error:false,syncing:false}));
+interface State { owner: string | null; rows: RecurringTemplate[]; incomplete: boolean; error: boolean; syncing: boolean; issues: RecurringIssue[]; quarantined: boolean }
+export const useRecurringStore = create<State>(() => ({owner:null,rows:[],incomplete:true,error:false,syncing:false,issues:[],quarantined:false}));
 let flight: { owner: string; promise: Promise<void> } | null = null;
 export function syncRecurring(): Promise<void> {
   const user=useAuthStore.getState().user;
@@ -13,8 +13,16 @@ export function syncRecurring(): Promise<void> {
   if (flight?.owner === owner) return flight.promise;
   useRecurringStore.setState({syncing:true});
   const promise=recurringRepository.reconcile(owner).then(()=>{
-    if(useAuthStore.getState().user?.uid===owner) useRecurringStore.setState({error:false});
+    // A response for a previous account must never write into the current one.
+    if(useAuthStore.getState().user?.uid!==owner) return;
+    const issues=recurringRepository.getRecurringIssues(owner);
+    // Quarantined occurrences mean catch-up is not complete, even though the pass succeeded.
+    useRecurringStore.setState({error:false,issues,quarantined:issues.length>0});
   }).catch(()=>{
+    // A failed pass (auth, permission, network) must not leave a previous pass's issues
+    // standing as though they described this one.
+    // A failed pass (auth, permission, network) says nothing about data integrity:
+    // keep the last confirmed quarantine visible instead of implying it was resolved.
     if(useAuthStore.getState().user?.uid===owner) useRecurringStore.setState({error:true,incomplete:true});
   }).finally(()=>{
     if(flight?.promise===promise) flight=null;
@@ -30,7 +38,7 @@ export function useRecurringSync() {
   const uid=user?.uid;
   const emailVerified=user?.emailVerified;
   useEffect(()=>{
-    useRecurringStore.setState({owner:uid??null,rows:[],incomplete:true,error:false,syncing:false});
+    useRecurringStore.setState({owner:uid??null,rows:[],incomplete:true,error:false,syncing:false,issues:[],quarantined:false});
     if(!uid) return;
     const stop=recurringRepository.observe(uid,(rows,incomplete,error)=>useRecurringStore.setState({owner:uid,rows,incomplete,error}));
     const online=()=>{void syncRecurring();};

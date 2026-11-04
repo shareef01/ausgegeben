@@ -509,4 +509,5 @@
     <string name="recurring_empty">No recurring templates yet.</string>
     <string name="recurring_close">Close</string>
     <string name="recurring_edit">Edit</string>
+    <string name="recurring_issues_warning">Some recurring transactions need attention. Scheduled transactions for %1$d affected item(s) may not have been recorded.</string>
 </resources>

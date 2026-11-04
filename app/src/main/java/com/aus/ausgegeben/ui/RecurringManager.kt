@@ -73,6 +73,7 @@ fun RecurringManagerSheet(
     val snapshot by vm.snapshot.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
+    val issueState by vm.issueState.collectAsStateWithLifecycle()
     var localError by remember { mutableStateOf(false) }
     val rows = if (snapshot.owner == owner) snapshot.rows else emptyList()
 
@@ -89,6 +90,7 @@ fun RecurringManagerSheet(
                     .padding(horizontal = 20.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
+                com.aus.ausgegeben.ui.components.RecurringIssuesBanner(issueState)
                 // Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),

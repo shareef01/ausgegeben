@@ -77,6 +77,25 @@ export function validTemplate(t: RecurringTemplate): boolean {
   } catch { return false; }
 }
 
+/**
+ * Whether an immutable occurrence receipt proves that THIS occurrence was generated.
+ *
+ * The receipt is the only durable suppression signal for recurring occurrences, so it is
+ * treated as authority only when it names the deterministic identity of the occurrence:
+ * the same template, the same scheduled date, and the expense document id derived from
+ * `sha256(occurrenceKey(templateId, date))`. A receipt that fails this is untrusted
+ * metadata — a legacy row, a damaged import, or a foreign writer — and callers must fail
+ * closed rather than skip the occurrence or act on the id it records.
+ */
+export function validOccurrenceReceipt(
+  receipt: { templateId?: unknown; scheduledDate?: unknown; expenseId?: unknown },
+  expected: { templateId: string; scheduledDate: string; expenseId: string },
+): boolean {
+  return receipt.templateId === expected.templateId
+    && receipt.scheduledDate === expected.scheduledDate
+    && receipt.expenseId === expected.expenseId;
+}
+
 /** Bounded pure catch-up plan. Storage must recheck this against the current template. */
 export function dueDates(t: RecurringTemplate, now: number, limit = MAX_OCCURRENCES_PER_PASS): string[] {
   if (!validTemplate(t) || !t.enabled) return [];

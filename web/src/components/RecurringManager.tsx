@@ -16,7 +16,38 @@ import { ConfirmDialog } from './ConfirmDialog';
 export function RecurringManager() {
   const {t}=useTranslation(); const [open,setOpen]=useState(false); const user=useAuthStore(s=>s.user);
   useEffect(()=>setOpen(false),[user?.uid]);
-  return <><button className="btn btn-secondary" onClick={()=>setOpen(true)}>{t('recurringTitle')}</button>{open && user && <RecurringPanel key={user.uid} owner={user.uid} close={()=>setOpen(false)}/>}</>;
+  return <><RecurringIssuesWarning/><button className="btn btn-secondary" onClick={()=>setOpen(true)}>{t('recurringTitle')}</button>{open && user && <RecurringPanel key={user.uid} owner={user.uid} close={()=>setOpen(false)}/>}</>;
+}
+
+/**
+ * Persistent, non-destructive quarantine warning.
+ *
+ * A quarantined occurrence means a scheduled transaction may not have been recorded, so this
+ * must never be presented as a successful sync. It is scoped to the signed-in UID (the store
+ * already drops responses from a previous account) and offers no repair control.
+ */
+/** Affected-template count for the quarantine warning; 0 means "show nothing". */
+export function recurringWarningTemplates(
+  userUid: string | undefined,
+  owner: string | null,
+  quarantined: boolean,
+  issues: ReadonlyArray<{ templateId: string }>,
+): number {
+  if (!userUid || owner !== userUid || !quarantined || issues.length === 0) return 0;
+  return new Set(issues.map((i) => i.templateId)).size;
+}
+
+export function RecurringIssuesWarning() {
+  const {t}=useTranslation();
+  const user=useAuthStore(s=>s.user);
+  const owner=useRecurringStore(s=>s.owner);
+  const quarantined=useRecurringStore(s=>s.quarantined);
+  const issues=useRecurringStore(s=>s.issues);
+  const templates=recurringWarningTemplates(user?.uid,owner,quarantined,issues);
+  if (templates===0) return null;
+  return <p role="alert" data-testid="recurring-issues-warning" className="recurring-warning">
+    {t('recurringIssuesWarning', {count:String(templates)})}
+  </p>;
 }
 function RecurringPanel({owner,close}:{owner:string;close:()=>void}) {
   const {t}=useTranslation(); const user=useAuthStore(s=>s.user); const state=useRecurringStore(); const currency=usePreferencesStore(s=>s.currency);
