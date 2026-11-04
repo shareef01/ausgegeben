@@ -193,3 +193,11 @@ STATUS: NOT READY. Next: (1) fix `setUp`/`tearDown` Firebase lifecycle so rel11b
 - Full runner: `python scripts/firestore_recovery_runner.py` -> **Recovery integration suite: PASS (15 executed, 0 skipped)**. All Android runtime verification (rel11 8 scenarios + rel11b + rel1-rel6 + int1-int6) is now green.
 
 REMAINS: (1) banner Compose UI test; (2) deterministic web permission-denied-catch test; (3) fresh web emulator/rules re-run; (4) commit.
+
+## 4i. READY TO MERGE
+
+- Item 1 (banner render test) and item 2 (deterministic web fallback-decision test) are done and committed.
+- Final: Web 622 unit / 175 emulator / 146 rules / tsc+eslint clean. Android 50 suites / 434 tests / 0 failures / 15 skipped (emulator-gated); recovery runner PASS 15 executed 0 skipped.
+- Commits: a5e44fa (feature) + 549fd76 (web fallback test) + 52f4324 (banner render test).
+
+No Firestore rules, backup/rollback, or receipt-repair changes. Nothing pushed or deployed.
