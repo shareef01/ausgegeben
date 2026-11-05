@@ -3,6 +3,7 @@ package com.aus.ausgegeben.ui
 import com.aus.ausgegeben.data.AccountActions
 import com.aus.ausgegeben.data.auth.AccountDeletionAuth
 import com.aus.ausgegeben.data.auth.AuthRepository
+import com.aus.ausgegeben.util.runSuspendCatching
 import com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -43,9 +44,17 @@ class AccountDeletionCoordinator(
     private val _state = MutableStateFlow(AccountDeletionUiState())
     val state: StateFlow<AccountDeletionUiState> = _state.asStateFlow()
 
+    /**
+     * Re-reads the deletion marker. Offline with no cached copy, the read throws; Settings
+     * calls this on open, so that used to crash the app. On failure keep the last known value.
+     */
     suspend fun refresh(signedIn: Boolean) {
-        val pending = signedIn && account.isAccountDeletionPending()
-        _state.update { it.copy(pending = pending) }
+        if (!signedIn) {
+            _state.update { it.copy(pending = false) }
+            return
+        }
+        runSuspendCatching { account.isAccountDeletionPending() }
+            .onSuccess { pending -> _state.update { it.copy(pending = pending) } }
     }
 
     suspend fun deleteAccount(password: String): DeleteAccountOutcome {

@@ -14,13 +14,17 @@ class AccountDeletionCoordinatorTest {
 
     private class FakeAccount : AccountActions {
         var pending = false
+        var pendingReadFails = false
         var localClearFails = false
         var markResult: Result<Unit> = Result.success(Unit)
         var wipeResult: Result<Unit> = Result.success(Unit)
         var markCalls = 0
         var wipeCalls = 0
 
-        override suspend fun isAccountDeletionPending(): Boolean = pending
+        override suspend fun isAccountDeletionPending(): Boolean {
+            if (pendingReadFails) throw IllegalStateException("Failed to get document because the client is offline.")
+            return pending
+        }
         override suspend fun markAccountDeletionPending(): Result<Unit> {
             markCalls += 1
             if (markResult.isSuccess) pending = true
@@ -61,6 +65,17 @@ class AccountDeletionCoordinatorTest {
         assertTrue(coordinator.state.value.pending)
         coordinator.refresh(signedIn = false)
         assertFalse(coordinator.state.value.pending)
+    }
+
+    /** Settings refreshes on open; offline the marker read throws, which used to crash the app. */
+    @Test
+    fun refresh_offline_keepsLastKnownValueInsteadOfThrowing() = runTest {
+        val account = FakeAccount().apply { pending = true }
+        val coordinator = AccountDeletionCoordinator(account, FakeAuth())
+        coordinator.refresh(signedIn = true)
+        account.pendingReadFails = true
+        coordinator.refresh(signedIn = true)
+        assertTrue(coordinator.state.value.pending)
     }
 
     @Test
