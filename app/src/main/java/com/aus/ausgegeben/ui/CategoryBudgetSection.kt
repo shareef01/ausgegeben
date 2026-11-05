@@ -137,7 +137,7 @@ fun CategoryBudgetManager(repository: AppRepository, uid: String, currency: Stri
             Text(
                 text = stringResource(R.string.category_budget_incomplete),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error
+                color = financeExpenseTextColor()
             )
         }
 
@@ -283,8 +283,8 @@ fun CategoryBudgetManager(repository: AppRepository, uid: String, currency: Stri
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
-                if (!valid) Text(stringResource(R.string.category_budget_invalid), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                if (failed) Text(stringResource(R.string.category_budget_conflict), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                if (!valid) Text(stringResource(R.string.category_budget_invalid), color = financeExpenseTextColor(), style = MaterialTheme.typography.bodySmall)
+                if (failed) Text(stringResource(R.string.category_budget_conflict), color = financeExpenseTextColor(), style = MaterialTheme.typography.bodySmall)
                 AppButton(
                     onClick = { save(false) },
                     enabled = valid && !saving,
@@ -403,7 +403,7 @@ fun CategoryBudgetProgressSection(
                 Text(
                     text = stringResource(R.string.category_budget_incomplete),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
+                    color = financeExpenseTextColor()
                 )
             }
 

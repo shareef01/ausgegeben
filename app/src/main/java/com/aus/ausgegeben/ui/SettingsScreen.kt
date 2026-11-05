@@ -585,7 +585,7 @@ fun SettingsScreen(
                     deleteAccountError?.let { error ->
                         Text(
                             text = error,
-                            color = MaterialTheme.colorScheme.error,
+                            color = financeExpenseTextColor(),
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
@@ -1086,7 +1086,7 @@ fun MonthlyBudgetSheet(
                 AppOutlinedButton(
                     onClick = { onSave(null) },
                     modifier = Modifier.weight(1f),
-                    contentColor = MaterialTheme.colorScheme.error
+                    contentColor = financeExpenseTextColor()
                 ) {
                     Text(stringResource(R.string.action_clear))
                 }

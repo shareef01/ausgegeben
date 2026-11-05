@@ -52,7 +52,7 @@ fun settingsIconTintAccent(): Color = MaterialTheme.colorScheme.tertiary
 fun settingsIconTintMuted(): Color = readableSecondaryColor()
 
 @Composable
-fun settingsDestructiveColor(): Color = MaterialTheme.colorScheme.error
+fun settingsDestructiveColor(): Color = financeExpenseTextColor()
 
 @Composable
 fun financeIncomeColor(): Color = incomeFillFor(MaterialTheme.colorScheme)
