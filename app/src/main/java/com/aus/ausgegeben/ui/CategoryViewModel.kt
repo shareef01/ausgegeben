@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import com.aus.ausgegeben.util.normalizeArgbInt
+import com.aus.ausgegeben.util.runSuspendCatching
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
@@ -194,8 +195,13 @@ class CategoryViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Linked-transaction count for the delete dialog, or -1 when it can't be read
+     * (offline, permission error). The dialog has generic wording for -1; letting the
+     * exception escape its LaunchedEffect would crash the app instead.
+     */
     suspend fun countLinkedExpenses(categoryId: String): Int =
-        repository.countExpensesForCategory(categoryId)
+        runSuspendCatching { repository.countExpensesForCategory(categoryId) }.getOrDefault(-1)
 }
 
 /**
