@@ -99,6 +99,18 @@ fun financeWarningColor(): Color = WarningAmber
 fun financeWarningTextColor(): Color =
     ensureAaTextColor(base = financeWarningColor(), backgrounds = textSurfaces())
 
+/**
+ * Fill for destructive confirm buttons, which carry a white label. The brand coral is
+ * about 2.6:1 under white (2.3:1 in the dark themes), so the fill darkens until the label
+ * clears AA. Themes whose red already passes (Lavender, Soft Light) keep it unchanged.
+ */
+@Composable
+fun destructiveButtonColor(): Color = destructiveFillFor(MaterialTheme.colorScheme)
+
+/** [destructiveButtonColor] for a given scheme; plain so the contrast tests can use it too. */
+internal fun destructiveFillFor(scheme: ColorScheme): Color =
+    ensureAaTextColor(base = scheme.error, backgrounds = listOf(Color.White))
+
 /** Surfaces finance text can sit on; the text variants must clear AA on all of them. */
 @Composable
 private fun textSurfaces(): List<Color> = listOf(
