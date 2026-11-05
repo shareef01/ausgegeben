@@ -257,7 +257,12 @@ fun RecordScreen(
 
                 if (uiState.dataTruncated && !uiState.isLoading) {
                     item(key = "truncated") {
-                        Text(stringResource(R.string.record_cache_incomplete), modifier = Modifier.padding(16.dp))
+                        // No explicit color fell back to black (no Surface here): invisible on dark themes.
+                        Text(
+                            stringResource(R.string.record_cache_incomplete),
+                            color = readableSecondaryColor(),
+                            modifier = Modifier.padding(16.dp),
+                        )
                     }
                 }
 

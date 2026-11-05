@@ -164,7 +164,8 @@ fun AppFab(
     contentDescription: String,
     modifier: Modifier = Modifier,
     containerColor: Color = financeIncomeColor(),
-    contentColor: Color = Color.White,
+    // White on the dark themes' bright greens/accents was 1.8–2.5:1; pick by contrast.
+    contentColor: Color = contrastColorOn(containerColor),
     onLongClick: (() -> Unit)? = null,
 ) {
     val haptics = rememberAppHaptics()
