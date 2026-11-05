@@ -14,6 +14,7 @@ import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.RecurringIssueState
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
+import com.aus.ausgegeben.ui.theme.financeExpenseTextColor
 
 /**
  * Non-destructive warning for quarantined recurring occurrences.
@@ -34,7 +35,9 @@ fun RecurringIssuesBanner(state: RecurringIssueState, modifier: Modifier = Modif
         Text(
             text = pluralStringResource(R.plurals.recurring_issues_warning, state.affectedTemplates, state.affectedTemplates),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
+            // The brand coral is a fill colour; as small text on the light card it measured
+            // 2.5:1. The ink-safe variant keeps the hue and darkens it to AA where needed.
+            color = financeExpenseTextColor(),
             modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = 12.dp),
         )
     }
