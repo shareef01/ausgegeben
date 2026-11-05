@@ -17,7 +17,7 @@ export const de: Record<TranslationKey, string> = {
   recurringEnded: "Abgeschlossen",
   recurringPause: "Pausieren",
   recurringResume: "Fortsetzen",
-  recurringIssuesWarning: 'Einige wiederkehrende Buchungen brauchen Aufmerksamkeit. Geplante Buchungen für {{count}} Eintrag(e) wurden möglicherweise nicht erfasst.',
+  recurringIssuesWarning: 'Einige wiederkehrende Buchungen brauchen Aufmerksamkeit. Geplante Buchungen für {count} Eintrag(e) wurden möglicherweise nicht erfasst.',
   recurringDelete: "Wiederkehrende Buchung löschen",
   recurringDeleteMessage: "Zukünftige Buchungen werden gestoppt. Bereits erstellte Buchungen bleiben erhalten.",
   recurringContract: "Buchungen werden beim Synchronisieren erstellt. Jeder Durchlauf holt höchstens 20 Termine nach. Änderungen und Fortsetzen gelten erst nach heute; frühere nicht erstellte Termine werden übersprungen.",
