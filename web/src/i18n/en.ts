@@ -15,7 +15,7 @@ export const en = {
   recurringEnded: "Completed",
   recurringPause: "Pause",
   recurringResume: "Resume",
-  recurringIssuesWarning: 'Some recurring transactions need attention. Scheduled transactions for {{count}} item(s) may not have been recorded.',
+  recurringIssuesWarning: 'Some recurring transactions need attention. Scheduled transactions for {count} item(s) may not have been recorded.',
   recurringDelete: "Delete recurring transaction",
   recurringDeleteMessage: "Future transactions will stop. Previously created transactions will remain.",
   recurringContract: "Transactions are generated when you synchronize. Each pass catches up at most 20 occurrences. Edits and resume apply only after today; earlier ungenerated dates are skipped.",

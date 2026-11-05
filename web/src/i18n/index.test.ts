@@ -12,6 +12,17 @@ describe('i18n', () => {
     expect(t('syncLastAt', { time: '10:00' })).toContain('10:00');
   });
 
+  // t() replaces `{name}`, so a `{{name}}` placeholder renders with stray braces ("{1}").
+  it('no catalog string uses {{double-brace}} placeholders', () => {
+    for (const [lang, catalog] of [['en', en], ['de', de]] as const) {
+      for (const [key, value] of Object.entries(catalog)) {
+        expect(value, `${lang}.${key}`).not.toMatch(/\{\{\w+\}\}/);
+      }
+    }
+    expect(t('recurringIssuesWarning', { count: '2' })).toContain(' 2 ');
+    expect(t('recurringIssuesWarning', { count: '2' })).not.toMatch(/[{}]/);
+  });
+
   it('de catalog has every English key with a non-empty string', () => {
     const keys = Object.keys(en) as TranslationKey[];
     expect(keys.length).toBeGreaterThan(0);
