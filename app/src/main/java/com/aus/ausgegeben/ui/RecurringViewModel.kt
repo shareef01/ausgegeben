@@ -21,13 +21,13 @@ class RecurringViewModel @Inject constructor(private val repository: RecurringRe
     private val _issues=MutableStateFlow<List<com.aus.ausgegeben.data.RecurringIssue>>(emptyList())
     /**
      * Quarantine warning state. Issues survive a failed pass (a network or auth failure says
-     * nothing about data integrity) and are cleared only by a verified healthy pass. Keyed on
-     * the signed-in uid so a stale result can never paint another account's warning.
+     * nothing about data integrity) and are cleared only by a verified healthy pass. Account
+     * isolation comes from MainActivity keying this ViewModel on the signed-in uid, plus the
+     * `repository.uid == owner` guard that drops results finishing after an account switch.
      */
     val issueState: StateFlow<RecurringIssueState> = combine(_issues, _error) { issues, error ->
         recurringIssueState(issues, error, false)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), recurringIssueState(emptyList(), false, false))
-    private var issuesOwner: String? = null
     private val _busy=MutableStateFlow(false); val busy=_busy.asStateFlow()
     private var syncJob: Job?=null
     fun synchronize() {
@@ -38,7 +38,7 @@ class RecurringViewModel @Inject constructor(private val repository: RecurringRe
                 repository.reconcile(owner)
                 if(repository.uid==owner) {
                     _error.value=false
-                    _issues.value=repository.getRecurringIssues(owner); issuesOwner=owner
+                    _issues.value=repository.getRecurringIssues(owner)
                 }
             } catch(e:CancellationException){throw e}
             catch(_:Exception){ if(repository.uid==owner) _error.value=true }

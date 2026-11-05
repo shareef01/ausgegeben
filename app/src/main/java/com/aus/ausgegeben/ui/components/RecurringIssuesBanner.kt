@@ -8,7 +8,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.RecurringIssueState
@@ -32,7 +32,7 @@ fun RecurringIssuesBanner(state: RecurringIssueState, modifier: Modifier = Modif
             .appGlassCard(shape = RoundedCornerShape(AppRadius.card)),
     ) {
         Text(
-            text = stringResource(R.string.recurring_issues_warning, state.affectedTemplates),
+            text = pluralStringResource(R.plurals.recurring_issues_warning, state.affectedTemplates, state.affectedTemplates),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = 12.dp),

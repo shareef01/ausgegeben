@@ -36,7 +36,7 @@ class RecurringIssuesBannerTest {
     fun rendersTheWarningWhenAQuarantineIsConfirmed() {
         set(RecurringIssueState(affectedTemplates = 2, error = false, syncing = false))
         // The string resource formats %1$d with the affected-template count.
-        compose.onNodeWithText("Some recurring transactions need attention. Scheduled transactions for 2 affected item(s) may not have been recorded.").assertIsDisplayed()
+        compose.onNodeWithText("Some recurring transactions need attention. Scheduled transactions for 2 affected items may not have been recorded.").assertIsDisplayed()
     }
 
     @Test
@@ -50,6 +50,6 @@ class RecurringIssuesBannerTest {
     @Test
     fun remainsVisibleWhileASyncErrorIsAlsoPresent() {
         set(RecurringIssueState(affectedTemplates = 1, error = true, syncing = false))
-        compose.onNodeWithText("Some recurring transactions need attention. Scheduled transactions for 1 affected item(s) may not have been recorded.").assertIsDisplayed()
+        compose.onNodeWithText("Some recurring transactions need attention. Scheduled transactions for 1 affected item may not have been recorded.").assertIsDisplayed()
     }
 }

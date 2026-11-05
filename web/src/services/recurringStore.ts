@@ -19,8 +19,6 @@ export function syncRecurring(): Promise<void> {
     // Quarantined occurrences mean catch-up is not complete, even though the pass succeeded.
     useRecurringStore.setState({error:false,issues,quarantined:issues.length>0});
   }).catch(()=>{
-    // A failed pass (auth, permission, network) must not leave a previous pass's issues
-    // standing as though they described this one.
     // A failed pass (auth, permission, network) says nothing about data integrity:
     // keep the last confirmed quarantine visible instead of implying it was resolved.
     if(useAuthStore.getState().user?.uid===owner) useRecurringStore.setState({error:true,incomplete:true});
