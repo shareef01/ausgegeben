@@ -69,6 +69,15 @@ class CategoryViewModelTest {
         assertEquals(1, written["c0"]?.sortOrder)
     }
 
+    /** The delete dialog reads the count on open; a failed read must fall back, not crash. */
+    @Test
+    fun countLinkedExpenses_whenTheReadFails_returnsUnknownInsteadOfThrowing() = runTest(dispatcher) {
+        fakeActions.countResult = 3
+        assertEquals(3, viewModel.countLinkedExpenses("c0"))
+        fakeActions.countFails = true
+        assertEquals(-1, viewModel.countLinkedExpenses("c0"))
+    }
+
     @Test
     fun moveCategory_atTheBoundary_writesNothing() = runTest(dispatcher) {
         fakeActions.setCategories(listOf(cat0, cat1, cat2))
@@ -264,6 +273,10 @@ class CategoryViewModelTest {
             return updateExpenseTypesResult
         }
 
-        override suspend fun countExpensesForCategory(categoryId: String): Int = countResult
+        var countFails = false
+        override suspend fun countExpensesForCategory(categoryId: String): Int {
+            if (countFails) throw IllegalStateException("Failed to get documents because the client is offline.")
+            return countResult
+        }
     }
 }
