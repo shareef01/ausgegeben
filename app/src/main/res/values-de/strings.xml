@@ -509,6 +509,12 @@
     <string name="recurring_empty">Noch keine wiederkehrenden Vorlagen.</string>
     <string name="recurring_close">Schließen</string>
     <string name="recurring_edit">Bearbeiten</string>
+    <string name="recurring_issues_review">Ansehen</string>
+    <string name="recurring_issue_stuck">Hängt am %1$s: Diese Buchung konnte nicht automatisch erfasst werden.</string>
+    <string name="recurring_issue_damaged">Ein wiederkehrender Eintrag ist beschädigt und kann nicht ausgeführt werden. Bearbeite ihn, um ihn zu reparieren, oder lösche ihn.</string>
+    <string name="recurring_skip_date">Dieses Datum überspringen</string>
+    <string name="recurring_skip_title">%1$s überspringen?</string>
+    <string name="recurring_skip_message">Für dieses Datum wird nichts erfasst, spätere Termine werden wie gewohnt gebucht. Falls du diese Zahlung getätigt hast, trage sie von Hand ein.</string>
     <plurals name="recurring_issues_warning">
         <item quantity="one">Einige wiederkehrende Buchungen brauchen Aufmerksamkeit. Geplante Buchungen für %1$d betroffenen Eintrag wurden möglicherweise nicht erfasst.</item>
         <item quantity="other">Einige wiederkehrende Buchungen brauchen Aufmerksamkeit. Geplante Buchungen für %1$d betroffene Einträge wurden möglicherweise nicht erfasst.</item>

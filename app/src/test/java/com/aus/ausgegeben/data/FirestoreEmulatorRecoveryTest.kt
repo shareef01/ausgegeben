@@ -1129,6 +1129,32 @@ class FirestoreEmulatorRecoveryTest {
             assertEquals("RECURRING_IDENTITY_CONFLICT", conflictIssues.single().code)
             assertEquals("cursor still untouched after a quarantining pass", cursorC, recCursor(tplC))
 
+            // (3c) the owner skips the stuck date: refused on a stale revision, then the template
+            // moves one occurrence on with nothing written, and the issue clears.
+            val revisionC = recTemplateUpdatedAt(tplC)
+            var stale = false
+            try {
+                recurringRepo.skipOccurrence(uid, tplC, date, revisionC - 1, now)
+            } catch (e: Exception) {
+                stale = e.message?.contains("RECURRING_CONFLICT") == true
+            }
+            assertTrue("a skip against a changed item is refused", stale)
+            assertEquals("a refused skip leaves the cursor alone", cursorC, recCursor(tplC))
+            recurringRepo.skipOccurrence(uid, tplC, date, revisionC, now)
+            assertEquals("the skip moves exactly one occurrence on", 1L to "2024-02-29", recCursor(tplC))
+            assertFalse("a skip writes no receipt",
+                recUser.collection("recurringOccurrences").document("${tplC}_$date").get(Source.SERVER).await().exists())
+            assertEquals("a skip leaves the conflicting row alone", "not-the-occurrence-key",
+                recUser.collection("expenses").document(expenseDocumentId(keyC)).get(Source.SERVER).await().getString("idempotencyKey"))
+            assertTrue("the skipped issue clears", recurringRepo.getRecurringIssues(uid).none { it.templateId == tplC })
+            var twice = false
+            try {
+                recurringRepo.skipOccurrence(uid, tplC, date, revisionC, now)
+            } catch (e: Exception) {
+                twice = e.message?.contains("RECURRING_CONFLICT") == true
+            }
+            assertTrue("a second skip of the same date is refused", twice)
+
             // (3b) clean up so later steps start from a known state: remove the wrong-key row we
             // planted so template C becomes an ordinary pending occurrence again.
             recUser.collection("expenses").document(expenseDocumentId(keyC)).delete().await()
