@@ -103,7 +103,7 @@ fun AppDestructiveConfirmDialog(
             AppButton(
                 onClick = onConfirm,
                 enabled = confirmEnabled,
-                containerColor = MaterialTheme.colorScheme.error,
+                containerColor = destructiveButtonColor(),
                 contentColor = Color.White
             ) {
                 Text(confirmLabel)

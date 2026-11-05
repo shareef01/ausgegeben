@@ -138,6 +138,19 @@ class ThemeContrastTest {
         }
     }
 
+    /** Destructive confirm buttons put a white label on the error fill; it must read in every theme. */
+    @Test
+    fun destructiveButtonLabel_passesAaInEveryTheme() {
+        for (mode in ThemeMode.entries) {
+            for (systemDark in listOf(false, true)) {
+                val fill = destructiveFillFor(colorSchemeFor(mode, systemDark))
+                val ratio = contrastRatio(androidx.compose.ui.graphics.Color.White, fill)
+                assertTrue("$mode (systemDark=$systemDark) white on destructive fill: $ratio", ratio >= AA_TEXT_CONTRAST)
+                assertTrue("$mode destructive fill should stay red, was $fill", fill.red > fill.green && fill.red > fill.blue)
+            }
+        }
+    }
+
     private fun blendOnWhite(foreground: androidx.compose.ui.graphics.Color, alpha: Float): androidx.compose.ui.graphics.Color {
         val a = alpha.coerceIn(0f, 1f)
         return androidx.compose.ui.graphics.Color(
