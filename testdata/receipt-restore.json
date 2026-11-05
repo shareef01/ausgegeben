@@ -1,0 +1,71 @@
+{
+  "description": "Backup-restore receipt cases shared by Web (recurringBackupSection.test.ts) and Android (RecurringBackupSectionTest.kt). Each receipt is a full backup-section row; accepted says whether a restore may write it. A receipt is accepted only when its id is receiptId(templateId, scheduledDate) and expenseId is expenseDocumentId(occurrenceKey(templateId, scheduledDate)). Receipts are immutable once written, so one rejected receipt rejects the whole backup file.",
+  "cases": [
+    {
+      "name": "canonical receipt",
+      "receipt": {
+        "id": "550e8400-e29b-41d4-a716-446655440000_2024-01-31",
+        "templateId": "550e8400-e29b-41d4-a716-446655440000",
+        "scheduledDate": "2024-01-31",
+        "expenseId": "15634124eab0e61b1e96e3bcc40968a8bfdce35bd2ee44f76fabdc3ab77e78f4",
+        "createdAt": 1706659200000
+      },
+      "accepted": true
+    },
+    {
+      "name": "expense id of another date",
+      "receipt": {
+        "id": "550e8400-e29b-41d4-a716-446655440000_2024-01-31",
+        "templateId": "550e8400-e29b-41d4-a716-446655440000",
+        "scheduledDate": "2024-01-31",
+        "expenseId": "2f42c01124ec17c13f6df1d4e071df7187bf440ec4ce045ec6112625b77038fe",
+        "createdAt": 1706659200000
+      },
+      "accepted": false
+    },
+    {
+      "name": "expense id of another template",
+      "receipt": {
+        "id": "11111111-1111-4111-8111-111111111111_2024-01-31",
+        "templateId": "11111111-1111-4111-8111-111111111111",
+        "scheduledDate": "2024-01-31",
+        "expenseId": "15634124eab0e61b1e96e3bcc40968a8bfdce35bd2ee44f76fabdc3ab77e78f4",
+        "createdAt": 1706659200000
+      },
+      "accepted": false
+    },
+    {
+      "name": "placeholder expense id",
+      "receipt": {
+        "id": "550e8400-e29b-41d4-a716-446655440000_2024-01-31",
+        "templateId": "550e8400-e29b-41d4-a716-446655440000",
+        "scheduledDate": "2024-01-31",
+        "expenseId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "createdAt": 1706659200000
+      },
+      "accepted": false
+    },
+    {
+      "name": "uppercase canonical expense id",
+      "receipt": {
+        "id": "550e8400-e29b-41d4-a716-446655440000_2024-01-31",
+        "templateId": "550e8400-e29b-41d4-a716-446655440000",
+        "scheduledDate": "2024-01-31",
+        "expenseId": "15634124EAB0E61B1E96E3BCC40968A8BFDCE35BD2EE44F76FABDC3AB77E78F4",
+        "createdAt": 1706659200000
+      },
+      "accepted": false
+    },
+    {
+      "name": "receipt id names another date",
+      "receipt": {
+        "id": "550e8400-e29b-41d4-a716-446655440000_2024-02-29",
+        "templateId": "550e8400-e29b-41d4-a716-446655440000",
+        "scheduledDate": "2024-01-31",
+        "expenseId": "15634124eab0e61b1e96e3bcc40968a8bfdce35bd2ee44f76fabdc3ab77e78f4",
+        "createdAt": 1706659200000
+      },
+      "accepted": false
+    }
+  ]
+}

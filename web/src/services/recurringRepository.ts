@@ -4,7 +4,7 @@ import { useAuthStore } from '@/services/authStore';
 import { RECURRING_COLLECTION, OCCURRENCES_COLLECTION } from '@/repositories/firestorePaths';
 import { expenseDocumentId } from '@/utils/idempotency';
 import { expenseWritePayload } from '@/utils/firestorePayloads';
-import type { OccurrenceReceipt } from './recurringBackupSection';
+import { assertReceiptIdentities, type OccurrenceReceipt } from './recurringBackupSection';
 import { MAX_OCCURRENCES_PER_PASS, indexAfter, localDateAt, occurrenceDate, occurrenceKey, occurrenceMillis, receiptId, validOccurrenceReceipt, validTemplate, type RecurringTemplate } from './recurrence';
 
 function owned(uid: string) {
@@ -284,6 +284,10 @@ return {
     const current = await this.getAllReceipts(uid);
     const existing = new Set(current.map(r => r.id));
     const toWrite = receipts.filter(r => !existing.has(r.id));
+    // Backstop for every restore path: a written receipt can never be corrected, so refuse
+    // the whole set before the first batch. Receipts already stored (e.g. a rollback
+    // re-offering legacy rows) are skipped above and never re-checked.
+    await assertReceiptIdentities(toWrite);
     for (let i = 0; i < toWrite.length; i += 400) {
       const chunk = toWrite.slice(i, i + 400);
       const batch = writeBatch(db());
