@@ -157,6 +157,26 @@ class RecurringRepository @Inject constructor(private val client: FirestoreClien
         lastIssuesByOwner[u]=issues.toList()
         return count
     }
+    /**
+     * Owner decision for a quarantined occurrence (web parity): move the template one
+     * occurrence past [scheduledDate] without recording anything. No expense and no receipt
+     * are written, so a skip can never create a duplicate. Applies only while the template is
+     * unchanged since the owner saw it and still stuck on that date ("RECURRING_CONFLICT"),
+     * so two devices can't skip twice.
+     */
+    suspend fun skipOccurrence(u: String, templateId: String, scheduledDate: String, expectedAt: Long, now: Long = System.currentTimeMillis()) {
+        owned(u); val target=templates(u).document(templateId); target.get(Source.SERVER).await()
+        db.runTransaction { tx ->
+            owned(u); val snap=tx.get(target); check(snap.exists()) { "RECURRING_CONFLICT" }
+            val template=RecurringTemplate.from(templateId,snap.data!!)
+            check(template.updatedAt == expectedAt && template.nextDate == scheduledDate) { "RECURRING_CONFLICT" }
+            require(template.valid()) { "INVALID_RECURRING_TEMPLATE" }
+            val index=template.nextIndex+1; owned(u)
+            tx.update(target,mapOf("nextIndex" to index,"nextDate" to Recurrence.date(template,index),"updatedAt" to maxOf(now,template.updatedAt+1))); Unit
+        }.await()
+        // The skipped issue is resolved; drop it so the warning doesn't wait for the next pass.
+        lastIssuesByOwner[u]=(lastIssuesByOwner[u] ?: emptyList()).filterNot { it.templateId == templateId && it.scheduledDate == scheduledDate }
+    }
     /** Occurrences quarantined by the most recent reconcile pass (web parity). */
     fun getRecurringIssues(u: String): List<RecurringIssue> = lastIssuesByOwner[u] ?: emptyList()
     suspend fun getReceipts(u: String): List<OccurrenceReceipt> {

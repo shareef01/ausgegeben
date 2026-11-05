@@ -297,6 +297,30 @@ return {
     lastIssuesByOwner.set(uid, issues);
     return count;
   },
+  /**
+   * Owner decision for a quarantined occurrence: move the template one occurrence past
+   * `scheduledDate` without recording anything. No expense and no receipt are written, so a
+   * skip can never create a duplicate; later dates materialize as usual on the next pass.
+   *
+   * Applies only while the template is still exactly as the owner saw it (`expectedAt`) and
+   * still stuck on that date, so two devices can't skip twice and a skip can't land after
+   * the template was edited or caught up elsewhere (`RECURRING_CONFLICT`).
+   */
+  async skipOccurrence(uid: string, templateId: string, scheduledDate: string, expectedAt: number, now = Date.now()) {
+    owned(uid); const target = ref(uid, templateId); await getDocFromServer(target);
+    await runTransaction(db(), async tx => {
+      owned(uid); const snap = await tx.get(target);
+      if (!snap.exists()) throw new Error('RECURRING_CONFLICT');
+      const template = { ...snap.data(), id: templateId } as RecurringTemplate;
+      if (template.updatedAt !== expectedAt || template.nextDate !== scheduledDate) throw new Error('RECURRING_CONFLICT');
+      if (!validTemplate(template)) throw new Error('INVALID_RECURRING_TEMPLATE');
+      const nextIndex = template.nextIndex + 1;
+      owned(uid);
+      tx.update(target, { nextIndex, nextDate: occurrenceDate(template, nextIndex), updatedAt: Math.max(now, template.updatedAt + 1) });
+    });
+    // The skipped issue is resolved; drop it now so the warning doesn't wait for the next pass.
+    lastIssuesByOwner.set(uid, (lastIssuesByOwner.get(uid) ?? []).filter(i => !(i.templateId === templateId && i.scheduledDate === scheduledDate)));
+  },
   /** Occurrences quarantined by the most recent reconcile pass (owner decision required). */
   getRecurringIssues(uid: string): RecurringIssue[] {
     return [...(lastIssuesByOwner.get(uid) ?? [])];

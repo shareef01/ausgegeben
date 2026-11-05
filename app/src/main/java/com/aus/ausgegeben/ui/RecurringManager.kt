@@ -70,10 +70,12 @@ fun RecurringManagerSheet(
     var draft by remember(owner) { mutableStateOf<RecurringTemplate?>(null) }
     var expected by remember(owner) { mutableStateOf<Long?>(null) }
     var removing by remember(owner) { mutableStateOf<RecurringTemplate?>(null) }
+    var skipping by remember(owner) { mutableStateOf<Pair<RecurringTemplate, String>?>(null) }
     val snapshot by vm.snapshot.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
     val issueState by vm.issueState.collectAsStateWithLifecycle()
+    val issues by vm.issues.collectAsStateWithLifecycle()
     var localError by remember { mutableStateOf(false) }
     val rows = if (snapshot.owner == owner) snapshot.rows else emptyList()
 
@@ -180,6 +182,15 @@ fun RecurringManagerSheet(
                 if (error || localError) {
                     Text(
                         text = stringResource(R.string.recurring_error),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = financeExpenseTextColor(),
+                    )
+                }
+
+                // A damaged template may not parse into a row at all; say so rather than hide it.
+                if (issues.any { issue -> issue.code == "INVALID_RECURRING_TEMPLATE" && rows.none { it.id == issue.templateId } }) {
+                    Text(
+                        text = stringResource(R.string.recurring_issue_damaged),
                         style = MaterialTheme.typography.bodySmall,
                         color = financeExpenseTextColor(),
                     )
@@ -329,6 +340,17 @@ fun RecurringManagerSheet(
                                         )
                                     }
                                 }
+
+                                // An issue whose date the item already moved past (fixed elsewhere)
+                                // is stale; the next pass drops it.
+                                issues.firstOrNull { it.templateId == row.id && (it.code == "INVALID_RECURRING_TEMPLATE" || it.scheduledDate == row.nextDate) }?.let { issue ->
+                                    RecurringRowIssue(
+                                        damaged = issue.code == "INVALID_RECURRING_TEMPLATE",
+                                        date = issue.scheduledDate,
+                                        canSkip = canWrite && !busy,
+                                        onSkip = { skipping = row to issue.scheduledDate },
+                                    )
+                                }
                             }
                         }
                     }
@@ -459,6 +481,20 @@ fun RecurringManagerSheet(
         )
     }
 
+    skipping?.let { (row, date) ->
+        AppDestructiveConfirmDialog(
+            onDismissRequest = { if (!busy) skipping = null },
+            title = { Text(stringResource(R.string.recurring_skip_title, date)) },
+            text = { AppDialogBodyText(stringResource(R.string.recurring_skip_message)) },
+            confirmLabel = stringResource(R.string.recurring_skip_date),
+            dismissLabel = stringResource(R.string.action_cancel),
+            onConfirm = {
+                vm.skip(row, date)
+                skipping = null
+            },
+        )
+    }
+
     removing?.let { row ->
         AppDestructiveConfirmDialog(
             onDismissRequest = { if (!busy) removing = null },
@@ -471,6 +507,30 @@ fun RecurringManagerSheet(
                 removing = null
             },
         )
+    }
+}
+
+/** What is wrong with one quarantined item, and the skip for a stuck date. */
+@Composable
+private fun RecurringRowIssue(damaged: Boolean, date: String, canSkip: Boolean, onSkip: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(AppRadius.md))
+            .background(financeExpenseColor().copy(alpha = 0.10f))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = if (damaged) stringResource(R.string.recurring_issue_damaged) else stringResource(R.string.recurring_issue_stuck, date),
+            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+            color = financeExpenseTextColor(),
+        )
+        if (!damaged) {
+            OutlinedButton(onClick = onSkip, enabled = canSkip, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text(stringResource(R.string.recurring_skip_date), color = financeExpenseTextColor())
+            }
+        }
     }
 }
 

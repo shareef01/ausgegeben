@@ -19,6 +19,8 @@ class RecurringViewModel @Inject constructor(private val repository: RecurringRe
         .stateIn(viewModelScope,SharingStarted.WhileSubscribed(0),RecurringRepository.Snapshot(null))
     private val _error=MutableStateFlow(false); val error=_error.asStateFlow()
     private val _issues=MutableStateFlow<List<com.aus.ausgegeben.data.RecurringIssue>>(emptyList())
+    /** The quarantined occurrences themselves, so the sheet can name each affected item. */
+    val issues=_issues.asStateFlow()
     /**
      * Quarantine warning state. Issues survive a failed pass (a network or auth failure says
      * nothing about data integrity) and are cleared only by a verified healthy pass. Account
@@ -52,4 +54,11 @@ class RecurringViewModel @Inject constructor(private val repository: RecurringRe
     }
     fun save(template:RecurringTemplate,expected:Long?,onSuccess:()->Unit = {})=mutate { owner -> repository.save(owner,template,expected); if(repository.uid==owner)onSuccess() }
     fun remove(template:RecurringTemplate)=mutate { repository.remove(it,template.id,template.updatedAt) }
+    /** Skip [date] for a template stuck on it, then re-run catch-up for the dates after it. */
+    fun skip(template:RecurringTemplate,date:String)=mutate { owner ->
+        repository.skipOccurrence(owner,template.id,date,template.updatedAt)
+        if(repository.uid==owner) { _issues.value=repository.getRecurringIssues(owner); synchronizeAfterMutation() }
+    }
+    // mutate() holds `busy` until its block returns; the catch-up pass runs on its own job.
+    private fun synchronizeAfterMutation() { viewModelScope.launch { synchronize() } }
 }

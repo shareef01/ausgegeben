@@ -239,4 +239,56 @@ describe('receipt authority (rules enforced)', () => {
       ),
     ).toHaveLength(1);
   });
+
+  describe('skipping a stuck date (owner decision)', () => {
+    const conflictOnFirst = async () => {
+      await recurringRepository.save(TEST_UID, template(A) as never, null, NOW);
+      const canonical = await expenseDocumentId(occurrenceKey(A, FIRST));
+      await rulesEnv().withSecurityRulesDisabled(async (ctx) => {
+        const { setDoc } = await import('firebase/firestore');
+        await setDoc(doc(ctx.firestore() as never, 'users', TEST_UID, 'expenses', canonical), {
+          amount: 15, dateMillis: 1706655600000, categoryId, note: 'Rent', transactionType: 'expense',
+          updatedAt: NOW, idempotencyKey: 'not-the-occurrence-key',
+        });
+      });
+      await recurringRepository.reconcile(TEST_UID, NOW);
+      expect(recurringRepository.getRecurringIssues(TEST_UID)).toHaveLength(1);
+      return canonical;
+    };
+    const revisionOf = async (id: string) => (await getDoc(tplRef(id))).data()!.updatedAt as number;
+
+    it('moves past the stuck date without writing anything, and later dates record as usual', async () => {
+      const canonical = await conflictOnFirst();
+      const before = (await getDocs(expCol())).docs.length;
+
+      await recurringRepository.skipOccurrence(TEST_UID, A, FIRST, await revisionOf(A), NOW);
+
+      expect(recurringRepository.getRecurringIssues(TEST_UID)).toHaveLength(0);
+      expect(await cursorOf(A)).toEqual({ nextIndex: 1, nextDate: '2024-02-29' });
+      expect((await getDocs(expCol())).docs.length).toBe(before);
+      expect((await getDoc(receiptRef(A, FIRST))).exists()).toBe(false);
+      expect((await getDoc(doc(db(), 'users', TEST_UID, 'expenses', canonical))).data()!.idempotencyKey).toBe('not-the-occurrence-key');
+
+      const created = await recurringRepository.reconcile(TEST_UID, NOW);
+      expect(created).toBe(2); // Feb 29 and Mar 31; Apr 30 is after NOW
+      expect(recurringRepository.getRecurringIssues(TEST_UID)).toHaveLength(0);
+      expect(await cursorOf(A)).toEqual({ nextIndex: 3, nextDate: '2024-04-30' });
+    });
+
+    it('refuses when the item changed since the warning (stale revision)', async () => {
+      await conflictOnFirst();
+      const revision = await revisionOf(A);
+      await expect(recurringRepository.skipOccurrence(TEST_UID, A, FIRST, revision - 1, NOW)).rejects.toThrow('RECURRING_CONFLICT');
+      expect(await cursorOf(A)).toEqual({ nextIndex: 0, nextDate: FIRST });
+      expect(recurringRepository.getRecurringIssues(TEST_UID)).toHaveLength(1);
+    });
+
+    it('refuses a second skip of the same date (two devices)', async () => {
+      await conflictOnFirst();
+      const revision = await revisionOf(A);
+      await recurringRepository.skipOccurrence(TEST_UID, A, FIRST, revision, NOW);
+      await expect(recurringRepository.skipOccurrence(TEST_UID, A, FIRST, revision, NOW)).rejects.toThrow('RECURRING_CONFLICT');
+      expect(await cursorOf(A)).toEqual({ nextIndex: 1, nextDate: '2024-02-29' });
+    });
+  });
 });
