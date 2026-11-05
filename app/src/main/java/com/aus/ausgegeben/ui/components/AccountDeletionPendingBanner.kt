@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
+import com.aus.ausgegeben.ui.theme.financeExpenseTextColor
 
 /**
  * Shown when a previous delete-account attempt wiped the cloud data but could not
@@ -61,7 +62,7 @@ fun AccountDeletionPendingBanner(
                     Icon(
                         imageVector = Icons.Rounded.ErrorOutline,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error,
+                        tint = financeExpenseTextColor(),
                         modifier = Modifier.size(20.dp),
                     )
                 }
@@ -70,7 +71,7 @@ fun AccountDeletionPendingBanner(
                         text = stringResource(R.string.settings_deletion_pending_title),
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.error,
+                        color = financeExpenseTextColor(),
                     )
                     Text(
                         text = stringResource(R.string.settings_deletion_pending),
@@ -91,7 +92,7 @@ fun AccountDeletionPendingBanner(
                     onClick = onFinishDeleting,
                     text = stringResource(R.string.settings_deletion_finish),
                     enabled = !busy,
-                    contentColor = MaterialTheme.colorScheme.error,
+                    contentColor = financeExpenseTextColor(),
                     modifier = Modifier.heightIn(min = 48.dp),
                 )
             }

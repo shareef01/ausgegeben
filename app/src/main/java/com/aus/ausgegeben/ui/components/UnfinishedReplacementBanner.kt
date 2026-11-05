@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
+import com.aus.ausgegeben.ui.theme.financeExpenseTextColor
 import com.aus.ausgegeben.util.ReplacePlanner
 
 @Composable
@@ -57,7 +58,7 @@ fun UnfinishedReplacementBanner(
                     Icon(
                         imageVector = Icons.Rounded.Warning,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error,
+                        tint = financeExpenseTextColor(),
                         modifier = Modifier.size(24.dp),
                     )
                 }
@@ -79,7 +80,7 @@ fun UnfinishedReplacementBanner(
                         Text(
                             text = op.error,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
+                            color = financeExpenseTextColor(),
                         )
                     }
                 }

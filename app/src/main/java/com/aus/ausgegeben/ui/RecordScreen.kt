@@ -468,7 +468,7 @@ fun RecordScreen(
                         isError = filter.bounds(currencyCode) == null,
                         keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal, imeAction = ImeAction.Done))
                 }
-                if (filter.bounds(currencyCode) == null) item { Text(stringResource(R.string.record_amount_error), color = MaterialTheme.colorScheme.error) }
+                if (filter.bounds(currencyCode) == null) item { Text(stringResource(R.string.record_amount_error), color = financeExpenseTextColor()) }
                 item { Text(stringResource(R.string.record_sort)) }
                 items(RecordSort.entries) { sort ->
                     val label = when (sort) {
@@ -1192,7 +1192,7 @@ private fun TransactionRowMenu(
     onDuplicate: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    val deleteColor = MaterialTheme.colorScheme.error
+    val deleteColor = financeExpenseTextColor()
     Box {
         AppIconButton(
             onClick = { onExpandedChange(true) },

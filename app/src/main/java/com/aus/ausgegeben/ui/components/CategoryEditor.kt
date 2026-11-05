@@ -187,7 +187,7 @@ fun CategoryEditorSheet(
                 Text(
                     text = stringResource(R.string.category_error_add_failed),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.error,
+                    color = financeExpenseTextColor(),
                     modifier = Modifier.padding(start = AppSpacing.xs)
                 )
             }
@@ -618,7 +618,7 @@ private fun CategoryManageRow(
             onClick = onDelete,
             icon = Icons.Rounded.Delete,
             contentDescription = stringResource(R.string.action_delete),
-            tint = MaterialTheme.colorScheme.error,
+            tint = financeExpenseTextColor(),
         )
     }
 }

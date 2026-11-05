@@ -41,6 +41,7 @@ import com.aus.ausgegeben.ui.components.AppButton
 import com.aus.ausgegeben.ui.components.AppIconButton
 import com.aus.ausgegeben.ui.components.AppTextButton
 import com.aus.ausgegeben.ui.theme.contrastColorOn
+import com.aus.ausgegeben.ui.theme.financeExpenseTextColor
 import com.aus.ausgegeben.ui.theme.financeIncomeColor
 import com.aus.ausgegeben.ui.theme.isAppDarkTheme
 import com.aus.ausgegeben.ui.theme.sectionLabelStyle
@@ -224,7 +225,7 @@ fun AuthScreen(
                             Text(
                                 text = uiState.errorMessage!!,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
+                                color = financeExpenseTextColor(),
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier
                                     .fillMaxWidth()

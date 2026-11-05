@@ -181,7 +181,7 @@ fun RecurringManagerSheet(
                     Text(
                         text = stringResource(R.string.recurring_error),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
+                        color = financeExpenseTextColor(),
                     )
                 }
 

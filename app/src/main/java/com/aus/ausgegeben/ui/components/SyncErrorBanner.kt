@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
+import com.aus.ausgegeben.ui.theme.financeExpenseTextColor
 
 @Composable
 fun SyncErrorBanner(
@@ -46,7 +47,7 @@ fun SyncErrorBanner(
                 Icon(
                     imageVector = Icons.Rounded.CloudOff,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error,
+                    tint = financeExpenseTextColor(),
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -56,7 +57,7 @@ fun SyncErrorBanner(
                     text = stringResource(R.string.settings_sync_failed),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.error
+                    color = financeExpenseTextColor()
                 )
                 Text(
                     text = error,
