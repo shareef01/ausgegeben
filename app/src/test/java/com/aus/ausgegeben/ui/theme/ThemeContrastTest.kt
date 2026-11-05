@@ -151,6 +151,27 @@ class ThemeContrastTest {
         }
     }
 
+    /**
+     * The add button's "+" sits on the income fill. Hard-coded white was 1.8–2.5:1 on the
+     * dark themes' bright greens/accents; the picked ink must clear AA in every theme.
+     */
+    @Test
+    fun addButtonIcon_onIncomeFill_passesAaInEveryTheme() {
+        for (mode in ThemeMode.entries) {
+            for (systemDark in listOf(false, true)) {
+                val fill = incomeFillFor(colorSchemeFor(mode, systemDark))
+                val ratio = contrastRatio(readableInkOn(fill), fill)
+                assertTrue("$mode (systemDark=$systemDark) add icon on $fill: $ratio", ratio >= AA_TEXT_CONTRAST)
+            }
+        }
+    }
+
+    @Test
+    fun lightTheme_addButtonIcon_staysWhite() {
+        val fill = incomeFillFor(colorSchemeFor(ThemeMode.LIGHT, systemDark = false))
+        assertTrue(readableInkOn(fill) == androidx.compose.ui.graphics.Color.White)
+    }
+
     private fun blendOnWhite(foreground: androidx.compose.ui.graphics.Color, alpha: Float): androidx.compose.ui.graphics.Color {
         val a = alpha.coerceIn(0f, 1f)
         return androidx.compose.ui.graphics.Color(

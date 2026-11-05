@@ -193,7 +193,10 @@ fun contrastRatio(a: Color, b: Color): Float {
 }
 
 @Composable
-fun contrastColorOn(fill: Color): Color {
+fun contrastColorOn(fill: Color): Color = readableInkOn(fill)
+
+/** [contrastColorOn] without composition, so the contrast tests can use it too. */
+internal fun readableInkOn(fill: Color): Color {
     val dark = Color(0xFF09090B)
     val light = Color.White
     return if (contrastRatio(dark, fill) >= contrastRatio(light, fill)) dark else light

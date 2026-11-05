@@ -285,7 +285,6 @@ fun MainApp(
                         icon = Icons.Rounded.Add,
                         contentDescription = stringResource(R.string.nav_add_transaction),
                         containerColor = financeIncomeColor(),
-                        contentColor = Color.White,
                     )
                 }
             },
