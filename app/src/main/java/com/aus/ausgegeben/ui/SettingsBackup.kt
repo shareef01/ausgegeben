@@ -1,6 +1,7 @@
 package com.aus.ausgegeben.ui
 
 import android.content.Context
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -24,6 +25,7 @@ import com.aus.ausgegeben.util.ExportUtils
 import com.aus.ausgegeben.util.ReplacePlanner
 import com.aus.ausgegeben.util.RestoreUtils
 import com.aus.ausgegeben.util.rememberAppHaptics
+import com.aus.ausgegeben.util.runSuspendCatching
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -58,6 +60,22 @@ internal class SettingsBackupState {
     var isReplacing by mutableStateOf(false)
     var unresolvedOp by mutableStateOf<ReplacePlanner.RestoreOperationDoc?>(null)
     var isResumeMode by mutableStateOf(false)
+    private var unresolvedOpUid: String? = null
+
+    /**
+     * Re-reads the unfinished-restore marker. The read fails when the device is offline and
+     * the marker isn't cached; that used to crash Settings on open. On failure keep what we
+     * last knew for this user (nothing, for a different user) and try again next time.
+     */
+    suspend fun refreshUnresolvedOp(uid: String?) {
+        runSuspendCatching { repository.getRestoreOperation(uid) }
+            .onSuccess { unresolvedOp = it }
+            .onFailure { e ->
+                Log.w("SettingsBackup", "unfinished-restore check failed", e)
+                if (uid != unresolvedOpUid) unresolvedOp = null
+            }
+        unresolvedOpUid = uid
+    }
 }
 
 @Composable
@@ -79,7 +97,7 @@ internal fun rememberSettingsBackupState(
     state.onRequestSignIn = onRequestSignIn
     with(state) {
         LaunchedEffect(currentUser?.uid) {
-            unresolvedOp = repository.getRestoreOperation(currentUser?.uid)
+            refreshUnresolvedOp(currentUser?.uid)
         }
 
         fun exportBackup() {
@@ -167,12 +185,12 @@ internal fun rememberSettingsBackupState(
                             if (res.isSuccess) {
                                 haptics.success()
                                 onShowMessage(context.getString(R.string.settings_replace_success))
-                                unresolvedOp = repository.getRestoreOperation(uid)
+                                refreshUnresolvedOp(uid)
                             } else {
                                 haptics.light()
                                 val err = res.exceptionOrNull()?.message ?: ""
                                 onShowMessage(context.getString(R.string.settings_replace_failed, err))
-                                unresolvedOp = repository.getRestoreOperation(uid)
+                                refreshUnresolvedOp(uid)
                             }
                             return@launch
                         }
@@ -250,12 +268,12 @@ internal fun LazyListScope.unfinishedReplacementBannerItem(state: SettingsBackup
                             if (res.isSuccess) {
                                 haptics.success()
                                 onShowMessage(context.getString(R.string.settings_replace_rollback_success))
-                                unresolvedOp = repository.getRestoreOperation(uid)
+                                refreshUnresolvedOp(uid)
                             } else {
                                 haptics.light()
                                 val err = res.exceptionOrNull()?.message ?: ""
                                 onShowMessage(context.getString(R.string.settings_replace_rollback_failed, err))
-                                unresolvedOp = repository.getRestoreOperation(uid)
+                                refreshUnresolvedOp(uid)
                             }
                         }
                     },
@@ -461,12 +479,12 @@ internal fun SettingsBackupDialogs(state: SettingsBackupState) {
                                     if (result.isSuccess) {
                                         haptics.success()
                                         onShowMessage(context.getString(R.string.settings_replace_success))
-                                        unresolvedOp = repository.getRestoreOperation(targetUid)
+                                        refreshUnresolvedOp(targetUid)
                                     } else {
                                         haptics.light()
                                         val err = result.exceptionOrNull()?.message ?: ""
                                         onShowMessage(context.getString(R.string.settings_replace_failed, err))
-                                        unresolvedOp = repository.getRestoreOperation(targetUid)
+                                        refreshUnresolvedOp(targetUid)
                                     }
                                 } catch (e: Exception) {
                                     isReplacing = false
@@ -476,7 +494,7 @@ internal fun SettingsBackupDialogs(state: SettingsBackupState) {
                                     haptics.light()
                                     val err = e.message ?: ""
                                     onShowMessage(context.getString(R.string.settings_replace_failed, err))
-                                    unresolvedOp = repository.getRestoreOperation(targetUid)
+                                    refreshUnresolvedOp(targetUid)
                                 }
                             }
                         },
