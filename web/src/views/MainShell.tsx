@@ -8,6 +8,7 @@ const SettingsView = lazy(() => import('@/views/SettingsView').then((m) => ({ de
 const AddTransactionView = lazy(() => import('@/views/AddTransactionView').then((m) => ({ default: m.AddTransactionView })));
 const CategoriesView = lazy(() => import('@/views/CategoriesView').then((m) => ({ default: m.CategoriesView })));
 import { ToastHost } from '@/components/ToastHost';
+import { RecurringIssuesWarning } from '@/components/RecurringIssuesWarning';
 import { IconAdd, IconInsights, IconRecord, IconSettings } from '@/components/Icons';
 import { AppBrandIcon } from '@/components/AppBrandIcon';
 import { useTranslation } from '@/i18n';
@@ -195,6 +196,8 @@ export function MainShell() {
             </div>
           </div>
         ) : null}
+
+        <RecurringIssuesWarning />
 
         {/* Main content */}
         <main id="app-main" className="app-shell__main" tabIndex={-1}>

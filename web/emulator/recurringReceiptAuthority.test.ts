@@ -180,6 +180,49 @@ describe('receipt authority (rules enforced)', () => {
     expect(await cursorOf(A)).toEqual({ nextIndex: 0, nextDate: FIRST });
   });
 
+  // A sorts before B and both are due on FIRST, so A is always picked first: before the
+  // quarantine covered these errors, a permanently failing A stopped B on every pass.
+  it('identity conflict is quarantined and healthy templates keep processing', async () => {
+    await recurringRepository.save(TEST_UID, template(A) as never, null, NOW);
+    await recurringRepository.save(TEST_UID, template(B) as never, null, NOW);
+    const canonical = await expenseDocumentId(occurrenceKey(A, FIRST));
+    await rulesEnv().withSecurityRulesDisabled(async (ctx) => {
+      const { setDoc } = await import('firebase/firestore');
+      await setDoc(doc(ctx.firestore() as never, 'users', TEST_UID, 'expenses', canonical), {
+        amount: 15,
+        dateMillis: 1706655600000,
+        categoryId,
+        note: 'Rent',
+        transactionType: 'expense',
+        updatedAt: NOW,
+        idempotencyKey: 'not-the-occurrence-key',
+      });
+    });
+
+    const created = await recurringRepository.reconcile(TEST_UID, NOW);
+    expect(created).toBeGreaterThan(0);
+    const issues = recurringRepository.getRecurringIssues(TEST_UID);
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({ code: 'RECURRING_IDENTITY_CONFLICT', templateId: A, scheduledDate: FIRST, expectedExpenseId: canonical });
+    expect(await cursorOf(A)).toEqual({ nextIndex: 0, nextDate: FIRST });
+    expect(await cursorOf(B)).not.toEqual({ nextIndex: 0, nextDate: FIRST });
+  });
+
+  it('invalid template is quarantined and healthy templates keep processing', async () => {
+    await recurringRepository.save(TEST_UID, template(A) as never, null, NOW);
+    await recurringRepository.save(TEST_UID, template(B) as never, null, NOW);
+    await rulesEnv().withSecurityRulesDisabled(async (ctx) => {
+      await updateDoc(doc(ctx.firestore() as never, 'users', TEST_UID, 'recurringTransactions', A), { amount: -5 });
+    });
+
+    const created = await recurringRepository.reconcile(TEST_UID, NOW);
+    expect(created).toBeGreaterThan(0);
+    const issues = recurringRepository.getRecurringIssues(TEST_UID);
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({ code: 'INVALID_RECURRING_TEMPLATE', templateId: A });
+    expect(await cursorOf(B)).not.toEqual({ nextIndex: 0, nextDate: FIRST });
+  });
+
   it('repeated reconciliation is idempotent', async () => {
     await recurringRepository.save(TEST_UID, template(A) as never, null, NOW);
     await recurringRepository.materialize(TEST_UID, A, NOW);
