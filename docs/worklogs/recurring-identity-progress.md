@@ -18,6 +18,7 @@ These were settled over several review rounds and are binding:
 4. **Never fabricate a transaction from receipt metadata.** A receipt proving identity must name the canonical expense id; its `expenseId` is never used as a document id to create.
 5. **Fail closed** on receipt identity mismatch; quarantine the one occurrence; keep other templates processing; report, never silently skip.
 6. **Restore/backup v4, rollback attribution, generation records** are a separate, larger architecture (specified earlier, deliberately **out of scope** here). Do not touch backup/Replace/rollback code in this workstream.
+   - *Follow-up (restore receipt identity):* backup restore now refuses a whole file if any recurring receipt fails the canonical identity (`receiptId` + `expenseDocumentId(occurrenceKey)`), on both platforms, before any write; the receipt writer re-checks as a backstop. Export stays structural. Shared cases: `testdata/receipt-restore.json`. Rules and the rollback/Replace architecture are unchanged.
 7. **`meta/receiptRepair`** (Phase 4) does not exist yet; implementing it requires a rules change, which earlier instructions forbade in the increments before Phase 4.
 
 ---

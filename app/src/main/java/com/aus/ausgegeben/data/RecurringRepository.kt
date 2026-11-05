@@ -168,6 +168,10 @@ class RecurringRepository @Inject constructor(private val client: FirestoreClien
         val current = getReceipts(u)
         val existing = current.map { it.id }.toSet()
         val toWrite = receipts.filter { it.id !in existing }
+        // Backstop for every restore path: a written receipt can never be corrected, so refuse
+        // the whole set before the first batch. Receipts already stored (e.g. a rollback
+        // re-offering legacy rows) are skipped above and never re-checked.
+        OccurrenceReceipt.requireIdentities(toWrite)
         for (chunk in toWrite.chunked(400)) {
             val batch = db.batch()
             for (r in chunk) {

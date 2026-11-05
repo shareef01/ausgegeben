@@ -1,4 +1,5 @@
-import { occurrenceKey, receiptId, validTemplate, type RecurringTemplate } from './recurrence';
+import { occurrenceKey, receiptId, validOccurrenceReceipt, validTemplate, type RecurringTemplate } from './recurrence';
+import { expenseDocumentId } from '@/utils/idempotency';
 export interface OccurrenceReceipt { id:string; templateId:string; scheduledDate:string; expenseId:string; createdAt:number }
 export interface RecurringBackupSection { templates:RecurringTemplate[]; receipts:OccurrenceReceipt[] }
 const templateKeys='id amount categoryId note transactionType frequency interval startDate endDate timeZone enabled nextIndex nextDate createdAt updatedAt'.split(' ');
@@ -19,3 +20,26 @@ export function parseRecurringSection(value:unknown):RecurringBackupSection {
  return structuredClone({templates,receipts});
 }
 export function serializeRecurringSection(value:RecurringBackupSection):string {return JSON.stringify(parseRecurringSection(value));}
+
+/**
+ * Ids of receipts that do not prove their canonical occurrence identity (Android parity:
+ * RecurringBackupSection.parse). Receipts are immutable once written, so a restore must
+ * refuse them up front: a mismatched receipt would pause its template with no in-app repair.
+ * Kept separate from the synchronous parser because the expense id is a SHA-256 digest.
+ */
+export async function mismatchedReceiptIds(receipts:readonly OccurrenceReceipt[]):Promise<string[]> {
+ const bad:string[]=[];
+ for(const r of receipts){
+  let ok=false;
+  try{
+   ok=r.id===receiptId(r.templateId,r.scheduledDate)&&validOccurrenceReceipt(r,{templateId:r.templateId,scheduledDate:r.scheduledDate,expenseId:await expenseDocumentId(occurrenceKey(r.templateId,r.scheduledDate))});
+  }catch{ok=false;}
+  if(!ok)bad.push(String(r?.id));
+ }
+ return bad;
+}
+/** Throws INVALID_RECURRING_SECTION naming every receipt whose identity does not match. */
+export async function assertReceiptIdentities(receipts:readonly OccurrenceReceipt[]):Promise<void> {
+ const bad=await mismatchedReceiptIds(receipts);
+ if(bad.length)throw new Error(`INVALID_RECURRING_SECTION: recurring receipt ${bad.join(', ')} does not match its template and date`);
+}

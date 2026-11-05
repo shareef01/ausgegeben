@@ -92,6 +92,44 @@ describe('backupRestore unit tests', () => {
     expect(summary.monthlyBudget).toBe(500);
   });
 
+  // A receipt whose expense id is not the canonical one for its template and date.
+  const mismatchedReceiptBackup: AusgegebenBackup = {
+    ...validBackup,
+    recurring: {
+      templates: [],
+      receipts: [{
+        id: '550e8400-e29b-41d4-a716-446655440000_2024-01-31',
+        templateId: '550e8400-e29b-41d4-a716-446655440000',
+        scheduledDate: '2024-01-31',
+        expenseId: 'b'.repeat(64),
+        createdAt: 1,
+      }],
+    },
+  };
+
+  it('rejects the whole file when a recurring receipt does not match its occurrence', async () => {
+    const file = {
+      size: 2000,
+      text: () => Promise.resolve(JSON.stringify(mismatchedReceiptBackup)),
+    } as unknown as File;
+
+    await expect(readAndValidateBackupFile(file)).rejects.toThrow(
+      /VALIDATION_FAILED: Invalid recurring section: INVALID_RECURRING_SECTION: recurring receipt 550e8400-e29b-41d4-a716-446655440000_2024-01-31/,
+    );
+  });
+
+  it('accepts a file whose recurring receipt carries the canonical expense id', async () => {
+    const backup = {
+      ...mismatchedReceiptBackup,
+      recurring: {
+        templates: [],
+        receipts: [{ ...mismatchedReceiptBackup.recurring!.receipts[0], expenseId: '15634124eab0e61b1e96e3bcc40968a8bfdce35bd2ee44f76fabdc3ab77e78f4' }],
+      },
+    };
+    const file = { size: 2000, text: () => Promise.resolve(JSON.stringify(backup)) } as unknown as File;
+    await expect(readAndValidateBackupFile(file)).resolves.toBeDefined();
+  });
+
   it('restoreBackup aborts if user is not signed in', async () => {
     useAuthStore.setState({ user: null });
     await expect(restoreBackup(validBackup, 'user-1')).rejects.toThrow('AUTH_ACCOUNT_CHANGED');

@@ -1,5 +1,6 @@
 import { categoryBudgetRepository } from '@/services/categoryBudgets';
 import { recurringRepository } from '@/services/recurringRepository';
+import { assertReceiptIdentities } from '@/services/recurringBackupSection';
 import { collection, doc, getDocFromServer, getDocs, setDoc, writeBatch } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
@@ -73,6 +74,15 @@ export async function readAndValidateBackupFile(
   if (!validation.valid) {
     throw new Error(`VALIDATION_FAILED: ${validation.errors.join('; ')}`);
   }
+  // Receipt identity needs a SHA-256 digest, so it is checked here rather than in the
+  // synchronous validateBackup. Receipts are immutable once written: refuse the whole file.
+  if (validation.backup.schemaVersion === 3 && validation.backup.recurring) {
+    try {
+      await assertReceiptIdentities(validation.backup.recurring.receipts);
+    } catch (err) {
+      throw new Error(`VALIDATION_FAILED: Invalid recurring section: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
 
   return {
     backup: validation.backup,
@@ -106,6 +116,11 @@ export async function restoreBackup(
   const db = getFirebaseFirestore();
   if (!db) {
     throw new Error('FIRESTORE_UNAVAILABLE');
+  }
+
+  // Refuse mismatched recurring receipts before anything is written.
+  if (backup.schemaVersion === 3 && backup.recurring) {
+    await assertReceiptIdentities(backup.recurring.receipts);
   }
 
   // Pre-flight check (AUD-005): the preferences write is the LAST step, and the rules require

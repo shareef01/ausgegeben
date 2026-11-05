@@ -2,7 +2,7 @@ import { fromMinorUnits, toMinorUnits } from '@/utils/money';
 import { restoredCategoryRevision, writablePreferencesRevision } from '@/services/backupFormat';
 import { categoryBudgetRepository, type CategoryBudget } from '@/services/categoryBudgets';
 import { recurringRepository } from '@/services/recurringRepository';
-import type { RecurringBackupSection } from '@/services/recurringBackupSection';
+import { assertReceiptIdentities, type RecurringBackupSection } from '@/services/recurringBackupSection';
 import {
   collection,
   doc,
@@ -370,6 +370,11 @@ export async function executeReplace(
   const db = getFirebaseFirestore();
   if (!db) {
     throw new Error('FIRESTORE_UNAVAILABLE');
+  }
+
+  // Refuse mismatched recurring receipts before a lease, snapshot or write exists.
+  if (backup.schemaVersion === 3 && backup.recurring) {
+    await assertReceiptIdentities(backup.recurring.receipts);
   }
 
   // 1. In-process mutex check

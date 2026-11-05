@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { mismatchedReceiptIds } from '@/services/recurringBackupSection';
 import {
   BACKUP_FORMAT_IDENTIFIER,
   CURRENT_BACKUP_SCHEMA_VERSION,
@@ -194,9 +195,11 @@ describe('Local backup serializer & strict validator', () => {
     expect(result.valid).toBe(true);
   });
 
-  it.each(['shared-v3-empty', 'shared-v3-multiple'])('imports cross-platform v3 fixture %s', (name) => {
+  it.each(['shared-v3-empty', 'shared-v3-multiple'])('imports cross-platform v3 fixture %s', async (name) => {
     const fixture = JSON.parse(readFileSync(resolve(process.cwd(), '../test-fixtures/recurring-transactions/' + name + '.json'), 'utf8'));
     expect(validateBackup(fixture).valid).toBe(true);
+    // Restore also requires canonical receipt identity (Android checks it inside parse).
+    expect(await mismatchedReceiptIds(fixture.recurring.receipts)).toEqual([]);
   });
 
   it.each(['shared-v3-empty', 'shared-v3-multiple'])('Web exporter matches the shared v3 golden %s', (name) => {
