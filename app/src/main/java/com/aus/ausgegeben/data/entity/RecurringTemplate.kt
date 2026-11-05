@@ -61,4 +61,27 @@ object Recurrence {
         return result
     }
     fun receiptId(id: String, date: String): String { key(id,date); return "${id}_$date" }
+    /**
+     * Receipt identity (web parity): a receipt proves the occurrence was generated only when it
+     * names this template, this scheduled date and the deterministic expense id derived from
+     * occurrenceKey(templateId, date). Anything else is untrusted metadata.
+     */
+    fun validOccurrenceReceipt(receiptTemplateId: String?, receiptDate: String?, receiptExpenseId: String?, templateId: String, date: String, expectedExpenseId: String): Boolean =
+        receiptTemplateId == templateId && receiptDate == date && receiptExpenseId == expectedExpenseId
+
+    /** "absent" | "valid" | "invalid" - shared by the transaction and its optimistic fallback. */
+    fun receiptState(exists: Boolean, receiptTemplateId: String?, receiptDate: String?, receiptExpenseId: String?, templateId: String, date: String, expectedExpenseId: String): String = when {
+        !exists -> "absent"
+        validOccurrenceReceipt(receiptTemplateId, receiptDate, receiptExpenseId, templateId, date, expectedExpenseId) -> "valid"
+        else -> "invalid"
+    }
+    /**
+     * Web-parity acceptance rule for the optimistic-concurrency fallback in
+     * RecurringRepository.materialize: accept only a server-confirmed cursor advance plus a
+     * receipt that proves the canonical identity. An invalid receipt never satisfies this.
+     */
+    fun materializeFallbackAcceptance(next: RecurringTemplate?, attemptedRevision: Long, attemptedDate: String, receiptExists: Boolean, receiptTemplateId: String?, receiptDate: String?, receiptExpenseId: String?, templateId: String, expectedExpenseId: String): Boolean {
+        val proved = receiptState(receiptExists, receiptTemplateId, receiptDate, receiptExpenseId, templateId, attemptedDate, expectedExpenseId) == "valid"
+        return next != null && next.valid() && next.updatedAt > attemptedRevision && next.nextDate != attemptedDate && proved
+    }
 }

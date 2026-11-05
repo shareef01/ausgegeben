@@ -33,6 +33,8 @@ TESTS = (
     "rel4_mergeRestoreRefusesRevisionInsideRetryMargin",
     "rel5_unrelatedAuthorizationRefusalIsNotReportedAsClockSkew",
     "rel6_replaceAndRollbackOverFutureRevision_keepJournalAndSnapshot",
+    "rel11_recurringReceiptIdentityAndQuarantine",
+    "rel11b_concurrentMaterializationIsIdempotent",
 )
 REPORT = f"TEST-{TEST_CLASS}.xml"
 # SDK, CLI hub/logging, and Firestore websocket ports.
