@@ -13,20 +13,33 @@ function owned(uid: string) {
   if (!user.emailVerified) throw new Error('EMAIL_NOT_VERIFIED');
 }
 
+/**
+ * Why a template was quarantined. Each is permanent for that template until its owner acts,
+ * so retrying it on every pass would only stop the templates queued behind it:
+ * - `RECURRING_RECEIPT_INVALID`: the stored receipt does not prove this occurrence.
+ * - `RECURRING_IDENTITY_CONFLICT`: no receipt, and the occurrence's expense id already holds
+ *   a row with a different idempotency key.
+ * - `INVALID_RECURRING_TEMPLATE`: the stored template fails validation.
+ */
+export type RecurringIssueCode = 'RECURRING_RECEIPT_INVALID' | 'RECURRING_IDENTITY_CONFLICT' | 'INVALID_RECURRING_TEMPLATE';
+
 /** A recurring occurrence that cannot be reconciled without the owner's decision. */
 export interface RecurringIssue {
-  code: 'RECURRING_RECEIPT_INVALID';
+  code: RecurringIssueCode;
   templateId: string;
+  /** '' when the template is too damaged to name a date. */
   scheduledDate: string;
+  /** '' when no occurrence identity could be derived. */
   receiptId: string;
   receiptExpenseId: string;
   expectedExpenseId: string;
 }
 
 /**
- * Fail-closed signal for an occurrence whose immutable receipt does not prove identity.
- * Its own type (not a bare Error) so `reconcile` can quarantine that single occurrence and
- * keep servicing every other template — it used to abort the whole pass.
+ * Fail-closed signal for one template that cannot be reconciled without its owner.
+ * Its own type (not a bare Error) so `reconcile` can quarantine that single template and
+ * keep servicing every other one — it used to abort the whole pass. The message is the
+ * issue code, so callers matching on the old plain-Error messages keep working.
  */
 export class RecurringIssueError extends Error {
   readonly issue: RecurringIssue;
@@ -182,7 +195,16 @@ return {
     try { return await runTransaction(db(), async tx => {
       owned(uid); const snap = await tx.get(target); if (!snap.exists()) return null;
       const template = { ...snap.data(), id } as RecurringTemplate;
-      if (!validTemplate(template)) throw new Error('INVALID_RECURRING_TEMPLATE');
+      if (!validTemplate(template)) {
+        throw new RecurringIssueError({
+          code: 'INVALID_RECURRING_TEMPLATE',
+          templateId: id,
+          scheduledDate: typeof template.nextDate === 'string' ? template.nextDate : '',
+          receiptId: '',
+          receiptExpenseId: '',
+          expectedExpenseId: '',
+        });
+      }
       const date = template.nextDate;
       if (!template.enabled || date === null || date > localDateAt(now, template.timeZone)) return null;
       attempted = { date, revision: template.updatedAt };
@@ -208,7 +230,14 @@ return {
       // AUD-008: a proven receipt is authority for identity, so a generated row that lost its
       // key (edited, category-reassigned, restored) reconciles instead of wedging the template.
       if (stored === 'absent' && existing.exists() && existing.data().idempotencyKey !== key) {
-        throw new Error("RECURRING_IDENTITY_CONFLICT");
+        throw new RecurringIssueError({
+          code: 'RECURRING_IDENTITY_CONFLICT',
+          templateId: id,
+          scheduledDate: date,
+          receiptId: receiptId(id, date),
+          receiptExpenseId: '',
+          expectedExpenseId: expenseId,
+        });
       }
       if (!receipt.exists()) {
         if (!existing.exists()) tx.set(expense, expenseWritePayload({ id: expenseId, amount: template.amount, categoryId: template.categoryId, note: template.note, transactionType: template.transactionType, dateMillis: occurrenceMillis(date, template.timeZone) }, { idempotencyKey: key, updatedAt: now }));

@@ -349,6 +349,13 @@ fun MainApp(
                         modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm),
                     )
                 }
+                // Quarantined recurring templates mean totals may be missing scheduled
+                // transactions, so the warning belongs on every tab, not only in Settings.
+                val recurringIssues by recurringViewModel.issueState.collectAsStateWithLifecycle()
+                com.aus.ausgegeben.ui.components.RecurringIssuesBanner(
+                    recurringIssues,
+                    modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm),
+                )
                 Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 MainTabPager(
                     currentRoute = overlay.selectedTab,

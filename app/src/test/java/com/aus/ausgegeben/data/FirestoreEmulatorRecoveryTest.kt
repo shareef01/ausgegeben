@@ -1122,8 +1122,15 @@ class FirestoreEmulatorRecoveryTest {
             assertTrue("an unproven row still fails closed", conflict)
             assertEquals("cursor untouched after a refusal", cursorC, recCursor(tplC))
 
-            // (3b) unblock later reconciles: remove the wrong-key row we planted so template C
-            // becomes an ordinary pending occurrence again instead of wedging every reconcile.
+            // (3a) the conflict quarantines template C instead of aborting the whole pass.
+            recurringRepo.reconcile(uid, now)
+            val conflictIssues = recurringRepo.getRecurringIssues(uid).filter { it.templateId == tplC }
+            assertEquals("the conflict is recorded as an issue", 1, conflictIssues.size)
+            assertEquals("RECURRING_IDENTITY_CONFLICT", conflictIssues.single().code)
+            assertEquals("cursor still untouched after a quarantining pass", cursorC, recCursor(tplC))
+
+            // (3b) clean up so later steps start from a known state: remove the wrong-key row we
+            // planted so template C becomes an ordinary pending occurrence again.
             recUser.collection("expenses").document(expenseDocumentId(keyC)).delete().await()
 
             // (4) invalid receipt: quarantined, no write, cursor unchanged.

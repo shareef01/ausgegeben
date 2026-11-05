@@ -3993,6 +3993,24 @@
   color: var(--color-on-background);
 }
 
+/* Recurring quarantine warning: same footprint as the offline banner, but it stays until a
+   healthy pass clears it, so it carries no dismiss control. */
+.recurring-warning {
+  margin: 12px 0 4px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--color-expense) 35%, transparent);
+  background: color-mix(in srgb, var(--color-expense) 10%, transparent);
+}
+
+.recurring-warning__text {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--color-expense-text);
+}
+
 .offline-banner__retry {
   min-height: 40px;
   padding: 8px 14px;

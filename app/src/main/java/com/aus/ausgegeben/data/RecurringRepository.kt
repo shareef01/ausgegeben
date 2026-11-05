@@ -23,22 +23,31 @@ data class RecurringIssue(
     val expectedExpenseId: String,
 )
 
-/** Fail-closed signal for an occurrence whose immutable receipt does not prove identity. */
+/**
+ * Fail-closed signal for one template that cannot be reconciled without its owner (web
+ * RecurringIssueError). [reconcile] quarantines that template and keeps servicing the rest;
+ * the message is the issue code, so callers matching the old require/check messages still
+ * work. Codes: RECURRING_RECEIPT_INVALID, RECURRING_IDENTITY_CONFLICT (no receipt, and the
+ * occurrence's expense id holds a row with another key), INVALID_RECURRING_TEMPLATE.
+ */
+open class RecurringIssueException(val issue: RecurringIssue) : Exception(issue.code)
+
+/** The occurrence's immutable receipt does not prove its identity. */
 class RecurringReceiptInvalidException(
     templateId: String,
     scheduledDate: String,
     receiptExpenseId: String?,
     expectedExpenseId: String,
-) : Exception("RECURRING_RECEIPT_INVALID") {
-    val issue = RecurringIssue(
+) : RecurringIssueException(
+    RecurringIssue(
         code = "RECURRING_RECEIPT_INVALID",
         templateId = templateId,
         scheduledDate = scheduledDate,
         receiptId = Recurrence.receiptId(templateId, scheduledDate),
         receiptExpenseId = receiptExpenseId ?: "",
         expectedExpenseId = expectedExpenseId,
-    )
-}
+    ),
+)
 
 private val lastIssuesByOwner = mutableMapOf<String, List<RecurringIssue>>()
 
@@ -97,7 +106,8 @@ class RecurringRepository @Inject constructor(private val client: FirestoreClien
         var attemptedDate: String?=null; var attemptedRevision=0L
         try { return db.runTransaction { tx ->
             owned(u); val snap=tx.get(target); if(!snap.exists()) return@runTransaction null
-            val template=RecurringTemplate.from(id,snap.data!!); require(template.valid()) { "INVALID_RECURRING_TEMPLATE" }
+            val template=RecurringTemplate.from(id,snap.data!!)
+            if(!template.valid()) throw RecurringIssueException(RecurringIssue("INVALID_RECURRING_TEMPLATE", id, template.nextDate ?: "", "", "", ""))
             val date=template.nextDate
             if(!template.enabled || date == null || date > Recurrence.localDate(now,template.timeZone)) return@runTransaction null
             attemptedDate=date; attemptedRevision=template.updatedAt
@@ -110,7 +120,8 @@ class RecurringRepository @Inject constructor(private val client: FirestoreClien
             // skipped silently and never acted upon; a proven receipt overrides a lost key.
             val state = Recurrence.receiptState(receiptSnap.exists(), receiptSnap.getString("templateId"), receiptSnap.getString("scheduledDate"), receiptSnap.getString("expenseId"), id, date, expenseId)
             if (state == "invalid") throw RecurringReceiptInvalidException(id, date, receiptSnap.getString("expenseId"), expenseId)
-            check(state != "absent" || !existing.exists() || existing.getString("idempotencyKey")==key) { "RECURRING_IDENTITY_CONFLICT" }
+            if(state == "absent" && existing.exists() && existing.getString("idempotencyKey")!=key)
+                throw RecurringIssueException(RecurringIssue("RECURRING_IDENTITY_CONFLICT", id, date, Recurrence.receiptId(id,date), "", expenseId))
             if(!receiptSnap.exists()) {
                 if(!existing.exists()) tx.set(expense,mapOf("amount" to template.amount,"categoryId" to template.categoryId,"note" to template.note.trim().take(2000),"transactionType" to template.transactionType,"dateMillis" to Recurrence.millis(date,template.timeZone),"updatedAt" to now,"idempotencyKey" to key))
                 tx.set(receipt,mapOf("templateId" to id,"scheduledDate" to date,"expenseId" to expenseId,"createdAt" to now))
@@ -136,8 +147,8 @@ class RecurringRepository @Inject constructor(private val client: FirestoreClien
         repeat(Recurrence.MAX_PER_PASS) {
             val due=rows.filter { it.enabled && it.nextDate != null && it.nextDate <= Recurrence.localDate(now,it.timeZone) && it.id !in quarantined }.minWithOrNull(compareBy<RecurringTemplate> { it.nextDate }.thenBy { it.id })
             if (due == null) { lastIssuesByOwner[u]=issues.toList(); return count }
-            val next = try { materialize(u,due.id,now) } catch (e: RecurringReceiptInvalidException) {
-                // One unreconcilable occurrence must not stall every other template.
+            val next = try { materialize(u,due.id,now) } catch (e: RecurringIssueException) {
+                // One unreconcilable template must not stall every other template.
                 issues += e.issue; quarantined += due.id; return@repeat
             }
             val index=rows.indexOfFirst { it.id == due.id }

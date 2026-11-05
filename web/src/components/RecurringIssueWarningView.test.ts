@@ -1,5 +1,5 @@
 ﻿import { describe, expect, it } from 'vitest';
-import { recurringWarningTemplates } from '@/components/RecurringManager';
+import { recurringWarningTemplates } from '@/components/RecurringIssuesWarning';
 
 const issue = { templateId: 't1' };
 const issue2 = { templateId: 't2' };
