@@ -87,6 +87,7 @@ export const de: Record<TranslationKey, string> = {
   recordPeriodAllTime: 'gesamt',
   recordTotalsFiltered: 'tagessummen folgen den aktiven filtern',
   recordMostSpentOn: 'am meisten ausgegeben für {name}',
+  recordMostSpentShare: '{amount} · {percent} der Ausgaben diesen Monat',
   recordSwipeDelete: 'löschen',
   editOrTap: 'bearbeiten',
   recordDeleted: 'transaktion gelöscht',

@@ -12,6 +12,7 @@ import { useTranslation, type Locale } from '@/i18n';
 import { groupRecordRows } from '@/utils/recordGrouping';
 import type { Expense, Category, TransactionTypeFilter, TransactionSortOrder } from '@/models/types';
 import { formatAmount, colorIntToHex } from '@/utils/currency';
+import { topExpenseCategoryShare } from '@/utils/analytics';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 
@@ -96,6 +97,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
   );
 
   const catMap = useMemo(() => new Map(uiState.categories.map((c) => [c.id, c])), [uiState.categories]);
+  const topShare = useMemo(() => topExpenseCategoryShare(uiState.monthExpenses), [uiState.monthExpenses]);
 
   // SECURE: Prop stability for React.memo children
   const handleDelete = useCallback((id: string) => {
@@ -129,7 +131,17 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
 
             {uiState.topExpenseCategoryName ? (
               <p className="record-most-spent" role="status">
-                {t('recordMostSpentOn', { name: uiState.topExpenseCategoryName })}
+                <span className="record-most-spent__name">
+                  {t('recordMostSpentOn', { name: uiState.topExpenseCategoryName })}
+                </span>
+                {topShare ? (
+                  <span className="record-most-spent__detail">
+                    {t('recordMostSpentShare', {
+                      amount: formatAmount(topShare.amount, currency),
+                      percent: new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 }).format(topShare.share),
+                    })}
+                  </span>
+                ) : null}
               </p>
             ) : null}
           </div>
