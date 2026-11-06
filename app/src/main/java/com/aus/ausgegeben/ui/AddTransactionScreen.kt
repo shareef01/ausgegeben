@@ -327,24 +327,11 @@ fun AddTransactionScreen(
                                     )
                                 }
                             } else {
-                                ObsidianFieldGroup {
-                                    DatePickerRow(
-                                        dateMillis = dateMillis,
-                                        accentColor = typeAccentText,
-                                        onClick = { showDatePicker = true }
-                                    )
-                                    
-                                    HorizontalDivider(color = ObsidianTokens.hairline(), thickness = 0.5.dp)
-                                    
-                                    ObsidianNoteField(
-                                        remark = remarkText,
-                                        onRemarkChange = { viewModel.onNoteChange(it) },
-                                        accentColor = typeAccentText,
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(16.dp))
-
+                                // Category first: it is the one field every entry needs, while
+                                // date and note usually keep their defaults. Below them, a phone
+                                // with an enlarged display size (e.g. 460 dpi on a Pixel 7) left
+                                // only ~300 dp above the keypad and the category row scrolled out
+                                // of view, so every entry needed a scroll before a category tap.
                                 ObsidianCategoryHeader(
                                     onManage = { showManageSheet = true },
                                     highlight = hasAmount && !hasCategory && !isSaving,
@@ -359,7 +346,25 @@ fun AddTransactionScreen(
                                         showEditorDialog = true
                                     }
                                 )
-                                
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                ObsidianFieldGroup {
+                                    DatePickerRow(
+                                        dateMillis = dateMillis,
+                                        accentColor = typeAccentText,
+                                        onClick = { showDatePicker = true }
+                                    )
+
+                                    HorizontalDivider(color = ObsidianTokens.hairline(), thickness = 0.5.dp)
+
+                                    ObsidianNoteField(
+                                        remark = remarkText,
+                                        onRemarkChange = { viewModel.onNoteChange(it) },
+                                        accentColor = typeAccentText,
+                                    )
+                                }
+
                                 Spacer(modifier = Modifier.height(24.dp))
                             }
                         }

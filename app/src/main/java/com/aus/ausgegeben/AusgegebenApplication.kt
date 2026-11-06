@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.aus.ausgegeben.data.FirestoreClient
+import com.aus.ausgegeben.data.TimeBoundAppCheckProvider
 import com.google.firebase.FirebaseApp
 import com.google.firebase.appcheck.AppCheckProviderFactory
 import com.google.firebase.appcheck.FirebaseAppCheck
@@ -119,11 +120,19 @@ class AusgegebenApplication : Application(), Configuration.Provider {
                 clazz.getMethod("getInstance").invoke(null) as AppCheckProviderFactory
             } catch (e: Exception) {
                 Log.w(TAG, "Debug App Check provider unavailable; falling back to Play Integrity", e)
-                PlayIntegrityAppCheckProviderFactory.getInstance()
+                playIntegrityFactory()
             }
         }
-        return PlayIntegrityAppCheckProviderFactory.getInstance()
+        return playIntegrityFactory()
     }
+
+    /**
+     * Play Integrity, time-limited: Firebase holds every request until a token arrives, and a
+     * phone with a stuck key-provisioning service took ~10.7 s per attestation. See
+     * [TimeBoundAppCheckProvider].
+     */
+    private fun playIntegrityFactory(): AppCheckProviderFactory =
+        TimeBoundAppCheckProvider.Factory(PlayIntegrityAppCheckProviderFactory.getInstance())
 
     /**
      * Firebase only Log.d's the debug secret. Opt in via
