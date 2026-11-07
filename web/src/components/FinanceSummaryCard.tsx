@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { computeTotals } from '@/utils/analytics';
 import type { Expense } from '@/models/types';
 import { MoneyText } from '@/components/ui';
@@ -10,9 +11,11 @@ interface FinanceSummaryCardProps {
   expenses: Expense[];
   currency: string;
   periodLabel: string;
+  /** One line under the stats (e.g. the month's top category), so it needs no card of its own. */
+  footnote?: ReactNode;
 }
 
-export function FinanceSummaryCard({ expenses, currency, periodLabel }: FinanceSummaryCardProps) {
+export function FinanceSummaryCard({ expenses, currency, periodLabel, footnote }: FinanceSummaryCardProps) {
   const { t } = useTranslation();
   const { totalExpenses, totalIncome, totalTransfers, transferCount, net } = computeTotals(expenses);
   const tone = net > 0 ? 'positive' : net < 0 ? 'negative' : 'neutral';
@@ -51,6 +54,7 @@ export function FinanceSummaryCard({ expenses, currency, periodLabel }: FinanceS
           />
         ) : null}
       </div>
+      {footnote ? <div className="finance-summary-card__footnote">{footnote}</div> : null}
     </div>
   );
 }
