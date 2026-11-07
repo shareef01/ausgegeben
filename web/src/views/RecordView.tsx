@@ -76,7 +76,10 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
   // Long category lists collapse to the first few; selected ones always stay visible so the
   // current filter can be read and undone without expanding.
   const [showAllCategories, setShowAllCategories] = useState(false);
-  const collapsible = availableCategories.length > CATEGORY_CHIPS_COLLAPSED + 2;
+  // In the three-column layout the filters have a column of their own with room to spare,
+  // so hiding categories behind "+N more" only costs a click.
+  const isWide = useMediaQuery('(min-width: 1440px)');
+  const collapsible = !isWide && availableCategories.length > CATEGORY_CHIPS_COLLAPSED + 2;
   const visibleCategories = useMemo(() => {
     if (showAllCategories || !collapsible) return availableCategories;
     return availableCategories.filter(
@@ -323,7 +326,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
                         </button>
                       );
                     })}
-                    {hiddenCategoryCount > 0 || showAllCategories ? (
+                    {collapsible && (hiddenCategoryCount > 0 || showAllCategories) ? (
                       <button
                         type="button"
                         className="record-category-chip record-category-chip--more"
