@@ -25,6 +25,41 @@ jobs:
       - name: release.yml tag-validation regression test (CI-3)
         run: bash scripts/test-release-tag-validation.sh
 
+      - name: Android-affected path filter test
+        run: bash scripts/test-ci-android-affected.sh
+
+  # Whether this change can affect the Android app. Web-only and docs-only PRs skip the
+  # three Android jobs (the slowest by far); see scripts/ci-android-affected.sh for the
+  # allowlist and what is deliberately kept off it. Pushes to main always run everything,
+  # and a tagged release re-runs every gate in release.yml regardless.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      android: ${{ steps.decide.outputs.android }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Decide whether the Android jobs must run
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            android=true
+          elif ! changed="$(git diff --name-only "$BASE_SHA...$HEAD_SHA")"; then
+            echo "Could not diff the PR against its base; running everything."
+            android=true
+          else
+            printf 'Changed files:\n%s\n' "$changed"
+            android="$(printf '%s\n' "$changed" | bash scripts/ci-android-affected.sh)"
+          fi
+          echo "android=$android" >> "$GITHUB_OUTPUT"
+          echo "Android jobs needed: $android" >> "$GITHUB_STEP_SUMMARY"
+
   # GOV-1: review the dependency changes a PR introduces against the Advisory DB /
   # OSV before it can merge. Only critical vulnerabilities fail the job — high and
   # below stay visible in the summary without blocking, matching the existing
@@ -39,6 +74,8 @@ jobs:
           fail-on-severity: critical
 
   android:
+    needs: changes
+    if: needs.changes.outputs.android == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -124,6 +161,8 @@ jobs:
   # broken Hilt graph, which compiles cleanly and only fails at runtime. Both
   # existed unrun until now, so neither could have caught a regression.
   instrumentation:
+    needs: changes
+    if: needs.changes.outputs.android == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -265,6 +304,8 @@ jobs:
   # Real Android Firebase SDK + durable recovery journal, with production rules.
   # Robolectric uses localhost; this job needs no AVD or KVM.
   android_recovery_integration:
+    needs: changes
+    if: needs.changes.outputs.android == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -357,7 +398,7 @@ jobs:
   # Legacy commit-status API stays "pending" with zero statuses when only
   # check-runs exist, so publish a combined status for compatible clients.
   status:
-    needs: [android, android_recovery_integration, instrumentation, web, rules, telemetry, browser_security, workflow_validation]
+    needs: [changes, android, android_recovery_integration, instrumentation, web, rules, telemetry, browser_security, workflow_validation]
     if: |
       always() && (
         github.event_name != 'pull_request' ||
@@ -371,13 +412,29 @@ jobs:
       - name: Report combined commit status
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          ANDROID_NEEDED: ${{ needs.changes.outputs.android }}
         run: |
           state=success
-          for result in "${{ needs.android.result }}" "${{ needs.android_recovery_integration.result }}" "${{ needs.instrumentation.result }}" "${{ needs.web.result }}" "${{ needs.rules.result }}" "${{ needs.telemetry.result }}" "${{ needs.browser_security.result }}" "${{ needs.workflow_validation.result }}"; do
+          # Always required.
+          for result in "$CHANGES_RESULT" "${{ needs.web.result }}" "${{ needs.rules.result }}" "${{ needs.telemetry.result }}" "${{ needs.browser_security.result }}" "${{ needs.workflow_validation.result }}"; do
             if [ "$result" != "success" ]; then
               state=failure
               break
             fi
+          done
+          # The Android jobs may be skipped, but only because `changes` ran cleanly and
+          # said this change cannot reach the Android app. A skip for any other reason
+          # (e.g. `changes` failed and its output is empty) still fails.
+          for result in "${{ needs.android.result }}" "${{ needs.android_recovery_integration.result }}" "${{ needs.instrumentation.result }}"; do
+            if [ "$result" = "success" ]; then
+              continue
+            fi
+            if [ "$result" = "skipped" ] && [ "$CHANGES_RESULT" = "success" ] && [ "$ANDROID_NEEDED" = "false" ]; then
+              continue
+            fi
+            state=failure
+            break
           done
 
           # The legacy commit-status API caps "description" at 140 characters — a
@@ -399,8 +456,11 @@ jobs:
           {
             echo "### Combined CI status: $state"
             echo
+            echo "Android jobs needed for this change: ${ANDROID_NEEDED:-unknown}"
+            echo
             echo "| Job | Result |"
             echo "|---|---|"
+            echo "| changes | $CHANGES_RESULT |"
             echo "| android | ${{ needs.android.result }} |"
             echo "| android_recovery_integration | ${{ needs.android_recovery_integration.result }} |"
             echo "| instrumentation | ${{ needs.instrumentation.result }} |"
