@@ -4609,6 +4609,9 @@
   max-width: 100%;
   white-space: normal;
   overflow-wrap: anywhere;
+  /* These chips carry category names the user typed; .btn's lowercase would show
+     "BVG" as "bvg" here and nowhere else. User text is never case-transformed. */
+  text-transform: none;
 }
 .category-budgets progress {
   width: 100%;
