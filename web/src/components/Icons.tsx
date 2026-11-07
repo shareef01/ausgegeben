@@ -34,6 +34,9 @@ import {
   Upload,
   AlertTriangle,
   RefreshCw,
+  Pause,
+  Play,
+  Repeat,
 } from 'lucide-react';
 
 /** Consistent stroke for all UI chrome icons */
@@ -177,4 +180,16 @@ export function IconAlertTriangle(props: IconProps) {
 
 export function IconRefreshCw(props: IconProps) {
   return <RefreshCw strokeWidth={STROKE} {...props} />;
+}
+
+export function IconPause(props: IconProps) {
+  return <Pause strokeWidth={STROKE} {...props} />;
+}
+
+export function IconPlay(props: IconProps) {
+  return <Play strokeWidth={STROKE} {...props} />;
+}
+
+export function IconRepeat(props: IconProps) {
+  return <Repeat strokeWidth={STROKE} {...props} />;
 }

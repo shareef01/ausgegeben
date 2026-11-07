@@ -1,6 +1,257 @@
-.recurring-panel { background: var(--color-surface); color: var(--color-on-surface); padding: 24px; border-radius: 24px; width: min(640px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; }
-.recurring-form { display: grid; gap: 12px; margin-block: 16px; }
-.recurring-form label { display: grid; gap: 4px; }
-.recurring-form input, .recurring-form select { min-height: 48px; width: 100%; background: var(--color-surface-variant); color: var(--color-on-surface); border: 1px solid var(--color-outline); border-radius: 8px; padding: 8px; }
-.recurring-row { padding-block: 16px; border-bottom: 1px solid var(--color-outline); }
-.recurring-panel button { min-height: 48px; margin: 4px; }
+/* ═══════════════════════════════════════════════════
+ *  RECURRING TRANSACTIONS
+ *  The list panel and the editor are built on the add-transaction dialog (.add-txn and its
+ *  header / body / footer, fields, category tiles). Only what that dialog has no part for
+ *  lives here: the list rows, the schedule fields and the panel's single-column width.
+ *  ═══════════════════════════════════════════════════ */
+
+/* The list stays one readable column at every width; the editor keeps the add dialog's
+   two-column desktop layout. */
+.add-txn.recurring-panel {
+  max-width: 34rem;
+}
+
+.recurring-panel .recurring-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.recurring-panel__intro {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--color-on-surface-variant);
+}
+
+.recurring-panel__new {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.recurring-blocked {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--color-on-surface-variant);
+  background: color-mix(in srgb, var(--color-on-surface) 6%, transparent);
+}
+
+.recurring-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px 10px 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--color-expense) 35%, transparent);
+  background: color-mix(in srgb, var(--color-expense) 10%, transparent);
+}
+
+.recurring-alert__text {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--color-expense-text);
+}
+
+.recurring-alert__action {
+  flex-shrink: 0;
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--color-expense) 40%, transparent);
+  background: transparent;
+  color: var(--color-expense-text);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.recurring-alert__action:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.recurring-alert__action:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+/* ── List ── same surface as a Settings group */
+.recurring-list {
+  list-style: none;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-outline) 45%, transparent);
+}
+
+.recurring-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 8px 10px 10px;
+  border-radius: 12px;
+}
+
+.recurring-item + .recurring-item {
+  border-top: 1px solid color-mix(in srgb, var(--color-outline) 35%, transparent);
+  border-radius: 0;
+}
+
+.recurring-item > .category-icon-tile {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.recurring-item--paused > .category-icon-tile,
+.recurring-item--paused .recurring-item__top {
+  opacity: 0.55;
+}
+
+.recurring-item__main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.recurring-item__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.recurring-item__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--color-on-surface);
+}
+
+.recurring-item__amount {
+  flex-shrink: 0;
+  font-size: 0.9375rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.recurring-item__amount--expense {
+  color: var(--color-expense-text);
+}
+
+.recurring-item__amount--income {
+  color: var(--color-income-text);
+}
+
+.recurring-item__amount--transfer {
+  color: var(--color-transfer-text);
+}
+
+.recurring-item__meta {
+  margin-top: 2px;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--color-on-surface-variant);
+}
+
+.recurring-item--paused .recurring-item__status {
+  font-weight: 700;
+  color: var(--color-on-surface);
+}
+
+.recurring-item__actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
+}
+
+.icon-btn.recurring-item__action {
+  border-color: transparent;
+  background: transparent;
+}
+
+.recurring-item__action:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+/* A phone has room for the name or the actions, not both on one line: actions drop below. */
+@media (max-width: 479px) {
+  .recurring-item {
+    flex-wrap: wrap;
+  }
+
+  .recurring-item__main {
+    flex-basis: calc(100% - 52px);
+  }
+
+  .recurring-item__actions {
+    width: 100%;
+    justify-content: flex-end;
+    margin-top: -4px;
+  }
+}
+
+/* ── Editor: schedule fields, in the add dialog's "date" slot ── */
+.recurring-schedule {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.recurring-schedule__repeat {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.field__input.recurring-schedule__interval {
+  flex: 0 0 4rem;
+  width: 4rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.segmented.recurring-schedule__unit {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.recurring-schedule__dates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.recurring-schedule__zone {
+  margin: -0.25rem 0 0;
+  font-size: 0.75rem;
+  color: var(--color-on-surface-variant);
+}
+
+/* The editor is taller than the add dialog, so on a phone its body scrolls. Its fields must
+   then keep their height: shrunk flex items let the category rail spill over the note. */
+.recurring-editor .add-txn__body > * {
+  flex-shrink: 0;
+}
+
+.recurring-schedule__dates .field__input {
+  padding-inline: 12px;
+}
