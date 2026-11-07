@@ -1,6 +1,7 @@
 import { useMemo, useState, memo, useCallback, type CSSProperties } from 'react';
 import { EmptyState, LoadingListSkeleton, PageTitle, CategoryIconTile } from '@/components/ui';
-import { IconSearch, IconClose, IconArrowUp, IconArrowDown, IconTransfer, IconRecord, IconChevronDown, IconCheck } from '@/components/Icons';
+import { IconSearch, IconClose, IconArrowUp, IconArrowDown, IconTransfer, IconRecord, IconCheck } from '@/components/Icons';
+import { SlidersHorizontal } from 'lucide-react';
 import { IosSegmentedControl } from '@/components/IosSegmentedControl';
 import { FinanceSummaryCard } from '@/components/FinanceSummaryCard';
 import { BudgetProgressBar } from '@/components/BudgetProgressBar';
@@ -126,30 +127,36 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
 
         <aside className="sidebar-panel">
           <div className="widget-stack">
-            <FinanceSummaryCard expenses={uiState.summaryExpenses} currency={currency} periodLabel={periodLabel} />
+            {/* The month's top category rides inside the summary card: as a card of its own
+                it pushed the transaction list another ~120px down on phones. */}
+            <FinanceSummaryCard
+              expenses={uiState.summaryExpenses}
+              currency={currency}
+              periodLabel={periodLabel}
+              footnote={uiState.topExpenseCategoryName ? (
+                <p className="record-most-spent" role="status">
+                  <span className="record-most-spent__name">
+                    {t('recordMostSpentOn', { name: uiState.topExpenseCategoryName })}
+                  </span>
+                  {topShare ? (
+                    <span className="record-most-spent__detail">
+                      {t('recordMostSpentShare', {
+                        amount: formatAmount(topShare.amount, currency),
+                        percent: new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 }).format(topShare.share),
+                      })}
+                    </span>
+                  ) : null}
+                </p>
+              ) : null}
+            />
 
             {uiState.monthlyBudget && viewingCurrentMonth ? (
               <BudgetProgressBar spent={monthSpent} budget={uiState.monthlyBudget} currency={currency} />
             ) : null}
-
-            {uiState.topExpenseCategoryName ? (
-              <p className="record-most-spent" role="status">
-                <span className="record-most-spent__name">
-                  {t('recordMostSpentOn', { name: uiState.topExpenseCategoryName })}
-                </span>
-                {topShare ? (
-                  <span className="record-most-spent__detail">
-                    {t('recordMostSpentShare', {
-                      amount: formatAmount(topShare.amount, currency),
-                      percent: new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 }).format(topShare.share),
-                    })}
-                  </span>
-                ) : null}
-              </p>
-            ) : null}
           </div>
 
           <div className="card record-filters">
+            {isDesktop || filtersActive ? (
             <div className="record-filters-header">
               <div className="record-filters-header__title">
                 <span>{t('filterTitle')}</span>
@@ -170,16 +177,35 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
                 </button>
               )}
             </div>
+            ) : null}
 
-            <PremiumPeriodSelector
-              options={periodOptions}
-              selected={selectedPeriod}
-              labelFor={(o) => o.label}
-              isSelected={(a, b) => a.key === b.key}
-              onSelected={(o) => setListPeriod(o.key)}
-            />
+            <div className="record-filters__period-row">
+              <PremiumPeriodSelector
+                options={periodOptions}
+                selected={selectedPeriod}
+                labelFor={(o) => o.label}
+                isSelected={(a, b) => a.key === b.key}
+                onSelected={(o) => setListPeriod(o.key)}
+              />
+              {!isDesktop ? (
+                <button
+                  type="button"
+                  className={`record-filters-toggle record-filters-toggle--icon${advancedOpen ? ' record-filters-toggle--open' : ''}`}
+                  aria-expanded={advancedOpen}
+                  aria-controls="record-advanced-filters"
+                  aria-label={advancedOpen ? t('recordHideFilters') : t('recordShowFilters')}
+                  title={advancedOpen ? t('recordHideFilters') : t('recordShowFilters')}
+                  onClick={() => {
+                    haptics.light();
+                    setAdvancedOpen((open) => !open);
+                  }}
+                >
+                  <SlidersHorizontal width={20} height={20} aria-hidden />
+                </button>
+              ) : null}
+            </div>
 
-            <hr className="record-filters__divider" />
+            {isDesktop ? <hr className="record-filters__divider" /> : null}
 
             <div className={`record-search relative ${searchFocused ? 'record-search--focused' : ''}`}>
               <IconSearch
@@ -210,30 +236,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
               )}
             </div>
 
-            <hr className="record-filters__divider" />
-
-            {!isDesktop ? (
-              <button
-                type="button"
-                className="record-filters-toggle"
-                aria-expanded={advancedOpen}
-                aria-controls="record-advanced-filters"
-                onClick={() => {
-                  haptics.light();
-                  setAdvancedOpen((open) => !open);
-                }}
-              >
-                <span className="record-filters-toggle__label">
-                  {advancedOpen ? t('recordHideFilters') : t('recordShowFilters')}
-                </span>
-                <IconChevronDown
-                  className={`record-filters-toggle__chevron${advancedOpen ? ' record-filters-toggle__chevron--open' : ''}`}
-                  width={16}
-                  height={16}
-                  aria-hidden
-                />
-              </button>
-            ) : null}
+            {isDesktop ? <hr className="record-filters__divider" /> : null}
 
             <div
               id="record-advanced-filters"

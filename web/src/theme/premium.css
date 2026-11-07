@@ -641,3 +641,44 @@
   .settings-grid > :nth-child(3) { grid-column: 3; grid-row: 1 / span 2; }
   .settings-grid > :nth-child(4) { grid-column: 1; grid-row: 2; }
 }
+
+/* ── Top category inside the summary card ──
+   It used to be a card of its own under the summary; inside the card it is one
+   quiet line and no longer pushes the transaction list down on phones. */
+.finance-summary-card__footnote {
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--color-outline) 30%, transparent);
+  text-align: center;
+}
+
+.finance-summary-card__footnote .record-most-spent {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+/* ── Period + filter toggle share one row on phones ── */
+.record-filters__period-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.record-filters__period-row > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.record-filters-toggle--icon {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 52px;
+  justify-content: center;
+  padding: 0 14px;
+}
+
+.record-filters-toggle--open {
+  color: var(--color-income);
+  border-color: color-mix(in srgb, var(--color-income) 45%, transparent);
+}

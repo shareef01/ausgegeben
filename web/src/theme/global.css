@@ -445,6 +445,19 @@ input[type='number'] {
   }
 }
 
+/* Phones: the header holds only the logo (nav and "add" are the floating tab bar), so it
+   cost ~55px above the content and repeated the page title's job. Hide it and keep the
+   notch clearance it carried. */
+@media (max-width: 767px) {
+  .app-header {
+    display: none;
+  }
+
+  .app-shell__main {
+    padding-top: max(8px, var(--safe-top, 0px));
+  }
+}
+
 .app-header__nav-item:focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
