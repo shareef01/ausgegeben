@@ -21,6 +21,7 @@ import com.aus.ausgegeben.util.computeCashFlowTrend
 import com.aus.ausgegeben.util.computeCategoryMovers
 import com.aus.ausgegeben.util.computePeriodComparison
 import com.aus.ausgegeben.util.computeSpendingPace
+import com.aus.ausgegeben.util.isComparisonToDate
 import com.aus.ausgegeben.util.previousPeriodRange
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -54,6 +55,8 @@ data class InsightsUiState(
     val transfersByCategory: Map<Category, Double> = emptyMap(),
     val cashFlowTrend: List<CashFlowPoint> = emptyList(),
     val comparison: PeriodComparison? = null,
+    /** True when the month is still in progress and the prior period is cut to the same days. */
+    val comparisonToDate: Boolean = false,
     val pace: SpendingPace? = null,
     val categoryMovers: List<CategoryMover> = emptyList(),
     val allTimeAverages: AllTimeAverages? = null,
@@ -292,6 +295,7 @@ internal fun buildInsightsState(
         transfersByCategory = mapTotals(transferTotals),
         cashFlowTrend = scoped.computeCashFlowTrend(periodKey, nowMillis),
         comparison = comparison,
+        comparisonToDate = isComparisonToDate(periodKey, nowMillis),
         pace = pace,
         categoryMovers = categoryMovers,
         allTimeAverages = allTimeAverages,

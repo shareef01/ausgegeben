@@ -89,7 +89,7 @@ export function analyticsDateRangeMillis(storageKey: string, now = Date.now()): 
 export function previousPeriodRange(
   storageKey: string,
   now = Date.now(),
-): { storageKey: string; rangeMillis: [number, number] } | null {
+): { storageKey: string; rangeMillis: [number, number]; toDate: boolean } | null {
   if (storageKey === 'all_time') return null;
   const normalized = normalizeAnalyticsPeriodKey(storageKey, now);
   if (!normalized.startsWith('month:')) return null;
@@ -99,9 +99,18 @@ export function previousPeriodRange(
   const priorYear = m === 1 ? y - 1 : y;
   const priorMonth = m === 1 ? 12 : m - 1;
   const priorKey = monthStorageKey(priorYear, priorMonth - 1);
+  const priorRange = monthRange(priorYear, priorMonth - 1);
+  // A month still in progress is compared with the same days of the prior month
+  // (1–7 Nov vs 1–7 Oct), not the whole prior month — otherwise every early-month
+  // view reports a large drop in spending that hasn't happened.
+  const today = new Date(now);
+  const inProgress = today.getFullYear() === y && today.getMonth() === m - 1;
+  if (!inProgress) return { storageKey: priorKey, rangeMillis: priorRange, toDate: false };
+  const sameDayEnd = new Date(priorYear, priorMonth - 1, today.getDate() + 1, 0, 0, 0, 0).getTime();
   return {
     storageKey: priorKey,
-    rangeMillis: monthRange(priorYear, priorMonth - 1),
+    rangeMillis: [priorRange[0], Math.min(sameDayEnd, priorRange[1])],
+    toDate: true,
   };
 }
 

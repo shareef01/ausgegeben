@@ -1,8 +1,10 @@
 package com.aus.ausgegeben.util
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Calendar
 import java.util.TimeZone
@@ -98,5 +100,40 @@ class PeriodUtilsTest {
         // All time and invalid
         assertNull(previousPeriodRange("all_time"))
         assertNull(previousPeriodRange("invalid"))
+    }
+
+    private fun millis(year: Int, month: Int, day: Int, hour: Int = 0): Long =
+        Calendar.getInstance().apply {
+            set(year, month, day, hour, 0, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+    @Test
+    fun previousPeriodRange_cutsPriorMonthToSameDaysWhileMonthInProgress() {
+        // 15 June: compare 1–15 June with 1–15 May, not with all of May.
+        val now = millis(2026, Calendar.JUNE, 15, 12)
+        val prior = previousPeriodRange("this_month", now)!!
+        assertEquals(millis(2026, Calendar.MAY, 1), prior.second.first)
+        assertEquals(millis(2026, Calendar.MAY, 16), prior.second.second)
+        assertEquals(prior, previousPeriodRange("month:2026-06", now))
+        assertTrue(isComparisonToDate("this_month", now))
+    }
+
+    @Test
+    fun previousPeriodRange_keepsWholePriorMonthForFinishedMonth() {
+        val now = millis(2026, Calendar.JUNE, 15, 12)
+        val prior = previousPeriodRange("month:2026-05", now)!!
+        assertEquals(millis(2026, Calendar.APRIL, 1) to millis(2026, Calendar.MAY, 1), prior.second)
+        assertFalse(isComparisonToDate("month:2026-05", now))
+        assertFalse(isComparisonToDate("last_month", now))
+        assertFalse(isComparisonToDate("all_time", now))
+    }
+
+    @Test
+    fun previousPeriodRange_capsToDateRangeAtEndOfShorterPriorMonth() {
+        // 31 March vs February: the whole of February, not spilling into March.
+        val now = millis(2026, Calendar.MARCH, 31, 18)
+        val prior = previousPeriodRange("this_month", now)!!
+        assertEquals(millis(2026, Calendar.FEBRUARY, 1) to millis(2026, Calendar.MARCH, 1), prior.second)
     }
 }

@@ -120,6 +120,8 @@ export interface InsightsUiState {
   transfersByCategory: Map<string, number>;
   cashFlowTrend: CashFlowPoint[];
   comparison?: PeriodComparison | null;
+  /** True when the month is still in progress and the prior period is cut to the same days. */
+  comparisonToDate?: boolean;
   pace?: SpendingPace | null;
   categoryMovers?: CategoryMover[];
   allTimeAverages?: AllTimeAverages | null;

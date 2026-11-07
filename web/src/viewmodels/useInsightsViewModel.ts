@@ -226,6 +226,7 @@ export function useInsightsViewModel() {
       transfersByCategory,
       cashFlowTrend: computeCashFlowTrend(expenses, periodKey),
       comparison,
+      comparisonToDate: priorPeriod?.toDate ?? false,
       pace,
       categoryMovers,
       allTimeAverages,
@@ -236,6 +237,7 @@ export function useInsightsViewModel() {
   }, [
     expenses,
     priorExpenses,
+    priorPeriod,
     categories,
     range,
     monthlyBudget,

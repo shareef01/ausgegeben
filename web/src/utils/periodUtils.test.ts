@@ -117,4 +117,27 @@ describe('periodUtils', () => {
     expect(previousPeriodRange('all_time', JUNE_2026)).toBeNull();
     expect(previousPeriodRange('this_month', JUNE_2026)?.storageKey).toBe('month:2026-05');
   });
+
+  it('previousPeriodRange cuts the prior month to the same days while the month is in progress', () => {
+    // 15 June: compare 1–15 June with 1–15 May, not with all of May.
+    const prior = previousPeriodRange('this_month', JUNE_2026)!;
+    expect(prior.toDate).toBe(true);
+    expect(prior.rangeMillis[0]).toBe(new Date(2026, 4, 1).getTime());
+    expect(prior.rangeMillis[1]).toBe(new Date(2026, 4, 16).getTime());
+    expect(previousPeriodRange('month:2026-06', JUNE_2026)!.rangeMillis[1]).toBe(new Date(2026, 4, 16).getTime());
+  });
+
+  it('previousPeriodRange keeps the whole prior month for a finished month', () => {
+    const prior = previousPeriodRange('month:2026-05', JUNE_2026)!;
+    expect(prior.toDate).toBe(false);
+    expect(prior.rangeMillis).toEqual([new Date(2026, 3, 1).getTime(), new Date(2026, 4, 1).getTime()]);
+  });
+
+  it('previousPeriodRange caps the to-date range at the end of a shorter prior month', () => {
+    // 31 March vs February: the whole of February, not spilling into March.
+    const mar31 = new Date(2026, 2, 31, 18, 0).getTime();
+    const prior = previousPeriodRange('this_month', mar31)!;
+    expect(prior.toDate).toBe(true);
+    expect(prior.rangeMillis).toEqual([new Date(2026, 1, 1).getTime(), new Date(2026, 2, 1).getTime()]);
+  });
 });
