@@ -179,4 +179,7 @@ export function sanitizeAmountInput(raw: string, currency = 'EUR'): string {
   return `${integerPart || '0'}${sep}${decimalPart}`;
 }
 
-
+/** The amount field's "0,00" / "0.00" placeholder (add-transaction and recurring editor). */
+export function amountPlaceholder(currency: string): string {
+  return `0${decimalSeparatorFor(currency)}00`;
+}

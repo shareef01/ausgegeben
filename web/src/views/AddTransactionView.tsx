@@ -5,7 +5,7 @@ import { SignatureText } from '@/components/ui';
 import { CategoryLucideIcon } from '@/components/CategoryLucideIcon';
 import { IosSegmentedControl } from '@/components/IosSegmentedControl';
 import { IconCheck, IconClose } from '@/components/Icons';
-import { colorIntToHex, currencySymbol } from '@/utils/currency';
+import { amountPlaceholder, colorIntToHex, currencySymbol } from '@/utils/currency';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useToastStore } from '@/services/toastStore';
 import { useRef, useEffect, useCallback, useState, type ReactNode } from 'react';
@@ -147,7 +147,7 @@ export function AddTransactionView({
                 id="txn-amount"
                 ref={amountInputRef}
                 className="field__input add-txn__amount-input"
-                placeholder={zeroPlaceholder(currency)}
+                placeholder={amountPlaceholder(currency)}
                 inputMode="decimal"
                 value={vm.form.amountInput}
                 onChange={(e) => vm.setAmountInput(e.target.value)}
@@ -290,19 +290,12 @@ export function AddTransactionView({
   );
 }
 
-function CatIcon({ color, children }: { color: string; children: ReactNode }) {
+/** A category tile's coloured icon; shared with the recurring-transaction editor. */
+export function CatIcon({ color, children }: { color: string; children: ReactNode }) {
   const ref = useCssProps<HTMLSpanElement>({ '--cat-color': color });
   return (
     <span ref={ref} className="add-txn__cat-icon">
       {children}
     </span>
   );
-}
-
-function decimalSep(currency: string): string {
-  return currency === 'EUR' ? ',' : '.';
-}
-
-function zeroPlaceholder(currency: string): string {
-  return `0${decimalSep(currency)}00`;
 }

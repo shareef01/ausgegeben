@@ -3,8 +3,8 @@ import { useEffect } from 'react';
 import { useAuthStore } from './authStore';
 import { recurringRepository, type RecurringIssue } from './recurringRepository';
 import type { RecurringTemplate } from './recurrence';
-interface State { owner: string | null; rows: RecurringTemplate[]; incomplete: boolean; error: boolean; syncing: boolean; issues: RecurringIssue[]; quarantined: boolean }
-export const useRecurringStore = create<State>(() => ({owner:null,rows:[],incomplete:true,error:false,syncing:false,issues:[],quarantined:false}));
+interface State { owner: string | null; rows: RecurringTemplate[]; /** The first snapshot for `owner` has arrived (tells "loading" from "empty"). */ loaded: boolean; incomplete: boolean; error: boolean; syncing: boolean; issues: RecurringIssue[]; quarantined: boolean }
+export const useRecurringStore = create<State>(() => ({owner:null,rows:[],loaded:false,incomplete:true,error:false,syncing:false,issues:[],quarantined:false}));
 let flight: { owner: string; promise: Promise<void> } | null = null;
 export function syncRecurring(): Promise<void> {
   const user=useAuthStore.getState().user;
@@ -36,12 +36,12 @@ export function useRecurringSync() {
   const uid=user?.uid;
   const emailVerified=user?.emailVerified;
   useEffect(()=>{
-    useRecurringStore.setState({owner:uid??null,rows:[],incomplete:true,error:false,syncing:false,issues:[],quarantined:false});
+    useRecurringStore.setState({owner:uid??null,rows:[],loaded:false,incomplete:true,error:false,syncing:false,issues:[],quarantined:false});
     if(!uid) return;
-    const stop=recurringRepository.observe(uid,(rows,incomplete,error)=>useRecurringStore.setState({owner:uid,rows,incomplete,error}));
+    const stop=recurringRepository.observe(uid,(rows,incomplete,error)=>useRecurringStore.setState({owner:uid,rows,loaded:true,incomplete,error}));
     const online=()=>{void syncRecurring();};
     const visible=()=>{if(document.visibilityState==='visible') online();};
     online(); window.addEventListener('online',online); document.addEventListener('visibilitychange',visible);
-    return ()=>{stop();window.removeEventListener('online',online);document.removeEventListener('visibilitychange',visible);useRecurringStore.setState({owner:null,rows:[],incomplete:true,error:false,syncing:false});};
+    return ()=>{stop();window.removeEventListener('online',online);document.removeEventListener('visibilitychange',visible);useRecurringStore.setState({owner:null,rows:[],loaded:false,incomplete:true,error:false,syncing:false});};
   },[uid,emailVerified]);
 }
