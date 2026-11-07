@@ -79,6 +79,29 @@ export function topExpenseCategoryName(
   return name?.trim() ? name : null;
 }
 
+/**
+ * Amount and share of spending for the top expense category — the same pick as
+ * [topExpenseCategoryName] (first category with the strictly highest total).
+ */
+export function topExpenseCategoryShare(
+  expenses: Expense[],
+): { amount: number; share: number } | null {
+  const totals = new Map<string, number>();
+  let allMinor = 0;
+  for (const e of expenses) {
+    if (!isExpense(e)) continue;
+    const minor = toMinorUnits(e.amount);
+    allMinor += minor;
+    totals.set(e.categoryId, (totals.get(e.categoryId) ?? 0) + minor);
+  }
+  let bestAmount = 0;
+  for (const amount of totals.values()) {
+    if (amount > bestAmount) bestAmount = amount;
+  }
+  if (bestAmount <= 0 || allMinor <= 0) return null;
+  return { amount: fromMinorUnits(bestAmount), share: bestAmount / allMinor };
+}
+
 export function groupByCategory(expenses: Expense[], type: Expense['transactionType']): Map<string, number> {
   const map = new Map<string, number>();
   for (const e of expenses) {

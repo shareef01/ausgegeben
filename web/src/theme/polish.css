@@ -424,34 +424,59 @@
   flex: 0 0 auto;
 }
 
-.fab-add--desktop {
-  display: flex;
-  position: fixed;
-  z-index: 50;
-  /* Align to app-frame column */
-  right: max(1.5rem, calc((100vw - var(--app-max-width, 1360px)) / 2 + 2rem));
-  bottom: 2rem;
-  width: 3.25rem;
-  height: 3.25rem;
-  border-radius: 999px;
+/* Desktop "add" button — sits in the header after the nav pill. */
+.app-header__add {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: filter 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  gap: 8px;
+  flex: 0 0 auto;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  transition: filter 0.2s ease, transform 0.2s ease;
 }
 
-.fab-add--desktop:hover {
+/* Calmer glow than the mobile FAB: in the header it sits beside the nav, not over content. */
+.app-header .app-header__add {
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--color-income) 28%, transparent);
+}
+
+:root[data-theme-name='lavender'] .app-header .app-header__add,
+:root[data-theme-name='soft_light'] .app-header .app-header__add {
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--color-accent) 28%, transparent);
+}
+
+.app-header__add:hover {
   filter: brightness(1.08);
-  transform: translateY(-2px);
 }
 
-.fab-add--desktop:active {
-  transform: scale(0.94);
+.app-header__add:active {
+  transform: scale(0.96);
+}
+
+.app-header__add:focus-visible {
+  outline: 2px solid var(--color-income);
+  outline-offset: 3px;
+}
+
+.app-header__add-label {
+  display: none;
+  white-space: nowrap;
 }
 
 @media (min-width: 1024px) {
-  .fab-add--desktop {
-    right: max(2rem, calc((100vw - var(--app-max-width, 1360px)) / 2 + 2.5rem));
-    bottom: 2.5rem;
+  .app-header__add {
+    width: auto;
+    height: 52px;
+    padding: 0 20px 0 16px;
+  }
+
+  .app-header__add-label {
+    display: inline;
   }
 }
 

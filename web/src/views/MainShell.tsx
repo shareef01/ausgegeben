@@ -162,7 +162,21 @@ export function MainShell() {
           </button>
 
           {isDesktop ? (
-            <DesktopHeaderNav tab={tab} navItems={navItems} onSelect={selectTab} label={t('navMain')} />
+            <>
+              <DesktopHeaderNav tab={tab} navItems={navItems} onSelect={selectTab} label={t('navMain')} />
+              {/* Desktop "add" lives in the header: a floating button over a mouse-driven list
+                  only ever covered rows and their ⋯ menus. */}
+              <button
+                type="button"
+                className="fab-add app-header__add"
+                aria-label={t('navAdd')}
+                title={t('navAdd')}
+                onClick={() => setTxnOverlay({ type: 'add' })}
+              >
+                <IconAdd width={20} height={20} strokeWidth={2.5} aria-hidden />
+                <span className="app-header__add-label" aria-hidden>{t('navAdd')}</span>
+              </button>
+            </>
           ) : null}
         </header>
 
@@ -263,16 +277,7 @@ export function MainShell() {
             <IconAdd width={22} height={22} strokeWidth={2.5} aria-hidden />
           </button>
         </div>
-      ) : (
-        <button
-          type="button"
-          className="fab-add fab-add--desktop"
-          aria-label={t('navAdd')}
-          onClick={() => setTxnOverlay({ type: 'add' })}
-        >
-          <IconAdd width={24} height={24} strokeWidth={2.5} aria-hidden />
-        </button>
-      )}
+      ) : null}
 
       {txnOverlay ? (
         <Suspense

@@ -390,3 +390,71 @@
   background: transparent;
 }
 
+
+/* ── Most-spent card: name plus how much and what share ── */
+.record-most-spent__name,
+.record-most-spent__detail {
+  display: block;
+}
+
+.record-most-spent__detail {
+  margin-top: 2px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+/* ── Wide screens (tablet+, the sidebar layout) ──
+   Mouse-driven, so rows can be denser than the 76px touch rows; the list card and the
+   sticky day header share one corner radius so they read as a single group. */
+@media (min-width: 768px) {
+  .transaction-row {
+    padding: 10px 20px;
+  }
+
+  .transaction-list-bare__rows {
+    border-radius: 1.25rem;
+  }
+
+  .transaction-list-bare__rows .txn-row-wrap:not(:last-child)::after {
+    left: 72px; /* 20px pad + 40px icon + 12px gap */
+    right: 20px;
+  }
+
+  /* The sidebar still scrolls on its own when it is taller than the window, but without a
+     bare scrollbar track running down the middle of the page. */
+  .sidebar-panel {
+    scrollbar-width: none;
+  }
+
+  .sidebar-panel::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* The floating add button is gone on desktop, so no space needs reserving under the list. */
+  .content-col {
+    padding-bottom: 48px;
+  }
+}
+
+/* Laptop+: the note gets its own column instead of sitting under the name, so the middle of
+   a wide row carries information and the amount isn't stranded far from the label. */
+@media (min-width: 1024px) {
+  .transaction-row__meta {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+
+  .transaction-row__title {
+    flex: 0 0 11rem;
+  }
+
+  .transaction-row__sub {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin-top: 0;
+    font-size: 0.875rem;
+  }
+}
