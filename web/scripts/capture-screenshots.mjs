@@ -10,7 +10,9 @@
  * Then:
  *   node scripts/capture-screenshots.mjs
  *
- * 1280x880 at deviceScaleFactor 2 reproduces the existing 2560x1760 images.
+ * 1600x1000 at deviceScaleFactor 2 (3200x2000 images): wide enough for the
+ * three-column desktop layout, which starts at 1440px. Override the app URL with
+ * BASE=http://localhost:5183 when the dev server runs on another port.
  * Theme comes from colorScheme because the seeded preference is themeMode:
  * 'system', which the app resolves through prefers-color-scheme.
  */
@@ -21,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = join(__dirname, '..', '..', 'docs', 'screenshots', 'web');
-const BASE = 'http://localhost:5173';
+const BASE = process.env.BASE ?? 'http://localhost:5173';
 const EMAIL = 'demo@ausgegeben.app';
 const PASSWORD = 'demo-password-123';
 
@@ -47,7 +49,7 @@ async function run(scheme) {
   console.log(`[${scheme}]`);
   const browser = await chromium.launch();
   const context = await browser.newContext({
-    viewport: { width: 1280, height: 880 },
+    viewport: { width: 1600, height: 1000 },
     deviceScaleFactor: 2,
     colorScheme: scheme,
     locale: 'en-DE',

@@ -40,7 +40,7 @@ I built Ausgegeben because I wanted a fast, private, and distraction-free tool t
   </picture>
 </p>
 
-*Screenshots are generated automatically from clean demo accounts using local Firebase emulators.*
+*Screenshots are generated automatically from clean demo accounts using local Firebase emulators. The web shots are taken at 1600×1000, where the record page switches to its three-column desktop layout.*
 
 ---
 
@@ -54,6 +54,7 @@ I built Ausgegeben because I wanted a fast, private, and distraction-free tool t
 - **Safe Backup & Restore:** Export and import versioned, integrity-checked JSON backups with automatic safety snapshots before destructive replace operations.
 - **Privacy & Security:** Zero third-party ad networks, no analytics trackers, and strict Firebase security rules that enforce complete account isolation.
 - **Localization & Themes:** Supports English and German, multiple display currencies (EUR, USD, GBP, CHF), and light, dark, and OLED themes.
+- **Built for Every Screen Size:** On the web the layout adapts from a single column on phones to a three-column desktop view (summary, transactions, filters) that keeps the totals and filters in view while you scroll.
 - **Android Reminders:** Configurable daily notification reminders powered by Android WorkManager.
 
 ---
@@ -63,10 +64,10 @@ I built Ausgegeben because I wanted a fast, private, and distraction-free tool t
 | Layer | Technologies | Highlights |
 |---|---|---|
 | **Android Client** | Kotlin, Jetpack Compose, Material 3, Hilt, WorkManager, DataStore | Modern declarative UI, single-activity architecture, offline persistence, and signed release builds. |
-| **Web Client** | React 19, TypeScript, Vite, Zustand | Mobile-first responsive PWA, custom accessible UI components, and fast cold-start performance. |
+| **Web Client** | React 19, TypeScript, Vite, Zustand | Responsive PWA from phone to wide desktop, custom accessible UI components, and fast cold-start performance. |
 | **Backend & Sync** | Firebase Authentication, Cloud Firestore | Serverless Spark architecture; isolated per-user document trees secured by fine-grained Firestore security rules. |
 | **Shared Contracts** | Cross-platform JSON test fixtures | Shared mathematical parity suites (`testdata/money-parity.json`) verify identical rounding and validation logic across Kotlin and TypeScript. |
-| **CI / CD** | GitHub Actions | Automated linting, unit tests, CSS token validation, Android compilation, and release packaging pinned by commit SHAs. |
+| **CI / CD** | GitHub Actions | Automated linting, unit tests, CSS token validation, Android compilation, and release packaging pinned by commit SHAs. Web-only and docs-only pull requests skip the Android build and emulator tests; every tagged release re-runs all of them. |
 
 ---
 
@@ -75,7 +76,8 @@ I built Ausgegeben because I wanted a fast, private, and distraction-free tool t
 ```text
 ┌─────────────────────────┐          ┌─────────────────────────┐
 │     Android Client      │          │     React Web (PWA)     │
-│ (Kotlin, Compose, Hilt) │          │ (TypeScript, Vite, Zsd) │
+│ (Kotlin, Compose, Hilt) │          │  (TypeScript, Vite,     │
+│                         │          │   Zustand)              │
 └────────────┬────────────┘          └────────────┬────────────┘
              │                                    │
              │   Firestore SDK Offline Cache      │
@@ -84,8 +86,11 @@ I built Ausgegeben because I wanted a fast, private, and distraction-free tool t
 │                    Cloud Firestore                           │
 │  users/{uid}/expenses                                        │
 │  users/{uid}/categories                                      │
-│  users/{uid}/recurringTemplates                              │
-│  users/{uid}/safetySnapshots                                 │
+│  users/{uid}/categoryBudgets                                 │
+│  users/{uid}/recurringTransactions                           │
+│  users/{uid}/recurringOccurrences                            │
+│  users/{uid}/settings/preferences                            │
+│  users/{uid}/restoreSnapshot                                 │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -130,6 +135,13 @@ npm test              # Run unit tests (Vitest)
 npm run lint          # TypeScript typecheck
 npm run lint:css      # Validate CSS class token coverage
 npm run build         # Production PWA build
+```
+
+Refresh the README web screenshots from seeded demo data (needs the Firebase emulators running):
+```bash
+node scripts/seed-demo-data.mjs
+npx vite --mode emulator --port 5173      # in a second terminal
+node scripts/capture-screenshots.mjs
 ```
 
 ### Android Setup
