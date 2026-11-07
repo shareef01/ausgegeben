@@ -119,7 +119,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
     <>
       <PageTitle text={t('screenRecord')} icon={IconRecord} />
 
-      <div className="sidebar-layout">
+      <div className="sidebar-layout sidebar-layout--record">
 
         <aside className="sidebar-panel">
           <div className="widget-stack">
