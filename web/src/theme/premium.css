@@ -458,3 +458,51 @@
     font-size: 0.875rem;
   }
 }
+
+/* ── Sticky day header is opaque ──
+   It was 88–94% see-through, so once it stuck to the top the row scrolling under it
+   showed through ("Freelance" bleeding behind "Thu, Nov 05"). */
+.txn-day-header.transaction-list-bare__day,
+[data-theme] .txn-day-header.transaction-list-bare__day {
+  background: var(--color-background);
+}
+
+/* ── Category picker on wide screens ──
+   Phones keep the swipeable one-row rail. With a mouse that rail is a trap: the scrollbar is
+   hidden, the wheel scrolls vertically, and tiles at both edges are faded and cut off, so
+   categories past the fourth were effectively unreachable. Wrap them into a grid instead. */
+@media (min-width: 768px) {
+  .add-txn__cats {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(6.25rem, 1fr));
+    gap: 10px;
+    min-height: 0; /* the phone rail's fit-content floor would otherwise beat max-height */
+    max-height: 15rem; /* two full rows plus a peek of the third, hinting there is more */
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scroll-snap-type: none;
+    mask-image: none;
+    padding: 6px 4px;
+    scrollbar-width: thin;
+  }
+
+  .add-txn__cats::-webkit-scrollbar {
+    display: block;
+    width: 6px;
+  }
+
+  .add-txn__cats::-webkit-scrollbar-thumb {
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--color-on-surface) 22%, transparent);
+  }
+
+  .add-txn__cat {
+    min-width: 0;
+    max-width: none;
+  }
+
+  .add-txn__cats-empty {
+    grid-column: 1 / -1;
+  }
+}
