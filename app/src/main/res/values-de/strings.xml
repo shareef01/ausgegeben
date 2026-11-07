@@ -375,6 +375,7 @@
 
     <!-- Smart Insights Comparison, Pace, Movers, und Durchschnitte -->
     <string name="insights_comparison_title">Ggü. Vormonat</string>
+    <string name="insights_comparison_title_to_date">Ggü. gleichen Tagen im Vormonat</string>
     <string name="insights_no_prior_period">Erster erfasster Monat</string>
     <string name="insights_favorable_less">weniger ausgegeben</string>
     <string name="insights_unfavorable_more">mehr ausgegeben</string>
@@ -389,6 +390,7 @@
     <string name="insights_month_completed">Monat abgeschlossen</string>
     <string name="insights_movers_title">Größte Veränderungen</string>
     <string name="insights_movers_subtitle">Kategorien mit den größten Abweichungen</string>
+    <string name="insights_movers_subtitle_to_date">Größte Abweichungen ggü. den gleichen Tagen im Vormonat</string>
     <string name="insights_all_time_averages_title">Monatsdurchschnitte</string>
     <string name="insights_avg_monthly_expenses">Durchschn. Ausgaben</string>
     <string name="insights_avg_monthly_income">Durchschn. Einnahmen</string>

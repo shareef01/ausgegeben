@@ -128,13 +128,13 @@ export function InsightsView({ onAdd, onManageBudgets }: { onAdd?: () => void; o
                 <div className="insights-metrics-grid">
                   {uiState.pace ? <SpendingPaceCard pace={uiState.pace} currency={currency} /> : null}
                   {uiState.comparison ? (
-                    <PeriodComparisonCard comparison={uiState.comparison} currency={currency} />
+                    <PeriodComparisonCard comparison={uiState.comparison} currency={currency} toDate={uiState.comparisonToDate ?? false} />
                   ) : null}
                 </div>
               ) : null}
 
               {uiState.categoryMovers && uiState.categoryMovers.length > 0 ? (
-                <CategoryMoversCard movers={uiState.categoryMovers} currency={currency} />
+                <CategoryMoversCard movers={uiState.categoryMovers} currency={currency} toDate={uiState.comparisonToDate ?? false} />
               ) : null}
 
               <div className="insights-breakdown">
@@ -393,14 +393,15 @@ function SpendingPaceCard({ pace, currency }: { pace: SpendingPace; currency: st
   );
 }
 
-function PeriodComparisonCard({ comparison, currency }: { comparison: PeriodComparison; currency: string }) {
+function PeriodComparisonCard({ comparison, currency, toDate }: { comparison: PeriodComparison; currency: string; toDate: boolean }) {
   const { t } = useTranslation();
+  const title = t(toDate ? 'insightsComparisonTitleToDate' : 'insightsComparisonTitle');
 
   if (!comparison.hasPriorData) {
     return (
       <div className="insights-metric-card card">
         <div className="insights-metric-card__header">
-          <span className="insights-metric-card__title">{t('insightsComparisonTitle')}</span>
+          <span className="insights-metric-card__title">{title}</span>
           <span className="insights-badge insights-badge--neutral">{t('insightsNoPriorPeriod')}</span>
         </div>
         <p className="insights-metric-card__hint">{t('billsEmptySubtitle')}</p>
@@ -424,7 +425,7 @@ function PeriodComparisonCard({ comparison, currency }: { comparison: PeriodComp
   return (
     <div className="insights-metric-card card">
       <div className="insights-metric-card__header">
-        <span className="insights-metric-card__title">{t('insightsComparisonTitle')}</span>
+        <span className="insights-metric-card__title">{title}</span>
         <span className={`insights-badge insights-badge--${expTone}`}>
           {isExpLess
             ? t('insightsFavorableLess')
@@ -462,7 +463,7 @@ function PeriodComparisonCard({ comparison, currency }: { comparison: PeriodComp
   );
 }
 
-function CategoryMoversCard({ movers, currency }: { movers: CategoryMover[]; currency: string }) {
+function CategoryMoversCard({ movers, currency, toDate }: { movers: CategoryMover[]; currency: string; toDate: boolean }) {
   const { t } = useTranslation();
   // Re-render on palette changes: segmentColor() below reads the live theme.
   useThemeRevision();
@@ -474,7 +475,7 @@ function CategoryMoversCard({ movers, currency }: { movers: CategoryMover[]; cur
       <div className="insights-movers-card__header">
         <div>
           <span className="insights-movers-card__title">{t('insightsMoversTitle')}</span>
-          <span className="insights-movers-card__subtitle">{t('insightsMoversSubtitle')}</span>
+          <span className="insights-movers-card__subtitle">{t(toDate ? 'insightsMoversSubtitleToDate' : 'insightsMoversSubtitle')}</span>
         </div>
       </div>
       <ul className="insights-movers-card__list">

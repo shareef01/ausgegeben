@@ -161,6 +161,40 @@ fun previousPeriodRange(
     storageKey: String,
     nowMillis: Long = System.currentTimeMillis()
 ): Pair<String, Pair<Long, Long>>? {
+    val (year, month) = selectedMonth(storageKey, nowMillis) ?: return null
+    val (priorYear, priorMonth) = if (month == 1) {
+        (year - 1) to 12
+    } else {
+        year to (month - 1)
+    }
+    val priorKey = monthStorageKey(priorYear, priorMonth - 1)
+    val priorRange = monthRange(priorYear, priorMonth - 1)
+    // A month still in progress is compared with the same days of the prior month
+    // (1–7 Nov vs 1–7 Oct), not the whole prior month — otherwise every early-month
+    // view reports a large drop in spending that hasn't happened. Mirrors web
+    // previousPeriodRange in periodUtils.ts.
+    if (!isComparisonToDate(storageKey, nowMillis)) return priorKey to priorRange
+    val today = Calendar.getInstance().apply { timeInMillis = nowMillis }
+    val sameDayEnd = Calendar.getInstance().apply {
+        set(priorYear, priorMonth - 1, 1, 0, 0, 0)
+        set(Calendar.MILLISECOND, 0)
+        add(Calendar.DAY_OF_MONTH, today.get(Calendar.DAY_OF_MONTH))
+    }.timeInMillis
+    return priorKey to (priorRange.first to minOf(sameDayEnd, priorRange.second))
+}
+
+/** True when [storageKey] is the month containing [nowMillis], so its comparison runs to date. */
+fun isComparisonToDate(
+    storageKey: String,
+    nowMillis: Long = System.currentTimeMillis()
+): Boolean {
+    val (year, month) = selectedMonth(storageKey, nowMillis) ?: return false
+    val today = Calendar.getInstance().apply { timeInMillis = nowMillis }
+    return today.get(Calendar.YEAR) == year && today.get(Calendar.MONTH) == month - 1
+}
+
+/** The (year, 1-based month) a month-scoped [storageKey] selects, or null for all time / invalid keys. */
+private fun selectedMonth(storageKey: String, nowMillis: Long): Pair<Int, Int>? {
     if (storageKey == AnalyticsPeriod.ALL_TIME.storageKey) return null
     val key = when (storageKey) {
         AnalyticsPeriod.THIS_MONTH.storageKey -> {
@@ -181,14 +215,7 @@ fun previousPeriodRange(
     val year = parts.getOrNull(0)?.toIntOrNull() ?: return null
     val month = parts.getOrNull(1)?.toIntOrNull() ?: return null
     if (month < 1 || month > 12) return null
-    val (priorYear, priorMonth) = if (month == 1) {
-        (year - 1) to 12
-    } else {
-        year to (month - 1)
-    }
-    val priorKey = monthStorageKey(priorYear, priorMonth - 1)
-    val priorRange = monthRange(priorYear, priorMonth - 1)
-    return priorKey to priorRange
+    return year to month
 }
 
 fun AnalyticsPeriod.displayTitle(nowMillis: Long = System.currentTimeMillis()): String = when (this) {

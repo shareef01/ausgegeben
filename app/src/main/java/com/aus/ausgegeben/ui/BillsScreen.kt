@@ -263,7 +263,8 @@ fun BillsScreen(
                                         Box(modifier = Modifier.weight(1f)) {
                                             PeriodComparisonCard(
                                                 comparison = uiState.comparison!!,
-                                                currencyCode = currencyCode
+                                                currencyCode = currencyCode,
+                                                toDate = uiState.comparisonToDate,
                                             )
                                         }
                                     }
@@ -273,7 +274,7 @@ fun BillsScreen(
                                             SpendingPaceCard(pace = it, currencyCode = currencyCode)
                                         }
                                         uiState.comparison?.let {
-                                            PeriodComparisonCard(comparison = it, currencyCode = currencyCode)
+                                            PeriodComparisonCard(comparison = it, currencyCode = currencyCode, toDate = uiState.comparisonToDate)
                                         }
                                     }
                                 }
@@ -315,7 +316,8 @@ fun BillsScreen(
                             ) {
                                 CategoryMoversCard(
                                     movers = uiState.categoryMovers,
-                                    currencyCode = currencyCode
+                                    currencyCode = currencyCode,
+                                    toDate = uiState.comparisonToDate,
                                 )
                             }
                         }
@@ -912,8 +914,10 @@ private fun SpendingPaceCard(
 private fun PeriodComparisonCard(
     comparison: PeriodComparison,
     currencyCode: String,
+    toDate: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val titleRes = if (toDate) R.string.insights_comparison_title_to_date else R.string.insights_comparison_title
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -929,7 +933,7 @@ private fun PeriodComparisonCard(
                     itemVerticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = stringResource(R.string.insights_comparison_title).uppercase(),
+                        text = stringResource(titleRes).uppercase(),
                         style = BillsAuroraTokens.labelStyle(),
                         modifier = Modifier.padding(end = AppSpacing.xs),
                     )
@@ -966,7 +970,7 @@ private fun PeriodComparisonCard(
                     itemVerticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = stringResource(R.string.insights_comparison_title).uppercase(),
+                        text = stringResource(titleRes).uppercase(),
                         style = BillsAuroraTokens.labelStyle(),
                         modifier = Modifier.padding(end = AppSpacing.xs),
                     )
@@ -1041,6 +1045,7 @@ private fun PeriodComparisonCard(
 private fun CategoryMoversCard(
     movers: List<CategoryMover>,
     currencyCode: String,
+    toDate: Boolean,
     modifier: Modifier = Modifier,
 ) {
     if (movers.isEmpty()) return
@@ -1059,7 +1064,9 @@ private fun CategoryMoversCard(
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = stringResource(R.string.insights_movers_subtitle),
+                    text = stringResource(
+                        if (toDate) R.string.insights_movers_subtitle_to_date else R.string.insights_movers_subtitle
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = BillsAuroraTokens.slate(),
                 )

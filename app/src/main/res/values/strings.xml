@@ -376,6 +376,7 @@
 
     <!-- Smart Insights Comparison, Pace, Movers, and Averages -->
     <string name="insights_comparison_title">vs previous month</string>
+    <string name="insights_comparison_title_to_date">vs same days last month</string>
     <string name="insights_no_prior_period">First recorded month</string>
     <string name="insights_favorable_less">less spent</string>
     <string name="insights_unfavorable_more">more spent</string>
@@ -390,6 +391,7 @@
     <string name="insights_month_completed">Month completed</string>
     <string name="insights_movers_title">Top shifts vs last month</string>
     <string name="insights_movers_subtitle">Categories with largest changes</string>
+    <string name="insights_movers_subtitle_to_date">Largest changes vs the same days last month</string>
     <string name="insights_all_time_averages_title">Monthly averages</string>
     <string name="insights_avg_monthly_expenses">Avg. spending</string>
     <string name="insights_avg_monthly_income">Avg. income</string>
