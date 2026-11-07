@@ -321,8 +321,15 @@ input[type='number'] {
     --nav-icon: 19px;
   }
 
+  /* From tablet width the nav and "add transaction" live in this bar; keep it in view
+     so a long Insights or Settings page never leaves the user without either. Phones
+     use the floating tab bar instead. Below overlays (z-index 200). */
   .app-header {
     min-height: 3.35rem;
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    background: var(--color-background);
   }
 }
 

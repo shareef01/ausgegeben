@@ -156,6 +156,9 @@ export function AddTransactionView({
                 aria-describedby={amountError ? formErrorId : undefined}
               />
             </div>
+            {amountError ? (
+              <p id="add-txn-error" className="add-txn__error" role="alert">{vm.error}</p>
+            ) : null}
           </div>
 
           <div className="field add-txn__field--date">
@@ -218,6 +221,9 @@ export function AddTransactionView({
                 })
               )}
             </div>
+            {categoryError ? (
+              <p id="add-txn-error" className="add-txn__error" role="alert">{vm.error}</p>
+            ) : null}
           </div>
 
           <div className="field add-txn__field--note">
@@ -231,7 +237,9 @@ export function AddTransactionView({
             />
           </div>
 
-          {vm.error ? (
+          {/* Field errors sit under their field (above); anything else, such as a failed
+              save, stays at the end of the form. */}
+          {vm.error && !amountError && !categoryError ? (
             <p id="add-txn-error" className="add-txn__error" role="alert">{vm.error}</p>
           ) : null}
         </div>
