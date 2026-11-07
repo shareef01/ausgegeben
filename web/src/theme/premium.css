@@ -422,14 +422,13 @@
     right: 20px;
   }
 
-  /* The sidebar still scrolls on its own when it is taller than the window, but without a
-     bare scrollbar track running down the middle of the page. */
+  /* The sidebar scrolls with the page instead of inside its own box. As a sticky box capped
+     at the window height it clipped at both ends (the summary card's top cut off, "sort by"
+     past the bottom) with nothing to show it had scrolled. */
   .sidebar-panel {
-    scrollbar-width: none;
-  }
-
-  .sidebar-panel::-webkit-scrollbar {
-    display: none;
+    position: static;
+    max-height: none;
+    overflow: visible;
   }
 
   /* The floating add button is gone on desktop, so no space needs reserving under the list. */
@@ -504,5 +503,55 @@
 
   .add-txn__cats-empty {
     grid-column: 1 / -1;
+  }
+}
+
+/* ── Record page, wide desktop (≥1440px): three columns ──
+   At 1920px the 1360px frame left wide empty strips on both sides, while the left column
+   was too tall to fit the window. Use the width instead: summary | transactions | filters.
+   Each side column is short enough to stay put on its own, so neither needs an inner scroll.
+   The aside becomes `display: contents`, so DOM and tab order (summary → filters → list)
+   are unchanged; only the grid placement differs. */
+@media (min-width: 1440px) {
+  :root {
+    --app-max-width: 1680px;
+  }
+
+  .sidebar-layout--record {
+    grid-template-columns: 300px minmax(0, 1fr) 320px;
+    gap: 28px;
+  }
+
+  .sidebar-layout--record > .sidebar-panel {
+    display: contents;
+  }
+
+  .sidebar-layout--record .widget-stack {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .sidebar-layout--record .record-filters {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .sidebar-layout--record > .content-col {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
+/* Only stick when the window is tall enough for the filters card; a very long expanded
+   category list still gets a visible scrollbar rather than being cut off. */
+@media (min-width: 1440px) and (min-height: 720px) {
+  .sidebar-layout--record .widget-stack,
+  .sidebar-layout--record .record-filters {
+    position: sticky;
+    top: 16px;
+    align-self: start;
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+    scrollbar-width: thin;
   }
 }
