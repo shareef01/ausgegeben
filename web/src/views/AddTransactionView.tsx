@@ -139,7 +139,7 @@ export function AddTransactionView({
             onChange={(type) => vm.setForm((f) => ({ ...f, transactionType: type }))}
           />
 
-          <div className="field">
+          <div className="field add-txn__field--amount">
             <label htmlFor="txn-amount" className="field__label">{t('addAmountLabel')}</label>
             <div className="add-txn__amount">
               <span className="add-txn__currency" aria-hidden>{currencySymbol(currency)}</span>
@@ -158,7 +158,7 @@ export function AddTransactionView({
             </div>
           </div>
 
-          <div className="field">
+          <div className="field add-txn__field--date">
             <label htmlFor="txn-date" className="field__label">{t('dateLabel')}</label>
             <input
               id="txn-date"
@@ -173,7 +173,7 @@ export function AddTransactionView({
             />
           </div>
 
-          <div className="field">
+          <div className="field add-txn__field--cats">
             <div className="field__label" id="txn-category-label">{t('addCategoryLabel')}</div>
             <div
               ref={catsRailRef}
@@ -220,7 +220,7 @@ export function AddTransactionView({
             </div>
           </div>
 
-          <div className="field">
+          <div className="field add-txn__field--note">
             <label htmlFor="txn-note" className="field__label">{t('noteLabel')}</label>
             <input
               id="txn-note"

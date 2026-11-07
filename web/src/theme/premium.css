@@ -506,6 +506,69 @@
   }
 }
 
+/* ── Add/edit dialog on desktop (≥1024px): two columns ──
+   One 34rem column left the category grid squeezed into two and a half rows, so a row of
+   tiles was always sliced in half while most of the screen sat empty. The form fields stack
+   on the left; the categories get the whole right column, as tall as the fields beside them. */
+@media (min-width: 1024px) {
+  .add-txn {
+    max-width: 64rem;
+  }
+
+  .add-txn--loading {
+    max-width: 34rem;
+  }
+
+  .add-txn__body {
+    display: grid;
+    grid-template-columns: minmax(0, 21rem) minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto auto 1fr;
+    grid-template-areas:
+      'type cats'
+      'amount cats'
+      'date cats'
+      'note cats'
+      'error cats'
+      '. cats';
+    column-gap: 1.75rem;
+    row-gap: 1.25rem;
+    padding-bottom: 1.5rem;
+  }
+
+  .add-txn__body > :first-child {
+    grid-area: type;
+  }
+
+  .add-txn__field--amount {
+    grid-area: amount;
+  }
+
+  .add-txn__field--date {
+    grid-area: date;
+  }
+
+  .add-txn__field--note {
+    grid-area: note;
+  }
+
+  .add-txn__error {
+    grid-area: error;
+  }
+
+  /* Every category is shown, with no inner scroller slicing a row in half: the dialog grows
+     to fit them (up to its max-height), and only past that does the dialog body scroll. */
+  .add-txn .add-txn__field--cats {
+    grid-area: cats;
+  }
+
+  .add-txn__cats {
+    grid-template-columns: repeat(auto-fill, minmax(6.75rem, 1fr));
+    max-height: none;
+    overflow: visible;
+    align-content: start;
+  }
+}
+
 /* ── Record page, wide desktop (≥1440px): three columns ──
    At 1920px the 1360px frame left wide empty strips on both sides, while the left column
    was too tall to fit the window. Use the width instead: summary | transactions | filters.
