@@ -213,7 +213,7 @@ dependencies {
     testImplementation(libs.androidx.core)
     testImplementation(libs.androidx.junit)
     testImplementation(libs.junit)
-    testImplementation("org.json:json:20240303")
+    testImplementation("org.json:json:20260719")
     testImplementation(libs.kotlinx.coroutines.test)
     // Instrumentation uses a separate test APK. Coroutines core is loaded from the
     // target app, so its ServiceLoader cannot discover a provider packaged only in
