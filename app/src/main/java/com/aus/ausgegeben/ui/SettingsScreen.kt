@@ -498,7 +498,7 @@ fun SettingsScreen(
             confirmLabel = stringResource(R.string.settings_sign_out),
             onConfirm = {
                 showSignOutConfirm = false
-                authViewModel.signOut { }
+                authViewModel.signOut(onFailure = onShowMessage)
             },
             title = {
                 Text(

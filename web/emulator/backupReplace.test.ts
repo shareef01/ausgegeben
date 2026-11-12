@@ -114,6 +114,36 @@ describe('backupReplace on real Firestore emulator with rules enforced', () => {
     };
   }
 
+  it.each([true, false])('restores the preference snapshot after a failed replace (original exists: %s)', async (hasPreferences) => {
+    const ref = doc(enforcedFirestore(), 'users', TEST_UID, 'settings', 'preferences');
+    const original = {
+      currency: 'EUR', locale: 'en', themeMode: 'system', onboardingComplete: true,
+      dailyReminder: false, reminderHour: 19, reminderMinute: 0, analyticsPeriod: 'this_month',
+      monthlyBudget: null, updatedAt: Date.now(),
+    };
+    if (hasPreferences) await setDoc(ref, original);
+    await expect(executeReplace(createTestBackup({ currency: 'USD' }), TEST_UID, { failDuringVerification: true }))
+      .rejects.toThrow('FAULT_INJECTED_DURING_VERIFICATION');
+    const beforeRollback = await getDoc(ref);
+    expect(beforeRollback.exists()).toBe(hasPreferences);
+    if (hasPreferences) expect(beforeRollback.data()).toEqual(original);
+
+    // Reproduce a preference write left by a client using the earlier replace sequence.
+    const liveRevision = Date.now() + 120_000;
+    await setDoc(ref, { ...original, currency: 'USD', updatedAt: liveRevision });
+    const operation = await getRestoreOperation(TEST_UID);
+    expect(operation?.phase).toBe('FAILED_RECOVERABLE');
+    await rollbackReplace(operation!, TEST_UID);
+
+    const restored = await getDoc(ref);
+    expect(restored.exists()).toBe(hasPreferences);
+    if (hasPreferences) {
+      expect(restored.data()?.currency).toBe('EUR');
+      expect(restored.data()?.updatedAt).toBeGreaterThan(liveRevision);
+    }
+    expect((await getRestoreOperation(TEST_UID))?.phase).toBe('ROLLED_BACK');
+  });
+
   it('1. successful replace and 4. matching IDs updated correctly', async () => {
     const db = enforcedFirestore();
 

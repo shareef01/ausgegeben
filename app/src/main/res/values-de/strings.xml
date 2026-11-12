@@ -158,6 +158,7 @@
     <string name="settings_sign_out">Abmelden</string>
     <string name="settings_sign_out_subtitle">sitzung auf diesem gerät beenden</string>
     <string name="settings_sign_out_confirm">abmelden? du musst dich erneut anmelden, um auf deine cloud-daten zuzugreifen.</string>
+    <string name="settings_sign_out_pending_writes">Änderungen warten noch auf die Synchronisierung. Stelle die Verbindung wieder her und melde dich erneut ab.</string>
     <string name="settings_delete_account">Konto löschen</string>
     <string name="settings_delete_account_confirm">konto sowie alle ausgaben, kategorien und einstellungen dauerhaft löschen? das kann nicht rückgängig gemacht werden.</string>
     <string name="settings_delete_account_ok">konto gelöscht</string>

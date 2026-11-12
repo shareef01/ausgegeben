@@ -9,8 +9,9 @@ import {
   getDocFromServer,
   getDocs,
   getDocsFromServer,
-  setDoc,
+  runTransaction,
   writeBatch,
+  type Firestore,
 } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
@@ -43,6 +44,50 @@ import {
   setRestoreOperation,
   verifyAndRenewRecoveryLease,
 } from '@/services/restoreOperation';
+
+async function finishRestore(
+  db: Firestore,
+  userId: string,
+  terminal: RestoreOperationDoc,
+  preferences: SyncedPreferences | null,
+): Promise<SyncedPreferences | null> {
+  const operationRef = doc(db, 'users', userId, META_COLLECTION, RESTORE_OPERATION_DOC);
+  const prefRef = doc(db, 'users', userId, SETTINGS_COLLECTION, PREFERENCES_DOC);
+  return runTransaction(db, async (transaction) => {
+    const current = (await transaction.get(operationRef)).data() as RestoreOperationDoc | undefined;
+    const completing = terminal.phase === 'COMPLETED';
+    const expectedPhase = completing ? 'VERIFYING' : 'ROLLING_BACK';
+    if (current?.operationId !== terminal.operationId || current.phase !== expectedPhase ||
+        current.progress?.leaseHolder !== terminal.progress?.leaseHolder ||
+        current.progress?.fencingToken !== terminal.progress?.fencingToken) {
+      throw new Error('LEASE_LOST');
+    }
+    const live = await transaction.get(prefRef);
+    const now = Date.now();
+    let restored: SyncedPreferences | null = null;
+    if (preferences) {
+      const baseRevision = completing ? preferences.updatedAt - 1 : preferences.updatedAt;
+      const updatedAt = writablePreferencesRevision(baseRevision, live.data()?.updatedAt, now);
+      if (updatedAt === null) throw new Error('PREFERENCES_REVISION_UNWRITABLE');
+      restored = {
+        ...preferences,
+        monthlyBudget: typeof preferences.monthlyBudget === 'number'
+          ? fromMinorUnits(toMinorUnits(preferences.monthlyBudget))
+          : null,
+        updatedAt,
+      };
+      transaction.set(prefRef, restored);
+    } else if (live.exists()) {
+      transaction.delete(prefRef);
+    }
+    transaction.set(operationRef, {
+      ...terminal,
+      updatedAt: now,
+      progress: { ...terminal.progress, leaseExpiresAt: now + RECOVERY_LEASE_DURATION_MS },
+    });
+    return restored;
+  });
+}
 
 // The safety snapshot, the operation document and the recovery lease live in their own
 // modules; re-exported here so existing imports from this module keep working.
@@ -661,10 +706,6 @@ export async function executeReplace(
     if (faultHooks?.failBeforePreferences) {
       throw new Error('FAULT_INJECTED_BEFORE_PREFERENCES');
     }
-    const prefRef = doc(db, 'users', expectedUid, SETTINGS_COLLECTION, PREFERENCES_DOC);
-    await setDoc(prefRef, plan.preferencesToUpdate);
-    usePreferencesStore.getState().applySyncedPreferences(plan.preferencesToUpdate);
-
     // 13. Advance journal: VERIFYING
     currentPhase = 'VERIFYING';
     await setRestoreOperation(expectedUid, {
@@ -717,16 +758,10 @@ export async function executeReplace(
       }
     }
 
-    // 4. Verify preferences doc
-    const checkPref = await getDocFromServer(prefRef);
-    if (!checkPref.exists()) {
-      throw new Error('REPLACE_VERIFICATION_FAILED: Preferences doc missing');
-    }
-
-    // 14. Mark COMPLETED
-    currentPhase = 'COMPLETED';
+    // Commit preferences only with the terminal journal transition.
     const { progress: _compProg, ...compBase } = initialOp;
-    await setRestoreOperation(expectedUid, {
+    await verifyAndRenewRecoveryLease(db, expectedUid, currentTabId, fencingToken);
+    const committedPreferences = await finishRestore(db, expectedUid, {
       ...compBase,
       phase: 'COMPLETED',
       updatedAt: Date.now(),
@@ -739,7 +774,9 @@ export async function executeReplace(
         leaseExpiresAt: Date.now() + RECOVERY_LEASE_DURATION_MS,
         fencingToken,
       },
-    });
+    }, plan.preferencesToUpdate);
+    currentPhase = 'COMPLETED';
+    if (committedPreferences) usePreferencesStore.getState().applySyncedPreferences(committedPreferences);
 
     // Notify application of changes
     if (typeof window !== 'undefined') {
@@ -757,7 +794,7 @@ export async function executeReplace(
     // Once a snapshot exists (created this run, or carried over by a resume) a failure
     // still in PREPARING must be journaled too: otherwise the operation sits in
     // PREPARING behind this dead holder's lease and the next resume is refused.
-    if (currentPhase !== 'PREPARING' || snapshotMeta) {
+    if (currentPhase !== 'COMPLETED' && (currentPhase !== 'PREPARING' || snapshotMeta)) {
       // Mark as FAILED_RECOVERABLE
       try {
         await setRestoreOperation(expectedUid, {
@@ -836,6 +873,7 @@ export async function rollbackReplace(
   }
   const { fencingToken } = await acquireRecoveryLease(db, expectedUid, currentTabId, true);
   activeOperationsByUid.add(expectedUid);
+  let rollbackCommitted = false;
 
   try {
     // 1. Mark journal: ROLLING_BACK
@@ -1038,24 +1076,10 @@ export async function rollbackReplace(
 
     if (snapshot.categoryBudgets) await replaceBudgetCollection(expectedUid, snapshot.categoryBudgets);
 
-    // 5. Restore preferences
-    if (snapshot.preferences) {
-      const prefRef = doc(db, 'users', expectedUid, SETTINGS_COLLECTION, PREFERENCES_DOC);
-      const restoredPrefs = {
-        ...snapshot.preferences,
-        // Rules reject a changed sub-cent budget, so a legacy one is rounded on rollback.
-        ...(typeof snapshot.preferences.monthlyBudget === 'number'
-          ? { monthlyBudget: fromMinorUnits(toMinorUnits(snapshot.preferences.monthlyBudget)) }
-          : {}),
-        updatedAt: Math.max(Date.now(), (snapshot.preferences.updatedAt ?? 0) + 1),
-      };
-      await setDoc(prefRef, restoredPrefs);
-      usePreferencesStore.getState().applySyncedPreferences(restoredPrefs);
-    }
-
-    // 6. Mark journal: ROLLED_BACK
+    // Restore the preference document and advance the journal atomically.
     const { progress: _rollProg, ...rollBase } = operation;
-    await setRestoreOperation(expectedUid, {
+    await verifyAndRenewRecoveryLease(db, expectedUid, currentTabId, fencingToken);
+    const restoredPrefs = await finishRestore(db, expectedUid, {
       ...rollBase,
       phase: 'ROLLED_BACK',
       updatedAt: Date.now(),
@@ -1066,7 +1090,9 @@ export async function rollbackReplace(
         leaseExpiresAt: Date.now() + RECOVERY_LEASE_DURATION_MS,
         fencingToken,
       },
-    });
+    }, snapshot.preferences);
+    rollbackCommitted = true;
+    if (restoredPrefs) usePreferencesStore.getState().applySyncedPreferences(restoredPrefs);
 
     // 7. Delete snapshot data after rollback
     await deleteSafetySnapshot(expectedUid);
@@ -1076,6 +1102,7 @@ export async function rollbackReplace(
       window.dispatchEvent(new CustomEvent('ausgegeben:data-changed'));
     }
   } catch (err: unknown) {
+    if (rollbackCommitted) throw err;
     const errorMsg = err instanceof Error ? err.message : String(err);
     await setRestoreOperation(expectedUid, {
       ...operation,

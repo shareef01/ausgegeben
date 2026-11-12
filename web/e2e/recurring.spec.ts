@@ -27,7 +27,7 @@ test('Settings recurring controls create, pause, edit and delete without removin
   await expect(editor).toBeVisible();
   // A new item never starts with a made-up amount.
   await expect(editor.getByLabel(en.addAmountLabel, { exact: true })).toHaveValue('');
-  await editor.getByLabel(en.addAmountLabel, { exact: true }).fill('15');
+  await editor.getByLabel(en.addAmountLabel, { exact: true }).fill('1.234,56');
   await editor.getByLabel(en.noteLabel, { exact: true }).fill('Recurring UI test');
   await subscriptionsTile(editor).click();
   await editor.getByRole('button', { name: en.actionSave, exact: true }).click();
@@ -45,7 +45,7 @@ test('Settings recurring controls create, pause, edit and delete without removin
 
   await row.getByRole('button', { name: en.recurringEdit, exact: true }).click();
   const edit = page.getByRole('dialog', { name: en.recurringEditTitle });
-  await expect(edit.getByLabel(en.addAmountLabel, { exact: true })).toHaveValue('15,00');
+  await expect(edit.getByLabel(en.addAmountLabel, { exact: true })).toHaveValue('1234,56');
   await edit.getByLabel(en.addAmountLabel, { exact: true }).fill('17');
   await edit.getByRole('button', { name: en.actionSave, exact: true }).click();
   await expect(row).toContainText('17.00');

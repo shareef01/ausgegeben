@@ -6,6 +6,8 @@ import com.google.firebase.firestore.FirebaseFirestoreSettings
 import com.google.firebase.firestore.PersistentCacheSettings
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -16,10 +18,15 @@ import javax.inject.Singleton
  */
 @Singleton
 class FirestoreClient @Inject constructor() {
+    private val expenseWriteLock = Mutex()
     @Volatile
     private var db: FirebaseFirestore = FirebaseFirestore.getInstance()
 
     fun get(): FirebaseFirestore = db
+
+    // Keep expense submissions out of the window between draining the queue and sign-out.
+    suspend fun <T> withExpenseWriteLock(action: suspend () -> T): T =
+        expenseWriteLock.withLock { action() }
 
     /**
      * Drop the offline disk cache after listeners have detached. Failure is surfaced:

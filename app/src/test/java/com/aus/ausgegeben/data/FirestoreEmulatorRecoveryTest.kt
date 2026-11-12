@@ -772,6 +772,36 @@ class FirestoreEmulatorRecoveryTest {
         val userAToken = firebaseAuth.currentUser!!.getIdToken(false).await().token!!
         val userAUid = uid
 
+        val editedId = repository.insertExpense(expense("Before offline edit"), null).getOrThrow()
+        val deletedId = repository.insertExpense(expense("Before offline delete"), null).getOrThrow()
+        val editedRef = expenseRef(editedId)
+        // The test cache eagerly evicts unobserved documents. Keep the edited row
+        // observed as the Records screen does while an existing row is open.
+        val editListener = editedRef.addSnapshotListener { _, _ -> }
+        try {
+            editedRef.get(Source.SERVER).await()
+            db.disableNetwork().await()
+            try {
+                assertTrue(editedRef.get(Source.CACHE).await().exists())
+                repository.updateExpense(expense("Offline edit").copy(id = editedId)).getOrThrow()
+                repository.deleteRecordExpense(expense("").copy(id = deletedId), uid).getOrThrow()
+                val blocked = runCatching { authRepository.signOut() }.exceptionOrNull()
+                assertTrue(blocked is com.aus.ausgegeben.data.auth.PendingWritesOnSignOutException)
+                assertEquals(userAUid, firebaseAuth.currentUser?.uid)
+                assertTrue(db === firestoreClient.get())
+                assertEquals(listOf(operationId), pendingJournalIds())
+            } finally {
+                db.enableNetwork().await()
+            }
+            db.waitForPendingWrites().await()
+            val headers = mapOf("Authorization" to "Bearer $userAToken")
+            val editedDoc = JSONObject(httpOkOrThrow("GET", expenseUrl(editedId), headers = headers))
+            assertEquals("Offline edit", fieldString(editedDoc, "note"))
+            assertEquals(404, http("GET", expenseUrl(deletedId), headers = headers).first)
+        } finally {
+            editListener.remove()
+        }
+
         // Production sign-out path: Auth.signOut → clearAccountLocalState → journal gone.
         // clearOfflineCache terminates the Firestore instance and installs a fresh one,
         // which must be re-piped to the emulator (and kept on a memory cache — see
@@ -901,11 +931,21 @@ class FirestoreEmulatorRecoveryTest {
      */
     @Test
     fun rel2_failedResumeKeepsOriginalSnapshot_andRollbackRestoresDeletedLegacyRow() = runRecoveryTest {
+        val prefRef = db.document("users/$uid/settings/preferences")
+        val originalPrefs = mapOf(
+            "currency" to "EUR", "locale" to "en", "themeMode" to "system",
+            "onboardingComplete" to true, "dailyReminder" to false,
+            "reminderHour" to 19, "reminderMinute" to 0, "analyticsPeriod" to "this_month",
+            "monthlyBudget" to null, "updatedAt" to System.currentTimeMillis(),
+        )
+        prefRef.set(originalPrefs).await()
         seedExpense(
             "rel-original", "Only in the original account", System.currentTimeMillis(),
             mapOf("cloudId" to "legacy-c1", "categoryCloudId" to 7L, "receiptImagePath" to "/legacy/img.jpg"),
         )
-        val backup = backupOf(backupExpense("rel-new-0", "New 0"), backupExpense("rel-new-1", "New 1"))
+        val backup = backupOf(backupExpense("rel-new-0", "New 0"), backupExpense("rel-new-1", "New 1")).let {
+            it.copy(preferences = it.preferences.copy(currency = "USD"))
+        }
 
         val first = repository.executeReplace(backup, uid, ReplacePlanner.ReplaceFaultHooks(failAfterExpenseDeleteBatch = 1))
         assertEquals("FAULT_INJECTED_AFTER_EXPENSE_DELETE_BATCH", first.exceptionOrNull()?.message)
@@ -921,8 +961,20 @@ class FirestoreEmulatorRecoveryTest {
         val resumedAgain = repository.resumeReplace(op!!, backup, uid, ReplacePlanner.ReplaceFaultHooks(failBeforePreferences = true))
         assertEquals("FAULT_INJECTED_BEFORE_PREFERENCES", resumedAgain.exceptionOrNull()?.message)
         op = repository.getRestoreOperation(uid)
+        val failedVerification = repository.resumeReplace(
+            op!!, backup, uid,
+            ReplacePlanner.ReplaceFaultHooks(failDuringVerification = true),
+        )
+        assertEquals("FAULT_INJECTED_DURING_VERIFICATION", failedVerification.exceptionOrNull()?.message)
+        assertEquals("EUR", prefRef.get(Source.SERVER).await().getString("currency"))
+        val liveRevision = System.currentTimeMillis() + 120_000L
+        prefRef.update(mapOf("currency" to "USD", "updatedAt" to liveRevision)).await()
+        op = repository.getRestoreOperation(uid)
         val rolledBack = repository.rollbackReplace(op!!, uid)
         assertTrue("rollback failed: ${rolledBack.exceptionOrNull()}", rolledBack.isSuccess)
+        val restoredPrefs = prefRef.get(Source.SERVER).await()
+        assertEquals("EUR", restoredPrefs.getString("currency"))
+        assertTrue(restoredPrefs.getLong("updatedAt")!! > liveRevision)
 
         val original = expenseRef("rel-original").get(Source.SERVER).await()
         assertTrue("rollback must restore the row the replace deleted", original.exists())

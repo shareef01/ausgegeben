@@ -1,5 +1,7 @@
 package com.aus.ausgegeben.data.auth
 
+class PendingWritesOnSignOutException : IllegalStateException()
+
 /** Narrow auth surface used by AuthViewModel (easy to fake in unit tests). */
 interface AuthActions {
     suspend fun signIn(email: String, password: String): Result<Unit>
