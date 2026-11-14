@@ -30,7 +30,10 @@ export function useFocusTrap(
 
     const getFocusable = () =>
       Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
-        (el) => !el.hasAttribute('disabled') && el.getAttribute('aria-hidden') !== 'true',
+        // tabIndex < 0: a button the page took out of the Tab order (the unchecked
+        // options of a Settings radio group, AUS-303) still matches `button`, and
+        // counting it here would make Tab wrap from it instead of from the real last stop.
+        (el) => !el.hasAttribute('disabled') && el.getAttribute('aria-hidden') !== 'true' && el.tabIndex >= 0,
       );
 
     const focusable = getFocusable();
