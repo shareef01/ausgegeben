@@ -82,6 +82,7 @@
     <string name="settings_section_management">Verwaltung</string>
     <string name="settings_section_export">Export</string>
     <string name="settings_section_about">Über</string>
+    <string name="settings_section_danger">Gefahrenbereich</string>
     <string name="settings_theme">Design</string>
     <string name="settings_currency">Währung</string>
     <string name="settings_evening_reminder">abendliche erinnerung</string>
@@ -109,9 +110,17 @@
     <string name="settings_restore_backup_title">Sicherung wiederherstellen</string>
     <string name="settings_restore_backup_action">Wiederherstellen</string>
     <string name="settings_restore_backup_explain">vorhandene übereinstimmende einträge werden auf die werte der sicherung aktualisiert – auch änderungen, die nach dem export auf einem anderen gerät vorgenommen wurden. anders als beim ersetzen lässt sich eine zusammenführung nicht automatisch rückgängig machen.</string>
-    <string name="settings_restore_backup_summary">sicherung enthält %1$d ausgaben und %2$d kategorien. währung: %3$s.</string>
+    <string name="settings_restore_backup_summary">sicherung enthält %1$s und %2$s. währung: %3$s.</string>
     <string name="settings_restore_backup_budget">monatliches budget: %1$s.</string>
-    <string name="settings_restore_success">sicherung wiederhergestellt: %1$d ausgaben, %2$d kategorien</string>
+    <string name="settings_restore_success">sicherung wiederhergestellt: %1$s, %2$s</string>
+    <plurals name="count_transactions">
+        <item quantity="one">%1$d transaktion</item>
+        <item quantity="other">%1$d transaktionen</item>
+    </plurals>
+    <plurals name="count_categories">
+        <item quantity="one">%1$d kategorie</item>
+        <item quantity="other">%1$d kategorien</item>
+    </plurals>
     <string name="settings_restore_invalid">ungültige sicherungsdatei</string>
     <string name="settings_restore_file_too_large">sicherungsdatei überschreitet das größenlimit (max. 10 mb)</string>
     <string name="settings_restore_conflict">kategoriekonflikt: transaktionstyp stimmt nicht überein</string>
@@ -160,6 +169,7 @@
     <string name="settings_sign_out_confirm">abmelden? du musst dich erneut anmelden, um auf deine cloud-daten zuzugreifen.</string>
     <string name="settings_sign_out_pending_writes">Änderungen warten noch auf die Synchronisierung. Stelle die Verbindung wieder her und melde dich erneut ab.</string>
     <string name="settings_delete_account">Konto löschen</string>
+    <string name="settings_delete_account_explain">Löscht dein Konto mit allen Transaktionen, Kategorien und Einstellungen dauerhaft. Du bestätigst mit deinem Passwort. Das kann nicht rückgängig gemacht werden.</string>
     <string name="settings_delete_account_confirm">konto sowie alle ausgaben, kategorien und einstellungen dauerhaft löschen? das kann nicht rückgängig gemacht werden.</string>
     <string name="settings_delete_account_ok">konto gelöscht</string>
     <string name="settings_delete_account_failed">konto konnte nicht gelöscht werden</string>
@@ -294,7 +304,7 @@
     <string name="category_preview_name">kategoriename</string>
     <string name="category_preview">vorschau</string>
     <string name="category_manage_title">kategorien verwalten</string>
-    <string name="category_manage_subtitle">%1$s · %2$d elemente</string>
+    <string name="category_manage_subtitle">%1$s · %2$s</string>
     <string name="category_manage_empty_subtitle">erstelle eine, um zu starten</string>
     <string name="category_add_button">kategorie hinzufügen</string>
     <string name="category_save_changes">änderungen speichern</string>
@@ -332,15 +342,11 @@
     <string name="bills_total_expense">gesamtausgaben</string>
     <string name="bills_total_transfers">gesamttransfers</string>
     <string name="add_delete_category_fallback">verknüpfte transaktionen werden zu „nicht kategorisiert" verschoben.</string>
-    <string name="add_delete_category_one">1 verknüpfte transaktion wird zu „nicht kategorisiert" verschoben.</string>
-    <string name="add_delete_category_many">%1$d verknüpfte transaktionen werden zu „nicht kategorisiert" verschoben.</string>
     <plurals name="add_delete_category_linked">
         <item quantity="one">%1$d verknüpfte transaktion wird zu „nicht kategorisiert" verschoben.</item>
         <item quantity="other">%1$d verknüpfte transaktionen werden zu „nicht kategorisiert" verschoben.</item>
     </plurals>
     <string name="add_delete_category_none">keine transaktionen sind mit dieser kategorie verknüpft.</string>
-    <string name="add_delete_category_uncategorized_one">1 verknüpfte transaktion wird als „unbekannt“ angezeigt, bis du eine kategorie zuweist.</string>
-    <string name="add_delete_category_uncategorized_many">%1$d verknüpfte transaktionen werden als „unbekannt“ angezeigt, bis du eine kategorie zuweist.</string>
     <plurals name="add_delete_category_uncategorized">
         <item quantity="one">%1$d verknüpfte transaktion wird als „unbekannt“ angezeigt, bis du eine kategorie zuweist.</item>
         <item quantity="other">%1$d verknüpfte transaktionen werden als „unbekannt“ angezeigt, bis du eine kategorie zuweist.</item>
@@ -396,7 +402,10 @@
     <string name="insights_avg_monthly_expenses">Durchschn. Ausgaben</string>
     <string name="insights_avg_monthly_income">Durchschn. Einnahmen</string>
     <string name="insights_avg_monthly_net">Durchschn. Saldo</string>
-    <string name="insights_across_months">Über %1$d aktive Monate</string>
+    <plurals name="insights_across_months">
+        <item quantity="one">Über %1$d aktiven Monat</item>
+        <item quantity="other">Über %1$d aktive Monate</item>
+    </plurals>
 
     <!-- Languages -->
     <string name="lang_english">englisch</string>

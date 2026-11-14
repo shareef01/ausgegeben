@@ -229,6 +229,9 @@ export const de: Record<TranslationKey, string> = {
   settingsSyncErrorGeneric: 'cloud-sync ist vorübergehend nicht verfügbar. bitte erneut versuchen.',
   settingsSyncRetry: 'sync erneut versuchen',
   settingsDeleteAccount: 'konto löschen',
+  settingsDangerZone: 'gefahrenbereich',
+  settingsDeleteAccountExplain:
+    'löscht dein konto mit allen transaktionen, kategorien und einstellungen dauerhaft. du bestätigst mit deinem passwort. das kann nicht rückgängig gemacht werden.',
   settingsDeleteAccountConfirm: 'konto sowie alle ausgaben, kategorien und einstellungen dauerhaft löschen? das kann nicht rückgängig gemacht werden.',
   settingsDeleteAccountFailed: 'konto konnte nicht gelöscht werden',
   settingsDeleteAccountNeedsReauth: 'melde dich erneut an und lösche dann dein konto',
@@ -337,6 +340,7 @@ export const de: Record<TranslationKey, string> = {
   insightsAvgMonthlyExpenses: 'durchschn. ausgaben',
   insightsAvgMonthlyIncome: 'durchschn. einnahmen',
   insightsAvgMonthlyNet: 'durchschn. saldo',
+  insightsAcrossMonthsOne: 'über {count} aktiven monat',
   insightsAcrossMonths: 'über {count} aktive monate',
   addCategory: 'kategorie hinzufügen',
   categoryNamePrompt: 'kategoriename',
@@ -373,9 +377,13 @@ export const de: Record<TranslationKey, string> = {
   settingsRestoreBackupExplain:
     'Vorhandene übereinstimmende Einträge werden auf die Werte der Sicherung aktualisiert – auch Änderungen, die nach dem Export auf einem anderen Gerät vorgenommen wurden. Anders als beim Ersetzen lässt sich eine Zusammenführung nicht automatisch rückgängig machen.',
   settingsRestoreBackupSummary:
-    'Sicherung enthält {expenses} Ausgaben und {categories} Kategorien. Währung: {currency}.',
+    'Sicherung enthält {transactions} und {categories}. Währung: {currency}.',
   settingsRestoreBackupBudget: 'Monatliches Budget: {budget}.',
-  settingsRestoreSuccess: 'Sicherung wiederhergestellt: {expenses} Ausgaben, {categories} Kategorien',
+  settingsRestoreSuccess: 'Sicherung wiederhergestellt: {transactions}, {categories}',
+  countTransactionsOne: '{count} Transaktion',
+  countTransactionsOther: '{count} Transaktionen',
+  countCategoriesOne: '{count} Kategorie',
+  countCategoriesOther: '{count} Kategorien',
   settingsRestoreInvalid: 'Ungültige Sicherungsdatei: {error}',
   settingsRestoreFileTooLarge: 'Sicherungsdatei überschreitet das Größenlimit (max. 10 MB)',
   settingsRestoreConflict: 'Kategoriekonflikt: Transaktionstyp stimmt nicht überein',

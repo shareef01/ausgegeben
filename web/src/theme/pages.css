@@ -4500,6 +4500,23 @@
   border-color: color-mix(in srgb, var(--color-expense) 35%, transparent);
 }
 
+/* Danger zone: the only home of "delete account", below every other setting. */
+.settings-danger__body {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-color: color-mix(in srgb, var(--color-expense) 30%, transparent);
+}
+
+.settings-danger__text {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--color-on-surface-variant);
+}
+
 @media (max-width: 520px) {
   .settings-account__actions {
     margin-left: 0;
@@ -4508,6 +4525,11 @@
 
   .settings-signout-btn {
     width: 100%;
+  }
+
+  .settings-danger__body {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 

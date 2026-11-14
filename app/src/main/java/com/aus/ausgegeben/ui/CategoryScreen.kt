@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -214,14 +215,12 @@ fun CategoryScreen(
                 val isUncategorized = category.id == AppRepository.UNCATEGORIZED_ID
                 val suffix = when {
                     linkedCount == 0 -> stringResource(R.string.add_delete_category_none)
-                    isUncategorized && linkedCount == 1 ->
-                        stringResource(R.string.add_delete_category_uncategorized_one)
-                    isUncategorized && linkedCount >= 2 ->
-                        stringResource(R.string.add_delete_category_uncategorized_many, linkedCount)
+                    isUncategorized && linkedCount > 0 ->
+                        pluralStringResource(R.plurals.add_delete_category_uncategorized, linkedCount, linkedCount)
                     isUncategorized ->
                         stringResource(R.string.add_delete_category_uncategorized_fallback)
-                    linkedCount == 1 -> stringResource(R.string.add_delete_category_one)
-                    linkedCount >= 2 -> stringResource(R.string.add_delete_category_many, linkedCount)
+                    linkedCount > 0 ->
+                        pluralStringResource(R.plurals.add_delete_category_linked, linkedCount, linkedCount)
                     else -> stringResource(R.string.add_delete_category_fallback)
                 }
                 AppDialogBodyText(stringResource(R.string.add_delete_category_body, category.name, suffix))

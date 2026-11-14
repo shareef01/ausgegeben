@@ -6,7 +6,7 @@ import { CashFlowChart, CashFlowLegend } from '@/components/CashFlowChart';
 import { AnalyticsPeriodPicker } from '@/components/PeriodSelector';
 import { useInsightsViewModel } from '@/viewmodels/useInsightsViewModel';
 import { usePreferencesStore } from '@/services/preferencesStore';
-import { useTranslation } from '@/i18n';
+import { pluralKey, useTranslation } from '@/i18n';
 import { formatAmount, formatCompactAmount } from '@/utils/currency';
 import type {
   Category,
@@ -520,7 +520,9 @@ function AllTimeAveragesCard({ averages, currency }: { averages: AllTimeAverages
       <div className="insights-averages-card__header">
         <span className="insights-averages-card__title">{t('insightsAllTimeAveragesTitle')}</span>
         <span className="insights-badge insights-badge--neutral">
-          {t('insightsAcrossMonths', { count: String(averages.monthsCount) })}
+          {t(pluralKey(averages.monthsCount, 'insightsAcrossMonthsOne', 'insightsAcrossMonths'), {
+            count: String(averages.monthsCount),
+          })}
         </span>
       </div>
       <div className="insights-averages-card__grid">

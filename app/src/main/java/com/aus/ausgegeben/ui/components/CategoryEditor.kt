@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -445,7 +446,11 @@ fun CategoryManageSheet(
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                     )
                     Text(
-                        stringResource(R.string.category_manage_subtitle, typeLabel, visibleCategories.size),
+                        stringResource(
+                            R.string.category_manage_subtitle,
+                            typeLabel,
+                            pluralStringResource(R.plurals.count_categories, visibleCategories.size, visibleCategories.size),
+                        ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = readableSecondaryColor()
                     )

@@ -227,6 +227,9 @@ export const en = {
   settingsSyncErrorGeneric: 'cloud sync is temporarily unavailable. please try again.',
   settingsSyncRetry: 'retry sync',
   settingsDeleteAccount: 'delete account',
+  settingsDangerZone: 'danger zone',
+  settingsDeleteAccountExplain:
+    "permanently deletes your account and all your transactions, categories and settings. you'll confirm with your password. this can't be undone.",
   settingsDeleteAccountConfirm: 'permanently delete your account and all your expenses, categories, and preferences? this cannot be undone.',
   settingsDeleteAccountFailed: 'could not delete account',
   settingsDeleteAccountNeedsReauth: 'sign in again, then delete your account',
@@ -335,6 +338,7 @@ export const en = {
   insightsAvgMonthlyExpenses: 'avg. spending',
   insightsAvgMonthlyIncome: 'avg. income',
   insightsAvgMonthlyNet: 'avg. net',
+  insightsAcrossMonthsOne: 'across {count} active month',
   insightsAcrossMonths: 'across {count} active months',
   addCategory: 'add category',
   categoryNamePrompt: 'category name',
@@ -371,9 +375,13 @@ export const en = {
   settingsRestoreBackupExplain:
     'Existing matching items will be updated to the values in the backup, including edits made on another device after the export. Unlike replace, a merge restore cannot be undone automatically.',
   settingsRestoreBackupSummary:
-    'Backup contains {expenses} expenses and {categories} categories. Currency: {currency}.',
+    'Backup contains {transactions} and {categories}. Currency: {currency}.',
   settingsRestoreBackupBudget: 'Monthly budget: {budget}.',
-  settingsRestoreSuccess: 'Backup restored: {expenses} expenses, {categories} categories',
+  settingsRestoreSuccess: 'Backup restored: {transactions}, {categories}',
+  countTransactionsOne: '{count} transaction',
+  countTransactionsOther: '{count} transactions',
+  countCategoriesOne: '{count} category',
+  countCategoriesOther: '{count} categories',
   settingsRestoreInvalid: 'Invalid backup file: {error}',
   settingsRestoreFileTooLarge: 'Backup file exceeds size limit (max 10 MB)',
   settingsRestoreConflict: 'Category conflict: conflicting transaction type',

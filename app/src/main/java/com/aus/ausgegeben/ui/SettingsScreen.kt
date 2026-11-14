@@ -332,24 +332,51 @@ fun SettingsScreen(
                                             ),
                                         )
                                     }
-                                    AppOutlinedButton(
-                                        onClick = {
-                                            haptics.light()
-                                            showDeleteAccountConfirm = true
-                                        },
-                                        enabled = !deletingAccount,
-                                        modifier = Modifier.fillMaxWidth(),
-                                        contentColor = signOutColor,
-                                        borderColor = signOutColor.copy(alpha = 0.55f),
-                                    ) {
+                                }
+                            }
+                        }
+                    }
+                    // Deleting the account is kept apart from signing out, under its own
+                    // heading and explanation, so the one irreversible action never sits in
+                    // the same group as a routine one.
+                    item { Spacer(Modifier.height(24.dp)) }
+                    item {
+                        StaggeredEntrance(index = 7) {
+                            val destructiveColor = settingsDestructiveColor()
+                            Column {
+                                GroupedSectionLabel(text = stringResource(R.string.settings_section_danger))
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = AppSpacing.md)
+                                        .appGlassCard(RoundedCornerShape(AppRadius.card))
+                                        .padding(16.dp),
+                                ) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                         Text(
-                                            text = stringResource(R.string.settings_delete_account),
-                                            style = TextStyle(
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 15.sp,
-                                                letterSpacing = 0.5.sp,
-                                            ),
+                                            text = stringResource(R.string.settings_delete_account_explain),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = readableSecondaryColor(),
                                         )
+                                        AppOutlinedButton(
+                                            onClick = {
+                                                haptics.light()
+                                                showDeleteAccountConfirm = true
+                                            },
+                                            enabled = !deletingAccount,
+                                            modifier = Modifier.fillMaxWidth(),
+                                            contentColor = destructiveColor,
+                                            borderColor = destructiveColor.copy(alpha = 0.55f),
+                                        ) {
+                                            Text(
+                                                text = stringResource(R.string.settings_delete_account),
+                                                style = TextStyle(
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 15.sp,
+                                                    letterSpacing = 0.5.sp,
+                                                ),
+                                            )
+                                        }
                                     }
                                 }
                             }
