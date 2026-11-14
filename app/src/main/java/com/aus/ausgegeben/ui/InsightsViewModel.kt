@@ -22,6 +22,7 @@ import com.aus.ausgegeben.util.computeCategoryMovers
 import com.aus.ausgegeben.util.computePeriodComparison
 import com.aus.ausgegeben.util.computeSpendingPace
 import com.aus.ausgegeben.util.isComparisonToDate
+import com.aus.ausgegeben.util.localDayFlow
 import com.aus.ausgegeben.util.previousPeriodRange
 import com.aus.ausgegeben.util.startOfTomorrowMillis
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +36,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -75,22 +77,31 @@ class InsightsViewModel @Inject constructor(
 
     private val _periodKey = MutableStateFlow(AnalyticsPeriod.THIS_MONTH.storageKey)
 
+    /**
+     * The period together with today's date. The query ranges and the "same days last
+     * month" cut-off depend on both, so a screen kept open past midnight moves on to the
+     * new day instead of staying on the one it was opened on. Mirrors web useLocalDay.
+     */
+    private val periodAndDay = combine(_periodKey, localDayFlow()) { periodKey, day -> periodKey to day }
+
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val scopedAndPriorExpensesFlow = _periodKey.flatMapLatest { periodKey ->
-        val range = analyticsDateRangeMillis(periodKey)
-        val prior = previousPeriodRange(periodKey)
-        val currentFlow = if (range == null) {
-            expenseActions.allExpenses
-        } else {
-            expenseActions.getRecordExpensesInRange(range.first, range.second)
+    private val scopedAndPriorExpensesFlow = periodAndDay
+        .map { (periodKey, day) -> analyticsDateRangeMillis(periodKey, day) to previousPeriodRange(periodKey, day) }
+        // A past month's ranges are the same every day: only re-query when they really move.
+        .distinctUntilChanged()
+        .flatMapLatest { (range, prior) ->
+            val currentFlow = if (range == null) {
+                expenseActions.allExpenses
+            } else {
+                expenseActions.getRecordExpensesInRange(range.first, range.second)
+            }
+            val priorFlow = if (prior == null) {
+                flowOf(emptyList())
+            } else {
+                expenseActions.getExpensesInRange(prior.second.first, prior.second.second)
+            }
+            combine(currentFlow, priorFlow) { current, previous -> current to previous }
         }
-        val priorFlow = if (prior == null) {
-            flowOf(emptyList())
-        } else {
-            expenseActions.getExpensesInRange(prior.second.first, prior.second.second)
-        }
-        combine(currentFlow, priorFlow) { current, previous -> current to previous }
-    }
 
     private val prefsTupleFlow = combine(
         preferenceManager.currencyFlow,
@@ -101,9 +112,10 @@ class InsightsViewModel @Inject constructor(
         prefsTupleFlow,
         categoryActions.allCategories,
         scopedAndPriorExpensesFlow,
-        _periodKey,
+        // With the day, so the state is rebuilt for the new date even if no row changed.
+        periodAndDay,
         expenseActions.dataTruncated,
-    ) { (currency, monthlyBudget), categories, (scopedExpenses, priorExpenses), periodKey, truncated ->
+    ) { (currency, monthlyBudget), categories, (scopedExpenses, priorExpenses), (periodKey, _), truncated ->
         buildInsightsState(
             currency = currency,
             categories = categories,

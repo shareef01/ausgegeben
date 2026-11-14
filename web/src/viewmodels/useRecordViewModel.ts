@@ -11,6 +11,7 @@ import { duplicateExpensePayload } from '@/utils/duplicateExpense';
 import { toMinorUnits } from '@/utils/money';
 import { parseAmount } from '@/utils/currency';
 import { useAuthStore } from '@/services/authStore';
+import { useLocalDay } from '@/hooks/useLocalDay';
 
 
 export function parseRecordAmount(input: string, locale: Locale = getLocale()): number | null {
@@ -220,15 +221,24 @@ export function useRecordViewModel() {
   const softDeletedIdsRef = useRef(softDeletedIds);
   softDeletedIdsRef.current = softDeletedIds;
 
+  // "This month" is re-derived when the date changes, so a tab left open into a new month
+  // lists the new month rather than the one it was opened in.
+  const today = useLocalDay();
   const viewingCurrentMonth = useMemo(() => {
+    const d = new Date(today);
     return listPeriod === 'this_month'
-      || listPeriod === `month:${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-  }, [listPeriod]);
+      || listPeriod === `month:${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }, [listPeriod, today]);
 
-  const listRange = useMemo(() => {
-    if (listPeriod === 'all_time') return null;
-    return analyticsDateRangeMillis(listPeriod) ?? thisMonthRange();
-  }, [listPeriod]);
+  // Keyed by value: the list listener re-subscribes when this changes, and only "this month"
+  // ever moves (once, at a month boundary).
+  const listRangeKey = JSON.stringify(
+    listPeriod === 'all_time' ? null : analyticsDateRangeMillis(listPeriod, today) ?? thisMonthRange(today),
+  );
+  const listRange = useMemo(() => JSON.parse(listRangeKey) as [number, number] | null, [listRangeKey]);
+  // The monthly-budget bar always tracks the current calendar month, whatever period is listed.
+  const currentMonthKey = JSON.stringify(thisMonthRange(today));
+  const currentMonthRange = useMemo(() => JSON.parse(currentMonthKey) as [number, number], [currentMonthKey]);
 
   // Declared before the effect below, which lists it as a dependency: a dependency array
   // is evaluated during render, so naming a const declared further down would throw.
@@ -290,7 +300,7 @@ export function useRecordViewModel() {
     });
 
     if (!viewingCurrentMonth) {
-      const [start, end] = thisMonthRange();
+      const [start, end] = currentMonthRange;
       unsubBudget = expenseRepository.onExpensesInRange(start, end, (exps, error) => {
         if (!alive || useAuthStore.getState().user?.uid !== userId) return;
         if (!error) setMonthBudgetExpenses(exps);
@@ -307,7 +317,7 @@ export function useRecordViewModel() {
       unsubList();
       unsubBudget();
     };
-  }, [userId, listPeriod, listRange, viewingCurrentMonth, reloadEpoch, resetFilters]);
+  }, [userId, listPeriod, listRange, currentMonthRange, viewingCurrentMonth, reloadEpoch, resetFilters]);
 
   useEffect(() => () => {
     if (useAuthStore.getState().user?.uid !== userId) {
