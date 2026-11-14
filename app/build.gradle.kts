@@ -107,6 +107,22 @@ android {
         releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword,
     ).all { !it.isNullOrBlank() }
 
+    // The release key is the one secret that cannot be rotated for sideloaded installs:
+    // every existing install only accepts updates signed with it. Inside the project folder
+    // it is gitignored, but one `git add -f` or .gitignore edit from being committed, and it
+    // gets swept up by folder copies and archives. CI is exempt: it decodes a throwaway copy
+    // into the checkout and shreds it after signing.
+    if (hasReleaseKeystore && System.getenv("CI") != "true") {
+        val keystore = rootProject.file(releaseStoreFile!!).canonicalFile
+        if (keystore.startsWith(rootProject.rootDir.canonicalFile)) {
+            logger.warn(
+                "WARNING: the release keystore ($keystore) is inside the project folder. " +
+                    "Move it outside the repository and point storeFile in keystore.properties " +
+                    "at its absolute path.",
+            )
+        }
+    }
+
     signingConfigs {
         if (hasReleaseKeystore) {
             create("release") {
