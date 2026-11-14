@@ -115,6 +115,8 @@ fun RecordScreen(
         else grouped.keys.sortedDescending()
     }
     var expensePendingDelete by remember { mutableStateOf<Expense?>(null) }
+    // U-5: days after today get an "upcoming" badge; re-evaluated when the date changes.
+    val todayStart by remember { localDayFlow() }.collectAsStateWithLifecycle(initialValue = startOfLocalDayMillis())
 
     // Date headers follow the UI language, not the currency's home locale
     val locale = LocalConfiguration.current.locales[0]
@@ -344,6 +346,7 @@ fun RecordScreen(
                                     dateLabel,
                                     dayTotalsByDay[dayStart] ?: (0.0 to 0.0),
                                     currencyCode,
+                                    upcoming = isUpcomingDay(dayExpenses.first().dateMillis, todayStart),
                                 )
                             }
                         }
@@ -944,11 +947,13 @@ private fun CategoryFilterChip(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DateSectionHeader(
     date: String,
     dayTotals: Pair<Double, Double>,
     currencyCode: String,
+    upcoming: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val incomeColor = financeIncomeTextColor()
@@ -976,16 +981,37 @@ private fun DateSectionHeader(
             NameAmountLayout(
                 modifier = Modifier.weight(1f),
                 name = {
-                    Text(
-                        // Sentence case, matching the web day header (.txn-day-header__label).
-                        text = date,
-                        style = RecordAuroraTokens.labelStyle(),
-                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        itemVerticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            // Sentence case, matching the web day header (.txn-day-header__label).
+                            text = date,
+                            style = RecordAuroraTokens.labelStyle(),
+                        )
+                        if (upcoming) UpcomingBadge()
+                    }
                 },
                 amount = { DayTotals(dayTotals, currencyCode, incomeColor, expenseColor) },
             )
         }
     }
+}
+
+/** U-5: marks a day after today. Mirrors web `.txn-day-header__badge`. */
+@Composable
+private fun UpcomingBadge() {
+    val color = MaterialTheme.colorScheme.onSurfaceVariant
+    Text(
+        text = stringResource(R.string.record_upcoming),
+        style = MaterialTheme.typography.labelMedium,
+        color = color,
+        modifier = Modifier
+            .border(1.dp, color.copy(alpha = 0.55f), RoundedCornerShape(50))
+            .padding(horizontal = 8.dp, vertical = 2.dp),
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)

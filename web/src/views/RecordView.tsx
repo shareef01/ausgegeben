@@ -33,6 +33,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
     uiState,
     monthSpent,
     viewingCurrentMonth,
+    today,
     setSearchQuery,
     setTypeFilter,
     setCategoryIdsFilter,
@@ -96,8 +97,9 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
         sortOrder: uiState.sortOrder,
         dayTotalsByLabel: uiState.dayTotalsByLabel,
         locale,
+        todayMillis: today,
       }),
-    [uiState.expenses, uiState.dayTotalsByLabel, uiState.sortOrder, locale],
+    [uiState.expenses, uiState.dayTotalsByLabel, uiState.sortOrder, locale, today],
   );
 
   const catMap = useMemo(() => new Map(uiState.categories.map((c) => [c.id, c])), [uiState.categories]);
@@ -467,13 +469,14 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
             )
           ) : (
             <div className="transaction-list-bare txn-sections">
-              {grouped.map(({ key, label, items, dayIncome, dayExpense }) => (
+              {grouped.map(({ key, label, items, dayIncome, dayExpense, upcoming }) => (
                 <section key={key} className="transaction-list-bare__section">
-                  <div className="txn-day-header transaction-list-bare__day">
+                  <div className={`txn-day-header transaction-list-bare__day${upcoming ? ' txn-day-header--upcoming' : ''}`}>
                     {/* The day label inherits the header's type from CSS (13px sentence case).
                         The old inline utilities forced 11px all-caps tracking, which the design
                         spec rules out for information the user must read. */}
                     <span className="txn-day-header__label">{label}</span>
+                    {upcoming ? <span className="txn-day-header__badge">{t('recordUpcoming')}</span> : null}
                     {(dayIncome > 0 || dayExpense > 0) ? (
                       <span className="txn-day-header__totals" aria-label={`${t('filterIncome')} ${formatAmount(dayIncome, currency)}, ${t('filterExpense')} ${formatAmount(dayExpense, currency)}`}>
                         {dayIncome > 0 ? (

@@ -1,6 +1,7 @@
 import type { Expense, TransactionSortOrder } from '@/models/types';
 import type { Locale } from '@/i18n';
 import { dayKey, formatDateLabel } from './periodUtils';
+import { startOfTomorrowMillis } from './analytics';
 
 /**
  * One rendered section of the record list: a calendar day, or a single row when the list is
@@ -13,6 +14,12 @@ export interface RecordRowGroup {
   /** Income and expense of the rows in *this* group, in currency units rounded to cents. */
   dayIncome: number;
   dayExpense: number;
+  /**
+   * U-5: the group is dated after today (people log rent before it is due). Sorted by date,
+   * such rows sit at the top of the list looking like the latest spending; the header marks
+   * them upcoming. Insights already leaves them out of "spent so far" (F-1).
+   */
+  upcoming: boolean;
 }
 
 /**
@@ -33,8 +40,11 @@ export function groupRecordRows(params: {
   sortOrder: TransactionSortOrder;
   dayTotalsByLabel: Record<string, [number, number]>;
   locale?: Locale;
+  /** Start of the current local day; rows from the next day on are marked upcoming. */
+  todayMillis?: number;
 }): RecordRowGroup[] {
-  const { expenses, sortOrder, dayTotalsByLabel, locale } = params;
+  const { expenses, sortOrder, dayTotalsByLabel, locale, todayMillis } = params;
+  const upcomingFrom = todayMillis == null ? Number.POSITIVE_INFINITY : startOfTomorrowMillis(todayMillis);
   const map = new Map<string, Expense[]>();
   const byAmount = sortOrder.startsWith('amount');
   for (const expense of expenses) {
@@ -51,6 +61,7 @@ export function groupRecordRows(params: {
       items,
       dayIncome,
       dayExpense,
+      upcoming: items[0].dateMillis >= upcomingFrom,
     };
   });
 }

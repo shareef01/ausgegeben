@@ -47,6 +47,7 @@
     <string name="record_search_placeholder">Notizen oder Kategorien suchen</string>
     <string name="record_clear_search">suche löschen</string>
     <string name="record_clear_filters">filter zurücksetzen</string>
+    <string name="record_upcoming">anstehend</string>
     <string name="record_no_matches_title">keine treffer</string>
     <string name="record_no_matches_subtitle">versuche eine andere suche oder filter</string>
     <string name="record_empty_title">noch keine transaktionen</string>

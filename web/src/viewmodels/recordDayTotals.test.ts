@@ -219,3 +219,43 @@ describe('edge cases', () => {
     expect(g[0].label.length).toBeGreaterThan(0);
   });
 });
+
+/** U-5: days after today are marked upcoming, so a row logged ahead never looks like recent spending. */
+describe('upcoming day groups', () => {
+  const todayStart = new Date(2026, 4, 17).getTime();
+  const withFuture = [
+    ...rows,
+    expense({ amount: 900, categoryId: 'food', transactionType: 'expense', note: 'rent', dateMillis: NOON + 11 * DAY }),
+    expense({ amount: 5, categoryId: 'food', transactionType: 'expense', note: 'late snack', dateMillis: new Date(2026, 4, 17, 23, 59).getTime() }),
+    expense({ amount: 6, categoryId: 'food', transactionType: 'expense', note: 'midnight', dateMillis: new Date(2026, 4, 18, 0, 0).getTime() }),
+  ];
+  const grouped = (sortOrder: TransactionSortOrder, todayMillis?: number) => {
+    const built = list({ sortOrder }, withFuture);
+    return groupRecordRows({ expenses: built.expenses, sortOrder, dayTotalsByLabel: built.dayTotalsByLabel, locale: 'en', todayMillis });
+  };
+
+  it('marks only days from tomorrow on, starting exactly at local midnight', () => {
+    const byKey = new Map(grouped('date_desc', todayStart).map((g) => [g.key, g.upcoming]));
+    expect(byKey.get(dayKey(NOON + 11 * DAY))).toBe(true);
+    expect(byKey.get(dayKey(new Date(2026, 4, 18).getTime()))).toBe(true);
+    expect(byKey.get(dayKey(NOON))).toBe(false); // includes 23:59 today
+    expect(byKey.get(dayKey(NOON - DAY))).toBe(false);
+  });
+
+  it('marks single-row groups when sorted by amount', () => {
+    const rent = grouped('amount_desc', todayStart).find((g) => g.items[0].note === 'rent')!;
+    const coffee = grouped('amount_desc', todayStart).find((g) => g.items[0].note === 'coffee')!;
+    expect(rent.upcoming).toBe(true);
+    expect(coffee.upcoming).toBe(false);
+  });
+
+  it('moves with the day: tomorrow\'s group stops being upcoming once it is today', () => {
+    const next = grouped('date_desc', new Date(2026, 4, 18).getTime());
+    expect(next.find((g) => g.key === dayKey(new Date(2026, 4, 18).getTime()))!.upcoming).toBe(false);
+    expect(next.find((g) => g.key === dayKey(NOON + 11 * DAY))!.upcoming).toBe(true);
+  });
+
+  it('marks nothing when no day is given', () => {
+    expect(grouped('date_desc').some((g) => g.upcoming)).toBe(false);
+  });
+});

@@ -746,3 +746,22 @@ html {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* U-5: a day after today. Without a cue, a date-sorted list shows these rows first, as if
+   they were the latest spending. Dashed outline: planned, not yet happened. */
+.txn-day-header__badge {
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  border: 1px dashed color-mix(in srgb, var(--color-on-surface-variant) 55%, transparent);
+  color: var(--color-on-surface-variant);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.txn-day-header--upcoming {
+  justify-content: flex-start;
+}

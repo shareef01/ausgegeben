@@ -97,6 +97,7 @@ export const en = {
   recordPeriodThisMonth: 'this month',
   recordPeriodAllTime: 'all time',
   recordTotalsFiltered: 'day totals reflect the active filters',
+  recordUpcoming: 'upcoming',
   recordMostSpentOn: 'most spent on {name}',
   recordMostSpentShare: '{amount} · {percent} of this month’s spending',
   recordSwipeDelete: 'delete',
