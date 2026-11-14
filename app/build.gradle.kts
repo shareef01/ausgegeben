@@ -55,6 +55,11 @@ val appVersionCode = providers.gradleProperty("ausgegebenVersionCode").orNull?.t
     ?: webPackageVersion?.let(::versionCodeFor)
     ?: 1
 
+// Whether App Check is enforced for Firestore in the Firebase Console. Committed in
+// gradle.properties, so a release built after flipping it carries the new behaviour.
+// See TimeBoundAppCheckProvider.factoryFor and FIREBASE_SETUP.md "Enforcement rollout".
+val appCheckEnforced = providers.gradleProperty("ausgegeben.appCheckEnforced").orNull?.toBooleanStrict() ?: false
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -79,6 +84,7 @@ android {
         // Defaults keep plain `./gradlew assemble*` working unchanged.
         versionCode = appVersionCode
         versionName = appVersionName
+        buildConfigField("boolean", "APP_CHECK_ENFORCED", appCheckEnforced.toString())
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

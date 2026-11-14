@@ -103,8 +103,9 @@ class AusgegebenApplication : Application(), Configuration.Provider {
         } catch (e: Exception) {
             // A provider failure must not crash launch during the monitoring phase.
             // Before Firestore enforcement, verify valid-request metrics for the GitHub-
-            // signed APK and configure Play Integrity to allow unrecognized versions;
-            // see FIREBASE_SETUP.md. Rules remain the authorization boundary.
+            // signed APK, configure Play Integrity to allow unrecognized versions, and ship
+            // a build with ausgegeben.appCheckEnforced=true; see FIREBASE_SETUP.md. Rules
+            // remain the authorization boundary.
             Log.w(TAG, "App Check provider install failed — continuing without it", e)
         }
     }
@@ -127,12 +128,17 @@ class AusgegebenApplication : Application(), Configuration.Provider {
     }
 
     /**
-     * Play Integrity, time-limited: Firebase holds every request until a token arrives, and a
-     * phone with a stuck key-provisioning service took ~10.7 s per attestation. See
-     * [TimeBoundAppCheckProvider].
+     * Play Integrity. While enforcement is off it is time-limited: Firebase holds every
+     * request until a token arrives, and a phone with a stuck key-provisioning service took
+     * ~10.7 s per attestation. Once `ausgegeben.appCheckEnforced` is set the limit is dropped,
+     * because a request without a real token would then be rejected. See
+     * [TimeBoundAppCheckProvider.factoryFor].
      */
     private fun playIntegrityFactory(): AppCheckProviderFactory =
-        TimeBoundAppCheckProvider.Factory(PlayIntegrityAppCheckProviderFactory.getInstance())
+        TimeBoundAppCheckProvider.factoryFor(
+            PlayIntegrityAppCheckProviderFactory.getInstance(),
+            enforced = BuildConfig.APP_CHECK_ENFORCED,
+        )
 
     /**
      * Firebase only Log.d's the debug secret. Opt in via
