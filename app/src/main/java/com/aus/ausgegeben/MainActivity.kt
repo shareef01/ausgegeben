@@ -35,7 +35,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.coroutines.withContext
+import com.aus.ausgegeben.util.localDayFlow
 import com.aus.ausgegeben.util.runSuspendCatching
+import com.aus.ausgegeben.util.startOfLocalDayMillis
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -134,7 +136,10 @@ fun MainApp(
     val authViewModel: AuthViewModel = hiltViewModel(activity)
     val recurringViewModel: RecurringViewModel = hiltViewModel(activity, key = "recurring:${currentUser?.uid}")
     val recurringSnapshot by recurringViewModel.snapshot.collectAsStateWithLifecycle()
-    LaunchedEffect(currentUser?.uid, currentUser?.isEmailVerified, isOnline) { if(isOnline) recurringViewModel.synchronize() }
+    // Keyed on the local day too (AUS-202): an app left open past midnight has new due
+    // dates and no resume or reconnect to trigger catch-up for them.
+    val recurringDay by remember { localDayFlow() }.collectAsStateWithLifecycle(initialValue = startOfLocalDayMillis())
+    LaunchedEffect(currentUser?.uid, currentUser?.isEmailVerified, isOnline, recurringDay) { if(isOnline) recurringViewModel.synchronize() }
 
     val overlay = rememberAppOverlayState(addViewModel, expenseViewModel)
 

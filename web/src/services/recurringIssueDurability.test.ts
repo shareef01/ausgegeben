@@ -1,8 +1,9 @@
 ﻿import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const reconcile = vi.fn();
+const catchUpIncomplete = vi.fn(() => false);
 vi.mock('@/services/recurringRepository', () => ({
-  recurringRepository: { reconcile: (...a: unknown[]) => reconcile(...a), getRecurringIssues: () => currentIssues },
+  recurringRepository: { reconcile: (...a: unknown[]) => reconcile(...a), getRecurringIssues: () => currentIssues, catchUpIncomplete: () => catchUpIncomplete() },
 }));
 let currentIssues: Array<Record<string, string>> = [];
 
@@ -15,10 +16,30 @@ const signIn = (uid: string) => useAuthStore.setState({ user: { uid, email: null
 describe('recurring issue-state durability', () => {
   beforeEach(() => {
     reconcile.mockReset();
+    catchUpIncomplete.mockReset();
+    catchUpIncomplete.mockReturnValue(false);
     currentIssues = [];
     useRecurringStore.setState({ owner: null, rows: [], incomplete: false, error: false, syncing: false, issues: [], quarantined: false });
     signIn('u1');
     useRecurringStore.setState({ owner: 'u1' });
+  });
+
+  // AUS-202: a pass that leaves due work behind is followed by another in the same sync.
+  it('runs another pass when the first leaves a backlog, then records the result', async () => {
+    currentIssues = [];
+    reconcile.mockResolvedValue(20);
+    catchUpIncomplete.mockReturnValueOnce(true).mockReturnValue(false);
+    await syncRecurring();
+    expect(reconcile).toHaveBeenCalledTimes(2);
+    expect(useRecurringStore.getState().error).toBe(false);
+    expect(useRecurringStore.getState().syncing).toBe(false);
+  });
+
+  it('stops the backlog run when another account signs in', async () => {
+    reconcile.mockImplementation(async () => { signIn('u2'); return 20; });
+    catchUpIncomplete.mockReturnValue(true);
+    await syncRecurring();
+    expect(reconcile).toHaveBeenCalledTimes(1);
   });
 
   it('records confirmed quarantine after a successful pass', async () => {

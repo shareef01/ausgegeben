@@ -130,6 +130,8 @@ export function receiptState(
 
 /** Issues recorded by the most recent reconcile pass, per owner. */
 const lastIssuesByOwner = new Map<string, RecurringIssue[]>();
+/** Whether the most recent pass, per owner, stopped at its budget with due work left. */
+const lastPassIncompleteByOwner = new Map<string, boolean>();
 export function createRecurringRepository(database?: Firestore) {
 function db() { const value = database ?? getFirebaseFirestore(); if (!value) throw new Error('FIRESTORE_UNAVAILABLE'); return value; }
 function ref(uid: string, id: string) { return doc(db(), 'users', uid, RECURRING_COLLECTION, id); }
@@ -275,13 +277,14 @@ return {
     const issues: RecurringIssue[] = [];
     const quarantined = new Set<string>();
     // A fixed bound caps both network work and scans, without any history queries.
+    let exhausted = true;
     for (let attempt = 0; attempt < MAX_OCCURRENCES_PER_PASS; attempt++) {
       let due: RecurringTemplate | undefined;
       for (const t of templates) {
         if (quarantined.has(t.id)) continue;
         if (t.enabled && t.nextDate && t.nextDate <= localDateAt(now, t.timeZone) && (!due || t.nextDate < due.nextDate! || t.nextDate === due.nextDate && t.id < due.id)) due = t;
       }
-      if (!due) break;
+      if (!due) { exhausted = false; break; }
       let next: RecurringTemplate | null;
       try {
         next = await this.materialize(uid, due.id, now);
@@ -295,7 +298,15 @@ return {
       if (next) { templates[index] = next; count++; } else templates.splice(index, 1);
     }
     lastIssuesByOwner.set(uid, issues);
+    // AUS-202: more work only if the budget ran out while materializing. A pass that
+    // spent its budget re-quarantining the same templates made no progress, and another
+    // pass would only repeat it.
+    lastPassIncompleteByOwner.set(uid, exhausted && count > 0);
     return count;
+  },
+  /** The most recent reconcile pass hit its per-pass budget with due work left (AUS-202). */
+  catchUpIncomplete(uid: string): boolean {
+    return lastPassIncompleteByOwner.get(uid) ?? false;
   },
   /**
    * Owner decision for a quarantined occurrence: move the template one occurrence past

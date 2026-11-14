@@ -19,6 +19,30 @@ describe('SDK-backed recurring integrity',()=>{
  it('two independent SDK clients race one due occurrence without duplicates',async()=>{const t={...template(),endDate:'2024-01-31'};await a.save(TEST_UID,t,null,now);await Promise.all([a.materialize(TEST_UID,t.id,now),b.materialize(TEST_UID,t.id,now)]);expect((await expenses()).size).toBe(1);expect((await getDocs(collection(emulatorFirestore(),'users',TEST_UID,'recurringOccurrences'))).size).toBe(1);});
  it('server commit followed by lost acknowledgement remains replay safe',async()=>{const t={...template(),endDate:'2024-01-31'};await a.save(TEST_UID,t,null,now);await expect((async()=>{await a.materialize(TEST_UID,t.id,now);throw new Error('lost acknowledgement');})()).rejects.toThrow('lost acknowledgement');await b.reconcile(TEST_UID,now);expect((await expenses()).size).toBe(1);});
  it('catches up exact dates and replay does not change count',async()=>{await a.save(TEST_UID,template(),null,now);expect(await a.reconcile(TEST_UID,now)).toBe(3);expect(await b.reconcile(TEST_UID,now)).toBe(0);expect((await expenses()).docs.map(d=>new Date(d.data().dateMillis).toISOString())).toEqual(expect.arrayContaining(['2024-01-30T23:00:00.000Z','2024-02-28T23:00:00.000Z','2024-03-30T23:00:00.000Z']));});
+ // AUS-202: a backlog larger than one pass's budget is reported as incomplete, so the
+ // caller runs another pass instead of leaving the rest until the next online/visible event.
+ it('reports a backlog past the per-pass budget, and the catch-up loop finishes it',async()=>{
+  const daily={...template(),frequency:'daily' as const,startDate:'2024-03-17',nextDate:'2024-03-17'};
+  await a.save(TEST_UID,daily,null,now);
+  expect(await a.reconcile(TEST_UID,now)).toBe(20);
+  expect(a.catchUpIncomplete(TEST_UID)).toBe(true);
+  expect(await a.reconcile(TEST_UID,now)).toBe(5);
+  expect(a.catchUpIncomplete(TEST_UID)).toBe(false);
+  expect((await expenses()).size).toBe(25);
+  // The same backlog through the loop syncRecurring uses: one trigger finishes it.
+  await resetHarness();signInTestUser();categoryId=await expenseRepository.insertCategory({name:'Rent',iconName:'home',colorInt:1,transactionType:'expense',sortOrder:0});
+  await a.save(TEST_UID,{...daily,categoryId},null,now);
+  const {runCatchUp}=await import('@/services/catchUpLoop');
+  const passes=await runCatchUp(async()=>{await a.reconcile(TEST_UID,now);return a.catchUpIncomplete(TEST_UID);},()=>true,()=>Promise.resolve());
+  expect(passes).toBe(2);
+  expect((await expenses()).size).toBe(25);
+  expect(await b.reconcile(TEST_UID,now)).toBe(0);
+ });
+ it('a pass that only re-quarantines makes no progress and does not ask for another',async()=>{
+  await a.save(TEST_UID,template(),null,now);
+  expect(await a.reconcile(TEST_UID,now)).toBe(3);
+  expect(a.catchUpIncomplete(TEST_UID)).toBe(false);
+ });
  it('pause blocks generation and resume skips paused and earlier ungenerated days',async()=>{await a.save(TEST_UID,template(),null,now);let t=await latest();await a.save(TEST_UID,{...t,enabled:false},t.updatedAt,now);expect(await a.reconcile(TEST_UID,now)).toBe(0);t=await latest();await b.save(TEST_UID,{...t,enabled:true},t.updatedAt,now+1);expect((await latest()).nextDate).toBe('2024-04-30');expect(await a.reconcile(TEST_UID,now)).toBe(0);});
  it('edits only future transactions and moves category counters atomically',async()=>{await a.save(TEST_UID,template(),null,now);await a.materialize(TEST_UID,template().id,now);const original=(await expenses()).docs[0].data();const other=await expenseRepository.insertCategory({name:'Other',iconName:'home',colorInt:1,transactionType:'expense',sortOrder:1});let t=await latest();await a.save(TEST_UID,{...t,amount:17,note:'New',categoryId:other,startDate:'2024-01-05'},t.updatedAt,now);expect((await expenses()).docs[0].data()).toEqual(original);expect((await latest()).nextDate).toBe('2024-05-05');expect((await getDoc(doc(emulatorFirestore(),'users',TEST_UID,'categories',categoryId))).data()?.recurringTemplateCount).toBe(0);await b.reconcile(TEST_UID,Date.parse('2024-05-10'));expect((await expenses()).docs.some(d=>d.data().amount===17&&d.data().categoryId===other)).toBe(true);});
  it('delete retains generated history and receipts stop deleted transaction resurrection',async()=>{await a.save(TEST_UID,template(),null,now);await a.materialize(TEST_UID,template().id,now);const expense=(await expenses()).docs[0];await deleteDoc(expense.ref);await updateDoc(doc(emulatorFirestore(),'users',TEST_UID,'recurringTransactions',template().id),{nextIndex:0,nextDate:'2024-01-31'});await a.materialize(TEST_UID,template().id,now);expect((await expenses()).size).toBe(0);await a.reconcile(TEST_UID,now);const count=(await expenses()).size,t=await latest();await a.remove(TEST_UID,t.id,t.updatedAt);expect(await b.reconcile(TEST_UID,now)).toBe(0);expect((await expenses()).size).toBe(count);});
