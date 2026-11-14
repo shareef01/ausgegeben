@@ -71,6 +71,8 @@ To maintain operation strictly within free tiers without introducing billing acc
 
 Android releases are published through GitHub Releases, not Google Play. Pushing a semantic version tag such as `v2.0.5` starts `.github/workflows/release.yml`. The workflow derives `versionCode` from the tag (`v1.2.3` becomes `10203`), rejects it unless it exceeds the code inside every previously published APK, runs the test gates, signs the APK, verifies package/version/certificate metadata, launches the signed release on an emulator, creates `SHA256SUMS` and GitHub build provenance, and publishes both files.
 
+The tag is resolved once, at the start, to the commit it points at (`scripts/release-resolve-tag.sh`). The tag must name a commit on `main`, and every gate and the signing job check out that exact commit. If the tag is moved or deleted while the run is in progress, the release stops: the signing job checks the remote tag before it restores signing material and again just before publishing (`scripts/release-verify-remote-tag.sh`). To release a different commit, push a new tag rather than moving an existing one. The versionCode guard stops the release if the list of published releases can't be read (`scripts/release-require-newer-version-code.sh`). If that happens, re-run the release. `scripts/test-release-guards.sh` covers these scripts in CI.
+
 `.github/release-cert.sha256` pins the public release certificate. Its current fingerprint is:
 
 ```text
