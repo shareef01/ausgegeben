@@ -27,6 +27,11 @@ import java.util.concurrent.TimeoutException
  *   persists it for its TTL, so later launches skip attestation entirely).
  * - After a timeout or failure, calls fail immediately for [backoffMs] instead of each
  *   waiting out the timeout again.
+ *
+ * **Only valid while App Check is not enforced.** With enforcement on, a call that times out
+ * or fails fast sends no valid token, so Firestore rejects it — one slow attestation would
+ * become [backoffMs] of rejected requests. [factoryFor] therefore returns the plain provider
+ * when `BuildConfig.APP_CHECK_ENFORCED` is set (gradle.properties `ausgegeben.appCheckEnforced`).
  */
 internal class TimeBoundAppCheckProvider(
     private val delegate: AppCheckProvider,
@@ -98,6 +103,16 @@ internal class TimeBoundAppCheckProvider(
     }
 
     companion object {
+        /**
+         * The provider factory to install. While enforcement is off, [delegate] is capped
+         * so a slow attestation never holds up a save (a missing token costs nothing then).
+         * Once enforced, waiting for a real token is the only way a request succeeds, so
+         * [delegate] is used as it is: slower on a broken device, but never rejected for
+         * giving up early.
+         */
+        fun factoryFor(delegate: AppCheckProviderFactory, enforced: Boolean): AppCheckProviderFactory =
+            if (enforced) delegate else Factory(delegate)
+
         private const val TAG = "AppCheckTimeout"
         const val DEFAULT_TIMEOUT_MS = 3_000L
         const val DEFAULT_BACKOFF_MS = 5 * 60_000L

@@ -105,4 +105,40 @@ class TimeBoundAppCheckProviderTest {
         p.getToken()
         assertEquals("near-expiry token dropped; a fresh attestation starts", 2, d.pending.size)
     }
+
+    // --- F-4: the time limit must disappear once App Check is enforced ---
+
+    private class FakeFactory(val provider: AppCheckProvider) : com.google.firebase.appcheck.AppCheckProviderFactory {
+        override fun create(firebaseApp: com.google.firebase.FirebaseApp): AppCheckProvider = provider
+    }
+
+    @Test
+    fun factoryFor_notEnforced_capsTheProvider() {
+        val delegate = FakeFactory(FakeDelegate())
+        val factory = TimeBoundAppCheckProvider.factoryFor(delegate, enforced = false)
+        assertTrue(factory is TimeBoundAppCheckProvider.Factory)
+    }
+
+    @Test
+    fun factoryFor_enforced_usesTheProviderUncapped_soASlowAttestationIsNeverCutShort() {
+        val slow = FakeDelegate()
+        val delegate = FakeFactory(slow)
+        val factory = TimeBoundAppCheckProvider.factoryFor(delegate, enforced = true)
+        assertSame("no wrapper while enforced", delegate, factory)
+
+        // The installed provider is the delegate itself: a 10.7 s attestation still
+        // delivers its token instead of a timeout (which enforcement would reject).
+        val task = slow.getToken()
+        val token = Token(now + 3_600_000)
+        slow.pending.single().setResult(token)
+        assertTrue(task.isSuccessful)
+        assertSame(token, task.result)
+    }
+
+    @Test
+    fun buildFlag_defaultsToNotEnforced() {
+        // gradle.properties ships ausgegeben.appCheckEnforced=false; flipping it is a
+        // deliberate, reviewed change that must precede Console enforcement.
+        assertFalse(com.aus.ausgegeben.BuildConfig.APP_CHECK_ENFORCED)
+    }
 }

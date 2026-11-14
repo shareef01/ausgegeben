@@ -104,10 +104,19 @@ same Cloud/Firebase project.
 2. Confirm App Check metrics show valid requests from the signed GitHub APK, the
    production PWA, and registered debug/test environments. Test a clean sideload,
    an upgrade, offline-to-online recovery, and a non-Play-supported device.
-3. Enable enforcement for **Cloud Firestore first**, wait at least 15 minutes, and
+3. **Ship an Android build that expects enforcement before turning it on.** Set
+   `ausgegeben.appCheckEnforced=true` in `gradle.properties`, release it, and wait until
+   most installs have updated. While the flag is `false` the app caps Play Integrity at
+   3 s and then stops asking for 5 minutes (`TimeBoundAppCheckProvider`), which is right
+   while a missing token costs nothing. Under enforcement the same cap would turn one
+   slow attestation into 5 minutes of rejected saves on that device, so the enforced
+   build waits for a real token instead. Older installs that have not updated keep the
+   cap, which is why the release has to come first.
+4. Enable enforcement for **Cloud Firestore first**, wait at least 15 minutes, and
    repeat signed-in CRUD, category migration, export, and account-deletion tests on
-   both clients. Roll back enforcement if legitimate traffic is rejected.
-4. Leave Authentication enforcement off unless an explicit product decision accepts
+   both clients. Roll back enforcement if legitimate traffic is rejected. If you roll
+   back for good, set the flag back to `false` in the next release.
+5. Leave Authentication enforcement off unless an explicit product decision accepts
    the Firebase Authentication with Identity Platform upgrade and its Spark limit
    (currently 3,000 daily active users for email/social/anonymous/custom providers).
    App Check for Authentication requires that upgrade.
