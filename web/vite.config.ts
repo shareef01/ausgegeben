@@ -54,6 +54,11 @@ export default defineConfig(({ mode }) => {
     server: { port: 5173, host: 'localhost' },
     preview: { port: 4173, host: 'localhost' },
     build: {
+      // The firebase-firestore chunk is ~506 kB minified (~147 kB gzip). It is needed at
+      // startup for the signed-in app and is already split from firebase-core and React,
+      // so the default 500 kB warning only flags something we accept. Raise the limit a
+      // little rather than a lot, so a genuinely bigger chunk still warns.
+      chunkSizeWarningLimit: 560,
       rollupOptions: {
         output: {
           manualChunks(id) {

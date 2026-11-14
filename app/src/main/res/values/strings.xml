@@ -8,7 +8,6 @@
     <string name="auth_email_label">Email</string>
     <string name="auth_password_label">Password</string>
     <string name="auth_confirm_password_label">Confirm password</string>
-    <string name="auth_toggle_password">Show password</string>
     <string name="auth_sign_in">Sign in</string>
     <string name="auth_create_account">Create account</string>
     <string name="auth_forgot_password">Forgot password?</string>
@@ -39,7 +38,6 @@
     <string name="nav_add_transaction">Add transaction</string>
 
     <!-- Screen titles -->
-    <string name="screen_record">Record</string>
     <string name="screen_bills">Insights</string>
     <string name="screen_settings">Settings</string>
     <string name="settings_version_subtitle">Ausgegeben · v%1$s</string>
@@ -62,7 +60,6 @@
     <string name="record_delete_message">You can undo this from the snackbar that appears.</string>
     <string name="record_delete_confirm">Delete</string>
     <string name="record_delete_cancel">Cancel</string>
-    <string name="record_swipe_delete">Delete</string>
     <string name="record_unknown_category">Unknown</string>
     <string name="filter_all">All</string>
     <string name="filter_expense">Expense</string>
@@ -79,15 +76,11 @@
     <string name="settings_section_notifications">Notifications</string>
     <string name="settings_section_budget">Budget</string>
     <string name="settings_section_management">Management</string>
-    <string name="settings_section_export">Export</string>
     <string name="settings_section_about">About</string>
     <string name="settings_section_danger">Danger zone</string>
     <string name="settings_theme">Theme</string>
     <string name="settings_currency">Currency</string>
     <string name="settings_evening_reminder">Evening reminder</string>
-    <string name="settings_reminder_subtitle">Around %1$s if nothing logged today</string>
-    <string name="settings_reminder_enabled">Evening reminder enabled</string>
-    <string name="settings_reminder_disabled">Evening reminder disabled</string>
     <string name="settings_reminder_time">Reminder time</string>
     <string name="settings_reminder_set">Reminder set to %1$s</string>
     <string name="settings_monthly_limit">Monthly spending limit</string>
@@ -142,7 +135,6 @@
     <string name="settings_replace_rollback_failed">Failed to restore previous data: %1$s</string>
     <string name="settings_replace_foreign_platform">A replacement was initiated on %1$s. Please use that device to resume or rollback.</string>
     <string name="data_truncated_notice">Showing the latest 5,000 transactions — older rows are hidden</string>
-    <string name="settings_version">Version</string>
     <string name="settings_support">Contact Support</string>
     <string name="settings_no_email_app">No email app found</string>
     <string name="settings_choose_theme">Choose theme</string>
@@ -159,14 +151,11 @@
     <string name="settings_budget_cleared">Monthly limit cleared</string>
     <string name="settings_account_cloud">Cloud account</string>
     <string name="settings_account_sync_enabled">Cloud sync enabled</string>
-    <string name="settings_account_offline">Not signed in</string>
     <string name="settings_account_signed_in_as">Signed in as %1$s</string>
     <string name="settings_account_cloud_subtitle">Your data syncs across devices</string>
     <string name="settings_account_offline_subtitle">Sign in to sync and back up your data</string>
     <string name="settings_sign_in">Sign in / Create account</string>
-    <string name="settings_sign_in_subtitle">Back up and sync across devices</string>
     <string name="settings_sign_out">Sign out</string>
-    <string name="settings_sign_out_subtitle">End this session on this device</string>
     <string name="settings_sign_out_confirm">Sign out? You\'ll need to sign in again to access your cloud data.</string>
     <string name="settings_sign_out_pending_writes">Changes are still waiting to sync. Reconnect and try signing out again.</string>
     <string name="settings_delete_account">Delete account</string>
@@ -181,45 +170,31 @@
     <string name="settings_deletion_finish">Finish deleting</string>
     <string name="settings_delete_account_password">Enter your password to confirm</string>
     <string name="settings_delete_account_too_many_attempts">Too many attempts. Try again later.</string>
-    <string name="settings_signed_out">Signed out</string>
     <string name="settings_local_cleanup_failed">Signed out, but local financial data could not be cleared. Clear this app’s storage in Android settings.</string>
     <string name="settings_sync_now">Sync now</string>
     <string name="settings_last_synced">Last synced %1$s</string>
-    <string name="settings_never_synced">Not synced yet — tap Sync now after sign-in</string>
-    <string name="settings_sync_success">Cloud sync complete</string>
     <string name="settings_sync_failed">Cloud sync failed</string>
     <string name="settings_sync_in_progress">Syncing with cloud…</string>
-    <string name="settings_sync_failed_detail">Sync failed: %1$s</string>
     <string name="settings_sync_error_permission">Cloud sync could not access your account. Check your connection and try signing out and back in.</string>
-    <string name="settings_sync_error_config_placeholder">Cloud sync is not available in this build.</string>
     <string name="settings_sync_error_network">No internet connection. Check your network and try again.</string>
-    <string name="settings_sync_error_timeout">Sync timed out. Try again on a stable connection.</string>
     <string name="settings_sync_error_firestore_missing">Cloud sync is temporarily unavailable. Please try again later.</string>
 
     <!-- Add transaction -->
     <string name="add_save_changes">Save changes</string>
-    <string name="add_income">Add income</string>
-    <string name="add_transfer">Add transfer</string>
-    <string name="add_expense">Add expense</string>
     <string name="add_edit_title">Edit transaction</string>
     <string name="add_new_title">New transaction</string>
     <string name="add_type_expense">Expense</string>
     <string name="add_type_income">Income</string>
     <string name="add_type_transfer">Transfer</string>
     <string name="add_category_label">CATEGORY</string>
-    <string name="add_select_category">Select category</string>
     <string name="add_manage">Manage</string>
     <string name="add_no_categories_title">No categories yet</string>
     <string name="add_no_categories_subtitle">Tap New below or Manage to create one</string>
     <string name="add_create_category">Create category</string>
     <string name="add_note_placeholder">Add a note…</string>
     <string name="add_new_category">New</string>
-    <string name="add_add_category">Add category</string>
     <string name="add_backspace">Backspace</string>
     <string name="add_date_label">Date</string>
-    <string name="add_amount_expense">Expense amount</string>
-    <string name="add_amount_income">Income amount</string>
-    <string name="add_amount_transfer">Transfer amount</string>
     <string name="add_delete_category_title">Delete category?</string>
     <string name="add_delete_category_none">No transactions are linked to this category.</string>
     <plurals name="add_delete_category_linked">
@@ -241,9 +216,6 @@
     <string name="error_category_type_mismatch">This category is for %1$s transactions</string>
     <string name="error_budget_exceeded">Monthly budget exceeded: %1$s of %2$s</string>
     <string name="error_budget_check_failed">Couldn\'t check the monthly budget. The transaction was saved.</string>
-    <string name="error_save_unresolved">We couldn\'t confirm whether this transaction was saved. Don\'t add it again yet — we\'ll check again automatically.</string>
-    <string name="submission_recovered_success">Your earlier transaction was found and is already saved. Tap Save again to add a new one.</string>
-    <string name="submission_recovered_absent">We couldn\'t find the earlier transaction. You can submit it again — tap Save once more.</string>
 
     <!-- Snackbars -->
     <string name="snackbar_transaction_deleted">Transaction deleted</string>
@@ -254,7 +226,6 @@
     <string name="snackbar_transaction_not_found">This transaction no longer exists</string>
     <string name="snackbar_transaction_delete_failed">Couldn\'t delete transaction</string>
     <string name="snackbar_transaction_duplicate_failed">Couldn\'t duplicate transaction</string>
-    <string name="snackbar_transaction_restore_failed">Couldn\'t restore transaction</string>
     <string name="snackbar_data_listener_error">Trouble loading the latest data. Check your connection.</string>
 
     <!-- Analytics periods -->
@@ -346,21 +317,11 @@
     <string name="summary_balance_period">Net cash flow · %1$s</string>
     <string name="summary_spent">Spent</string>
     <string name="summary_earned">Earned</string>
-    <plurals name="summary_transfers">
-        <item quantity="one">%1$d transfer · %2$s</item>
-        <item quantity="other">%1$d transfers · %2$s</item>
-    </plurals>
 
     <!-- Insights -->
-    <string name="insight_top_category">Top: %1$s · %2$s</string>
-    <string name="insight_month_prefix">Month </string>
     <string name="budget_monthly_label">Monthly budget</string>
     <string name="budget_progress">%1$s / %2$s</string>
     <string name="budget_over_by">Over budget by %1$s</string>
-    <plurals name="insight_days_logged">
-        <item quantity="one">%d day logged this week</item>
-        <item quantity="other">%d days logged this week</item>
-    </plurals>
 
     <!-- Bills charts -->
     <string name="bills_section_expenses">Expenses</string>
@@ -374,12 +335,8 @@
     <string name="chart_net_label">Net cash flow</string>
     <string name="chart_no_data">No chart data</string>
     <string name="chart_breakdown_description">Breakdown by category, total %1$s</string>
-    <string name="chart_wealth_trend_title">Wealth trend</string>
-    <string name="chart_wealth_trend_subtitle">Cumulative net balance over time</string>
     <string name="chart_cash_flow_title">Cash flow</string>
     <string name="chart_cash_flow_subtitle">Income %1$s · Spending %2$s</string>
-    <string name="chart_wealth_trend_delta_up">+%1$s this period</string>
-    <string name="chart_wealth_trend_delta_down">-%1$s this period</string>
 
     <!-- Smart Insights Comparison, Pace, Movers, and Averages -->
     <string name="insights_comparison_title">vs previous month</string>
@@ -417,7 +374,6 @@
     <string name="record_row_actions_for">More actions: %1$s</string>
     <string name="desc_transfer_row">%1$s transfer of %2$s. %3$s</string>
     <string name="desc_finance_summary">Finance summary for %1$s. Net cash flow %2$s. Total earned %3$s. Total spent %4$s.</string>
-    <string name="record_filter">Filter by type</string>
     <string name="record_category_filter">Filter by category</string>
     <string name="filter_all_categories">All categories</string>
     <string name="record_pick_month">Pick a month</string>
@@ -436,13 +392,11 @@
     <string name="category_deduplicate_title">Merge Duplicates?</string>
     <string name="category_deduplicate_message">This will combine categories with identical names and move all their transactions to one place.</string>
     <string name="category_deduplicate_confirm">Merge</string>
-    <string name="category_deduplicate_done">Categories deduplicated</string>
     <string name="settings_deduplicate_label">Deduplicate categories</string>
     <string name="auth_content_desc_back">Go back</string>
     <string name="auth_content_desc_password_visibility">Toggle password visibility</string>
     <string name="chart_content_desc_cashflow">Cash flow chart showing income and expense trends</string>
     <string name="chart_content_desc_income_expense">Income and expense overview chart</string>
-    <string name="record_content_desc_search">Search transactions</string>
     <string name="add_unsaved_changes_title">Unsaved changes</string>
     <string name="add_unsaved_changes_body">You have unsaved changes. Discard them?</string>
     <string name="add_discard">Discard</string>
@@ -483,7 +437,6 @@
     <string name="category_budget_above">Above global budget</string>
     <string name="category_budget_remaining">Remaining</string>
     <string name="category_budget_overspent">Overspent</string>
-    <string name="category_budget_spent">Spent / limit</string>
     <string name="category_budget_warning">Warning threshold reached</string>
     <string name="category_budget_reached">Budget reached</string>
     <string name="category_budget_over">Budget exceeded</string>
@@ -517,10 +470,8 @@
     <string name="recurring_category">Category</string>
     <string name="recurring_note">Note</string>
     <string name="recurring_type">Transaction type</string>
-    <string name="recurring_zone">Time zone (fixed)</string>
     <string name="recurring_refresh">Synchronize</string>
     <string name="recurring_empty">No recurring templates yet.</string>
-    <string name="recurring_close">Close</string>
     <string name="recurring_edit">Edit</string>
     <string name="recurring_issues_review">Review</string>
     <string name="recurring_issue_stuck">Stuck on %1$s: this payment couldn\'t be recorded automatically.</string>

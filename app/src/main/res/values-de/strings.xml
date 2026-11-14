@@ -9,7 +9,6 @@
     <string name="auth_email_label">e-mail</string>
     <string name="auth_password_label">passwort</string>
     <string name="auth_confirm_password_label">passwort bestätigen</string>
-    <string name="auth_toggle_password">passwort anzeigen</string>
     <string name="auth_sign_in">anmelden</string>
     <string name="auth_create_account">konto erstellen</string>
     <string name="auth_forgot_password">passwort vergessen?</string>
@@ -40,7 +39,6 @@
     <string name="nav_add_transaction">Transaktion hinzufügen</string>
 
     <!-- Screen titles -->
-    <string name="screen_record">Erfassen</string>
     <string name="screen_bills">Einblicke</string>
     <string name="screen_settings">Einstellungen</string>
     <string name="settings_version_subtitle">ausgegeben · v%1$s</string>
@@ -63,7 +61,6 @@
     <string name="record_delete_message">du kannst dies über die erscheinende leiste rückgängig machen.</string>
     <string name="record_delete_confirm">löschen</string>
     <string name="record_delete_cancel">abbrechen</string>
-    <string name="record_swipe_delete">löschen</string>
     <string name="record_unknown_category">unbekannt</string>
     <string name="filter_all">Alle</string>
     <string name="filter_expense">Ausgabe</string>
@@ -80,15 +77,11 @@
     <string name="settings_section_notifications">Benachrichtigungen</string>
     <string name="settings_section_budget">Budget</string>
     <string name="settings_section_management">Verwaltung</string>
-    <string name="settings_section_export">Export</string>
     <string name="settings_section_about">Über</string>
     <string name="settings_section_danger">Gefahrenbereich</string>
     <string name="settings_theme">Design</string>
     <string name="settings_currency">Währung</string>
     <string name="settings_evening_reminder">abendliche erinnerung</string>
-    <string name="settings_reminder_subtitle">ca. %1$s, falls heute nichts erfasst wurde</string>
-    <string name="settings_reminder_enabled">erinnerung aktiviert</string>
-    <string name="settings_reminder_disabled">erinnerung deaktiviert</string>
     <string name="settings_reminder_time">erinnerungszeit</string>
     <string name="settings_reminder_set">erinnerung auf %1$s gesetzt</string>
     <string name="settings_monthly_limit">Monatliches Ausgabenlimit</string>
@@ -143,7 +136,6 @@
     <string name="settings_replace_rollback_failed">wiederherstellung der vorherigen daten fehlgeschlagen: %1$s</string>
     <string name="settings_replace_foreign_platform">eine ersetzung wurde auf %1$s gestartet. bitte setzen sie die ersetzung auf diesem gerät fort oder führen sie dort das rollback durch.</string>
     <string name="data_truncated_notice">zeige die neuesten 5.000 transaktionen — ältere einträge sind ausgeblendet</string>
-    <string name="settings_version">version</string>
     <string name="settings_support">support kontaktieren</string>
     <string name="settings_no_email_app">keine e-mail-app gefunden</string>
     <string name="settings_choose_theme">design wählen</string>
@@ -158,14 +150,11 @@
     <string name="settings_budget_cleared">monatslimit gelöscht</string>
     <string name="settings_account_cloud">cloud-konto</string>
     <string name="settings_account_sync_enabled">cloud-synchronisierung aktiv</string>
-    <string name="settings_account_offline">nicht angemeldet</string>
     <string name="settings_account_signed_in_as">angemeldet als %1$s</string>
     <string name="settings_account_cloud_subtitle">daten werden geräteübergreifend synchronisiert</string>
     <string name="settings_account_offline_subtitle">melde dich an, um daten zu sichern und zu synchronisieren</string>
     <string name="settings_sign_in">anmelden / konto erstellen</string>
-    <string name="settings_sign_in_subtitle">gerätenah sichern und synchronisieren</string>
     <string name="settings_sign_out">Abmelden</string>
-    <string name="settings_sign_out_subtitle">sitzung auf diesem gerät beenden</string>
     <string name="settings_sign_out_confirm">abmelden? du musst dich erneut anmelden, um auf deine cloud-daten zuzugreifen.</string>
     <string name="settings_sign_out_pending_writes">Änderungen warten noch auf die Synchronisierung. Stelle die Verbindung wieder her und melde dich erneut ab.</string>
     <string name="settings_delete_account">Konto löschen</string>
@@ -180,42 +169,29 @@
     <string name="settings_deletion_finish">löschung abschließen</string>
     <string name="settings_delete_account_password">gib zum bestätigen dein passwort ein</string>
     <string name="settings_delete_account_too_many_attempts">zu viele versuche. versuche es später erneut.</string>
-    <string name="settings_signed_out">abgemeldet</string>
     <string name="settings_local_cleanup_failed">Abgemeldet, aber lokale Finanzdaten konnten nicht gelöscht werden. Lösche die App-Daten in den Android-Einstellungen.</string>
     <string name="settings_sync_now">jetzt synchronisieren</string>
     <string name="settings_last_synced">zuletzt synchronisiert %1$s</string>
-    <string name="settings_never_synced">noch nicht synchronisiert</string>
-    <string name="settings_sync_success">cloud-sync abgeschlossen</string>
     <string name="settings_sync_failed">cloud-sync fehlgeschlagen</string>
     <string name="settings_sync_in_progress">synchronisierung läuft…</string>
-    <string name="settings_sync_failed_detail">sync fehlgeschlagen: %1$s</string>
     <string name="settings_sync_error_permission">zugriff verweigert. prüfe deine verbindung.</string>
     <string name="settings_sync_error_network">keine internetverbindung.</string>
-    <string name="settings_sync_error_timeout">zeitüberschreitung beim synchronisieren.</string>
 
     <!-- Add transaction -->
     <string name="add_save_changes">änderungen speichern</string>
-    <string name="add_income">einnahme hinzufügen</string>
-    <string name="add_transfer">transfer hinzufügen</string>
-    <string name="add_expense">ausgabe hinzufügen</string>
     <string name="add_edit_title">transaktion bearbeiten</string>
     <string name="add_new_title">neue transaktion</string>
     <string name="add_type_expense">ausgabe</string>
     <string name="add_type_income">einnahme</string>
     <string name="add_type_transfer">transfer</string>
     <string name="add_category_label">kategorie</string>
-    <string name="add_select_category">kategorie wählen</string>
     <string name="add_manage">verwalten</string>
     <string name="add_no_categories_title">noch keine kategorien</string>
     <string name="add_create_category">kategorie erstellen</string>
     <string name="add_note_placeholder">notiz hinzufügen…</string>
     <string name="add_new_category">neu</string>
-    <string name="add_add_category">kategorie hinzufügen</string>
     <string name="add_backspace">löschen</string>
     <string name="add_date_label">datum</string>
-    <string name="add_amount_expense">ausgabenbetrag</string>
-    <string name="add_amount_income">einnahmenbetrag</string>
-    <string name="add_amount_transfer">transferbetrag</string>
     <string name="add_delete_category_title">kategorie löschen?</string>
     <string name="add_delete_category_body">löschen von „%1$s“ kann nicht rückgängig gemacht werden. %2$s</string>
     <string name="action_ok">ok</string>
@@ -226,9 +202,6 @@
     <string name="error_category_type_mismatch">kategorie ist für %1$s-transaktionen</string>
     <string name="error_budget_exceeded">monatsbudget überschritten: %1$s von %2$s</string>
     <string name="error_budget_check_failed">monatsbudget konnte nicht geprüft werden. die transaktion wurde gespeichert.</string>
-    <string name="error_save_unresolved">wir konnten nicht bestätigen, ob diese transaktion gespeichert wurde. füge sie noch nicht erneut hinzu — wir prüfen das automatisch noch einmal.</string>
-    <string name="submission_recovered_success">deine frühere transaktion wurde gefunden und ist bereits gespeichert. tippe erneut auf speichern, um eine neue hinzuzufügen.</string>
-    <string name="submission_recovered_absent">wir konnten die frühere transaktion nicht finden. du kannst sie erneut senden — tippe noch einmal auf speichern.</string>
 
     <!-- Snackbars -->
     <string name="snackbar_transaction_deleted">transaktion gelöscht</string>
@@ -329,8 +302,6 @@
     <string name="summary_earned">eingenommen</string>
 
     <!-- Insights -->
-    <string name="insight_top_category">top: %1$s · %2$s</string>
-    <string name="insight_month_prefix">monat </string>
     <string name="budget_monthly_label">monatsbudget</string>
     <string name="budget_progress">%1$s / %2$s</string>
     <string name="budget_over_by">%1$s über budget</string>
@@ -353,32 +324,18 @@
     </plurals>
     <string name="add_delete_category_uncategorized_fallback">verknüpfte transaktionen werden als „unbekannt“ angezeigt, bis du eine kategorie zuweist.</string>
     <string name="add_no_categories_subtitle">tippe unten auf neu oder verwalten, um eine zu erstellen</string>
-    <plurals name="insight_days_logged">
-        <item quantity="one">%d tag diese woche erfasst</item>
-        <item quantity="other">%d tage diese woche erfasst</item>
-    </plurals>
-    <string name="settings_sync_error_config_placeholder">cloud-synchronisierung ist in diesem build nicht verfügbar.</string>
     <string name="settings_sync_error_firestore_missing">cloud-synchronisierung ist vorübergehend nicht verfügbar. bitte später erneut versuchen.</string>
     <string name="snackbar_data_listener_error">probleme beim laden der neuesten daten. prüfe deine verbindung.</string>
     <string name="snackbar_transaction_delete_failed">transaktion konnte nicht gelöscht werden</string>
     <string name="snackbar_transaction_duplicate_failed">transaktion konnte nicht dupliziert werden</string>
-    <string name="snackbar_transaction_restore_failed">transaktion konnte nicht wiederhergestellt werden</string>
-    <plurals name="summary_transfers">
-        <item quantity="one">%1$d umbuchung · %2$s</item>
-        <item quantity="other">%1$d umbuchungen · %2$s</item>
-    </plurals>
     <string name="bills_section_transfers">transfers</string>
     <string name="chart_total_label">gesamt</string>
     <string name="chart_overview_title">einnahmen vs. ausgaben</string>
     <string name="chart_net_label">netto</string>
     <string name="chart_no_data">keine daten</string>
     <string name="chart_breakdown_description">aufschlüsselung nach kategorie, gesamt %1$s</string>
-    <string name="chart_wealth_trend_title">vermögenstrend</string>
-    <string name="chart_wealth_trend_subtitle">kumulierter saldo über zeit</string>
     <string name="chart_cash_flow_title">cashflow</string>
     <string name="chart_cash_flow_subtitle">einnahmen %1$s · ausgaben %2$s</string>
-    <string name="chart_wealth_trend_delta_up">+%1$s in diesem zeitraum</string>
-    <string name="chart_wealth_trend_delta_down">-%1$s in diesem zeitraum</string>
 
     <!-- Smart Insights Comparison, Pace, Movers, und Durchschnitte -->
     <string name="insights_comparison_title">Ggü. Vormonat</string>
@@ -419,7 +376,6 @@
     <string name="record_row_actions_for">Weitere Aktionen: %1$s</string>
     <string name="desc_transfer_row">%1$s Transfer von %2$s. %3$s</string>
     <string name="desc_finance_summary">Finanzübersicht für %1$s. Netto im Zeitraum %2$s. Gesamteinnahmen %3$s. Gesamtausgaben %4$s.</string>
-    <string name="record_filter">Nach Typ filtern</string>
     <string name="record_category_filter">Nach Kategorie filtern</string>
     <string name="filter_all_categories">Alle Kategorien</string>
     <string name="record_pick_month">monat wählen</string>
@@ -436,13 +392,11 @@
     <string name="category_deduplicate_title">Duplikate zusammenführen?</string>
     <string name="category_deduplicate_message">Dies führt Kategorien mit identischen Namen zusammen und verschiebt alle ihre Transaktionen an einen Ort.</string>
     <string name="category_deduplicate_confirm">Zusammenführen</string>
-    <string name="category_deduplicate_done">Kategorien dedupliziert</string>
     <string name="settings_deduplicate_label">kategorien deduplizieren</string>
     <string name="auth_content_desc_back">Zurück</string>
     <string name="auth_content_desc_password_visibility">Passwortsichtbarkeit umschalten</string>
     <string name="chart_content_desc_cashflow">Cashflow-Diagramm mit Einnahmen- und Ausgabentrends</string>
     <string name="chart_content_desc_income_expense">Einnahmen- und Ausgabenübersicht</string>
-    <string name="record_content_desc_search">Transaktionen suchen</string>
     <string name="add_unsaved_changes_title">Ungespeicherte Änderungen</string>
     <string name="add_unsaved_changes_body">Du hast ungespeicherte Änderungen. Verwerfen?</string>
     <string name="add_discard">Verwerfen</string>
@@ -483,7 +437,6 @@
     <string name="category_budget_above">Über dem Gesamtbudget</string>
     <string name="category_budget_remaining">Verbleibend</string>
     <string name="category_budget_overspent">Überschritten um</string>
-    <string name="category_budget_spent">Ausgegeben / Limit</string>
     <string name="category_budget_warning">Warnschwelle erreicht</string>
     <string name="category_budget_reached">Budget erreicht</string>
     <string name="category_budget_over">Budget überschritten</string>
@@ -517,10 +470,8 @@
     <string name="recurring_category">Kategorie</string>
     <string name="recurring_note">Notiz</string>
     <string name="recurring_type">Buchungsart</string>
-    <string name="recurring_zone">Zeitzone (fest)</string>
     <string name="recurring_refresh">Synchronisieren</string>
     <string name="recurring_empty">Noch keine wiederkehrenden Vorlagen.</string>
-    <string name="recurring_close">Schließen</string>
     <string name="recurring_edit">Bearbeiten</string>
     <string name="recurring_issues_review">Ansehen</string>
     <string name="recurring_issue_stuck">Hängt am %1$s: Diese Buchung konnte nicht automatisch erfasst werden.</string>
