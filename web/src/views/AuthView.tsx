@@ -118,7 +118,7 @@ export function AuthView() {
           <h1 className="auth-page__logo-text text-3xl font-extrabold tracking-tight text-on-background">
             {t('appName').toLowerCase()}
           </h1>
-          <p className="auth-page__tagline text-xs font-bold uppercase tracking-widest">{t('authTagline')}</p>
+          <p className="auth-page__tagline text-xs font-semibold">{t('authTagline')}</p>
         </div>
 
         {!firebaseReady ? (
