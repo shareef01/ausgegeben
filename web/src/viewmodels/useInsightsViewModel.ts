@@ -1,4 +1,5 @@
 import { thisMonthRange } from '@/utils/periodUtils';
+import { useLocalDay } from '@/hooks/useLocalDay';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Category, InsightsUiState, Expense } from '@/models/types';
 import { expenseRepository } from '@/repositories/expenseRepository';
@@ -23,7 +24,10 @@ export function useInsightsViewModel() {
   // Normalized so legacy keys like 'this_month' resolve to a concrete month
   // option — otherwise the picker falls back to (and displays) "all time".
   const storedPeriodKey = usePreferencesStore((s) => s.analyticsPeriod);
-  const periodKey = useMemo(() => normalizeAnalyticsPeriodKey(storedPeriodKey), [storedPeriodKey]);
+  // Everything below that depends on "today" is keyed on it, so a tab left open past
+  // midnight (or into a new month) moves on instead of staying on the day it opened.
+  const today = useLocalDay();
+  const periodKey = useMemo(() => normalizeAnalyticsPeriodKey(storedPeriodKey, today), [storedPeriodKey, today]);
   const setAnalyticsPeriod = usePreferencesStore((s) => s.setAnalyticsPeriod);
   const locale = usePreferencesStore((s) => s.locale);
   const monthlyBudget = usePreferencesStore((s) => s.monthlyBudget);
@@ -36,14 +40,23 @@ export function useInsightsViewModel() {
   const [dataTruncated, setDataTruncated] = useState(false);
   const initialLoadDone = useRef(false);
 
-  const periodOptions = useMemo(() => analyticsPeriodOptions(14, Date.now(), locale), [locale]);
+  const periodOptions = useMemo(() => analyticsPeriodOptions(14, today, locale), [locale, today]);
   const selectedOption = useMemo(
     () => periodOptions.find((o) => o.storageKey === periodKey) ?? periodOptions[0],
     [periodOptions, periodKey],
   );
 
-  const range = useMemo(() => analyticsDateRangeMillis(periodKey), [periodKey]);
-  const priorPeriod = useMemo(() => previousPeriodRange(periodKey), [periodKey]);
+  // Memoised by value (via a string key), not by object identity: the listeners below
+  // re-subscribe whenever these change, and a past month's ranges are the same every day,
+  // so only a range that really moved (the current month's "same days" cut-off, or "this
+  // month" crossing into a new month) costs a fresh read.
+  const rangeKey = JSON.stringify(analyticsDateRangeMillis(periodKey, today));
+  const range = useMemo(() => JSON.parse(rangeKey) as [number, number] | null, [rangeKey]);
+  const priorPeriodKey = JSON.stringify(previousPeriodRange(periodKey, today));
+  const priorPeriod = useMemo(
+    () => JSON.parse(priorPeriodKey) as ReturnType<typeof previousPeriodRange>,
+    [priorPeriodKey],
+  );
 
   // Live categories + period-scoped expenses (Spark-safe: no full-collection listener)
   useEffect(() => {
@@ -190,8 +203,10 @@ export function useInsightsViewModel() {
 
     const currentTotals = computeTotals(expenses);
 
+    // `today` rather than Date.now(): these only need the day (in progress?, tomorrow's
+    // cut-off, day of month), and it makes the cards recompute when the date changes.
     const { comparison, pace, categoryMovers } = range
-      ? computePeriodInsights(expenses, priorExpenses, categories, range, monthlyBudget, Date.now())
+      ? computePeriodInsights(expenses, priorExpenses, categories, range, monthlyBudget, today)
       : { comparison: null, pace: null, categoryMovers: [] };
 
     const allTimeAverages = !range ? computeAllTimeAverages(expenses) : null;
@@ -219,6 +234,7 @@ export function useInsightsViewModel() {
     expenses,
     priorExpenses,
     priorPeriod,
+    today,
     categories,
     range,
     monthlyBudget,
