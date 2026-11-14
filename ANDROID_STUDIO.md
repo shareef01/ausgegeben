@@ -37,7 +37,7 @@ Sign-in is mandatory. Data lives in Firestore under `users/{uid}/…` with offli
 
 ### Release signing (optional)
 
-Copy `keystore.properties.example` → `keystore.properties` (gitignored) and fill in store/key values, **or** set CI env vars `AUSGEGEBEN_STOREFILE`, `AUSGEGEBEN_STOREPASSWORD`, `AUSGEGEBEN_KEYALIAS`, `AUSGEGEBEN_KEYPASSWORD`. When present, `assembleProdRelease` / `bundleProdRelease` use that signing config. (There is no unflavored `assembleRelease` — every variant is `prod`.)
+Copy `keystore.properties.example` → `keystore.properties` (gitignored) and fill in store/key values. Keep the `.jks` **outside the repository** (for example `C:/Users/you/keystores/`) and give `storeFile` its absolute path; the build warns if it finds the keystore inside the project folder. Back it up off the machine: losing it means existing installs can never be updated. Alternatively, set CI env vars `AUSGEGEBEN_STOREFILE`, `AUSGEGEBEN_STOREPASSWORD`, `AUSGEGEBEN_KEYALIAS`, `AUSGEGEBEN_KEYPASSWORD`. When present, `assembleProdRelease` / `bundleProdRelease` use that signing config. (There is no unflavored `assembleRelease` — every variant is `prod`.)
 
 ## Build from terminal
 
