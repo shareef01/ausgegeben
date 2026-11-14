@@ -506,6 +506,7 @@ export function useRecordViewModel() {
     minAmountInput, maxAmountInput, setMinAmountInput, setMaxAmountInput, amountError,
     monthSpent,
     viewingCurrentMonth,
+    today,
     setSearchQuery,
     setTypeFilter: handleSetTypeFilter,
     setCategoryIdFilter,

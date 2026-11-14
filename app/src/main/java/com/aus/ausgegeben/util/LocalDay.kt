@@ -40,3 +40,11 @@ fun localDayFlow(
         delay(min(startOfTomorrowMillis(now) - now + 1_000L, recheckMs))
     }
 }.distinctUntilChanged()
+
+/**
+ * U-5: whether a row dated [dateMillis] falls after the day starting at [todayStartMillis].
+ * The record list marks such days upcoming, so rent logged before it is due does not sit at
+ * the top of a date-sorted list looking like the latest spending. Mirrors web `groupRecordRows`.
+ */
+fun isUpcomingDay(dateMillis: Long, todayStartMillis: Long): Boolean =
+    dateMillis >= startOfTomorrowMillis(todayStartMillis)

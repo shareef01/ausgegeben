@@ -99,6 +99,7 @@ export const de: Record<TranslationKey, string> = {
   recordPeriodThisMonth: 'dieser monat',
   recordPeriodAllTime: 'gesamt',
   recordTotalsFiltered: 'tagessummen folgen den aktiven filtern',
+  recordUpcoming: 'anstehend',
   recordMostSpentOn: 'am meisten ausgegeben für {name}',
   recordMostSpentShare: '{amount} · {percent} der Ausgaben diesen Monat',
   recordSwipeDelete: 'löschen',

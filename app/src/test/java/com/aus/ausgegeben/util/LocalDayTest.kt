@@ -74,4 +74,18 @@ class LocalDayTest {
         assertEquals(previousPeriodRange("month:2026-09", nov14), previousPeriodRange("month:2026-09", nov15))
         assertEquals(analyticsDateRangeMillis("month:2026-09", nov14), analyticsDateRangeMillis("month:2026-09", nov15))
     }
+
+    @Test
+    fun isUpcomingDay_startsAtLocalMidnightTomorrow_andMovesWithTheDay() {
+        val nov14 = at(2026, 11, 14)
+        assertEquals(false, isUpcomingDay(at(2026, 11, 14, 23, 59), nov14))
+        assertEquals(false, isUpcomingDay(at(2026, 11, 13, 12, 0), nov14))
+        assertEquals(true, isUpcomingDay(at(2026, 11, 15, 0, 0), nov14))
+        assertEquals(true, isUpcomingDay(at(2026, 11, 28, 9, 0), nov14))
+        // Once the 15th arrives, it is today rather than upcoming.
+        assertEquals(false, isUpcomingDay(at(2026, 11, 15, 0, 0), at(2026, 11, 15)))
+        // Month and year boundaries.
+        assertEquals(true, isUpcomingDay(at(2026, 12, 1), at(2026, 11, 30)))
+        assertEquals(true, isUpcomingDay(at(2027, 1, 1), at(2026, 12, 31)))
+    }
 }
