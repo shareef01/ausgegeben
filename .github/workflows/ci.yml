@@ -25,6 +25,11 @@ jobs:
       - name: release.yml tag-validation regression test (CI-3)
         run: bash scripts/test-release-tag-validation.sh
 
+      # AUS-401/402: the tag resolves to one tested commit, a moved tag stops the
+      # release, and the versionCode guard fails closed when GitHub's API fails.
+      - name: release.yml tag-pinning and versionCode guard tests
+        run: bash scripts/test-release-guards.sh
+
       - name: Android-affected path filter test
         run: bash scripts/test-ci-android-affected.sh
 

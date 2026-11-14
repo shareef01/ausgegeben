@@ -16,20 +16,51 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.event.inputs.tag || github.ref }}
+  # ref_name, not ref: a tag push (refs/tags/v1.2.3) and a dispatch for the same tag
+  # (v1.2.3) must share one group.
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
+  # AUS-401: a tag is a movable name. Each job used to check it out by name on its own,
+  # so a tag moved while the gates ran would have the signing job build a commit no gate
+  # had tested. Resolve it to one commit here; every job below checks out that SHA, and
+  # the release job re-checks the remote tag before signing and before publishing.
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      sha: ${{ steps.resolve.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # Full history + tags, so the tag and origin/main can both be looked up.
+          fetch-depth: 0
+
+      - name: Resolve the tag to one commit
+        id: resolve
+        env:
+          TAG_INPUT: ${{ github.event.inputs.tag || github.ref_name }}
+          # A tag push records the commit it was pushed for. If the tag points
+          # somewhere else by now, it moved, and the run stops.
+          EXPECTED_SHA: ${{ github.event_name == 'push' && github.sha || '' }}
+        run: |
+          SHA=$(bash scripts/release-resolve-tag.sh "$TAG_INPUT" "$EXPECTED_SHA")
+          echo "Releasing $TAG_INPUT at $SHA"
+          echo "tag=$TAG_INPUT" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
   # A tag is not evidence. `git tag` on any commit used to publish an APK without
   # running a single test — CI runs on pushes to main and pull requests, so a tag
   # placed on a commit that never landed there, or on a red one, shipped anyway.
   # These gates mirror ci.yml and must pass for the exact tag before the build.
   gate-android:
+    needs: resolve
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          ref: ${{ needs.resolve.outputs.sha }}
 
       # See CI-2 in ci.yml's `android` job for why this matters even here, on a tag
       # ref: a tampered wrapper jar committed to the repository would still execute.
@@ -59,11 +90,12 @@ jobs:
   # workflow is not proof for an arbitrary tag SHA, and fork CI previously skipped
   # these tests entirely when Firebase secrets were unavailable.
   gate-instrumentation:
+    needs: resolve
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          ref: ${{ needs.resolve.outputs.sha }}
 
       - uses: gradle/actions/wrapper-validation@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
@@ -91,23 +123,15 @@ jobs:
           script: ./gradlew connectedProdDebugAndroidTest --no-daemon
 
   gate-web:
+    needs: resolve
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
-          # Full history so origin/main is present for the ancestry check below.
-          fetch-depth: 0
+          ref: ${{ needs.resolve.outputs.sha }}
 
-      # v2.1.3 was first tagged on a stale local branch carrying 14 Oct code. Its gates
-      # all passed, because they test whatever the tag points at, and only a manual
-      # check caught it before approval. Refuse a tag whose commit never landed on main.
-      - name: Require the tagged commit to be on main
-        run: |
-          if ! git merge-base --is-ancestor HEAD origin/main; then
-            echo "::error::The tagged commit $(git rev-parse --short HEAD) is not on main. Tag a commit that has been merged to main."
-            exit 1
-          fi
+      # The check that the tagged commit is on main now runs once, in `resolve`
+      # (scripts/release-resolve-tag.sh), for the commit every job builds.
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
@@ -120,7 +144,7 @@ jobs:
       # two, so require the bump before a tag can publish.
       - name: Require web/package.json version to match the tag
         env:
-          TAG_INPUT: ${{ github.event.inputs.tag || github.ref_name }}
+          TAG_INPUT: ${{ needs.resolve.outputs.tag }}
         run: |
           WEB_VERSION=$(node -p "require('./web/package.json').version")
           if [ "v$WEB_VERSION" != "$TAG_INPUT" ]; then
@@ -150,11 +174,12 @@ jobs:
         working-directory: web
 
   gate-rules:
+    needs: resolve
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          ref: ${{ needs.resolve.outputs.sha }}
 
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
@@ -180,11 +205,12 @@ jobs:
         working-directory: web
 
   gate-telemetry:
+    needs: resolve
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          ref: ${{ needs.resolve.outputs.sha }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 22
@@ -198,7 +224,7 @@ jobs:
         working-directory: tools/error-endpoint
 
   release:
-    needs: [gate-android, gate-instrumentation, gate-web, gate-rules, gate-telemetry]
+    needs: [resolve, gate-android, gate-instrumentation, gate-web, gate-rules, gate-telemetry]
     runs-on: ubuntu-latest
     # SUPPLY-1: signing material and publish secrets live in the production-release
     # GitHub Environment, which requires a manual deployment approval (required
@@ -212,12 +238,20 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          ref: ${{ needs.resolve.outputs.sha }}
           # Full history + tags: the publish step derives the release-notes range from
           # `git describe --tags HEAD^`, which on the default shallow clone always failed,
           # silently passing an empty --notes-start-tag and falling through to the
           # fallback command on every single release.
           fetch-depth: 0
+
+      # The gates tested this SHA. If the tag has moved since, stop before any signing
+      # material is restored.
+      - name: Require the tag to still point at the tested commit
+        env:
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+          RELEASE_SHA: ${{ needs.resolve.outputs.sha }}
+        run: bash scripts/release-verify-remote-tag.sh "$RELEASE_TAG" "$RELEASE_SHA"
 
       # This is the job holding the signing secrets — a tampered wrapper jar reaching
       # `./gradlew assembleProdRelease` below would execute with them present (CI-2).
@@ -272,7 +306,7 @@ jobs:
       - name: Derive version from tag
         id: version
         env:
-          TAG_INPUT: ${{ github.event.inputs.tag || github.ref_name }}
+          TAG_INPUT: ${{ needs.resolve.outputs.tag }}
         run: |
           TAG="$TAG_INPUT"
           NAME="${TAG#v}"
@@ -309,33 +343,13 @@ jobs:
 
       # Semver ordering alone is not sufficient evidence: the installability
       # boundary is the versionCode embedded in APKs users already downloaded.
+      # AUS-402: the script fails closed if the release list can't be read.
       - name: Require a versionCode newer than every published APK
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
           NEW_CODE: ${{ steps.version.outputs.code }}
-        run: |
-          TMP_DIR=$(mktemp -d)
-          trap 'rm -rf "$TMP_DIR"' EXIT
-          MAX_RELEASED_CODE=0
-          ASSET_NUMBER=0
-          while IFS= read -r ASSET_URL; do
-            [ -z "$ASSET_URL" ] && continue
-            ASSET_NUMBER=$((ASSET_NUMBER + 1))
-            APK="$TMP_DIR/released-$ASSET_NUMBER.apk"
-            gh api -H "Accept: application/octet-stream" "$ASSET_URL" > "$APK"
-            CODE=$(apkanalyzer manifest version-code "$APK")
-            if ! echo "$CODE" | grep -qE '^[0-9]+$'; then
-              echo "::error::Could not read a numeric versionCode from published asset $ASSET_URL"
-              exit 1
-            fi
-            [ "$CODE" -gt "$MAX_RELEASED_CODE" ] && MAX_RELEASED_CODE="$CODE"
-          done < <(gh api --paginate "repos/${{ github.repository }}/releases" \
-            --jq '.[] | select(.draft == false) | .assets[]? | select(.name | endswith(".apk")) | .url')
-          if [ "$NEW_CODE" -le "$MAX_RELEASED_CODE" ]; then
-            echo "::error::versionCode $NEW_CODE must be greater than published maximum $MAX_RELEASED_CODE"
-            exit 1
-          fi
-          echo "versionCode $NEW_CODE is newer than published maximum $MAX_RELEASED_CODE"
+        run: bash scripts/release-require-newer-version-code.sh "$REPOSITORY" "$NEW_CODE"
 
       - name: Build signed release APK
         env:
@@ -470,6 +484,14 @@ jobs:
         with:
           subject-path: ausgegeben-${{ steps.version.outputs.name }}.apk
 
+      # Last check before the release goes out: the emulator and attestation steps
+      # above take minutes, and the tag must still name the commit that was built.
+      - name: Require the tag to still point at the built commit
+        env:
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+          RELEASE_SHA: ${{ needs.resolve.outputs.sha }}
+        run: bash scripts/release-verify-remote-tag.sh "$RELEASE_TAG" "$RELEASE_SHA"
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -481,19 +503,22 @@ jobs:
           # version from tag" step above (now whole-string-anchored); this is
           # defense-in-depth so a future change to that validation cannot reopen an
           # injection here even if it weakens the check upstream.
-          RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
           APK_NAME: ausgegeben-${{ steps.version.outputs.name }}.apk
           RELEASE_TITLE: Ausgegeben ${{ steps.version.outputs.name }}
+        # --verify-tag: never let `gh release create` create a tag that has vanished.
         run: |
           gh release create "$RELEASE_TAG" \
             "$APK_NAME" \
             SHA256SUMS \
+            --verify-tag \
             --title "$RELEASE_TITLE" \
             --generate-notes \
             --notes-start-tag "$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo '')" \
           || gh release create "$RELEASE_TAG" \
                  "$APK_NAME" \
                  SHA256SUMS \
+                 --verify-tag \
                  --title "$RELEASE_TITLE" \
                  --generate-notes
 
