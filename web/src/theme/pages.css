@@ -75,11 +75,11 @@
 .settings-account__badge {
   margin-top: 6px;
   overflow-wrap: break-word;
-  hyphens: auto; /* "SYNCHRONISIERUNG" is wider than the card at large text sizes */
-  font-size: 0.6875rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  hyphens: auto; /* "synchronisierung" is wider than the card at large text sizes */
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-transform: none;
   color: var(--color-income-text);
 }
 
@@ -1133,10 +1133,10 @@
 }
 
 .donut-center__label {
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.01em;
   color: var(--color-on-surface-variant);
   margin-bottom: 4px;
 }
@@ -1555,10 +1555,10 @@
 
 .insights-movers-card__title {
   display: block;
-  font-size: 0.6875rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0.01em;
   color: var(--color-on-surface-variant);
 }
 
@@ -1633,11 +1633,11 @@
 .insights-averages-card__title {
   min-width: 0;
   overflow-wrap: break-word;
-  hyphens: auto; /* "MONATSDURCHSCHNITTE" is one word */
-  font-size: 0.6875rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  hyphens: auto; /* "monatsdurchschnitte" is one word */
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0.01em;
   color: var(--color-on-surface-variant);
 }
 
@@ -2146,8 +2146,8 @@
   gap: 8px;
   font-size: 0.8125rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  text-transform: none;
+  letter-spacing: 0.01em;
   color: var(--color-on-surface-variant);
 }
 
@@ -2192,8 +2192,8 @@
 .record-filter-label {
   font-size: 0.75rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: none;
+  letter-spacing: 0.01em;
   color: var(--color-on-surface-variant);
 }
 
@@ -2650,10 +2650,10 @@
 }
 
 .cashflow-tooltip__label {
-  font-size: 0.6875rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.01em;
   color: var(--color-on-surface-variant);
   margin-bottom: 5px;
 }
@@ -2808,10 +2808,10 @@
 }
 
 .cashflow-legend__label {
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  text-transform: none;
+  letter-spacing: 0.01em;
   color: var(--color-on-surface-variant);
 }
 
@@ -2877,10 +2877,10 @@
 
 .period-picker__eyebrow {
   display: block;
-  font-size: 10px;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.01em;
   color: var(--color-on-surface-variant);
   margin-bottom: 2px;
 }
@@ -3013,10 +3013,10 @@
 }
 
 .period-picker-sheet__section-title {
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0.01em;
   color: var(--color-on-surface-variant);
   padding: 0 6px;
 }
@@ -3111,10 +3111,10 @@
 }
 
 .section-title {
-  font-size: 10px;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0.01em;
   color: var(--color-on-surface-variant);
   padding: 8px 4px 4px;
 }
@@ -3141,10 +3141,10 @@
   gap: 6px;
   padding: 6px 14px;
   border-radius: 9999px;
-  font-size: 10px;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0.01em;
 }
 
 .sync-indicator::before {
@@ -4651,10 +4651,10 @@
 
 .category-budgets h2 {
   margin: 0;
-  font-size: 0.6875rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0.01em;
   color: var(--color-on-surface-variant);
 }
 

@@ -122,9 +122,9 @@
   background: color-mix(in srgb, var(--color-on-surface) 4%, transparent);
   color: var(--color-on-surface);
   font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-transform: none;
   cursor: pointer;
 }
 
