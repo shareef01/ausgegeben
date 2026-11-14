@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Category, Expense, TransactionType } from '@/models/types';
 import { expenseRepository, EmailNotVerifiedError, UNCATEGORIZED_ID } from '@/repositories/expenseRepository';
-import { formatAmount, formatAmountForInput, parseAmount, sanitizeAmountInput } from '@/utils/currency';
+import { formatAmount, formatAmountForInput, parseAmount } from '@/utils/currency';
 import { isInThisMonth, thisMonthRange } from '@/utils/periodUtils';
 import { isTransactionDraftDirty } from '@/viewmodels/transactionDirty';
 import { usePreferencesStore } from '@/services/preferencesStore';
@@ -272,17 +272,13 @@ export function useAddTransactionViewModel(expenseId?: string) {
   }, [categoryUnresolved, filteredCategories, form.categoryId]);
 
   const appendDigit = (digit: string) => {
-    setForm((f) => {
-      const currency = usePreferencesStore.getState().currency;
-      return { ...f, amountInput: sanitizeAmountInput(f.amountInput + digit, currency) };
-    });
+    setForm((f) => ({ ...f, amountInput: f.amountInput + digit }));
   };
 
   const backspace = () => setForm((f) => ({ ...f, amountInput: f.amountInput.slice(0, -1) }));
 
   const setAmountInput = (value: string) => {
-    const currency = usePreferencesStore.getState().currency;
-    setForm((f) => ({ ...f, amountInput: sanitizeAmountInput(value, currency) }));
+    setForm((f) => ({ ...f, amountInput: value }));
   };
 
   const checkBudgetAlert = async (
@@ -315,7 +311,7 @@ export function useAddTransactionViewModel(expenseId?: string) {
       return { ok: false };
     }
     const amount = parseAmount(form.amountInput, usePreferencesStore.getState().currency);
-    if (!amount || amount <= 0) {
+    if (!amount || amount <= 0 || amount >= 1e9) {
       setError(t('errorValidAmount'));
       return { ok: false };
     }

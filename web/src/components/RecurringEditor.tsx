@@ -6,7 +6,7 @@ import { useAuthStore } from '@/services/authStore';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { recurringRepository } from '@/services/recurringRepository';
 import type { RecurringTemplate } from '@/services/recurrence';
-import { amountPlaceholder, colorIntToHex, currencySymbol, sanitizeAmountInput } from '@/utils/currency';
+import { amountPlaceholder, colorIntToHex, currencySymbol } from '@/utils/currency';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -168,7 +168,7 @@ export function RecurringEditor({ owner, template, expected, categories, blocked
                   inputMode="decimal"
                   autoComplete="off"
                   value={form.amountInput}
-                  onChange={(e) => update({ amountInput: sanitizeAmountInput(e.target.value, currency) })}
+                  onChange={(e) => update({ amountInput: e.target.value })}
                   {...invalid('amount')}
                 />
               </div>

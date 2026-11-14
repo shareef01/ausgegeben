@@ -68,4 +68,16 @@ test('editing a transaction requires confirmation before discarding changes', as
   await expect(dialog).toHaveCount(0);
   await expect(page.getByText('Original note', { exact: true })).toBeVisible();
   await expect(page.getByText('Changed note', { exact: true })).toHaveCount(0);
+
+  await page.locator('.action-row__content').first().click();
+  const amount = dialog.getByLabel(en.addAmountLabel, { exact: true });
+  const save = dialog.getByRole('button', { name: new RegExp(`^${en.actionSave}$`, 'i') });
+  await amount.fill('-1,23');
+  await save.click();
+  await expect(amount).toHaveAttribute('aria-invalid', 'true');
+  await amount.fill('1.234,56');
+  await save.click();
+  await expect(dialog).toHaveCount(0);
+  await page.locator('.action-row__content').first().click();
+  await expect(amount).toHaveValue('1234,56');
 });

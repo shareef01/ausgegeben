@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -93,9 +94,21 @@ class AuthRepository @Inject constructor(
     }
 
     override suspend fun signOut() {
-        firebaseAuth.signOut()
-        preferenceManager.clearAccountLocalState()
-        firestoreClient.clearOfflineCache()
+        firestoreClient.withExpenseWriteLock {
+            val uid = firebaseAuth.currentUser?.uid
+            if (uid != null) {
+                val drained = withTimeoutOrNull(3_000L) {
+                    firestoreClient.get().waitForPendingWrites().await()
+                    true
+                }
+                if (drained != true || firebaseAuth.currentUser?.uid != uid) {
+                    throw PendingWritesOnSignOutException()
+                }
+            }
+            firebaseAuth.signOut()
+            preferenceManager.clearAccountLocalState()
+            firestoreClient.clearOfflineCache()
+        }
     }
 
     /**

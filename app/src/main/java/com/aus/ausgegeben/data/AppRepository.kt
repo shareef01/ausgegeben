@@ -833,6 +833,12 @@ class AppRepository @Inject constructor(
         }
     }
 
+    private suspend fun <T> submitExpenseWrite(expectedUid: String, submit: () -> Task<T>): Task<T> =
+        firestoreClient.withExpenseWriteLock {
+            check(uid() == expectedUid) { "AUTH_ACCOUNT_CHANGED" }
+            submit()
+        }
+
     private suspend fun isRestoreOperationActive(u: String): Boolean {
         return try {
             val snap = restoreOpDoc(u).get().await()
@@ -880,10 +886,12 @@ class AppRepository @Inject constructor(
             if (cached != null && cached.exists()) return@runSuspendCatching id
 
             try {
-                firestore.runTransaction { transaction ->
-                    val deterministic = transaction.get(ref)
-                    if (!deterministic.exists()) transaction.set(ref, payload)
-                    id
+                submitExpenseWrite(u) {
+                    firestore.runTransaction { transaction ->
+                        val deterministic = transaction.get(ref)
+                        if (!deterministic.exists()) transaction.set(ref, payload)
+                        id
+                    }
                 }.await()
             } catch (txEx: Exception) {
                 // If transaction fails (e.g. offline / network unavailable), fall back to setDoc check-and-set
@@ -892,7 +900,8 @@ class AppRepository @Inject constructor(
                     // Known unreachable: the acknowledgement cannot arrive, so don't wait for it.
                     val unreachable = (txEx as? FirebaseFirestoreException)?.code ==
                         FirebaseFirestoreException.Code.UNAVAILABLE
-                    ref.set(payload).awaitOrQueue(if (unreachable) 0L else QUEUED_WRITE_GRACE_MS)
+                    submitExpenseWrite(u) { ref.set(payload) }
+                        .awaitOrQueue(if (unreachable) 0L else QUEUED_WRITE_GRACE_MS)
                 }
             }
             return@runSuspendCatching id
@@ -904,7 +913,7 @@ class AppRepository @Inject constructor(
             amount = roundAmount(expense.amount),
             note = expense.note.trim().take(2000)
         )
-        expDoc(u, id).set(expensePayload(e, idempotencyKey)).awaitOrQueue()
+        submitExpenseWrite(u) { expDoc(u, id).set(expensePayload(e, idempotencyKey)) }.awaitOrQueue()
         id
     }
 
@@ -923,7 +932,7 @@ class AppRepository @Inject constructor(
         val payload = expensePayload(e).toMutableMap()
         payload["idempotencyKey"] = FieldValue.delete()
         try {
-            expDoc(u, expense.id).update(payload).awaitOrQueue()
+            submitExpenseWrite(u) { expDoc(u, expense.id).update(payload) }.awaitOrQueue()
         } catch (e: FirebaseFirestoreException) {
             if (e.code == FirebaseFirestoreException.Code.NOT_FOUND) {
                 throw IllegalStateException("EXPENSE_NOT_FOUND", e)
@@ -938,7 +947,7 @@ class AppRepository @Inject constructor(
         if (isRestoreOperationActive(u)) {
             throw IllegalStateException("ACCOUNT_RESTORE_IN_PROGRESS")
         }
-        expDoc(u, expense.id).delete().awaitOrQueue()
+        submitExpenseWrite(u) { expDoc(u, expense.id).delete() }.awaitOrQueue()
     }
 
     override suspend fun deleteRecordExpense(expense: Expense, expectedUid: String): Result<Unit> = runSuspendCatching {
@@ -948,7 +957,7 @@ class AppRepository @Inject constructor(
         if (isRestoreOperationActive(u)) {
             throw IllegalStateException("ACCOUNT_RESTORE_IN_PROGRESS")
         }
-        expDoc(u, expense.id).delete().awaitOrQueue()
+        submitExpenseWrite(u) { expDoc(u, expense.id).delete() }.awaitOrQueue()
     }
 
     override suspend fun duplicateRecordExpense(expense: Expense, expectedUid: String): Result<Unit> =

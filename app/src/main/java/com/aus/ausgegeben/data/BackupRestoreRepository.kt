@@ -435,7 +435,11 @@ internal class BackupRestoreRepository(
     }
 
     private suspend fun setRestoreOperation(u: String, op: ReplacePlanner.RestoreOperationDoc) {
-        val payload = buildMap<String, Any?> {
+        restoreOpDoc(u).set(restoreOperationPayload(op)).await()
+    }
+
+    private fun restoreOperationPayload(op: ReplacePlanner.RestoreOperationDoc): Map<String, Any?> =
+        buildMap {
             put("operationId", op.operationId)
             put("ownerUid", op.ownerUid)
             put("mode", op.mode)
@@ -486,7 +490,64 @@ internal class BackupRestoreRepository(
                 )
             }
         }
-        restoreOpDoc(u).set(payload).await()
+
+    private suspend fun finishRestore(
+        uid: String,
+        terminal: ReplacePlanner.RestoreOperationDoc,
+        preferences: SyncedPreferences?,
+    ): SyncedPreferences? {
+        val operationRef = restoreOpDoc(uid)
+        val prefRef = settingsPrefsDoc(uid)
+        return firestore.runTransaction { transaction ->
+            val current = transaction.get(operationRef)
+            val completing = terminal.phase == ReplacePlanner.RestorePhase.COMPLETED
+            val expectedPhase = if (completing) "VERIFYING" else "ROLLING_BACK"
+            check(
+                current.getString("operationId") == terminal.operationId &&
+                    current.getString("phase") == expectedPhase &&
+                    current.getString("progress.leaseHolder") == terminal.progress?.leaseHolder &&
+                    current.getLong("progress.fencingToken") == terminal.progress?.fencingToken,
+            ) { "LEASE_LOST" }
+            val live = transaction.get(prefRef)
+            val now = System.currentTimeMillis()
+            val restored = preferences?.let { prefs ->
+                val updatedAt = BackupFormat.writablePreferencesRevision(
+                    if (completing) prefs.updatedAt - 1L else prefs.updatedAt,
+                    live.getLong("updatedAt"),
+                    now,
+                ) ?: error("PREFERENCES_REVISION_UNWRITABLE")
+                prefs.copy(
+                    monthlyBudget = prefs.monthlyBudget?.let(CurrencyUtils::roundAmount),
+                    updatedAt = updatedAt,
+                )
+            }
+            if (restored != null) {
+                val payload = mapOf(
+                    "currency" to restored.currency,
+                    "locale" to restored.locale,
+                    "themeMode" to restored.themeMode,
+                    "onboardingComplete" to restored.onboardingComplete,
+                    "dailyReminder" to restored.dailyReminder,
+                    "reminderHour" to restored.reminderHour,
+                    "reminderMinute" to restored.reminderMinute,
+                    "analyticsPeriod" to restored.analyticsPeriod,
+                    "monthlyBudget" to restored.monthlyBudget,
+                    "updatedAt" to restored.updatedAt,
+                )
+                if (completing) transaction.set(prefRef, payload, SetOptions.merge())
+                else transaction.set(prefRef, payload)
+            } else if (live.exists()) {
+                transaction.delete(prefRef)
+            }
+            transaction.set(
+                operationRef,
+                restoreOperationPayload(terminal.copy(
+                    updatedAt = now,
+                    progress = terminal.progress?.copy(leaseExpiresAt = now + 60_000L),
+                )),
+            )
+            restored
+        }.await()
     }
 
     private suspend fun deleteSafetySnapshot(u: String) {
@@ -1097,22 +1158,6 @@ internal class BackupRestoreRepository(
             if (backup.schemaVersion == 3 && backup.recurring != null) {
                 applyRecurringCollection(expectedUid, backup.recurring, true)
             }
-            val p = plan.preferencesToUpdate
-            val prefPayload = buildMap<String, Any?> {
-                put("currency", p.currency)
-                put("locale", p.locale)
-                put("themeMode", p.themeMode)
-                put("onboardingComplete", p.onboardingComplete)
-                put("dailyReminder", p.dailyReminder)
-                put("reminderHour", p.reminderHour)
-                put("reminderMinute", p.reminderMinute)
-                put("analyticsPeriod", p.analyticsPeriod)
-                put("monthlyBudget", p.monthlyBudget?.let(CurrencyUtils::roundAmount))
-                put("updatedAt", p.updatedAt)
-            }
-            settingsPrefsDoc(expectedUid).set(prefPayload, SetOptions.merge()).await()
-            preferenceManager.applySyncedPreferences(p)
-
             // 5. Verification
             currentPhase = ReplacePlanner.RestorePhase.VERIFYING
             setRestoreOperation(
@@ -1156,14 +1201,9 @@ internal class BackupRestoreRepository(
                 }
             }
 
-            val verifyPref = settingsPrefsDoc(expectedUid).get(Source.SERVER).await()
-            if (!verifyPref.exists()) {
-                throw IllegalStateException("REPLACE_VERIFICATION_FAILED: preferences missing")
-            }
-
-            // 6. Completed
-            currentPhase = ReplacePlanner.RestorePhase.COMPLETED
-            setRestoreOperation(
+            // Commit preferences only with the terminal journal transition.
+            verifyAndRenewRecoveryLease(expectedUid, currentClientId, fencingToken)
+            val committedPreferences = finishRestore(
                 expectedUid,
                 initialOp.copy(
                     phase = ReplacePlanner.RestorePhase.COMPLETED,
@@ -1178,7 +1218,10 @@ internal class BackupRestoreRepository(
                         fencingToken = fencingToken,
                     ),
                 ),
+                plan.preferencesToUpdate,
             )
+            currentPhase = ReplacePlanner.RestorePhase.COMPLETED
+            committedPreferences?.let { preferenceManager.applySyncedPreferences(it) }
 
             ReplacePlanner.ReplaceResult(
                 success = true,
@@ -1191,7 +1234,9 @@ internal class BackupRestoreRepository(
             // Once a snapshot exists (created this run, or carried over by a resume) a
             // failure still in PREPARING must be journaled too, or the operation sits in
             // PREPARING behind this dead holder's lease and the next resume is refused.
-            if (currentPhase != ReplacePlanner.RestorePhase.PREPARING || snapshotMeta != null) {
+            if (currentPhase != ReplacePlanner.RestorePhase.COMPLETED &&
+                (currentPhase != ReplacePlanner.RestorePhase.PREPARING || snapshotMeta != null)
+            ) {
                 try {
                     setRestoreOperation(
                         expectedUid,
@@ -1266,6 +1311,7 @@ internal class BackupRestoreRepository(
         // until app restart. acquiredToken stays nullable so the catch can tell
         // whether a lease was ever acquired (web acquires before registering instead).
         var acquiredToken: Long? = null
+        var rollbackCommitted = false
 
         try {
             val lease = acquireRecoveryLease(expectedUid, currentClientId, true)
@@ -1441,29 +1487,9 @@ internal class BackupRestoreRepository(
 
             snapshot.categoryBudgets?.let { applyBudgetCollection(expectedUid, it, true) }
 
-            // 4. Restore preferences
-            snapshot.preferences?.let { p ->
-                val newTimestamp = Math.max(System.currentTimeMillis(), p.updatedAt + 1L)
-                val restored = p.copy(updatedAt = newTimestamp)
-                val prefPayload = buildMap<String, Any?> {
-                    put("currency", restored.currency)
-                    put("locale", restored.locale)
-                    put("themeMode", restored.themeMode)
-                    put("onboardingComplete", restored.onboardingComplete)
-                    put("dailyReminder", restored.dailyReminder)
-                    put("reminderHour", restored.reminderHour)
-                    put("reminderMinute", restored.reminderMinute)
-                    put("analyticsPeriod", restored.analyticsPeriod)
-                    // Rules reject a changed sub-cent budget, so a legacy one is rounded on rollback.
-                    put("monthlyBudget", restored.monthlyBudget?.let(CurrencyUtils::roundAmount))
-                    put("updatedAt", restored.updatedAt)
-                }
-                settingsPrefsDoc(expectedUid).set(prefPayload).await()
-                preferenceManager.applySyncedPreferences(restored)
-            }
-
-            // 5. Update journal to ROLLED_BACK
-            setRestoreOperation(
+            // Restore preferences and advance the journal atomically.
+            verifyAndRenewRecoveryLease(expectedUid, currentClientId, fencingToken)
+            val restoredPreferences = finishRestore(
                 expectedUid,
                 operation.copy(
                     phase = ReplacePlanner.RestorePhase.ROLLED_BACK,
@@ -1476,11 +1502,15 @@ internal class BackupRestoreRepository(
                         fencingToken = fencingToken,
                     ),
                 ),
+                snapshot.preferences,
             )
+            rollbackCommitted = true
+            restoredPreferences?.let { preferenceManager.applySyncedPreferences(it) }
 
             // 6. Delete snapshot
             deleteSafetySnapshot(expectedUid)
         } catch (e: Throwable) {
+            if (rollbackCommitted) throw e
             val errorMsg = e.message ?: e.toString()
             try {
                 setRestoreOperation(

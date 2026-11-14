@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import android.util.Log
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.auth.AuthActions
+import com.aus.ausgegeben.data.auth.PendingWritesOnSignOutException
 import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.FirebaseTooManyRequestsException
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
@@ -169,17 +170,23 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    fun signOut(onComplete: () -> Unit = {}) {
+    fun signOut(onFailure: (String) -> Unit = {}, onComplete: () -> Unit = {}) {
         viewModelScope.launch {
             try {
                 authRepository.signOut()
+                _uiState.update { it.copy(errorMessage = null) }
                 onComplete()
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (e: Exception) {
+                val message = appString(
+                    if (e is PendingWritesOnSignOutException) R.string.settings_sign_out_pending_writes
+                    else R.string.settings_local_cleanup_failed,
+                )
                 _uiState.update {
-                    it.copy(errorMessage = appString(R.string.settings_local_cleanup_failed))
+                    it.copy(errorMessage = message)
                 }
+                onFailure(message)
             }
         }
     }
