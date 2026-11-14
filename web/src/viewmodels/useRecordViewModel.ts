@@ -5,7 +5,7 @@ import { usePreferencesStore } from '@/services/preferencesStore';
 import { useToastStore } from '@/services/toastStore';
 import { getLocale, useTranslation, type Locale } from '@/i18n';
 import { thisMonthRange, analyticsDateRangeMillis } from '@/utils/periodUtils';
-import { computeDayTotals, topExpenseCategoryName } from '@/utils/analytics';
+import { computeDayTotals, rowsCountedToDate, topExpenseCategoryName } from '@/utils/analytics';
 import { duplicateExpensePayload } from '@/utils/duplicateExpense';
 
 import { toMinorUnits } from '@/utils/money';
@@ -327,9 +327,11 @@ export function useRecordViewModel() {
 
   const reload = useCallback(async () => { setReloadEpoch(v => v + 1); }, []);
 
+  // Budget bar and top category: the current month as it stands today. Rows dated later this
+  // month are listed (with an "upcoming" header) but not counted until their day arrives.
   const monthExpenses = useMemo(
-    () => monthBudgetExpenses.filter((e) => !softDeletedIds.has(e.id)),
-    [monthBudgetExpenses, softDeletedIds],
+    () => rowsCountedToDate(monthBudgetExpenses.filter((e) => !softDeletedIds.has(e.id)), currentMonthRange, today),
+    [monthBudgetExpenses, softDeletedIds, currentMonthRange, today],
   );
 
   const monthSpent = useMemo(
@@ -343,6 +345,13 @@ export function useRecordViewModel() {
   const summaryExpenses = useMemo(
     () => periodExpenses.filter((e) => !softDeletedIds.has(e.id)),
     [periodExpenses, softDeletedIds],
+  );
+
+  // The summary card's totals leave out rows that have not happened yet, like Insights; the
+  // list below still shows them. `summaryExpenses` itself stays complete because it feeds the list.
+  const summaryTotalsExpenses = useMemo(
+    () => rowsCountedToDate(summaryExpenses, listRange, today),
+    [summaryExpenses, listRange, today],
   );
 
   /**
@@ -418,7 +427,7 @@ export function useRecordViewModel() {
 
   const uiState: RecordUiState = useMemo(() => ({
     expenses: owner.current === userId ? filteredExpenses : [],
-    summaryExpenses: owner.current === userId ? summaryExpenses : [],
+    summaryExpenses: owner.current === userId ? summaryTotalsExpenses : [],
     categories: owner.current === userId ? categories : [],
     searchQuery,
     typeFilter,
@@ -436,7 +445,7 @@ export function useRecordViewModel() {
     loading: owner.current !== userId || loading,
     loadError,
     dataTruncated,
-  }), [filteredExpenses, summaryExpenses, categories, searchQuery, typeFilter, categoryIdsFilter, minAmount, maxAmount, sortOrder, activeFilterCount, listPeriod, topExpenseCategory, monthlyBudget, monthExpenses, dayTotalsByLabel, loading, loadError, dataTruncated, userId]);
+  }), [filteredExpenses, summaryTotalsExpenses, categories, searchQuery, typeFilter, categoryIdsFilter, minAmount, maxAmount, sortOrder, activeFilterCount, listPeriod, topExpenseCategory, monthlyBudget, monthExpenses, dayTotalsByLabel, loading, loadError, dataTruncated, userId]);
 
   const requestDelete = useCallback(async (id: string) => {
     const deletingUid = userId;

@@ -53,6 +53,24 @@ export function splitScheduled(expenses: Expense[], cutoffMillis: number): { toD
   return { toDate, scheduled };
 }
 
+/**
+ * Rows that count toward a period's totals on [todayMillis]: while the period includes today,
+ * rows dated after today are scheduled, not spent, and are left out. A period entirely in the
+ * past or future counts everything, as Insights does (`computePeriodInsights`). A null range is
+ * "all time", which always includes today.
+ *
+ * The Record screen uses this for its summary card, budget bar and top category, so a bill
+ * logged before it is due no longer inflates "spent" there while Insights leaves it out.
+ */
+export function rowsCountedToDate(
+  expenses: Expense[],
+  rangeMillis: [number, number] | null,
+  todayMillis: number,
+): Expense[] {
+  const inProgress = rangeMillis == null || (todayMillis >= rangeMillis[0] && todayMillis < rangeMillis[1]);
+  return inProgress ? splitScheduled(expenses, startOfTomorrowMillis(todayMillis)).toDate : expenses;
+}
+
 export function computeTotals(expenses: Expense[]) {
   let totalExpensesMinor = 0;
   let totalIncomeMinor = 0;

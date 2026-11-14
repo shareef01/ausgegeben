@@ -186,8 +186,9 @@ fun RecordScreen(
                 }
 
                 item(key = "hero") {
-                    val headerExpenses = uiState.data.headerExpenses
-                    val sequence = remember(headerExpenses) { headerExpenses.asSequence() }
+                    // Rows dated after today are listed but not counted while the period includes today.
+                    val summaryExpenses = uiState.data.summaryExpenses
+                    val sequence = remember(summaryExpenses) { summaryExpenses.asSequence() }
                     
                     // sumMoney adds in cents: sumOf drifted (64.01 + 0.04 + 35.95 > 100.00), which
                     // showed a budget spent exactly to the cent as over budget.

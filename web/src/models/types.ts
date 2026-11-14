@@ -47,7 +47,7 @@ export type TransactionSortOrder = 'date_desc' | 'date_asc' | 'amount_desc' | 'a
 export interface RecordUiState {
   /** Search/type-filtered rows for the transaction list. */
   expenses: Expense[];
-  /** Period-scoped expenses (soft-deletes excluded) for balance / period summary. */
+  /** Period-scoped expenses for the summary card: soft-deletes excluded, and rows dated after today left out while the period includes today. */
   summaryExpenses: Expense[];
   categories: Category[];
   searchQuery: string;
@@ -62,6 +62,7 @@ export interface RecordUiState {
   /** Calendar-month top expense category name (Android Record chip parity). */
   topExpenseCategoryName: string | null;
   monthlyBudget: number | null;
+  /** Current calendar month up to today (soft-deletes and rows dated after today excluded): budget bar and top category. */
   monthExpenses: Expense[];
   /** Day-key → [income, expense] from the full period (not search/type-filtered). */
   dayTotalsByLabel: Record<string, [number, number]>;
