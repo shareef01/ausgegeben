@@ -229,14 +229,6 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
               >
                 {t('settingsSignOut')}
               </button>
-              <button
-                type="button"
-                className="settings-signout-btn settings-delete-account-btn"
-                disabled={deletingAccount}
-                onClick={() => setShowDeleteAccountConfirm(true)}
-              >
-                {t('settingsDeleteAccount')}
-              </button>
             </div>
           </section>
         ) : null}
@@ -409,6 +401,25 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
             <p className="settings-about-note">{t('settingsRemindersPhoneOnly')}</p>
           </Section>
         </div>
+
+        {/* Deleting the account lives apart from signing out, under its own heading and
+            explanation, so the one irreversible action never shares a slot with a routine one. */}
+        {user ? (
+          <section className="settings-section settings-danger" aria-labelledby="settings-danger-title">
+            <h2 id="settings-danger-title" className="settings-section__title">{t('settingsDangerZone')}</h2>
+            <div className="settings-group settings-danger__body">
+              <p className="settings-danger__text">{t('settingsDeleteAccountExplain')}</p>
+              <button
+                type="button"
+                className="settings-signout-btn settings-delete-account-btn"
+                disabled={deletingAccount}
+                onClick={() => setShowDeleteAccountConfirm(true)}
+              >
+                {t('settingsDeleteAccount')}
+              </button>
+            </div>
+          </section>
+        ) : null}
       </div>
 
       <ConfirmDialog

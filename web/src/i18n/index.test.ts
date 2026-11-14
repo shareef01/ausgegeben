@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { t } from '@/i18n';
+import { pluralKey, t } from '@/i18n';
 import { en, type TranslationKey } from '@/i18n/en';
 import { de } from '@/i18n/de';
 
@@ -21,6 +21,17 @@ describe('i18n', () => {
     }
     expect(t('recurringIssuesWarning', { count: '2' })).toContain(' 2 ');
     expect(t('recurringIssuesWarning', { count: '2' })).not.toMatch(/[{}]/);
+  });
+
+  it('pluralKey picks the singular only for a count of one, in both languages', () => {
+    expect(pluralKey(1, 'countTransactionsOne', 'countTransactionsOther', 'en')).toBe('countTransactionsOne');
+    expect(pluralKey(0, 'countTransactionsOne', 'countTransactionsOther', 'en')).toBe('countTransactionsOther');
+    expect(pluralKey(2, 'countTransactionsOne', 'countTransactionsOther', 'en')).toBe('countTransactionsOther');
+    expect(pluralKey(1, 'countCategoriesOne', 'countCategoriesOther', 'de')).toBe('countCategoriesOne');
+    expect(pluralKey(5, 'countCategoriesOne', 'countCategoriesOther', 'de')).toBe('countCategoriesOther');
+    expect(t('countTransactionsOne', { count: 1 })).toBe('1 transaction');
+    expect(t('settingsRestoreSuccess', { transactions: '1 transaction', categories: '2 categories' }))
+      .toBe('Backup restored: 1 transaction, 2 categories');
   });
 
   it('de catalog has every English key with a non-empty string', () => {

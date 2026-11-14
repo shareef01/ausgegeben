@@ -81,6 +81,7 @@
     <string name="settings_section_management">Management</string>
     <string name="settings_section_export">Export</string>
     <string name="settings_section_about">About</string>
+    <string name="settings_section_danger">Danger zone</string>
     <string name="settings_theme">Theme</string>
     <string name="settings_currency">Currency</string>
     <string name="settings_evening_reminder">Evening reminder</string>
@@ -108,9 +109,17 @@
     <string name="settings_restore_backup_title">Restore backup</string>
     <string name="settings_restore_backup_action">Restore</string>
     <string name="settings_restore_backup_explain">Existing matching items will be updated to the values in the backup, including edits made on another device after the export. Unlike replace, a merge restore cannot be undone automatically.</string>
-    <string name="settings_restore_backup_summary">Backup contains %1$d expenses and %2$d categories. Currency: %3$s.</string>
+    <string name="settings_restore_backup_summary">Backup contains %1$s and %2$s. Currency: %3$s.</string>
     <string name="settings_restore_backup_budget">Monthly budget: %1$s.</string>
-    <string name="settings_restore_success">Backup restored: %1$d expenses, %2$d categories</string>
+    <string name="settings_restore_success">Backup restored: %1$s, %2$s</string>
+    <plurals name="count_transactions">
+        <item quantity="one">%1$d transaction</item>
+        <item quantity="other">%1$d transactions</item>
+    </plurals>
+    <plurals name="count_categories">
+        <item quantity="one">%1$d category</item>
+        <item quantity="other">%1$d categories</item>
+    </plurals>
     <string name="settings_restore_invalid">Invalid backup file</string>
     <string name="settings_restore_file_too_large">Backup file exceeds size limit (max 10 MB)</string>
     <string name="settings_restore_conflict">Category conflict: conflicting transaction type</string>
@@ -161,6 +170,7 @@
     <string name="settings_sign_out_confirm">Sign out? You\'ll need to sign in again to access your cloud data.</string>
     <string name="settings_sign_out_pending_writes">Changes are still waiting to sync. Reconnect and try signing out again.</string>
     <string name="settings_delete_account">Delete account</string>
+    <string name="settings_delete_account_explain">Permanently deletes your account and all your transactions, categories and settings. You\'ll confirm with your password. This can\'t be undone.</string>
     <string name="settings_delete_account_confirm">Permanently delete your account and all your expenses, categories, and preferences? This cannot be undone.</string>
     <string name="settings_delete_account_ok">Account deleted</string>
     <string name="settings_delete_account_failed">Could not delete account</string>
@@ -212,15 +222,11 @@
     <string name="add_amount_transfer">Transfer amount</string>
     <string name="add_delete_category_title">Delete category?</string>
     <string name="add_delete_category_none">No transactions are linked to this category.</string>
-    <string name="add_delete_category_one">1 linked transaction will move to Uncategorized.</string>
-    <string name="add_delete_category_many">%1$d linked transactions will move to Uncategorized.</string>
     <plurals name="add_delete_category_linked">
         <item quantity="one">%1$d linked transaction will move to Uncategorized.</item>
         <item quantity="other">%1$d linked transactions will move to Uncategorized.</item>
     </plurals>
     <string name="add_delete_category_fallback">Linked transactions will move to Uncategorized.</string>
-    <string name="add_delete_category_uncategorized_one">1 linked transaction will show as unknown until you assign a category.</string>
-    <string name="add_delete_category_uncategorized_many">%1$d linked transactions will show as unknown until you assign a category.</string>
     <plurals name="add_delete_category_uncategorized">
         <item quantity="one">%1$d linked transaction will show as unknown until you assign a category.</item>
         <item quantity="other">%1$d linked transactions will show as unknown until you assign a category.</item>
@@ -317,7 +323,7 @@
     <string name="category_preview_name">Category name</string>
     <string name="category_preview">Preview</string>
     <string name="category_manage_title">Manage categories</string>
-    <string name="category_manage_subtitle">%1$s · %2$d items</string>
+    <string name="category_manage_subtitle">%1$s · %2$s</string>
     <string name="category_manage_empty_subtitle">Create one to start tracking</string>
     <string name="category_add_button">Add category</string>
     <string name="category_save_changes">Save changes</string>
@@ -398,7 +404,10 @@
     <string name="insights_avg_monthly_expenses">Avg. spending</string>
     <string name="insights_avg_monthly_income">Avg. income</string>
     <string name="insights_avg_monthly_net">Avg. net</string>
-    <string name="insights_across_months">Across %1$d active months</string>
+    <plurals name="insights_across_months">
+        <item quantity="one">Across %1$d active month</item>
+        <item quantity="other">Across %1$d active months</item>
+    </plurals>
 
     <string name="record_most_spent_on">Most spent on %1$s</string>
     <string name="desc_income_row">%1$s income of %2$s. %3$s</string>

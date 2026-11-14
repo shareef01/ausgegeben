@@ -22,6 +22,19 @@ export function t(key: TranslationKey, params?: Record<string, string | number>)
   return text;
 }
 
+/**
+ * Picks the singular or plural key for [count] using the language's plural rules, so a
+ * count of 1 does not read "1 transactions". Use as `t(pluralKey(n, 'xOne', 'xOther'), { count: n })`.
+ */
+export function pluralKey(
+  count: number,
+  one: TranslationKey,
+  other: TranslationKey,
+  locale: Locale = getLocale(),
+): TranslationKey {
+  return new Intl.PluralRules(localeTag(locale)).select(count) === 'one' ? one : other;
+}
+
 export function useTranslation() {
   const locale = usePreferencesStore((s) => s.locale);
   // Stable across renders (deps: locale only) — callers put `t` in useCallback/useEffect

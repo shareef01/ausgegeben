@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
@@ -1167,7 +1168,7 @@ private fun AllTimeAveragesCard(
                     modifier = Modifier.padding(end = AppSpacing.xs),
                 )
                 InsightsBadge(
-                    text = stringResource(R.string.insights_across_months, averages.monthsCount),
+                    text = pluralStringResource(R.plurals.insights_across_months, averages.monthsCount, averages.monthsCount),
                     backgroundColor = MaterialTheme.colorScheme.surfaceVariant,
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

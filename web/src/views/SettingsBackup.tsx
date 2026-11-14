@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useTranslation } from '@/i18n';
+import { pluralKey, useTranslation } from '@/i18n';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useAuthStore } from '@/services/authStore';
 import { useToastStore } from '@/services/toastStore';
@@ -156,8 +156,12 @@ export function useSettingsBackup() {
       setPendingRestore(null);
       useToastStore.getState().show(
         t('settingsRestoreSuccess', {
-          expenses: String(res.expensesRestored),
-          categories: String(res.categoriesRestored),
+          transactions: t(pluralKey(res.expensesRestored, 'countTransactionsOne', 'countTransactionsOther'), {
+            count: res.expensesRestored,
+          }),
+          categories: t(pluralKey(res.categoriesRestored, 'countCategoriesOne', 'countCategoriesOther'), {
+            count: res.categoriesRestored,
+          }),
         }),
       );
     } catch (err: unknown) {
@@ -464,8 +468,14 @@ export function SettingsBackupDialogs({ backup }: { backup: SettingsBackupState 
             <div className="flex flex-col gap-2">
               <p className="confirm-dialog__message">
                 {t('settingsRestoreBackupSummary', {
-                  expenses: String(pendingRestore.summary.expenseCount),
-                  categories: String(pendingRestore.summary.categoryCount),
+                  transactions: t(
+                    pluralKey(pendingRestore.summary.expenseCount, 'countTransactionsOne', 'countTransactionsOther'),
+                    { count: pendingRestore.summary.expenseCount },
+                  ),
+                  categories: t(
+                    pluralKey(pendingRestore.summary.categoryCount, 'countCategoriesOne', 'countCategoriesOther'),
+                    { count: pendingRestore.summary.categoryCount },
+                  ),
                   currency: pendingRestore.summary.currency,
                 })}
               </p>

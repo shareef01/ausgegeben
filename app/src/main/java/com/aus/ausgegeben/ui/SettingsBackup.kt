@@ -10,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.R
@@ -319,8 +320,8 @@ internal fun SettingsBackupDialogs(state: SettingsBackupState) {
                         Text(
                             stringResource(
                                 R.string.settings_restore_backup_summary,
-                                summary.expenseCount,
-                                summary.categoryCount,
+                                pluralStringResource(R.plurals.count_transactions, summary.expenseCount, summary.expenseCount),
+                                pluralStringResource(R.plurals.count_categories, summary.categoryCount, summary.categoryCount),
                                 summary.currency
                             ),
                             style = MaterialTheme.typography.bodyMedium,
@@ -365,8 +366,16 @@ internal fun SettingsBackupDialogs(state: SettingsBackupState) {
                                         onShowMessage(
                                             context.getString(
                                                 R.string.settings_restore_success,
-                                                restored.expensesRestored,
-                                                restored.categoriesRestored,
+                                                context.resources.getQuantityString(
+                                                    R.plurals.count_transactions,
+                                                    restored.expensesRestored,
+                                                    restored.expensesRestored,
+                                                ),
+                                                context.resources.getQuantityString(
+                                                    R.plurals.count_categories,
+                                                    restored.categoriesRestored,
+                                                    restored.categoriesRestored,
+                                                ),
                                             )
                                         )
                                     }.onFailure { ex ->
