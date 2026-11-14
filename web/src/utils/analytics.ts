@@ -32,6 +32,27 @@ export function hasComparableData(expenses: Expense[]): boolean {
   return expenses.some((e) => isExpense(e) || isIncome(e));
 }
 
+/** Local midnight at the start of tomorrow: rows dated at or after it have not happened yet. */
+export function startOfTomorrowMillis(nowMillis = Date.now()): number {
+  const d = new Date(nowMillis);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, 0, 0, 0).getTime();
+}
+
+/**
+ * Split rows at [cutoffMillis] into what has already happened and what is scheduled.
+ *
+ * People log rent or a bill before it is due, so a month still in progress can hold rows
+ * dated later this month. Counting those as spent-so-far made the pace card extrapolate a
+ * one-off bill as daily spending, and the "same days last month" comparison measure a whole
+ * month against a cut-off one.
+ */
+export function splitScheduled(expenses: Expense[], cutoffMillis: number): { toDate: Expense[]; scheduled: Expense[] } {
+  const toDate: Expense[] = [];
+  const scheduled: Expense[] = [];
+  for (const e of expenses) (e.dateMillis >= cutoffMillis ? scheduled : toDate).push(e);
+  return { toDate, scheduled };
+}
+
 export function computeTotals(expenses: Expense[]) {
   let totalExpensesMinor = 0;
   let totalIncomeMinor = 0;
@@ -243,11 +264,17 @@ export function computePeriodComparison(
   };
 }
 
+/**
+ * @param currentExpenses spending that has already happened (in an active month: dated today or earlier)
+ * @param scheduledExpenses spending dated after today in an active month. It is added to the
+ *   projection once rather than extrapolated, and ignored for past and future months.
+ */
 export function computeSpendingPace(
   currentExpenses: number,
   rangeMillis: [number, number] | null,
   nowMillis = Date.now(),
   monthlyBudget: number | null = null,
+  scheduledExpenses = 0,
 ): SpendingPace | null {
   if (!rangeMillis) return null;
   const [start, end] = rangeMillis;
@@ -277,7 +304,7 @@ export function computeSpendingPace(
     daysElapsed = Math.min(Math.max(dayOfMonth, 1), daysInMonth);
     const dailyAverageMinor = Math.round(currentExpMinor / daysElapsed);
     dailyAverage = fromMinorUnits(dailyAverageMinor);
-    projectedTotal = fromMinorUnits(dailyAverageMinor * daysInMonth);
+    projectedTotal = fromMinorUnits(dailyAverageMinor * daysInMonth + toMinorUnits(scheduledExpenses));
   }
 
   const budget = monthlyBudget && monthlyBudget > 0 ? monthlyBudget : null;
@@ -344,6 +371,57 @@ export function computeCategoryMovers(
   // Largest absolute shift first
   movers.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
   return movers.slice(0, maxMovers);
+}
+
+/**
+ * The month-scoped Insights cards: comparison, spending pace and category movers.
+ *
+ * While [rangeMillis] contains [nowMillis] (the month is in progress), rows dated after
+ * today are scheduled rather than spent: the comparison and movers use only rows up to
+ * today (`priorExpenses` is already cut to the same days), and the pace card extrapolates
+ * those and then adds the scheduled spending once. Movers are empty without prior data,
+ * where every category would otherwise read "€0.00 → X" under "first recorded month".
+ */
+export function computePeriodInsights(
+  expenses: Expense[],
+  priorExpenses: Expense[],
+  categories: Category[],
+  rangeMillis: [number, number],
+  monthlyBudget: number | null,
+  nowMillis = Date.now(),
+): { comparison: PeriodComparison; pace: SpendingPace | null; categoryMovers: CategoryMover[] } {
+  const inProgress = nowMillis >= rangeMillis[0] && nowMillis < rangeMillis[1];
+  const { toDate, scheduled } = inProgress
+    ? splitScheduled(expenses, startOfTomorrowMillis(nowMillis))
+    : { toDate: expenses, scheduled: [] as Expense[] };
+  const current = computeTotals(toDate);
+  const prior = computeTotals(priorExpenses);
+  const hasPriorData = hasComparableData(priorExpenses);
+
+  return {
+    comparison: computePeriodComparison(
+      current.totalExpenses,
+      current.totalIncome,
+      prior.totalExpenses,
+      prior.totalIncome,
+      hasPriorData,
+    ),
+    pace: computeSpendingPace(
+      current.totalExpenses,
+      rangeMillis,
+      nowMillis,
+      monthlyBudget,
+      computeTotals(scheduled).totalExpenses,
+    ),
+    categoryMovers: hasPriorData
+      ? computeCategoryMovers(
+          groupByCategory(toDate, 'expense'),
+          groupByCategory(priorExpenses, 'expense'),
+          categories,
+          3,
+        )
+      : [],
+  };
 }
 
 export function computeAllTimeAverages(expenses: Expense[]): AllTimeAverages | null {

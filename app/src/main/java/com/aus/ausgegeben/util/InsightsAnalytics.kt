@@ -104,11 +104,29 @@ fun computePeriodComparison(
     )
 }
 
+/** Local midnight at the start of tomorrow: rows dated at or after it have not happened yet. */
+fun startOfTomorrowMillis(nowMillis: Long = System.currentTimeMillis()): Long =
+    Calendar.getInstance().apply {
+        timeInMillis = nowMillis
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+        add(Calendar.DAY_OF_MONTH, 1)
+    }.timeInMillis
+
+/**
+ * @param currentExpenses spending that has already happened (in an active month: dated today or earlier)
+ * @param scheduledExpenses spending dated after today in an active month. People log rent or a
+ *   bill before it is due; it is added to the projection once rather than extrapolated as daily
+ *   spending, and ignored for past and future months. Mirrors web's computeSpendingPace.
+ */
 fun computeSpendingPace(
     currentExpenses: Double,
     rangeMillis: Pair<Long, Long>?,
     nowMillis: Long = System.currentTimeMillis(),
     monthlyBudget: Double? = null,
+    scheduledExpenses: Double = 0.0,
 ): SpendingPace? {
     if (rangeMillis == null) return null
     val (start, end) = rangeMillis
@@ -139,7 +157,9 @@ fun computeSpendingPace(
             daysElapsed = min(max(dayOfMonth, 1), daysInMonth)
             val dailyAverageMinor = (currentExpMinor.toDouble() / daysElapsed.toDouble()).roundToLong()
             dailyAverage = CurrencyUtils.fromMinorUnits(dailyAverageMinor)
-            projectedTotal = CurrencyUtils.fromMinorUnits(dailyAverageMinor * daysInMonth)
+            projectedTotal = CurrencyUtils.fromMinorUnits(
+                dailyAverageMinor * daysInMonth + CurrencyUtils.toMinorUnits(scheduledExpenses),
+            )
         }
     }
 

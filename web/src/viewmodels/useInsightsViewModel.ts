@@ -6,12 +6,9 @@ import { usePreferencesStore } from '@/services/preferencesStore';
 import {
   computeAllTimeAverages,
   computeCashFlowTrend,
-  computeCategoryMovers,
-  computePeriodComparison,
-  computeSpendingPace,
+  computePeriodInsights,
   computeTotals,
   groupByCategory,
-  hasComparableData,
 } from '@/utils/analytics';
 import {
   analyticsDateRangeMillis,
@@ -192,26 +189,10 @@ export function useInsightsViewModel() {
     const transfersByCategory = groupByCategory(expenses, 'transfer');
 
     const currentTotals = computeTotals(expenses);
-    const priorTotals = computeTotals(priorExpenses);
 
-    const comparison = range
-      ? computePeriodComparison(
-          currentTotals.totalExpenses,
-          currentTotals.totalIncome,
-          priorTotals.totalExpenses,
-          priorTotals.totalIncome,
-          hasComparableData(priorExpenses),
-        )
-      : null;
-
-    const pace = range
-      ? computeSpendingPace(currentTotals.totalExpenses, range, Date.now(), monthlyBudget)
-      : null;
-
-    const priorExpensesByCategory = groupByCategory(priorExpenses, 'expense');
-    const categoryMovers = range
-      ? computeCategoryMovers(expensesByCategory, priorExpensesByCategory, categories, 3)
-      : [];
+    const { comparison, pace, categoryMovers } = range
+      ? computePeriodInsights(expenses, priorExpenses, categories, range, monthlyBudget, Date.now())
+      : { comparison: null, pace: null, categoryMovers: [] };
 
     const allTimeAverages = !range ? computeAllTimeAverages(expenses) : null;
 

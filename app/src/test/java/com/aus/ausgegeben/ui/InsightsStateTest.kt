@@ -235,4 +235,86 @@ class InsightsStateTest {
         assertEquals(100.0, averages!!.averageMonthlyExpenses, 0.01)
         assertEquals(500.0, averages.averageMonthlyIncome, 0.01)
     }
+
+    // --- Future-dated rows in a month still in progress (F-1) and movers without prior data (F-2) ---
+
+    private fun at(year: Int, month: Int, day: Int, hour: Int = 12, minute: Int = 0): Long =
+        java.util.Calendar.getInstance().apply {
+            clear()
+            set(year, month - 1, day, hour, minute)
+        }.timeInMillis
+
+    private fun dated(categoryId: String, amount: Double, millis: Long, type: String = "expense") =
+        Expense(amount = amount, dateMillis = millis, categoryId = categoryId, note = "", transactionType = type)
+
+    // 14 Nov 2026, mid-afternoon; November is in progress, October is cut to 1-14.
+    private val now = at(2026, 11, 14, 15, 30)
+    private val priorCut = listOf(dated("c1", 100.0, at(2026, 10, 3)), dated("c1", 40.0, at(2026, 10, 10)))
+
+    @Test
+    fun buildInsightsState_billDatedLaterThisMonth_isNotTreatedAsSpent() {
+        val current = listOf(
+            dated("c1", 70.0, at(2026, 11, 2)),
+            dated("c1", 70.0, at(2026, 11, 12)),
+            dated("c2", 1069.50, at(2026, 11, 28)), // logged early, due on the 28th
+        )
+        val state = buildInsightsState(
+            "EUR", listOf(groceries, dining), current, "month:2026-11", truncated = false,
+            priorExpenses = priorCut, monthlyBudget = 2000.0, nowMillis = now,
+        )
+
+        // Before the fix: 1,209.50 / 14 x 30 = 2,591.79, "over budget".
+        val pace = state.pace!!
+        assertEquals(10.0, pace.dailyAverage, 0.0)
+        assertEquals(1369.50, pace.projectedTotal, 0.0)
+        org.junit.Assert.assertNull(pace.projectedOverBudget)
+        // 1-14 Nov (140) vs 1-14 Oct (140), not +1,069.50.
+        assertEquals(0.0, state.comparison!!.expenseDelta, 0.0)
+        // The headline total still counts everything recorded for the month.
+        assertEquals(1209.50, state.totalExpenses, 0.0)
+        assertFalse(state.categoryMovers.any { it.categoryId == "c2" })
+    }
+
+    @Test
+    fun buildInsightsState_rowDatedLateToday_countsAsSpent() {
+        val current = listOf(dated("c1", 140.0, at(2026, 11, 14, 23, 59)))
+        val state = buildInsightsState(
+            "EUR", listOf(groceries), current, "month:2026-11", truncated = false,
+            priorExpenses = priorCut, nowMillis = now,
+        )
+        assertEquals(10.0, state.pace!!.dailyAverage, 0.0)
+        assertEquals(0.0, state.comparison!!.expenseDelta, 0.0)
+    }
+
+    @Test
+    fun buildInsightsState_finishedMonth_usesEveryRow() {
+        val later = at(2026, 12, 5)
+        val current = listOf(dated("c1", 100.0, at(2026, 11, 2)), dated("c2", 900.0, at(2026, 11, 28)))
+        val state = buildInsightsState(
+            "EUR", listOf(groceries, dining), current, "month:2026-11", truncated = false,
+            priorExpenses = listOf(dated("c1", 1000.0, at(2026, 10, 2))), nowMillis = later,
+        )
+        assertEquals(0.0, state.comparison!!.expenseDelta, 0.0)
+        assertEquals(1000.0, state.pace!!.projectedTotal, 0.0)
+        assertTrue(state.categoryMovers.any { it.categoryId == "c2" })
+    }
+
+    @Test
+    fun buildInsightsState_noPriorData_hasNoCategoryMovers() {
+        val state = buildInsightsState(
+            "EUR", listOf(dining), listOf(dated("c2", 154.50, at(2026, 11, 12))), "month:2026-11",
+            truncated = false, priorExpenses = emptyList(), nowMillis = now,
+        )
+        assertFalse(state.comparison!!.hasPriorData)
+        assertTrue(state.categoryMovers.isEmpty())
+    }
+
+    @Test
+    fun buildInsightsState_transferOnlyPrior_hasNoCategoryMovers() {
+        val state = buildInsightsState(
+            "EUR", listOf(dining, transferCat), listOf(dated("c2", 154.50, at(2026, 11, 12))), "month:2026-11",
+            truncated = false, priorExpenses = listOf(dated("c4", 50.0, at(2026, 10, 2), "transfer")), nowMillis = now,
+        )
+        assertTrue(state.categoryMovers.isEmpty())
+    }
 }
