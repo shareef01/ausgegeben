@@ -23,6 +23,7 @@ import com.aus.ausgegeben.util.computePeriodComparison
 import com.aus.ausgegeben.util.computeSpendingPace
 import com.aus.ausgegeben.util.isComparisonToDate
 import com.aus.ausgegeben.util.previousPeriodRange
+import com.aus.ausgegeben.util.startOfTomorrowMillis
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -250,29 +251,62 @@ internal fun buildInsightsState(
             }
         }
 
+        // In a month still in progress, rows dated after today are scheduled, not spent:
+        // the comparison and movers use only rows up to today (priorExpenses is already cut
+        // to the same days), and pace extrapolates those and adds the scheduled rows once.
+        // Otherwise a bill logged before it is due read as daily spending ("over budget")
+        // and was compared against a prior month cut short. Mirrors web computePeriodInsights.
+        val inProgress = nowMillis >= range.first && nowMillis < range.second
+        val cutoff = startOfTomorrowMillis(nowMillis)
+        var toDateExpenses = 0L
+        var toDateIncome = 0L
+        var scheduledExpenses = 0L
+        val toDateExpenseTotals = mutableMapOf<String, Long>()
+        for (expense in scoped) {
+            val scheduled = inProgress && expense.dateMillis >= cutoff
+            when {
+                expense.isIncome() -> if (!scheduled) toDateIncome += CurrencyUtils.toMinorUnits(expense.amount)
+                expense.isExpense() -> {
+                    val minor = CurrencyUtils.toMinorUnits(expense.amount)
+                    if (scheduled) {
+                        scheduledExpenses += minor
+                    } else {
+                        toDateExpenses += minor
+                        toDateExpenseTotals[expense.categoryId] =
+                            (toDateExpenseTotals[expense.categoryId] ?: 0L) + minor
+                    }
+                }
+            }
+        }
+
         comparison = computePeriodComparison(
-            currentExpenses = CurrencyUtils.fromMinorUnits(totalExpenses),
-            currentIncome = CurrencyUtils.fromMinorUnits(totalIncome),
+            currentExpenses = CurrencyUtils.fromMinorUnits(toDateExpenses),
+            currentIncome = CurrencyUtils.fromMinorUnits(toDateIncome),
             priorExpenses = CurrencyUtils.fromMinorUnits(priorTotalExpenses),
             priorIncome = CurrencyUtils.fromMinorUnits(priorTotalIncome),
             hasPriorData = hasPriorData,
         )
 
         pace = computeSpendingPace(
-            currentExpenses = CurrencyUtils.fromMinorUnits(totalExpenses),
+            currentExpenses = CurrencyUtils.fromMinorUnits(toDateExpenses),
             rangeMillis = range,
             nowMillis = nowMillis,
             monthlyBudget = monthlyBudget,
+            scheduledExpenses = CurrencyUtils.fromMinorUnits(scheduledExpenses),
         )
 
-        val currentCatMap = expenseTotals.mapValues { CurrencyUtils.fromMinorUnits(it.value) }
-        val priorCatMap = priorExpenseTotals.mapValues { CurrencyUtils.fromMinorUnits(it.value) }
-        categoryMovers = computeCategoryMovers(
-            currentExpensesMap = currentCatMap,
-            priorExpensesMap = priorCatMap,
-            categories = categories,
-            maxMovers = 3,
-        )
+        // Without a prior period every category would read "0.00 → X", contradicting the
+        // comparison card's "first recorded month".
+        categoryMovers = if (hasPriorData) {
+            computeCategoryMovers(
+                currentExpensesMap = toDateExpenseTotals.mapValues { CurrencyUtils.fromMinorUnits(it.value) },
+                priorExpensesMap = priorExpenseTotals.mapValues { CurrencyUtils.fromMinorUnits(it.value) },
+                categories = categories,
+                maxMovers = 3,
+            )
+        } else {
+            emptyList()
+        }
         allTimeAverages = null
     } else {
         comparison = null
