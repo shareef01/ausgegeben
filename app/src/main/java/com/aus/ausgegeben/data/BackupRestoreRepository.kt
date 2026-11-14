@@ -687,7 +687,8 @@ internal class BackupRestoreRepository(
         }
         val now = System.currentTimeMillis()
         val update = mapOf(
-            "progress" to ((progressMap?.filterKeys { it != null } ?: emptyMap<Any?, Any?>()) + ("leaseExpiresAt" to (now + 60_000L))),
+            // Non-null here: a missing progress map fails the lease-holder check above.
+            "progress" to (progressMap.filterKeys { it != null } + ("leaseExpiresAt" to (now + 60_000L))),
             "updatedAt" to now,
         )
         opRef.set(update, SetOptions.merge()).await()
