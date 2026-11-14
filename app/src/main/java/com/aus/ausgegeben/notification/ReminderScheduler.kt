@@ -6,7 +6,10 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import kotlinx.coroutines.flow.first
 import java.util.Calendar
+import java.util.Locale
+import java.util.TimeZone
 import java.util.concurrent.TimeUnit
 
 object ReminderScheduler {
@@ -31,13 +34,37 @@ object ReminderScheduler {
      *    external rescheduled — silently, which is the worst way for this to fail.
      *
      * Periodic work drops the self-rescheduling entirely, so there is no chain to grow or
-     * poison. CANCEL_AND_REENQUEUE re-anchors to the next hour:minute, which is what every
-     * caller wants: a settings change, a reboot, or an app launch should each realign the
-     * schedule rather than inherit a stale one.
+     * poison.
+     *
+     * AUS-301: this used to replace the work on every call, and MainActivity calls it on
+     * every launch. WorkManager runs work late (the request also needs a network), so at
+     * 19:05 today's 19:00 run can still be waiting. Replacing it then re-anchored the
+     * schedule to tomorrow 19:00 and that day's reminder never came. Now the existing work
+     * is kept when it was scheduled for the same hour:minute in the same time zone, which
+     * covers app launches and reboots (WorkManager keeps its work across a reboot). The
+     * work is replaced only when the time or time zone changed, or when there is none:
+     * reminders just turned on, or work enqueued before this tag existed.
      */
-    suspend fun scheduleNext(context: Context, hour: Int = 19, minute: Int = 0) {
-        enqueue(context, millisUntilNextReminder(hour, minute))
+    suspend fun scheduleNext(
+        context: Context,
+        hour: Int = 19,
+        minute: Int = 0,
+        zoneId: String = TimeZone.getDefault().id,
+    ) {
+        val config = configTag(hour, minute, zoneId)
+        val current = WorkManager.getInstance(context)
+            .getWorkInfosForUniqueWorkFlow(WORK_NAME)
+            .first()
+        if (current.any { !it.state.isFinished && config in it.tags }) return
+        enqueue(context, millisUntilNextReminder(hour, minute), config)
     }
+
+    /** Marks a request with the schedule it was built for; see [scheduleNext]. */
+    internal fun configTag(hour: Int, minute: Int, zoneId: String): String =
+        // Locale.ROOT: a default locale with other digits would change the tag text.
+        String.format(Locale.ROOT, "%s%02d:%02d@%s", CONFIG_TAG_PREFIX, hour, minute, zoneId)
+
+    private const val CONFIG_TAG_PREFIX = "reminder-config:"
 
     /**
      * Periodic work repeats every 24 elapsed hours, so a DST change shifts the reminder
@@ -50,10 +77,14 @@ object ReminderScheduler {
      * it, which is why the worker calls it only after its own work is done.
      */
     suspend fun reanchorAfterDrift(context: Context, hour: Int, minute: Int) {
-        enqueue(context, millisUntilReminderAtLeastHalfADayAway(hour, minute))
+        enqueue(
+            context,
+            millisUntilReminderAtLeastHalfADayAway(hour, minute),
+            configTag(hour, minute, TimeZone.getDefault().id),
+        )
     }
 
-    private fun enqueue(context: Context, initialDelayMs: Long) {
+    private fun enqueue(context: Context, initialDelayMs: Long, configTag: String) {
         val request = PeriodicWorkRequestBuilder<DailyReminderWorker>(
             REPEAT_INTERVAL_HOURS,
             TimeUnit.HOURS,
@@ -65,6 +96,7 @@ object ReminderScheduler {
                     .build(),
             )
             .addTag(WORK_NAME)
+            .addTag(configTag)
             .build()
 
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(

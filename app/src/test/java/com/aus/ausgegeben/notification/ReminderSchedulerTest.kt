@@ -4,12 +4,16 @@ import android.app.Application
 import android.util.Log
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.Configuration
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.testing.SynchronousExecutor
 import androidx.work.testing.WorkManagerTestInitHelper
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -17,6 +21,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.util.Calendar
+import java.util.Locale
 import java.util.TimeZone
 import java.util.concurrent.TimeUnit
 
@@ -84,6 +89,95 @@ class ReminderSchedulerTest {
 
         val pending = reminderWorkInfos().filterNot { it.state.isFinished }
         assertEquals(1, pending.size)
+    }
+
+    private fun pendingReminder(): WorkInfo =
+        reminderWorkInfos().filterNot { it.state.isFinished }.single()
+
+    // AUS-301: MainActivity calls scheduleNext on every launch. Replacing the work there
+    // dropped a run WorkManager had not got to yet (19:00 still waiting at 19:05) and
+    // re-anchored to tomorrow, so that day's reminder was lost.
+    @Test
+    fun scheduleNext_sameTimeAndZone_keepsTheWaitingRun() = runTest {
+        ReminderScheduler.scheduleNext(context, 19, 0, "Europe/Berlin")
+        val first = pendingReminder()
+
+        // An app launch, a recreated Activity, a reboot: same settings each time.
+        repeat(3) { ReminderScheduler.scheduleNext(context, 19, 0, "Europe/Berlin") }
+
+        val after = pendingReminder()
+        assertEquals("the waiting run must survive an unchanged schedule", first.id, after.id)
+        assertTrue(ReminderScheduler.configTag(19, 0, "Europe/Berlin") in after.tags)
+    }
+
+    @Test
+    fun scheduleNext_changedTime_replacesTheRun() = runTest {
+        ReminderScheduler.scheduleNext(context, 19, 0, "Europe/Berlin")
+        val first = pendingReminder()
+
+        ReminderScheduler.scheduleNext(context, 20, 30, "Europe/Berlin")
+
+        val after = pendingReminder()
+        assertNotEquals(first.id, after.id)
+        assertTrue(ReminderScheduler.configTag(20, 30, "Europe/Berlin") in after.tags)
+        assertFalse(ReminderScheduler.configTag(19, 0, "Europe/Berlin") in after.tags)
+    }
+
+    @Test
+    fun scheduleNext_changedTimeZone_replacesTheRun() = runTest {
+        ReminderScheduler.scheduleNext(context, 19, 0, "Europe/Berlin")
+        val first = pendingReminder()
+
+        // BootReceiver calls scheduleNext on ACTION_TIMEZONE_CHANGED.
+        ReminderScheduler.scheduleNext(context, 19, 0, "America/New_York")
+
+        val after = pendingReminder()
+        assertNotEquals(first.id, after.id)
+        assertTrue(ReminderScheduler.configTag(19, 0, "America/New_York") in after.tags)
+    }
+
+    @Test
+    fun scheduleNext_replacesWorkFromBeforeTheConfigTag_once() = runTest {
+        // What an install updated from an older version has: reminder work with only the
+        // unique-work tag, so there is no record of the schedule it was built for.
+        val legacy = PeriodicWorkRequestBuilder<DailyReminderWorker>(24, TimeUnit.HOURS)
+            .addTag(ReminderScheduler.WORK_NAME)
+            .build()
+        WorkManager.getInstance(context)
+            .enqueueUniquePeriodicWork(ReminderScheduler.WORK_NAME, ExistingPeriodicWorkPolicy.KEEP, legacy)
+            .result.get()
+
+        ReminderScheduler.scheduleNext(context, 19, 0, "Europe/Berlin")
+        val migrated = pendingReminder()
+        assertNotEquals(legacy.id, migrated.id)
+
+        ReminderScheduler.scheduleNext(context, 19, 0, "Europe/Berlin")
+        assertEquals("after the one-time migration, launches keep the run", migrated.id, pendingReminder().id)
+    }
+
+    @Test
+    fun reanchorAfterDrift_replacesTheRun_andLaterLaunchesKeepIt() = runTest {
+        val zone = TimeZone.getDefault().id
+        ReminderScheduler.scheduleNext(context, 19, 0, zone)
+        val first = pendingReminder()
+
+        ReminderScheduler.reanchorAfterDrift(context, 19, 0)
+        val reanchored = pendingReminder()
+        assertNotEquals("a DST re-anchor must still replace the work", first.id, reanchored.id)
+
+        ReminderScheduler.scheduleNext(context, 19, 0, zone)
+        assertEquals(reanchored.id, pendingReminder().id)
+    }
+
+    @Test
+    fun configTag_isTheSameWhateverTheDefaultLocale() {
+        val saved = Locale.getDefault()
+        try {
+            Locale.setDefault(Locale.forLanguageTag("ar-EG"))
+            assertEquals("reminder-config:07:05@Europe/Berlin", ReminderScheduler.configTag(7, 5, "Europe/Berlin"))
+        } finally {
+            Locale.setDefault(saved)
+        }
     }
 
     private fun berlin(year: Int, month: Int, day: Int, hour: Int, minute: Int): Calendar =
