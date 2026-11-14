@@ -174,7 +174,7 @@ fun AddTransactionScreen(
         }
     }
 
-    val hasAmount = (CurrencyUtils.parseAmount(amountText, currencyCode) ?: 0.0) > 0
+    val hasAmount = (CurrencyUtils.parseAmount(amountText) ?: 0.0) > 0
     val hasCategory = selectedCategory != null
     val canSave = hasCategory && hasAmount
     val hasCategories = categories.isNotEmpty()
@@ -197,7 +197,7 @@ fun AddTransactionScreen(
     val requestClose: () -> Unit = {
         if (
             discardPromptRequired(viewModel.isDraftLoading.value) {
-                viewModel.hasUnsavedChanges(typeNow(), currencyCode)
+                viewModel.hasUnsavedChanges(typeNow())
             }
         ) {
             haptics.light()
@@ -378,7 +378,7 @@ fun AddTransactionScreen(
                             hasCategory = hasCategory,
                             isEditing = isEditing,
                             onKeyPress = { key ->
-                                viewModel.onAmountChange(NumericKeypadHelper.handleKeyInput(amountText, key, CurrencyUtils.decimalSeparator(currencyCode)))
+                                viewModel.onAmountChange(NumericKeypadHelper.handleKeyInput(amountText, key, CurrencyUtils.decimalSeparator()))
                             },
                             onBackspace = {
                                 viewModel.onAmountChange(NumericKeypadHelper.handleBackspace(amountText))
@@ -803,7 +803,7 @@ private fun ObsidianNumpadContainer(
         listOf("1", "2", "3"),
         listOf("4", "5", "6"),
         listOf("7", "8", "9"),
-        listOf(CurrencyUtils.decimalSeparator(currencyCode).toString(), "0", "back")
+        listOf(CurrencyUtils.decimalSeparator().toString(), "0", "back")
     )
 
     // One accent for the whole block: the amount and the save button should agree

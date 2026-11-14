@@ -118,7 +118,7 @@ class DesignQaMatrixTest(
                 onValidationError = {},
             )
         }
-        val sep = CurrencyUtils.decimalSeparator(DesignQaFixtures.CURRENCY)
+        val sep = CurrencyUtils.decimalSeparator(CurrencyUtils.localeForLanguage(language))
         compose.runOnIdle {
             vm.onAmountChange("1104064${sep}70")
             vm.onCategorySelect(DesignQaFixtures.categories.first())

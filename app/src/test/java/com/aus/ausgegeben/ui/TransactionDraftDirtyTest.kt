@@ -4,6 +4,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Calendar
+import java.util.Locale
 
 /**
  * Unsaved-changes detection for the add/edit form. Regression coverage for the defect
@@ -30,33 +31,33 @@ class TransactionDraftDirtyTest {
 
     @Test
     fun unchangedDraftIsClean() {
-        assertFalse(isTransactionDraftDirty(draft(), draft(), "EUR"))
+        assertFalse(isTransactionDraftDirty(draft(), draft(), Locale.GERMANY))
     }
 
     @Test
     fun equivalentAmountFormatsAreClean() {
-        assertFalse(isTransactionDraftDirty(draft(amountText = "12,50"), draft(amountText = "12.5"), "EUR"))
-        assertFalse(isTransactionDraftDirty(draft(amountText = "12.50"), draft(amountText = "12,50"), "EUR"))
+        assertFalse(isTransactionDraftDirty(draft(amountText = "12,50"), draft(amountText = "12.5"), Locale.GERMANY))
+        assertFalse(isTransactionDraftDirty(draft(amountText = "12.50"), draft(amountText = "12,50"), Locale.GERMANY))
     }
 
     @Test
     fun changedOrClearedAmountIsDirty() {
-        assertTrue(isTransactionDraftDirty(draft(), draft(amountText = "13,00"), "EUR"))
-        assertTrue(isTransactionDraftDirty(draft(), draft(amountText = ""), "EUR"))
+        assertTrue(isTransactionDraftDirty(draft(), draft(amountText = "13,00"), Locale.GERMANY))
+        assertTrue(isTransactionDraftDirty(draft(), draft(amountText = ""), Locale.GERMANY))
     }
 
     @Test
     fun noteWhitespaceIsNotAnEditButTextIs() {
-        assertFalse(isTransactionDraftDirty(draft(note = "Lunch"), draft(note = "  Lunch "), "EUR"))
-        assertTrue(isTransactionDraftDirty(draft(), draft(note = "Dinner"), "EUR"))
-        assertTrue(isTransactionDraftDirty(draft(note = "Lunch"), draft(note = ""), "EUR"))
+        assertFalse(isTransactionDraftDirty(draft(note = "Lunch"), draft(note = "  Lunch "), Locale.GERMANY))
+        assertTrue(isTransactionDraftDirty(draft(), draft(note = "Dinner"), Locale.GERMANY))
+        assertTrue(isTransactionDraftDirty(draft(note = "Lunch"), draft(note = ""), Locale.GERMANY))
     }
 
     @Test
     fun typeOrCategoryChangeIsDirty() {
-        assertTrue(isTransactionDraftDirty(draft(), draft(transactionType = TransactionType.INCOME), "EUR"))
-        assertTrue(isTransactionDraftDirty(draft(), draft(categoryId = "other"), "EUR"))
-        assertTrue(isTransactionDraftDirty(draft(categoryId = null), draft(categoryId = "food"), "EUR"))
+        assertTrue(isTransactionDraftDirty(draft(), draft(transactionType = TransactionType.INCOME), Locale.GERMANY))
+        assertTrue(isTransactionDraftDirty(draft(), draft(categoryId = "other"), Locale.GERMANY))
+        assertTrue(isTransactionDraftDirty(draft(categoryId = null), draft(categoryId = "food"), Locale.GERMANY))
     }
 
     @Test
@@ -64,43 +65,43 @@ class TransactionDraftDirtyTest {
         val laterSameDay = at(2026, Calendar.OCTOBER, 24, hour = 23)
         val nextDay = at(2026, Calendar.OCTOBER, 25, hour = 1)
         assertTrue(sameLocalDay(day, laterSameDay))
-        assertFalse(isTransactionDraftDirty(draft(), draft(dateMillis = laterSameDay), "EUR"))
+        assertFalse(isTransactionDraftDirty(draft(), draft(dateMillis = laterSameDay), Locale.GERMANY))
         assertFalse(sameLocalDay(day, nextDay))
-        assertTrue(isTransactionDraftDirty(draft(), draft(dateMillis = nextDay), "EUR"))
+        assertTrue(isTransactionDraftDirty(draft(), draft(dateMillis = nextDay), Locale.GERMANY))
     }
 
     @Test
     fun undoingAnEditIsCleanAgain() {
         val baseline = draft()
-        assertTrue(isTransactionDraftDirty(baseline, draft(amountText = "13,00"), "EUR"))
-        assertFalse(isTransactionDraftDirty(baseline, draft(amountText = "12,50"), "EUR"))
-        assertTrue(isTransactionDraftDirty(baseline, draft(categoryId = "other"), "EUR"))
-        assertFalse(isTransactionDraftDirty(baseline, draft(categoryId = "food"), "EUR"))
+        assertTrue(isTransactionDraftDirty(baseline, draft(amountText = "13,00"), Locale.GERMANY))
+        assertFalse(isTransactionDraftDirty(baseline, draft(amountText = "12,50"), Locale.GERMANY))
+        assertTrue(isTransactionDraftDirty(baseline, draft(categoryId = "other"), Locale.GERMANY))
+        assertFalse(isTransactionDraftDirty(baseline, draft(categoryId = "food"), Locale.GERMANY))
     }
 
     @Test
     fun amountsAreReadWithTheDisplayCurrencySeparators() {
-        assertFalse(isTransactionDraftDirty(draft(amountText = "12,50"), draft(amountText = "012,50"), "EUR"))
-        assertFalse(isTransactionDraftDirty(draft(amountText = "12.50"), draft(amountText = "12.5"), "USD"))
-        assertFalse(isTransactionDraftDirty(draft(amountText = "1234,56"), draft(amountText = "1.234,56"), "EUR"))
-        assertFalse(isTransactionDraftDirty(draft(amountText = "1234.56"), draft(amountText = "1,234.56"), "USD"))
+        assertFalse(isTransactionDraftDirty(draft(amountText = "12,50"), draft(amountText = "012,50"), Locale.GERMANY))
+        assertFalse(isTransactionDraftDirty(draft(amountText = "12.50"), draft(amountText = "12.5"), Locale.US))
+        assertFalse(isTransactionDraftDirty(draft(amountText = "1234,56"), draft(amountText = "1.234,56"), Locale.GERMANY))
+        assertFalse(isTransactionDraftDirty(draft(amountText = "1234.56"), draft(amountText = "1,234.56"), Locale.US))
     }
 
     @Test
     fun placeholderZeroEmptyAndUnparsableAmountsAreTheSame() {
         // The editor starts at "0" and clears to "" while typing; a lone "-" parses to nothing.
-        assertFalse(isTransactionDraftDirty(draft(amountText = "0"), draft(amountText = ""), "EUR"))
-        assertFalse(isTransactionDraftDirty(draft(amountText = ""), draft(amountText = "-"), "EUR"))
+        assertFalse(isTransactionDraftDirty(draft(amountText = "0"), draft(amountText = ""), Locale.GERMANY))
+        assertFalse(isTransactionDraftDirty(draft(amountText = ""), draft(amountText = "-"), Locale.GERMANY))
     }
 
     @Test
     fun whitespaceOnlyNoteOnABlankFormIsClean() {
-        assertFalse(isTransactionDraftDirty(draft(note = ""), draft(note = "   "), "EUR"))
+        assertFalse(isTransactionDraftDirty(draft(note = ""), draft(note = "   "), Locale.GERMANY))
     }
 
     @Test
     fun noBaselineNeverReportsDirty() {
-        assertFalse(isTransactionDraftDirty(null, draft(), "EUR"))
+        assertFalse(isTransactionDraftDirty(null, draft(), Locale.GERMANY))
     }
 
     /**

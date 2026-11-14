@@ -38,8 +38,11 @@ class MoneyParityTest {
         val rows = fixture.getJSONArray("parse")
         for (i in 0 until rows.length()) {
             val row = rows.getJSONObject(i)
-            val label = "\"${row.getString("input")}\" ${row.getString("currency")}"
-            val parsed = CurrencyUtils.parseAmount(row.getString("input"), row.getString("currency"))
+            val label = "\"${row.getString("input")}\" ${row.getString("language")}"
+            val parsed = CurrencyUtils.parseAmount(
+                row.getString("input"),
+                CurrencyUtils.localeForLanguage(row.getString("language")),
+            )
             // A null value means the input must be rejected, exactly as on the web.
             if (row.isNull("value")) {
                 assertNull(label, parsed)
@@ -70,7 +73,10 @@ class MoneyParityTest {
             val row = rows.getJSONObject(i)
             assertEquals(
                 row.getString("text"),
-                CurrencyUtils.formatAmountForInput(row.getDouble("amount"), row.getString("currency")),
+                CurrencyUtils.formatAmountForInput(
+                    row.getDouble("amount"),
+                    CurrencyUtils.localeForLanguage(row.getString("language")),
+                ),
             )
         }
     }

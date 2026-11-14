@@ -1,6 +1,7 @@
 import type { Category, TransactionType } from '@/models/types';
 import { selectableCategoriesFor } from '@/viewmodels/useAddTransactionViewModel';
 import type { TranslationKey } from '@/i18n';
+import type { Locale } from '@/i18n';
 import { formatAmountForInput, parseAmount } from '@/utils/currency';
 import { localDateAt, occurrenceDate, validTemplate, type Frequency, type RecurringTemplate } from '@/services/recurrence';
 
@@ -45,10 +46,10 @@ export function newTemplate(now: number, timeZone: string, categoryId: string): 
   };
 }
 
-/** A new template opens with an empty amount (the placeholder shows 0,00), never a made-up 1. */
-export function formFromTemplate(template: RecurringTemplate, currency: string, isNew: boolean): RecurringForm {
+/** A new template opens with an empty amount (the placeholder shows 0.00), never a made-up 1. */
+export function formFromTemplate(template: RecurringTemplate, locale: Locale, isNew: boolean): RecurringForm {
   return {
-    amountInput: isNew ? '' : formatAmountForInput(template.amount, currency),
+    amountInput: isNew ? '' : formatAmountForInput(template.amount, locale),
     transactionType: template.transactionType,
     categoryId: template.categoryId,
     note: template.note,
@@ -60,8 +61,8 @@ export function formFromTemplate(template: RecurringTemplate, currency: string, 
 }
 
 /** Whether closing would lose something the person typed. Equivalent amounts ("12,5" vs "12,50") are unchanged. */
-export function isRecurringFormDirty(baseline: RecurringForm, form: RecurringForm, currency: string): boolean {
-  const amount = (input: string) => (input.trim() === '' ? '' : parseAmount(input, currency) ?? input.trim());
+export function isRecurringFormDirty(baseline: RecurringForm, form: RecurringForm, locale: Locale): boolean {
+  const amount = (input: string) => (input.trim() === '' ? '' : parseAmount(input, locale) ?? input.trim());
   return amount(baseline.amountInput) !== amount(form.amountInput)
     || baseline.transactionType !== form.transactionType
     || baseline.categoryId !== form.categoryId
@@ -90,9 +91,9 @@ export const FORM_ERROR_KEYS: Record<RecurringFormError, TranslationKey> = {
 export function templateFromForm(
   base: RecurringTemplate,
   form: RecurringForm,
-  currency: string,
+  locale: Locale,
 ): { ok: true; template: RecurringTemplate } | { ok: false; error: RecurringFormError } {
-  const amount = parseAmount(form.amountInput, currency);
+  const amount = parseAmount(form.amountInput, locale);
   if (amount == null || !(amount > 0) || amount >= 1e9) return { ok: false, error: 'amount' };
   if (!form.categoryId) return { ok: false, error: 'category' };
   const intervalText = form.intervalInput.trim();

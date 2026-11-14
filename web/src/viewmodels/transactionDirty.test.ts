@@ -16,63 +16,63 @@ function draft(overrides: Partial<TransactionDraft> = {}): TransactionDraft {
 
 describe('isTransactionDraftDirty', () => {
   it('is clean when nothing changed', () => {
-    expect(isTransactionDraftDirty(draft(), draft(), 'EUR')).toBe(false);
+    expect(isTransactionDraftDirty(draft(), draft(), 'de')).toBe(false);
   });
 
   it('treats an equivalent amount as unchanged', () => {
-    expect(isTransactionDraftDirty(draft({ amountInput: '12,50' }), draft({ amountInput: '12.5' }), 'EUR')).toBe(false);
-    expect(isTransactionDraftDirty(draft({ amountInput: '12.50' }), draft({ amountInput: '12,50' }), 'EUR')).toBe(false);
+    expect(isTransactionDraftDirty(draft({ amountInput: '12,50' }), draft({ amountInput: '12.5' }), 'de')).toBe(false);
+    expect(isTransactionDraftDirty(draft({ amountInput: '12.50' }), draft({ amountInput: '12,50' }), 'de')).toBe(false);
   });
 
   it('detects an amount change and a cleared amount', () => {
-    expect(isTransactionDraftDirty(draft(), draft({ amountInput: '13' }), 'EUR')).toBe(true);
-    expect(isTransactionDraftDirty(draft(), draft({ amountInput: '' }), 'EUR')).toBe(true);
+    expect(isTransactionDraftDirty(draft(), draft({ amountInput: '13' }), 'de')).toBe(true);
+    expect(isTransactionDraftDirty(draft(), draft({ amountInput: '' }), 'de')).toBe(true);
   });
 
   it('ignores surrounding whitespace in the note', () => {
-    expect(isTransactionDraftDirty(draft({ note: 'Lunch' }), draft({ note: '  Lunch ' }), 'EUR')).toBe(false);
-    expect(isTransactionDraftDirty(draft(), draft({ note: 'Dinner' }), 'EUR')).toBe(true);
-    expect(isTransactionDraftDirty(draft({ note: 'Lunch' }), draft({ note: '' }), 'EUR')).toBe(true);
+    expect(isTransactionDraftDirty(draft({ note: 'Lunch' }), draft({ note: '  Lunch ' }), 'de')).toBe(false);
+    expect(isTransactionDraftDirty(draft(), draft({ note: 'Dinner' }), 'de')).toBe(true);
+    expect(isTransactionDraftDirty(draft({ note: 'Lunch' }), draft({ note: '' }), 'de')).toBe(true);
   });
 
   it('detects a type or category change', () => {
-    expect(isTransactionDraftDirty(draft(), draft({ transactionType: 'income' }), 'EUR')).toBe(true);
-    expect(isTransactionDraftDirty(draft(), draft({ categoryId: 'cat-other' }), 'EUR')).toBe(true);
-    expect(isTransactionDraftDirty(draft({ categoryId: null }), draft({ categoryId: 'cat-food' }), 'EUR')).toBe(true);
+    expect(isTransactionDraftDirty(draft(), draft({ transactionType: 'income' }), 'de')).toBe(true);
+    expect(isTransactionDraftDirty(draft(), draft({ categoryId: 'cat-other' }), 'de')).toBe(true);
+    expect(isTransactionDraftDirty(draft({ categoryId: null }), draft({ categoryId: 'cat-food' }), 'de')).toBe(true);
   });
 
   it('ignores the time of day but detects a different day', () => {
     const sameDay = new Date(2026, 9, 24, 23, 59, 0).getTime();
     const nextDay = new Date(2026, 9, 25, 0, 1, 0).getTime();
     expect(localDayKey(sameDay)).toBe(localDayKey(day));
-    expect(isTransactionDraftDirty(draft(), draft({ dateMillis: sameDay }), 'EUR')).toBe(false);
-    expect(isTransactionDraftDirty(draft(), draft({ dateMillis: nextDay }), 'EUR')).toBe(true);
+    expect(isTransactionDraftDirty(draft(), draft({ dateMillis: sameDay }), 'de')).toBe(false);
+    expect(isTransactionDraftDirty(draft(), draft({ dateMillis: nextDay }), 'de')).toBe(true);
   });
 
   it('is clean again once an edit is undone', () => {
     const baseline = draft();
-    expect(isTransactionDraftDirty(baseline, draft({ amountInput: '13,00' }), 'EUR')).toBe(true);
-    expect(isTransactionDraftDirty(baseline, draft({ amountInput: '12,50' }), 'EUR')).toBe(false);
-    expect(isTransactionDraftDirty(baseline, draft({ categoryId: 'cat-other' }), 'EUR')).toBe(true);
-    expect(isTransactionDraftDirty(baseline, draft({ categoryId: 'cat-food' }), 'EUR')).toBe(false);
+    expect(isTransactionDraftDirty(baseline, draft({ amountInput: '13,00' }), 'de')).toBe(true);
+    expect(isTransactionDraftDirty(baseline, draft({ amountInput: '12,50' }), 'de')).toBe(false);
+    expect(isTransactionDraftDirty(baseline, draft({ categoryId: 'cat-other' }), 'de')).toBe(true);
+    expect(isTransactionDraftDirty(baseline, draft({ categoryId: 'cat-food' }), 'de')).toBe(false);
   });
 
   it('reads the separators of the display currency', () => {
-    expect(isTransactionDraftDirty(draft({ amountInput: '12,50' }), draft({ amountInput: '012,50' }), 'EUR')).toBe(false);
-    expect(isTransactionDraftDirty(draft({ amountInput: '12.50' }), draft({ amountInput: '12.5' }), 'USD')).toBe(false);
-    expect(isTransactionDraftDirty(draft({ amountInput: '1234,56' }), draft({ amountInput: '1.234,56' }), 'EUR')).toBe(false);
-    expect(isTransactionDraftDirty(draft({ amountInput: '1234.56' }), draft({ amountInput: '1,234.56' }), 'USD')).toBe(false);
+    expect(isTransactionDraftDirty(draft({ amountInput: '12,50' }), draft({ amountInput: '012,50' }), 'de')).toBe(false);
+    expect(isTransactionDraftDirty(draft({ amountInput: '12.50' }), draft({ amountInput: '12.5' }), 'en')).toBe(false);
+    expect(isTransactionDraftDirty(draft({ amountInput: '1234,56' }), draft({ amountInput: '1.234,56' }), 'de')).toBe(false);
+    expect(isTransactionDraftDirty(draft({ amountInput: '1234.56' }), draft({ amountInput: '1,234.56' }), 'en')).toBe(false);
   });
 
   it('treats an unparsable amount like an empty one', () => {
-    expect(isTransactionDraftDirty(draft({ amountInput: '' }), draft({ amountInput: '-' }), 'EUR')).toBe(false);
+    expect(isTransactionDraftDirty(draft({ amountInput: '' }), draft({ amountInput: '-' }), 'de')).toBe(false);
   });
 
   it('treats a whitespace-only note on a blank form as unchanged', () => {
-    expect(isTransactionDraftDirty(draft({ note: '' }), draft({ note: '   ' }), 'EUR')).toBe(false);
+    expect(isTransactionDraftDirty(draft({ note: '' }), draft({ note: '   ' }), 'de')).toBe(false);
   });
 
   it('never reports dirty before a baseline exists', () => {
-    expect(isTransactionDraftDirty(null, draft(), 'EUR')).toBe(false);
+    expect(isTransactionDraftDirty(null, draft(), 'de')).toBe(false);
   });
 });

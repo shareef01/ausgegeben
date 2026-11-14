@@ -39,27 +39,34 @@ export function formatCompactAmount(
   }).format(amount);
 }
 
-/** Currency's decimal separator — mirrors Android CurrencyUtils (EUR uses comma; USD/GBP/CHF use dot). */
-export function decimalSeparatorFor(currency: string): ',' | '.' {
-  return currency === 'EUR' ? ',' : '.';
+/**
+ * Decimal separator for amount entry in the app language — the same one `formatAmount`
+ * displays ("1,234.56" in English, "1.234,56" in German). Mirrors Android
+ * CurrencyUtils.decimalSeparator.
+ *
+ * It used to follow the currency (EUR → comma), so an English UI showing "€1,069.50"
+ * asked for "0,00" in the amount field and refused "1,234" as ambiguous.
+ */
+export function inputDecimalSeparator(locale: Locale = getLocale()): ',' | '.' {
+  return locale === 'de' ? ',' : '.';
 }
 
 /**
- * Strict, currency-aware parse. The same rules as Android CurrencyUtils.parseAmount,
+ * Strict parse of a typed amount in the app language. The same rules as Android CurrencyUtils.parseAmount,
  * pinned for both by testdata/money-parity.json:
  *
  * - Only digits, "." and "," after trimming; any letter, sign, symbol or inner space
  *   rejects the whole input ("12abc" and "1-2" are null, not 12 or 1).
  * - With both separators, the later one is the decimal point ("1.234,56", "1,234.56").
- * - A lone separator that repeats, or is the currency's grouping separator followed by
- *   exactly three digits, is thousands grouping ("1.234.567", "1.234" for EUR).
- *   Otherwise it is the decimal point, so "12.50" typed on a dot-only keyboard is 12.5
- *   for EUR users too.
+ * - A lone separator that repeats, or is the language's grouping separator followed by
+ *   exactly three digits, is thousands grouping ("1.234.567"; "1.234" in German, "1,234"
+ *   in English). Otherwise it is the decimal point, so "12.50" typed on a dot-only
+ *   keyboard is 12.5 in German too.
  * - Grouping must be well formed (1–3 digits, then groups of exactly 3), and at most two
- *   decimals are allowed, so ambiguous input such as "1,234" for EUR is refused rather
+ *   decimals are allowed, so ambiguous input such as "1,234" in German is refused rather
  *   than guessed. A trailing decimal separator ("12,") is accepted, for half-typed input.
  */
-export function parseAmount(input: string, currency = 'EUR'): number | null {
+export function parseAmount(input: string, locale: Locale = getLocale()): number | null {
   const s = input.trim();
   if (!/^[\d.,]+$/.test(s) || !/\d/.test(s)) return null;
   const lastDot = s.lastIndexOf('.');
@@ -78,8 +85,8 @@ export function parseAmount(input: string, currency = 'EUR'): number | null {
     const sep = lastDot !== -1 ? '.' : ',';
     const last = Math.max(lastDot, lastComma);
     const repeated = s.indexOf(sep) !== last;
-    const currencyGrouping = decimalSeparatorFor(currency) === ',' ? '.' : ',';
-    if (repeated || (sep === currencyGrouping && s.length - last - 1 === 3)) {
+    const localeGrouping = inputDecimalSeparator(locale) === ',' ? '.' : ',';
+    if (repeated || (sep === localeGrouping && s.length - last - 1 === 3)) {
       grouping = sep;
     } else {
       intPart = s.slice(0, last);
@@ -135,9 +142,9 @@ export function formatAxisAmount(amount: number, currency = 'EUR', locale?: Loca
   }).format(amount);
 }
 
-export function formatAmountForInput(amount: number, currency = 'EUR'): string {
+export function formatAmountForInput(amount: number, locale: Locale = getLocale()): string {
   const text = amount.toFixed(2);
-  return decimalSeparatorFor(currency) === ',' ? text.replace('.', ',') : text;
+  return inputDecimalSeparator(locale) === ',' ? text.replace('.', ',') : text;
 }
 
 export const SUPPORTED_CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF'] as const;
@@ -165,10 +172,10 @@ export function currencyLabel(code: string): string {
   return key ? t(key) : code;
 }
 
-export function sanitizeAmountInput(raw: string, currency = 'EUR'): string {
+export function sanitizeAmountInput(raw: string, locale: Locale = getLocale()): string {
   const allowed = raw.replace(/[^\d,.]/g, '');
   if (!allowed) return '';
-  const sep = decimalSeparatorFor(currency);
+  const sep = inputDecimalSeparator(locale);
   const firstSepIdx = allowed.search(/[,.]/);
   if (firstSepIdx === -1) {
     const cleaned = allowed.replace(/^0+(?=\d)/, '');
@@ -179,7 +186,7 @@ export function sanitizeAmountInput(raw: string, currency = 'EUR'): string {
   return `${integerPart || '0'}${sep}${decimalPart}`;
 }
 
-/** The amount field's "0,00" / "0.00" placeholder (add-transaction and recurring editor). */
-export function amountPlaceholder(currency: string): string {
-  return `0${decimalSeparatorFor(currency)}00`;
+/** The amount field's "0.00" / "0,00" placeholder (add-transaction and recurring editor). */
+export function amountPlaceholder(locale: Locale = getLocale()): string {
+  return `0${inputDecimalSeparator(locale)}00`;
 }

@@ -464,16 +464,16 @@ fun RecordScreen(
                 item {
                     OutlinedTextField(value = filter.minInput, onValueChange = viewModel::setMinAmount,
                         label = { Text(stringResource(R.string.record_min_amount)) }, singleLine = true,
-                        isError = filter.bounds(currencyCode) == null,
+                        isError = filter.bounds() == null,
                         keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal, imeAction = ImeAction.Next))
                 }
                 item {
                     OutlinedTextField(value = filter.maxInput, onValueChange = viewModel::setMaxAmount,
                         label = { Text(stringResource(R.string.record_max_amount)) }, singleLine = true,
-                        isError = filter.bounds(currencyCode) == null,
+                        isError = filter.bounds() == null,
                         keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal, imeAction = ImeAction.Done))
                 }
-                if (filter.bounds(currencyCode) == null) item { Text(stringResource(R.string.record_amount_error), color = financeExpenseTextColor()) }
+                if (filter.bounds() == null) item { Text(stringResource(R.string.record_amount_error), color = financeExpenseTextColor()) }
                 item { Text(stringResource(R.string.record_sort)) }
                 items(RecordSort.entries) { sort ->
                     val label = when (sort) {

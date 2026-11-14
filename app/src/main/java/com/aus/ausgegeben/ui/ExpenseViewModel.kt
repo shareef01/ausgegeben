@@ -156,9 +156,9 @@ class ExpenseViewModel @Inject constructor(
      */
     val pagedExpenses: Flow<List<Expense>> = combine(
         listExpensesShared, _searchQuery, _typeFilter, _composite,
-        combine(categoriesShared, currencyFlow) { cats, currency -> cats to currency },
-    ) { expenses, query, type, filter, metadata ->
-        filterRecords(expenses, query, type, filter, metadata.first.associate { it.id to it.name }, metadata.second)
+        categoriesShared,
+    ) { expenses, query, type, filter, categories ->
+        filterRecords(expenses, query, type, filter, categories.associate { it.id to it.name })
     }.flowOn(Dispatchers.Default)
 
     val uiState: StateFlow<RecordUiState> = combine(
@@ -181,7 +181,6 @@ class ExpenseViewModel @Inject constructor(
             toolbar.typeFilter,
             toolbar.composite,
             data.categories.associate { it.id to it.name },
-            data.currencyCode,
         )
         RecordUiState(
             data,

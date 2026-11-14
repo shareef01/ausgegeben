@@ -2,6 +2,7 @@ package com.aus.ausgegeben.ui
 
 import com.aus.ausgegeben.util.CurrencyUtils
 import java.util.Calendar
+import java.util.Locale
 
 /**
  * Unsaved-changes detection for the add/edit transaction form.
@@ -38,12 +39,12 @@ internal fun sameLocalDay(a: Long, b: Long): Boolean {
 internal fun isTransactionDraftDirty(
     baseline: TransactionDraftSnapshot?,
     current: TransactionDraftSnapshot,
-    currencyCode: String = "EUR",
+    locale: Locale = CurrencyUtils.localeForDisplay(),
 ): Boolean {
     // Nothing has been captured yet (still loading): nothing can be lost, never prompt.
     if (baseline == null) return false
 
-    fun amount(text: String): Double = CurrencyUtils.parseAmount(text, currencyCode) ?: 0.0
+    fun amount(text: String): Double = CurrencyUtils.parseAmount(text, locale) ?: 0.0
 
     if (amount(current.amountText) != amount(baseline.amountText)) return true
     if (current.transactionType != baseline.transactionType) return true

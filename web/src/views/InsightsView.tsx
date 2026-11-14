@@ -404,7 +404,7 @@ function PeriodComparisonCard({ comparison, currency, toDate }: { comparison: Pe
           <span className="insights-metric-card__title">{title}</span>
           <span className="insights-badge insights-badge--neutral">{t('insightsNoPriorPeriod')}</span>
         </div>
-        <p className="insights-metric-card__hint">{t('billsEmptySubtitle')}</p>
+        <p className="insights-metric-card__hint">{t('insightsNoPriorPeriodHint')}</p>
       </div>
     );
   }

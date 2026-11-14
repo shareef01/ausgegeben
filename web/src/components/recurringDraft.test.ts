@@ -18,7 +18,7 @@ const tr = (key: keyof typeof en, params?: Record<string, string>) =>
 
 describe('recurring editor form', () => {
   it('opens a new template with an empty amount, starting today', () => {
-    const form = formFromTemplate(base(), 'EUR', true);
+    const form = formFromTemplate(base(), 'de', true);
     expect(form.amountInput).toBe('');
     expect(form.startDate).toBe('2026-11-07');
     expect(form.endDate).toBe('');
@@ -26,35 +26,35 @@ describe('recurring editor form', () => {
   });
 
   it('shows an existing amount in the currency format', () => {
-    expect(formFromTemplate({ ...base(), amount: 12.5 }, 'EUR', false).amountInput).toBe('12,50');
-    expect(formFromTemplate({ ...base(), amount: 12.5 }, 'USD', false).amountInput).toBe('12.50');
+    expect(formFromTemplate({ ...base(), amount: 12.5 }, 'de', false).amountInput).toBe('12,50');
+    expect(formFromTemplate({ ...base(), amount: 12.5 }, 'en', false).amountInput).toBe('12.50');
   });
 
   it('is clean until something changes, and ignores equivalent amounts and note whitespace', () => {
-    const a: RecurringForm = { ...formFromTemplate(base(), 'EUR', true), amountInput: '12,5' };
-    expect(isRecurringFormDirty(a, { ...a }, 'EUR')).toBe(false);
-    expect(isRecurringFormDirty(a, { ...a, amountInput: '12,50' }, 'EUR')).toBe(false);
-    expect(isRecurringFormDirty(a, { ...a, note: '  ' }, 'EUR')).toBe(false);
-    expect(isRecurringFormDirty(a, { ...a, amountInput: '13' }, 'EUR')).toBe(true);
-    expect(isRecurringFormDirty(a, { ...a, frequency: 'weekly' }, 'EUR')).toBe(true);
-    expect(isRecurringFormDirty(a, { ...a, endDate: '2027-01-01' }, 'EUR')).toBe(true);
-    expect(isRecurringFormDirty(a, { ...a, transactionType: 'income' }, 'EUR')).toBe(true);
+    const a: RecurringForm = { ...formFromTemplate(base(), 'de', true), amountInput: '12,5' };
+    expect(isRecurringFormDirty(a, { ...a }, 'de')).toBe(false);
+    expect(isRecurringFormDirty(a, { ...a, amountInput: '12,50' }, 'de')).toBe(false);
+    expect(isRecurringFormDirty(a, { ...a, note: '  ' }, 'de')).toBe(false);
+    expect(isRecurringFormDirty(a, { ...a, amountInput: '13' }, 'de')).toBe(true);
+    expect(isRecurringFormDirty(a, { ...a, frequency: 'weekly' }, 'de')).toBe(true);
+    expect(isRecurringFormDirty(a, { ...a, endDate: '2027-01-01' }, 'de')).toBe(true);
+    expect(isRecurringFormDirty(a, { ...a, transactionType: 'income' }, 'de')).toBe(true);
   });
 
   it('names the first wrong field instead of saving', () => {
-    const form = formFromTemplate(base(), 'EUR', true);
-    expect(templateFromForm(base(), form, 'EUR')).toEqual({ ok: false, error: 'amount' });
-    expect(templateFromForm(base(), { ...form, amountInput: '0' }, 'EUR')).toEqual({ ok: false, error: 'amount' });
-    expect(templateFromForm(base(), { ...form, amountInput: '9', categoryId: '' }, 'EUR')).toEqual({ ok: false, error: 'category' });
-    expect(templateFromForm(base(), { ...form, amountInput: '9', intervalInput: '0' }, 'EUR')).toEqual({ ok: false, error: 'interval' });
-    expect(templateFromForm(base(), { ...form, amountInput: '9', intervalInput: '1.5' }, 'EUR')).toEqual({ ok: false, error: 'interval' });
-    expect(templateFromForm(base(), { ...form, amountInput: '9', intervalInput: '366' }, 'EUR')).toEqual({ ok: false, error: 'interval' });
-    expect(templateFromForm(base(), { ...form, amountInput: '9', endDate: '2026-11-06' }, 'EUR')).toEqual({ ok: false, error: 'end' });
+    const form = formFromTemplate(base(), 'de', true);
+    expect(templateFromForm(base(), form, 'de')).toEqual({ ok: false, error: 'amount' });
+    expect(templateFromForm(base(), { ...form, amountInput: '0' }, 'de')).toEqual({ ok: false, error: 'amount' });
+    expect(templateFromForm(base(), { ...form, amountInput: '9', categoryId: '' }, 'de')).toEqual({ ok: false, error: 'category' });
+    expect(templateFromForm(base(), { ...form, amountInput: '9', intervalInput: '0' }, 'de')).toEqual({ ok: false, error: 'interval' });
+    expect(templateFromForm(base(), { ...form, amountInput: '9', intervalInput: '1.5' }, 'de')).toEqual({ ok: false, error: 'interval' });
+    expect(templateFromForm(base(), { ...form, amountInput: '9', intervalInput: '366' }, 'de')).toEqual({ ok: false, error: 'interval' });
+    expect(templateFromForm(base(), { ...form, amountInput: '9', endDate: '2026-11-06' }, 'de')).toEqual({ ok: false, error: 'end' });
   });
 
   it('builds a valid template with the same recurrence fields as before', () => {
-    const form = { ...formFromTemplate(base(), 'EUR', true), amountInput: '849,00', note: ' rent ', intervalInput: '2', frequency: 'weekly' as const };
-    const result = templateFromForm(base(), form, 'EUR');
+    const form = { ...formFromTemplate(base(), 'de', true), amountInput: '849,00', note: ' rent ', intervalInput: '2', frequency: 'weekly' as const };
+    const result = templateFromForm(base(), form, 'de');
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.template).toMatchObject({

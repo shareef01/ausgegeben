@@ -212,7 +212,7 @@ export function useAddTransactionViewModel(expenseId?: string) {
           setCategoryUnresolved(!selectable);
           if (!selectable) setError(t('errorChooseCategory'));
           const loadedForm: AddTransactionForm = {
-            amountInput: formatAmountForInput(existing.amount, usePreferencesStore.getState().currency),
+            amountInput: formatAmountForInput(existing.amount, usePreferencesStore.getState().locale),
             transactionType: existing.transactionType,
             categoryId: existing.categoryId,
             note: existing.note,
@@ -310,7 +310,7 @@ export function useAddTransactionViewModel(expenseId?: string) {
       setError(t('errorLoadFailed'));
       return { ok: false };
     }
-    const amount = parseAmount(form.amountInput, usePreferencesStore.getState().currency);
+    const amount = parseAmount(form.amountInput, usePreferencesStore.getState().locale);
     if (!amount || amount <= 0 || amount >= 1e9) {
       setError(t('errorValidAmount'));
       return { ok: false };
@@ -413,7 +413,7 @@ export function useAddTransactionViewModel(expenseId?: string) {
      * Whether closing now would throw away user input. Derived from the opened values,
      * so it works for edits (which are non-empty at rest) as well as new drafts.
      */
-    isDirty: isTransactionDraftDirty(baseline, form, usePreferencesStore.getState().currency),
+    isDirty: isTransactionDraftDirty(baseline, form, usePreferencesStore.getState().locale),
     reloadCategories,
     reload: load,
   };

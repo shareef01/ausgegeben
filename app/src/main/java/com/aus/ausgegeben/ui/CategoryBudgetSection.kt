@@ -53,7 +53,7 @@ fun CategoryBudgetManager(repository: AppRepository, uid: String, currency: Stri
         val cat = selected ?: return
         saving = true; failed = false
         scope.launch {
-            val parsed = com.aus.ausgegeben.ui.CompositeRecordFilter(minInput = amount).bounds(currency)?.first?.div(100.0)
+            val parsed = com.aus.ausgegeben.ui.CompositeRecordFilter(minInput = amount).bounds()?.first?.div(100.0)
             val budget = if (remove) null else CategoryBudget(cat.id, parsed ?: 0.0, threshold.toIntOrNull() ?: 0)
             val result = repository.saveCategoryBudget(uid, cat.id, budget, revision)
             saving = false; failed = result.isFailure
@@ -164,7 +164,7 @@ fun CategoryBudgetManager(repository: AppRepository, uid: String, currency: Stri
                             selected = cat
                             // Not toString(): from ten million up it yields "1.0E7", which the
                             // strict parse below rejects, so an existing budget opened invalid.
-                            amount = budget?.monthlyLimit?.let { CurrencyUtils.formatAmountForInput(it, currency) } ?: ""
+                            amount = budget?.monthlyLimit?.let { CurrencyUtils.formatAmountForInput(it) } ?: ""
                             threshold = (budget?.warningThresholdPercent ?: 80).toString()
                             revision = budget?.updatedAt
                             failed = false
@@ -233,7 +233,7 @@ fun CategoryBudgetManager(repository: AppRepository, uid: String, currency: Stri
     }
 
     selected?.let { cat ->
-        val parsed = CompositeRecordFilter(minInput = amount).bounds(currency)?.first?.div(100.0)
+        val parsed = CompositeRecordFilter(minInput = amount).bounds()?.first?.div(100.0)
         val percent = threshold.toIntOrNull()
         val valid = parsed != null && parsed > 0 && parsed < 1e9 && percent != null && percent in 1..100 && Regex("[0-9]+").matches(threshold)
         ModalBottomSheet(onDismissRequest = { if (!saving) selected = null }) {

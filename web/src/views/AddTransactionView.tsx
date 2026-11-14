@@ -33,6 +33,7 @@ export function AddTransactionView({
 }: AddTransactionViewProps) {
   const { t } = useTranslation();
   const currency = usePreferencesStore((s) => s.currency);
+  const locale = usePreferencesStore((s) => s.locale);
   const vm = useAddTransactionViewModel(expenseId);
   const haptics = useHaptics();
   const amountInputRef = useRef<HTMLInputElement>(null);
@@ -147,7 +148,7 @@ export function AddTransactionView({
                 id="txn-amount"
                 ref={amountInputRef}
                 className="field__input add-txn__amount-input"
-                placeholder={amountPlaceholder(currency)}
+                placeholder={amountPlaceholder(locale)}
                 inputMode="decimal"
                 value={vm.form.amountInput}
                 onChange={(e) => vm.setAmountInput(e.target.value)}

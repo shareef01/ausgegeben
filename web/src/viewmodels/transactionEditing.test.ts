@@ -59,7 +59,7 @@ describe('Transaction Editing Semantic Contract (Web)', () => {
       transactionType: 'expense',
     };
 
-    const formattedAmount = formatAmountForInput(existing.amount, 'EUR');
+    const formattedAmount = formatAmountForInput(existing.amount, 'de');
     const isSelectable = isStoredCategorySelectable(sampleCategories, existing.transactionType, existing.categoryId);
 
     expect(formattedAmount).toBe('45,50');
