@@ -14,6 +14,8 @@ import com.aus.ausgegeben.util.SpendingInsights
 import com.aus.ausgegeben.util.computeDayTotals
 import com.aus.ausgegeben.util.computeSpendingInsights
 import com.aus.ausgegeben.util.dateRangeMillis
+import com.aus.ausgegeben.util.localDayFlow
+import com.aus.ausgegeben.util.rowsCountedToDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -45,11 +47,18 @@ data class RecordUiState(
 )
 
 data class RecordData(
+    /** Every row in the listed period: the list and its day totals. */
     val headerExpenses: List<Expense> = emptyList(),
     val categories: List<Category> = emptyList(),
+    /** The current month up to today (rows dated after today left out): the budget bar. */
     val monthExpenses: List<Expense> = emptyList(),
     val monthlyBudget: Double? = null,
-    val currencyCode: String = "EUR"
+    val currencyCode: String = "EUR",
+    /**
+     * [headerExpenses] as counted by the summary card: rows dated after today are left out while
+     * the period includes today, like Insights. The list still shows them, marked upcoming.
+     */
+    val summaryExpenses: List<Expense> = emptyList(),
 )
 
 data class RecordToolbarState(
@@ -62,11 +71,25 @@ data class RecordToolbarState(
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @HiltViewModel
-class ExpenseViewModel @Inject constructor(
+class ExpenseViewModel(
     private val categoryActions: CategoryActions,
     private val expenseActions: ExpenseActions,
     private val preferenceManager: TransactionPreferences,
+    /** Start of the current local day, re-emitted when the date changes. Tests pass a fixed day. */
+    localDay: Flow<Long>,
 ) : ViewModel() {
+
+    // Hilt uses this one. The day ticks on a timer, so unit tests use the primary constructor
+    // with a fixed day: a ticking flow would keep advanceUntilIdle() running forever.
+    @Inject constructor(
+        categoryActions: CategoryActions,
+        expenseActions: ExpenseActions,
+        preferenceManager: TransactionPreferences,
+    ) : this(categoryActions, expenseActions, preferenceManager, localDayFlow())
+
+    private val localDayShared: Flow<Long> = localDay
+        .distinctUntilChanged()
+        .shareIn(viewModelScope, SharingStarted.WhileSubscribed(5000), replay = 1)
 
     private val ownerUid = expenseActions.currentRecordAccountId
     private fun ownerIsCurrent() = ownerUid == null || expenseActions.currentRecordAccountId == ownerUid
@@ -133,12 +156,14 @@ class ExpenseViewModel @Inject constructor(
         .shareIn(viewModelScope, SharingStarted.WhileSubscribed(5000), replay = 1)
 
     // Week listener dropped: daysLoggedThisWeek is unused in UI; top category uses month only.
+    // The current month always includes today, so rows dated later this month are left out.
     private val insightsFlow = combine(
         monthExpensesShared,
         categoriesShared,
-    ) { month, cats ->
+        localDayShared,
+    ) { month, cats, day ->
         val categoryNames = cats.associate { it.id to it.name }
-        computeSpendingInsights(month, emptyList(), categoryNames)
+        computeSpendingInsights(rowsCountedToDate(month, null, day), emptyList(), categoryNames)
     }.distinctUntilChanged()
         .flowOn(Dispatchers.Default)
 
@@ -171,7 +196,8 @@ class ExpenseViewModel @Inject constructor(
         insightsFlow,
         // Snapshot metadata provides an honest offline coverage indication.
         expenseActions.recordIncomplete,
-    ) { data, toolbar, insights, truncated ->
+        localDayShared,
+    ) { data, toolbar, insights, truncated, day ->
         // Filter once, with the same predicate and inputs `pagedExpenses` uses, and total exactly
         // those rows (UX-3). One source of truth for "which rows are visible"; the filter itself
         // is a cheap in-memory pass over the already-loaded period.
@@ -183,7 +209,14 @@ class ExpenseViewModel @Inject constructor(
             data.categories.associate { it.id to it.name },
         )
         RecordUiState(
-            data,
+            data.copy(
+                monthExpenses = rowsCountedToDate(data.monthExpenses, null, day),
+                summaryExpenses = rowsCountedToDate(
+                    data.headerExpenses,
+                    recordListDateRangeMillis(toolbar.listPeriod, day),
+                    day,
+                ),
+            ),
             toolbar,
             insights,
             computeDayTotals(visible),

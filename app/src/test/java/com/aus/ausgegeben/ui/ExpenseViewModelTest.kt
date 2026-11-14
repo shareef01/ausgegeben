@@ -8,6 +8,7 @@ import com.aus.ausgegeben.data.entity.Category
 import com.aus.ausgegeben.data.entity.Expense
 import com.aus.ausgegeben.util.RecordListPeriod
 import com.aus.ausgegeben.util.localDayStartMillis
+import com.aus.ausgegeben.util.startOfLocalDayMillis
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -33,6 +34,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.util.Calendar
 import org.robolectric.annotation.Config
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -52,6 +54,8 @@ class ExpenseViewModelTest {
     private lateinit var fakeExpenses: FakeExpenseActions
     private lateinit var fakePreferences: FakeTransactionPreferences
     private lateinit var viewModel: ExpenseViewModel
+    /** The view model's "today": fixed so tests control it (a real day flow ticks on a timer). */
+    private val fixedDay = MutableStateFlow(startOfLocalDayMillis())
 
     private val category =
         Category(id = "c1", name = "Groceries", iconName = "cart", colorInt = 1, transactionType = "expense")
@@ -64,7 +68,7 @@ class ExpenseViewModelTest {
         fakeCategories = FakeCategoryActions()
         fakeExpenses = FakeExpenseActions()
         fakePreferences = FakeTransactionPreferences()
-        viewModel = ExpenseViewModel(fakeCategories, fakeExpenses, fakePreferences)
+        viewModel = ExpenseViewModel(fakeCategories, fakeExpenses, fakePreferences, fixedDay)
     }
 
     @After
@@ -101,6 +105,36 @@ class ExpenseViewModelTest {
         advanceUntilIdle()
         assertEquals(16.0, expenseTotal(), 0.001)
 
+        job.cancel()
+    }
+
+    @Test
+    fun recordTotals_leaveOutRowsDatedAfterToday_butTheListKeepsThem() = runTest(dispatcher) {
+        // "Today" is the 1st of the current month, so the 2nd is always later in the same month.
+        val first = Calendar.getInstance().apply {
+            set(Calendar.DAY_OF_MONTH, 1); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        fixedDay.value = first
+        val coffee = expense.copy(id = "coffee", amount = 12.5, note = "coffee", dateMillis = first + 9 * 3_600_000L)
+        val rent = expense.copy(id = "rent", amount = 900.0, note = "rent", dateMillis = first + 33 * 3_600_000L)
+        fakeExpenses.expenses.value = listOf(coffee, rent)
+
+        val job = launch { viewModel.uiState.collect {} }
+        advanceUntilIdle()
+        val state = viewModel.uiState.first { !it.isLoading && it.data.headerExpenses.size == 2 }
+
+        assertEquals(listOf("coffee", "rent"), state.data.headerExpenses.map { it.id }.sorted())
+        assertEquals(listOf("coffee"), state.data.summaryExpenses.map { it.id })
+        assertEquals(listOf("coffee"), state.data.monthExpenses.map { it.id })
+        // The day header for the 2nd still adds up its own rows.
+        assertEquals(900.0, state.dayTotalsByDay[localDayStartMillis(rent.dateMillis)]?.second ?: -1.0, 0.001)
+
+        // Once the 2nd arrives, the rent counts.
+        fixedDay.value = localDayStartMillis(rent.dateMillis)
+        advanceUntilIdle()
+        val next = viewModel.uiState.first { it.data.summaryExpenses.size == 2 }
+        assertEquals(listOf("coffee", "rent"), next.data.monthExpenses.map { it.id }.sorted())
         job.cancel()
     }
 
@@ -295,7 +329,7 @@ class ExpenseViewModelTest {
     @Test
     fun construction_onImmediateMain_initializesCategoryFlowBeforeCollecting() = runTest(dispatcher) {
         Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
-        ExpenseViewModel(fakeCategories, fakeExpenses, fakePreferences)
+        ExpenseViewModel(fakeCategories, fakeExpenses, fakePreferences, fixedDay)
     }
 
     @Test
@@ -337,7 +371,7 @@ class ExpenseViewModelTest {
     @Test
     fun compatibleVisibleCategory_isNotClearedByLaggingSnapshot() = runTest(dispatcher) {
         val cold = ColdCategoryFlow()
-        val vm = ExpenseViewModel(fakeCategories.withFlow(cold.values), fakeExpenses, fakePreferences)
+        val vm = ExpenseViewModel(fakeCategories.withFlow(cold.values), fakeExpenses, fakePreferences, fixedDay)
         backgroundScope.launch { vm.uiState.collect {} }
         vm.uiState.first { !it.isLoading }
 
@@ -359,7 +393,7 @@ class ExpenseViewModelTest {
     @Test
     fun typeCompatibility_usesPublishedMetadataAfterChange() = runTest(dispatcher) {
         val cold = ColdCategoryFlow(listOf(category))
-        val vm = ExpenseViewModel(fakeCategories.withFlow(cold.values), fakeExpenses, fakePreferences)
+        val vm = ExpenseViewModel(fakeCategories.withFlow(cold.values), fakeExpenses, fakePreferences, fixedDay)
         backgroundScope.launch { vm.uiState.collect {} }
         vm.uiState.first { it.data.categories == listOf(category) }
         vm.setCategoryFilter("c1")
@@ -380,7 +414,7 @@ class ExpenseViewModelTest {
     @Test
     fun missingCategory_isClearedWhenChangingType() = runTest(dispatcher) {
         val cold = ColdCategoryFlow()
-        val vm = ExpenseViewModel(fakeCategories.withFlow(cold.values), fakeExpenses, fakePreferences)
+        val vm = ExpenseViewModel(fakeCategories.withFlow(cold.values), fakeExpenses, fakePreferences, fixedDay)
         backgroundScope.launch { vm.uiState.collect {} }
         vm.uiState.first { !it.isLoading }
         vm.setCategoryFilter("missing")
@@ -394,7 +428,7 @@ class ExpenseViewModelTest {
     @Test
     fun categoryListener_stopsWhenRecordHasNoCollectors() = runTest(dispatcher) {
         val cold = ColdCategoryFlow(listOf(category))
-        val vm = ExpenseViewModel(fakeCategories.withFlow(cold.values), fakeExpenses, fakePreferences)
+        val vm = ExpenseViewModel(fakeCategories.withFlow(cold.values), fakeExpenses, fakePreferences, fixedDay)
         runCurrent()
         assertEquals(0, cold.activeIds().size)
         val job = backgroundScope.launch { vm.uiState.collect {} }
@@ -409,7 +443,7 @@ class ExpenseViewModelTest {
     @Test
     fun categoryListener_resubscribesAndSelection_survivesSubscriberRestart() = runTest(dispatcher) {
         val cold = ColdCategoryFlow(listOf(category))
-        val vm = ExpenseViewModel(fakeCategories.withFlow(cold.values), fakeExpenses, fakePreferences)
+        val vm = ExpenseViewModel(fakeCategories.withFlow(cold.values), fakeExpenses, fakePreferences, fixedDay)
         val job = backgroundScope.launch { vm.uiState.collect {} }
         vm.uiState.first { it.data.categories == listOf(category) }
         val originalSubscription = cold.opened.receive()
@@ -435,7 +469,7 @@ class ExpenseViewModelTest {
     @Test
     fun categoryListener_multipleDownstreamCollectorsShareOneUpstream() = runTest(dispatcher) {
         val cold = ColdCategoryFlow(listOf(category))
-        val vm = ExpenseViewModel(fakeCategories.withFlow(cold.values), fakeExpenses, fakePreferences)
+        val vm = ExpenseViewModel(fakeCategories.withFlow(cold.values), fakeExpenses, fakePreferences, fixedDay)
         val first = backgroundScope.launch { vm.uiState.collect {} }
         val second = backgroundScope.launch { vm.uiState.collect {} }
         val rows = backgroundScope.launch { vm.pagedExpenses.collect {} }
@@ -504,7 +538,7 @@ class ExpenseViewModelTest {
             override val currentRecordAccountId: String? get() = owner.value
             override val recordAccountId: Flow<String?> = owner
         }
-        val vm = ExpenseViewModel(fakeCategories, actions, fakePreferences)
+        val vm = ExpenseViewModel(fakeCategories, actions, fakePreferences, fixedDay)
         runCurrent()
         assertTrue(vm.softDelete(expense))
         owner.value = "user-b"

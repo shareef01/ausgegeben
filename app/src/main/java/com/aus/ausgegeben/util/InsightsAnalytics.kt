@@ -116,6 +116,26 @@ fun startOfTomorrowMillis(nowMillis: Long = System.currentTimeMillis()): Long =
     }.timeInMillis
 
 /**
+ * Rows that count toward a period's totals on [todayStartMillis]: while the period includes
+ * today, rows dated after today are scheduled, not spent, and are left out. A period entirely in
+ * the past or future counts everything, as Insights does. A null range is "all time", which
+ * always includes today. Mirrors web `rowsCountedToDate`.
+ *
+ * The Record screen uses this for its summary card, budget bar and top category.
+ */
+fun rowsCountedToDate(
+    expenses: List<Expense>,
+    rangeMillis: Pair<Long, Long>?,
+    todayStartMillis: Long,
+): List<Expense> {
+    val inProgress = rangeMillis == null ||
+        (todayStartMillis >= rangeMillis.first && todayStartMillis < rangeMillis.second)
+    if (!inProgress) return expenses
+    val upcomingFrom = startOfTomorrowMillis(todayStartMillis)
+    return expenses.filter { it.dateMillis < upcomingFrom }
+}
+
+/**
  * @param currentExpenses spending that has already happened (in an active month: dated today or earlier)
  * @param scheduledExpenses spending dated after today in an active month. People log rent or a
  *   bill before it is due; it is added to the projection once rather than extrapolated as daily

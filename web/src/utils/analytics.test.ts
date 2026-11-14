@@ -15,6 +15,7 @@ import {
   isExpense,
   isIncome,
   isTransfer,
+  rowsCountedToDate,
   topExpenseCategoryName,
 } from '@/utils/analytics';
 
@@ -393,5 +394,40 @@ describe('analytics', () => {
       // Net: 400 - 175 = 225
       expect(avg?.averageMonthlyNet).toBe(225);
     });
+  });
+});
+
+/** Record totals leave out rows dated after today while the period includes today, like Insights (F-1). */
+describe('rowsCountedToDate', () => {
+  const row = (id: string, dateMillis: number): Expense => ({
+    id, amount: 10, dateMillis, categoryId: 'c', note: '', transactionType: 'expense',
+  });
+  const today = new Date(2026, 10, 14).getTime();
+  const nov = [new Date(2026, 10, 1).getTime(), new Date(2026, 11, 1).getTime()] as [number, number];
+  const rows = [
+    row('past', new Date(2026, 10, 3, 9).getTime()),
+    row('late-today', new Date(2026, 10, 14, 23, 59).getTime()),
+    row('tomorrow', new Date(2026, 10, 15, 0, 0).getTime()),
+    row('rent', new Date(2026, 10, 28, 9).getTime()),
+  ];
+  const ids = (xs: Expense[]) => xs.map((e) => e.id);
+
+  it('drops rows from tomorrow on while the period includes today', () => {
+    expect(ids(rowsCountedToDate(rows, nov, today))).toEqual(['past', 'late-today']);
+  });
+
+  it('treats all time as including today', () => {
+    expect(ids(rowsCountedToDate(rows, null, today))).toEqual(['past', 'late-today']);
+  });
+
+  it('counts everything in a period entirely in the past or the future', () => {
+    const oct = [new Date(2026, 9, 1).getTime(), nov[0]] as [number, number];
+    const dec = [nov[1], new Date(2027, 0, 1).getTime()] as [number, number];
+    expect(ids(rowsCountedToDate(rows, oct, today))).toEqual(ids(rows));
+    expect(ids(rowsCountedToDate(rows, dec, today))).toEqual(ids(rows));
+  });
+
+  it('counts a row once its day arrives', () => {
+    expect(ids(rowsCountedToDate(rows, nov, new Date(2026, 10, 28).getTime()))).toEqual(ids(rows));
   });
 });
