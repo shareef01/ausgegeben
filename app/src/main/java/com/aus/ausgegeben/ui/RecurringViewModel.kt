@@ -3,6 +3,7 @@ package com.aus.ausgegeben.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aus.ausgegeben.data.RecurringRepository
+import com.aus.ausgegeben.data.runCatchUp
 import com.aus.ausgegeben.data.auth.AuthRepository
 import com.aus.ausgegeben.data.entity.RecurringTemplate
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -37,7 +38,8 @@ class RecurringViewModel @Inject constructor(private val repository: RecurringRe
         if(auth.currentUser?.isEmailVerified != true || syncJob?.isActive == true) return
         syncJob=viewModelScope.launch {
             try {
-                repository.reconcile(owner)
+                // AUS-202: keep passing until the backlog is done, while this account stays signed in.
+                runCatchUp({ repository.reconcile(owner); repository.catchUpIncomplete(owner) }, { repository.uid == owner })
                 if(repository.uid==owner) {
                     _error.value=false
                     _issues.value=repository.getRecurringIssues(owner)

@@ -39,6 +39,7 @@ import { useCssProps } from '@/utils/cssVars';
 import { applyErrorReportingPreference } from '@/services/errorSink';
 import { readErrorReportingEnabled, writeErrorReportingEnabled } from '@/services/errorReportPreference';
 import { isPersistentStorageEnabled, setPersistentStorageEnabled } from '@/services/firebase';
+import { handleRadioGroupKeyDown, radioTabIndex } from '@/utils/radioGroupKeys';
 
 const ERROR_REPORTING_AVAILABLE = Boolean(import.meta.env.VITE_ERROR_REPORT_URL?.trim());
 
@@ -525,14 +526,15 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
 
       {showLanguage ? (
         <Modal title={t('settingsLanguage')} onClose={() => setShowLanguage(false)}>
-          <div role="radiogroup" aria-label={t('settingsLanguage')}>
-            {(['en', 'de'] as Locale[]).map((code) => (
+          <div role="radiogroup" aria-label={t('settingsLanguage')} onKeyDown={handleRadioGroupKeyDown}>
+            {(['en', 'de'] as Locale[]).map((code, index, all) => (
               <PickerOptionRow
                 key={code}
                 icon={IconGlobe}
                 tint="accent"
                 label={code === 'de' ? t('langGerman') : t('langEnglish')}
                 selected={locale === code}
+                tabIndex={radioTabIndex(locale === code, index, all.includes(locale))}
                 onClick={() => { setLocale(code); setShowLanguage(false); }}
               />
             ))}
@@ -542,8 +544,8 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
 
       {showTheme ? (
         <Modal title={t('settingsChooseTheme')} onClose={() => setShowTheme(false)}>
-          <div className="theme-picker" role="radiogroup" aria-label={t('settingsChooseTheme')}>
-            {THEME_OPTIONS.map((opt) => {
+          <div className="theme-picker" role="radiogroup" aria-label={t('settingsChooseTheme')} onKeyDown={handleRadioGroupKeyDown}>
+            {THEME_OPTIONS.map((opt, index) => {
               const selected = themeMode === opt.key;
               return (
                 <button
@@ -551,6 +553,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
                   type="button"
                   role="radio"
                   aria-checked={selected}
+                  tabIndex={radioTabIndex(selected, index, THEME_OPTIONS.some((o) => o.key === themeMode))}
                   className={`theme-picker__option${selected ? ' theme-picker__option--selected' : ''}`}
                   onClick={() => {
                     setThemeMode(opt.key);
@@ -574,14 +577,15 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
       {showCurrency ? (
         <Modal title={t('settingsChooseCurrency')} onClose={() => setShowCurrency(false)}>
           <p className="text-sm text-on-surface-variant mb-3">{t('settingsCurrencyNotice')}</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2" role="radiogroup" aria-label={t('settingsChooseCurrency')}>
-            {SUPPORTED_CURRENCIES.map((c) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2" role="radiogroup" aria-label={t('settingsChooseCurrency')} onKeyDown={handleRadioGroupKeyDown}>
+            {SUPPORTED_CURRENCIES.map((c, index) => (
               <PickerOptionRow
                 key={c}
                 icon={IconCurrency}
                 tint="income"
                 label={currencyLabel(c)}
                 selected={currency === c}
+                tabIndex={radioTabIndex(currency === c, index, SUPPORTED_CURRENCIES.some((code) => code === currency))}
                 onClick={() => { setCurrency(c); setShowCurrency(false); }}
               />
             ))}
@@ -613,12 +617,14 @@ function PickerOptionRow({
   tint = 'accent',
   label,
   selected,
+  tabIndex,
   onClick,
 }: {
   icon: IconComponent;
   tint?: IconTint;
   label: string;
   selected: boolean;
+  tabIndex: 0 | -1;
   onClick: () => void;
 }) {
   const { bg, text } = PICKER_TINT_CLASSES[tint];
@@ -627,6 +633,7 @@ function PickerOptionRow({
       type="button"
       role="radio"
       aria-checked={selected}
+      tabIndex={tabIndex}
       className={`settings-row w-full flex items-center gap-4 p-4 rounded-xl transition-colors hover:bg-on-surface/5 ${selected ? bg : ''}`}
       onClick={onClick}
     >

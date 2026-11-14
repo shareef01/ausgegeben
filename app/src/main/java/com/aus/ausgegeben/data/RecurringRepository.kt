@@ -50,6 +50,8 @@ class RecurringReceiptInvalidException(
 )
 
 private val lastIssuesByOwner = mutableMapOf<String, List<RecurringIssue>>()
+/** Whether the most recent pass, per owner, stopped at its budget with due work left (AUS-202). */
+private val lastPassIncompleteByOwner = mutableMapOf<String, Boolean>()
 
 @Singleton
 class RecurringRepository @Inject constructor(private val client: FirestoreClient, private val auth: AuthRepository) {
@@ -146,7 +148,7 @@ class RecurringRepository @Inject constructor(private val client: FirestoreClien
         val issues=mutableListOf<RecurringIssue>(); val quarantined=mutableSetOf<String>()
         repeat(Recurrence.MAX_PER_PASS) {
             val due=rows.filter { it.enabled && it.nextDate != null && it.nextDate <= Recurrence.localDate(now,it.timeZone) && it.id !in quarantined }.minWithOrNull(compareBy<RecurringTemplate> { it.nextDate }.thenBy { it.id })
-            if (due == null) { lastIssuesByOwner[u]=issues.toList(); return count }
+            if (due == null) { lastIssuesByOwner[u]=issues.toList(); lastPassIncompleteByOwner[u]=false; return count }
             val next = try { materialize(u,due.id,now) } catch (e: RecurringIssueException) {
                 // One unreconcilable template must not stall every other template.
                 issues += e.issue; quarantined += due.id; return@repeat
@@ -155,8 +157,13 @@ class RecurringRepository @Inject constructor(private val client: FirestoreClien
             if(next != null) { rows[index]=next; count++ } else rows.removeAt(index)
         }
         lastIssuesByOwner[u]=issues.toList()
+        // The budget ran out. More work only if this pass made progress: one that spent its
+        // budget re-quarantining the same templates would only repeat itself (web parity).
+        lastPassIncompleteByOwner[u]=count > 0
         return count
     }
+    /** The most recent reconcile pass hit its per-pass budget with due work left (AUS-202). */
+    fun catchUpIncomplete(u: String): Boolean = lastPassIncompleteByOwner[u] ?: false
     /**
      * Owner decision for a quarantined occurrence (web parity): move the template one
      * occurrence past [scheduledDate] without recording anything. No expense and no receipt

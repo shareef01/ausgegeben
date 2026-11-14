@@ -55,6 +55,19 @@ async function main() {
     'Strict-Transport-Security header present',
   );
 
+  // AUS-AUD-018: index.html was served with Hosting's default max-age=3600. After a
+  // deploy, a browser without the service worker could reuse the old page for an hour,
+  // and that page names the previous build's hashed bundles, which the deploy removed.
+  // firebase.json now sends no-cache for HTML, the manifest and app routes. Soft until
+  // a hosting deploy has shipped that header.
+  const htmlCache = headers.get('cache-control') || '';
+  record(
+    /no-cache|no-store|max-age=0\b/.test(htmlCache),
+    'index.html is revalidated on every load',
+    htmlCache || '(no Cache-Control header)',
+    true,
+  );
+
   // ── the JS bundle actually loads ──
   const bundleMatch = html.match(/\/assets\/index-[A-Za-z0-9_-]+\.js/);
   if (!bundleMatch) {
