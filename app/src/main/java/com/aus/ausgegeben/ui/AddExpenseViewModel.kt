@@ -114,11 +114,10 @@ class AddExpenseViewModel @Inject constructor(
      * mirrored here. Works for edits too: the baseline is the loaded transaction, not
      * an empty draft.
      */
-    fun hasUnsavedChanges(currentType: TransactionType, currencyCode: String = "EUR"): Boolean =
+    fun hasUnsavedChanges(currentType: TransactionType): Boolean =
         isTransactionDraftDirty(
             baseline = baseline,
             current = currentSnapshot(currentType),
-            currencyCode = currencyCode,
         )
 
     fun onAmountChange(newAmount: String) {
@@ -155,23 +154,13 @@ class AddExpenseViewModel @Inject constructor(
         // touched yet.
         baseline = null
         _isDraftLoading.value = true
-        // A previous load still waiting on the currency would otherwise finish into this
-        // form with the other transaction's amount.
+        // A previous load that has not run yet would otherwise finish into this form with
+        // the other transaction's amount.
         editLoadJob?.cancel()
         editLoadJob = viewModelScope.launch {
-            try {
-                val currency = preferenceManager.currencyFlow.first()
-                _amount.value = CurrencyUtils.formatAmountForInput(expense.amount, currency)
-            } catch (cancelled: CancellationException) {
-                // Superseded by resetForm() or another loadForEdit(): that call owns the
-                // form now, so leave the amount, baseline and loading flag alone.
-                throw cancelled
-            } catch (e: Exception) {
-                // Settings unavailable must not leave the form stuck on a spinner: fall
-                // back to the default decimal format so the transaction still opens.
-                Log.w(TAG, "currency unavailable while loading edit; using default formatting", e)
-                _amount.value = CurrencyUtils.formatAmountForInput(expense.amount, "EUR")
-            }
+            // In the app language's decimal format, like every amount on screen. This used
+            // to wait for the currency setting, which no longer decides the format.
+            _amount.value = CurrencyUtils.formatAmountForInput(expense.amount)
             baseline = currentSnapshot(_loadedTransactionType.value)
             _isDraftLoading.value = false
         }
@@ -211,8 +200,7 @@ class AddExpenseViewModel @Inject constructor(
             }
             else -> viewModelScope.launch {
                 try {
-                    val currency = preferenceManager.currencyFlow.first()
-                    val amt = CurrencyUtils.parseAmount(_amount.value, currency) ?: 0.0
+                    val amt = CurrencyUtils.parseAmount(_amount.value) ?: 0.0
                     if (amt <= 0) {
                         _isSaving.value = false
                         onError(app.getString(R.string.error_amount_required))

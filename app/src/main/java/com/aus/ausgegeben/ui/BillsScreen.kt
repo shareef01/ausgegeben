@@ -944,7 +944,7 @@ private fun PeriodComparisonCard(
                     )
                 }
                 Text(
-                    text = stringResource(R.string.bills_empty_subtitle),
+                    text = stringResource(R.string.insights_no_prior_period_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = BillsAuroraTokens.slate(),
                 )

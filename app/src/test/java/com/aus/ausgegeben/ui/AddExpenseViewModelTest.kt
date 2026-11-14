@@ -13,7 +13,6 @@ import com.aus.ausgegeben.data.entity.Expense
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -55,8 +54,13 @@ class AddExpenseViewModelTest {
     private val incomeCategory =
         Category(id = "c2", name = "Salary", iconName = "cash", colorInt = 2, transactionType = "income")
 
+    // Amount entry follows the app language (U-2); these tests type and expect German
+    // decimal commas, so pin it rather than depend on the machine running them.
+    private val defaultLocale = java.util.Locale.getDefault()
+
     @Before
     fun setUp() {
+        java.util.Locale.setDefault(java.util.Locale.GERMANY)
         Dispatchers.setMain(dispatcher)
         fakeCategories = FakeCategoryActions()
         fakeExpenses = FakeExpenseActions()
@@ -68,6 +72,7 @@ class AddExpenseViewModelTest {
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+        java.util.Locale.setDefault(defaultLocale)
     }
 
     @Test
@@ -377,10 +382,10 @@ class AddExpenseViewModelTest {
     fun hasUnsavedChanges_falseForAFreshDraftUntilTheUserTypes() {
         viewModel.resetForm()
 
-        assertFalse(viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"))
+        assertFalse(viewModel.hasUnsavedChanges(TransactionType.EXPENSE))
 
         viewModel.onAmountChange("4,50")
-        assertTrue(viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"))
+        assertTrue(viewModel.hasUnsavedChanges(TransactionType.EXPENSE))
     }
 
     @Test
@@ -397,7 +402,7 @@ class AddExpenseViewModelTest {
         advanceUntilIdle()
 
         // The loaded values are the baseline: an edit is not dirty just by existing.
-        assertFalse(viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"))
+        assertFalse(viewModel.hasUnsavedChanges(TransactionType.EXPENSE))
     }
 
     @Test
@@ -416,17 +421,17 @@ class AddExpenseViewModelTest {
         viewModel.onAmountChange("15,50")
         assertFalse(
             "re-typing the same amount is not a change",
-            viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"),
+            viewModel.hasUnsavedChanges(TransactionType.EXPENSE),
         )
 
         viewModel.onNoteChange("Groceries and coffee")
-        assertTrue(viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"))
+        assertTrue(viewModel.hasUnsavedChanges(TransactionType.EXPENSE))
 
         viewModel.onNoteChange("Groceries")
         viewModel.onCategorySelect(incomeCategory)
         assertTrue(
             "switching the category/type is a change",
-            viewModel.hasUnsavedChanges(TransactionType.INCOME, "EUR"),
+            viewModel.hasUnsavedChanges(TransactionType.INCOME),
         )
     }
 
@@ -446,7 +451,7 @@ class AddExpenseViewModelTest {
 
         viewModel.resetForm()
 
-        assertFalse(viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"))
+        assertFalse(viewModel.hasUnsavedChanges(TransactionType.EXPENSE))
     }
 
     /**
@@ -469,14 +474,14 @@ class AddExpenseViewModelTest {
         assertTrue("form must not be interactive yet", viewModel.isDraftLoading.value)
         assertFalse(
             "no baseline yet, so nothing can be dirty",
-            viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"),
+            viewModel.hasUnsavedChanges(TransactionType.EXPENSE),
         )
 
         advanceUntilIdle()
 
         assertFalse(viewModel.isDraftLoading.value)
         assertEquals("15,50", viewModel.amount.value)
-        assertFalse(viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"))
+        assertFalse(viewModel.hasUnsavedChanges(TransactionType.EXPENSE))
     }
 
     /**
@@ -500,10 +505,10 @@ class AddExpenseViewModelTest {
 
         assertEquals("0", viewModel.amount.value)
         assertFalse(viewModel.isDraftLoading.value)
-        assertFalse(viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"))
+        assertFalse(viewModel.hasUnsavedChanges(TransactionType.EXPENSE))
 
         viewModel.onAmountChange("3,00")
-        assertTrue(viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"))
+        assertTrue(viewModel.hasUnsavedChanges(TransactionType.EXPENSE))
     }
 
     /**
@@ -512,42 +517,19 @@ class AddExpenseViewModelTest {
      */
     @Test
     fun hasUnsavedChanges_guardsAFreshViewModelWithoutResetForm() {
-        assertFalse(viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"))
+        assertFalse(viewModel.hasUnsavedChanges(TransactionType.EXPENSE))
 
         viewModel.onAmountChange("4,50")
         viewModel.onNoteChange("Lunch")
 
-        assertTrue(viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"))
+        assertTrue(viewModel.hasUnsavedChanges(TransactionType.EXPENSE))
     }
 
     @Test
     fun resetForm_clearsTheDraftLoadingState() {
         viewModel.resetForm()
         assertFalse(viewModel.isDraftLoading.value)
-        assertFalse(viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"))
-    }
-
-    /**
-     * A preferences read failure must not leave the edit form stuck on its spinner: the
-     * transaction still opens (with default formatting) and closing stays safe.
-     */
-    @Test
-    fun loadForEdit_currencyUnavailable_stillOpensTheForm() = runTest(dispatcher) {
-        fakePreferences.currencyThrows = true
-        val existing = Expense(
-            id = "e1",
-            amount = 15.5,
-            dateMillis = 1700000000000L,
-            categoryId = "c1",
-            note = "Groceries",
-            transactionType = "expense",
-        )
-        viewModel.loadForEdit(existing, listOf(expenseCategory))
-        advanceUntilIdle()
-
-        assertFalse(viewModel.isDraftLoading.value)
-        assertEquals("15,50", viewModel.amount.value)
-        assertFalse(viewModel.hasUnsavedChanges(TransactionType.EXPENSE, "EUR"))
+        assertFalse(viewModel.hasUnsavedChanges(TransactionType.EXPENSE))
     }
 
     @Test
@@ -778,17 +760,13 @@ class AddExpenseViewModelTest {
         val monthlyBudget = MutableStateFlow<Double?>(null)
         val analyticsPeriod = MutableStateFlow("this_month")
 
-        /** Mirrors a DataStore read failure (device storage unavailable). */
-        var currencyThrows = false
-
         /** Every unresolved submission attempt, mirroring production's durable journal. */
         var journal: List<PendingExpenseOperation> = emptyList()
             private set
 
         val pendingOperationIds: List<String> get() = journal.map { it.operationId }
 
-        override val currencyFlow: Flow<String>
-            get() = if (currencyThrows) flow { throw IllegalStateException("preferences unavailable") } else currency
+        override val currencyFlow: Flow<String> = currency
         override val monthlyBudgetFlow: Flow<Double?> = monthlyBudget
         override val analyticsPeriodFlow: Flow<String> = analyticsPeriod
 

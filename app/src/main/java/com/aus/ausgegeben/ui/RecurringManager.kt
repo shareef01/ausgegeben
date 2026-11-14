@@ -365,7 +365,7 @@ fun RecurringManagerSheet(
     draft?.let { d ->
         // Double.toString() prefilled "1500.0" (and "1.0E7" from ten million up),
         // the wrong separator for EUR and not something the user would type.
-        var amount by remember(d.id) { mutableStateOf(CurrencyUtils.formatAmountForInput(d.amount, currencyCode)) }
+        var amount by remember(d.id) { mutableStateOf(CurrencyUtils.formatAmountForInput(d.amount)) }
         var interval by remember(d.id) { mutableStateOf(d.interval.toString()) }
         var note by remember(d.id) { mutableStateOf(d.note) }
         var startDate by remember(d.id) { mutableStateOf(d.startDate) }
@@ -454,7 +454,7 @@ fun RecurringManagerSheet(
                             // Same strict parse as the budget editor and record filters. The old
                             // replace(',', '.') read EUR "1.000" as 1.00, so a 1,000 rent
                             // template silently saved as 1 and generated 1-unit rows.
-                            amount = CompositeRecordFilter(minInput = amount).bounds(currencyCode)
+                            amount = CompositeRecordFilter(minInput = amount).bounds()
                                 ?.first?.div(100.0) ?: Double.NaN,
                             interval = interval.toIntOrNull() ?: 0,
                         )

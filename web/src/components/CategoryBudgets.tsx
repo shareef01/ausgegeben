@@ -13,6 +13,7 @@ export function CategoryBudgetManager() {
   const { t } = useTranslation();
   const { uid, rows, incomplete } = useCategoryBudgets();
   const currency = usePreferencesStore(s => s.currency), globalBudget = usePreferencesStore(s => s.monthlyBudget);
+  const locale = usePreferencesStore(s => s.locale);
   const editorTrigger = useRef<HTMLButtonElement | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
@@ -29,7 +30,7 @@ export function CategoryBudgetManager() {
   const budgetsById = useMemo(() => new Map(rows.map(b => [b.categoryId, b])), [rows]);
   const eligibleBudgets = rows.filter(b => categoryIds.has(b.categoryId));
   const allocation = budgetAllocation(eligibleBudgets, globalBudget);
-  const parsed = parseRecordAmount(amount, currency), percent = Number(threshold);
+  const parsed = parseRecordAmount(amount, locale), percent = Number(threshold);
   const valid = parsed != null && parsed > 0 && parsed < 1e9 && /^\d+$/.test(threshold) && percent >= 1 && percent <= 100;
   const save = async (remove = false) => {
     if (!uid || !selected) return;
@@ -47,7 +48,7 @@ export function CategoryBudgetManager() {
     {!rows.length && <p>{t('categoryBudgetEmpty')}</p>}
     <div className="settings-budget-edit__actions">{categories.map(c => {
       const b = budgetsById.get(c.id);
-      return <button type="button" className="btn btn-secondary" key={c.id} onClick={e => { editorTrigger.current = e.currentTarget; setSelected(c.id); setAmount(b ? formatAmountForInput(b.monthlyLimit, currency) : ''); setThreshold(String(b?.warningThresholdPercent ?? 80)); setRevision(b?.updatedAt ?? null); setError(false); }}>{c.name}{b ? ` · ${formatAmount(b.monthlyLimit, currency)} · ${b.warningThresholdPercent}%` : ''}</button>;
+      return <button type="button" className="btn btn-secondary" key={c.id} onClick={e => { editorTrigger.current = e.currentTarget; setSelected(c.id); setAmount(b ? formatAmountForInput(b.monthlyLimit, locale) : ''); setThreshold(String(b?.warningThresholdPercent ?? 80)); setRevision(b?.updatedAt ?? null); setError(false); }}>{c.name}{b ? ` · ${formatAmount(b.monthlyLimit, currency)} · ${b.warningThresholdPercent}%` : ''}</button>;
     })}</div>
     {selected && <form className="settings-budget-edit" onSubmit={e => { e.preventDefault(); void save(); }}>
       <h3>{categories.find(c => c.id === selected)?.name}</h3>

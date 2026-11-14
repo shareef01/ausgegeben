@@ -52,9 +52,10 @@ interface RecurringEditorProps {
 export function RecurringEditor({ owner, template, expected, categories, blockedReason, onClose, onSaved }: RecurringEditorProps) {
   const { t } = useTranslation();
   const currency = usePreferencesStore((s) => s.currency);
+  const locale = usePreferencesStore((s) => s.locale);
   const haptics = useHaptics();
   const isNew = expected === null;
-  const [baseline] = useState(() => formFromTemplate(template, currency, isNew));
+  const [baseline] = useState(() => formFromTemplate(template, locale, isNew));
   const [form, setForm] = useState<RecurringForm>(baseline);
   const [error, setError] = useState<RecurringFormError | 'save' | 'conflict' | null>(null);
   const [saving, setSaving] = useState(false);
@@ -64,7 +65,7 @@ export function RecurringEditor({ owner, template, expected, categories, blocked
   const catsRef = useRef<HTMLDivElement>(null);
 
   const options = useMemo(() => recurringCategoriesFor(categories, form.transactionType), [categories, form.transactionType]);
-  const dirty = isRecurringFormDirty(baseline, form, currency);
+  const dirty = isRecurringFormDirty(baseline, form, locale);
 
   const requestClose = useCallback(() => {
     if (saving) return;
@@ -102,7 +103,7 @@ export function RecurringEditor({ owner, template, expected, categories, blocked
 
   const save = async () => {
     if (saving || blockedReason) return;
-    const result = templateFromForm(template, form, currency);
+    const result = templateFromForm(template, form, locale);
     if (!result.ok) {
       haptics.light();
       setError(result.error);
@@ -164,7 +165,7 @@ export function RecurringEditor({ owner, template, expected, categories, blocked
                   id="recurring-amount"
                   ref={amountRef}
                   className="field__input add-txn__amount-input"
-                  placeholder={amountPlaceholder(currency)}
+                  placeholder={amountPlaceholder(locale)}
                   inputMode="decimal"
                   autoComplete="off"
                   value={form.amountInput}

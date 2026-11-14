@@ -1,4 +1,5 @@
 import type { TransactionType } from '@/models/types';
+import type { Locale } from '@/i18n';
 import { parseAmount } from '@/utils/currency';
 
 /**
@@ -32,18 +33,18 @@ export function localDayKey(millis: number): string {
   return `${d.getFullYear()}-${month}-${day}`;
 }
 
-function amountValue(input: string, currency: string): number {
-  return parseAmount(input, currency) ?? 0;
+function amountValue(input: string, locale: Locale): number {
+  return parseAmount(input, locale) ?? 0;
 }
 
 export function isTransactionDraftDirty(
   baseline: TransactionDraft | null,
   draft: TransactionDraft,
-  currency: string,
+  locale: Locale,
 ): boolean {
   // Before the form's own values are known, nothing can be lost: never prompt.
   if (!baseline) return false;
-  if (amountValue(draft.amountInput, currency) !== amountValue(baseline.amountInput, currency)) {
+  if (amountValue(draft.amountInput, locale) !== amountValue(baseline.amountInput, locale)) {
     return true;
   }
   if (draft.transactionType !== baseline.transactionType) return true;

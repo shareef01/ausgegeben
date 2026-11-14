@@ -54,9 +54,9 @@ data class CompositeRecordFilter(
     val maxInput: String = "",
     val sort: RecordSort = RecordSort.DATE_DESC,
 ) {
-    fun bounds(currency: String): Pair<Long?, Long?>? {
+    fun bounds(): Pair<Long?, Long?>? {
         fun parse(input: String): Long? = input.trim().takeIf { Regex("[0-9]+([.,][0-9]{1,2})?").matches(it) }
-            ?.let { com.aus.ausgegeben.util.CurrencyUtils.parseAmount(it, currency) }
+            ?.let { com.aus.ausgegeben.util.CurrencyUtils.parseAmount(it) }
             ?.takeIf { it.isFinite() && it >= 0 }?.let { com.aus.ausgegeben.util.CurrencyUtils.toMinorUnits(it) }
             ?.takeIf { it <= 9_007_199_254_740_991L }
         val min = if (minInput.isBlank()) null else parse(minInput) ?: return null
@@ -69,8 +69,8 @@ data class CompositeRecordFilter(
 }
 
 fun filterRecords(expenses: List<Expense>, query: String, type: TransactionTypeFilter,
-    filter: CompositeRecordFilter, categoryNames: Map<String, String>, currency: String): List<Expense> {
-    val (min, max) = filter.bounds(currency) ?: return emptyList()
+    filter: CompositeRecordFilter, categoryNames: Map<String, String>): List<Expense> {
+    val (min, max) = filter.bounds() ?: return emptyList()
     val matched = expenses.filter { e ->
         val amount = com.aus.ausgegeben.util.CurrencyUtils.toMinorUnits(e.amount)
         type.matches(e) && (filter.categoryIds.isEmpty() || e.categoryId in filter.categoryIds) &&

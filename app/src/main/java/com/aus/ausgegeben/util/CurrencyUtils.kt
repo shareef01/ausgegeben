@@ -23,14 +23,6 @@ object CurrencyUtils {
         "CHF" to "CHF"
     )
 
-    /** Currency→locale for input parsing only — matches web `decimalSeparatorFor`. */
-    private val localeByCurrency = mapOf(
-        "EUR" to Locale.GERMANY,
-        "USD" to Locale.US,
-        "GBP" to Locale.UK,
-        "CHF" to Locale.forLanguageTag("de-CH")
-    )
-
     /** App language for display — matches web `formatAmount` (not currency→locale). */
     fun localeForLanguage(language: String): Locale = when (language) {
         "de" -> Locale.GERMANY
@@ -40,17 +32,23 @@ object CurrencyUtils {
     fun localeForDisplay(language: String? = null): Locale =
         localeForLanguage(language ?: Locale.getDefault().language.let { if (it == "de") "de" else "en" })
 
-    fun localeFor(currencyCode: String): Locale =
-        localeByCurrency[currencyCode] ?: Locale.getDefault()
-
     fun symbolFor(currencyCode: String): String =
         symbolsByCode[currencyCode] ?: currencyCode
 
     fun labelFor(currencyCode: String): String =
         "$currencyCode (${symbolFor(currencyCode)})"
 
-    fun decimalSeparator(currencyCode: String): Char =
-        DecimalFormatSymbols(localeFor(currencyCode)).decimalSeparator
+    /**
+     * Decimal separator for amount entry in the app language -- the same one [formatAmount]
+     * displays ("1,234.56" in English, "1.234,56" in German). Matches web
+     * `inputDecimalSeparator`.
+     *
+     * It used to follow the currency (EUR -> comma), so an English UI showing "€1,069.50"
+     * asked for "0,00" and refused "1,234" as ambiguous. Takes a [Locale], not a currency
+     * code, so a stale caller passing "EUR" fails to compile instead of misparsing.
+     */
+    fun decimalSeparator(locale: Locale = localeForDisplay()): Char =
+        DecimalFormatSymbols(locale).decimalSeparator
 
     fun formatAmount(
         amount: Double,
@@ -77,8 +75,7 @@ object CurrencyUtils {
      * correctly, so nothing was miscalculated; it was a visible parity gap.
      * Matches web formatAmountForInput (toFixed(2)); asserted by MoneyParityTest.
      */
-    fun formatAmountForInput(amount: Double, currencyCode: String = "EUR"): String {
-        val locale = localeFor(currencyCode)
+    fun formatAmountForInput(amount: Double, locale: Locale = localeForDisplay()): String {
         val symbols = DecimalFormatSymbols(locale).apply {
             groupingSeparator = '\u0000'
         }
@@ -89,20 +86,20 @@ object CurrencyUtils {
     private val COMMA_GROUPED = Regex("""\d{1,3}(,\d{3})+""")
 
     /**
-     * Strict, currency-aware parse. The same rules as web `parseAmount`, pinned for both
+     * Strict parse of a typed amount in the app language. The same rules as web `parseAmount`, pinned for both
      * by testdata/money-parity.json:
      *
      * - Only digits, "." and "," after trimming; any letter, sign, symbol or inner space
      *   rejects the whole input (`"12abc"` and `"1-2"` are null, not 12 or 1).
      * - With both separators, the later one is the decimal point.
-     * - A lone separator that repeats, or is the currency's grouping separator followed
+     * - A lone separator that repeats, or is the language's grouping separator followed
      *   by exactly three digits, is thousands grouping; otherwise it is the decimal point,
-     *   so `"12.50"` is 12.5 even for EUR.
+     *   so `"12.50"` is 12.5 even in German.
      * - Grouping must be well formed and at most two decimals are allowed, so ambiguous
-     *   input such as `"1,234"` for EUR is refused rather than guessed. A trailing decimal
+     *   input such as `"1,234"` in German is refused rather than guessed. A trailing decimal
      *   separator (`"12,"`) is accepted, for half-typed input.
      */
-    fun parseAmount(input: String, currencyCode: String = "EUR"): Double? {
+    fun parseAmount(input: String, locale: Locale = localeForDisplay()): Double? {
         val s = input.trim()
         if (s.isEmpty() || s.any { !(it in '0'..'9' || it == '.' || it == ',') } || s.none { it in '0'..'9' }) {
             return null
@@ -123,8 +120,8 @@ object CurrencyUtils {
             val sep = if (lastDot != -1) '.' else ','
             val last = maxOf(lastDot, lastComma)
             val repeated = s.indexOf(sep) != last
-            val currencyGrouping = if (decimalSeparator(currencyCode) == ',') '.' else ','
-            if (repeated || (sep == currencyGrouping && s.length - last - 1 == 3)) {
+            val localeGrouping = if (decimalSeparator(locale) == ',') '.' else ','
+            if (repeated || (sep == localeGrouping && s.length - last - 1 == 3)) {
                 grouping = sep
             } else {
                 intPart = s.substring(0, last)

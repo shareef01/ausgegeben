@@ -364,7 +364,7 @@
     <string name="bills_section_transfers">transfers</string>
     <string name="chart_total_label">gesamt</string>
     <string name="chart_overview_title">einnahmen vs. ausgaben</string>
-    <string name="chart_net_label">netto-saldo</string>
+    <string name="chart_net_label">netto</string>
     <string name="chart_no_data">keine daten</string>
     <string name="chart_breakdown_description">aufschlüsselung nach kategorie, gesamt %1$s</string>
     <string name="chart_wealth_trend_title">vermögenstrend</string>
@@ -378,6 +378,7 @@
     <string name="insights_comparison_title">Ggü. Vormonat</string>
     <string name="insights_comparison_title_to_date">Ggü. gleichen Tagen im Vormonat</string>
     <string name="insights_no_prior_period">Erster erfasster Monat</string>
+    <string name="insights_no_prior_period_hint">Im Vormonat wurde nichts erfasst</string>
     <string name="insights_favorable_less">weniger ausgegeben</string>
     <string name="insights_unfavorable_more">mehr ausgegeben</string>
     <string name="insights_net_improved">Saldo um %1$s verbessert</string>
@@ -408,7 +409,7 @@
     <string name="a11y_action_duplicate">Für heute duplizieren</string>
     <string name="record_row_actions_for">Weitere Aktionen: %1$s</string>
     <string name="desc_transfer_row">%1$s Transfer von %2$s. %3$s</string>
-    <string name="desc_finance_summary">Finanzübersicht für %1$s. Netto-Saldo %2$s. Gesamteinnahmen %3$s. Gesamtausgaben %4$s.</string>
+    <string name="desc_finance_summary">Finanzübersicht für %1$s. Netto im Zeitraum %2$s. Gesamteinnahmen %3$s. Gesamtausgaben %4$s.</string>
     <string name="record_filter">Nach Typ filtern</string>
     <string name="record_category_filter">Nach Kategorie filtern</string>
     <string name="filter_all_categories">Alle Kategorien</string>

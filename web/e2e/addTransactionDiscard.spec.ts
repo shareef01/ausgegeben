@@ -75,9 +75,9 @@ test('editing a transaction requires confirmation before discarding changes', as
   await amount.fill('-1,23');
   await save.click();
   await expect(amount).toHaveAttribute('aria-invalid', 'true');
-  await amount.fill('1.234,56');
+  await amount.fill('1,234.56');
   await save.click();
   await expect(dialog).toHaveCount(0);
   await page.locator('.action-row__content').first().click();
-  await expect(amount).toHaveValue('1234,56');
+  await expect(amount).toHaveValue('1234.56');
 });

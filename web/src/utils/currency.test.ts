@@ -6,6 +6,8 @@ import {
   formatAmount,
   formatAmountForInput,
   formatAxisAmount,
+  amountPlaceholder,
+  inputDecimalSeparator,
   parseAmount,
   sanitizeAmountInput,
   SUPPORTED_CURRENCIES,
@@ -22,12 +24,12 @@ describe('currency', () => {
   });
 
   it('sanitizeAmountInput enforces single separator, max 9 int digits, max 2 decimals', () => {
-    expect(sanitizeAmountInput('12.50', 'USD')).toBe('12.50');
-    expect(sanitizeAmountInput('12,50', 'EUR')).toBe('12,50');
-    expect(sanitizeAmountInput('12..34..56', 'USD')).toBe('12.34');
-    expect(sanitizeAmountInput('12,,34,,56', 'EUR')).toBe('12,34');
-    expect(sanitizeAmountInput('1234567890123.456', 'USD')).toBe('123456789.45');
-    expect(sanitizeAmountInput('0005.50', 'USD')).toBe('5.50');
+    expect(sanitizeAmountInput('12.50', 'en')).toBe('12.50');
+    expect(sanitizeAmountInput('12,50', 'de')).toBe('12,50');
+    expect(sanitizeAmountInput('12..34..56', 'en')).toBe('12.34');
+    expect(sanitizeAmountInput('12,,34,,56', 'de')).toBe('12,34');
+    expect(sanitizeAmountInput('1234567890123.456', 'en')).toBe('123456789.45');
+    expect(sanitizeAmountInput('0005.50', 'en')).toBe('5.50');
   });
 
   it('colorIntToHex strips alpha channel', () => {
@@ -64,31 +66,47 @@ describe('currency', () => {
   it('parseAmount handles comma and dot decimals', () => {
     expect(parseAmount('12,50')).toBe(12.5);
     expect(parseAmount('12.50')).toBe(12.5);
-    expect(parseAmount('12.50', 'USD')).toBe(12.5);
+    expect(parseAmount('12.50', 'en')).toBe(12.5);
   });
 
   it('parseAmount strips thousands separators (Android parity)', () => {
-    expect(parseAmount('1.234,56', 'EUR')).toBe(1234.56);
-    expect(parseAmount('1,234.56', 'USD')).toBe(1234.56);
-    expect(parseAmount('1.234', 'EUR')).toBe(1234);
-    expect(parseAmount('1,234', 'USD')).toBe(1234);
-    expect(parseAmount('1.234.567', 'EUR')).toBe(1234567);
+    expect(parseAmount('1.234,56', 'de')).toBe(1234.56);
+    expect(parseAmount('1,234.56', 'en')).toBe(1234.56);
+    expect(parseAmount('1.234', 'de')).toBe(1234);
+    expect(parseAmount('1,234', 'en')).toBe(1234);
+    expect(parseAmount('1.234.567', 'de')).toBe(1234567);
   });
 
   it('parseAmount treats a lone separator with 1-2 trailing digits as decimal', () => {
-    expect(parseAmount('0,5', 'EUR')).toBe(0.5);
-    expect(parseAmount('12.5', 'EUR')).toBe(12.5);
-    expect(parseAmount('12,50', 'USD')).toBe(12.5);
+    expect(parseAmount('0,5', 'de')).toBe(0.5);
+    expect(parseAmount('12.5', 'de')).toBe(12.5);
+    expect(parseAmount('12,50', 'en')).toBe(12.5);
   });
 
   it('parseAmount returns null for invalid input', () => {
     expect(parseAmount('abc')).toBeNull();
   });
 
-  it('formatAmountForInput uses the currency decimal separator', () => {
-    expect(formatAmountForInput(12.5)).toBe('12,50');
-    expect(formatAmountForInput(12.5, 'USD')).toBe('12.50');
-    expect(formatAmountForInput(12.5, 'CHF')).toBe('12.50');
+  it('formatAmountForInput uses the app language decimal separator', () => {
+    expect(formatAmountForInput(12.5, 'de')).toBe('12,50');
+    expect(formatAmountForInput(12.5, 'en')).toBe('12.50');
+  });
+
+  it('amount entry follows the app language, not the currency (U-2)', () => {
+    // English UI shows "€1,234.00", so the field asks for "0.00" and reads "1,234" as 1234.
+    expect(amountPlaceholder('en')).toBe('0.00');
+    expect(amountPlaceholder('de')).toBe('0,00');
+    expect(inputDecimalSeparator('en')).toBe('.');
+    expect(inputDecimalSeparator('de')).toBe(',');
+    expect(parseAmount('1,234', 'en')).toBe(1234);
+    expect(parseAmount('1,069.50', 'en')).toBe(1069.5);
+    expect(sanitizeAmountInput('12,5', 'en')).toBe('12.5');
+    // German keeps comma decimals whatever the currency.
+    expect(parseAmount('1.234', 'de')).toBe(1234);
+    expect(sanitizeAmountInput('12.5', 'de')).toBe('12,5');
+    // A lone grouping-shaped separator in the other language stays ambiguous and is refused.
+    expect(parseAmount('1,234', 'de')).toBeNull();
+    expect(parseAmount('1.234', 'en')).toBeNull();
   });
 
   it('currencyLabel returns friendly names', () => {
@@ -114,8 +132,8 @@ describe('currency is presentation-only', () => {
     const stored = 1234.56;
     expect(formatAmount(stored, 'EUR', true, 'en')).toContain('1,234.56');
     expect(formatAmount(stored, 'USD', true, 'en')).toContain('1,234.56');
-    expect(parseAmount(formatAmountForInput(stored, 'EUR'), 'EUR')).toBeCloseTo(stored, 10);
-    expect(parseAmount(formatAmountForInput(stored, 'USD'), 'USD')).toBeCloseTo(stored, 10);
+    expect(parseAmount(formatAmountForInput(stored, 'de'), 'de')).toBeCloseTo(stored, 10);
+    expect(parseAmount(formatAmountForInput(stored, 'en'), 'en')).toBeCloseTo(stored, 10);
   });
 
   it('writes expenses with no currency or exchange-rate field', () => {

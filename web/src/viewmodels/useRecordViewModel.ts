@@ -3,7 +3,7 @@ import type { Category, Expense, RecordListPeriod, RecordUiState, TransactionTyp
 import { expenseRepository, EmailNotVerifiedError } from '@/repositories/expenseRepository';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useToastStore } from '@/services/toastStore';
-import { useTranslation, type Locale } from '@/i18n';
+import { getLocale, useTranslation, type Locale } from '@/i18n';
 import { thisMonthRange, analyticsDateRangeMillis } from '@/utils/periodUtils';
 import { computeDayTotals, topExpenseCategoryName } from '@/utils/analytics';
 import { duplicateExpensePayload } from '@/utils/duplicateExpense';
@@ -13,9 +13,9 @@ import { parseAmount } from '@/utils/currency';
 import { useAuthStore } from '@/services/authStore';
 
 
-export function parseRecordAmount(input: string, currency = 'EUR'): number | null {
+export function parseRecordAmount(input: string, locale: Locale = getLocale()): number | null {
   if (!/^\d+(?:[.,]\d{1,2})?$/.test(input.trim())) return null;
-  const amount = parseAmount(input.trim(), currency);
+  const amount = parseAmount(input.trim(), locale);
   return amount != null && Number.isSafeInteger(toMinorUnits(amount)) ? amount : null;
 }
 
@@ -192,14 +192,13 @@ export function useRecordViewModel() {
   const normalizedSearch = searchQuery.trim();
   const userId = useAuthStore(s => s.user?.uid);
   const owner = useRef(userId);
-  const currency = usePreferencesStore(s => s.currency);
   const [reloadEpoch, setReloadEpoch] = useState(0);
   const [typeFilter, setTypeFilter] = useState<TransactionTypeFilter>('all');
   const [categoryIdsFilter, setCategoryIdsFilterState] = useState<string[]>([]);
   const [minAmountInput, setMinAmountInput] = useState('');
   const [maxAmountInput, setMaxAmountInput] = useState('');
-  const minAmount = minAmountInput.trim() ? parseRecordAmount(minAmountInput, currency) : null;
-  const maxAmount = maxAmountInput.trim() ? parseRecordAmount(maxAmountInput, currency) : null;
+  const minAmount = minAmountInput.trim() ? parseRecordAmount(minAmountInput, locale) : null;
+  const maxAmount = maxAmountInput.trim() ? parseRecordAmount(maxAmountInput, locale) : null;
   const amountError = (!!minAmountInput.trim() && (minAmount == null || minAmount < 0))
     || (!!maxAmountInput.trim() && (maxAmount == null || maxAmount < 0))
     || (minAmount != null && maxAmount != null && toMinorUnits(minAmount) > toMinorUnits(maxAmount));

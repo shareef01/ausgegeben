@@ -89,7 +89,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
   const [persistentStorage, setPersistentStorage] = useState(() => isPersistentStorageEnabled());
   const [persistentAuth, setPersistentAuth] = useState(() => authService.isPersistentAuth());
   const budgetInputRef = useRef<HTMLInputElement>(null);
-  const parsedBudget = parseAmount(budgetInput, currency);
+  const parsedBudget = parseAmount(budgetInput, locale);
   // Upper bound mirrors firestore.rules' validPreferences (< 1e9): without it a
   // fat-fingered value passes the client and fails the write with a generic
   // permission error that names no field.
@@ -313,7 +313,7 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
                 subtitle={monthlyBudget ? formatAmount(monthlyBudget, currency) : t('settingsMonthlyLimitNotSet')}
                 onClick={() => {
                   setBudgetInput(
-                    monthlyBudget != null ? formatAmountForInput(monthlyBudget, currency) : '',
+                    monthlyBudget != null ? formatAmountForInput(monthlyBudget, locale) : '',
                   );
                   setEditBudget(true);
                 }}

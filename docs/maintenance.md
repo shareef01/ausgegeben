@@ -116,7 +116,7 @@ These fields remain type- and size-bounded. Firestore evaluates `hasOnly()` agai
 
 ### Display and UI contracts
 
-- Money display follows the selected app language. Currency controls the decimal separator used for amount input.
+- Money display and amount input both follow the selected app language (English: `1,234.56`, German: `1.234,56`). Currency only picks the symbol; it never changes how an amount is typed or parsed. `testdata/money-parity.json` pins the parse and prefill rules per language for both clients.
 - The web `.btn` class deliberately has no padding. Call sites size buttons, and the 44 px coarse-pointer minimum belongs in the media query in `ios.css`.
 - Android numeric keypad keys are intentionally unfilled and unbordered.
 

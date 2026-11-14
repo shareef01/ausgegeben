@@ -1,5 +1,6 @@
 package com.aus.ausgegeben.util
 
+import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -44,34 +45,45 @@ class CurrencyUtilsTest {
 
     @Test
     fun parseAmount_respectsDecimalSeparator() {
-        assertEquals(12.5, CurrencyUtils.parseAmount("12,50", "EUR")!!, 0.001)
-        assertEquals(12.5, CurrencyUtils.parseAmount("12.50", "USD")!!, 0.001)
+        assertEquals(12.5, CurrencyUtils.parseAmount("12,50", Locale.GERMANY)!!, 0.001)
+        assertEquals(12.5, CurrencyUtils.parseAmount("12.50", Locale.US)!!, 0.001)
     }
 
     @Test
     fun parseAmount_treatsLoneForeignSeparatorWith1or2DigitsAsDecimal() {
         // Web parity: "12.50" must not become 1250 for EUR (AUS-021).
-        assertEquals(12.5, CurrencyUtils.parseAmount("12.50", "EUR")!!, 0.001)
-        assertEquals(12.5, CurrencyUtils.parseAmount("12,50", "USD")!!, 0.001)
-        assertEquals(0.5, CurrencyUtils.parseAmount("0,5", "EUR")!!, 0.001)
+        assertEquals(12.5, CurrencyUtils.parseAmount("12.50", Locale.GERMANY)!!, 0.001)
+        assertEquals(12.5, CurrencyUtils.parseAmount("12,50", Locale.US)!!, 0.001)
+        assertEquals(0.5, CurrencyUtils.parseAmount("0,5", Locale.GERMANY)!!, 0.001)
     }
 
     @Test
     fun parseAmount_stripsThousandsGrouping() {
-        assertEquals(1234.56, CurrencyUtils.parseAmount("1.234,56", "EUR")!!, 0.001)
-        assertEquals(1234.56, CurrencyUtils.parseAmount("1,234.56", "USD")!!, 0.001)
-        assertEquals(1234.0, CurrencyUtils.parseAmount("1.234", "EUR")!!, 0.001)
+        assertEquals(1234.56, CurrencyUtils.parseAmount("1.234,56", Locale.GERMANY)!!, 0.001)
+        assertEquals(1234.56, CurrencyUtils.parseAmount("1,234.56", Locale.US)!!, 0.001)
+        assertEquals(1234.0, CurrencyUtils.parseAmount("1.234", Locale.GERMANY)!!, 0.001)
     }
 
     @Test
     fun parseAmount_invalidReturnsNull() {
-        assertNull(CurrencyUtils.parseAmount("abc", "EUR"))
+        assertNull(CurrencyUtils.parseAmount("abc", Locale.GERMANY))
     }
 
     @Test
-    fun decimalSeparator_matchesLocale() {
-        assertEquals(',', CurrencyUtils.decimalSeparator("EUR"))
-        assertEquals('.', CurrencyUtils.decimalSeparator("USD"))
+    fun decimalSeparator_followsAppLanguageNotCurrency() {
+        assertEquals(',', CurrencyUtils.decimalSeparator(Locale.GERMANY))
+        assertEquals('.', CurrencyUtils.decimalSeparator(Locale.US))
+    }
+
+    /** U-2: an English UI shows "€1,234.00", so entry must read "1,234" the same way. */
+    @Test
+    fun parseAmount_followsAppLanguage() {
+        assertEquals(1234.0, CurrencyUtils.parseAmount("1,234", Locale.US)!!, 0.001)
+        assertEquals(1069.5, CurrencyUtils.parseAmount("1,069.50", Locale.US)!!, 0.001)
+        assertEquals("12.50", CurrencyUtils.formatAmountForInput(12.5, Locale.US))
+        assertEquals("12,50", CurrencyUtils.formatAmountForInput(12.5, Locale.GERMANY))
+        assertNull(CurrencyUtils.parseAmount("1,234", Locale.GERMANY))
+        assertNull(CurrencyUtils.parseAmount("1.234", Locale.US))
     }
 
     @Test
@@ -95,8 +107,8 @@ class CurrencyUtilsTest {
         val asUsd = CurrencyUtils.formatAmount(stored, "USD", showSymbol = false, language = "en")
 
         assertEquals(asEur, asUsd)
-        assertEquals(stored, CurrencyUtils.parseAmount(asEur, "EUR")!!, 0.001)
-        assertEquals(stored, CurrencyUtils.parseAmount(asUsd, "USD")!!, 0.001)
+        assertEquals(stored, CurrencyUtils.parseAmount(asEur, Locale.US)!!, 0.001)
+        assertEquals(stored, CurrencyUtils.parseAmount(asUsd, Locale.US)!!, 0.001)
     }
 
     /**

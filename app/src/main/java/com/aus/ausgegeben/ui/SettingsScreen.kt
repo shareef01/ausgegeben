@@ -1027,12 +1027,12 @@ fun MonthlyBudgetSheet(
     // prefill failed the digit/dot input filter and toDoubleOrNull(), silently clearing
     // the budget when Save was tapped without edits.
     var amountText by remember {
-        mutableStateOf(currentBudget?.let { CurrencyUtils.formatAmountForInput(it, currencyCode) } ?: "")
+        mutableStateOf(currentBudget?.let { CurrencyUtils.formatAmountForInput(it) } ?: "")
     }
 
     // Save only commits a valid positive amount; invalid or empty text can't silently
     // wipe the budget (use Clear for that). Parse mirrors the currency's separators.
-    val parsedBudget = CurrencyUtils.parseAmount(amountText, currencyCode)
+    val parsedBudget = CurrencyUtils.parseAmount(amountText)
     val canSave = parsedBudget != null && parsedBudget > 0.0
 
     ModalBottomSheet(

@@ -365,7 +365,7 @@
     <string name="bills_section_transfers">Transfers</string>
     <string name="chart_total_label">total</string>
     <string name="chart_overview_title">Income vs expenses</string>
-    <string name="chart_net_label">Net balance</string>
+    <string name="chart_net_label">Net cash flow</string>
     <string name="chart_no_data">No chart data</string>
     <string name="chart_breakdown_description">Breakdown by category, total %1$s</string>
     <string name="chart_wealth_trend_title">Wealth trend</string>
@@ -379,6 +379,7 @@
     <string name="insights_comparison_title">vs previous month</string>
     <string name="insights_comparison_title_to_date">vs same days last month</string>
     <string name="insights_no_prior_period">First recorded month</string>
+    <string name="insights_no_prior_period_hint">Nothing recorded last month to compare with</string>
     <string name="insights_favorable_less">less spent</string>
     <string name="insights_unfavorable_more">more spent</string>
     <string name="insights_net_improved">Net improved by %1$s</string>
@@ -406,7 +407,7 @@
     <string name="a11y_action_duplicate">Duplicate for today</string>
     <string name="record_row_actions_for">More actions: %1$s</string>
     <string name="desc_transfer_row">%1$s transfer of %2$s. %3$s</string>
-    <string name="desc_finance_summary">Finance summary for %1$s. Net balance %2$s. Total earned %3$s. Total spent %4$s.</string>
+    <string name="desc_finance_summary">Finance summary for %1$s. Net cash flow %2$s. Total earned %3$s. Total spent %4$s.</string>
     <string name="record_filter">Filter by type</string>
     <string name="record_category_filter">Filter by category</string>
     <string name="filter_all_categories">All categories</string>

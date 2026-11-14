@@ -48,7 +48,7 @@ test('Records composite filters, reactive results, clear and account boundary', 
     await expect(chip).toHaveAttribute('aria-pressed', 'true');
   }
   await expect(page.locator('.txn-row-wrap')).toHaveCount(2);
-  await page.getByLabel(en.filterMinAmount, { exact: true }).fill('13,50');
+  await page.getByLabel(en.filterMinAmount, { exact: true }).fill('13.50');
   await expect(page.locator('.txn-row-wrap')).toHaveCount(1);
   await page.getByLabel(en.filterMaxAmount, { exact: true }).fill('12');
   await expect(page.getByRole('alert')).toContainText(en.filterAmountError);
