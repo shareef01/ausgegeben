@@ -1,8 +1,10 @@
 import { create } from 'zustand';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAuthStore } from './authStore';
 import { recurringRepository, type RecurringIssue } from './recurringRepository';
 import type { RecurringTemplate } from './recurrence';
+import { runCatchUp } from './catchUpLoop';
+import { useLocalDay } from '@/hooks/useLocalDay';
 interface State { owner: string | null; rows: RecurringTemplate[]; /** The first snapshot for `owner` has arrived (tells "loading" from "empty"). */ loaded: boolean; incomplete: boolean; error: boolean; syncing: boolean; issues: RecurringIssue[]; quarantined: boolean }
 export const useRecurringStore = create<State>(() => ({owner:null,rows:[],loaded:false,incomplete:true,error:false,syncing:false,issues:[],quarantined:false}));
 let flight: { owner: string; promise: Promise<void> } | null = null;
@@ -12,7 +14,9 @@ export function syncRecurring(): Promise<void> {
   const owner=user.uid;
   if (flight?.owner === owner) return flight.promise;
   useRecurringStore.setState({syncing:true});
-  const promise=recurringRepository.reconcile(owner).then(()=>{
+  // AUS-202: keep passing until the backlog is done, while this account stays signed in.
+  const pass=async()=>{ await recurringRepository.reconcile(owner); return recurringRepository.catchUpIncomplete(owner); };
+  const promise=runCatchUp(pass,()=>useAuthStore.getState().user?.uid===owner).then(()=>{
     // A response for a previous account must never write into the current one.
     if(useAuthStore.getState().user?.uid!==owner) return;
     const issues=recurringRepository.getRecurringIssues(owner);
@@ -35,6 +39,12 @@ export function useRecurringSync() {
   // swaps the object does not tear down and rebuild the listener.
   const uid=user?.uid;
   const emailVerified=user?.emailVerified;
+  // A tab left open past midnight has new due dates, and no online/visibility event to
+  // trigger catch-up for them (AUS-202). The first value is the mount, which the effect
+  // below already covers.
+  const today=useLocalDay();
+  const lastDay=useRef(today);
+  useEffect(()=>{ if(today===lastDay.current) return; lastDay.current=today; if(uid) void syncRecurring(); },[today,uid]);
   useEffect(()=>{
     useRecurringStore.setState({owner:uid??null,rows:[],loaded:false,incomplete:true,error:false,syncing:false,issues:[],quarantined:false});
     if(!uid) return;
