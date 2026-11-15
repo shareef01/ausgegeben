@@ -462,17 +462,24 @@ describe('firestore.rules', () => {
     }));
   });
 
-  it('allows only old-or-target expense types during a resumable category migration', async () => {
+  it('allows only the target expense type during a resumable category migration (AUS-101)', async () => {
     const db = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
     const category = doc(db, categoryPath('alice', 'cat-1'));
     await assertSucceeds(setDoc(category, validCategory));
+    // An expense that already exists before the migration starts.
+    await assertSucceeds(setDoc(doc(db, expensePath('alice', 'before')), validExpense));
     await assertFails(updateDoc(category, { transactionType: 'income' }));
     await assertSucceeds(updateDoc(category, {
       migrationState: 'migrating',
       pendingTransactionType: 'income',
     }));
     await assertFails(updateDoc(category, { pendingTransactionType: 'transfer' }));
-    await assertSucceeds(setDoc(doc(db, expensePath('alice', 'old')), validExpense));
+    // A stale client can neither add an old-type row nor edit an existing row and keep
+    // the old type: either would survive finalization on the wrong type.
+    await assertFails(setDoc(doc(db, expensePath('alice', 'old')), validExpense));
+    await assertFails(updateDoc(doc(db, expensePath('alice', 'before')), { note: 'stale edit' }));
+    // The migration's own rewrite (to the target type) is allowed.
+    await assertSucceeds(updateDoc(doc(db, expensePath('alice', 'before')), { transactionType: 'income' }));
     await assertSucceeds(setDoc(doc(db, expensePath('alice', 'target')), {
       ...validExpense,
       transactionType: 'income',
