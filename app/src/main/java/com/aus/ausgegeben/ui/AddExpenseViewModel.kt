@@ -106,6 +106,8 @@ class AddExpenseViewModel @Inject constructor(
 
     /** The in-flight [loadForEdit] amount load; cancelled when the form is reset or reloaded. */
     private var editLoadJob: Job? = null
+    /** The stored transaction this editor loaded; an edit writes only what changed from it (AUS-104). */
+    private var editingOriginal: Expense? = null
 
     /**
      * Whether closing the form now would discard user input.
@@ -144,6 +146,7 @@ class AddExpenseViewModel @Inject constructor(
 
     fun loadForEdit(expense: Expense, categories: List<Category>, ownerUid: String? = null) {
         _editingExpenseId.value = expense.id
+        editingOriginal = expense
         _editingOwnerUid.value = ownerUid
         _note.value = expense.note
         _dateMillis.value = expense.dateMillis
@@ -221,7 +224,7 @@ class AddExpenseViewModel @Inject constructor(
                     val excludeIdForBudget: String
                     val saveError: Throwable?
                     if (editingId != null) {
-                        val result = expenseActions.updateExpense(expense)
+                        val result = expenseActions.updateExpense(expense, editingOriginal)
                         excludeIdForBudget = editingId
                         saveError = result.exceptionOrNull()
                     } else {
@@ -305,6 +308,7 @@ class AddExpenseViewModel @Inject constructor(
 
     fun resetForm() {
         _editingExpenseId.value = null
+        editingOriginal = null
         _editingOwnerUid.value = null
         _amount.value = "0"
         _note.value = ""

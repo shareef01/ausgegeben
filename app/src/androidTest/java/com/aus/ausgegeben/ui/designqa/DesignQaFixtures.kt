@@ -84,7 +84,7 @@ class QaExpenseActions(private val list: List<Expense>) : ExpenseActions {
     override fun getExpensesInRange(startMillis: Long, endMillis: Long): Flow<List<Expense>> =
         flowOf(list.filter { it.dateMillis in startMillis..endMillis })
     override suspend fun insertExpense(expense: Expense, idempotencyKey: String?) = Result.success(expense.id)
-    override suspend fun updateExpense(expense: Expense) = Result.success(Unit)
+    override suspend fun updateExpense(expense: Expense, original: Expense?) = Result.success(Unit)
     override suspend fun deleteExpense(expense: Expense) = Result.success(Unit)
     override suspend fun duplicateExpense(expense: Expense) = Result.success(Unit)
     override suspend fun sumMonthExpenses(excludeExpenseId: String) = 0.0

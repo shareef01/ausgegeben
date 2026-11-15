@@ -48,3 +48,48 @@ export function expenseWritePayload(
   if (opts?.idempotencyKey) payload.idempotencyKey = opts.idempotencyKey;
   return payload;
 }
+
+const EDITABLE_EXPENSE_FIELDS = ['amount', 'dateMillis', 'categoryId', 'note', 'transactionType'] as const;
+
+/** 'number' | 'string' | 'missing' | other typeof: a legacy row can hold the wrong shape. */
+function valueKind(value: unknown): string {
+  if (value === undefined || value === null) return 'missing';
+  return typeof value;
+}
+
+/**
+ * The fields an edit must write (AUS-104).
+ *
+ * An edit used to send the whole row, so two devices editing different fields of one
+ * transaction lost one of the changes: A changes the note, B changes the amount, and
+ * whichever saved second wrote its stale copy of the other field too. Now an edit sends
+ * only what changed against the values the editor loaded ([original]). Firestore's
+ * update merges, so the other device's field survives. Edits to the same field are
+ * still last-writer-wins.
+ *
+ * - A field is also sent when its stored value is missing or has the wrong type (a
+ *   legacy row), because the full write used to normalize that shape.
+ * - categoryId and transactionType travel together: rules require them to match, and
+ *   sending one alone could pair it with a type the other device just changed.
+ * - With no [original] (callers that don't track one), every field is sent, as before.
+ *
+ * Inputs are canonical payloads from expenseWritePayload; [stored] is the raw document.
+ * The result may be empty: nothing changed, so there is nothing to write.
+ */
+export function expenseUpdatePatch(
+  edited: Record<string, unknown>,
+  original: Record<string, unknown> | null,
+  stored: Record<string, unknown>,
+): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  for (const key of EDITABLE_EXPENSE_FIELDS) {
+    const changed = original === null || edited[key] !== original[key];
+    const legacyShape = valueKind(stored[key]) !== valueKind(edited[key]);
+    if (changed || legacyShape) patch[key] = edited[key];
+  }
+  if ('categoryId' in patch || 'transactionType' in patch) {
+    patch.categoryId = edited.categoryId;
+    patch.transactionType = edited.transactionType;
+  }
+  return patch;
+}

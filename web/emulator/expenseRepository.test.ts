@@ -169,6 +169,65 @@ describe('insertExpense', () => {
   });
 });
 
+describe('updateExpense with the loaded original (AUS-104)', () => {
+  beforeEach(async () => {
+    await seedCategory({ id: 'cat-1', name: 'Groceries' });
+    await seedCategory({ id: 'cat-2', name: 'Dining' });
+    await seedExpense('shared', 'cat-1', 10);
+  });
+
+  const loaded = async () => {
+    const e = await expenseRepository.getExpenseById('shared');
+    if (!e) throw new Error('missing');
+    return e;
+  };
+
+  it("keeps both devices' edits to different fields", async () => {
+    // Both devices open the same transaction.
+    const onA = await loaded();
+    const onB = await loaded();
+    // B changes the amount and saves first; A changes only the note and saves after.
+    await expenseRepository.updateExpense({ ...onB, amount: 15 }, onB);
+    await expenseRepository.updateExpense({ ...onA, note: 'Dinner' }, onA);
+    const after = (await getDoc(doc(expCol(), 'shared'))).data();
+    expect(after?.amount).toBe(15);
+    expect(after?.note).toBe('Dinner');
+  });
+
+  it("keeps the other device's category change when only the amount was edited here", async () => {
+    const onA = await loaded();
+    const onB = await loaded();
+    await expenseRepository.updateExpense({ ...onB, categoryId: 'cat-2' }, onB);
+    await expenseRepository.updateExpense({ ...onA, amount: 12 }, onA);
+    const after = (await getDoc(doc(expCol(), 'shared'))).data();
+    expect(after?.categoryId).toBe('cat-2');
+    expect(after?.amount).toBe(12);
+  });
+
+  it('same field on both devices: the later save wins', async () => {
+    const onA = await loaded();
+    const onB = await loaded();
+    await expenseRepository.updateExpense({ ...onB, note: 'B' }, onB);
+    await expenseRepository.updateExpense({ ...onA, note: 'A' }, onA);
+    expect((await getDoc(doc(expCol(), 'shared'))).data()?.note).toBe('A');
+  });
+
+  it('writes nothing when the save changed nothing', async () => {
+    const onA = await loaded();
+    const before = (await getDoc(doc(expCol(), 'shared'))).data();
+    await expenseRepository.updateExpense({ ...onA }, onA);
+    expect((await getDoc(doc(expCol(), 'shared'))).data()?.updatedAt).toBe(before?.updatedAt);
+  });
+
+  it('without an original it still writes the whole row (old behaviour)', async () => {
+    const onA = await loaded();
+    const onB = await loaded();
+    await expenseRepository.updateExpense({ ...onB, amount: 15 }, onB);
+    await expenseRepository.updateExpense({ ...onA, note: 'Dinner' });
+    expect((await getDoc(doc(expCol(), 'shared'))).data()?.amount).toBe(10);
+  });
+});
+
 describe('deleteCategory', () => {
   it('moves linked expenses to the uncategorized sentinel before deleting', async () => {
     await seedCategory({ id: 'cat-1', name: 'Groceries' });

@@ -145,6 +145,19 @@ describe('legacy document shapes through client code, rules enforced', () => {
       expect(after?.note).toBe('edited');
     });
 
+    // AUS-104: an edit now writes only the changed fields, so the rules judge a merged
+    // document that still carries every legacy field the edit didn't touch.
+    it('accepts a partial (changed-fields-only) edit of a legacy row', async () => {
+      const original = await expenseRepository.getExpenseById('legacy-exp');
+      expect(original).not.toBeNull();
+      await expect(
+        expenseRepository.updateExpense({ ...original!, note: 'partial edit' }, original!),
+      ).resolves.not.toThrow();
+      const after = await read(expPath('legacy-exp'));
+      expect(after?.note).toBe('partial edit');
+      expect(after?.cloudId).toBeDefined();
+    });
+
     /**
      * Legacy data is tolerated, never rewritten and never destroyed.
      * An edit must not quietly strip the fields it does not understand.

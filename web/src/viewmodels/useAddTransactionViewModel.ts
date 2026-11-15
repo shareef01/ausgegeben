@@ -82,11 +82,13 @@ export async function writeExpense(params: {
   uid: string | undefined;
   expenseId?: string;
   payload: Omit<Expense, 'id'>;
+  /** The transaction as the editor loaded it, so an edit writes only changed fields (AUS-104). */
+  original?: Expense;
 }): Promise<string> {
-  const { uid, expenseId, payload } = params;
+  const { uid, expenseId, payload, original } = params;
   if (!uid) throw new Error('Not signed in');
   if (expenseId) {
-    await expenseRepository.updateExpense({ ...payload, id: expenseId });
+    await expenseRepository.updateExpense({ ...payload, id: expenseId }, original);
     return expenseId;
   }
   // A fresh operation id per explicit Save tap — never derived from the field
@@ -184,10 +186,13 @@ export function useAddTransactionViewModel(expenseId?: string) {
    */
   const savingRef = useRef(false);
   const editorOwnerUid = useRef<string | null>(null);
+  /** The stored transaction this editor loaded; an edit writes only what changed from it. */
+  const loadedExpense = useRef<Expense | null>(null);
 
   const load = useCallback(async () => {
     setLoadFailed(false);
     setBaseline(null);
+    loadedExpense.current = null;
     editorOwnerUid.current = useAuthStore.getState().user?.uid ?? null;
     try {
       const CATEGORY_TIMEOUT_MS = 8000;
@@ -200,6 +205,7 @@ export function useAddTransactionViewModel(expenseId?: string) {
       if (expenseId) {
         const existing = await expenseRepository.getExpenseById(expenseId);
         if (existing) {
+          loadedExpense.current = existing;
           // Seed the reconciliation ref before the state commit so the effect below
           // does not read this load as a user-initiated type switch and reset the
           // category we just restored.
@@ -349,7 +355,7 @@ export function useAddTransactionViewModel(expenseId?: string) {
       setError(null);
       try {
         const uid = useAuthStore.getState().user?.uid;
-        const savedId = await writeExpense({ uid, expenseId, payload });
+        const savedId = await writeExpense({ uid, expenseId, payload, original: loadedExpense.current ?? undefined });
         // Writes reach the server in order, so anything still pending includes this one.
         if (hasQueuedWrites()) {
           // The budget projection is a server-side sum and cannot run offline.

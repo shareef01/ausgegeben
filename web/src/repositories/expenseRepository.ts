@@ -11,7 +11,7 @@ import { useAuthStore } from '@/services/authStore';
 import { t, getLocale, localeTag } from '@/i18n';
 import { CategoryValidator, isRulesWritableCategory, type WritableCategoryShape } from '@/utils/categoryValidator';
 import type { Category, Expense } from '@/models/types';
-import { categoryWritePayload, expenseWritePayload } from '@/utils/firestorePayloads';
+import { categoryWritePayload, expenseUpdatePatch, expenseWritePayload } from '@/utils/firestorePayloads';
 import { expenseDocumentId } from '@/utils/idempotency';
 import { KeyedSingleFlight } from '@/utils/keyedSingleFlight';
 import { reconcilePendingExpenseSubmissions } from '@/services/expenseSubmissionJournal';
@@ -893,7 +893,11 @@ export const expenseRepository = {
     return id;
   },
 
-  async updateExpense(expense: Expense): Promise<void> {
+  /**
+   * [original] is the transaction as the editor loaded it. With it, only the fields the
+   * user changed are written (AUS-104, see expenseUpdatePatch); without it, the whole row.
+   */
+  async updateExpense(expense: Expense, original?: Expense): Promise<void> {
     const userId = uid();
     if (!userId) throw new Error('Not signed in');
     if (!expense.id) throw new Error('EXPENSE_NOT_FOUND');
@@ -905,11 +909,19 @@ export const expenseRepository = {
     if (!existing.exists() || (existing.data() as any)?.deleted === true) {
       throw new Error('EXPENSE_NOT_FOUND');
     }
+    const patch = expenseUpdatePatch(
+      expenseWritePayload(expense),
+      original ? expenseWritePayload(original) : null,
+      existing.data() as Record<string, unknown>,
+    );
+    // Nothing changed: no write, so no new revision and the row keeps its key.
+    if (Object.keys(patch).length === 0) return;
     try {
       await settleOrQueue(updateDoc(
         expDoc(userId, expense.id),
         {
-          ...expenseWritePayload(expense, { updatedAt: now() }),
+          ...patch,
+          updatedAt: now(),
           idempotencyKey: deleteField(),
         } as Record<string, any>,
       ));

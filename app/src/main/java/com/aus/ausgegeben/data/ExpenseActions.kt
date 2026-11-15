@@ -21,7 +21,11 @@ interface ExpenseActions {
 
     fun getExpensesInRange(startMillis: Long, endMillis: Long): Flow<List<Expense>>
     suspend fun insertExpense(expense: Expense, idempotencyKey: String? = null): Result<String>
-    suspend fun updateExpense(expense: Expense): Result<Unit>
+    /**
+     * [original] is the transaction as the editor loaded it. With it, only the fields the
+     * user changed are written (AUS-104, see expenseUpdatePatch); without it, the whole row.
+     */
+    suspend fun updateExpense(expense: Expense, original: Expense? = null): Result<Unit>
     suspend fun deleteExpense(expense: Expense): Result<Unit>
     suspend fun duplicateExpense(expense: Expense): Result<Unit>
     suspend fun sumMonthExpenses(excludeExpenseId: String = ""): Double
