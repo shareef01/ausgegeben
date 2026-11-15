@@ -60,15 +60,20 @@ service cloud.firestore {
 
     // Uncategorized sentinel (id "0") may hold any transactionType after
     // category delete reassignment; all other categories must match.
+    //
+    // While a category type migration is staged, only the target type is accepted
+    // (AUS-101). Accepting the old type too let a stale client (another device, an
+    // older app version) add or edit an old-type row after the migrating client had
+    // re-scanned the category, and finalization then left that row on the old type.
+    // Both clients' migrations only ever write the target type, so they are unaffected.
     function expenseCategoryTypeMatches(userId) {
       let catId = request.resource.data.categoryId;
       let cat = get(/databases/$(database)/documents/users/$(userId)/categories/$(catId));
-      let migrationState = cat.data.get('migrationState', '');
+      let migrating = cat.data.get('migrationState', '') == 'migrating';
       let pendingType = cat.data.get('pendingTransactionType', '');
       return catId == '0'
-        || cat.data.transactionType == request.resource.data.transactionType
-        || (migrationState == 'migrating'
-          && pendingType == request.resource.data.transactionType);
+        || (!migrating && cat.data.transactionType == request.resource.data.transactionType)
+        || (migrating && pendingType == request.resource.data.transactionType);
     }
 
     // A category in the deletion protocol remains readable for recovery, but no

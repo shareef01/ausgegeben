@@ -207,11 +207,13 @@ describe('monthly aggregation under enforced rules', () => {
     const db = enforcedFirestore();
     // Category type migrations move linked expenses between types in the same transaction
     // window; while staged, the expense keeps its own type, so the month total must be stable.
+    // The row exists before the migration is staged: once staged, rules accept only the
+    // target type for new or edited rows (AUS-101).
+    await setDoc(doc(db, 'users', TEST_UID, 'expenses', 'mid-migration'), row('mid-migration', 25.0, MONTH_START + 1, 'expense'));
     await setDoc(
       doc(db, 'users', TEST_UID, 'categories', CATEGORY.id),
       { ...CATEGORY, migrationState: 'migrating', pendingTransactionType: 'income', updatedAt: Date.now() },
     );
-    await setDoc(doc(db, 'users', TEST_UID, 'expenses', 'mid-migration'), row('mid-migration', 25.0, MONTH_START + 1, 'expense'));
 
     await expect(expenseRepository.sumMonthExpenses(MONTH_START, MONTH_END)).resolves.toBe(25);
   });
