@@ -25,7 +25,8 @@ class RecurringViewModel @Inject constructor(private val repository: RecurringRe
     /**
      * Quarantine warning state. Issues survive a failed pass (a network or auth failure says
      * nothing about data integrity) and are cleared only by a verified healthy pass. Account
-     * isolation comes from MainActivity keying this ViewModel on the signed-in uid, plus the
+     * isolation comes from MainActivity scoping this ViewModel to the signed-in account (a
+     * new instance per account, the old one cleared; see AccountViewModelStores), plus the
      * `repository.uid == owner` guard that drops results finishing after an account switch.
      */
     val issueState: StateFlow<RecurringIssueState> = combine(_issues, _error) { issues, error ->
