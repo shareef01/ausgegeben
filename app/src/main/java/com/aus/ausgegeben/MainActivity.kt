@@ -131,10 +131,13 @@ fun MainApp(
     // ── ViewModels ──────────────────────────────────────────────
     val addViewModel: AddExpenseViewModel = hiltViewModel(activity)
     val categoryViewModel: CategoryViewModel = hiltViewModel(activity)
-    val expenseViewModel: ExpenseViewModel = hiltViewModel(activity, key = "records:${currentUser?.uid}")
-    val insightsViewModel: InsightsViewModel = hiltViewModel(activity, key = "insights:${currentUser?.uid}")
+    // Per-account ViewModels live in a store that is cleared when the account changes
+    // (AUD-007), not in the Activity's store where each earlier account's stayed alive.
+    val accountOwner = rememberAccountViewModelStoreOwner(activity, currentUser?.uid)
+    val expenseViewModel: ExpenseViewModel = hiltViewModel(accountOwner)
+    val insightsViewModel: InsightsViewModel = hiltViewModel(accountOwner)
     val authViewModel: AuthViewModel = hiltViewModel(activity)
-    val recurringViewModel: RecurringViewModel = hiltViewModel(activity, key = "recurring:${currentUser?.uid}")
+    val recurringViewModel: RecurringViewModel = hiltViewModel(accountOwner)
     val recurringSnapshot by recurringViewModel.snapshot.collectAsStateWithLifecycle()
     // Keyed on the local day too (AUS-202): an app left open past midnight has new due
     // dates and no resume or reconnect to trigger catch-up for them.
