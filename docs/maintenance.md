@@ -193,6 +193,28 @@ Do not deploy Firestore rules without their indexes. The local emulator serves u
   Cleaning them up needs either a rules clause permitting deletion of a receipt whose
   template no longer exists, or an export-side filter; until then this is a known
   limitation, not a data-loss path.
+- A recurring occurrence receipt can be created on its own (AUS-203). The rules check a
+  receipt's owner, shape and canonical identity, but not that the same write creates its
+  expense and advances the template. A client that bypasses the app can therefore write a
+  receipt that makes the app skip that occurrence. This is accepted, not fixed: the owner
+  can already skip an occurrence directly (the template rules allow `nextIndex`/`nextDate`
+  updates, which is how the app's skip action works), so the receipt grants nothing new
+  and affects only the owner's own data. Tightening the receipt rule would also have to
+  keep receipt-only restores working for older clients and for templates a replace removed.
+- Category reordering writes only the rows whose position changed (AUS-AUD-014). Two
+  devices moving overlapping rows at the same moment can leave two categories on the same
+  position until the next move in that type renumbers it. Writing the whole type on every
+  move would avoid that, but one legacy category the rules refuse would then block every
+  reorder in its type instead of only moves that touch it.
+- Preferences imported by an older interrupted replace restore can come back after a
+  rollback (follow-up to AUS-103). Since 2.1.18 both clients roll preferences back in the
+  same commit as the restore journal, and delete the cloud preference document when the
+  snapshot recorded none. A device that already cached the imported values during an
+  older failed restore, before that fix, can still upload them through ordinary
+  preference sync. Only the settings document is affected (theme, language, currency,
+  monthly budget, reminder time, Insights period, onboarding flag), never transactions,
+  categories or category budgets. Telling those values apart from a genuine edit
+  would need per-device provenance the old clients never recorded, so this is accepted.
 - Currency switching updates visual display formatting across all records; historical numerical amounts are preserved intact without automatic conversion.
 - Concurrent delete and update safety: Both Android and web employ atomic update semantics (`updateDoc` on Web, `DocumentReference.update` on Android)
   and batch updates for category reordering, preventing deleted expenses and categories from being resurrected by concurrent writes.
