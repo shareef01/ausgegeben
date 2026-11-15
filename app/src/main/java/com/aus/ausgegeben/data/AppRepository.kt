@@ -917,7 +917,7 @@ class AppRepository @Inject constructor(
         id
     }
 
-    override suspend fun updateExpense(expense: Expense): Result<Unit> = runSuspendCatching {
+    override suspend fun updateExpense(expense: Expense, original: Expense?): Result<Unit> = runSuspendCatching {
         val u = uid() ?: throw IllegalStateException("Not signed in")
         requireVerifiedEmail()
         if (isRestoreOperationActive(u)) {
@@ -925,11 +925,15 @@ class AppRepository @Inject constructor(
         }
         val snap = expDoc(u, expense.id).get().await()
         if (!snap.exists() || snap.getBoolean("deleted") == true) throw IllegalStateException("EXPENSE_NOT_FOUND")
-        val e = expense.copy(
-            amount = roundAmount(expense.amount),
-            note = expense.note.trim().take(2000)
+        val patch = expenseUpdatePatch(
+            edited = canonicalExpenseFields(expense),
+            original = original?.let(::canonicalExpenseFields),
+            stored = snap.data.orEmpty(),
         )
-        val payload = expensePayload(e).toMutableMap()
+        // Nothing changed: no write, so no new revision and the row keeps its key.
+        if (patch.isEmpty()) return@runSuspendCatching
+        val payload = patch.toMutableMap()
+        payload["updatedAt"] = System.currentTimeMillis()
         payload["idempotencyKey"] = FieldValue.delete()
         try {
             submitExpenseWrite(u) { expDoc(u, expense.id).update(payload) }.awaitOrQueue()
@@ -1510,6 +1514,15 @@ class AppRepository @Inject constructor(
 
     // idempotencyKey is only ever written on insert. firestore.rules allows the field
     // but does not require it, so updates keep merging without having to carry it.
+    /** The editable fields as an edit stores them (rounded amount, trimmed note); see expenseUpdatePatch. */
+    private fun canonicalExpenseFields(e: Expense): Map<String, Any?> = mapOf(
+        "amount" to roundAmount(e.amount),
+        "dateMillis" to e.dateMillis,
+        "categoryId" to e.categoryId,
+        "note" to e.note.trim().take(2000),
+        "transactionType" to e.transactionType,
+    )
+
     private fun expensePayload(e: Expense, idempotencyKey: String? = null) = buildMap {
         put("amount", e.amount)
         put("dateMillis", e.dateMillis)

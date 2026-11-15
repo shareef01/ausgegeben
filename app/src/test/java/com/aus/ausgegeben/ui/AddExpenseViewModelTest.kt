@@ -143,6 +143,24 @@ class AddExpenseViewModelTest {
         assertFalse(fakeExpenses.insertCalled)
         assertEquals("e1", fakeExpenses.lastUpdated?.id)
         assertEquals(9.99, fakeExpenses.lastUpdated?.amount)
+        // AUS-104: the loaded transaction goes along, so only changed fields are written.
+        assertEquals(existing, fakeExpenses.lastUpdateOriginal)
+    }
+
+    @Test
+    fun resetForm_dropsTheLoadedOriginal_soANewEditCannotDiffAgainstIt() = runTest(dispatcher) {
+        val first = Expense(id = "e1", amount = 5.0, dateMillis = 1L, categoryId = "c1", note = "first")
+        val second = Expense(id = "e2", amount = 7.0, dateMillis = 2L, categoryId = "c1", note = "second")
+        viewModel.loadForEdit(first, listOf(expenseCategory))
+        advanceUntilIdle()
+        viewModel.resetForm()
+        viewModel.loadForEdit(second, listOf(expenseCategory))
+        advanceUntilIdle()
+        viewModel.onAmountChange("8")
+        viewModel.saveExpense(TransactionType.EXPENSE, onSuccess = { }, onError = { })
+        advanceUntilIdle()
+
+        assertEquals(second, fakeExpenses.lastUpdateOriginal)
     }
 
     @Test
@@ -713,6 +731,7 @@ class AddExpenseViewModelTest {
         var updateCalled = false
         var lastInserted: Expense? = null
         var lastUpdated: Expense? = null
+        var lastUpdateOriginal: Expense? = null
         var sumMonthThrows = false
         var sumMonthCalled = false
         val idempotencyKeys = mutableListOf<String?>()
@@ -727,9 +746,10 @@ class AddExpenseViewModelTest {
             return insertResult
         }
 
-        override suspend fun updateExpense(expense: Expense): Result<Unit> {
+        override suspend fun updateExpense(expense: Expense, original: Expense?): Result<Unit> {
             updateCalled = true
             lastUpdated = expense
+            lastUpdateOriginal = original
             return updateResult
         }
 

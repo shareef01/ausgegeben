@@ -629,7 +629,7 @@ class ExpenseViewModelTest {
             expenses.map { list -> list.filter { it.dateMillis >= startMillis && it.dateMillis < endMillis } }
 
         override suspend fun insertExpense(expense: Expense, idempotencyKey: String?) = Result.success("id")
-        override suspend fun updateExpense(expense: Expense) = Result.success(Unit)
+        override suspend fun updateExpense(expense: Expense, original: Expense?) = Result.success(Unit)
 
         override suspend fun deleteExpense(expense: Expense): Result<Unit> {
             return deleteResult.onSuccess {

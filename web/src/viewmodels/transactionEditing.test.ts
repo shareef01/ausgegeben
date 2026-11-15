@@ -95,7 +95,7 @@ describe('Transaction Editing Semantic Contract (Web)', () => {
       note: 'Updated notes',
       dateMillis: 1700000500000,
       transactionType: 'expense',
-    });
+    }, undefined); // no loaded original passed here, so the whole row is written
     expect(insertSpy).not.toHaveBeenCalled();
   });
 
@@ -132,7 +132,7 @@ describe('Transaction Editing Semantic Contract (Web)', () => {
       categoryId: 'c1',
       note: 'Original note',
       transactionType: 'expense',
-    });
+    }, undefined);
   });
 
   // WEB-E4: category/type validation
