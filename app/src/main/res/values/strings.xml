@@ -292,6 +292,7 @@
     <string name="category_type_label">TYPE</string>
     <string name="category_icon_label">ICON</string>
     <string name="category_color_label">COLOR</string>
+    <string name="category_color_option">Color %1$d of %2$d</string>
     <string name="category_preview_name">Category name</string>
     <string name="category_preview">Preview</string>
     <string name="category_manage_title">Manage categories</string>

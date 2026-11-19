@@ -30,6 +30,14 @@ export default defineConfig({
     stderr: 'pipe',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        // Opt-in: reuse an already-installed Chromium build when it differs from the one this
+        // Playwright version expects (e.g. PW_CHROMIUM=.../chrome-headless-shell.exe).
+        ...(process.env.PW_CHROMIUM ? { launchOptions: { executablePath: process.env.PW_CHROMIUM } } : {}),
+      },
+    },
   ],
 });

@@ -1175,6 +1175,7 @@
 
 /* ── Insights main column + category breakdown ── */
 .insights-main {
+  container: insights-main / inline-size; /* sizes .insights-breakdown below */
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -1187,12 +1188,17 @@
   align-items: stretch;
 }
 
-@media (min-width: 1024px) {
+/* Two cards side by side only when the content column itself has room for two readable
+   lists. A viewport breakpoint (≥1024px) split them at 1024px, where the column beside the
+   sidebar is ~640px: two 309px cards that truncated long category names and pushed every
+   amount onto a second line, while the same screen at 1023px showed one comfortable card. */
+@container insights-main (min-width: 44rem) {
   .insights-breakdown {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 18px;
   }
 }
+
 .insights-category-card {
   display: flex;
   flex-direction: column;
@@ -1330,13 +1336,19 @@
   box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--color-on-surface) 14%, transparent);
 }
 
+/* Two lines before clamping: names like "Haushaltsversicherung und Nebenkosten der Wohnung"
+   were cut to one line at every width, so the largest slice of the donut had no readable name. */
 .insights-category-card__name {
   min-width: 0;
   font-size: 0.8125rem;
   font-weight: 600;
+  line-height: 1.3;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow-wrap: anywhere;
 }
 
 .insights-category-card__amount {
@@ -2001,6 +2013,27 @@
   flex-shrink: 0;
 }
 
+/* Icon over a visible label. Arrows alone left "expense" and "income" to be guessed, with the
+   names only in a hover tooltip that touch screens never show. */
+.record-type-segmented .segmented__item--labelled {
+  flex: 1 1 auto; /* widths follow the labels: "alle" lends room to "einnahme" */
+}
+
+.segmented__item--labelled {
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 2px;
+  letter-spacing: 0;
+}
+
+.segmented__label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.1;
+}
+
 /* ═══════════════════════════════════════════════════
  *  RECORD — category filter chips
  * ═══════════════════════════════════════════════════ */
@@ -2286,8 +2319,32 @@
   font-weight: 600;
   color: var(--color-on-surface);
   animation: toast-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
-  white-space: nowrap;
-  max-width: calc(100vw - 32px);
+  /* Messages wrap: with nowrap a long German error ran past the toast's edge at 320px and the
+     end of the sentence was simply not there. The width tracks the text up to a readable line. */
+  width: max-content;
+  max-width: min(32rem, calc(100vw - 32px));
+  padding-right: 8px;
+}
+
+/* With an action, a phone-width toast moves the buttons onto a second line instead of
+   squeezing the sentence into a one-word-per-line column beside them. */
+.toast-host {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.toast-host__message {
+  flex: 1 1 9rem;
+  min-width: 0;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+/* No floating dock on tablet/desktop, so the toast needn't clear one. */
+@media (min-width: 768px) {
+  .toast-host {
+    bottom: calc(24px + var(--safe-bottom-pad, var(--safe-bottom)));
+  }
 }
 
 @keyframes toast-in {
@@ -2302,6 +2359,9 @@
 }
 
 .toast-host__action {
+  flex-shrink: 0;
+  margin-left: auto; /* right-aligned when wrapped to its own line */
+  min-height: 36px;
   padding: 6px 14px;
   border-radius: 10px;
   font-size: 0.8125rem;
@@ -4207,36 +4267,49 @@
   max-width: 320px;
 }
 
+/* Each step button is a real 32×44 target with the dot drawn inside it. The old 8px buttons
+   reached 44px through a ::before inset of -18px, but sat 18px apart, so neighbouring hit areas
+   overlapped and a tap near one dot could land on the next. */
 .onboarding-dots {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  margin: 20px 0 32px;
+  gap: 0;
+  margin: 12px 0 24px;
 }
 
 .onboarding-dots__dot {
   position: relative;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--color-on-surface-variant) 45%, transparent);
-  transition: all 0.3s ease;
+  width: 32px;
+  height: 44px;
   padding: 0;
   border: none;
+  border-radius: 12px;
+  background: transparent;
   cursor: pointer;
 }
 
 .onboarding-dots__dot::before {
   content: '';
   position: absolute;
-  inset: -18px;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+  background: color-mix(in srgb, var(--color-on-surface-variant) 45%, transparent);
+  transition: width 0.3s ease, background-color 0.3s ease;
 }
 
-.onboarding-dots__dot--active {
+.onboarding-dots__dot--active::before {
   width: 24px;
-  border-radius: 4px;
   background: var(--color-income);
+}
+
+.onboarding-dots__dot:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
 }
 
 .onboarding-actions {

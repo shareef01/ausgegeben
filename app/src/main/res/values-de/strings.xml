@@ -275,6 +275,7 @@
     <string name="category_type_label">typ</string>
     <string name="category_icon_label">icon</string>
     <string name="category_color_label">farbe</string>
+    <string name="category_color_option">Farbe %1$d von %2$d</string>
     <string name="category_preview_name">kategoriename</string>
     <string name="category_preview">vorschau</string>
     <string name="category_manage_title">kategorien verwalten</string>

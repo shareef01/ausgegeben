@@ -3,6 +3,8 @@ package com.aus.ausgegeben.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -23,6 +25,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -266,7 +271,10 @@ private fun IconPickerGrid(
     previewColor: Color,
     onSelect: (String) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.selectableGroup(),
+    ) {
         CategoryIconOptions.chunked(6).forEach { row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -285,7 +293,13 @@ private fun IconPickerGrid(
                                 if (selected) Modifier.border(2.dp, Color.White.copy(alpha = 0.85f), RoundedCornerShape(12.dp))
                                 else Modifier.border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
                             )
-                            .clickable { onSelect(option.key) },
+                            // Selectable, not just clickable, so TalkBack announces which
+                            // icon is the current one.
+                            .selectable(
+                                selected = selected,
+                                role = Role.RadioButton,
+                                onClick = { onSelect(option.key) },
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -310,37 +324,66 @@ private fun ColorPickerGrid(
     selectedColor: Int,
     onSelect: (Int) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        CategoryColorPaletteInts.chunked(8).forEach { row ->
+    // Each swatch is a weighted cell with a 48dp touch target and the colour drawn up to 36dp
+    // inside it. Fixed 36dp circles needed 358dp per row of eight; the sheet leaves 320dp on a
+    // 360dp phone, so Row measured the eighth swatch at zero width and two of the sixteen
+    // colours could not be picked (and were clipped on a 393dp Pixel).
+    val total = CategoryColorPaletteInts.size
+    Column(
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.selectableGroup(),
+    ) {
+        CategoryColorPaletteInts.chunked(8).forEachIndexed { rowIndex, row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                row.forEach { intColor ->
+                row.forEachIndexed { columnIndex, intColor ->
                     val paletteColor = colorIntToCompose(intColor)
                     val selected = argbColorsMatch(selectedColor, intColor)
+                    val description = stringResource(
+                        R.string.category_color_option,
+                        rowIndex * 8 + columnIndex + 1,
+                        total,
+                    )
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(paletteColor)
-                            .then(
-                                if (selected) {
-                                    Modifier.border(3.dp, Color.White, CircleShape)
-                                } else {
-                                    Modifier
-                                }
+                            .weight(1f)
+                            .heightIn(min = 48.dp)
+                            .selectable(
+                                selected = selected,
+                                role = Role.RadioButton,
+                                onClick = { onSelect(intColor) },
                             )
-                            .clickable { onSelect(intColor) },
+                            .semantics { contentDescription = description },
                         contentAlignment = Alignment.Center
                     ) {
-                        if (selected) {
-                            Icon(
-                                Icons.Rounded.Check,
-                                contentDescription = null,
-                                tint = iconTintOnCategoryFill(paletteColor),
-                                modifier = Modifier.size(18.dp)
-                            )
+                        Box(
+                            modifier = Modifier
+                                .sizeIn(maxWidth = 36.dp, maxHeight = 36.dp)
+                                .fillMaxWidth()
+                                .aspectRatio(1f)
+                                .clip(CircleShape)
+                                .background(paletteColor)
+                                .then(
+                                    // onSurface rather than white: a white ring vanished against
+                                    // the light swatches and the light sheet.
+                                    if (selected) {
+                                        Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+                                    } else {
+                                        Modifier
+                                    }
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (selected) {
+                                Icon(
+                                    Icons.Rounded.Check,
+                                    contentDescription = null,
+                                    tint = iconTintOnCategoryFill(paletteColor),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
                     }
                 }

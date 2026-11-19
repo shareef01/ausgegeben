@@ -15,6 +15,9 @@ interface IosSegmentedControlProps<T extends string> {
   className?: string;
   /** Tint the active pill by transaction type when relevant */
   activeVariant?: 'default' | 'expense' | 'income' | 'transfer';
+  /** Show each option's label under its icon. Icons alone (arrows for expense/income) are
+   *  ambiguous and their names were only reachable by hovering. */
+  showLabels?: boolean;
 }
 
 export function IosSegmentedControl<T extends string>({
@@ -23,6 +26,7 @@ export function IosSegmentedControl<T extends string>({
   onChange,
   className = '',
   activeVariant = 'default',
+  showLabels = false,
   'aria-label': ariaLabel,
 }: IosSegmentedControlProps<T> & { 'aria-label'?: string }) {
   const groupRef = useRef<HTMLDivElement>(null);
@@ -87,7 +91,8 @@ export function IosSegmentedControl<T extends string>({
     >
       {options.map((option) => {
         const active = option.value === value;
-        const iconOnly = option.icon != null;
+        const iconOnly = option.icon != null && !showLabels;
+        const labelled = option.icon != null && showLabels;
         return (
           <button
             key={option.value}
@@ -101,12 +106,18 @@ export function IosSegmentedControl<T extends string>({
             className={[
               'segmented__item',
               iconOnly ? 'segmented__item--icon' : '',
+              labelled ? 'segmented__item--labelled' : '',
               active ? 'segmented__item--active' : '',
               active ? `segmented__item--${pillVariant}` : '',
             ].filter(Boolean).join(' ')}
             onClick={() => onChange(option.value)}
           >
-            {option.icon ?? option.label}
+            {labelled ? (
+              <>
+                {option.icon}
+                <span className="segmented__label">{option.label}</span>
+              </>
+            ) : (option.icon ?? option.label)}
           </button>
         );
       })}
