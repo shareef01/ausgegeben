@@ -297,7 +297,8 @@ fun MainApp(
                 }
             },
             bottomBar = {
-                if (overlay.showBottomNav) {
+                // At 600dp and wider the tabs move to the side rail below.
+                if (overlay.showBottomNav && !isWide) {
                     MainBottomNavigation(
                         currentRoute = overlay.selectedTab,
                         onNavigate = { route ->
@@ -310,10 +311,37 @@ fun MainApp(
             }
         ) { innerPadding ->
             val layoutDirection = LocalLayoutDirection.current
+            val showRail = overlay.showBottomNav && isWide
+            Row(modifier = Modifier.fillMaxSize()) {
+            if (showRail) {
+                MainNavigationRail(
+                    currentRoute = overlay.selectedTab,
+                    onNavigate = { route ->
+                        if (overlay.selectedTab != route) {
+                            overlay.selectedTab = route
+                        }
+                    },
+                )
+            }
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .weight(1f)
+                    .fillMaxHeight()
                     .statusBarsPadding()
+                    // With the rail there is no bottom bar to sit over the navigation bar,
+                    // so the content keeps clear of it (and of an end-side bar or cutout)
+                    // itself. Overlays handle their own insets, as they do on phones.
+                    .then(
+                        if (showRail) {
+                            Modifier.windowInsetsPadding(
+                                WindowInsets.navigationBars
+                                    .union(WindowInsets.displayCutout)
+                                    .only(WindowInsetsSides.End + WindowInsetsSides.Bottom),
+                            )
+                        } else {
+                            Modifier
+                        },
+                    )
                     .padding(
                         start = innerPadding.calculateStartPadding(layoutDirection),
                         end = innerPadding.calculateEndPadding(layoutDirection),
@@ -494,6 +522,7 @@ fun MainApp(
                     },
                 )
                 }
+            }
             }
         }
     }

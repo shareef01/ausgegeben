@@ -601,9 +601,13 @@ private fun RecordListToolbar(
                 maxOf(segment * 2 + 4.dp, chip)
             }
         }
-        // The toolbar card's inner width: screen, centred column cap, card margins and padding.
+        // The toolbar card's inner width: screen less the nav rail, centred column cap,
+        // card margins and padding.
         val screenWidth = LocalConfiguration.current.screenWidthDp.dp
-        val toolbarWidth = minOf(if (isWideScreen()) screenWidth - 64.dp else screenWidth, 800.dp) - 32.dp - 24.dp
+        val toolbarWidth = minOf(
+            if (isWideScreen()) screenWidth - MainNavRailWidth - 64.dp else screenWidth,
+            800.dp,
+        ) - 32.dp - 24.dp
         val stackPeriod = periodMinWidth + 48.dp * 3 + 8.dp * 3 > toolbarWidth
         
         Row(
