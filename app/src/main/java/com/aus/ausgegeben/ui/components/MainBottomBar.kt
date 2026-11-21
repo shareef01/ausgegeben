@@ -8,16 +8,27 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.Analytics
@@ -82,43 +93,92 @@ fun MainBottomNavigation(
 }
 
 @Composable
-fun MainBottomBar(
-    currentRoute: Route?,
-    onNavigate: (Route) -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun rememberMainNavDestinations(): List<NavDestination> {
     val recordLabel = stringResource(R.string.nav_record)
     val insightsLabel = stringResource(R.string.nav_bills)
     val settingsLabel = stringResource(R.string.nav_settings)
-    val destinations = remember(recordLabel, insightsLabel, settingsLabel) {
+    return remember(recordLabel, insightsLabel, settingsLabel) {
         listOf(
             NavDestination(Route.ExpenseList, Icons.AutoMirrored.Rounded.List, recordLabel),
             NavDestination(Route.Insights, Icons.Rounded.Analytics, insightsLabel),
             NavDestination(Route.Settings, Icons.Rounded.Settings, settingsLabel),
         )
     }
+}
+
+private fun NavDestination.isSelected(currentRoute: Route?): Boolean = when (route) {
+    Route.ExpenseList -> currentRoute is Route.ExpenseList
+    Route.Insights -> currentRoute is Route.Insights
+    Route.Settings -> currentRoute is Route.Settings
+    else -> false
+}
+
+@Composable
+fun MainBottomBar(
+    currentRoute: Route?,
+    onNavigate: (Route) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val destinations = rememberMainNavDestinations()
 
     Row(
         modifier = modifier
             .fillMaxWidth()
             .height(MainBottomBarHeight)
             .background(MaterialTheme.colorScheme.background)
+            .selectableGroup()
             .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs),
         horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         destinations.forEach { destination ->
-            val selected = when (destination.route) {
-                Route.ExpenseList -> currentRoute is Route.ExpenseList
-                Route.Insights -> currentRoute is Route.Insights
-                Route.Settings -> currentRoute is Route.Settings
-                else -> false
-            }
             MainBottomBarItem(
                 destination = destination,
-                selected = selected,
+                selected = destination.isSelected(currentRoute),
                 onClick = { onNavigate(destination.route) },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).height(52.dp),
+            )
+        }
+    }
+}
+
+/**
+ * The side rail used instead of the bottom bar when the window is at least 600dp wide
+ * (tablets, unfolded foldables, landscape phones). Same items, order, semantics and
+ * styling as [MainBottomBar], stacked vertically and pinned to the top like a Material 3
+ * navigation rail. It pads itself for the status bar and for a navigation bar or display
+ * cutout on its side, so the caller only places it.
+ */
+@Composable
+fun MainNavigationRail(
+    currentRoute: Route?,
+    onNavigate: (Route) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val destinations = rememberMainNavDestinations()
+
+    Column(
+        modifier = modifier
+            .fillMaxHeight()
+            .background(MaterialTheme.colorScheme.background)
+            .windowInsetsPadding(
+                WindowInsets.systemBars
+                    .union(WindowInsets.displayCutout)
+                    .only(WindowInsetsSides.Start + WindowInsetsSides.Vertical),
+            )
+            .width(80.dp)
+            .selectableGroup()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = AppSpacing.sm, vertical = AppSpacing.md),
+        verticalArrangement = Arrangement.spacedBy(AppSpacing.sm),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        destinations.forEach { destination ->
+            MainBottomBarItem(
+                destination = destination,
+                selected = destination.isSelected(currentRoute),
+                onClick = { onNavigate(destination.route) },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
             )
         }
     }
@@ -158,7 +218,6 @@ private fun MainBottomBarItem(
 
     Box(
         modifier = modifier
-            .height(52.dp)
             .clip(RoundedCornerShape(AppRadius.pill))
             .background(containerColor)
             .semantics {
