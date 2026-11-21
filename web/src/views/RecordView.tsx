@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, memo, useCallback, type CSSProperties } from 'react';
+import { useMemo, useState, useRef, useLayoutEffect, memo, useCallback, type CSSProperties } from 'react';
 import { EmptyState, LoadingListSkeleton, PageTitle, CategoryIconTile } from '@/components/ui';
 import { IconSearch, IconClose, IconArrowUp, IconArrowDown, IconTransfer, IconRecord, IconCheck } from '@/components/Icons';
 import { SlidersHorizontal } from 'lucide-react';
@@ -25,6 +25,7 @@ interface RecordViewProps {
 
 /** Category chips shown before the list collapses behind a "+N more" chip. */
 const CATEGORY_CHIPS_COLLAPSED = 8;
+const RECORD_ROWS_PER_BATCH = 60;
 
 export function RecordView({ onEdit, onAdd }: RecordViewProps) {
   const { t } = useTranslation();
@@ -97,16 +98,32 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
   }, [availableCategories, showAllCategories, collapsible, uiState.categoryIdsFilter]);
   const hiddenCategoryCount = availableCategories.length - visibleCategories.length;
 
+  const listKey = JSON.stringify([
+    uiState.listPeriod, uiState.searchQuery, uiState.typeFilter, uiState.categoryIdsFilter,
+    minAmountInput, maxAmountInput, uiState.sortOrder,
+  ]);
+  const [rowDisplay, setRowDisplay] = useState({ key: listKey, limit: RECORD_ROWS_PER_BATCH });
+  if (rowDisplay.key !== listKey) setRowDisplay({ key: listKey, limit: RECORD_ROWS_PER_BATCH });
+  const listRef = useRef<HTMLDivElement>(null);
+  const nextRowToFocus = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    if (nextRowToFocus.current === null) return;
+    listRef.current?.querySelectorAll<HTMLElement>('.action-row__content')[nextRowToFocus.current]?.focus();
+    nextRowToFocus.current = null;
+  }, [rowDisplay]);
+
+  const totalRows = uiState.expenses.length;
+  const visibleRows = Math.min(rowDisplay.limit, totalRows);
   const grouped = useMemo(
     () =>
       groupRecordRows({
-        expenses: uiState.expenses,
+        expenses: uiState.expenses.slice(0, visibleRows),
         sortOrder: uiState.sortOrder,
         dayTotalsByLabel: uiState.dayTotalsByLabel,
         locale,
         todayMillis: today,
       }),
-    [uiState.expenses, uiState.dayTotalsByLabel, uiState.sortOrder, locale, today],
+    [uiState.expenses, uiState.dayTotalsByLabel, uiState.sortOrder, locale, today, visibleRows],
   );
 
   const catMap = useMemo(() => new Map(uiState.categories.map((c) => [c.id, c])), [uiState.categories]);
@@ -476,7 +493,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
               />
             )
           ) : (
-            <div className="transaction-list-bare txn-sections">
+            <div ref={listRef} className="transaction-list-bare txn-sections">
               {grouped.map(({ key, label, items, dayIncome, dayExpense, upcoming }) => (
                 <section key={key} className="transaction-list-bare__section">
                   <div className={`txn-day-header transaction-list-bare__day${upcoming ? ' txn-day-header--upcoming' : ''}`}>
@@ -503,7 +520,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
                         onDelete={() => handleDelete(expense.id)}
                         onEdit={() => handleEdit(expense.id)}
                         onDuplicate={() => handleDuplicate(expense)}
-                        ariaLabel={recordRowAriaLabel(expense, catMap.get(expense.categoryId), currency, locale, t)}
+                        rowLabel={recordRowMenuLabel(expense, catMap.get(expense.categoryId), currency, locale, t)}
                       >
                         <TransactionRow
                           expense={expense}
@@ -516,6 +533,17 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
                   </div>
                 </section>
               ))}
+              {visibleRows < totalRows ? (
+                <div className="record-list-more">
+                  <p>{t('recordRowsShown', { shown: String(visibleRows), total: String(totalRows) })}</p>
+                  <button type="button" className="btn btn-secondary record-list-more__button" onClick={() => {
+                    nextRowToFocus.current = visibleRows;
+                    setRowDisplay({ key: listKey, limit: visibleRows + RECORD_ROWS_PER_BATCH });
+                  }}>
+                    {t('recordShowMoreRows')}
+                  </button>
+                </div>
+              ) : null}
             </div>
           )}
             </>
@@ -540,8 +568,6 @@ export const TransactionRow = memo(({ expense, category, currency }: {
     : isTransfer
       ? 'transaction-row__amount--transfer'
       : 'transaction-row__amount--expense';
-  // No sign on a zero amount: "-0,00 €" reads like a debt.
-  const prefix = expense.amount === 0 ? '' : isIncome ? '+' : expense.transactionType === 'expense' ? '-' : '';
 
   const note = expense.note?.trim();
   const categoryName = category?.name || t('recordUnknownCategory');
@@ -582,13 +608,19 @@ export const TransactionRow = memo(({ expense, category, currency }: {
       </div>
 
       <div className={`transaction-row__amount ${amountMod}`}>
-        {prefix}{formatAmount(expense.amount, currency)}
+        {recordRowAmount(expense, currency)}
       </div>
+      <span className="sr-only">{filterLabel(expense.transactionType, t)}</span>
     </div>
   );
 });
 
-function recordRowAriaLabel(
+function recordRowAmount(expense: Expense, currency: string, locale?: Locale): string {
+  const prefix = expense.amount === 0 ? '' : expense.transactionType === 'income' ? '+' : expense.transactionType === 'expense' ? '-' : '';
+  return prefix + formatAmount(expense.amount, currency, true, locale);
+}
+
+function recordRowMenuLabel(
   expense: Expense,
   category: Category | undefined,
   currency: string,
@@ -596,23 +628,9 @@ function recordRowAriaLabel(
   t: (key: import('@/i18n').TranslationKey, params?: Record<string, string>) => string,
 ): string {
   const categoryName = category?.name || t('recordUnknownCategory');
-  const formatted = formatAmount(expense.amount, currency, true, locale);
-  const amount =
-    expense.amount === 0
-      ? formatted
-      : expense.transactionType === 'income'
-      ? `+${formatted}`
-      : expense.transactionType === 'expense'
-        ? `−${formatted}`
-        : formatted;
   const note = expense.note?.trim() ?? '';
-  const key =
-    expense.transactionType === 'income'
-      ? 'descIncomeRow'
-      : expense.transactionType === 'transfer'
-        ? 'descTransferRow'
-        : 'descExpenseRow';
-  return t(key, { category: categoryName, amount, note });
+  const label = [categoryName, note, recordRowAmount(expense, currency, locale)].filter(Boolean).join(' ');
+  return `${label}. ${filterLabel(expense.transactionType, t)}`;
 }
 
 function filterLabel(f: TransactionTypeFilter, t: (key: import('@/i18n').TranslationKey, params?: Record<string, string>) => string): string {

@@ -49,7 +49,7 @@ I built Ausgegeben because I wanted a fast, private, and distraction-free tool t
 - **Fast Transaction Logging:** Log expenses, income, and account transfers in seconds with custom categories and notes.
 - **Category Budgets & Trends:** Set monthly spending targets per category, track spending velocity against month progress, and view cash flow breakdowns.
 - **Recurring Transactions:** Automate periodic expenses and bills with deterministic scheduling that prevents duplicate charges even after network dropouts.
-- **Offline-First Resilience:** Transactions save immediately to local device storage and sync to Cloud Firestore once an internet connection is restored.
+- **Offline-First Resilience:** Transactions queue locally and sync to Cloud Firestore when the connection returns. On the web, the queue lives in the open tab by default. Trusted-device offline storage keeps the queue across browser restarts.
 - **Search & Filtering:** Instant client-side search by note, amount, date range, transaction type, or category.
 - **Safe Backup & Restore:** Export and import versioned, integrity-checked JSON backups with automatic safety snapshots before destructive replace operations.
 - **Privacy & Security:** Zero third-party ad networks, no analytics trackers, and strict Firebase security rules that enforce complete account isolation.
@@ -95,7 +95,7 @@ I built Ausgegeben because I wanted a fast, private, and distraction-free tool t
 ```
 
 1. **User Data Isolation:** Every authenticated user writes exclusively within `users/{uid}/*`. Firestore security rules reject any read or write attempted outside the caller's verified UID.
-2. **Local Cache First:** Both clients read and write through the Firestore offline cache. Saving an expense completes immediately in the UI without waiting for network round-trips.
+2. **Local Cache First:** Both clients can queue offline saves through the Firestore cache. Web Record shows when changes are waiting to sync. Keep a memory-only browser tab open until they sync.
 3. **Idempotent Recurring Engine:** Recurring transaction instances are keyed by canonical hash receipts (`uuid_yyyy-mm-dd`). Even if network sync stutters or multiple tabs run simultaneously, an occurrence is materialized at most once.
 4. **Disaster Recovery:** A full JSON export includes expenses, categories, recurring templates, and preferences. During a restore, the client creates a reversible pre-restore safety snapshot before applying new records in budgeted batches.
 

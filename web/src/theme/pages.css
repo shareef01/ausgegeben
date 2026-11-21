@@ -1023,6 +1023,10 @@
   color: var(--color-expense-text);
 }
 
+.budget-bar__limit {
+  color: var(--color-on-surface-variant);
+}
+
 .budget-bar__fill {
   height: 100%;
   width: var(--bar-width, 0%);
@@ -3369,6 +3373,10 @@
   -webkit-overflow-scrolling: touch;
 }
 
+.add-txn__body > * {
+  flex-shrink: 0;
+}
+
 .add-txn__footer {
   flex-shrink: 0;
   /* Safe-area is applied by .safe-overlay — avoid double inset on Pixel PWAs. */
@@ -3383,27 +3391,44 @@
 }
 
 .add-txn__amount {
-  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-inline: 1rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-outline);
+  border-radius: 14px;
+}
+
+.add-txn__amount:focus-within {
+  border-color: var(--color-primary);
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+}
+
+.add-txn__amount:has(:disabled) {
+  opacity: 0.65;
 }
 
 .add-txn__currency {
-  position: absolute;
-  left: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
+  flex-shrink: 0;
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--color-on-surface-variant);
   pointer-events: none;
 }
 
-.add-txn__amount-input {
-  padding: 0.875rem 1rem 0.875rem 2.75rem;
+.add-txn__amount-input,
+.add-txn__amount-input:focus {
+  min-width: 0;
+  padding: 0.875rem 0;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  box-shadow: none;
   font-size: 1.625rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
-  border-radius: 14px;
 }
 
 .add-txn__cats {
@@ -4051,6 +4076,27 @@
   font-weight: 600;
   line-height: 1.4;
   color: var(--color-on-background);
+}
+
+.queued-writes-status:not(:empty) {
+  margin-block: 12px 4px;
+  padding: 10px 16px;
+  border: 1px solid var(--color-outline);
+  border-radius: 14px;
+  color: var(--color-on-surface-variant);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.record-list-more {
+  margin-block: 16px;
+  text-align: center;
+  color: var(--color-on-surface-variant);
+}
+
+.record-list-more__button {
+  min-height: 44px;
+  padding-inline: 16px;
 }
 
 /* Recurring quarantine warning: same footprint as the offline banner, but it stays until a

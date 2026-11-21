@@ -40,6 +40,7 @@ test('row actions: keyboard reaches edit, duplicate and delete through a menu', 
 
   const row = page.locator('.action-row__content').first();
   await expect(row).toHaveAttribute('role', 'button');
+  await expect(row).toHaveAccessibleName(/Row actions note.*21\.50.*expense/i);
 
   const more = page.locator('.action-row__more').first();
   await expect(more).toBeVisible();

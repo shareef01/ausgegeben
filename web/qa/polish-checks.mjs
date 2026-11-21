@@ -27,11 +27,11 @@ await page.locator('button[type="submit"]').first().click();
 await page.locator('.transaction-row').nth(3).waitFor({ timeout: 30000 });
 
 const focusedRowLabel = () => page.evaluate(() =>
-  document.activeElement?.classList.contains('action-row__content') ? document.activeElement.getAttribute('aria-label') : null);
+  document.activeElement?.classList.contains('action-row__content') ? document.activeElement.textContent : null);
 
 // Delete via the keyboard shortcut.
 const rows = page.locator('.action-row__content');
-const secondLabel = await rows.nth(1).getAttribute('aria-label');
+const secondLabel = await rows.nth(1).textContent();
 await rows.first().focus();
 await page.keyboard.press('Delete');
 await page.waitForTimeout(400);
@@ -41,7 +41,7 @@ await page.waitForTimeout(600);
 
 // Delete via the menu, opened from the keyboard.
 await rows.first().focus();
-const nextLabel = await rows.nth(1).getAttribute('aria-label');
+const nextLabel = await rows.nth(1).textContent();
 await page.keyboard.press('Tab');
 await page.keyboard.press('Enter');
 await page.getByRole('menu').waitFor();

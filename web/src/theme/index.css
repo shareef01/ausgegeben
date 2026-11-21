@@ -113,7 +113,7 @@
     --color-expense: #FB7185;
     --color-transfer: #52525B;
     --color-income-text: #157A3A;
-    --color-expense-text: #B55160;
+    --color-expense-text: #B04F5D;
     --color-transfer-text: #52525B;
     --color-error-text: #B55160;
     --color-accent: #09090B;
@@ -130,7 +130,7 @@
     --color-label-muted: #52525B;
     --color-placeholder: #52525B;
     --color-balance-positive: #157A3A;
-    --color-balance-negative: #B55160;
+    --color-balance-negative: #B04F5D;
     --color-stat-value: #09090B;
     --overlay-scrim: rgba(15, 15, 20, 0.36);
     --shadow-elevated: 0 8px 28px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);

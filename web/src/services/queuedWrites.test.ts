@@ -5,6 +5,7 @@ vi.mock('@/services/firebase', () => ({ isFirestoreCachePersistent: () => persis
 
 const { hasQueuedWrites, resetQueuedWritesForTests, trackQueuedWrite } = await import('@/services/queuedWrites');
 const { useToastStore } = await import('@/services/toastStore');
+const { useAuthStore } = await import('@/services/authStore');
 
 /** A write whose server acknowledgement the test settles by hand. */
 function pendingAck() {
@@ -29,6 +30,7 @@ describe('queued writes', () => {
     resetQueuedWritesForTests();
   });
   afterEach(() => {
+    useAuthStore.getState().setUser(null);
     resetQueuedWritesForTests();
     useToastStore.getState().dismiss();
     vi.unstubAllGlobals();
@@ -68,5 +70,24 @@ describe('queued writes', () => {
     expect(hasQueuedWrites()).toBe(false);
     expect(useToastStore.getState().message).not.toBe('');
     consoleError.mockRestore();
+  });
+
+  it('keeps pending acknowledgments scoped to the account that queued them', async () => {
+    const first = pendingAck();
+    const second = pendingAck();
+    useAuthStore.setState({ user: { uid: 'first', email: null, displayName: null, emailVerified: true } });
+    trackQueuedWrite(first.promise);
+    useAuthStore.getState().setUser(null);
+    expect(hasQueuedWrites()).toBe(false);
+    expect(listeners.has('beforeunload')).toBe(false);
+
+    useAuthStore.setState({ user: { uid: 'second', email: null, displayName: null, emailVerified: true } });
+    trackQueuedWrite(second.promise);
+    first.resolve();
+    await first.promise;
+    expect(hasQueuedWrites()).toBe(true);
+    second.resolve();
+    await second.promise;
+    expect(hasQueuedWrites()).toBe(false);
   });
 });

@@ -25,6 +25,8 @@ import {
   type AppTab,
 } from '@/utils/tabHistory';
 import { preferencesSync } from '@/services/preferencesSync';
+import { useQueuedWritesStore } from '@/services/queuedWrites';
+import { isFirestoreCachePersistent } from '@/services/firebase';
 
 type TxnOverlay = null | { type: 'add' } | { type: 'edit'; expenseId: string };
 
@@ -34,6 +36,7 @@ export function MainShell() {
   const user = useAuthStore((s) => s.user);
   const isDesktop = useMediaQuery('(min-width: 768px)');
   const isOnline = useOnlineStatus();
+  const queuedWritesPending = useQueuedWritesStore((s) => s.pending > 0);
   // UX-4: the URL is the source of truth for the active tab, so Back/Forward, reload and a
   // copied link all agree with what is on screen. `?tab=` rather than a fragment because
   // `#app-main` belongs to the skip link.
@@ -179,6 +182,10 @@ export function MainShell() {
             </>
           ) : null}
         </header>
+
+        <div className="queued-writes-status" role="status">
+          {queuedWritesPending ? t(isFirestoreCachePersistent() ? 'queuedWritesPending' : 'queuedWritesKeepTabOpen') : null}
+        </div>
 
         {!isOnline ? (
           <div className="offline-banner" role="status" aria-live="polite">

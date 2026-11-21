@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { t } from '@/i18n';
 import { isFirestoreCachePersistent } from '@/services/firebase';
+import { useAuthStore } from '@/services/authStore';
 import { useToastStore } from '@/services/toastStore';
 
 /**
@@ -29,6 +30,11 @@ function blockUnloadWhileQueued(event: BeforeUnloadEvent): void {
 }
 
 let unloadGuardBound = false;
+let queueGeneration = 0;
+
+useAuthStore.subscribe((state, previous) => {
+  if (state.user?.uid !== previous.user?.uid) resetQueue();
+});
 
 function syncUnloadGuard(pending: number): void {
   if (typeof window === 'undefined') return;
@@ -55,10 +61,14 @@ function adjustPending(delta: number): void {
  * just vanish.
  */
 export function trackQueuedWrite(ack: Promise<unknown>): void {
+  const generation = queueGeneration;
   adjustPending(1);
   ack.then(
-    () => adjustPending(-1),
+    () => {
+      if (generation === queueGeneration) adjustPending(-1);
+    },
     (error: unknown) => {
+      if (generation !== queueGeneration) return;
       adjustPending(-1);
       console.error('[queuedWrites] a queued write was rejected by the server', error);
       useToastStore.getState().show(t('queuedWriteRejected'));
@@ -71,7 +81,10 @@ export function hasQueuedWrites(): boolean {
   return useQueuedWritesStore.getState().pending > 0;
 }
 
-export function resetQueuedWritesForTests(): void {
+function resetQueue(): void {
+  queueGeneration++;
   useQueuedWritesStore.setState({ pending: 0 });
   syncUnloadGuard(0);
 }
+
+export const resetQueuedWritesForTests = resetQueue;

@@ -28,7 +28,7 @@ export function BudgetProgressBar({ spent, budget, currency }: BudgetProgressBar
       <div className="budget-bar__labels flex justify-between items-end mb-3">
         <span className="field__label">{t('budgetMonthlyLabel')}</span>
         <span className={`text-xs font-bold tabular-nums budget-bar__spent${overBudget ? ' budget-bar__spent--over' : ''}`}>
-          {formatAmount(spent, currency)} <span className="opacity-40 font-medium">/ {formatAmount(budget, currency)}</span>
+          {formatAmount(spent, currency)} <span className="budget-bar__limit font-medium">/ {formatAmount(budget, currency)}</span>
         </span>
       </div>
       <div
