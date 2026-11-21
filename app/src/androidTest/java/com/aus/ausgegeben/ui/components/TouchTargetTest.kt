@@ -9,6 +9,7 @@ import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -141,7 +142,8 @@ class TouchTargetTest {
             }
         }
 
-        compose.onNodeWithContentDescription("add")
+        compose.onNodeWithContentDescription("add", useUnmergedTree = true)
+            .assertHasClickAction()
             .assertWidthIsAtLeast(minTarget)
             .assertHeightIsAtLeast(minTarget)
     }

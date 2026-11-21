@@ -5,6 +5,9 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.remember
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
@@ -118,6 +121,8 @@ class DesignQaMatrixTest(
                 onValidationError = {},
             )
         }
+        compose.onNode(hasSetTextAction(), useUnmergedTree = true)
+            .assert(hasContentDescription(compose.activity.getString(R.string.add_note_label)))
         val sep = CurrencyUtils.decimalSeparator(CurrencyUtils.localeForLanguage(language))
         compose.runOnIdle {
             vm.onAmountChange("1104064${sep}70")

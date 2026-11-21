@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -590,7 +591,12 @@ private fun ObsidianNoteField(
         }
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(stringResource(R.string.add_note_label).uppercase(), style = ObsidianTokens.labelStyle())
+            val noteLabel = stringResource(R.string.add_note_label)
+            Text(
+                text = noteLabel.uppercase(),
+                modifier = Modifier.semantics { hideFromAccessibility() },
+                style = ObsidianTokens.labelStyle(),
+            )
             BasicTextField(
                 value = remark,
                 onValueChange = onRemarkChange,
@@ -599,7 +605,9 @@ private fun ObsidianNoteField(
                     fontWeight = FontWeight.SemiBold
                 ),
                 cursorBrush = androidx.compose.ui.graphics.SolidColor(accentColor),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = noteLabel },
                 decorationBox = { inner ->
                     // Pinned so gaining the 48dp clear button when the first
                     // character is typed does not reflow the field.
@@ -611,6 +619,7 @@ private fun ObsidianNoteField(
                             if (remark.isEmpty()) {
                                 Text(
                                     stringResource(R.string.add_note_placeholder),
+                                    modifier = Modifier.semantics { hideFromAccessibility() },
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = ObsidianTokens.slate().copy(alpha = 0.5f)
                                 )
