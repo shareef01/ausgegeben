@@ -595,3 +595,139 @@ have skipped; they are measurements that need hardware or a second checkout:
 | Android visual verification of the 30 remaining `.uppercase()` sites | Needs an AVD to look at each screen before changing it. |
 | A "before" screenshot set for these rounds | Needs a second worktree at the base commit plus a second seeded emulator run. |
 | `assembleProdRelease` / R8 | Release signing needs the keystore secrets; the release workflow does this on a tag. |
+---
+
+# Round 15 — responsive, cross-platform and accessibility audit (2026-11-19)
+
+**Base:** `main` @ `21b6925e` (v2.1.20). **Method:** every web finding below was measured in a real
+browser (Chromium headless, Playwright) against the local emulators with the heavy QA dataset
+(`scripts/seed-qa-data.mjs`: 306 rows, 16 categories incl. a 48-character German name,
+seven-digit CHF amounts, German locale). The sweep is a new, re-runnable script,
+`web/qa/responsive-audit.mjs`, so every number here can be reproduced.
+
+## Viewport × screen coverage matrix (measured)
+
+21 viewports × 3 tabs (Record with phone filters opened, Insights, Settings), dark theme; 5 of them
+also in light. Checks per cell: horizontal page overflow, nested vertical scroll areas, focusable
+targets < 24×24 CSS px, clipped control labels (type filter, dock), inputs < 16px on touch, and
+Insights name truncation. Also: Record keyboard focus order at ≥768px, and a long-toast check at 320px.
+
+| Viewports | Before | After |
+|---|---|---|
+| Phones 320×568, 360×640, 375×667, 390×844, 430×932 | settings toggle flagged¹; toast clipped at 320 | all pass |
+| Tablet 600×900, 767×1024, 768×1024, 820×1180 | settings toggle flagged¹ | all pass |
+| Laptop 1023×768, 1024×768, 1024×1366, 1280×800, 1366×768, 1439×900 | Insights cards split to 2×309px at 1024 | 1 card at 1024, 2 from 1280 |
+| Wide 1440×900, 1600×1000, 1920×1080, 2560×1440 | focus order right→left; filter card scrolled inside itself (866/881px) at 1440×900 | all pass |
+| Landscape phones 844×390, 932×430 | 13px amount/sort inputs on touch | all pass |
+| Light theme 320, 768, 1024×768, 1024×1366, 1440, 1920 | same as dark | all pass |
+| **Totals** | **252 pass / 36 fail** | **369 pass / 0 fail** (checks were added during the round) |
+
+¹ A false positive in the first version of the script. The 18px checkbox sits inside a full-row
+`<label>`, so its real hit area is the whole row. The script now counts the wrapping label.
+
+200% / 400% zoom was **approximated, not exercised as browser zoom**. 400% of a 1280px window is a
+320 CSS-px viewport, which is covered. 200% of 1280×800 is 640×400, which falls between the
+600×900 and 844×390 cells (both covered). Only Chromium was run, not Firefox or WebKit.
+
+## Known areas of concern — verdicts
+
+| # | Concern | Verdict | Evidence |
+|---|---|---|---|
+| 1 | Wide Record DOM/visual focus order | **Confirmed, P1** | At ≥1440 the visual order was summary · list · filters, but Tab went summary → filters (x≈1105) → list (x≈361). `premium.css` placed `.record-filters` in grid column 3. |
+| 2 | Toasts don't wrap | **Confirmed, P1** | `.toast-host { white-space: nowrap }`. At 320px the end of a German error sentence fell outside the toast. |
+| 3 | Mobile filter inputs < 16px, small targets | **Confirmed, P1** | `.record-amount-input` / `.record-sort-select` were 13px text and 40px tall on touch (iOS focus-zoom). They were missing from the coarse-pointer list in `ios.css`. |
+| 4 | Insights cards dense at tablet/laptop | **Confirmed, P2** | `.insights-breakdown` split by a viewport rule (≥1024px): two 309px cards at 1024, one 673px card at 1023. |
+| 5 | Icon-only type filter | **Confirmed, P1** | Arrows stood for expense/income; the names were only in `title` tooltips, which touch never shows. |
+| 6 | Small colour swatches (web) | **Partly confirmed, P3** | 34px with a 10px gap passes WCAG 2.5.8 (24px) but is below the 44px touch guideline. The same control on **Android** was a real defect (R15-D). |
+| 7 | Onboarding dots overlap | **Confirmed, P2** | 8px buttons with `::before { inset: -18px }`, 18px apart: the 44px hit areas overlapped by 26px, and the button box itself was 8×8. |
+| 8 | Sticky sidebars nest scrolling | **Already fixed at 768–1439; confirmed at ≥1440, P2** | Below 1440, `premium.css` already made the sidebar static. At 1440×900 the sticky filter card was capped at the window height and scrolled inside itself. |
+| 9 | Cascade spread over ordered files | **Confirmed, P2 (maintainability)** | Example: `layout.css` declared a sticky sidebar at 768/1024 and `premium.css` cancelled all of it, leaving 25 dead lines. Removed in this round; the wider consolidation is still open (see recommendations). |
+| 10 | E2E only on desktop Chromium | **Confirmed** | One project (`Desktop Chrome`); only `layout.spec.ts` and `recordFiltersMobile.spec.ts` set phone viewports. |
+
+## Additional findings from the measurements
+
+| ID | Finding | Severity | Evidence |
+|---|---|---|---|
+| R15-A | German dock label "einstellungen" truncated on **every** phone | P2 | `.bottom-nav-pill__label { max-width: min(4.25rem, 100%) }`: the label is 69px, the cap 68px. The pill had room from 320px up (pill ends at 237px, FAB starts at 243px). |
+| R15-B | Toast live region mounted in the same render as its message | P2 (a11y) | `ToastHost` returned `null` when there was no message, so the `role=status` element and its text appeared together. Some screen readers skip such first announcements. |
+| R15-C | Insights category names cut to one line at every width | P2 | The largest donut slice ("Haushaltsversicherung und Nebenkosten der Wohnung") was unreadable even on 566px cards. |
+| R15-D | Android colour picker: 2 of 16 colours unreachable on 360dp phones | **P1 (Android)** | `ColorPickerGrid`: 8 × 36dp + 7 × 10dp = 358dp per row. The sheet's 20dp padding leaves 320dp on a 360dp phone, so `Row` measures the 8th swatch at 0dp. The swatches also had 36dp targets, no TalkBack label, no selected state, and a white selection ring that disappears on light swatches. |
+| R15-E | Android icon picker doesn't announce which icon is selected | P2 (a11y) | Plain `.clickable`, with no `selectable` or role. |
+
+## Implemented fixes
+
+| Fix | What was wrong → what changed | Verified by |
+|---|---|---|
+| Wide Record order (1) | Columns are now **summary · filters · list** (`grid-template-columns: 300px 320px 1fr`) and follow DOM order, so reading, tab and visual order agree. The explicit `grid-column` placement was removed. | `responsive.spec.ts` › wide Record (column x-order and a Tab walk, at 1440 and 1920); sweep focus check at 1440–2560 |
+| No inner scroll on wide side columns (8) | A side column is sticky only while it fits the window. New `hooks/useFitsViewport.ts` measures this with a ResizeObserver and sets `data-sticky`. A column taller than the window scrolls with the page instead of inside itself. Categories now collapse to "+N more" at all widths, so the filters column fits a 900px window. | Same spec asserts no overflowing scroll container; sweep at 1440×900 shows no nested scroll |
+| Dead sticky CSS (9) | Removed the cancelled sticky rules from `layout.css` and the block that cancelled them from `premium.css`. Behaviour is unchanged. | Sweep results identical at 768–1439 |
+| Toast (2, R15-B) | Messages wrap, up to 32rem wide. With an action on a narrow screen, the buttons move to a second line instead of squeezing the text to one word per line. The bottom offset is 24px from 768 up (no dock there). The live region is always mounted. | `responsive.spec.ts` › long toast (fits, not clipped, text ≥60% of the toast width, status region carries the text); fails on old code |
+| Touch inputs (3) | The amount and sort fields joined the existing coarse-pointer 16px / 44px lists in `ios.css`. | Spec › phone filters; sweep landscape cells |
+| Labelled type filter (5) | `IosSegmentedControl` has a new `showLabels` prop: icon above visible text, and the text is the accessible name. Labelled segments size to their content, so "einnahme" fits in a 280px column. | Spec › phone filters (labels visible, not clipped at 320px); sweep "control labels not clipped" at all widths |
+| Insights breakdown (4) | A container query on `.insights-main` (`min-width: 44rem`) replaces the viewport breakpoint. | Spec › Insights (1 column at 1024, 2 at 1280); fails on old code |
+| Category names (R15-C) | Names wrap to two lines before the ellipsis. | Sweep: truncated names went from 4/10 to 1/10 on phones, and from 1 to 0 at widths from 600px up |
+| Onboarding dots (7) | Each step is a real 32×44 button with the dot drawn inside it, so there are no overlapping pseudo-element hit areas. Added a focus ring. | Spec › onboarding (each ≥24px, no overlap, the last dot selects the last step); fails on old code |
+| Web swatches (6) | 40px on coarse pointers (50px pitch). | Code review only; the category editor isn't in the automated sweep |
+| Dock label (R15-A) | Removed the cap; the label truncates only when its item really lacks room. | Probe at 320–430px: label 69/69px, no pill/FAB overlap; the existing `layout.spec.ts` overlap test passes |
+| Android colour picker (R15-D) | Weighted cells, so a row never overflows at any width. 48dp minimum touch height, with the circle drawn up to 36dp inside. `selectable(role = RadioButton)` inside a `selectableGroup`, TalkBack label "Color n of 16" / "Farbe n von 16", and an `onSurface` selection ring. | `compileProdDebugKotlin`, `testProdDebugUnitTest`, `lintProdDebug` pass. **Not seen on a device.** |
+| Android icon picker (R15-E) | `selectable(role = RadioButton)` + `selectableGroup`. | Same checks; not seen on a device |
+
+## Accessibility assessment
+
+* **Fixed:** focus order on wide Record (2.4.3), reliable toast announcements (4.1.3), target size
+  of the onboarding steps (2.5.8), visible names on the type filter (label-in-name, 2.5.3, now holds
+  by construction), toast reflow at 320 CSS px (1.4.10), and names, roles and selected state for the
+  Android swatches.
+* **Re-verified, unchanged:** skip link, `inert` inactive panels, focus-trapped editor and period
+  sheet (existing e2e `addTransactionDiscard`, `periodSelector` and `settingsPickers` all pass), and
+  chart text alternatives (Round 9).
+* **Open:** no manual screen-reader pass (VoiceOver/TalkBack/NVDA) in this round. Settings uses
+  native 18px checkboxes inside full-row labels. They comply, but a toggle styled as
+  `role="switch"` would match the rest of the UI (P3).
+
+## Android assessment
+
+* **Strengths kept:** edge-to-edge with inset handling (24 inset call sites), `adjustResize` for the
+  keyboard, `sp` text everywhere (it scales with font size), an 800dp content cap on tablets, a 640dp
+  editor on wide screens, `Role.Tab` semantics on the bottom bar, and a non-interactive pager
+  indicator (so the web's overlapping-dot problem doesn't exist on Android).
+* **Fixed:** R15-D and R15-E above.
+* **Needs a device or AVD:** look at the colour grid at 360dp and at the largest display size, and
+  do a TalkBack pass of the category editor.
+* **Recommendation (not implemented):** tablets, foldables and landscape phones get a centred phone
+  column (≤800dp) with a bottom bar. A `NavigationRail` from 600dp wide (Material 3 adaptive /
+  `NavigationSuiteScaffold`) would be the native match for the web's header navigation. It brings a
+  new dependency and a layout change, so it deserves its own PR and device testing.
+
+## Validation actually run
+
+```
+web  tsc --noEmit                          ok
+web  lint:css (check-css-classes)          ok — 597 class tokens
+web  lint:hooks (eslint)                   ok
+web  vitest                                62 files / 690 tests passed
+web  tsc -b && vite build                  ok (PWA precache 47 entries)
+web  playwright (all e2e, emulators)       31 passed (25 existing + 6 new in responsive.spec.ts)
+web  responsive.spec.ts against base src   5 of 6 fail as expected (the overflow guard passes on both)
+web  qa/responsive-audit.mjs               before 252 pass / 36 fail → after 369 pass / 0 fail
+app  compileProdDebugKotlin, testProdDebugUnitTest, lintProdDebug   BUILD SUCCESSFUL
+```
+
+Screenshots for every cell are in `docs/design-qa/responsive/{before,after}/`. They're local only:
+`*.png` under `docs/design-qa` is gitignored.
+
+Tooling note: this machine's Playwright cache holds a different Chromium build from the one
+Playwright 1.64.1 expects. `PW_CHROMIUM=<path to chrome-headless-shell.exe>` is now an opt-in
+override in `playwright.config.ts` and `qa/responsive-audit.mjs`; without it, nothing changes.
+
+## Remaining recommendations (prioritised)
+
+1. **P2 — CSS consolidation.** With nine ordered files, `pages.css` at ~4.7k lines and `premium.css`
+   acting as the "master override", a rule's effect depends on load order (concern 9). Move rules
+   into per-component sections as components are touched, and delete overridden declarations as in
+   this round. Avoid a big-bang rewrite.
+2. **P2 — Android adaptive navigation** (NavigationRail from 600dp), plus a device pass of R15-D/E.
+3. **P2 — Cross-browser e2e.** Add a WebKit project (iOS Safari is where the 16px rule matters) and a
+   `Pixel 7` device project for the phone specs, once CI has the browsers.
+4. **P3 — Settings toggles** as styled switches. Also run `responsive-audit.mjs` against the category
+   editor and the transaction sheet; today it covers the three tabs only.

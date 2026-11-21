@@ -1,0 +1,225 @@
+/**
+ * Responsive measurement sweep of the real app across the full viewport matrix
+ * (phones → 2560px, the 767/768, 1023/1024 and 1439/1440 boundaries, short landscape).
+ *
+ *   emulators + `npx vite --mode emulator --port 5183` + `node scripts/seed-qa-data.mjs`
+ *   node qa/responsive-audit.mjs <label> [base] [--shots]
+ *
+ * Per viewport × tab it reports measured facts, not impressions:
+ *   - horizontal page overflow and the elements that cause it
+ *   - nested scroll containers (a box whose content is taller than the box, inside the page)
+ *   - focusable controls smaller than 24×24 CSS px (WCAG 2.5.8), and interactive text inputs
+ *     under 16px on touch viewports (iOS focus-zoom)
+ *   - truncated text in Insights category rows
+ *   - on Record, whether keyboard focus order follows the visual column order
+ * Exit code is the number of FAIL lines. Screenshots (with --shots) go to ../docs/design-qa/responsive/<label>/.
+ */
+import { chromium } from 'playwright';
+import { mkdirSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const args = process.argv.slice(2);
+const shots = args.includes('--shots');
+const [label = 'now', base = 'http://127.0.0.1:5183'] = args.filter((a) => !a.startsWith('--'));
+const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'docs', 'design-qa', 'responsive', label);
+if (shots) mkdirSync(OUT, { recursive: true });
+
+const VIEWPORTS = [
+  [320, 568], [360, 640], [375, 667], [390, 844], [430, 932],
+  [600, 900], [767, 1024], [768, 1024], [820, 1180], [1023, 768], [1024, 768], [1024, 1366],
+  [1280, 800], [1366, 768], [1439, 900], [1440, 900], [1600, 1000], [1920, 1080], [2560, 1440],
+  [844, 390], [932, 430], // phones in landscape (short height)
+];
+const TABS = ['record', 'insights', 'settings'];
+
+let failed = 0;
+const line = (ok, msg) => {
+  if (!ok) failed++;
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${msg}`);
+};
+const warn = (msg) => console.log(`WARN  ${msg}`);
+
+// PW_CHROMIUM lets a machine whose cached browser build differs from this Playwright version reuse it.
+const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
+
+async function signedInPage(width, height, scheme) {
+  const touch = width < 768 || height < 500;
+  const context = await browser.newContext({
+    viewport: { width, height },
+    hasTouch: touch,
+    colorScheme: scheme,
+    reducedMotion: 'reduce',
+  });
+  const page = await context.newPage();
+  await page.goto(base, { waitUntil: 'networkidle' });
+  await page.locator('#auth-email').fill('qa-heavy@ausgegeben.test');
+  await page.locator('#auth-password').fill('qa-password-123');
+  await page.locator('form button[type="submit"]').click();
+  const skip = page.getByRole('button', { name: /skip|überspringen/i });
+  await Promise.race([
+    page.locator('.transaction-row').first().waitFor({ timeout: 30000 }),
+    skip.waitFor({ timeout: 30000 }),
+  ]);
+  if (await skip.isVisible().catch(() => false)) {
+    await skip.click();
+    await page.locator('.transaction-row').first().waitFor({ timeout: 30000 });
+  }
+  return { context, page, touch };
+}
+
+async function gotoTab(page, tab) {
+  await page.evaluate((t) => {
+    const u = new URL(location.href);
+    u.searchParams.set('tab', t);
+    history.pushState(null, '', u);
+    dispatchEvent(new PopStateEvent('popstate'));
+  }, tab);
+  await page.waitForTimeout(700);
+}
+
+function measure(touch) {
+  const vw = document.documentElement.clientWidth;
+  const visible = (e) => {
+    // [inert] covers inactive tab panels; aria-hidden alone is not skipped, because visible text
+    // (e.g. category names whose row carries the accessible label) is often aria-hidden.
+    if (e.closest('[inert],[hidden]')) return false;
+    const r = e.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  };
+  const name = (e) => {
+    const c = (e.className?.baseVal ?? e.className ?? '').toString().split(' ').filter(Boolean)[0];
+    return c ? `.${c}` : e.tagName.toLowerCase();
+  };
+  const overflowers = [...document.querySelectorAll('body *')]
+    .filter((e) => visible(e) && e.getBoundingClientRect().right > vw + 1)
+    .filter((e) => !e.closest('.cashflow-table__scroll, .category-chip-rail, [data-scroll-x]'))
+    .map((e) => `${name(e)}→${Math.round(e.getBoundingClientRect().right)}`);
+
+  const nested = [...document.querySelectorAll('body *')]
+    .filter((e) => {
+      if (!visible(e)) return false;
+      const s = getComputedStyle(e);
+      return /(auto|scroll)/.test(s.overflowY) && e.scrollHeight > e.clientHeight + 2 && e !== document.scrollingElement;
+    })
+    .map((e) => `${name(e)} (${e.clientHeight}/${e.scrollHeight}px)`);
+
+  const small = [...document.querySelectorAll('button, a[href], input:not([type=hidden]), select, [role=tab], [role=option], [role=radio]')]
+    .filter((e) => visible(e) && !e.closest('.sr-only'))
+    .filter((e) => {
+      const r = e.getBoundingClientRect();
+      if (e.matches('input[type=checkbox], input[type=radio]') && getComputedStyle(e).opacity === '0') return false;
+      // A checkbox inside its <label> is hit through the whole label.
+      const label = e.closest('label');
+      if (label) {
+        const lr = label.getBoundingClientRect();
+        if (lr.width >= 24 && lr.height >= 24) return false;
+      }
+      return r.width < 24 || r.height < 24;
+    })
+    .map((e) => {
+      const r = e.getBoundingClientRect();
+      return `${name(e)} ${Math.round(r.width)}×${Math.round(r.height)}`;
+    });
+
+  const tinyInputs = touch
+    ? [...document.querySelectorAll('input:not([type=checkbox]):not([type=radio]):not([type=hidden]), select, textarea')]
+        .filter((e) => visible(e) && parseFloat(getComputedStyle(e).fontSize) < 16)
+        .map((e) => `${name(e)} ${getComputedStyle(e).fontSize}`)
+    : [];
+
+  const clippedLabels = [...document.querySelectorAll('.segmented__label, .bottom-nav-pill__label')]
+    .filter((e) => visible(e) && e.scrollWidth > e.clientWidth + 1)
+    .map((e) => e.textContent);
+  const truncated = [...document.querySelectorAll('.insights-category-card__name')]
+    .filter((e) => visible(e) && (e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1)).length;
+  const catNames = document.querySelectorAll('.insights-category-card__name').length;
+  const cardWidths = [...document.querySelectorAll('.insights-category-card')].filter(visible)
+    .map((e) => Math.round(e.getBoundingClientRect().width));
+
+  return {
+    sw: document.documentElement.scrollWidth, vw,
+    overflowers: [...new Set(overflowers)].slice(0, 5),
+    nested: [...new Set(nested)].slice(0, 5),
+    small: [...new Set(small)].slice(0, 8),
+    tinyInputs: [...new Set(tinyInputs)],
+    truncated, catNames, cardWidths, clippedLabels,
+  };
+}
+
+/** Tab through Record and check the visited regions advance left→right / top→bottom visually. */
+async function recordFocusOrder(page) {
+  await page.evaluate(() => document.querySelector('#app-main')?.focus());
+  const seen = [];
+  for (let i = 0; i < 60; i++) {
+    await page.keyboard.press('Tab');
+    const r = await page.evaluate(() => {
+      const a = document.activeElement;
+      const region = a?.closest('.widget-stack') ? 'summary'
+        : a?.closest('.record-filters') ? 'filters'
+          : a?.closest('.content-col') ? 'list' : null;
+      return region ? { region, x: Math.round(a.getBoundingClientRect().left) } : null;
+    });
+    if (r && seen.at(-1)?.region !== r.region) seen.push(r);
+    if (r?.region === 'list') break;
+  }
+  return seen;
+}
+
+for (const scheme of ['dark', 'light']) {
+  for (const [w, h] of VIEWPORTS) {
+    if (scheme === 'light' && ![320, 768, 1024, 1440, 1920].includes(w)) continue;
+    const { context, page, touch } = await signedInPage(w, h, scheme);
+    for (const tab of TABS) {
+      await gotoTab(page, tab);
+      if (tab === 'record') {
+        const toggle = page.locator('.record-filters-toggle--icon[aria-expanded="false"]');
+        if (await toggle.isVisible().catch(() => false)) await toggle.click();
+      }
+      const m = await page.evaluate(measure, touch);
+      const at = `${tab} @${w}×${h} ${scheme}`;
+      line(m.sw <= m.vw, `no horizontal overflow — ${at}${m.overflowers.length ? `: ${m.overflowers.join(', ')}` : ''}`);
+      line(m.nested.length === 0, `no nested vertical scroll — ${at}${m.nested.length ? `: ${m.nested.join(', ')}` : ''}`);
+      line(m.small.length === 0, `targets ≥24px — ${at}${m.small.length ? `: ${m.small.join(', ')}` : ''}`);
+      line(m.clippedLabels.length === 0, `control labels not clipped — ${at}${m.clippedLabels.length ? `: ${m.clippedLabels.join(', ')}` : ''}`);
+      if (touch) line(m.tinyInputs.length === 0, `inputs ≥16px on touch — ${at}${m.tinyInputs.length ? `: ${m.tinyInputs.join(', ')}` : ''}`);
+      if (tab === 'insights' && m.catNames) {
+        const msg = `insights category names truncated ${m.truncated}/${m.catNames}, cards ${m.cardWidths.join('/')}px — ${at}`;
+        if (m.truncated > 0) warn(msg); else console.log(`INFO  ${msg}`);
+      }
+      if (shots) await page.screenshot({ path: join(OUT, `${tab}-${scheme}-${w}x${h}.png`), fullPage: false });
+    }
+    if (scheme === 'dark' && w >= 768) {
+      await gotoTab(page, 'record');
+      const order = await recordFocusOrder(page);
+      const xs = order.map((o) => o.x);
+      const monotonic = xs.every((x, i) => i === 0 || x >= xs[i - 1] - 4 || order[i].region === 'list' && order[i - 1].region !== 'list' && w < 1440);
+      line(monotonic, `Record focus order follows visual order @${w}: ${order.map((o) => `${o.region}@${o.x}`).join(' → ')}`);
+    }
+    await context.close();
+  }
+}
+
+// Toast with a long message at the narrowest phone width.
+{
+  const { context, page } = await signedInPage(320, 568, 'dark');
+  await page.evaluate(async () => {
+    const mod = await import(/* @vite-ignore */ '/src/services/toastStore.ts');
+    mod.useToastStore.getState().show('Die Transaktion konnte nicht gespeichert werden, weil die Verbindung unterbrochen wurde', 'wiederholen', () => {});
+  });
+  await page.waitForTimeout(400);
+  const t = await page.evaluate(() => {
+    const host = document.querySelector('.toast-host');
+    if (!host) return null;
+    const r = host.getBoundingClientRect();
+    const text = host.querySelector('.toast-host__message') ?? host.querySelector('span');
+    return { left: r.left, right: r.right, vw: innerWidth, clipped: text ? text.scrollWidth > text.clientWidth + 1 || text.getBoundingClientRect().right > r.right : false };
+  });
+  line(!!t && t.left >= 0 && t.right <= t.vw && !t.clipped, `long toast fits and wraps @320: ${JSON.stringify(t)}`);
+  if (shots) await page.screenshot({ path: join(OUT, 'toast-long-320.png') });
+  await context.close();
+}
+
+await browser.close();
+console.log(`\n${failed} failing checks`);
+process.exit(failed);

@@ -379,9 +379,10 @@
   font-weight: 600;
   line-height: 1.1;
   letter-spacing: 0.01em;
-  /* 100% too: when large text makes the items shrink below the label, the label truncates
-     inside its own item instead of running into the next one. */
-  max-width: min(4.25rem, 100%);
+  /* Only the item's own width caps the label. A fixed 4.25rem cap cut "einstellungen" to
+     "einstellung…" on every phone, although from 375px up the dock has room for it; now it
+     truncates only where the space really runs out (320px, or large text). */
+  max-width: 100%;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

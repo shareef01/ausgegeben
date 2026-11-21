@@ -87,6 +87,8 @@ body.is-scroll-locked {
 @media (pointer: coarse) {
   .field__input,
   .record-search__input,
+  .record-amount-input,
+  .record-sort-select,
   .period-select__trigger,
   .auth-page__form .field__input {
     font-size: 1rem;
@@ -114,13 +116,22 @@ body.is-scroll-locked {
   .segmented__item,
   .auth-page__forgot,
   .btn,
-  .category-row-edit {
+  .category-row-edit,
+  .record-amount-input,
+  .record-sort-select {
     min-height: 44px;
   }
 
   .category-row-edit {
     display: flex;
     align-items: center;
+  }
+
+  /* 34px colour swatches are the one control in the category editor a finger has to hit
+     exactly; 40px with the existing 10px gap gives each a 50px pitch. */
+  .category-editor__swatch {
+    width: 40px;
+    height: 40px;
   }
 }
 

@@ -1,4 +1,4 @@
-import { useMemo, useState, memo, useCallback, type CSSProperties } from 'react';
+import { useMemo, useState, useRef, memo, useCallback, type CSSProperties } from 'react';
 import { EmptyState, LoadingListSkeleton, PageTitle, CategoryIconTile } from '@/components/ui';
 import { IconSearch, IconClose, IconArrowUp, IconArrowDown, IconTransfer, IconRecord, IconCheck } from '@/components/Icons';
 import { SlidersHorizontal } from 'lucide-react';
@@ -16,6 +16,7 @@ import { formatAmount, colorIntToHex } from '@/utils/currency';
 import { topExpenseCategoryShare } from '@/utils/analytics';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { useFitsViewport } from '@/hooks/useFitsViewport';
 
 interface RecordViewProps {
   onEdit: (id: string) => void;
@@ -78,10 +79,16 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
   // Long category lists collapse to the first few; selected ones always stay visible so the
   // current filter can be read and undone without expanding.
   const [showAllCategories, setShowAllCategories] = useState(false);
-  // In the three-column layout the filters have a column of their own with room to spare,
-  // so hiding categories behind "+N more" only costs a click.
+  // Collapsed at every width: in the three-column layout an expanded list made the filters
+  // column taller than a 900px window, so it could no longer stay in view while the list scrolled.
+  const collapsible = availableCategories.length > CATEGORY_CHIPS_COLLAPSED + 2;
+  // ≥1440px both side columns stick beside the list, but only while they fit the window
+  // (see useFitsViewport); otherwise they scroll with the page instead of inside themselves.
   const isWide = useMediaQuery('(min-width: 1440px)');
-  const collapsible = !isWide && availableCategories.length > CATEGORY_CHIPS_COLLAPSED + 2;
+  const summaryRef = useRef<HTMLDivElement>(null);
+  const filtersRef = useRef<HTMLDivElement>(null);
+  const summaryFits = useFitsViewport(summaryRef, isWide);
+  const filtersFits = useFitsViewport(filtersRef, isWide);
   const visibleCategories = useMemo(() => {
     if (showAllCategories || !collapsible) return availableCategories;
     return availableCategories.filter(
@@ -128,7 +135,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
       <div className="sidebar-layout sidebar-layout--record">
 
         <aside className="sidebar-panel">
-          <div className="widget-stack">
+          <div ref={summaryRef} className="widget-stack" data-sticky={summaryFits || undefined}>
             {/* The month's top category rides inside the summary card: as a card of its own
                 it pushed the transaction list another ~120px down on phones. */}
             <FinanceSummaryCard
@@ -157,7 +164,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
             ) : null}
           </div>
 
-          <div className="card record-filters">
+          <div ref={filtersRef} className="card record-filters" data-sticky={filtersFits || undefined}>
             {isDesktop || filtersActive ? (
             <div className="record-filters-header">
               <div className="record-filters-header__title">
@@ -248,11 +255,12 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
               <IosSegmentedControl
                 className="record-type-segmented w-full"
                 aria-label={t('recordTypeFilter')}
+                showLabels
                 options={([
-                  { value: 'all' as const, icon: <IconRecord width={18} height={18} aria-hidden /> },
-                  { value: 'expense' as const, icon: <IconArrowDown width={18} height={18} strokeWidth={2.5} aria-hidden /> },
-                  { value: 'income' as const, icon: <IconArrowUp width={18} height={18} strokeWidth={2.5} aria-hidden /> },
-                  { value: 'transfer' as const, icon: <IconTransfer width={18} height={18} aria-hidden /> },
+                  { value: 'all' as const, icon: <IconRecord width={16} height={16} aria-hidden /> },
+                  { value: 'expense' as const, icon: <IconArrowDown width={16} height={16} strokeWidth={2.5} aria-hidden /> },
+                  { value: 'income' as const, icon: <IconArrowUp width={16} height={16} strokeWidth={2.5} aria-hidden /> },
+                  { value: 'transfer' as const, icon: <IconTransfer width={16} height={16} aria-hidden /> },
                 ]).map((opt) => ({
                   ...opt,
                   label: filterLabel(opt.value, t),
