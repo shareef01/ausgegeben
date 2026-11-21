@@ -597,46 +597,50 @@ private fun ObsidianNoteField(
                 modifier = Modifier.semantics { hideFromAccessibility() },
                 style = ObsidianTokens.labelStyle(),
             )
-            BasicTextField(
-                value = remark,
-                onValueChange = onRemarkChange,
-                textStyle = MaterialTheme.typography.bodyLarge.copy(
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold
-                ),
-                cursorBrush = androidx.compose.ui.graphics.SolidColor(accentColor),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics { contentDescription = noteLabel },
-                decorationBox = { inner ->
-                    // Pinned so gaining the 48dp clear button when the first
-                    // character is typed does not reflow the field.
-                    Row(
-                        modifier = Modifier.heightIn(min = 48.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            if (remark.isEmpty()) {
-                                Text(
-                                    stringResource(R.string.add_note_placeholder),
-                                    modifier = Modifier.semantics { hideFromAccessibility() },
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = ObsidianTokens.slate().copy(alpha = 0.5f)
-                                )
-                            }
-                            inner()
-                        }
-                        if (remark.isNotEmpty()) {
-                            AppIconButton(
-                                onClick = { onRemarkChange("") },
-                                icon = Icons.Rounded.Cancel,
-                                contentDescription = stringResource(R.string.action_clear),
-                                tint = ObsidianTokens.slate().copy(alpha = 0.4f)
-                            )
-                        }
+            Row(
+                modifier = Modifier.heightIn(min = 48.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                    // Android exposes a separate label node when the editable
+                    // semantics node has children, so keep the placeholder
+                    // and the clear action beside the field in the tree.
+                    if (remark.isEmpty()) {
+                        Text(
+                            stringResource(R.string.add_note_placeholder),
+                            modifier = Modifier.semantics { hideFromAccessibility() },
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = ObsidianTokens.slate().copy(alpha = 0.5f),
+                        )
                     }
+                    BasicTextField(
+                        value = remark,
+                        onValueChange = onRemarkChange,
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.SemiBold,
+                        ),
+                        cursorBrush = androidx.compose.ui.graphics.SolidColor(accentColor),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .semantics { contentDescription = noteLabel },
+                        decorationBox = { inner ->
+                            Box(
+                                modifier = Modifier.heightIn(min = 48.dp),
+                                contentAlignment = Alignment.CenterStart,
+                            ) { inner() }
+                        },
+                    )
                 }
-            )
+                if (remark.isNotEmpty()) {
+                    AppIconButton(
+                        onClick = { onRemarkChange("") },
+                        icon = Icons.Rounded.Cancel,
+                        contentDescription = stringResource(R.string.action_clear),
+                        tint = ObsidianTokens.slate().copy(alpha = 0.4f),
+                    )
+                }
+            }
         }
     }
 }

@@ -121,13 +121,19 @@ class DesignQaMatrixTest(
                 onValidationError = {},
             )
         }
-        compose.onNode(hasSetTextAction(), useUnmergedTree = true)
-            .assert(hasContentDescription(compose.activity.getString(R.string.add_note_label)))
+        val note = compose.onNode(hasSetTextAction(), useUnmergedTree = true)
+        val noteName = hasContentDescription(compose.activity.getString(R.string.add_note_label))
+        // Android puts content descriptions on synthetic child nodes when
+        // editable nodes merge descendants. Keep the name on the field itself.
+        assertTrue(note.assert(noteName).fetchSemanticsNode().children.isEmpty())
         val sep = CurrencyUtils.decimalSeparator(CurrencyUtils.localeForLanguage(language))
         compose.runOnIdle {
             vm.onAmountChange("1104064${sep}70")
             vm.onCategorySelect(DesignQaFixtures.categories.first())
+            vm.onNoteChange("QA")
         }
+        assertTrue(note.assert(noteName).fetchSemanticsNode().children.isEmpty())
+        compose.runOnIdle { vm.onNoteChange("") }
         check("add")
     }
 
