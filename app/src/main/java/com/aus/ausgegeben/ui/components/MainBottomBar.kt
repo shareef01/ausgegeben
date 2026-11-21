@@ -8,24 +8,27 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.Analytics
@@ -123,6 +126,7 @@ fun MainBottomBar(
             .fillMaxWidth()
             .height(MainBottomBarHeight)
             .background(MaterialTheme.colorScheme.background)
+            .selectableGroup()
             .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs),
         horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
@@ -137,9 +141,6 @@ fun MainBottomBar(
         }
     }
 }
-
-/** Width of [MainNavigationRail] without the start-side system insets it pads for. */
-val MainNavRailWidth = 80.dp
 
 /**
  * The side rail used instead of the bottom bar when the window is at least 600dp wide
@@ -165,7 +166,9 @@ fun MainNavigationRail(
                     .union(WindowInsets.displayCutout)
                     .only(WindowInsetsSides.Start + WindowInsetsSides.Vertical),
             )
-            .width(MainNavRailWidth)
+            .width(80.dp)
+            .selectableGroup()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = AppSpacing.sm, vertical = AppSpacing.md),
         verticalArrangement = Arrangement.spacedBy(AppSpacing.sm),
         horizontalAlignment = Alignment.CenterHorizontally,

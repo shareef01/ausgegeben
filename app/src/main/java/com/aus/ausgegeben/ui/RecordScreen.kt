@@ -573,14 +573,13 @@ private fun RecordListToolbar(
         )
     }
 
-    Column(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 8.dp)
             .padding(horizontal = 16.dp)
             .appGlassCard(RoundedCornerShape(AppRadius.card))
             .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         val thisMonthLabel = stringResource(R.string.record_period_this_month)
         val allTimeLabel = stringResource(R.string.record_period_all_time)
@@ -601,152 +600,159 @@ private fun RecordListToolbar(
                 maxOf(segment * 2 + 4.dp, chip)
             }
         }
-        // The toolbar card's inner width: screen less the nav rail, centred column cap,
-        // card margins and padding.
-        val screenWidth = LocalConfiguration.current.screenWidthDp.dp
-        val toolbarWidth = minOf(
-            if (isWideScreen()) screenWidth - MainNavRailWidth - 64.dp else screenWidth,
-            800.dp,
-        ) - 32.dp - 24.dp
-        val stackPeriod = periodMinWidth + 48.dp * 3 + 8.dp * 3 > toolbarWidth
-        
-        Row(
+        val stackPeriod = periodMinWidth + 48.dp * 3 + 8.dp * 3 > maxWidth
+
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            AnimatedContent(
-                targetState = isSearchExpanded,
-                transitionSpec = {
-                    fadeIn(animationSpec = tween(220, delayMillis = 90)) + scaleIn(initialScale = 0.92f, animationSpec = tween(220, delayMillis = 90)) togetherWith
-                    fadeOut(animationSpec = tween(90))
-                },
-                label = "toolbarSearchAnim",
-                modifier = Modifier.weight(1f)
-            ) { expanded ->
-                if (!expanded) {
-                    val periodControl: @Composable (Modifier) -> Unit = { periodModifier ->
-                        if (isMonthPeriod) {
-                            // Active month scope — chip with a clear affordance back to "this month"
-                            Row(
-                                modifier = periodModifier
-                                    .appGlassCard(RoundedCornerShape(AppRadius.pill))
-                                    .border(
-                                        0.5.dp,
-                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
-                                        RoundedCornerShape(AppRadius.pill),
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                AnimatedContent(
+                    targetState = isSearchExpanded,
+                    transitionSpec = {
+                        fadeIn(animationSpec = tween(220, delayMillis = 90)) + scaleIn(initialScale = 0.92f, animationSpec = tween(220, delayMillis = 90)) togetherWith
+                        fadeOut(animationSpec = tween(90))
+                    },
+                    label = "toolbarSearchAnim",
+                    modifier = Modifier.weight(1f)
+                ) { expanded ->
+                    if (!expanded) {
+                        val periodControl: @Composable (Modifier) -> Unit = { periodModifier ->
+                            if (isMonthPeriod) {
+                                // Active month scope — chip with a clear affordance back to "this month"
+                                Row(
+                                    modifier = periodModifier
+                                        .appGlassCard(RoundedCornerShape(AppRadius.pill))
+                                        .border(
+                                            0.5.dp,
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
+                                            RoundedCornerShape(AppRadius.pill),
+                                        )
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.CalendarMonth,
+                                        contentDescription = stringResource(R.string.record_pick_month),
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(16.dp),
                                     )
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    Text(
+                                        text = listPeriodLabel,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .smoothClickable { onListPeriod(RecordListPeriod.THIS_MONTH.key) },
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(
+                                            Icons.Rounded.Close,
+                                            contentDescription = stringResource(R.string.record_clear_month_filter),
+                                            tint = navigationInactiveColor(),
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                    }
+                                }
+                            } else {
+                                IosSegmentedControl(
+                                    options = listOf(thisMonthLabel, allTimeLabel),
+                                    selectedIndex = if (listPeriod == RecordListPeriod.ALL_TIME.key) 1 else 0,
+                                    onSelected = { index ->
+                                        onListPeriod(
+                                            if (index == 0) RecordListPeriod.THIS_MONTH.key else RecordListPeriod.ALL_TIME.key,
+                                        )
+                                    },
+                                    modifier = periodModifier
+                                )
+                            }
+                        }
+                        val actions: @Composable () -> Unit = {
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .appGlassCard(CircleShape)
+                                    .smoothClickable { showMonthSheet = true },
+                                contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     Icons.Rounded.CalendarMonth,
                                     contentDescription = stringResource(R.string.record_pick_month),
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(16.dp),
+                                    tint = if (isMonthPeriod) MaterialTheme.colorScheme.primary else navigationInactiveColor(),
+                                    modifier = Modifier.size(20.dp)
                                 )
-                                Text(
-                                    text = listPeriodLabel,
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .smoothClickable { onListPeriod(RecordListPeriod.THIS_MONTH.key) },
-                                    contentAlignment = Alignment.Center,
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .appGlassCard(CircleShape)
+                                    .smoothClickable { onFilterClick() },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                BadgedBox(
+                                    badge = {
+                                        if (activeFilterCount > 0) {
+                                            Badge(
+                                                containerColor = MaterialTheme.colorScheme.primary,
+                                                contentColor = contrastColorOn(MaterialTheme.colorScheme.primary),
+                                            ) {
+                                                Text("$activeFilterCount")
+                                            }
+                                        }
+                                    }
                                 ) {
                                     Icon(
-                                        Icons.Rounded.Close,
-                                        contentDescription = stringResource(R.string.record_clear_month_filter),
-                                        tint = navigationInactiveColor(),
-                                        modifier = Modifier.size(16.dp),
+                                        Icons.Rounded.Tune,
+                                        contentDescription = stringResource(R.string.record_filters),
+                                        tint = if (activeFilterCount > 0) MaterialTheme.colorScheme.primary else navigationInactiveColor(),
+                                        modifier = Modifier.size(20.dp)
                                     )
                                 }
                             }
-                        } else {
-                            IosSegmentedControl(
-                                options = listOf(thisMonthLabel, allTimeLabel),
-                                selectedIndex = if (listPeriod == RecordListPeriod.ALL_TIME.key) 1 else 0,
-                                onSelected = { index ->
-                                    onListPeriod(
-                                        if (index == 0) RecordListPeriod.THIS_MONTH.key else RecordListPeriod.ALL_TIME.key,
-                                    )
-                                },
-                                modifier = periodModifier
-                            )
-                        }
-                    }
-                    val actions: @Composable () -> Unit = {
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .appGlassCard(CircleShape)
-                                .smoothClickable { showMonthSheet = true },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Rounded.CalendarMonth,
-                                contentDescription = stringResource(R.string.record_pick_month),
-                                tint = if (isMonthPeriod) MaterialTheme.colorScheme.primary else navigationInactiveColor(),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
 
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .appGlassCard(CircleShape)
-                                .smoothClickable { onFilterClick() },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            BadgedBox(
-                                badge = {
-                                    if (activeFilterCount > 0) {
-                                        Badge(
-                                            containerColor = MaterialTheme.colorScheme.primary,
-                                            contentColor = contrastColorOn(MaterialTheme.colorScheme.primary),
-                                        ) {
-                                            Text("$activeFilterCount")
-                                        }
-                                    }
-                                }
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .appGlassCard(CircleShape)
+                                    .smoothClickable { onSearchToggle(true) },
+                                contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    Icons.Rounded.Tune,
-                                    contentDescription = stringResource(R.string.record_filters),
-                                    tint = if (activeFilterCount > 0) MaterialTheme.colorScheme.primary else navigationInactiveColor(),
+                                    Icons.Rounded.Search,
+                                    contentDescription = stringResource(R.string.record_search),
+                                    tint = if (searchQuery.isNotBlank()) MaterialTheme.colorScheme.primary else navigationInactiveColor(),
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
                         }
-
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .appGlassCard(CircleShape)
-                                .smoothClickable { onSearchToggle(true) },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Rounded.Search,
-                                contentDescription = stringResource(R.string.record_search),
-                                tint = if (searchQuery.isNotBlank()) MaterialTheme.colorScheme.primary else navigationInactiveColor(),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                    if (stackPeriod) {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            periodControl(Modifier.fillMaxWidth())
+                        if (stackPeriod) {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                periodControl(Modifier.fillMaxWidth())
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                                ) { actions() }
+                            }
+                        } else {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                            ) { actions() }
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                periodControl(Modifier.weight(1f))
+                                actions()
+                            }
                         }
                     } else {
                         Row(
@@ -754,143 +760,134 @@ private fun RecordListToolbar(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            periodControl(Modifier.weight(1f))
-                            actions()
-                        }
-                    }
-                } else {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .weight(1f)
-                                .appGlassCard(RoundedCornerShape(AppRadius.interactive))
-                                .border(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), RoundedCornerShape(AppRadius.interactive))
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(
-                                Icons.Rounded.Search,
-                                stringResource(R.string.record_search),
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp),
-                            )
-                            Spacer(Modifier.width(10.dp))
-                            BasicTextField(
-                                value = searchQuery,
-                                onValueChange = onSearchChange,
-                                modifier = Modifier.weight(1f).semantics { contentDescription = searchLabel },
-                                singleLine = true,
-                                textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                ),
-                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                                keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
-                                decorationBox = { inner ->
-                                    if (searchQuery.isEmpty()) {
-                                        Text(
-                                            text = stringResource(R.string.record_search_placeholder),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = readableSecondaryColor().copy(alpha = 0.7f),
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .appGlassCard(RoundedCornerShape(AppRadius.interactive))
+                                    .border(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), RoundedCornerShape(AppRadius.interactive))
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Search,
+                                    stringResource(R.string.record_search),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                BasicTextField(
+                                    value = searchQuery,
+                                    onValueChange = onSearchChange,
+                                    modifier = Modifier.weight(1f).semantics { contentDescription = searchLabel },
+                                    singleLine = true,
+                                    textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    ),
+                                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                    keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+                                    decorationBox = { inner ->
+                                        if (searchQuery.isEmpty()) {
+                                            Text(
+                                                text = stringResource(R.string.record_search_placeholder),
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = readableSecondaryColor().copy(alpha = 0.7f),
+                                            )
+                                        }
+                                        inner()
+                                    },
+                                )
+                                if (searchQuery.isNotBlank()) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .smoothClickable { onSearchChange("") },
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(
+                                            Icons.Rounded.Close,
+                                            stringResource(R.string.record_clear_search),
+                                            tint = navigationInactiveColor(),
+                                            modifier = Modifier.size(16.dp),
                                         )
                                     }
-                                    inner()
-                                },
-                            )
-                            if (searchQuery.isNotBlank()) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .smoothClickable { onSearchChange("") },
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Icon(
-                                        Icons.Rounded.Close,
-                                        stringResource(R.string.record_clear_search),
-                                        tint = navigationInactiveColor(),
-                                        modifier = Modifier.size(16.dp),
-                                    )
                                 }
                             }
+
+                            Box(
+                                modifier = Modifier
+                                    .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                    .clip(RoundedCornerShape(AppRadius.interactive))
+                                    .smoothClickable {
+                                        onSearchToggle(false)
+                                        onSearchChange("")
+                                    }
+                                    .padding(horizontal = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.action_cancel),
+                                    style = MaterialTheme.typography.labelLarge.copy(color = MaterialTheme.colorScheme.primary),
+                                )
+                            }
                         }
-                        
-                        Box(
-                            modifier = Modifier
-                                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-                                .clip(RoundedCornerShape(AppRadius.interactive))
-                                .smoothClickable { 
-                                    onSearchToggle(false)
-                                    onSearchChange("")
-                                }
-                                .padding(horizontal = 8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = stringResource(R.string.action_cancel),
-                                style = MaterialTheme.typography.labelLarge.copy(color = MaterialTheme.colorScheme.primary),
+                    }
+                }
+            }
+
+            IosSegmentedControl(
+                options = typeFilterLabels,
+                selectedIndex = typeFilterIndex,
+                onSelected = { index ->
+                    TransactionTypeFilter.entries.getOrNull(index)?.let(onTypeFilter)
+                },
+                icons = typeFilterIcons,
+            )
+
+            val availableCategories = remember(categories, typeFilter) {
+                categories.filter { cat ->
+                    cat.id != "0" && (typeFilter == TransactionTypeFilter.ALL || cat.transactionType == typeFilter.name.lowercase(Locale.ROOT))
+                }
+            }
+
+            if (availableCategories.isNotEmpty() || categoryFilter != null) {
+                val categoryFilterLabel = stringResource(R.string.record_category_filter)
+                LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics { contentDescription = categoryFilterLabel },
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    contentPadding = PaddingValues(vertical = 2.dp),
+                ) {
+                    item(key = "cat_filter_all") {
+                        val isAllSelected = categoryFilter == null
+                        CategoryFilterChip(
+                            label = stringResource(R.string.filter_all_categories),
+                            isSelected = isAllSelected,
+                            color = null,
+                            onClick = { onCategoryFilter(null) }
+                        )
+                    }
+                    if (categoryFilter != null && availableCategories.none { it.id == categoryFilter }) {
+                        item(key = "cat_filter_missing") {
+                            CategoryFilterChip(
+                                label = categories.find { it.id == categoryFilter }?.name
+                                    ?: stringResource(R.string.record_unknown_category),
+                                isSelected = true,
+                                color = null,
+                                onClick = { onCategoryFilter(null) },
                             )
                         }
                     }
-                }
-            }
-        }
-
-        IosSegmentedControl(
-            options = typeFilterLabels,
-            selectedIndex = typeFilterIndex,
-            onSelected = { index ->
-                TransactionTypeFilter.entries.getOrNull(index)?.let(onTypeFilter)
-            },
-            icons = typeFilterIcons,
-        )
-
-        val availableCategories = remember(categories, typeFilter) {
-            categories.filter { cat ->
-                cat.id != "0" && (typeFilter == TransactionTypeFilter.ALL || cat.transactionType == typeFilter.name.lowercase(Locale.ROOT))
-            }
-        }
-
-        if (availableCategories.isNotEmpty() || categoryFilter != null) {
-            val categoryFilterLabel = stringResource(R.string.record_category_filter)
-            LazyRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics { contentDescription = categoryFilterLabel },
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                contentPadding = PaddingValues(vertical = 2.dp),
-            ) {
-                item(key = "cat_filter_all") {
-                    val isAllSelected = categoryFilter == null
-                    CategoryFilterChip(
-                        label = stringResource(R.string.filter_all_categories),
-                        isSelected = isAllSelected,
-                        color = null,
-                        onClick = { onCategoryFilter(null) }
-                    )
-                }
-                if (categoryFilter != null && availableCategories.none { it.id == categoryFilter }) {
-                    item(key = "cat_filter_missing") {
+                    items(availableCategories, key = { "cat_filter_id_${it.id}" }) { cat ->
+                        val isSelected = categoryFilter == cat.id
                         CategoryFilterChip(
-                            label = categories.find { it.id == categoryFilter }?.name
-                                ?: stringResource(R.string.record_unknown_category),
-                            isSelected = true,
-                            color = null,
-                            onClick = { onCategoryFilter(null) },
+                            label = cat.name,
+                            isSelected = isSelected,
+                            color = Color(cat.colorInt),
+                            onClick = { onCategoryFilter(if (isSelected) null else cat.id) }
                         )
                     }
-                }
-                items(availableCategories, key = { "cat_filter_id_${it.id}" }) { cat ->
-                    val isSelected = categoryFilter == cat.id
-                    CategoryFilterChip(
-                        label = cat.name,
-                        isSelected = isSelected,
-                        color = Color(cat.colorInt),
-                        onClick = { onCategoryFilter(if (isSelected) null else cat.id) }
-                    )
                 }
             }
         }
@@ -1283,17 +1280,29 @@ internal fun NameAmountLayout(
     Layout(contents = listOf(name, amount), modifier = modifier) { (nameMeasurables, amountMeasurables), constraints ->
         val gap = 8.dp.roundToPx()
         val minNameWidth = 96.dp.roundToPx()
-        val width = constraints.maxWidth
         val loose = constraints.copy(minWidth = 0, minHeight = 0)
         val amount = amountMeasurables.first().measure(loose)
-        if (width - amount.width - gap >= minNameWidth) {
-            val name = nameMeasurables.first().measure(loose.copy(maxWidth = width - amount.width - gap))
+        // Intrinsic measurement can pass an unbounded width. Preserve that constraint
+        // when measuring the name and report the natural width of both children.
+        val availableNameWidth = if (constraints.hasBoundedWidth) {
+            constraints.maxWidth - amount.width - gap
+        } else {
+            constraints.maxWidth
+        }
+        if (availableNameWidth >= minNameWidth) {
+            val name = nameMeasurables.first().measure(loose.copy(maxWidth = availableNameWidth))
+            val width = if (constraints.hasBoundedWidth) {
+                constraints.maxWidth
+            } else {
+                maxOf(constraints.minWidth, name.width + gap + amount.width)
+            }
             val height = maxOf(name.height, amount.height).coerceAtLeast(constraints.minHeight)
             layout(width, height) {
                 name.placeRelative(0, (height - name.height) / 2)
                 amount.placeRelative(width - amount.width, (height - amount.height) / 2)
             }
         } else {
+            val width = constraints.maxWidth
             val name = nameMeasurables.first().measure(loose)
             val height = (name.height + amount.height).coerceAtLeast(constraints.minHeight)
             layout(width, height) {

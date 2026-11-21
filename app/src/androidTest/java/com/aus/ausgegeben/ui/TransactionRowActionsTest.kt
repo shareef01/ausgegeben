@@ -1,9 +1,13 @@
 package com.aus.ausgegeben.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Restaurant
+import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -130,6 +134,25 @@ class TransactionRowActionsTest {
     fun narrowRow_fontScale2_keepsNameAndAmountReadable() {
         setRow(amount = 123_456_789.99, widthDp = 320, fontScale = 2.0f)
         assertReadable()
+    }
+
+    @Test
+    fun intrinsicWidth_keepsNameAndAmountVisible() {
+        compose.setContent {
+            AusgegebenTheme {
+                Column(Modifier.width(IntrinsicSize.Min)) {
+                    Row {
+                        NameAmountLayout(
+                            name = { Text("Groceries") },
+                            amount = { Text("62.40") },
+                        )
+                    }
+                }
+            }
+        }
+
+        compose.onNodeWithText("Groceries").assertIsDisplayed()
+        compose.onNodeWithText("62.40").assertIsDisplayed()
     }
 
     private fun assertReadable() {

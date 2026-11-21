@@ -271,11 +271,27 @@ fun MainApp(
     AppScreen {
         val primary = MaterialTheme.colorScheme.primary
         val isWide = isWideScreen()
+        val showRail = overlay.showBottomNav && isWide
+        val systemBarInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout)
+        val selectTab: (Route) -> Unit = { route ->
+            if (overlay.selectedTab != route) {
+                overlay.selectedTab = route
+            }
+        }
         Scaffold(
             containerColor = Color.Transparent,
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             snackbarHost = {
-                SnackbarHost(snackbarHostState) { data ->
+                SnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = if (showRail) {
+                        Modifier.windowInsetsPadding(
+                            systemBarInsets.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom),
+                        )
+                    } else {
+                        Modifier
+                    },
+                ) { data ->
                     AppSnackbar(
                         snackbarData = data,
                         actionColor = primary,
@@ -301,228 +317,209 @@ fun MainApp(
                 if (overlay.showBottomNav && !isWide) {
                     MainBottomNavigation(
                         currentRoute = overlay.selectedTab,
-                        onNavigate = { route ->
-                            if (overlay.selectedTab != route) {
-                                overlay.selectedTab = route
-                            }
-                        },
+                        onNavigate = selectTab,
                     )
                 }
             }
         ) { innerPadding ->
             val layoutDirection = LocalLayoutDirection.current
-            val showRail = overlay.showBottomNav && isWide
             Row(modifier = Modifier.fillMaxSize()) {
-            if (showRail) {
-                MainNavigationRail(
-                    currentRoute = overlay.selectedTab,
-                    onNavigate = { route ->
-                        if (overlay.selectedTab != route) {
-                            overlay.selectedTab = route
-                        }
-                    },
-                )
-            }
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .statusBarsPadding()
-                    // With the rail there is no bottom bar to sit over the navigation bar,
-                    // so the content keeps clear of it (and of an end-side bar or cutout)
-                    // itself. Overlays handle their own insets, as they do on phones.
-                    .then(
-                        if (showRail) {
-                            Modifier.windowInsetsPadding(
-                                WindowInsets.navigationBars
-                                    .union(WindowInsets.displayCutout)
-                                    .only(WindowInsetsSides.End + WindowInsetsSides.Bottom),
-                            )
-                        } else {
-                            Modifier
-                        },
-                    )
-                    .padding(
-                        start = innerPadding.calculateStartPadding(layoutDirection),
-                        end = innerPadding.calculateEndPadding(layoutDirection),
-                        bottom = innerPadding.calculateBottomPadding()
-                    )
-            ) {
-                // Offline / cloud-sync-error banner — same SyncErrorBanner used in Settings,
-                // so there's one visual treatment for "something's wrong with sync" everywhere.
-                AnimatedVisibility(visible = !isOnline) {
-                    SyncErrorBanner(
-                        error = stringResource(R.string.settings_sync_error_network),
-                        onRetry = { preferencesCloudSync.retry() },
-                        modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm),
+                if (showRail) {
+                    MainNavigationRail(
+                        currentRoute = overlay.selectedTab,
+                        onNavigate = selectTab,
                     )
                 }
-                AnimatedVisibility(visible = isOnline && showVerifyBanner) {
-                    EmailVerifyBanner(
-                        infoMessage = verifyInfo,
-                        busy = verifyBusy,
-                        onResend = {
-                            scope.launch {
-                                verifyBusy = true
-                                verifyInfo = null
-                                authRepository.sendEmailVerification()
-                                    .onSuccess { verifyInfo = verifyEmailSentMessage }
-                                    .onFailure { verifyInfo = authErrorGenericMessage }
-                                verifyBusy = false
-                            }
-                        },
-                        onRefresh = {
-                            scope.launch {
-                                verifyBusy = true
-                                verifyInfo = null
-                                authRepository.reloadCurrentUser()
-                                    .onFailure { verifyInfo = authErrorGenericMessage }
-                                verifyBusy = false
-                            }
-                        },
-                        onDismiss = { verifyDismissed = true },
-                        modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm),
-                    )
-                }
-                // Quarantined recurring templates mean totals may be missing scheduled
-                // transactions, so the warning belongs on every tab, not only in Settings.
-                val recurringIssues by recurringViewModel.issueState.collectAsStateWithLifecycle()
-                var reviewingRecurring by remember(currentUser?.uid) { mutableStateOf(false) }
-                com.aus.ausgegeben.ui.components.RecurringIssuesBanner(
-                    recurringIssues,
-                    modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm),
-                    onReview = { reviewingRecurring = true },
-                )
-                if (reviewingRecurring) {
-                    val reviewCategories by repository.allCategories.collectAsStateWithLifecycle(initialValue = emptyList())
-                    com.aus.ausgegeben.ui.RecurringManagerSheet(
-                        isOpen = true,
-                        onDismissRequest = { reviewingRecurring = false },
-                        vm = recurringViewModel,
-                        categories = reviewCategories,
-                        owner = currentUser?.uid,
-                        canWrite = currentUser?.isEmailVerified == true,
-                        currencyCode = currency,
-                    )
-                }
-                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                MainTabPager(
-                    currentRoute = overlay.selectedTab,
-                    onRouteChange = { route ->
-                        if (overlay.selectedTab != route) {
-                            overlay.selectedTab = route
-                        }
-                    },
-                    recordContent = {
-                        androidx.compose.runtime.key(currentUser?.uid) {
-                            RecordScreen(
-                                viewModel = expenseViewModel,
-                                currencyCode = currency,
-                                dataError = listenerError,
-                                onRetryDataError = { repository.retryListeners() },
-                                onAddTransaction = overlay::openAddFlow,
-                                onExpenseClick = { expense -> overlay.openEditFlow(expense, currentUser?.uid) },
-                                onExpenseDeleted = { expense ->
-                                    scope.launch {
-                                        val result = snackbarHostState.showSnackbar(
-                                            message = deletedMessage,
-                                            actionLabel = undoLabel,
-                                            duration = SnackbarDuration.Short
-                                        )
-                                        if (result == SnackbarResult.ActionPerformed) {
-                                            expenseViewModel.undoSoftDelete(expense)
-                                        } else {
-                                            expenseViewModel.commitSoftDelete(expense) { success, error ->
-                                                if (!success) {
-                                                    showSnackbar(failureMessage(deleteFailedMessage, error))
-                                                }
-                                            }
-                                        }
-                                    }
-                                },
-                                onExpenseDeleteFailed = { error ->
-                                    showSnackbar(failureMessage(deleteFailedMessage, error))
-                                },
-                                onExpenseDuplicated = {
-                                    showSnackbar(duplicatedMessage)
-                                },
-                                onExpenseDuplicateFailed = { error ->
-                                    showSnackbar(failureMessage(duplicateFailedMessage, error))
-                                }
-                            )
-                        }
-                    },
-                    billsContent = {
-                        key(currentUser?.uid) {
-                            BillsScreen(
-                                viewModel = insightsViewModel,
-                                currencyCode = currency,
-                                dataError = listenerError,
-                                onRetryDataError = { repository.retryListeners() },
-                                onAddTransaction = overlay::openAddFlow,
-                                onManageBudgets = { overlay.selectedTab = Route.Settings },
-                            )
-                        }
-                    },
-                    settingsContent = {
-                        SettingsScreen(
-                            recurringViewModel = recurringViewModel,
-                            repository = repository,
-                            preferenceManager = preferenceManager,
-                            authRepository = authRepository,
-                            authViewModel = authViewModel,
-                            syncError = prefsSyncError,
-                            onRetrySync = { preferencesCloudSync.retry() },
-                            onNavigateToCategories = {
-                                overlay.overlayStack.clear()
-                                overlay.overlayStack.add(Route.CategoryList)
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .then(
+                            if (showRail) {
+                                Modifier.windowInsetsPadding(
+                                    systemBarInsets.only(WindowInsetsSides.End + WindowInsetsSides.Vertical),
+                                )
+                            } else {
+                                Modifier.statusBarsPadding()
                             },
-                            onShowMessage = ::showSnackbar,
-                            onRequestNotificationPermission = {
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                                    !notificationPermission.status.isGranted
-                                ) {
-                                    notificationPermission.launchPermissionRequest()
-                                }
-                            },
-                            onRequestSignIn = { showAuthFromSettings = true },
+                        )
+                        .padding(
+                            start = innerPadding.calculateStartPadding(layoutDirection),
+                            end = innerPadding.calculateEndPadding(layoutDirection),
+                            bottom = innerPadding.calculateBottomPadding()
+                        )
+                ) {
+                    // Offline / cloud-sync-error banner — same SyncErrorBanner used in Settings,
+                    // so there's one visual treatment for "something's wrong with sync" everywhere.
+                    AnimatedVisibility(visible = !isOnline) {
+                        SyncErrorBanner(
+                            error = stringResource(R.string.settings_sync_error_network),
+                            onRetry = { preferencesCloudSync.retry() },
+                            modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm),
                         )
                     }
-                )
+                    AnimatedVisibility(visible = isOnline && showVerifyBanner) {
+                        EmailVerifyBanner(
+                            infoMessage = verifyInfo,
+                            busy = verifyBusy,
+                            onResend = {
+                                scope.launch {
+                                    verifyBusy = true
+                                    verifyInfo = null
+                                    authRepository.sendEmailVerification()
+                                        .onSuccess { verifyInfo = verifyEmailSentMessage }
+                                        .onFailure { verifyInfo = authErrorGenericMessage }
+                                    verifyBusy = false
+                                }
+                            },
+                            onRefresh = {
+                                scope.launch {
+                                    verifyBusy = true
+                                    verifyInfo = null
+                                    authRepository.reloadCurrentUser()
+                                        .onFailure { verifyInfo = authErrorGenericMessage }
+                                    verifyBusy = false
+                                }
+                            },
+                            onDismiss = { verifyDismissed = true },
+                            modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm),
+                        )
+                    }
+                    // Quarantined recurring templates mean totals may be missing scheduled
+                    // transactions, so the warning belongs on every tab, not only in Settings.
+                    val recurringIssues by recurringViewModel.issueState.collectAsStateWithLifecycle()
+                    var reviewingRecurring by remember(currentUser?.uid) { mutableStateOf(false) }
+                    com.aus.ausgegeben.ui.components.RecurringIssuesBanner(
+                        recurringIssues,
+                        modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm),
+                        onReview = { reviewingRecurring = true },
+                    )
+                    if (reviewingRecurring) {
+                        val reviewCategories by repository.allCategories.collectAsStateWithLifecycle(initialValue = emptyList())
+                        com.aus.ausgegeben.ui.RecurringManagerSheet(
+                            isOpen = true,
+                            onDismissRequest = { reviewingRecurring = false },
+                            vm = recurringViewModel,
+                            categories = reviewCategories,
+                            owner = currentUser?.uid,
+                            canWrite = currentUser?.isEmailVerified == true,
+                            currencyCode = currency,
+                        )
+                    }
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        MainTabPager(
+                            currentRoute = overlay.selectedTab,
+                            onRouteChange = selectTab,
+                            recordContent = {
+                                androidx.compose.runtime.key(currentUser?.uid) {
+                                    RecordScreen(
+                                        viewModel = expenseViewModel,
+                                        currencyCode = currency,
+                                        dataError = listenerError,
+                                        onRetryDataError = { repository.retryListeners() },
+                                        onAddTransaction = overlay::openAddFlow,
+                                        onExpenseClick = { expense -> overlay.openEditFlow(expense, currentUser?.uid) },
+                                        onExpenseDeleted = { expense ->
+                                            scope.launch {
+                                                val result = snackbarHostState.showSnackbar(
+                                                    message = deletedMessage,
+                                                    actionLabel = undoLabel,
+                                                    duration = SnackbarDuration.Short
+                                                )
+                                                if (result == SnackbarResult.ActionPerformed) {
+                                                    expenseViewModel.undoSoftDelete(expense)
+                                                } else {
+                                                    expenseViewModel.commitSoftDelete(expense) { success, error ->
+                                                        if (!success) {
+                                                            showSnackbar(failureMessage(deleteFailedMessage, error))
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        onExpenseDeleteFailed = { error ->
+                                            showSnackbar(failureMessage(deleteFailedMessage, error))
+                                        },
+                                        onExpenseDuplicated = {
+                                            showSnackbar(duplicatedMessage)
+                                        },
+                                        onExpenseDuplicateFailed = { error ->
+                                            showSnackbar(failureMessage(duplicateFailedMessage, error))
+                                        }
+                                    )
+                                }
+                            },
+                            billsContent = {
+                                key(currentUser?.uid) {
+                                    BillsScreen(
+                                        viewModel = insightsViewModel,
+                                        currencyCode = currency,
+                                        dataError = listenerError,
+                                        onRetryDataError = { repository.retryListeners() },
+                                        onAddTransaction = overlay::openAddFlow,
+                                        onManageBudgets = { overlay.selectedTab = Route.Settings },
+                                    )
+                                }
+                            },
+                            settingsContent = {
+                                SettingsScreen(
+                                    recurringViewModel = recurringViewModel,
+                                    repository = repository,
+                                    preferenceManager = preferenceManager,
+                                    authRepository = authRepository,
+                                    authViewModel = authViewModel,
+                                    syncError = prefsSyncError,
+                                    onRetrySync = { preferencesCloudSync.retry() },
+                                    onNavigateToCategories = {
+                                        overlay.overlayStack.clear()
+                                        overlay.overlayStack.add(Route.CategoryList)
+                                    },
+                                    onShowMessage = ::showSnackbar,
+                                    onRequestNotificationPermission = {
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                            !notificationPermission.status.isGranted
+                                        ) {
+                                            notificationPermission.launchPermissionRequest()
+                                        }
+                                    },
+                                    onRequestSignIn = { showAuthFromSettings = true },
+                                )
+                            }
+                        )
 
-                MainOverlayHost(
-                    visible = overlay.currentOverlay != null,
-                    content = {
-                        if (overlay.overlayStack.contains(Route.AddTransaction)) {
-                            AddTransactionScreen(
-                                viewModel = addViewModel,
-                                categoryViewModel = categoryViewModel,
-                                currencyCode = currency,
-                                currentUid = currentUser?.uid,
-                                onTransactionSaved = { wasEditing ->
-                                    overlay.closeOverlay()
-                                    showSnackbar(if (wasEditing) updatedMessage else savedMessage)
-                                },
-                                onBack = {
-                                    addViewModel.resetForm()
-                                    overlay.closeOverlay()
-                                },
-                                onValidationError = { message -> showSnackbar(message) },
-                                onBudgetAlert = { message -> showSnackbar(message) }
-                            )
-                        }
+                        MainOverlayHost(
+                            visible = overlay.currentOverlay != null,
+                            content = {
+                                if (overlay.overlayStack.contains(Route.AddTransaction)) {
+                                    AddTransactionScreen(
+                                        viewModel = addViewModel,
+                                        categoryViewModel = categoryViewModel,
+                                        currencyCode = currency,
+                                        currentUid = currentUser?.uid,
+                                        onTransactionSaved = { wasEditing ->
+                                            overlay.closeOverlay()
+                                            showSnackbar(if (wasEditing) updatedMessage else savedMessage)
+                                        },
+                                        onBack = {
+                                            addViewModel.resetForm()
+                                            overlay.closeOverlay()
+                                        },
+                                        onValidationError = { message -> showSnackbar(message) },
+                                        onBudgetAlert = { message -> showSnackbar(message) }
+                                    )
+                                }
 
-                        if (overlay.currentOverlay == Route.CategoryList) {
-                            CategoryScreen(
-                                viewModel = categoryViewModel,
-                                onBack = overlay::closeOverlay,
-                                onShowMessage = ::showSnackbar
-                            )
-                        }
-                    },
-                )
+                                if (overlay.currentOverlay == Route.CategoryList) {
+                                    CategoryScreen(
+                                        viewModel = categoryViewModel,
+                                        onBack = overlay::closeOverlay,
+                                        onShowMessage = ::showSnackbar
+                                    )
+                                }
+                            },
+                        )
+                    }
                 }
-            }
             }
         }
     }
