@@ -147,6 +147,10 @@ export function invalidateAllExpensesCache() {
   allExpensesInFlight = null;
 }
 
+useAuthStore.subscribe((state, previous) => {
+  if (state.user?.uid !== previous.user?.uid) invalidateAllExpensesCache();
+});
+
 /** Notify UI listeners after writes (Insights / all-time one-shot refetch). */
 function emitDataChanged() {
   // Order matters: listeners refetch synchronously on this event, so the cache
@@ -451,13 +455,16 @@ export const expenseRepository = {
           .filter((e) => e.deleted !== true),
         truncated,
       };
-      allExpensesCache = { uid: u, max, at: now(), result };
       return result;
     })();
 
     allExpensesInFlight = { uid: u, max, promise };
     try {
-      return await promise;
+      const result = await promise;
+      if (allExpensesInFlight?.promise === promise) {
+        allExpensesCache = { uid: u, max, at: now(), result };
+      }
+      return result;
     } finally {
       if (allExpensesInFlight?.promise === promise) allExpensesInFlight = null;
     }

@@ -10,16 +10,7 @@ import {
   type Auth,
   type Persistence,
 } from 'firebase/auth';
-import {
-  clearIndexedDbPersistence,
-  connectFirestoreEmulator,
-  initializeFirestore,
-  memoryLocalCache,
-  persistentLocalCache,
-  persistentMultipleTabManager,
-  terminate,
-  type Firestore,
-} from 'firebase/firestore';
+import type { Firestore } from 'firebase/firestore';
 import {
   getToken as getAppCheckToken,
   initializeAppCheck,
@@ -48,6 +39,7 @@ export function isFirebaseConfigured(): boolean {
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let firestore: Firestore | null = null;
+let firestoreSdk: typeof import('firebase/firestore') | undefined;
 let firestoreCachePersistent = false;
 let appCheck: AppCheck | null = null;
 const CACHE_CLEAR_MESSAGE = 'clear-firestore-cache';
@@ -175,7 +167,13 @@ export function getFirebaseAuth(): Auth | null {
   return auth;
 }
 
+export async function prepareFirebaseFirestore(): Promise<void> {
+  firestoreSdk ??= await import('firebase/firestore');
+}
+
 export function getFirebaseFirestore(): Firestore | null {
+  const sdk = firestoreSdk;
+  if (!sdk) return null;
   const firebaseApp = getFirebaseApp();
   if (!firebaseApp) return null;
   if (!firestore) {
@@ -185,13 +183,13 @@ export function getFirebaseFirestore(): Firestore | null {
     // Must be the FIRST call that touches Firestore for this app instance:
     // initializeFirestore throws if getFirestore() was already called for `app`.
     firestoreCachePersistent = isPersistentStorageEnabled();
-    firestore = initializeFirestore(firebaseApp, {
+    firestore = sdk.initializeFirestore(firebaseApp, {
       localCache: firestoreCachePersistent
-        ? persistentLocalCache({ tabManager: persistentMultipleTabManager() })
-        : memoryLocalCache(),
+        ? sdk.persistentLocalCache({ tabManager: sdk.persistentMultipleTabManager() })
+        : sdk.memoryLocalCache(),
     });
     if (useEmulators) {
-      connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
+      sdk.connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
     }
   }
   return firestore;
@@ -207,6 +205,8 @@ export function getFirebaseFirestore(): Firestore | null {
 export async function clearLocalFirestoreCache(notifyOtherTabs = true): Promise<void> {
   // Server-side rendering and unit-test runtimes have no browser database to erase.
   if (typeof indexedDB === 'undefined') return;
+  const sdk = firestoreSdk ?? await import('firebase/firestore');
+  firestoreSdk = sdk;
   if (notifyOtherTabs && cacheChannel) {
     cacheChannel.postMessage(CACHE_CLEAR_MESSAGE);
     // Give peer tabs time to terminate their SDK instance before IndexedDB deletion.
@@ -217,11 +217,11 @@ export async function clearLocalFirestoreCache(notifyOtherTabs = true): Promise<
   const db = firestore ?? getFirebaseFirestore();
   if (!db) return;
   firestore = null;
-  await terminate(db);
+  await sdk.terminate(db);
   let lastError: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      await clearIndexedDbPersistence(db);
+      await sdk.clearIndexedDbPersistence(db);
       return;
     } catch (error) {
       lastError = error;
