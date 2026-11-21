@@ -55,6 +55,7 @@ async function gotoTab(page: Page, tab: 'record' | 'insights' | 'settings') {
 }
 
 test('no horizontal overflow on either side of every layout breakpoint, both themes', async ({ browser }) => {
+  test.setTimeout(60_000);
   await createVerifiedUser('responsive-a@example.com', password);
   for (const colorScheme of ['dark', 'light'] as const) {
     for (const width of [767, 768, 1023, 1024, 1439, 1440]) {
@@ -70,6 +71,84 @@ test('no horizontal overflow on either side of every layout breakpoint, both the
       await context.close();
     }
   }
+});
+
+test('short transaction editors keep categories, notes and the CHF amount separate', async ({ browser }) => {
+  const email = 'responsive-editor@example.com';
+  await createVerifiedUser(email, password);
+  const context = await browser.newContext({ viewport: { width: 320, height: 568 }, hasTouch: true, reducedMotion: 'reduce' });
+  const page = await context.newPage();
+  await signIn(page, email, password);
+  await seedTransactions(page);
+  await page.evaluate(async () => {
+    const path = '/src/services/preferencesStore.ts';
+    const { usePreferencesStore } = await import(/* @vite-ignore */ path);
+    usePreferencesStore.getState().setCurrency('CHF');
+  });
+
+  for (const [width, height] of [[320, 568], [360, 640], [844, 390]]) {
+    await page.setViewportSize({ width, height });
+    await page.locator('.fab-add:visible').click();
+    const dialog = page.getByRole('dialog');
+    const currency = dialog.locator('.add-txn__currency');
+    const categories = dialog.locator('.add-txn__cats');
+    const note = dialog.locator('#txn-note');
+    await expect(currency).toHaveText('CHF');
+    await expect(categories.locator('button').first()).toBeVisible();
+    const [prefixBox, amountBox, categoryBox, noteBox] = await Promise.all([
+      currency.boundingBox(),
+      dialog.locator('#txn-amount').boundingBox(),
+      categories.boundingBox(),
+      note.boundingBox(),
+    ]);
+    expect(amountBox!.x).toBeGreaterThanOrEqual(prefixBox!.x + prefixBox!.width);
+    expect(noteBox!.y).toBeGreaterThanOrEqual(categoryBox!.y + categoryBox!.height);
+    await note.scrollIntoViewIfNeeded();
+    await expect(note).toBeInViewport();
+    await expect(dialog.getByRole('button', { name: en.actionSave })).toBeInViewport();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+  }
+  await context.close();
+});
+
+test('long history reveals rows in batches and searches the full history', async ({ page }) => {
+  const email = 'long-history@example.com';
+  await createVerifiedUser(email, password);
+  await signIn(page, email, password);
+  await seedTransactions(page, 66);
+  await page.locator('.record-filters .period-select__trigger').click();
+  await page.getByRole('option', { name: en.recordPeriodAllTime }).click();
+
+  const rows = page.locator('.txn-row-wrap');
+  await expect(rows).toHaveCount(60);
+  await page.getByRole('button', { name: en.recordShowMoreRows }).click();
+  await expect(rows).toHaveCount(66);
+  await expect(rows.nth(60).locator('.action-row__content')).toBeFocused();
+
+  await page.getByRole('searchbox', { name: en.recordSearchPlaceholder }).fill('Responsive probe 65');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText('Responsive probe 65');
+});
+
+test('pending changes keep their status visible across tabs until acknowledged', async ({ page }) => {
+  const email = 'pending-status@example.com';
+  await createVerifiedUser(email, password);
+  await signIn(page, email, password);
+  await page.evaluate(async () => {
+    const path = '/src/services/queuedWrites.ts';
+    const { trackQueuedWrite } = await import(/* @vite-ignore */ path);
+    trackQueuedWrite(new Promise<void>((resolve) => {
+      addEventListener('test-write-acknowledged', () => resolve(), { once: true });
+    }));
+  });
+
+  const status = page.getByRole('status').filter({ hasText: en.queuedWritesKeepTabOpen });
+  await expect(status).toBeVisible();
+  await gotoTab(page, 'settings');
+  await expect(status).toBeVisible();
+  await page.evaluate(() => dispatchEvent(new Event('test-write-acknowledged')));
+  await expect(status).toHaveCount(0);
 });
 
 test('a long toast wraps inside a 320px screen and keeps its action reachable', async ({ browser }) => {

@@ -663,6 +663,7 @@ private fun ObsidianCategorySlider(
     onAddCategory: () -> Unit
 ) {
     val listState = rememberLazyListState()
+    val largeText = LocalDensity.current.fontScale > 1.3f
 
     LaunchedEffect(selectedCategory) {
         selectedCategory?.let { sel ->
@@ -716,10 +717,11 @@ private fun ObsidianCategorySlider(
             )
 
             Column(
-                // Capped so "Haushaltsversicherung und Nebenkosten der Wohnung" cannot make
-                // one tile wider than the screen; its name wraps to two lines instead.
                 modifier = Modifier
-                    .widthIn(min = 64.dp, max = 112.dp)
+                    .widthIn(
+                        min = if (largeText) 112.dp else 64.dp,
+                        max = if (largeText) 216.dp else 112.dp,
+                    )
                     .clip(RoundedCornerShape(AppRadius.interactive))
                     .background(categoryColor.copy(alpha = animatedAlpha))
                     .border(
@@ -764,7 +766,7 @@ private fun ObsidianCategorySlider(
                     ),
                     color = if (isSelected) MaterialTheme.colorScheme.onSurface else ObsidianTokens.slate(),
                     textAlign = TextAlign.Center,
-                    maxLines = 2,
+                    maxLines = if (largeText) Int.MAX_VALUE else 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }

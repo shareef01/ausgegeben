@@ -22,7 +22,6 @@ import {
   setPersistentAuthEnabled,
 } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
-import { expenseRepository, invalidateAllExpensesCache } from '@/repositories/expenseRepository';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { clearExpenseSubmissionJournal } from '@/services/expenseSubmissionJournal';
 import { TAB_PARAM } from '@/utils/tabHistory';
@@ -70,7 +69,6 @@ async function clearFirebaseAuthSessionLocally(): Promise<void> {
 function handleSessionInvalidatedElsewhere(): void {
   useAuthStore.getState().setUser(null);
   usePreferencesStore.getState().resetPreferences();
-  invalidateAllExpensesCache();
   resetTabParamForNewSession();
   void clearFirebaseAuthSessionLocally().catch((error) => {
     // Failure here leaves this tab's durable session copy behind (a reload could
@@ -195,9 +193,6 @@ export const authService = {
     clearResidualAuthStorage();
     useAuthStore.getState().setUser(null);
     usePreferencesStore.getState().resetPreferences();
-    // The all-time scan is memoised in module scope; drop it so the next person
-    // on a shared browser cannot be served the previous account's transactions.
-    invalidateAllExpensesCache();
     // Tell every other open tab this account signed out (AUTH-2) — session-only
     // persistence has no built-in cross-tab signal, so without this a tab that did not
     // itself sign out could keep rendering as authenticated and keep writing to
@@ -232,6 +227,7 @@ export const authService = {
       if (code === 'auth/too-many-requests') throw new Error('too_many_requests');
       throw err;
     }
+    const { expenseRepository } = await import('@/repositories/expenseRepository');
     await expenseRepository.markAccountDeletionPending();
     await expenseRepository.deleteAllUserData();
 
@@ -260,7 +256,6 @@ export const authService = {
     await clearExpenseSubmissionJournal(user.uid);
     useAuthStore.getState().setUser(null);
     usePreferencesStore.getState().resetPreferences();
-    invalidateAllExpensesCache();
     // See AUTH-2: tell every other open tab this account is gone.
     broadcastSessionInvalidated();
     // Account deletion starts on Settings; without this the next sign-in lands there (UX-4).

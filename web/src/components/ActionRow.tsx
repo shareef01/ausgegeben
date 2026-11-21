@@ -24,8 +24,8 @@ interface ActionRowProps {
   onEdit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
-  /** Spoken name of the row, e.g. "Groceries expense of −€62.40". */
-  ariaLabel: string;
+  /** Identifies the row in the separate actions menu button's name. */
+  rowLabel: string;
 }
 
 const TAP_SLOP = 8;
@@ -43,7 +43,7 @@ const VIEWPORT_MARGIN = 8;
  * action depends on a hidden gesture. Activation uses `click`, which the browser already
  * withholds after a scroll, so flicking through the list cannot open a transaction.
  */
-export function ActionRow({ children, onEdit, onDuplicate, onDelete, ariaLabel }: ActionRowProps) {
+export function ActionRow({ children, onEdit, onDuplicate, onDelete, rowLabel }: ActionRowProps) {
   const { t } = useTranslation();
   // 'keyboard' puts focus on the first item; a touch or mouse open focuses the menu itself,
   // so no item shows a focus ring the user did not ask for.
@@ -135,7 +135,6 @@ export function ActionRow({ children, onEdit, onDuplicate, onDelete, ariaLabel }
         className="action-row__content"
         role="button"
         tabIndex={0}
-        aria-label={ariaLabel}
         onClick={onClick}
         onKeyDown={onKeyDown}
         onPointerDown={onPointerDown}
@@ -150,7 +149,7 @@ export function ActionRow({ children, onEdit, onDuplicate, onDelete, ariaLabel }
         ref={moreRef}
         type="button"
         className={`action-row__more${menuOpen ? ' action-row__more--open' : ''}`}
-        aria-label={t('recordRowActionsFor', { row: ariaLabel })}
+        aria-label={t('recordRowActionsFor', { row: rowLabel })}
         aria-haspopup="menu"
         aria-expanded={menuOpen !== false}
         // detail is 0 for a click synthesised from Enter/Space.

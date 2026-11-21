@@ -148,7 +148,8 @@ function resolveIncome(isDark: boolean, primary: string): string {
 function applyReadableTextTokens(palette: ThemePalette): void {
   const surfaces = [palette.surface, palette.surfaceVariant, palette.background];
   palette.incomeText = readableOn(palette.income, surfaces);
-  palette.expenseText = readableOn(palette.expense, surfaces);
+  // Leave room for the slightly darker or lighter translucent chip surfaces.
+  palette.expenseText = readableOn(palette.expense, surfaces, 4.7);
   palette.transferText = readableOn(palette.transfer, surfaces);
   palette.errorText = readableOn(palette.error, surfaces);
 }

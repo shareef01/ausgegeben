@@ -39,6 +39,7 @@ export function AddTransactionView({
   const amountInputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const catsRailRef = useRef<HTMLDivElement>(null);
+  const wasSuspended = useRef(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   // Dirty state comes from the view model, which compares the current values against
@@ -63,17 +64,30 @@ export function AddTransactionView({
   useBodyScrollLock(!suspended);
 
   useEffect(() => {
-    if (vm.ready && !suspended) amountInputRef.current?.focus();
+    if (vm.ready && !suspended) amountInputRef.current?.focus({ preventScroll: !wasSuspended.current });
   }, [vm.ready, suspended]);
 
   useEffect(() => {
-    if (!vm.ready || suspended || !vm.form.categoryId) return;
-    const selected = catsRailRef.current?.querySelector<HTMLElement>('.add-txn__cat--selected');
+    const rail = catsRailRef.current;
+    if (!vm.ready || suspended || !vm.form.categoryId || !rail) return;
+    const horizontalOverflow = rail.scrollWidth > rail.clientWidth;
+    const verticalOverflow = rail.scrollHeight > rail.clientHeight;
+    if (!horizontalOverflow && !verticalOverflow) return;
+    const selected = rail.querySelector<HTMLElement>('.add-txn__cat--selected');
+    if (!selected) return;
+    const tile = selected.getBoundingClientRect();
+    const bounds = rail.getBoundingClientRect();
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    selected?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', inline: 'center', block: 'nearest' });
+    const verticalOffset = tile.top < bounds.top
+      ? tile.top - bounds.top
+      : Math.max(0, tile.bottom - bounds.bottom);
+    rail.scrollBy({
+      left: horizontalOverflow ? tile.left - bounds.left - (bounds.width - tile.width) / 2 : 0,
+      top: verticalOverflow ? verticalOffset : 0,
+      behavior: reduceMotion ? 'auto' : 'smooth',
+    });
   }, [vm.ready, suspended, vm.form.categoryId, vm.categories]);
 
-  const wasSuspended = useRef(false);
   const { reloadCategories } = vm;
   useEffect(() => {
     if (wasSuspended.current && !suspended) void reloadCategories();

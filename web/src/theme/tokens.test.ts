@@ -73,6 +73,6 @@ describe('theme palettes', () => {
   });
 
   it('matches the light-theme fallback declared in index.css', () => {
-    expect(themePalettes.light.expenseText).toBe('#B55160');
+    expect(themePalettes.light.expenseText).toBe('#B04F5D');
   });
 });
