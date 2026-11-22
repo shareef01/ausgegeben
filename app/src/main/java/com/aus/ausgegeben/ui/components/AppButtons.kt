@@ -19,6 +19,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.aus.ausgegeben.ui.theme.*
@@ -181,6 +184,7 @@ fun AppFab(
             .clip(CircleShape)
             .background(containerColor)
             .combinedClickable(
+                role = Role.Button,
                 onClick = {
                     haptics.medium()
                     onClick()
@@ -191,12 +195,13 @@ fun AppFab(
                         it()
                     }
                 }
-            ),
+            )
+            .semantics { this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = icon,
-            contentDescription = contentDescription,
+            contentDescription = null,
             tint = contentColor,
             modifier = Modifier.size(26.dp),
         )

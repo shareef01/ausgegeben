@@ -1,5 +1,9 @@
 package com.aus.ausgegeben.ui
 
+import android.text.InputType
+import android.util.TypedValue
+import android.view.Gravity
+import android.widget.EditText
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -7,7 +11,6 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -29,7 +32,9 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -45,6 +50,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.res.ResourcesCompat
+import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.entity.Category
@@ -590,45 +598,92 @@ private fun ObsidianNoteField(
         }
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(stringResource(R.string.add_note_label).uppercase(), style = ObsidianTokens.labelStyle())
-            BasicTextField(
-                value = remark,
-                onValueChange = onRemarkChange,
-                textStyle = MaterialTheme.typography.bodyLarge.copy(
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold
-                ),
-                cursorBrush = androidx.compose.ui.graphics.SolidColor(accentColor),
-                modifier = Modifier.fillMaxWidth(),
-                decorationBox = { inner ->
-                    // Pinned so gaining the 48dp clear button when the first
-                    // character is typed does not reflow the field.
-                    Row(
-                        modifier = Modifier.heightIn(min = 48.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            if (remark.isEmpty()) {
-                                Text(
-                                    stringResource(R.string.add_note_placeholder),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = ObsidianTokens.slate().copy(alpha = 0.5f)
-                                )
-                            }
-                            inner()
-                        }
-                        if (remark.isNotEmpty()) {
-                            AppIconButton(
-                                onClick = { onRemarkChange("") },
-                                icon = Icons.Rounded.Cancel,
-                                contentDescription = stringResource(R.string.action_clear),
-                                tint = ObsidianTokens.slate().copy(alpha = 0.4f)
-                            )
-                        }
-                    }
+            val noteLabel = stringResource(R.string.add_note_label)
+            Text(
+                text = noteLabel.uppercase(),
+                modifier = Modifier.semantics { hideFromAccessibility() },
+                style = ObsidianTokens.labelStyle(),
+            )
+            Row(
+                modifier = Modifier.heightIn(min = 48.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                NoteEditor(
+                    remark = remark,
+                    onRemarkChange = onRemarkChange,
+                    label = noteLabel,
+                    accentColor = accentColor,
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                )
+                if (remark.isNotEmpty()) {
+                    AppIconButton(
+                        onClick = { onRemarkChange("") },
+                        icon = Icons.Rounded.Cancel,
+                        contentDescription = stringResource(R.string.action_clear),
+                        tint = ObsidianTokens.slate().copy(alpha = 0.4f),
+                    )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NoteEditor(
+    remark: String,
+    onRemarkChange: (String) -> Unit,
+    label: String,
+    accentColor: Color,
+    modifier: Modifier,
+) {
+    val currentRemark by rememberUpdatedState(remark)
+    val updateRemark by rememberUpdatedState(onRemarkChange)
+    val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
+    val fontSize = MaterialTheme.typography.bodyLarge.fontSize
+    val fontSizePx = with(LocalDensity.current) { fontSize.toPx() }
+
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.CenterStart,
+        propagateMinConstraints = true,
+    ) {
+        if (remark.isEmpty()) {
+            Text(
+                text = stringResource(R.string.add_note_placeholder),
+                modifier = Modifier.semantics { hideFromAccessibility() },
+                style = MaterialTheme.typography.bodyLarge,
+                color = ObsidianTokens.slate().copy(alpha = 0.5f),
             )
         }
+        AndroidView(
+            modifier = Modifier.fillMaxWidth(),
+            factory = { context ->
+                EditText(context).apply {
+                    background = null
+                    setPadding(0, 0, 0, 0)
+                    gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                    inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                    includeFontPadding = false
+                    typeface = ResourcesCompat.getFont(context, R.font.inter_semibold)
+                    // The native hint labels the editable node. Compose draws the placeholder.
+                    setHintTextColor(android.graphics.Color.TRANSPARENT)
+                    doAfterTextChanged { editable ->
+                        val value = editable.toString()
+                        if (value != currentRemark) updateRemark(value)
+                    }
+                }
+            },
+            update = { editor ->
+                editor.hint = label
+                editor.setTextColor(textColor)
+                editor.setTextSize(TypedValue.COMPLEX_UNIT_PX, fontSizePx)
+                editor.textCursorDrawable?.mutate()?.setTint(accentColor.toArgb())
+                if (editor.text.toString() != remark) {
+                    editor.setText(remark)
+                    editor.setSelection(remark.length)
+                }
+            },
+        )
     }
 }
 

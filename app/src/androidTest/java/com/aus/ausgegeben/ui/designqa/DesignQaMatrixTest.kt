@@ -2,10 +2,13 @@ package com.aus.ausgegeben.ui.designqa
 
 import android.app.Application
 import android.util.Log
+import android.view.ViewGroup
+import android.widget.EditText
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.remember
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.core.view.descendants
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.aus.ausgegeben.data.auth.AuthUser
@@ -27,6 +30,7 @@ import com.aus.ausgegeben.ui.theme.ThemeMode
 import com.aus.ausgegeben.util.CurrencyUtils
 import androidx.compose.ui.res.stringResource
 import com.aus.ausgegeben.R
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -118,11 +122,25 @@ class DesignQaMatrixTest(
                 onValidationError = {},
             )
         }
+        val activity = compose.activity
+        val noteLabel = activity.getString(R.string.add_note_label)
+        val note = compose.runOnIdle {
+            activity.findViewById<ViewGroup>(android.R.id.content).descendants
+                .filterIsInstance<EditText>().single()
+                .also { assertEquals(noteLabel, it.createAccessibilityNodeInfo().hintText?.toString()) }
+        }
         val sep = CurrencyUtils.decimalSeparator(CurrencyUtils.localeForLanguage(language))
         compose.runOnIdle {
             vm.onAmountChange("1104064${sep}70")
             vm.onCategorySelect(DesignQaFixtures.categories.first())
+            vm.onNoteChange("QA")
         }
+        compose.runOnIdle {
+            val info = note.createAccessibilityNodeInfo()
+            assertEquals(noteLabel, info.hintText?.toString())
+            assertEquals("QA", info.text?.toString())
+        }
+        compose.runOnIdle { vm.onNoteChange("") }
         check("add")
     }
 
