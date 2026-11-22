@@ -2,14 +2,14 @@ package com.aus.ausgegeben.ui.designqa
 
 import android.app.Application
 import android.util.Log
+import android.widget.EditText
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.remember
-import androidx.compose.ui.test.assert
-import androidx.compose.ui.test.hasContentDescription
-import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.espresso.Espresso.onView
+import androidx.test.espresso.matcher.ViewMatchers.isAssignableFrom
 import androidx.test.platform.app.InstrumentationRegistry
 import com.aus.ausgegeben.data.auth.AuthUser
 import com.aus.ausgegeben.ui.AddExpenseViewModel
@@ -30,6 +30,7 @@ import com.aus.ausgegeben.ui.theme.ThemeMode
 import com.aus.ausgegeben.util.CurrencyUtils
 import androidx.compose.ui.res.stringResource
 import com.aus.ausgegeben.R
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -121,18 +122,24 @@ class DesignQaMatrixTest(
                 onValidationError = {},
             )
         }
-        val note = compose.onNode(hasSetTextAction(), useUnmergedTree = true)
-        val noteName = hasContentDescription(compose.activity.getString(R.string.add_note_label))
-        // Android puts content descriptions on synthetic child nodes when
-        // editable nodes merge descendants. Keep the name on the field itself.
-        assertTrue(note.assert(noteName).fetchSemanticsNode().children.isEmpty())
+        val note = onView(isAssignableFrom(EditText::class.java))
+        val noteLabel = compose.activity.getString(R.string.add_note_label)
+        note.check { view, error ->
+            if (error != null) throw error
+            assertEquals(noteLabel, view.createAccessibilityNodeInfo().hintText?.toString())
+        }
         val sep = CurrencyUtils.decimalSeparator(CurrencyUtils.localeForLanguage(language))
         compose.runOnIdle {
             vm.onAmountChange("1104064${sep}70")
             vm.onCategorySelect(DesignQaFixtures.categories.first())
             vm.onNoteChange("QA")
         }
-        assertTrue(note.assert(noteName).fetchSemanticsNode().children.isEmpty())
+        note.check { view, error ->
+            if (error != null) throw error
+            val info = view.createAccessibilityNodeInfo()
+            assertEquals(noteLabel, info.hintText?.toString())
+            assertEquals("QA", info.text?.toString())
+        }
         compose.runOnIdle { vm.onNoteChange("") }
         check("add")
     }
