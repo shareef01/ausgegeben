@@ -2,14 +2,14 @@ package com.aus.ausgegeben.ui.designqa
 
 import android.app.Application
 import android.util.Log
+import android.view.ViewGroup
 import android.widget.EditText
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.remember
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.core.view.descendants
 import androidx.test.core.app.ApplicationProvider
-import androidx.test.espresso.Espresso.onView
-import androidx.test.espresso.matcher.ViewMatchers.isAssignableFrom
 import androidx.test.platform.app.InstrumentationRegistry
 import com.aus.ausgegeben.data.auth.AuthUser
 import com.aus.ausgegeben.ui.AddExpenseViewModel
@@ -122,11 +122,12 @@ class DesignQaMatrixTest(
                 onValidationError = {},
             )
         }
-        val note = onView(isAssignableFrom(EditText::class.java))
-        val noteLabel = compose.activity.getString(R.string.add_note_label)
-        note.check { view, error ->
-            if (error != null) throw error
-            assertEquals(noteLabel, view.createAccessibilityNodeInfo().hintText?.toString())
+        val activity = compose.activity
+        val noteLabel = activity.getString(R.string.add_note_label)
+        val note = compose.runOnIdle {
+            activity.findViewById<ViewGroup>(android.R.id.content).descendants
+                .filterIsInstance<EditText>().single()
+                .also { assertEquals(noteLabel, it.createAccessibilityNodeInfo().hintText?.toString()) }
         }
         val sep = CurrencyUtils.decimalSeparator(CurrencyUtils.localeForLanguage(language))
         compose.runOnIdle {
@@ -134,9 +135,8 @@ class DesignQaMatrixTest(
             vm.onCategorySelect(DesignQaFixtures.categories.first())
             vm.onNoteChange("QA")
         }
-        note.check { view, error ->
-            if (error != null) throw error
-            val info = view.createAccessibilityNodeInfo()
+        compose.runOnIdle {
+            val info = note.createAccessibilityNodeInfo()
             assertEquals(noteLabel, info.hintText?.toString())
             assertEquals("QA", info.text?.toString())
         }
