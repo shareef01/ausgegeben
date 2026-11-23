@@ -23,7 +23,7 @@ import { useThemeRevision } from '@/hooks/useThemeRevision';
 export function InsightsView({ onAdd, onManageBudgets }: { onAdd?: () => void; onManageBudgets?: () => void }) {
   const { t } = useTranslation();
   const currency = usePreferencesStore((s) => s.currency);
-  const { uiState, categories, budgetExpenses, budgetIncomplete, showCategoryBudgets, periodOptions, setAnalyticsPeriod, reload } = useInsightsViewModel();
+  const { uiState, categories, budgetExpenses, budgetIncomplete, showCategoryBudgets, budgetCutoffMillis, periodOptions, setAnalyticsPeriod, reload } = useInsightsViewModel();
   const haptics = useHaptics();
   const hasData =
     uiState.totalExpenses > 0 ||
@@ -119,6 +119,7 @@ export function InsightsView({ onAdd, onManageBudgets }: { onAdd?: () => void; o
                 expenses={budgetExpenses}
                 incomplete={budgetIncomplete}
                 onManage={onManageBudgets}
+                cutoffMillis={budgetCutoffMillis}
               />
             ) : null}
             </>
@@ -163,6 +164,7 @@ export function InsightsView({ onAdd, onManageBudgets }: { onAdd?: () => void; o
                   expenses={budgetExpenses}
                   incomplete={budgetIncomplete}
                   onManage={onManageBudgets}
+                  cutoffMillis={budgetCutoffMillis}
                 />
               ) : null}
 

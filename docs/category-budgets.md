@@ -2,6 +2,21 @@
 
 Category budgets are recurring limits for expense categories. They apply to the current calendar month in the device time zone. Categories without a budget have no limit. Income, transfer, and categories undergoing type migration are excluded. Historical Insights periods do not apply today's limits retrospectively. There are no notifications or historical budget versions.
 
+## Actual, upcoming and anticipated spending (F-05)
+
+A category budget card and a global budget bar can be read by the same user in the same month, so the terms are explicit rather than inferred:
+
+- **Actual** (`spentToDate`): expense rows dated before local midnight tomorrow.
+- **Upcoming** (`upcoming`): expense rows dated tomorrow or later in the supplied current-month range. Recurring transactions materialise on their due date, so they are normally actual; a manually future-dated row is the usual source.
+- **Anticipated** (`anticipated`): actual + upcoming.
+
+`categoryBudgetProgress(budgets, categories, expenses, cutoffMillis)` returns all three fields. `spent`, `percent`, `remaining` and `state` keep their existing meaning and equal the anticipated values, so this is an additive clarification: no stored budget, preference or financial total changes. When `upcoming > 0`, both clients label the primary card value as anticipated and show the actual/upcoming split; the Record global budget bar continues to show actual spending and adds the same upcoming/anticipated disclosure. Transfers, soft-deleted rows, income and migrating categories contribute to none of the three.
+
+`testdata/budget-spend-parity.json` is the shared contract (read by `web/src/utils/budgetSpendParity.test.ts` and Android `FinancialParityTest`). It covers the current, past and future month, a local-midnight boundary, the Europe/Berlin DST day, two same-content rows (recurring occurrences are independent rows), a transfer, a soft-deleted row, a migrating category, an empty budget month, and the no-cutoff legacy call.
+
+A remaining product decision is whether a budget warning should fire on anticipated spending (today's behaviour, now labelled) or only on actual spending. Changing that primary metric would be a semantic change, so it was not made in this pass.
+
+
 ## Storage and concurrency
 
 Each budget is `users/{uid}/categoryBudgets/{categoryId}` with exactly `monthlyLimit`, `warningThresholdPercent`, and `updatedAt`. The category ID is the document ID. Dedicated documents permit strict rules validation and independent changes without rewriting the global preferences document or validating a dynamic map. The global monthly budget remains in preferences.

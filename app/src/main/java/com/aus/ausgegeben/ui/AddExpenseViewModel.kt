@@ -3,6 +3,7 @@ package com.aus.ausgegeben.ui
 import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.CategoryActions
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -34,10 +36,48 @@ class AddExpenseViewModel @Inject constructor(
     private val categoryActions: CategoryActions,
     private val expenseActions: ExpenseActions,
     private val preferenceManager: TransactionPreferences,
+    private val savedStateHandle: SavedStateHandle,
 ) : AndroidViewModel(application) {
+
+    /**
+     * Test/legacy constructor: no process-death persistence. Production always uses the
+     * Hilt constructor above, which receives the Activity's SavedStateHandle.
+     */
+    constructor(
+        application: Application,
+        categoryActions: CategoryActions,
+        expenseActions: ExpenseActions,
+        preferenceManager: TransactionPreferences,
+    ) : this(application, categoryActions, expenseActions, preferenceManager, SavedStateHandle())
 
     companion object {
         private const val TAG = "AddExpenseViewModel"
+
+        // Saved draft version. Bump when a field's meaning changes; older payloads are
+        // ignored rather than reinterpreted.
+        private const val DRAFT_VERSION = 1
+        private const val KEY_VERSION = "draft.version"
+        private const val KEY_OWNER = "draft.ownerUid"
+        private const val KEY_AMOUNT = "draft.amount"
+        private const val KEY_NOTE = "draft.note"
+        private const val KEY_CATEGORY_ID = "draft.categoryId"
+        private const val KEY_DATE = "draft.dateMillis"
+        private const val KEY_EDITING_ID = "draft.editingExpenseId"
+        private const val KEY_EDITING_OWNER = "draft.editingOwnerUid"
+        private const val KEY_DRAFT_TYPE = "draft.transactionType"
+        private const val KEY_LOADED_TYPE = "draft.loadedType"
+        private const val KEY_BASE_AMOUNT = "draft.baseline.amount"
+        private const val KEY_BASE_NOTE = "draft.baseline.note"
+        private const val KEY_BASE_CATEGORY = "draft.baseline.categoryId"
+        private const val KEY_BASE_DATE = "draft.baseline.dateMillis"
+        private const val KEY_BASE_TYPE = "draft.baseline.transactionType"
+        private const val KEY_ORIGINAL_AMOUNT = "draft.original.amount"
+        private const val KEY_ORIGINAL_NOTE = "draft.original.note"
+        private const val KEY_ORIGINAL_CATEGORY = "draft.original.categoryId"
+        private const val KEY_ORIGINAL_DATE = "draft.original.dateMillis"
+        private const val KEY_ORIGINAL_TYPE = "draft.original.transactionType"
+        private const val MIN_VALID_MILLIS = 946_684_800_000L // 2000-01-01 UTC
+        private const val MAX_VALID_MILLIS = 4_102_444_800_000L // 2100-01-01 UTC
     }
 
     private val _amount = MutableStateFlow("0")
@@ -61,6 +101,18 @@ class AddExpenseViewModel @Inject constructor(
     private val _loadedTransactionType = MutableStateFlow(TransactionType.EXPENSE)
     val loadedTransactionType = _loadedTransactionType.asStateFlow()
 
+    /**
+     * The type currently selected in the editor. Owned by the view model (rather than the
+     * screen's `remember`) so a restored draft keeps the tab the user was on.
+     */
+    private val _draftType = MutableStateFlow(TransactionType.EXPENSE)
+    val draftType = _draftType.asStateFlow()
+
+    /** Account whose draft is in this (activity-scoped) editor; guards cross-account restore. */
+    private var draftOwnerUid: String? = null
+    /** Resolves a restored category id once the category list arrives; cancelled on reset. */
+    private var categoryResolveJob: Job? = null
+
     private val _isSaving = MutableStateFlow(false)
     val isSaving = _isSaving.asStateFlow()
 
@@ -82,6 +134,27 @@ class AddExpenseViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
         )
+
+    init {
+        // Restore before the persistence collector starts, so it writes the restored form
+        // (and the restored baseline), not a blank one.
+        restoreDraft()
+        viewModelScope.launch {
+            combine(
+                combine(_amount, _note, _selectedCategory) { amountText, note, category ->
+                    Triple(amountText, note, category)
+                },
+                _dateMillis,
+                _editingExpenseId,
+                _draftType,
+                _isDraftLoading,
+            ) { _, _, _, _, loading -> loading }
+                .collect { loading ->
+                    // Do not persist the half-populated form while an edit is loading.
+                    if (!loading) persistDraft()
+                }
+        }
+    }
 
     val isEditing: Boolean get() = _editingExpenseId.value != null
 
@@ -112,9 +185,8 @@ class AddExpenseViewModel @Inject constructor(
     /**
      * Whether closing the form now would discard user input.
      *
-     * [currentType] is owned by the screen's tab state, so it is passed in rather than
-     * mirrored here. Works for edits too: the baseline is the loaded transaction, not
-     * an empty draft.
+     * [currentType] is the editor's selected type (view model [draftType]); works for
+     * edits too because the baseline is the loaded transaction, not an empty draft.
      */
     fun hasUnsavedChanges(currentType: TransactionType): Boolean =
         isTransactionDraftDirty(
@@ -145,6 +217,11 @@ class AddExpenseViewModel @Inject constructor(
     }
 
     fun loadForEdit(expense: Expense, categories: List<Category>, ownerUid: String? = null) {
+        // Set before touching any field: the draft-persistence collector must not write a
+        // half-populated edit (new id, old amount) if it runs between these assignments.
+        _isDraftLoading.value = true
+        categoryResolveJob?.cancel()
+        categoryResolveJob = null
         _editingExpenseId.value = expense.id
         editingOriginal = expense
         _editingOwnerUid.value = ownerUid
@@ -152,11 +229,11 @@ class AddExpenseViewModel @Inject constructor(
         _dateMillis.value = expense.dateMillis
         _selectedCategory.value = categories.find { it.id == expense.categoryId }
         _loadedTransactionType.value = TransactionType.fromKey(expense.transactionType)
+        _draftType.value = _loadedTransactionType.value
         // No baseline until the amount is loaded: reporting "dirty" while the form is
         // still populating would prompt the user to discard a transaction they have not
         // touched yet.
         baseline = null
-        _isDraftLoading.value = true
         // A previous load that has not run yet would otherwise finish into this form with
         // the other transaction's amount.
         editLoadJob?.cancel()
@@ -307,6 +384,9 @@ class AddExpenseViewModel @Inject constructor(
     }
 
     fun resetForm() {
+        categoryResolveJob?.cancel()
+        categoryResolveJob = null
+        clearSavedDraft()
         _editingExpenseId.value = null
         editingOriginal = null
         _editingOwnerUid.value = null
@@ -315,9 +395,168 @@ class AddExpenseViewModel @Inject constructor(
         _selectedCategory.value = null
         _dateMillis.value = System.currentTimeMillis()
         _loadedTransactionType.value = TransactionType.EXPENSE
+        _draftType.value = TransactionType.EXPENSE
         editLoadJob?.cancel()
         editLoadJob = null
         _isDraftLoading.value = false
         baseline = currentSnapshot(_loadedTransactionType.value)
+    }
+
+    /** The editor's type tab; persisted so a restored draft keeps the selected type. */
+    fun setDraftType(type: TransactionType) {
+        if (_draftType.value != type) _draftType.value = type
+    }
+
+    /**
+     * Bind the activity-scoped editor to the signed-in account.
+     *
+     * A restored draft is kept only when it belongs to this account. A switch (or a
+     * sign-out) resets the form and clears the saved draft, so one account's amount,
+     * note or category can never reappear for another.
+     *
+     * @return true when a draft from another account was discarded.
+     */
+    fun bindOwner(uid: String?): Boolean {
+        val previous = draftOwnerUid
+        val reset = previous != null && previous != uid
+        if (reset) resetForm()
+        draftOwnerUid = uid
+        return reset
+    }
+
+    /** Restore a draft saved before configuration/process death, if it is valid. */
+    private fun restoreDraft() {
+        if (savedStateHandle.get<Int>(KEY_VERSION) != DRAFT_VERSION) return
+        draftOwnerUid = savedStateHandle.get<String>(KEY_OWNER)
+        _amount.value = savedStateHandle.get<String>(KEY_AMOUNT)
+            ?.take(40)
+            ?.takeIf { it.isNotBlank() }
+            ?: "0"
+        _note.value = savedStateHandle.get<String>(KEY_NOTE)?.take(2000) ?: ""
+        _dateMillis.value = savedStateHandle.get<Long>(KEY_DATE)
+            ?.takeIf { it in MIN_VALID_MILLIS until MAX_VALID_MILLIS }
+            ?: System.currentTimeMillis()
+        _editingExpenseId.value = savedStateHandle.get<String>(KEY_EDITING_ID)
+            ?.takeIf { it.isNotBlank() && it.length <= 64 }
+        _editingOwnerUid.value = savedStateHandle.get<String>(KEY_EDITING_OWNER)
+            ?.takeIf { it.isNotBlank() && it.length <= 128 }
+        _loadedTransactionType.value = TransactionType.fromKey(
+            savedStateHandle.get<String>(KEY_LOADED_TYPE) ?: TransactionType.EXPENSE.storageKey
+        )
+        _draftType.value = TransactionType.fromKey(
+            savedStateHandle.get<String>(KEY_DRAFT_TYPE) ?: TransactionType.EXPENSE.storageKey
+        )
+
+        val restoredCategoryId = savedStateHandle.get<String>(KEY_CATEGORY_ID)
+            ?.takeIf { it.isNotBlank() && it.length < 64 }
+        val baseAmount = savedStateHandle.get<String>(KEY_BASE_AMOUNT)
+        baseline = if (baseAmount != null) {
+            TransactionDraftSnapshot(
+                amountText = baseAmount,
+                transactionType = TransactionType.fromKey(
+                    savedStateHandle.get<String>(KEY_BASE_TYPE) ?: _draftType.value.storageKey
+                ),
+                categoryId = savedStateHandle.get<String>(KEY_BASE_CATEGORY)
+                    ?.takeIf { it.isNotBlank() && it.length < 64 },
+                note = savedStateHandle.get<String>(KEY_BASE_NOTE)?.take(2000) ?: "",
+                dateMillis = savedStateHandle.get<Long>(KEY_BASE_DATE)
+                    ?.takeIf { it in MIN_VALID_MILLIS until MAX_VALID_MILLIS }
+                    ?: _dateMillis.value,
+            )
+        } else {
+            currentSnapshot(_draftType.value)
+        }
+
+        val originalAmount = savedStateHandle.get<Double>(KEY_ORIGINAL_AMOUNT)
+        val editingId = _editingExpenseId.value
+        editingOriginal = if (editingId != null && originalAmount != null) {
+            Expense(
+                id = editingId,
+                amount = originalAmount,
+                dateMillis = savedStateHandle.get<Long>(KEY_ORIGINAL_DATE) ?: _dateMillis.value,
+                categoryId = savedStateHandle.get<String>(KEY_ORIGINAL_CATEGORY).orEmpty(),
+                note = savedStateHandle.get<String>(KEY_ORIGINAL_NOTE)?.take(2000) ?: "",
+                transactionType = savedStateHandle.get<String>(KEY_ORIGINAL_TYPE)
+                    ?: _draftType.value.storageKey,
+            )
+        } else {
+            null
+        }
+
+        _isDraftLoading.value = false
+        if (restoredCategoryId != null) resolveRestoredCategory(restoredCategoryId)
+    }
+
+    /** Persist the current draft; a pristine new form leaves no state behind. */
+    private fun persistDraft() {
+        val current = currentSnapshot(_draftType.value)
+        val base = baseline
+        if (_editingExpenseId.value == null && base != null &&
+            !isTransactionDraftDirty(base, current)
+        ) {
+            clearSavedDraft()
+            return
+        }
+
+        savedStateHandle[KEY_VERSION] = DRAFT_VERSION
+        putString(KEY_OWNER, draftOwnerUid)
+        savedStateHandle[KEY_AMOUNT] = _amount.value.take(40)
+        savedStateHandle[KEY_NOTE] = _note.value.take(2000)
+        putString(KEY_CATEGORY_ID, _selectedCategory.value?.id)
+        savedStateHandle[KEY_DATE] = _dateMillis.value
+        putString(KEY_EDITING_ID, _editingExpenseId.value)
+        putString(KEY_EDITING_OWNER, _editingOwnerUid.value)
+        savedStateHandle[KEY_DRAFT_TYPE] = _draftType.value.storageKey
+        savedStateHandle[KEY_LOADED_TYPE] = _loadedTransactionType.value.storageKey
+
+        val baseSnapshot = base ?: current
+        savedStateHandle[KEY_BASE_AMOUNT] = baseSnapshot.amountText
+        savedStateHandle[KEY_BASE_NOTE] = baseSnapshot.note.take(2000)
+        putString(KEY_BASE_CATEGORY, baseSnapshot.categoryId)
+        savedStateHandle[KEY_BASE_DATE] = baseSnapshot.dateMillis
+        savedStateHandle[KEY_BASE_TYPE] = baseSnapshot.transactionType.storageKey
+
+        val original = editingOriginal
+        if (original != null) {
+            savedStateHandle[KEY_ORIGINAL_AMOUNT] = original.amount
+            savedStateHandle[KEY_ORIGINAL_DATE] = original.dateMillis
+            savedStateHandle[KEY_ORIGINAL_CATEGORY] = original.categoryId
+            savedStateHandle[KEY_ORIGINAL_NOTE] = original.note.take(2000)
+            savedStateHandle[KEY_ORIGINAL_TYPE] = original.transactionType
+        } else {
+            savedStateHandle.remove<Any>(KEY_ORIGINAL_AMOUNT)
+            savedStateHandle.remove<Any>(KEY_ORIGINAL_DATE)
+            savedStateHandle.remove<Any>(KEY_ORIGINAL_CATEGORY)
+            savedStateHandle.remove<Any>(KEY_ORIGINAL_NOTE)
+            savedStateHandle.remove<Any>(KEY_ORIGINAL_TYPE)
+        }
+    }
+
+    private fun putString(key: String, value: String?) {
+        if (value == null) savedStateHandle.remove<Any>(key)
+        else savedStateHandle[key] = value
+    }
+
+    /** Drop every saved draft field; the marker is the version key. */
+    private fun clearSavedDraft() {
+        savedStateHandle.keys()
+            .filter { it.startsWith("draft.") }
+            .forEach { savedStateHandle.remove<Any>(it) }
+    }
+
+    /**
+     * Resolve a restored category id once the category snapshot arrives. The category may
+     * have been deleted while the app was gone; leaving the selection empty then is
+     * correct — the save path refuses rather than guessing another category.
+     */
+    private fun resolveRestoredCategory(categoryId: String) {
+        categoryResolveJob?.cancel()
+        categoryResolveJob = viewModelScope.launch {
+            if (_selectedCategory.value != null) return@launch
+            val list = categories.first { it.isNotEmpty() }
+            if (_selectedCategory.value == null) {
+                _selectedCategory.value = list.firstOrNull { it.id == categoryId }
+            }
+        }
     }
 }

@@ -6,9 +6,11 @@ interface BudgetProgressBarProps {
   spent: number;
   budget: number;
   currency: string;
+  /** Current-month expenses dated tomorrow or later; informational, never counted as spent. */
+  upcoming?: number;
 }
 
-export function BudgetProgressBar({ spent, budget, currency }: BudgetProgressBarProps) {
+export function BudgetProgressBar({ spent, budget, currency, upcoming = 0 }: BudgetProgressBarProps) {
   const { t } = useTranslation();
   const ratio = budget > 0 ? Math.min(spent / budget, 1) : 0;
   const overBudget = budget > 0 && spent > budget;
@@ -45,6 +47,16 @@ export function BudgetProgressBar({ spent, budget, currency }: BudgetProgressBar
       {overBudget ? (
         <p className="budget-bar__over tabular-nums">
           {t('budgetOverBy', { amount: formatAmount(spent - budget, currency) })}
+        </p>
+      ) : null}
+      {upcoming > 0 ? (
+        // F-05: the bar above stays actual-spend / budget. Future-dated rows and their
+        // anticipated total are disclosed separately so "spent" cannot be misread.
+        <p className="budget-bar__upcoming tabular-nums">
+          {t('budgetUpcomingAnticipated', {
+            upcoming: formatAmount(upcoming, currency),
+            anticipated: formatAmount(spent + upcoming, currency),
+          })}
         </p>
       ) : null}
     </div>

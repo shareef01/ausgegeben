@@ -1,6 +1,7 @@
 package com.aus.ausgegeben.ui
 
 import android.app.Application
+import androidx.lifecycle.SavedStateHandle
 import androidx.test.core.app.ApplicationProvider
 import com.aus.ausgegeben.R
 import com.aus.ausgegeben.data.CategoryActions
@@ -62,7 +63,7 @@ class AddExpenseViewModelTest {
     fun setUp() {
         java.util.Locale.setDefault(java.util.Locale.GERMANY)
         Dispatchers.setMain(dispatcher)
-        fakeCategories = FakeCategoryActions()
+        fakeCategories = FakeCategoryActions(listOf(expenseCategory, incomeCategory))
         fakeExpenses = FakeExpenseActions()
         fakePreferences = FakeTransactionPreferences()
         val app = ApplicationProvider.getApplicationContext<Application>()
@@ -702,11 +703,161 @@ class AddExpenseViewModelTest {
         assertFalse(fakeExpenses.insertCalled)
     }
 
+    // ---- F-06: draft restoration across process/configuration recreation -------------
+
+    private fun newViewModel(handle: SavedStateHandle): AddExpenseViewModel =
+        AddExpenseViewModel(
+            ApplicationProvider.getApplicationContext(),
+            fakeCategories,
+            fakeExpenses,
+            fakePreferences,
+            handle,
+        )
+
+    @Test
+    fun restoredNewDraftKeepsValuesTypeAndDirtyState() = runTest(dispatcher) {
+        val handle = SavedStateHandle()
+        val first = newViewModel(handle)
+        first.bindOwner("user-a")
+        first.setDraftType(TransactionType.INCOME)
+        first.onCategorySelect(incomeCategory)
+        first.onAmountChange("12,50")
+        first.onNoteChange("planned income")
+        advanceUntilIdle()
+
+        val restored = newViewModel(handle)
+        assertFalse(restored.bindOwner("user-a"))
+        advanceUntilIdle()
+
+        assertEquals("12,50", restored.amount.value)
+        assertEquals("planned income", restored.note.value)
+        assertEquals(TransactionType.INCOME, restored.draftType.value)
+        assertEquals(incomeCategory.id, restored.selectedCategory.value?.id)
+        // The baseline was the blank form this draft started from, so closing still
+        // prompts: a restored draft must not look pristine.
+        assertTrue(restored.hasUnsavedChanges(restored.draftType.value))
+    }
+
+    @Test
+    fun restoredEditKeepsTheLoadedOriginalForAFieldLevelPatch() = runTest(dispatcher) {
+        val handle = SavedStateHandle()
+        val original = Expense(
+            id = "e1",
+            amount = 10.0,
+            dateMillis = 1_770_000_000_000,
+            categoryId = expenseCategory.id,
+            note = "Original",
+            transactionType = "expense",
+        )
+        val first = newViewModel(handle)
+        first.bindOwner("user-a")
+        first.loadForEdit(original, listOf(expenseCategory), ownerUid = "user-a")
+        advanceUntilIdle()
+        first.onAmountChange("15,00")
+        first.onNoteChange("Changed")
+        advanceUntilIdle()
+
+        val restored = newViewModel(handle)
+        assertFalse(restored.bindOwner("user-a"))
+        advanceUntilIdle()
+
+        assertEquals("e1", restored.editingExpenseId.value)
+        assertEquals("15,00", restored.amount.value)
+        assertEquals("Changed", restored.note.value)
+        assertEquals(expenseCategory.id, restored.selectedCategory.value?.id)
+        assertTrue(restored.hasUnsavedChanges(restored.draftType.value))
+
+        restored.saveExpense(
+            TransactionType.EXPENSE,
+            onSuccess = {},
+            onError = { error -> throw AssertionError(error) },
+            currentUid = "user-a",
+        )
+        advanceUntilIdle()
+
+        assertEquals("e1", fakeExpenses.lastUpdated?.id)
+        // The original came back with the draft, so the edit remains a field-level patch
+        // (AUS-104) instead of overwriting a concurrent edit of an unchanged field.
+        assertEquals(original, fakeExpenses.lastUpdateOriginal)
+        assertFalse(fakeExpenses.insertCalled)
+    }
+
+    @Test
+    fun draftFromAnotherAccountIsDiscarded() = runTest(dispatcher) {
+        val handle = SavedStateHandle()
+        val first = newViewModel(handle)
+        first.bindOwner("user-a")
+        first.onAmountChange("12,50")
+        first.onNoteChange("account A draft")
+        advanceUntilIdle()
+
+        val restored = newViewModel(handle)
+        assertTrue(restored.bindOwner("user-b"))
+        advanceUntilIdle()
+
+        assertEquals("0", restored.amount.value)
+        assertEquals("", restored.note.value)
+        assertNull(restored.selectedCategory.value)
+        assertNull(restored.editingExpenseId.value)
+        assertFalse(restored.hasUnsavedChanges(restored.draftType.value))
+    }
+
+    @Test
+    fun resetFormClearsTheSavedDraft() = runTest(dispatcher) {
+        val handle = SavedStateHandle()
+        val first = newViewModel(handle)
+        first.bindOwner("user-a")
+        first.onAmountChange("12,50")
+        advanceUntilIdle()
+        first.resetForm()
+        advanceUntilIdle()
+
+        val restored = newViewModel(handle)
+        restored.bindOwner("user-a")
+        advanceUntilIdle()
+
+        assertEquals("0", restored.amount.value)
+        assertEquals("", restored.note.value)
+    }
+
+    @Test
+    fun restoredStaleEditReportsNotFoundWithoutInsertingTwice() = runTest(dispatcher) {
+        val handle = SavedStateHandle()
+        val stale = Expense(
+            id = "deleted-while-away",
+            amount = 10.0,
+            dateMillis = 1_770_000_000_000,
+            categoryId = expenseCategory.id,
+            note = "Original",
+            transactionType = "expense",
+        )
+        val first = newViewModel(handle)
+        first.bindOwner("user-a")
+        first.loadForEdit(stale, listOf(expenseCategory), ownerUid = "user-a")
+        advanceUntilIdle()
+
+        fakeExpenses.updateResult = Result.failure(IllegalStateException("EXPENSE_NOT_FOUND"))
+        val restored = newViewModel(handle)
+        restored.bindOwner("user-a")
+        advanceUntilIdle()
+
+        var error: String? = null
+        restored.saveExpense(TransactionType.EXPENSE, onSuccess = {}, onError = { error = it }, currentUid = "user-a")
+        advanceUntilIdle()
+
+        assertEquals(appString(R.string.snackbar_transaction_not_found), error)
+        assertTrue(fakeExpenses.updateCalled)
+        // A stale edit is never recreated as a new row, and a restored draft does not
+        // replay a save on its own.
+        assertFalse(fakeExpenses.insertCalled)
+        assertTrue(fakeExpenses.idempotencyKeys.isEmpty())
+    }
+
     private fun appString(id: Int): String =
         ApplicationProvider.getApplicationContext<Application>().getString(id)
 
-    private class FakeCategoryActions : CategoryActions {
-        private val categoriesFlow = MutableStateFlow<List<Category>>(emptyList())
+    private class FakeCategoryActions(initial: List<Category> = emptyList()) : CategoryActions {
+        private val categoriesFlow = MutableStateFlow(initial)
         override val allCategories: Flow<List<Category>> = categoriesFlow
 
         override suspend fun insertCategory(category: Category) = Result.success("id")

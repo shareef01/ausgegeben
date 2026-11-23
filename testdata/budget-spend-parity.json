@@ -1,0 +1,84 @@
+{
+  "description": "Budget spend semantics shared by Web and Android. Actual = expenses dated before the supplied cutoff; upcoming = expenses at or after it; anticipated = actual + upcoming. `spent` is kept equal to anticipated for compatibility with the existing categoryBudgetProgress contract. Categories and budgets are loaded from testdata/financial-parity.json. All timestamps are absolute millis in Europe/Berlin; the expected values follow the documented rule, not either client's output.",
+  "timeZone": "Europe/Berlin",
+  "cases": [
+    {
+      "name": "current month: actual, upcoming, a transfer, a deleted row and two same-content rows",
+      "cutoffMillis": 1778796000000,
+      "expenses": [
+        { "id": "cur-f1", "amount": 30, "dateMillis": 1777629600000, "categoryId": "cat-food", "transactionType": "expense", "note": "groceries" },
+        { "id": "cur-f2", "amount": 20, "dateMillis": 1778795940000, "categoryId": "cat-food", "transactionType": "expense", "note": "late grocery run" },
+        { "id": "cur-f3", "amount": 40, "dateMillis": 1778796000000, "categoryId": "cat-food", "transactionType": "expense", "note": "due tomorrow" },
+        { "id": "cur-f4", "amount": 10, "dateMillis": 1780264740000, "categoryId": "cat-food", "transactionType": "expense", "note": "end of month" },
+        { "id": "cur-rec-1", "amount": 7.5, "dateMillis": 1778407200000, "categoryId": "cat-food", "transactionType": "expense", "note": "weekly recurring" },
+        { "id": "cur-rec-2", "amount": 7.5, "dateMillis": 1778407200000, "categoryId": "cat-food", "transactionType": "expense", "note": "weekly recurring, second occurrence" },
+        { "id": "cur-income", "amount": 1000, "dateMillis": 1778407200000, "categoryId": "cat-salary", "transactionType": "income", "note": "salary" },
+        { "id": "cur-transfer", "amount": 500, "dateMillis": 1778407200000, "categoryId": "cat-move", "transactionType": "transfer", "note": "to savings" },
+        { "id": "cur-deleted", "amount": 99, "dateMillis": 1778407200000, "categoryId": "cat-food", "transactionType": "expense", "note": "soft deleted", "deleted": true },
+        { "id": "cur-frozen", "amount": 50, "dateMillis": 1778407200000, "categoryId": "cat-frozen", "transactionType": "expense", "note": "category is migrating" }
+      ],
+      "expected": [
+        { "categoryId": "cat-food", "spent": 115, "spentToDate": 65, "upcoming": 50, "anticipated": 115, "remaining": 0, "overspent": 15, "percent": 115, "state": "over" },
+        { "categoryId": "cat-bus", "spent": 0, "spentToDate": 0, "upcoming": 0, "anticipated": 0, "remaining": 10, "overspent": 0, "percent": 0, "state": "normal" }
+      ]
+    },
+    {
+      "name": "past month: everything is actual",
+      "cutoffMillis": 1780264800000,
+      "expenses": [
+        { "id": "past-f1", "amount": 40, "dateMillis": 1778407200000, "categoryId": "cat-food", "transactionType": "expense", "note": "May groceries" },
+        { "id": "past-b1", "amount": 4, "dateMillis": 1779271200000, "categoryId": "cat-bus", "transactionType": "expense", "note": "May transit" }
+      ],
+      "expected": [
+        { "categoryId": "cat-bus", "spent": 4, "spentToDate": 4, "upcoming": 0, "anticipated": 4, "remaining": 6, "overspent": 0, "percent": 40, "state": "normal" },
+        { "categoryId": "cat-food", "spent": 40, "spentToDate": 40, "upcoming": 0, "anticipated": 40, "remaining": 60, "overspent": 0, "percent": 40, "state": "normal" }
+      ]
+    },
+    {
+      "name": "future month: everything is upcoming",
+      "cutoffMillis": 1777629600000,
+      "expenses": [
+        { "id": "future-f1", "amount": 25, "dateMillis": 1781085600000, "categoryId": "cat-food", "transactionType": "expense", "note": "June groceries" },
+        { "id": "future-f2", "amount": 15, "dateMillis": 1781949600000, "categoryId": "cat-food", "transactionType": "expense", "note": "June groceries later" }
+      ],
+      "expected": [
+        { "categoryId": "cat-food", "spent": 40, "spentToDate": 0, "upcoming": 40, "anticipated": 40, "remaining": 60, "overspent": 0, "percent": 40, "state": "normal" },
+        { "categoryId": "cat-bus", "spent": 0, "spentToDate": 0, "upcoming": 0, "anticipated": 0, "remaining": 10, "overspent": 0, "percent": 0, "state": "normal" }
+      ]
+    },
+    {
+      "name": "month boundary: 23:59:59.999 is actual, 00:00 is upcoming",
+      "cutoffMillis": 1780264800000,
+      "expenses": [
+        { "id": "edge-f1", "amount": 10, "dateMillis": 1780264799999, "categoryId": "cat-food", "transactionType": "expense", "note": "last millisecond of May" },
+        { "id": "edge-f2", "amount": 20, "dateMillis": 1780264800000, "categoryId": "cat-food", "transactionType": "expense", "note": "first millisecond of June" }
+      ],
+      "expected": [
+        { "categoryId": "cat-food", "spent": 30, "spentToDate": 10, "upcoming": 20, "anticipated": 30, "remaining": 70, "overspent": 0, "percent": 30, "state": "normal" },
+        { "categoryId": "cat-bus", "spent": 0, "spentToDate": 0, "upcoming": 0, "anticipated": 0, "remaining": 10, "overspent": 0, "percent": 0, "state": "normal" }
+      ]
+    },
+    {
+      "name": "Berlin DST day: local calendar decides actual vs upcoming",
+      "cutoffMillis": 1774821600000,
+      "expenses": [
+        { "id": "dst-f1", "amount": 10, "dateMillis": 1774740600000, "categoryId": "cat-food", "transactionType": "expense", "note": "after midnight" },
+        { "id": "dst-f2", "amount": 20, "dateMillis": 1774819800000, "categoryId": "cat-food", "transactionType": "expense", "note": "before the next midnight" },
+        { "id": "dst-f3", "amount": 30, "dateMillis": 1774821600000, "categoryId": "cat-food", "transactionType": "expense", "note": "next local day" }
+      ],
+      "expected": [
+        { "categoryId": "cat-food", "spent": 60, "spentToDate": 30, "upcoming": 30, "anticipated": 60, "remaining": 40, "overspent": 0, "percent": 60, "state": "normal" },
+        { "categoryId": "cat-bus", "spent": 0, "spentToDate": 0, "upcoming": 0, "anticipated": 0, "remaining": 10, "overspent": 0, "percent": 0, "state": "normal" }
+      ]
+    },
+    {
+      "name": "empty month: budgets still report zero actual, zero upcoming and their limits",
+      "cutoffMillis": 1778796000000,
+      "expenses": [],
+      "expected": [
+        { "categoryId": "cat-bus", "spent": 0, "spentToDate": 0, "upcoming": 0, "anticipated": 0, "remaining": 10, "overspent": 0, "percent": 0, "state": "normal" },
+        { "categoryId": "cat-food", "spent": 0, "spentToDate": 0, "upcoming": 0, "anticipated": 0, "remaining": 100, "overspent": 0, "percent": 0, "state": "normal" }
+      ]
+    }
+  ]
+}

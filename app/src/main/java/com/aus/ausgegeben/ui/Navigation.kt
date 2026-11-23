@@ -42,6 +42,13 @@ fun mainTabFromStorageKey(key: String?): Route = when (key) {
     else -> Route.ExpenseList
 }
 
+/** Parse a persisted overlay-stack entry. Tabs are not overlays and are not restored here. */
+fun overlayRouteFromStorageKey(key: String): Route? = when (key) {
+    Route.AddTransaction.storageKey -> Route.AddTransaction
+    Route.CategoryList.storageKey -> Route.CategoryList
+    else -> null
+}
+
 val MainTabRoutes = listOf(
     Route.ExpenseList,
     Route.Insights,

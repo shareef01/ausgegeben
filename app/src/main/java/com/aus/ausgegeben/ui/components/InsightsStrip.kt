@@ -30,6 +30,8 @@ fun BudgetProgressBar(
     spent: Double,
     budget: Double,
     currencyCode: String,
+    /** Current-month expenses dated tomorrow or later; informational, never counted as spent. */
+    upcoming: Double = 0.0,
     modifier: Modifier = Modifier
 ) {
     if (budget <= 0) return
@@ -95,6 +97,21 @@ fun BudgetProgressBar(
                 ),
                 style = MaterialTheme.typography.bodySmall,
                 color = expenseColor,
+                modifier = Modifier.padding(top = AppSpacing.xs)
+            )
+        }
+        if (upcoming > 0) {
+            // Additive clarification (F-05): the bar stays actual-spend / budget. A
+            // future-dated row is shown, with the anticipated total, so this number cannot
+            // be mistaken for money already spent.
+            Text(
+                text = androidx.compose.ui.res.stringResource(
+                    com.aus.ausgegeben.R.string.budget_upcoming_anticipated,
+                    com.aus.ausgegeben.util.CurrencyUtils.formatAmount(upcoming, currencyCode),
+                    com.aus.ausgegeben.util.CurrencyUtils.formatAmount(spent + upcoming, currencyCode)
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = AppSpacing.xs)
             )
         }

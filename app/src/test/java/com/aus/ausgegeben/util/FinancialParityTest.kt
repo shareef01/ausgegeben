@@ -43,6 +43,14 @@ class FinancialParityTest {
     }
     private val expected: JSONObject get() = fixture.getJSONObject("expected")
 
+    /** F-05: shared actual/upcoming budget cases; reuses this file's categories and budgets. */
+    private val budgetSpendFixture: JSONObject by lazy {
+        val stream = checkNotNull(javaClass.classLoader!!.getResourceAsStream("budget-spend-parity.json")) {
+            "testdata/budget-spend-parity.json must be on the unit-test classpath"
+        }
+        JSONObject(stream.bufferedReader().readText())
+    }
+
     private lateinit var originalZone: TimeZone
 
     @Before
@@ -196,6 +204,58 @@ class FinancialParityTest {
             assertMoney(row.getDouble("overspent"), actual.overspent, "overspent")
             assertMoney(row.getDouble("percent"), actual.percent, "percent")
             assertEquals(row.getString("state"), actual.state)
+        }
+    }
+
+    @Test
+    fun budgetSpendSplitsActualAndUpcoming() {
+        val cases = budgetSpendFixture.getJSONArray("cases")
+        for (i in 0 until cases.length()) {
+            val case = cases.getJSONObject(i)
+            val expenses = case.getJSONArray("expenses").collect { o ->
+                Expense(
+                    id = o.getString("id"),
+                    amount = o.getDouble("amount"),
+                    dateMillis = o.getLong("dateMillis"),
+                    categoryId = o.getString("categoryId"),
+                    note = o.optString("note", ""),
+                    transactionType = o.optString("transactionType", "expense"),
+                    deleted = o.optBoolean("deleted", false),
+                )
+            }
+            val progress = categoryBudgetProgress(
+                budgets,
+                categories,
+                expenses,
+                case.getLong("cutoffMillis"),
+            )
+            val wanted = case.getJSONArray("expected")
+            assertEquals("case ${case.getString("name")}", wanted.length(), progress.size)
+            for (j in 0 until wanted.length()) {
+                val row = wanted.getJSONObject(j)
+                val actual = progress[j]
+                val label = "${case.getString("name")} / ${row.getString("categoryId")}"
+                assertEquals(label, row.getString("categoryId"), actual.budget.categoryId)
+                assertMoney(row.getDouble("spent"), actual.spent, "$label spent")
+                assertMoney(row.getDouble("spentToDate"), actual.spentToDate, "$label spentToDate")
+                assertMoney(row.getDouble("upcoming"), actual.upcoming, "$label upcoming")
+                assertMoney(row.getDouble("anticipated"), actual.anticipated, "$label anticipated")
+                assertMoney(row.getDouble("remaining"), actual.remaining, "$label remaining")
+                assertMoney(row.getDouble("overspent"), actual.overspent, "$label overspent")
+                assertMoney(row.getDouble("percent"), actual.percent, "$label percent")
+                assertEquals(label, row.getString("state"), actual.state)
+            }
+        }
+    }
+
+    @Test
+    fun budgetSpendWithoutCutoffIsTheHistoricalContract() {
+        // Callers that do not pass a cutoff (older code, backup-era tests) must see every
+        // supplied row as actual, with no invented upcoming amount.
+        for (progress in categoryBudgetProgress(budgets, categories, allExpenses)) {
+            assertMoney(progress.spent, progress.spentToDate, "spentToDate")
+            assertMoney(0.0, progress.upcoming, "upcoming")
+            assertMoney(progress.spent, progress.anticipated, "anticipated")
         }
     }
 

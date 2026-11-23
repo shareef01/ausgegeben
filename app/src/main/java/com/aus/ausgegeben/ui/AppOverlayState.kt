@@ -21,9 +21,10 @@ class AppOverlayState(
     val addViewModel: AddExpenseViewModel,
     val expenseViewModel: ExpenseViewModel,
     initialTab: Route = Route.ExpenseList,
+    initialOverlay: List<Route> = emptyList(),
 ) {
     var selectedTab by mutableStateOf(initialTab)
-    val overlayStack = mutableStateListOf<Route>()
+    val overlayStack = mutableStateListOf<Route>().apply { addAll(initialOverlay) }
 
     val currentOverlay: Route? get() = overlayStack.lastOrNull()
     val showBottomNav: Boolean get() = overlayStack.isEmpty()
@@ -68,11 +69,23 @@ fun rememberAppOverlayState(
     expenseViewModel: ExpenseViewModel,
 ): AppOverlayState {
     var savedTabKey by rememberSaveable { mutableStateOf(Route.ExpenseList.storageKey) }
+    val savedOverlayKeys = rememberSaveable { mutableStateOf(ArrayList<String>()) }
     val state = remember(addViewModel, expenseViewModel) {
-        AppOverlayState(addViewModel, expenseViewModel, mainTabFromStorageKey(savedTabKey))
+        AppOverlayState(
+            addViewModel,
+            expenseViewModel,
+            mainTabFromStorageKey(savedTabKey),
+            savedOverlayKeys.value.mapNotNull(::overlayRouteFromStorageKey),
+        )
     }
     LaunchedEffect(state.selectedTab) {
         savedTabKey = state.selectedTab.storageKey
+    }
+    // Persist the overlay stack so rotation/process death keeps an open editor. The draft
+    // it shows comes from AddExpenseViewModel's own SavedStateHandle.
+    val overlayKeys = state.overlayStack.map { it.storageKey }
+    LaunchedEffect(overlayKeys) {
+        savedOverlayKeys.value = ArrayList(overlayKeys)
     }
     return state
 }

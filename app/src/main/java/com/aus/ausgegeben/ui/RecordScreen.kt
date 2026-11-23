@@ -215,10 +215,19 @@ fun RecordScreen(
                         val monthSpent = remember(uiState.data.monthExpenses) {
                             uiState.data.monthExpenses.asSequence().filter { it.isExpense() }.map { it.amount }.sumMoney()
                         }
+                        // F-05: future-dated current-month expenses are shown separately;
+                        // they never move `spent`/the progress bar.
+                        val monthUpcoming = remember(uiState.data.monthUpcomingExpenses) {
+                            uiState.data.monthUpcomingExpenses.asSequence()
+                                .filter { it.isExpense() }
+                                .map { it.amount }
+                                .sumMoney()
+                        }
                         BudgetProgressBar(
                             spent = monthSpent,
                             budget = budget,
                             currencyCode = currencyCode,
+                            upcoming = monthUpcoming,
                         )
                     }
                 }

@@ -10,6 +10,7 @@ import {
   computePeriodInsights,
   computeTotals,
   groupByCategory,
+  startOfTomorrowMillis,
 } from '@/utils/analytics';
 import {
   analyticsDateRangeMillis,
@@ -247,5 +248,9 @@ export function useInsightsViewModel() {
 
   const currentMonth = thisMonthRange();
   const showCategoryBudgets = range?.[0] === currentMonth[0] && range?.[1] === currentMonth[1];
-  return { uiState, categories, budgetExpenses: expenses, budgetIncomplete, showCategoryBudgets, periodOptions, setAnalyticsPeriod, reload };
+  // F-05: category-budget cards distinguish actual (before tomorrow) from upcoming
+  // (future-dated current-month rows). The cutoff is derived from the same local day the
+  // rest of Insights uses, so it moves at midnight without a new data read.
+  const budgetCutoffMillis = startOfTomorrowMillis(today);
+  return { uiState, categories, budgetExpenses: expenses, budgetIncomplete, showCategoryBudgets, budgetCutoffMillis, periodOptions, setAnalyticsPeriod, reload };
 }

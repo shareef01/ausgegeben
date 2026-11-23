@@ -458,11 +458,25 @@ fun CategoryBudgetProgressSection(
                             )
                         }
 
-                        Text(
-                            text = CurrencyUtils.formatAmount(p.spent, currency) + " / " + CurrencyUtils.formatAmount(p.budget.monthlyLimit, currency),
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            Text(
+                                text = stringResource(
+                                    if (p.upcoming > 0) R.string.category_budget_anticipated
+                                    else R.string.category_budget_spent
+                                ),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = readableSecondaryColor(),
+                            )
+                            Text(
+                                text = CurrencyUtils.formatAmount(p.spent, currency) + " / " +
+                                    CurrencyUtils.formatAmount(p.budget.monthlyLimit, currency),
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
                     }
 
                     LinearProgressIndicator(
@@ -475,6 +489,20 @@ fun CategoryBudgetProgressSection(
                             .clip(CircleShape)
                             .semantics { contentDescription = p.category.name }
                     )
+
+                    if (p.upcoming > 0) {
+                        // Additive clarification (F-05): the progress above keeps its
+                        // anticipated meaning, while this line separates money already
+                        // spent from future-dated, committed rows.
+                        Text(
+                            text = stringResource(R.string.category_budget_spent_to_date) + ": " +
+                                CurrencyUtils.formatAmount(p.spentToDate, currency) + " · " +
+                                stringResource(R.string.category_budget_upcoming) + ": " +
+                                CurrencyUtils.formatAmount(p.upcoming, currency),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = readableSecondaryColor()
+                        )
+                    }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),

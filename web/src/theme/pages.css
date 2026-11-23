@@ -1055,6 +1055,13 @@
   color: var(--color-expense-text);
 }
 
+.budget-bar__upcoming {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-on-surface-variant);
+}
+
 /* ═══════════════════════════════════════════════════
  *  DONUT CHART
  *  ═══════════════════════════════════════════════════ */
@@ -4788,6 +4795,12 @@
   font-size: 0.8125rem;
   line-height: 1.45;
   color: var(--color-on-surface-variant);
+}
+
+/* F-05: actual vs upcoming split under an anticipated budget total. */
+.category-budgets .category-budget-split {
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .category-budgets--empty {

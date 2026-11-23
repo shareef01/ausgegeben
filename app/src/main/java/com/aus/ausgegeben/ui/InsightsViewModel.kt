@@ -47,6 +47,11 @@ data class InsightsUiState(
     val budgetExpenses: List<Expense> = emptyList(),
     val categoryBudgetProgress: List<com.aus.ausgegeben.data.entity.CategoryBudgetProgress> = emptyList(),
     val budgetIncomplete: Boolean = true,
+    /**
+     * Local-midnight start of tomorrow, used to split a category budget into actual
+     * (dated before it) and upcoming (dated at/after it) spending.
+     */
+    val budgetCutoffMillis: Long = Long.MAX_VALUE,
     val periodKey: String = AnalyticsPeriod.THIS_MONTH.storageKey,
     val periodLabel: String = "",
     val totalExpenses: Double = 0.0,
@@ -137,7 +142,7 @@ class InsightsViewModel @Inject constructor(
         )
 
     val uiState: StateFlow<InsightsUiState> = combine(baseState, expenseActions.categoryBudgets, expenseActions.recordIncomplete) { state, budgets, incomplete ->
-        state.copy(categoryBudgetProgress = com.aus.ausgegeben.data.entity.categoryBudgetProgress(budgets.budgets, state.budgetCategories, state.budgetExpenses), budgetIncomplete = incomplete || budgets.incomplete || budgets.error)
+        state.copy(categoryBudgetProgress = com.aus.ausgegeben.data.entity.categoryBudgetProgress(budgets.budgets, state.budgetCategories, state.budgetExpenses, state.budgetCutoffMillis), budgetIncomplete = incomplete || budgets.incomplete || budgets.error)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InsightsUiState())
 
     init {
@@ -346,6 +351,7 @@ internal fun buildInsightsState(
         categoryMovers = categoryMovers,
         allTimeAverages = allTimeAverages,
         isLoading = false,
+        budgetCutoffMillis = startOfTomorrowMillis(nowMillis),
         // Reported by the listener; re-deriving from scoped.size could not tell a
         // complete result of exactly the cap from a truncated one.
         dataTruncated = periodKey == AnalyticsPeriod.ALL_TIME.storageKey && truncated,
@@ -358,6 +364,7 @@ internal fun insightsStatesEquivalent(previous: InsightsUiState, current: Insigh
         previous.budgetExpenses != current.budgetExpenses ||
         previous.periodLabel != current.periodLabel ||
         previous.currency != current.currency ||
+        previous.budgetCutoffMillis != current.budgetCutoffMillis ||
         previous.totalExpenses != current.totalExpenses ||
         previous.totalIncome != current.totalIncome ||
         previous.totalTransfers != current.totalTransfers ||

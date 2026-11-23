@@ -307,6 +307,7 @@
     <string name="budget_monthly_label">monatsbudget</string>
     <string name="budget_progress">%1$s / %2$s</string>
     <string name="budget_over_by">%1$s über budget</string>
+    <string name="budget_upcoming_anticipated">Anstehend %1$s · voraussichtlich %2$s</string>
 
     <!-- Bills charts -->
     <string name="bills_section_expenses">ausgaben</string>
@@ -438,6 +439,10 @@
     <string name="category_budget_unallocated">Nicht zugewiesen</string>
     <string name="category_budget_above">Über dem Gesamtbudget</string>
     <string name="category_budget_remaining">Verbleibend</string>
+    <string name="category_budget_spent">Ausgegeben</string>
+    <string name="category_budget_anticipated">Voraussichtlich</string>
+    <string name="category_budget_spent_to_date">Bisher ausgegeben</string>
+    <string name="category_budget_upcoming">Anstehend</string>
     <string name="category_budget_overspent">Überschritten um</string>
     <string name="category_budget_warning">Warnschwelle erreicht</string>
     <string name="category_budget_reached">Budget erreicht</string>

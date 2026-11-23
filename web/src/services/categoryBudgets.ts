@@ -54,15 +54,46 @@ async function commitBudget(uid: string, budget: CategoryBudget | null, category
   });
 }
 
-export function categoryBudgetProgress(budgets: CategoryBudget[], categories: Category[], expenses: Expense[]) {
+export function categoryBudgetProgress(
+  budgets: CategoryBudget[],
+  categories: Category[],
+  expenses: Expense[],
+  /** Local-midnight start of tomorrow: rows at/after it are upcoming, not spent yet. */
+  cutoffMillis?: number,
+) {
   const cats = new Map(categories.filter(c => c.transactionType === 'expense' && !c.migrationState).map(c => [c.id, c]));
   const spent = new Map<string, number>();
-  for (const e of expenses) if (!e.deleted && e.transactionType === 'expense') spent.set(e.categoryId, (spent.get(e.categoryId) ?? 0) + toMinorUnits(e.amount));
+  const spentToDate = new Map<string, number>();
+  for (const e of expenses) {
+    if (e.deleted || e.transactionType !== 'expense') continue;
+    const minor = toMinorUnits(e.amount);
+    spent.set(e.categoryId, (spent.get(e.categoryId) ?? 0) + minor);
+    // Without a cutoff this is the historical contract: every supplied row counts as
+    // spent, and upcoming is zero. With a cutoff, only rows dated before tomorrow are
+    // actual; the rest are committed/planned spending for the reporting month.
+    if (cutoffMillis == null || e.dateMillis < cutoffMillis) {
+      spentToDate.set(e.categoryId, (spentToDate.get(e.categoryId) ?? 0) + minor);
+    }
+  }
   return budgets.filter(b => cats.has(b.categoryId)).map(b => {
     const limit = toMinorUnits(b.monthlyLimit), used = spent.get(b.categoryId) ?? 0;
-    return { ...b, category: cats.get(b.categoryId)!, spent: used / 100, remaining: Math.max(0, limit - used) / 100,
-      overspent: Math.max(0, used - limit) / 100, percent: used * 100 / limit,
-      state: used > limit ? 'over' : used === limit ? 'reached' : used * 100 >= limit * b.warningThresholdPercent ? 'warning' : 'normal' };
+    const actual = spentToDate.get(b.categoryId) ?? 0;
+    return {
+      ...b,
+      category: cats.get(b.categoryId)!,
+      // `spent` remains the anticipated total (actual + upcoming) so existing callers,
+      // fixtures and budget state keep their meaning. The three explicit fields below
+      // are the additive clarification: actual spending, future-dated spending, and
+      // their sum.
+      spent: used / 100,
+      spentToDate: actual / 100,
+      upcoming: (used - actual) / 100,
+      anticipated: used / 100,
+      remaining: Math.max(0, limit - used) / 100,
+      overspent: Math.max(0, used - limit) / 100,
+      percent: used * 100 / limit,
+      state: used > limit ? 'over' : used === limit ? 'reached' : used * 100 >= limit * b.warningThresholdPercent ? 'warning' : 'normal',
+    };
   }).sort((a,b) => b.percent - a.percent || (a.categoryId < b.categoryId ? -1 : a.categoryId > b.categoryId ? 1 : 0));
 }
 export function budgetAllocation(budgets: CategoryBudget[], global: number | null) {
