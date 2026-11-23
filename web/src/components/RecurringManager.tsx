@@ -18,6 +18,7 @@ import { CategoryIconTile, EmptyState, LoadingListSkeleton, SignatureText } from
 import { IconAdd, IconClose, IconDelete, IconEdit, IconPause, IconPlay, IconRepeat } from './Icons';
 import { RecurringEditor } from './RecurringEditor';
 import { formatDueDate, newTemplate, recurringCategoriesFor, scheduleText } from './recurringDraft';
+import { removeRecurringWithConflictRetry, saveRecurringWithConflictRetry } from './recurringConflictRetry';
 
 /** The Settings → Data row; opens the recurring panel. */
 export function RecurringManager() {
@@ -133,18 +134,7 @@ export function RecurringPanel({ owner, close }: { owner: string; close: () => v
 
   const toggle = async (row: RecurringTemplate) =>
     mutate(row.id, async () => {
-      const desiredEnabled = !row.enabled;
-      try {
-        await recurringRepository.save(owner, { ...row, enabled: desiredEnabled }, row.updatedAt);
-      } catch (error) {
-        if (!(error instanceof Error) || error.message !== 'RECURRING_CONFLICT') throw error;
-        // The save-in catches up today's occurrence and advances the template revision.
-        // A pause tapped while that pass is landing therefore carries a stale revision.
-        // Re-read once and retry the same intent; a deleted row still fails closed.
-        const fresh = (await recurringRepository.getAll(owner)).find((r) => r.id === row.id);
-        if (!fresh) throw error;
-        await recurringRepository.save(owner, { ...fresh, enabled: desiredEnabled }, fresh.updatedAt);
-      }
+      await saveRecurringWithConflictRetry(recurringRepository, owner, row, !row.enabled);
       if (row.enabled === false) void syncRecurring();
     });
 
@@ -314,16 +304,7 @@ export function RecurringPanel({ owner, close }: { owner: string; close: () => v
         confirmLabel={t('actionDelete')}
         confirmDisabled={!!busy}
         onCancel={() => { if (!busy) setRemoving(null); }}
-        onConfirm={() => { if (removing) void mutate(removing.id, async () => {
-          try {
-            await recurringRepository.remove(owner, removing.id, removing.updatedAt);
-          } catch (error) {
-            if (!(error instanceof Error) || error.message !== 'RECURRING_CONFLICT') throw error;
-            const fresh = (await recurringRepository.getAll(owner)).find((r) => r.id === removing.id);
-            if (!fresh) throw error;
-            await recurringRepository.remove(owner, removing.id, fresh.updatedAt);
-          }
-        }, t('recurringDeleted')); }}
+        onConfirm={() => { if (removing) void mutate(removing.id, () => removeRecurringWithConflictRetry(recurringRepository, owner, removing), t('recurringDeleted')); }}
       />
     </>
   );
