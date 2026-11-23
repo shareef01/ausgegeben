@@ -1,6 +1,7 @@
 /**
  * Responsive measurement sweep of the real app across the full viewport matrix
- * (phones → 2560px, the 767/768, 1023/1024 and 1439/1440 boundaries, short landscape).
+ * (phones → 2560px, the 767/768, 1023/1024 and 1439/1440 boundaries, short landscape), plus
+ * one pixel either side of the phone-range rules at 380, 400, 430 and 520px.
  *
  *   emulators + `npx vite --mode emulator --port 5183` + `node scripts/seed-qa-data.mjs`
  *   node qa/responsive-audit.mjs <label> [base] [--shots]
@@ -13,6 +14,7 @@
  *   - truncated text in Insights category rows
  *   - on Record, whether keyboard focus order follows the visual column order
  * Exit code is the number of FAIL lines. Screenshots (with --shots) go to ../docs/design-qa/responsive/<label>/.
+ * --themes adds a pass over every theme at 390px and 1440px (same measurements plus a shot each).
  */
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
@@ -21,12 +23,16 @@ import { fileURLToPath } from 'node:url';
 
 const args = process.argv.slice(2);
 const shots = args.includes('--shots');
+const themes = args.includes('--themes');
 const [label = 'now', base = 'http://127.0.0.1:5183'] = args.filter((a) => !a.startsWith('--'));
 const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'docs', 'design-qa', 'responsive', label);
 if (shots) mkdirSync(OUT, { recursive: true });
 
 const VIEWPORTS = [
   [320, 568], [360, 640], [375, 667], [390, 844], [430, 932],
+  // Phone-range rules: max-width 379px (ios/pages), min-width 400px (global/index),
+  // min-width 430px (index), max-width 519/520px (pages). One pixel either side of each.
+  [379, 800], [380, 800], [399, 800], [400, 800], [401, 800], [429, 900], [431, 900], [519, 900], [520, 900], [521, 900],
   [600, 900], [767, 1024], [768, 1024], [820, 1180], [1023, 768], [1024, 768], [1024, 1366],
   [1280, 800], [1366, 768], [1439, 900], [1440, 900], [1600, 1000], [1920, 1080], [2560, 1440],
   [844, 390], [932, 430], // phones in landscape (short height)
@@ -196,6 +202,35 @@ for (const scheme of ['dark', 'light']) {
       const monotonic = xs.every((x, i) => i === 0 || x >= xs[i - 1] - 4 || order[i].region === 'list' && order[i - 1].region !== 'list' && w < 1440);
       line(monotonic, `Record focus order follows visual order @${w}: ${order.map((o) => `${o.region}@${o.x}`).join(' → ')}`);
     }
+    await context.close();
+  }
+}
+
+// Every theme at one phone and one desktop width: the same measurements, plus screenshots to
+// compare. Themes are switched through the preferences store, as the Settings picker does.
+if (themes) {
+  const ALL_THEMES = ['light', 'dark', 'amoled', 'midnight', 'ocean', 'forest', 'sunset', 'lavender', 'soft_light'];
+  for (const [w, h] of [[390, 844], [1440, 900]]) {
+    const { context, page, touch } = await signedInPage(w, h, 'dark');
+    for (const theme of ALL_THEMES) {
+      await page.evaluate(async (mode) => {
+        const mod = await import(/* @vite-ignore */ '/src/services/preferencesStore.ts');
+        mod.usePreferencesStore.getState().setThemeMode(mode);
+      }, theme);
+      for (const tab of TABS) {
+        await gotoTab(page, tab);
+        const m = await page.evaluate(measure, touch);
+        const at = `${tab} @${w}×${h} theme=${theme}`;
+        line(m.sw <= m.vw, `no horizontal overflow — ${at}${m.overflowers.length ? `: ${m.overflowers.join(', ')}` : ''}`);
+        line(m.small.length === 0, `targets ≥24px — ${at}${m.small.length ? `: ${m.small.join(', ')}` : ''}`);
+        if (shots) await page.screenshot({ path: join(OUT, `theme-${theme}-${tab}-${w}.png`), fullPage: false });
+      }
+    }
+    // Leave the seeded (emulator-only) account on the system theme for the next run.
+    await page.evaluate(async () => {
+      const mod = await import(/* @vite-ignore */ '/src/services/preferencesStore.ts');
+      mod.usePreferencesStore.getState().setThemeMode('system');
+    });
     await context.close();
   }
 }

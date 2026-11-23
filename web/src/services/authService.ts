@@ -8,6 +8,8 @@ import {
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
+  type Auth,
+  type User,
 } from 'firebase/auth';
 import {
   broadcastSessionInvalidated,
@@ -64,10 +66,13 @@ async function clearFirebaseAuthSessionLocally(): Promise<void> {
  * signed-in UI (detaching its listeners) the same way it does for a same-tab sign-out.
  */
 function handleSessionInvalidatedElsewhere(): void {
+  // Hold the sign-in form until this tab's own Firebase session is gone: a sign-in that
+  // started before the local signOut ran would otherwise be signed straight out again.
+  useAuthStore.getState().setEndingSession(true);
   useAuthStore.getState().setUser(null);
   usePreferencesStore.getState().resetPreferences();
   resetTabParamForNewSession();
-  void clearFirebaseAuthSessionLocally().catch((error) => {
+  void clearFirebaseAuthSessionLocally().finally(() => useAuthStore.getState().setEndingSession(false)).catch((error) => {
     // Failure here leaves this tab's durable session copy behind (a reload could
     // restore it) — make that visible instead of silently ignoring it, matching how
     // broadcast-triggered cache clearing reports failures.
@@ -180,25 +185,14 @@ export const authService = {
   async signOut(): Promise<void> {
     const auth = getFirebaseAuth();
     const uid = auth?.currentUser?.uid;
-    if (auth) await signOut(auth);
-    // Every local step runs even if one fails; the cleanup result decides whether the
-    // sign-out can be reported as clean. An empty uid is used only for the (defensive)
-    // no-session path: the journal/onboarding steps are then no-ops, while the shared
-    // caches and residual credentials are still cleared.
-    const cleanup = await runLocalCleanup({ uid: uid ?? '', mode: 'sign-out' });
-    useAuthStore.getState().setUser(null);
-    usePreferencesStore.getState().resetPreferences();
-    // Tell every other open tab this account signed out (AUTH-2) — session-only
-    // persistence has no built-in cross-tab signal, so without this a tab that did not
-    // itself sign out could keep rendering as authenticated and keep writing to
-    // Firestore indefinitely.
-    broadcastSessionInvalidated();
-    // A signed-out session must not leave its tab named in the URL (UX-4): the shell reads the
-    // tab from `?tab=`, so without this the next person signing in on this browser lands on
-    // whichever screen the previous one was on. Reset here because the shell unmounts on sign-out
-    // and cannot clean up after itself.
-    resetTabParamForNewSession();
-    if (!cleanup.complete) throw new LocalCleanupError(cleanup);
+    // Until the local wipe below has finished, App shows the loading screen rather than
+    // the sign-in form (see AuthStore.endingSession).
+    useAuthStore.getState().setEndingSession(true);
+    try {
+      await finishSignOut(auth, uid);
+    } finally {
+      useAuthStore.getState().setEndingSession(false);
+    }
   },
 
   /** Spark-safe protocol: reauth, freeze writes, server-verified wipe, then Auth delete. */
@@ -226,40 +220,81 @@ export const authService = {
     await expenseRepository.markAccountDeletionPending();
     await expenseRepository.deleteAllUserData();
 
+    // Auth reports the signed-out user from inside deleteUser, before the local wipe:
+    // keep the sign-in form back until that wipe is done (see AuthStore.endingSession).
+    // App only gates on this once the user is gone, so a failed deletion still returns
+    // to the signed-in Settings screen with its error.
+    useAuthStore.getState().setEndingSession(true);
     try {
-      await deleteUser(user);
-    } catch (error) {
-      // A response can be lost after Auth accepted deletion. Reload distinguishes that
-      // from a retryable terminal-stage failure; the marker remains either way.
-      try {
-        await user.reload();
-        throw new Error('deletion_incomplete', { cause: error });
-      } catch (reloadError) {
-        if ((reloadError as { code?: string })?.code !== 'auth/user-not-found') {
-          if ((reloadError as Error)?.message === 'deletion_incomplete') throw reloadError;
-          throw new Error('deletion_incomplete', { cause: error });
-        }
-      }
+      await finishAccountDeletion(user);
+    } finally {
+      useAuthStore.getState().setEndingSession(false);
     }
-
-    // Every local wipe is attempted even if another fails. The result is the only
-    // evidence of whether residual financial data was actually removed; when it is
-    // incomplete the caller shows a warning and a durable marker lets the next launch
-    // finish the job, without needing the deleted account's credentials.
-    const cleanup = await runLocalCleanup({ uid: user.uid, mode: 'delete-account' });
-    useAuthStore.getState().setUser(null);
-    usePreferencesStore.getState().resetPreferences();
-    // See AUTH-2: tell every other open tab this account is gone.
-    broadcastSessionInvalidated();
-    // Account deletion starts on Settings; without this the next sign-in lands there (UX-4).
-    resetTabParamForNewSession();
-    if (!cleanup.complete) throw new LocalCleanupError(cleanup);
   },
 
   isAvailable(): boolean {
     return isFirebaseConfigured();
   },
 };
+
+/** The Firebase sign-out and local wipe of signOut, run while endingSession is set. */
+async function finishSignOut(auth: Auth | null, uid: string | undefined): Promise<void> {
+  if (auth) await signOut(auth);
+  // Tell every other open tab this account signed out (AUTH-2) — session-only
+  // persistence has no built-in cross-tab signal, so without this a tab that did not
+  // itself sign out could keep rendering as authenticated and keep writing to
+  // Firestore indefinitely. Sent before the local wipe, not after it: the wipe can take
+  // up to its 20 s cache timeout, and a reload or close of this tab in that window used
+  // to drop the broadcast entirely, leaving other tabs signed in (measured in
+  // e2e/crossTabAccounts.spec.ts). The interrupted wipe itself resumes from its marker.
+  broadcastSessionInvalidated();
+  // Every local step runs even if one fails; the cleanup result decides whether the
+  // sign-out can be reported as clean. An empty uid is used only for the (defensive)
+  // no-session path: the journal/onboarding steps are then no-ops, while the shared
+  // caches and residual credentials are still cleared.
+  const cleanup = await runLocalCleanup({ uid: uid ?? '', mode: 'sign-out' });
+  useAuthStore.getState().setUser(null);
+  usePreferencesStore.getState().resetPreferences();
+  // A signed-out session must not leave its tab named in the URL (UX-4): the shell reads the
+  // tab from `?tab=`, so without this the next person signing in on this browser lands on
+  // whichever screen the previous one was on. Reset here because the shell unmounts on sign-out
+  // and cannot clean up after itself.
+  resetTabParamForNewSession();
+  if (!cleanup.complete) throw new LocalCleanupError(cleanup);
+}
+
+/** The Auth delete and local wipe of deleteAccount, run while endingSession is set. */
+async function finishAccountDeletion(user: User): Promise<void> {
+  try {
+    await deleteUser(user);
+  } catch (error) {
+    // A response can be lost after Auth accepted deletion. Reload distinguishes that
+    // from a retryable terminal-stage failure; the marker remains either way.
+    try {
+      await user.reload();
+      throw new Error('deletion_incomplete', { cause: error });
+    } catch (reloadError) {
+      if ((reloadError as { code?: string })?.code !== 'auth/user-not-found') {
+        if ((reloadError as Error)?.message === 'deletion_incomplete') throw reloadError;
+        throw new Error('deletion_incomplete', { cause: error });
+      }
+    }
+  }
+
+  // See AUTH-2: tell every other open tab this account is gone — before the local wipe,
+  // for the same reason as in finishSignOut.
+  broadcastSessionInvalidated();
+  // Every local wipe is attempted even if another fails. The result is the only
+  // evidence of whether residual financial data was actually removed; when it is
+  // incomplete the caller shows a warning and a durable marker lets the next launch
+  // finish the job, without needing the deleted account's credentials.
+  const cleanup = await runLocalCleanup({ uid: user.uid, mode: 'delete-account' });
+  useAuthStore.getState().setUser(null);
+  usePreferencesStore.getState().resetPreferences();
+  // Account deletion starts on Settings; without this the next sign-in lands there (UX-4).
+  resetTabParamForNewSession();
+  if (!cleanup.complete) throw new LocalCleanupError(cleanup);
+}
 
 /**
  * Put the tab back to `record` in the URL after a session ends (UX-4).

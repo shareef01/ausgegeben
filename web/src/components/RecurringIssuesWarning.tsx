@@ -2,9 +2,14 @@ import { Suspense, lazy, useEffect, useState } from 'react';
 import { useTranslation } from '@/i18n';
 import { useAuthStore } from '@/services/authStore';
 import { useRecurringStore } from '@/services/recurringStore';
+import { guardChunkImport } from '@/services/staleBuild';
+import { staleBuildModule } from './StaleBuildNotice';
 
 // Loaded on demand: the warning is in the app shell, the panel only matters once someone taps Review.
-const RecurringPanel = lazy(() => import('./RecurringManager').then((m) => ({ default: m.RecurringPanel })));
+const RecurringPanel = lazy(guardChunkImport(
+  () => import('./RecurringManager').then((m) => ({ default: m.RecurringPanel })),
+  () => staleBuildModule as never,
+));
 
 /** Affected-template count for the quarantine warning; 0 means "show nothing". */
 export function recurringWarningTemplates(
