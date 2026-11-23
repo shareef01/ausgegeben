@@ -55,7 +55,10 @@ async function gotoTab(page: Page, tab: 'record' | 'insights' | 'settings') {
 }
 
 test('no horizontal overflow on either side of every layout breakpoint, both themes', async ({ browser }) => {
-  test.setTimeout(60_000);
+  // 2 themes × 6 widths, each with a fresh browser context and a full emulator sign-in.
+  // The per-iteration assertions are fast; the budget is for twelve auth round-trips on a
+  // loaded machine (the original 60 s cap was exceeded here without a single failed check).
+  test.setTimeout(180_000);
   await createVerifiedUser('responsive-a@example.com', password);
   for (const colorScheme of ['dark', 'light'] as const) {
     for (const width of [767, 768, 1023, 1024, 1439, 1440]) {

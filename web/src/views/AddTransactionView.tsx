@@ -96,7 +96,12 @@ export function AddTransactionView({
 
   const amountError = vm.error === t('errorValidAmount');
   const categoryError = vm.error === t('errorChooseCategory');
-  const formErrorId = vm.error ? 'add-txn-error' : undefined;
+  // Each error region has its own id. The three messages are mutually exclusive today
+  // (`vm.error` is one string), but a shared id was a trap: any future change that shows a
+  // field error beside the form-level one would emit duplicate ids, and `aria-describedby`
+  // would silently resolve to whichever copy came first in the DOM.
+  const amountErrorId = amountError ? 'add-txn-amount-error' : undefined;
+  const categoryErrorId = categoryError ? 'add-txn-category-error' : undefined;
 
   const handleSave = async () => {
     const result = await vm.save();
@@ -168,11 +173,11 @@ export function AddTransactionView({
                 onChange={(e) => vm.setAmountInput(e.target.value)}
                 disabled={vm.loadFailed}
                 aria-invalid={amountError || undefined}
-                aria-describedby={amountError ? formErrorId : undefined}
+                aria-describedby={amountErrorId}
               />
             </div>
             {amountError ? (
-              <p id="add-txn-error" className="add-txn__error" role="alert">{vm.error}</p>
+              <p id="add-txn-amount-error" className="add-txn__error" role="alert">{vm.error}</p>
             ) : null}
           </div>
 
@@ -199,7 +204,7 @@ export function AddTransactionView({
               role="group"
               aria-labelledby="txn-category-label"
               aria-invalid={categoryError || undefined}
-              aria-describedby={categoryError ? formErrorId : undefined}
+              aria-describedby={categoryErrorId}
             >
               {vm.categories.length === 0 ? (
                 <div className="categories-empty add-txn__cats-empty">
@@ -237,7 +242,7 @@ export function AddTransactionView({
               )}
             </div>
             {categoryError ? (
-              <p id="add-txn-error" className="add-txn__error" role="alert">{vm.error}</p>
+              <p id="add-txn-category-error" className="add-txn__error" role="alert">{vm.error}</p>
             ) : null}
           </div>
 
@@ -255,7 +260,7 @@ export function AddTransactionView({
           {/* Field errors sit under their field (above); anything else, such as a failed
               save, stays at the end of the form. */}
           {vm.error && !amountError && !categoryError ? (
-            <p id="add-txn-error" className="add-txn__error" role="alert">{vm.error}</p>
+            <p id="add-txn-form-error" className="add-txn__error" role="alert">{vm.error}</p>
           ) : null}
         </div>
 
