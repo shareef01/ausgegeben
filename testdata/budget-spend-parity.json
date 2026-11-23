@@ -18,7 +18,7 @@
         { "id": "cur-frozen", "amount": 50, "dateMillis": 1778407200000, "categoryId": "cat-frozen", "transactionType": "expense", "note": "category is migrating" }
       ],
       "expected": [
-        { "categoryId": "cat-food", "spent": 115, "spentToDate": 65, "upcoming": 50, "anticipated": 115, "remaining": 0, "overspent": 15, "percent": 115, "state": "over" },
+        { "categoryId": "cat-food", "spent": 115, "spentToDate": 65, "upcoming": 50, "anticipated": 115, "remaining": 0, "overspent": 15, "percent": 115, "state": "projected" },
         { "categoryId": "cat-bus", "spent": 0, "spentToDate": 0, "upcoming": 0, "anticipated": 0, "remaining": 10, "overspent": 0, "percent": 0, "state": "normal" }
       ]
     },
@@ -71,6 +71,62 @@
         { "categoryId": "cat-bus", "spent": 0, "spentToDate": 0, "upcoming": 0, "anticipated": 0, "remaining": 10, "overspent": 0, "percent": 0, "state": "normal" }
       ]
     },
+    {
+      "name": "actual over budget",
+          "cutoffMillis": 1778796000000,
+          "expenses": [
+            { "id": "over-1", "amount": 101, "dateMillis": 1778407200000, "categoryId": "cat-food", "transactionType": "expense", "note": "already over" }
+          ],
+          "expected": [
+            { "categoryId": "cat-food", "spent": 101, "spentToDate": 101, "upcoming": 0, "anticipated": 101, "remaining": 0, "overspent": 1, "percent": 101, "state": "over" },
+            { "categoryId": "cat-bus", "spent": 0, "spentToDate": 0, "upcoming": 0, "anticipated": 0, "remaining": 10, "overspent": 0, "percent": 0, "state": "normal" }
+          ]
+        },
+        {
+          "name": "actual at the limit and one upcoming cent is projected, not over",
+          "cutoffMillis": 1778796000000,
+          "expenses": [
+            { "id": "proj-1", "amount": 100, "dateMillis": 1778407200000, "categoryId": "cat-food", "transactionType": "expense", "note": "actual at limit" },
+            { "id": "proj-2", "amount": 1, "dateMillis": 1779271200000, "categoryId": "cat-food", "transactionType": "expense", "note": "one cent upcoming" }
+          ],
+          "expected": [
+            { "categoryId": "cat-food", "spent": 101, "spentToDate": 100, "upcoming": 1, "anticipated": 101, "remaining": 0, "overspent": 1, "percent": 101, "state": "projected" },
+            { "categoryId": "cat-bus", "spent": 0, "spentToDate": 0, "upcoming": 0, "anticipated": 0, "remaining": 10, "overspent": 0, "percent": 0, "state": "normal" }
+          ]
+        },
+        {
+          "name": "actual at the limit with no upcoming is reached",
+          "cutoffMillis": 1778796000000,
+          "expenses": [
+            { "id": "reached-1", "amount": 100, "dateMillis": 1778407200000, "categoryId": "cat-food", "transactionType": "expense", "note": "exactly at limit" }
+          ],
+          "expected": [
+            { "categoryId": "cat-food", "spent": 100, "spentToDate": 100, "upcoming": 0, "anticipated": 100, "remaining": 0, "overspent": 0, "percent": 100, "state": "reached" },
+            { "categoryId": "cat-bus", "spent": 0, "spentToDate": 0, "upcoming": 0, "anticipated": 0, "remaining": 10, "overspent": 0, "percent": 0, "state": "normal" }
+          ]
+        },
+        {
+          "name": "actual at the warning threshold",
+          "cutoffMillis": 1778796000000,
+          "expenses": [
+            { "id": "warn-1", "amount": 80, "dateMillis": 1778407200000, "categoryId": "cat-food", "transactionType": "expense", "note": "threshold" }
+          ],
+          "expected": [
+            { "categoryId": "cat-food", "spent": 80, "spentToDate": 80, "upcoming": 0, "anticipated": 80, "remaining": 20, "overspent": 0, "percent": 80, "state": "warning" },
+            { "categoryId": "cat-bus", "spent": 0, "spentToDate": 0, "upcoming": 0, "anticipated": 0, "remaining": 10, "overspent": 0, "percent": 0, "state": "normal" }
+          ]
+        },
+        {
+          "name": "actual below the warning threshold",
+          "cutoffMillis": 1778796000000,
+          "expenses": [
+            { "id": "normal-1", "amount": 79, "dateMillis": 1778407200000, "categoryId": "cat-food", "transactionType": "expense", "note": "below threshold" }
+          ],
+          "expected": [
+            { "categoryId": "cat-food", "spent": 79, "spentToDate": 79, "upcoming": 0, "anticipated": 79, "remaining": 21, "overspent": 0, "percent": 79, "state": "normal" },
+            { "categoryId": "cat-bus", "spent": 0, "spentToDate": 0, "upcoming": 0, "anticipated": 0, "remaining": 10, "overspent": 0, "percent": 0, "state": "normal" }
+          ]
+        },
     {
       "name": "empty month: budgets still report zero actual, zero upcoming and their limits",
       "cutoffMillis": 1778796000000,

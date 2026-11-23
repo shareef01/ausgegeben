@@ -14,7 +14,13 @@ A category budget card and a global budget bar can be read by the same user in t
 
 `testdata/budget-spend-parity.json` is the shared contract (read by `web/src/utils/budgetSpendParity.test.ts` and Android `FinancialParityTest`). It covers the current, past and future month, a local-midnight boundary, the Europe/Berlin DST day, two same-content rows (recurring occurrences are independent rows), a transfer, a soft-deleted row, a migrating category, an empty budget month, and the no-cutoff legacy call.
 
-A remaining product decision is whether a budget warning should fire on anticipated spending (today's behaviour, now labelled) or only on actual spending. Changing that primary metric would be a semantic change, so it was not made in this pass.
+The warning state follows the approved rule:
+
+- **Actual over budget** (`spentToDate > monthlyLimit`) → red **Over budget**.
+- **Actual within budget but anticipated over** → amber **Projected to exceed budget**.
+- **Both within budget** → the existing reached / warning-threshold / normal indicators.
+
+The Insights totals dock and spending-pace badge follow the same rule. For the current month the dock labels its expense total **anticipated** and shows a `spent so far · upcoming` detail; the pace badge is amber when actual spend is still within budget but the projection is over, and red only when actual spend is already over. `percent`, `remaining` and `overspent` remain anticipated-based, and the projected card labels the overage "projected over" rather than "overspent". This is a presentation/state change only; no stored budget, preference or financial total changes. The parity fixture includes each boundary: actual over, actual at the limit plus one upcoming cent, exactly reached, the warning threshold, below it, future-dated rows, transfers and an empty month.
 
 
 ## Storage and concurrency

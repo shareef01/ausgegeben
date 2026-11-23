@@ -411,12 +411,12 @@ fun CategoryBudgetProgressSection(
                 val catColor = Color(p.category.colorInt)
                 val statusBarColor = when (p.state) {
                     "over" -> financeExpenseColor()
-                    "warning", "reached" -> financeWarningColor()
+                    "projected", "warning", "reached" -> financeWarningColor()
                     else -> financeIncomeColor()
                 }
                 val statusColor = when (p.state) {
                     "over" -> financeExpenseTextColor()
-                    "warning", "reached" -> financeWarningTextColor()
+                    "projected", "warning", "reached" -> financeWarningTextColor()
                     else -> financeIncomeTextColor()
                 }
 
@@ -513,17 +513,24 @@ fun CategoryBudgetProgressSection(
                             text = stringResource(
                                 when (p.state) {
                                     "over" -> R.string.category_budget_over
+                                    "projected" -> R.string.category_budget_projected
                                     "reached" -> R.string.category_budget_reached
                                     "warning" -> R.string.category_budget_warning
                                     else -> R.string.category_budget_normal
                                 }
-                            ) + " · ${kotlin.math.round(p.percent).toInt()}%",
+                            ) + " ·\u00A0${kotlin.math.round(p.percent).toInt()}%",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
                             color = statusColor
                         )
 
                         Text(
-                            text = stringResource(if (p.overspent > 0) R.string.category_budget_overspent else R.string.category_budget_remaining) + ": " + CurrencyUtils.formatAmount(if (p.overspent > 0) p.overspent else p.remaining, currency),
+                            text = stringResource(
+                                when {
+                                    p.state == "projected" -> R.string.category_budget_projected_over
+                                    p.overspent > 0 -> R.string.category_budget_overspent
+                                    else -> R.string.category_budget_remaining
+                                }
+                            ) + ": " + CurrencyUtils.formatAmount(if (p.overspent > 0) p.overspent else p.remaining, currency),
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                             color = if (p.overspent > 0) financeExpenseTextColor() else readableSecondaryColor()
                         )

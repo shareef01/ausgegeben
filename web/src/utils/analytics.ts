@@ -347,6 +347,8 @@ export function computeSpendingPace(
     projectedTotal,
     budget,
     projectedOverBudget,
+    actualExpenses: currentExpenses,
+    actualOverBudget: budget !== null && currentExpenses > budget,
   };
 }
 

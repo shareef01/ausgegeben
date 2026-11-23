@@ -92,6 +92,10 @@ export interface SpendingPace {
   projectedTotal: number;
   budget: number | null;
   projectedOverBudget: number | null;
+  /** Actual expense spending used for the projection (before future-dated rows). */
+  actualExpenses: number;
+  /** True when actual spending is already over the month's budget. */
+  actualOverBudget: boolean;
 }
 
 export interface CategoryMover {

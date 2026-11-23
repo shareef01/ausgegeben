@@ -46,28 +46,36 @@ test('budget cards separate actual from upcoming spending', async ({ page }) => 
     });
     await budgets.save(
       useAuthStore.getState().user.uid,
-      { categoryId: cat.id, monthlyLimit: 100, warningThresholdPercent: 80, updatedAt: Date.now() },
+      { categoryId: cat.id, monthlyLimit: 40, warningThresholdPercent: 80, updatedAt: Date.now() },
       cat.id,
       null,
     );
-    usePreferencesStore.getState().setMonthlyBudget(100);
+    usePreferencesStore.getState().setMonthlyBudget(40);
     return cat.name;
   }, { year: now.getFullYear(), month: now.getMonth(), day: now.getDate() });
 
   // Record: the global bar stays actual-spend / budget and discloses the upcoming row.
   const budgetBar = page.locator('.budget-bar');
   await expect(budgetBar).toContainText('€30.00');
-  await expect(budgetBar).toContainText('€100.00');
+  await expect(budgetBar).toContainText('€40.00');
   const upcomingLine = budgetBar.locator('.budget-bar__upcoming');
   await expect(upcomingLine).toContainText(en.budgetUpcomingAnticipated.split('{')[0].trim());
   await expect(upcomingLine).toContainText('€20.00');
   await expect(upcomingLine).toContainText('€50.00');
+  // Actual spend is within the limit, but the anticipated total is over: amber
+  // "projected", not red "over".
+  const projectedLine = budgetBar.locator('.budget-bar__projected');
+  await expect(projectedLine).toContainText(en.budgetProjectedExceed.split('{')[0].trim());
+  await expect(projectedLine).toContainText('€10.00');
 
   // Insights: the card labels the anticipated total and separates spent so far.
   await page.getByRole('button', { name: en.navInsights, exact: true }).click();
   const card = page.getByRole('region', { name: en.categoryBudgetTitle });
   await expect(card).toContainText(categoryName);
   await expect(card).toContainText(en.categoryBudgetAnticipated);
+  await expect(card).toContainText(en.categoryBudgetProjected);
+  await expect(card.locator('.category-budget-state--projected')).toBeVisible();
+  await expect(card.getByRole('progressbar', { name: categoryName })).toHaveAttribute('data-state', 'projected');
   const split = card.locator('.category-budget-split');
   await expect(split).toContainText(en.categoryBudgetSpentToDate);
   await expect(split).toContainText('€30.00');

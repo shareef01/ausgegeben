@@ -54,7 +54,13 @@ fun categoryBudgetProgress(
             remaining = maxOf(0L, limit - used) / 100.0,
             overspent = maxOf(0L, used - limit) / 100.0,
             percent = used * 100.0 / limit,
-            state = if (used > limit) "over" else if (used == limit) "reached" else if (used * 100 >= limit * b.warningThresholdPercent) "warning" else "normal",
+            // Approved F-05 rule: actual over budget is red; actual within budget but
+            // anticipated over is amber ("projected"); otherwise the existing thresholds.
+            state = if (actual > limit) "over"
+            else if (used > limit) "projected"
+            else if (used == limit) "reached"
+            else if (used * 100 >= limit * b.warningThresholdPercent) "warning"
+            else "normal",
             spentToDate = actual / 100.0,
             upcoming = (used - actual) / 100.0,
             anticipated = used / 100.0,

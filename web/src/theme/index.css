@@ -35,6 +35,8 @@
   --color-expense-text: #FB7185;
   --color-transfer-text: #94A3B8;
   --color-error-text: #FB7185;
+  --color-warning: #F59E0B;
+  --color-warning-text: #FBBF24;
   --color-accent: #FFFFFF;
   --color-on-accent: #09090B;
   --color-focus: #3B82F6;
@@ -116,6 +118,8 @@
     --color-expense-text: #B04F5D;
     --color-transfer-text: #52525B;
     --color-error-text: #B55160;
+    --color-warning: #F59E0B;
+    --color-warning-text: #92400E;
     --color-accent: #09090B;
     --color-on-accent: #FFFFFF;
     --color-focus: #3B82F6;

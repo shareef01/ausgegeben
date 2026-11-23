@@ -309,6 +309,12 @@ class FinancialParityTest {
             assertMoney(c.getDouble("dailyAverage"), actual.dailyAverage, "dailyAverage")
             assertMoney(c.getDouble("projectedTotal"), actual.projectedTotal, "projectedTotal")
             assertMoney(c.getDouble("budget"), actual.budget!!, "budget")
+            assertMoney(c.getDouble("currentExpenses"), actual.actualExpenses, "actualExpenses")
+            assertEquals(
+                "${c.getString("case")} actual-over-budget",
+                c.getDouble("currentExpenses") > c.getDouble("monthlyBudget"),
+                actual.actualExpenses > actual.budget,
+            )
             if (c.isNull("projectedOverBudget")) {
                 assertNull("${c.getString("case")} must not overshoot", actual.projectedOverBudget)
             } else {

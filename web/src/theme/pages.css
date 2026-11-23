@@ -1062,6 +1062,13 @@
   color: var(--color-on-surface-variant);
 }
 
+.budget-bar__projected {
+  margin-top: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-warning-text);
+}
+
 /* ═══════════════════════════════════════════════════
  *  DONUT CHART
  *  ═══════════════════════════════════════════════════ */
@@ -1471,6 +1478,11 @@
 .insights-badge--alert {
   background: color-mix(in srgb, var(--color-expense, #c62828) 16%, transparent);
   color: var(--color-expense-text, #c62828);
+}
+
+.insights-badge--warning {
+  background: color-mix(in srgb, var(--color-warning, #f59e0b) 16%, transparent);
+  color: var(--color-warning-text, #92400e);
 }
 
 .insights-badge--neutral {
@@ -4801,6 +4813,33 @@
 .category-budgets .category-budget-split {
   font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
+}
+
+/* Keep the separator and percentage together when a German label pushes the line to
+   a second row; the dot must not be stranded at the end of the first line. */
+.category-budgets .category-budget-percent {
+  white-space: nowrap;
+}
+
+/* Approved warning states: red only when actual spend is over; amber when the
+   anticipated total is over but actual spend is still within the limit. */
+.category-budgets .category-budget-state--over {
+  color: var(--color-expense-text);
+  font-weight: 600;
+}
+.category-budgets .category-budget-state--projected,
+.category-budgets .category-budget-state--warning,
+.category-budgets .category-budget-state--reached {
+  color: var(--color-warning-text);
+  font-weight: 600;
+}
+.category-budgets progress[data-state='over'] {
+  accent-color: var(--color-expense);
+}
+.category-budgets progress[data-state='projected'],
+.category-budgets progress[data-state='warning'],
+.category-budgets progress[data-state='reached'] {
+  accent-color: var(--color-warning);
 }
 
 .category-budgets--empty {

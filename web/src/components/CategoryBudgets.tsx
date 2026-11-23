@@ -101,9 +101,10 @@ export function CategoryBudgetInsights({
           <CategoryIconTile iconName={p.category.iconName} color={colorIntToHex(p.category.colorInt)} size={32} />
           <h3>{p.category.name}</h3>
           <p>
-            {t(p.upcoming > 0 ? 'categoryBudgetAnticipated' : 'categoryBudgetSpent')}: {formatAmount(p.spent, currency)} / {formatAmount(p.monthlyLimit, currency)} · {Math.round(p.percent)}%
+            {t(p.upcoming > 0 ? 'categoryBudgetAnticipated' : 'categoryBudgetSpent')}: {formatAmount(p.spent, currency)} / {formatAmount(p.monthlyLimit, currency)}
+            <span className="category-budget-percent"> · {Math.round(p.percent)}%</span>
           </p>
-          <progress aria-label={p.category.name} max="100" value={Math.min(100, p.percent)} />
+          <progress aria-label={p.category.name} max="100" value={Math.min(100, p.percent)} data-state={p.state} />
           {p.upcoming > 0 && (
             // Additive clarification (F-05): the progress above keeps its anticipated
             // meaning; this line separates actual from future-dated spending.
@@ -111,8 +112,20 @@ export function CategoryBudgetInsights({
               {t('categoryBudgetSpentToDate')}: {formatAmount(p.spentToDate, currency)} · {t('categoryBudgetUpcoming')}: {formatAmount(p.upcoming, currency)}
             </p>
           )}
-          {(!cached || p.state !== 'normal') && <p>{t(p.state === 'over' ? 'categoryBudgetOver' : p.state === 'reached' ? 'categoryBudgetReached' : p.state === 'warning' ? 'categoryBudgetWarning' : 'categoryBudgetNormal')}</p>}
-          <p>{t(p.overspent > 0 ? 'categoryBudgetOverspent' : 'categoryBudgetRemaining')}: {formatAmount(p.overspent || p.remaining, currency)}</p>
+          {(!cached || p.state !== 'normal') && (
+            <p className={`category-budget-state category-budget-state--${p.state}`}>
+              {t(p.state === 'over'
+                ? 'categoryBudgetOver'
+                : p.state === 'projected'
+                  ? 'categoryBudgetProjected'
+                  : p.state === 'reached'
+                    ? 'categoryBudgetReached'
+                    : p.state === 'warning'
+                      ? 'categoryBudgetWarning'
+                      : 'categoryBudgetNormal')}
+            </p>
+          )}
+          <p>{t(p.state === 'projected' ? 'categoryBudgetProjectedOver' : p.overspent > 0 ? 'categoryBudgetOverspent' : 'categoryBudgetRemaining')}: {formatAmount(p.overspent || p.remaining, currency)}</p>
         </div>
       ))}
     </section>

@@ -167,6 +167,8 @@ describe('financial parity fixture (shared with Android FinancialParityTest)', (
         projectedTotal: pace.projectedTotal,
         budget: pace.budget,
         projectedOverBudget: pace.projectedOverBudget,
+        actualExpenses: pace.currentExpenses,
+        actualOverBudget: pace.currentExpenses > pace.monthlyBudget,
       });
     }
   });

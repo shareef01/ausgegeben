@@ -92,7 +92,18 @@ export function categoryBudgetProgress(
       remaining: Math.max(0, limit - used) / 100,
       overspent: Math.max(0, used - limit) / 100,
       percent: used * 100 / limit,
-      state: used > limit ? 'over' : used === limit ? 'reached' : used * 100 >= limit * b.warningThresholdPercent ? 'warning' : 'normal',
+      // The warning state follows the approved F-05 rule: actual over budget is red;
+      // actual within budget but anticipated over is amber ("projected"); otherwise the
+      // existing reached/warning/normal thresholds apply.
+      state: actual > limit
+        ? 'over'
+        : used > limit
+          ? 'projected'
+          : used === limit
+            ? 'reached'
+            : used * 100 >= limit * b.warningThresholdPercent
+              ? 'warning'
+              : 'normal',
     };
   }).sort((a,b) => b.percent - a.percent || (a.categoryId < b.categoryId ? -1 : a.categoryId > b.categoryId ? 1 : 0));
 }

@@ -14,16 +14,36 @@ export function BudgetProgressBar({ spent, budget, currency, upcoming = 0 }: Bud
   const { t } = useTranslation();
   const ratio = budget > 0 ? Math.min(spent / budget, 1) : 0;
   const overBudget = budget > 0 && spent > budget;
+  const anticipated = spent + upcoming;
+  // Approved F-05 rule: actual over budget is red; actual within budget but the
+  // anticipated total over is amber; only then do the existing indicators apply.
+  const projectedOver = budget > 0 && !overBudget && anticipated > budget;
+  const barGradient = overBudget
+    ? 'var(--gradient-expense)'
+    : projectedOver
+      ? 'var(--gradient-warning)'
+      : 'var(--gradient-income)';
+  const barGlow = overBudget
+    ? 'var(--color-expense)'
+    : projectedOver
+      ? 'var(--color-warning)'
+      : 'var(--color-income)';
   const fillRef = useCssProps<HTMLDivElement>({
     '--bar-width': `${ratio * 100}%`,
-    '--bar-gradient': overBudget ? 'var(--gradient-expense)' : 'var(--gradient-income)',
-    '--bar-glow': overBudget ? 'var(--color-expense)' : 'var(--color-income)',
+    '--bar-gradient': barGradient,
+    '--bar-glow': barGlow,
   });
 
   if (budget <= 0) return null;
 
   const percent = Math.round(ratio * 100);
   const label = `${t('budgetMonthlyLabel')}: ${formatAmount(spent, currency)} / ${formatAmount(budget, currency)}`;
+  const stateText = overBudget
+    ? t('budgetOverBy', { amount: formatAmount(spent - budget, currency) })
+    : projectedOver
+      ? t('budgetProjectedExceed', { amount: formatAmount(anticipated - budget, currency) })
+      : null;
+  const ariaText = stateText ? `${label}. ${stateText}` : label;
 
   return (
     <div className="budget-bar px-1">
@@ -40,13 +60,13 @@ export function BudgetProgressBar({ spent, budget, currency, upcoming = 0 }: Bud
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={percent}
-        aria-valuetext={label}
+        aria-valuetext={ariaText}
       >
         <div ref={fillRef} className="budget-bar__fill" />
       </div>
-      {overBudget ? (
-        <p className="budget-bar__over tabular-nums">
-          {t('budgetOverBy', { amount: formatAmount(spent - budget, currency) })}
+      {stateText ? (
+        <p className={`${overBudget ? 'budget-bar__over' : 'budget-bar__projected'} tabular-nums`} role="status">
+          {stateText}
         </p>
       ) : null}
       {upcoming > 0 ? (

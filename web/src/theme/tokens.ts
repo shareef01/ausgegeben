@@ -23,6 +23,7 @@ export const radius = {
 const INCOME_DARK = '#10B981';
 const INCOME_LIGHT = '#157A3A';
 const EXPENSE = '#FB7185';
+const WARNING = '#F59E0B';
 const TRANSFER_DARK = '#94A3B8';
 const TRANSFER_LIGHT = '#52525B';
 const FOCUS_DARK = '#3B82F6';
@@ -47,6 +48,9 @@ export interface ThemePalette {
   expenseText: string;
   transferText: string;
   errorText: string;
+  /** Amber "projected to exceed budget" state; warningText is its AA-safe sibling. */
+  warning: string;
+  warningText: string;
   focusRing: string;
   isDark: boolean;
 }
@@ -152,6 +156,7 @@ function applyReadableTextTokens(palette: ThemePalette): void {
   palette.expenseText = readableOn(palette.expense, surfaces, 4.7);
   palette.transferText = readableOn(palette.transfer, surfaces);
   palette.errorText = readableOn(palette.error, surfaces);
+  palette.warningText = readableOn(palette.warning, surfaces);
 }
 
 const baseDark = (overrides: Partial<ThemePalette> = {}): ThemePalette => {
@@ -175,6 +180,8 @@ const baseDark = (overrides: Partial<ThemePalette> = {}): ThemePalette => {
     expenseText: EXPENSE,
     transferText: TRANSFER_DARK,
     errorText: EXPENSE,
+    warning: WARNING,
+    warningText: WARNING,
     focusRing: FOCUS_DARK,
     isDark: true,
     ...overrides,
@@ -209,6 +216,8 @@ const baseLight = (overrides: Partial<ThemePalette> = {}): ThemePalette => {
     expenseText: EXPENSE,
     transferText: TRANSFER_LIGHT,
     errorText: EXPENSE,
+    warning: WARNING,
+    warningText: WARNING,
     focusRing: '#09090B',
     isDark: false,
     ...overrides,
@@ -395,6 +404,8 @@ export function applyTheme(palette: ThemePalette): void {
   root.style.setProperty('--color-expense-text', palette.expenseText);
   root.style.setProperty('--color-transfer-text', palette.transferText);
   root.style.setProperty('--color-error-text', palette.errorText);
+  root.style.setProperty('--color-warning', palette.warning);
+  root.style.setProperty('--color-warning-text', palette.warningText);
   root.style.setProperty('--color-accent', accent);
   root.style.setProperty('--color-on-accent', onAccent);
   root.style.setProperty('--color-focus', palette.focusRing);
@@ -439,6 +450,7 @@ export function applyTheme(palette: ThemePalette): void {
 
   root.style.setProperty('--gradient-income', `linear-gradient(180deg, color-mix(in srgb, ${palette.income} 40%, white) 0%, ${palette.income} 100%)`);
   root.style.setProperty('--gradient-expense', `linear-gradient(180deg, color-mix(in srgb, ${palette.expense} 40%, white) 0%, ${palette.expense} 100%)`);
+  root.style.setProperty('--gradient-warning', `linear-gradient(180deg, color-mix(in srgb, ${palette.warning} 40%, white) 0%, ${palette.warning} 100%)`);
   root.style.setProperty('--hero-balance-gradient', `linear-gradient(180deg, ${palette.onBackground} 0%, color-mix(in srgb, ${palette.onBackground} 78%, ${palette.onSurfaceVariant}) 100%)`);
   root.style.setProperty('--hero-balance-glow', `color-mix(in srgb, ${palette.onBackground} 12%, transparent)`);
 

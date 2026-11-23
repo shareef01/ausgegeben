@@ -29,6 +29,8 @@ data class SpendingPace(
     val projectedTotal: Double,
     val budget: Double?,
     val projectedOverBudget: Double?,
+    /** Actual expense spending used for the projection (before future-dated rows). */
+    val actualExpenses: Double = 0.0,
 )
 
 data class CategoryMover(
@@ -203,6 +205,7 @@ fun computeSpendingPace(
         projectedTotal = projectedTotal,
         budget = budget,
         projectedOverBudget = projectedOverBudget,
+        actualExpenses = currentExpenses,
     )
 }
 
