@@ -306,6 +306,24 @@ fun CategoryBudgetManager(repository: AppRepository, uid: String, currency: Stri
     }
 }
 
+/**
+ * Which semantic colour the overage/remaining amount line of a category budget card takes.
+ *
+ * `over` is the only state where the amount is money already spent beyond the limit, so it is
+ * the only state that may use the expense (red) ink. `projected` means actual spending is still
+ * within budget and only the anticipated total exceeds it, so it follows the amber warning ink
+ * used by the status label directly above it. Every other state shows the remaining budget and
+ * stays neutral.
+ */
+internal enum class CategoryBudgetAmountTone { Expense, Warning, Secondary }
+
+/** Split out of the composable so the state → tone mapping is unit-testable without Compose. */
+internal fun categoryBudgetAmountTone(state: String): CategoryBudgetAmountTone = when (state) {
+    "over" -> CategoryBudgetAmountTone.Expense
+    "projected" -> CategoryBudgetAmountTone.Warning
+    else -> CategoryBudgetAmountTone.Secondary
+}
+
 @Composable
 fun CategoryBudgetProgressSection(
     progress: List<CategoryBudgetProgress>,
@@ -532,7 +550,11 @@ fun CategoryBudgetProgressSection(
                                 }
                             ) + ": " + CurrencyUtils.formatAmount(if (p.overspent > 0) p.overspent else p.remaining, currency),
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                            color = if (p.overspent > 0) financeExpenseTextColor() else readableSecondaryColor()
+                            color = when (categoryBudgetAmountTone(p.state)) {
+                                CategoryBudgetAmountTone.Expense -> financeExpenseTextColor()
+                                CategoryBudgetAmountTone.Warning -> financeWarningTextColor()
+                                CategoryBudgetAmountTone.Secondary -> readableSecondaryColor()
+                            }
                         )
                     }
                 }
