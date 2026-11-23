@@ -8,6 +8,16 @@ import org.junit.Test
 
 class PreferencesCloudSyncTest {
 
+    @Test
+    fun shouldCreateFromLocal_onlyWhenTheServerSaysTheDocumentIsMissing() {
+        // Cache-only "not found" (empty cache, slow connection) must not create the
+        // document from local defaults: that overwrote real cloud preferences.
+        assertFalse(PreferencesCloudSync.shouldCreateFromLocal(exists = false, fromCache = true))
+        assertTrue(PreferencesCloudSync.shouldCreateFromLocal(exists = false, fromCache = false))
+        assertFalse(PreferencesCloudSync.shouldCreateFromLocal(exists = true, fromCache = false))
+        assertFalse(PreferencesCloudSync.shouldCreateFromLocal(exists = true, fromCache = true))
+    }
+
     private fun validRaw(overrides: Map<String, Any?> = emptyMap()): Map<String, Any> {
         val base = mutableMapOf<String, Any?>(
             "currency" to "USD",

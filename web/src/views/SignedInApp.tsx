@@ -7,8 +7,13 @@ import { seedOnboardingForUser, usePreferencesStore } from '@/services/preferenc
 import { preferencesSync } from '@/services/preferencesSync';
 import { isPreferencesSettled, preferencesScreenFor } from '@/services/prefsLoadState';
 import { expenseRepository } from '@/repositories/expenseRepository';
+import { guardChunkImport } from '@/services/staleBuild';
+import { staleBuildModule } from '@/components/StaleBuildNotice';
 
-const OnboardingView = lazy(() => import('@/views/OnboardingView').then((module) => ({ default: module.OnboardingView })));
+const OnboardingView = lazy(guardChunkImport(
+  () => import('@/views/OnboardingView').then((module) => ({ default: module.OnboardingView })),
+  () => staleBuildModule as never,
+));
 
 export function SignedInApp({ user }: { user: AuthUser }) {
   const onboardingComplete = usePreferencesStore((s) => s.onboardingComplete);

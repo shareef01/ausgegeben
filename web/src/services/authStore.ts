@@ -24,10 +24,20 @@ interface AuthStore {
   ready: boolean;
   syncing: boolean;
   syncError: string | null;
+  /**
+   * A sign-out or account deletion is still wiping local data. Firebase reports the
+   * signed-out user before that wipe finishes, so without this the sign-in form appeared
+   * mid-cleanup: a second account signing in at that moment had its Firestore instance
+   * terminated, its "keep me signed in" choice reset, and was then signed out again — in
+   * every tab — when the first account's cleanup finished. App shows the loading screen
+   * instead of the sign-in form while this is true.
+   */
+  endingSession: boolean;
   setUser: (user: User | null) => void;
   setReady: (ready: boolean) => void;
   setSyncing: (syncing: boolean) => void;
   setSyncError: (error: string | null) => void;
+  setEndingSession: (ending: boolean) => void;
 }
 
 function toAuthUser(user: User | null): AuthUser | null {
@@ -57,6 +67,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
   ready: false,
   syncing: false,
   syncError: null,
+  endingSession: false,
   // Publishes a new snapshot only when something changed, so onAuthStateChanged
   // firing on every token refresh does not re-trigger user-keyed effects.
   setUser: (user) =>
@@ -67,4 +78,5 @@ export const useAuthStore = create<AuthStore>((set) => ({
   setReady: (ready) => set({ ready }),
   setSyncing: (syncing) => set({ syncing }),
   setSyncError: (syncError) => set({ syncError }),
+  setEndingSession: (endingSession) => set({ endingSession }),
 }));

@@ -1801,6 +1801,34 @@
   line-height: 1.5;
 }
 
+.error-screen__pending {
+  margin: 0 0 16px;
+  color: var(--color-error-text);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+/* Rendered in place of a screen whose chunk belongs to a build that is no longer
+   deployed (staleBuild.ts). Centred in whatever slot the screen would have filled. */
+.stale-build-notice {
+  margin: 48px auto;
+  max-width: 28rem;
+  padding: 0 24px;
+  text-align: center;
+}
+
+.stale-build-notice__title {
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+
+.stale-build-notice__body {
+  margin: 0;
+  color: var(--color-on-surface-variant);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
 .error-screen__actions {
   display: flex;
   flex-wrap: wrap;

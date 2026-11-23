@@ -4,6 +4,7 @@ import * as firebaseServices from './firebase';
 import * as journal from './expenseSubmissionJournal';
 import { LocalCleanupError, LOCAL_CLEANUP_PENDING_KEY, resetLocalCleanupForTests } from './localCleanup';
 import { expenseRepository } from '@/repositories/expenseRepository';
+import { useAuthStore } from './authStore';
 
 vi.mock('firebase/auth', () => ({
   signInWithEmailAndPassword: vi.fn().mockResolvedValue({ user: { uid: 'u1' } }),
@@ -159,6 +160,69 @@ describe('authService persistence integration', () => {
       await authService.signOut();
 
       expect(replaceState).not.toHaveBeenCalled();
+    });
+  });
+  // Firebase reports the signed-out user before the local wipe ends. The sign-in form must
+  // wait for that wipe: a second account signing in mid-cleanup had its Firestore instance
+  // terminated and was then signed out again, in every tab, when the cleanup finished.
+  describe('holds the sign-in form until the local wipe has finished', () => {
+    afterEach(() => useAuthStore.getState().setEndingSession(false));
+
+    it('on signOut: set while the cache is being cleared, cleared afterwards', async () => {
+      let release!: () => void;
+      const seen: boolean[] = [];
+      vi.spyOn(firebaseServices, 'clearLocalFirestoreCache').mockImplementation(() => {
+        seen.push(useAuthStore.getState().endingSession);
+        return new Promise<void>((resolve) => { release = resolve; });
+      });
+      vi.spyOn(firebaseServices, 'getFirebaseAuth').mockReturnValue({ currentUser: { uid: 'u1' } } as any);
+
+      const done = authService.signOut();
+      await vi.waitFor(() => expect(seen).toEqual([true]));
+      expect(useAuthStore.getState().endingSession).toBe(true);
+      release();
+      await done;
+      expect(useAuthStore.getState().endingSession).toBe(false);
+    });
+
+    it('on signOut: cleared even when the wipe fails', async () => {
+      vi.spyOn(firebaseServices, 'clearLocalFirestoreCache').mockRejectedValue(new Error('blocked'));
+      vi.spyOn(firebaseServices, 'getFirebaseAuth').mockReturnValue({ currentUser: { uid: 'u1' } } as any);
+
+      await expect(authService.signOut()).rejects.toBeInstanceOf(LocalCleanupError);
+      expect(useAuthStore.getState().endingSession).toBe(false);
+    });
+
+    it('on deleteAccount: set during the local wipe, cleared afterwards', async () => {
+      const seen: boolean[] = [];
+      vi.spyOn(firebaseServices, 'clearLocalFirestoreCache').mockImplementation(async () => {
+        seen.push(useAuthStore.getState().endingSession);
+      });
+      const user = { uid: 'u1', email: 'a@example.com', getIdToken: vi.fn().mockResolvedValue('t') };
+      vi.spyOn(firebaseServices, 'getFirebaseAuth').mockReturnValue({ currentUser: user } as any);
+      vi.spyOn(expenseRepository, 'markAccountDeletionPending').mockResolvedValue(undefined as any);
+      vi.spyOn(expenseRepository, 'deleteAllUserData').mockResolvedValue(undefined as any);
+
+      await authService.deleteAccount('password123');
+      expect(seen).toEqual([true]);
+      expect(useAuthStore.getState().endingSession).toBe(false);
+    });
+
+    it("on another tab's broadcast: set until this tab's own sign-out has run", async () => {
+      let onInvalidated: (() => void) | undefined;
+      vi.spyOn(firebaseServices, 'getFirebaseAuth').mockReturnValue({} as any);
+      vi.spyOn(firebaseServices, 'onSessionInvalidatedBroadcast').mockImplementation((handler) => {
+        onInvalidated = handler;
+        return () => {};
+      });
+      authService.startListener();
+      try {
+        onInvalidated?.();
+        expect(useAuthStore.getState().endingSession).toBe(true);
+        await vi.waitFor(() => expect(useAuthStore.getState().endingSession).toBe(false));
+      } finally {
+        authService.stopListener();
+      }
     });
   });
 });

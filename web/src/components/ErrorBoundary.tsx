@@ -2,6 +2,8 @@ import { Component, useState, type ErrorInfo, type ReactNode } from 'react';
 import { t } from '@/i18n';
 import type { TranslationKey } from '@/i18n';
 import { reportError } from '@/services/errorReporter';
+import { useQueuedWritesStore } from '@/services/queuedWrites';
+import { isChunkLoadError, requestReloadWhenSafe } from '@/services/staleBuild';
 
 /**
  * Translation that cannot itself crash the error screen.
@@ -48,6 +50,10 @@ async function reloadWithoutCache(): Promise<void> {
 function ErrorScreen({ error }: { error: unknown }): ReactNode {
   const [resetting, setResetting] = useState(false);
   const message = error instanceof Error ? error.message : String(error);
+  // The Firestore instance outlives this screen, so offline writes can still sync while it
+  // shows. Say so before offering a reload that would discard them (beforeunload is not a
+  // reliable guard in installed PWAs or on mobile).
+  const pendingWrites = useQueuedWritesStore((s) => s.pending > 0);
 
   return (
     <div className="error-screen" role="alert">
@@ -56,6 +62,11 @@ function ErrorScreen({ error }: { error: unknown }): ReactNode {
         <p className="error-screen__message">
           {tr('errorMessage', 'the app hit an unexpected error. reloading usually fixes it.')}
         </p>
+        {pendingWrites ? (
+          <p className="error-screen__pending">
+            {tr('errorPendingWritesWarning', 'some changes have not synced yet. reloading now loses them — reconnect first if you can.')}
+          </p>
+        ) : null}
         <div className="error-screen__actions">
           <button
             type="button"
@@ -108,6 +119,9 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
+    // An unguarded lazy chunk from a build that is no longer deployed: reload into the new
+    // build once nothing is waiting to sync, rather than leaving the user at this screen.
+    if (isChunkLoadError(error)) requestReloadWhenSafe();
     reportError('render', error, { componentStack: info.componentStack ?? undefined });
   }
 

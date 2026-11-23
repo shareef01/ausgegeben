@@ -1,12 +1,24 @@
 import { useState, useEffect, lazy, Suspense, type JSX } from 'react';
 import { useCssProps } from '@/utils/cssVars';
 import { RecordView } from '@/views/RecordView';
+import { guardChunkImport, preloadChunks } from '@/services/staleBuild';
+import { staleBuildModule } from '@/components/StaleBuildNotice';
 // Lazy-loaded so their code (and the charts Insights pulls in) is split into
 // on-demand chunks instead of the initial bundle — Record is the first view.
-const InsightsView = lazy(() => import('@/views/InsightsView').then((m) => ({ default: m.InsightsView })));
-const SettingsView = lazy(() => import('@/views/SettingsView').then((m) => ({ default: m.SettingsView })));
-const AddTransactionView = lazy(() => import('@/views/AddTransactionView').then((m) => ({ default: m.AddTransactionView })));
-const CategoriesView = lazy(() => import('@/views/CategoriesView').then((m) => ({ default: m.CategoriesView })));
+const loadInsights = () => import('@/views/InsightsView');
+const loadSettings = () => import('@/views/SettingsView');
+const loadAddTransaction = () => import('@/views/AddTransactionView');
+const loadCategories = () => import('@/views/CategoriesView');
+const loadRecurring = () => import('@/components/RecurringManager');
+// Guarded: a chunk the deployed build no longer has schedules a reload once queued writes
+// have synced, instead of crashing the app (see staleBuild.ts). The casts only widen the
+// fallback notice to each view's props; it ignores them.
+const InsightsView = lazy(guardChunkImport(() => loadInsights().then((m) => ({ default: m.InsightsView })), () => staleBuildModule as never));
+const SettingsView = lazy(guardChunkImport(() => loadSettings().then((m) => ({ default: m.SettingsView })), () => staleBuildModule as never));
+const AddTransactionView = lazy(guardChunkImport(() => loadAddTransaction().then((m) => ({ default: m.AddTransactionView })), () => staleBuildModule as never));
+const CategoriesView = lazy(guardChunkImport(() => loadCategories().then((m) => ({ default: m.CategoriesView })), () => staleBuildModule as never));
+/** Every on-demand chunk the signed-in shell can reach, warmed once the shell is idle. */
+const SHELL_CHUNKS = [loadInsights, loadSettings, loadAddTransaction, loadCategories, loadRecurring];
 import { ToastHost } from '@/components/ToastHost';
 import { RecurringIssuesWarning } from '@/components/RecurringIssuesWarning';
 import { IconAdd, IconInsights, IconRecord, IconSettings } from '@/components/Icons';
@@ -49,6 +61,18 @@ export function MainShell() {
     setTxnOverlay(null);
     setCategoriesOpen(false);
   }, [user?.uid]);
+  // Fetch the on-demand screens while this build's precache still holds them: once
+  // evaluated they no longer depend on the cache, so a service-worker update that takes
+  // over this tab later cannot leave Add or Settings unloadable (staleBuild.ts).
+  useEffect(() => {
+    const warm = () => void preloadChunks(SHELL_CHUNKS);
+    if (typeof window.requestIdleCallback === 'function') {
+      const handle = window.requestIdleCallback(warm, { timeout: 4000 });
+      return () => window.cancelIdleCallback(handle);
+    }
+    const handle = window.setTimeout(warm, 1500);
+    return () => window.clearTimeout(handle);
+  }, []);
   const [visitedTabs, setVisitedTabs] = useState<Set<AppTab>>(() => new Set([tab]));
   const [verifyDismissed, setVerifyDismissed] = useState(false);
   const [verifyBusy, setVerifyBusy] = useState(false);

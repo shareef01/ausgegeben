@@ -38,6 +38,16 @@ class PreferencesCloudSync @Inject constructor(
     private var activeScope: CoroutineScope? = null
     @Volatile private var suppressPush = false
     @Volatile private var lastWrittenAt = 0L
+    /**
+     * Bumped by every [stop]. Snapshot handling and transactions run in coroutines that
+     * outlive the listener which started them, so each one checks the generation it began
+     * in before touching shared state. After an account switch, [PreferenceManager] holds
+     * the next account's values: applying the previous account's winner there (budget,
+     * currency) or marking it ready would show one account's preferences to another, and
+     * last-write-wins could later push them onto the other account's document. Same guard
+     * as web preferencesSync.ts `sessionGeneration`.
+     */
+    @Volatile private var generation = 0L
 
     private data class CommitResult(
         val wrote: Boolean,
@@ -77,6 +87,8 @@ class PreferencesCloudSync @Inject constructor(
         activeUid = uid
         activeScope = scope
         _preferencesReady.value = false
+        val session = generation
+        fun current() = session == generation && activeUid == uid
         val ref = firestore
             .collection("users")
             .document(uid)
@@ -84,6 +96,7 @@ class PreferencesCloudSync @Inject constructor(
             .document(FirestorePaths.PREFERENCES_DOC)
 
         registration = ref.addSnapshotListener { snap, error ->
+            if (!current()) return@addSnapshotListener
             if (error != null) {
                 Log.w(TAG, "preferences listener error", error)
                 _syncError.value = mapSyncFailure(error)
@@ -92,19 +105,28 @@ class PreferencesCloudSync @Inject constructor(
             }
             scope.launch(Dispatchers.IO) {
                 try {
+                    if (!current()) return@launch
                     val localAt = preferenceManager.preferencesUpdatedAt()
-                    if (snap == null || !snap.exists()) {
-                        snapshotForPush()?.let { writeRemote(uid, it) }
+                    if (snap == null) return@launch
+                    if (!snap.exists()) {
+                        // A cache-only "not found" is not the server's answer (an empty
+                        // cache on a slow connection reports it). Creating the document
+                        // from local values here stamped them "now", and the next server
+                        // snapshot then lost last-write-wins to those defaults, overwriting
+                        // the real cloud preferences. Web has the same rule (await_server).
+                        if (shouldCreateFromLocal(exists = false, fromCache = snap.metadata.isFromCache)) {
+                            snapshotForPush()?.let { writeRemote(uid, it, session) }
+                        }
                         return@launch
                     }
                     val remote = parseRemote(snap.data) ?: return@launch
                     when (prefsLwwAction(remote.updatedAt, localAt)) {
                         PrefsLwwAction.APPLY_REMOTE -> applyRemote(remote)
-                        PrefsLwwAction.PUSH_LOCAL -> snapshotForPush()?.let { writeRemote(uid, it) }
+                        PrefsLwwAction.PUSH_LOCAL -> snapshotForPush()?.let { writeRemote(uid, it, session) }
                         PrefsLwwAction.HOLD -> _syncError.value = null
                     }
                 } finally {
-                    _preferencesReady.value = true
+                    if (current()) _preferencesReady.value = true
                 }
             }
         }
@@ -113,12 +135,13 @@ class PreferencesCloudSync @Inject constructor(
             preferenceManager.preferencesUpdatedAtFlow.collectLatest { at ->
                 if (suppressPush || activeUid != uid) return@collectLatest
                 if (at <= lastWrittenAt) return@collectLatest
-                snapshotForPush()?.let { writeRemote(uid, it) }
+                snapshotForPush()?.let { writeRemote(uid, it, session) }
             }
         }
     }
 
     fun stop() {
+        generation++
         registration?.remove()
         registration = null
         pushJob?.cancel()
@@ -134,9 +157,10 @@ class PreferencesCloudSync @Inject constructor(
     fun retry() {
         val uid = activeUid ?: return
         val scope = activeScope ?: return
+        val session = generation
         scope.launch(Dispatchers.IO) {
             lastWrittenAt = 0L
-            snapshotForPush()?.let { writeRemote(uid, it) }
+            snapshotForPush()?.let { writeRemote(uid, it, session) }
         }
     }
 
@@ -170,7 +194,9 @@ class PreferencesCloudSync @Inject constructor(
         }
     }
 
-    private suspend fun writeRemote(uid: String, prefs: SyncedPreferences) {
+    private suspend fun writeRemote(uid: String, prefs: SyncedPreferences, session: Long) {
+        fun current() = session == generation && activeUid == uid
+        if (!current()) return
         // Rules require email_verified — keep local-only until the user confirms.
         if (firebaseAuth.currentUser?.isEmailVerified != true) return
         var payload = prefs
@@ -197,6 +223,9 @@ class PreferencesCloudSync @Inject constructor(
                     CommitResult(wrote = true, winner = payload)
                 }
             }.await()
+            // Signed out or switched account while the transaction ran: its result
+            // belongs to the previous session.
+            if (!current()) return
             if (result.wrote) {
                 lastWrittenAt = result.winner.updatedAt
             } else if (result.winner.updatedAt >= preferenceManager.preferencesUpdatedAt()) {
@@ -208,7 +237,7 @@ class PreferencesCloudSync @Inject constructor(
             throw cancelled
         } catch (e: Exception) {
             Log.w(TAG, "failed to write preferences", e)
-            _syncError.value = mapSyncFailure(e)
+            if (current()) _syncError.value = mapSyncFailure(e)
         }
     }
 
@@ -226,6 +255,13 @@ class PreferencesCloudSync @Inject constructor(
             "light", "dark", "system", "amoled", "midnight",
             "ocean", "forest", "sunset", "lavender", "soft_light",
         )
+
+        /**
+         * Whether a snapshot proves the preferences document is absent, so local values
+         * may become the document. Only the server can say that; see the listener.
+         */
+        internal fun shouldCreateFromLocal(exists: Boolean, fromCache: Boolean): Boolean =
+            !exists && !fromCache
 
         internal fun parseRemote(raw: Map<String, Any>?): SyncedPreferences? {
             if (raw == null) return null

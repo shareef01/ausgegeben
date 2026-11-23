@@ -56,6 +56,15 @@ let pushInFlight: Promise<void> | null = null;
 let authoritativeRead = false;
 /** Settings the user changed before `authoritativeRead`; merged on the first read. */
 let unreadEdits = new Set<SyncedPreferenceField>();
+/**
+ * Bumped by every stop(). A transaction outlives the listener that started it, so its
+ * callbacks compare the generation they started in before touching shared state: after
+ * an account switch the store belongs to someone else, and applying the previous
+ * account's winner (budget, currency) or its "no document" answer there would show one
+ * account's preferences to another, settle the other's gate, and could be pushed onto
+ * the other's document by last-write-wins.
+ */
+let sessionGeneration = 0;
 
 function prefsRef(uid: string) {
   return doc(getFirebaseFirestore()!, 'users', uid, SETTINGS_COLLECTION, PREFERENCES_DOC);
@@ -182,7 +191,9 @@ async function writeRemote(uid: string, prefs: SyncedPreferences): Promise<void>
     return;
   }
 
-  pushInFlight = runTransaction(fs, async (transaction) => {
+  const generation = sessionGeneration;
+  const current = () => generation === sessionGeneration && activeUid === uid;
+  const inFlight: Promise<void> = runTransaction(fs, async (transaction) => {
     const ref = prefsRef(uid);
     const snapshot = await transaction.get(ref);
     const remote = snapshot.exists()
@@ -197,6 +208,7 @@ async function writeRemote(uid: string, prefs: SyncedPreferences): Promise<void>
     return null;
   })
     .then((remoteWinner) => {
+      if (!current()) return;
       if (remoteWinner &&
           remoteWinner.updatedAt >= usePreferencesStore.getState().preferencesUpdatedAt) {
         applyRemote(remoteWinner);
@@ -207,12 +219,13 @@ async function writeRemote(uid: string, prefs: SyncedPreferences): Promise<void>
     })
     .catch((err: unknown) => {
       console.warn('[prefs] failed to write preferences', err);
-      useAuthStore.getState().setSyncError(classifyPrefsError(err));
+      if (current()) useAuthStore.getState().setSyncError(classifyPrefsError(err));
     })
     .finally(() => {
-      pushInFlight = null;
+      if (pushInFlight === inFlight) pushInFlight = null;
     });
-  await pushInFlight;
+  pushInFlight = inFlight;
+  await inFlight;
 }
 
 function applyRemote(remote: SyncedPreferences): void {
@@ -292,7 +305,11 @@ export const preferencesSync = {
           authoritativeRead = true;
           // The local values, edits included, become the document.
           unreadEdits = new Set();
+          const generation = sessionGeneration;
           void writeRemote(uid, toSyncedPreferences(local)).finally(() => {
+            // Signed out (or switched account) while the document was being created:
+            // this answer belongs to the previous session, not to whoever is active now.
+            if (generation !== sessionGeneration) return;
             // The server answered "no document". This account's local value is now the
             // authoritative one — including the "onboarding not completed" default a
             // brand-new account should see. Marking it known keeps the gate's rule
@@ -400,6 +417,7 @@ export const preferencesSync = {
   },
 
   stop(): void {
+    sessionGeneration++;
     snapUnsub?.();
     snapUnsub = null;
     storeUnsub?.();

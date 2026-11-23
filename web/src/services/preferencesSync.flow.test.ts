@@ -7,6 +7,9 @@ import type { SyncedPreferences } from '@/models/types';
  */
 const fake = vi.hoisted(() => ({
   next: null as null | ((snap: unknown) => void),
+  error: null as null | ((err: unknown) => void),
+  /** When set, every transaction waits for it: a write still in flight. */
+  txGate: null as null | Promise<void>,
   includeMetadataChanges: false,
   remoteDoc: null as Record<string, unknown> | null,
   writes: [] as Record<string, unknown>[],
@@ -24,19 +27,27 @@ vi.mock('@/services/firebase', () => ({
 vi.mock('firebase/firestore', async (original) => ({
   ...(await original<typeof import('firebase/firestore')>()),
   doc: () => ({}),
-  onSnapshot: (_ref: unknown, options: { includeMetadataChanges?: boolean }, next: (snap: unknown) => void) => {
+  onSnapshot: (
+    _ref: unknown,
+    options: { includeMetadataChanges?: boolean },
+    next: (snap: unknown) => void,
+    error: (err: unknown) => void,
+  ) => {
     fake.includeMetadataChanges = options.includeMetadataChanges === true;
     fake.next = next;
-    return () => { fake.next = null; };
+    fake.error = error;
+    return () => { fake.next = null; fake.error = null; };
   },
-  runTransaction: async (_fs: unknown, update: (tx: unknown) => Promise<unknown>) =>
-    update({
+  runTransaction: async (_fs: unknown, update: (tx: unknown) => Promise<unknown>) => {
+    if (fake.txGate) await fake.txGate;
+    return update({
       get: async () => snapshot(fake.remoteDoc),
       set: (_ref: unknown, payload: Record<string, unknown>) => {
         fake.writes.push(payload);
         fake.remoteDoc = payload;
       },
-    }),
+    });
+  },
 }));
 
 import { preferencesSync } from '@/services/preferencesSync';
@@ -96,6 +107,7 @@ beforeEach(() => {
   } as Storage;
   fake.writes = [];
   fake.remoteDoc = null;
+  fake.txGate = null;
   fake.currentUser.metadata = { creationTime: undefined, lastSignInTime: undefined };
   usePreferencesStore.getState().resetPreferences();
 });
@@ -252,5 +264,115 @@ describe('continue with this device', () => {
     preferencesSync.continueWithLocal();
 
     expect(screen()).toBe('app');
+  });
+});
+
+/** A transaction the test releases by hand. */
+function holdTransactions(): () => void {
+  let release!: () => void;
+  fake.txGate = new Promise<void>((resolve) => { release = resolve; });
+  return () => { fake.txGate = null; release(); };
+}
+
+describe('account switch while a preferences write is in flight', () => {
+  it("does not settle the next account's gate with the previous account's 'no document' answer", async () => {
+    const release = holdTransactions();
+    preferencesSync.start('account-a');
+    serverSends(null); // A is brand new: create_remote starts a transaction
+
+    preferencesSync.stop(); // A signs out before the write lands
+    preferencesSync.start('account-b');
+    release();
+    await flush();
+    await flush();
+
+    const s = usePreferencesStore.getState();
+    expect(s.preferencesStatus).toBe('loading'); // B's own answer has not arrived
+    expect(s.onboardingKnown).toBe(false);
+    expect(screen()).toBe('loading'); // never onboarding for a returning B
+  });
+
+  it("never applies the previous account's preferences (budget, currency) to the next account", async () => {
+    // A edits locally; the transaction finds a newer cloud copy and returns it as the winner.
+    preferencesSync.start('account-a');
+    serverSends({ ...cloud, updatedAt: 1_000 });
+    await flush();
+    const release = holdTransactions();
+    fake.remoteDoc = { ...cloud, monthlyBudget: 9_999, currency: 'GBP', updatedAt: 9_000_000_000_000 };
+    usePreferencesStore.getState().setMonthlyBudget(123);
+
+    preferencesSync.stop();
+    usePreferencesStore.getState().resetPreferences();
+    preferencesSync.start('account-b');
+    release();
+    await flush();
+    await flush();
+
+    const s = usePreferencesStore.getState();
+    expect(s.monthlyBudget).not.toBe(9_999);
+    expect(s.currency).not.toBe('GBP');
+    expect(s.preferencesUpdatedAt).not.toBe(9_000_000_000_000);
+  });
+});
+
+describe('delayed, refused and interrupted first reads', () => {
+  it('shows recovery after the 8 s timeout and recovers by itself when the server answers late', async () => {
+    vi.useFakeTimers();
+    try {
+      preferencesSync.start('u1');
+      expect(screen()).toBe('loading');
+      vi.advanceTimersByTime(8_000);
+      expect(screen()).toBe('recovery');
+
+      serverSends({ ...cloud });
+      expect(screen()).toBe('app');
+      expect(usePreferencesStore.getState().currency).toBe('CHF');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a permission error offers recovery, and retry loads the document without writing defaults', async () => {
+    preferencesSync.start('u1');
+    fake.error!({ code: 'permission-denied' });
+    expect(screen()).toBe('recovery');
+
+    preferencesSync.retry();
+    serverSends({ ...cloud });
+    await flush();
+    expect(screen()).toBe('app');
+    expect(usePreferencesStore.getState().monthlyBudget).toBe(500);
+    expect(fake.writes).toHaveLength(0);
+  });
+
+  it('offline startup: cache-only "no document" never onboards or writes, and a late server copy settles', async () => {
+    preferencesSync.start('u1');
+    cacheSends(null);
+    cacheSends(null);
+    expect(screen()).toBe('loading');
+    expect(fake.writes).toHaveLength(0);
+
+    serverSends({ ...cloud, onboardingComplete: true });
+    await flush();
+    expect(screen()).toBe('app');
+    expect(fake.writes).toHaveLength(0);
+  });
+
+  it('continuing offline then reconnecting keeps the cloud document and the one edited field', async () => {
+    fake.currentUser.metadata = {
+      creationTime: 'Mon, 01 Jun 2026 10:00:00 GMT',
+      lastSignInTime: 'Sun, 25 Oct 2026 10:00:00 GMT',
+    };
+    preferencesSync.start('u1');
+    preferencesSync.continueWithLocal();
+    expect(screen()).toBe('app');
+    usePreferencesStore.getState().setLocale('de');
+
+    serverSends({ ...cloud, locale: 'en' });
+    await flush();
+    const s = usePreferencesStore.getState();
+    expect(s.locale).toBe('de');
+    expect(s.monthlyBudget).toBe(500);
+    expect(s.currency).toBe('CHF');
   });
 });
