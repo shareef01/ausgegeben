@@ -162,8 +162,8 @@ class FinancialParityTest {
             assertMoney(value.getDouble("income"), pair!!.first, "$day income")
             assertMoney(value.getDouble("expense"), pair.second, "$day expense")
         }
-        // Documented divergence: Android omits a transfer-only day entirely, while the web
-        // function emits a zero income/expense entry for it. Transfers carry no daily total.
+        // Both clients omit a day whose only rows are transfers: transfers carry no daily
+        // total. The fixture still names that day so the parity stays pinned.
         assertFalse(
             "transfer-only day must not produce a totals entry",
             actual.containsKey(expected.getString("dayTotalsTransferOnlyDay")),

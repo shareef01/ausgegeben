@@ -156,6 +156,11 @@ export function groupByCategory(expenses: Expense[], type: Expense['transactionT
 export function computeDayTotals(expenses: Expense[]): Record<string, { income: number; expense: number }> {
   const result: Record<string, { income: number; expense: number }> = {};
   for (const e of expenses) {
+    // A transfer contributes to neither total, so it must not create a day bucket by
+    // itself. Android's computeDayTotals skips transfers before bucketing; this function
+    // used to initialise the entry first, leaving a `{0, 0}` day that Android did not
+    // have (the documented day-header divergence, pinned by financial-parity.json).
+    if (isTransfer(e)) continue;
     const label = dayKey(e.dateMillis);
     if (!result[label]) result[label] = { income: 0, expense: 0 };
     if (isIncome(e)) result[label].income = fromMinorUnits(

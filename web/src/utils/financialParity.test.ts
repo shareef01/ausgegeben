@@ -90,15 +90,17 @@ describe('financial parity fixture (shared with Android FinancialParityTest)', (
     ][]) {
       expect(totals[bucketKey(day)], `day ${day}`).toEqual(value);
     }
-    // Documented divergence, not a miscalculation: the web function emits a zero entry for a
-    // transfer-only day, Android's omits the day entirely (transfers carry no daily total).
+    // Both clients omit a day whose only rows are transfers: transfers carry no daily
+    // total, so there is nothing to show. The fixture still names the day so this parity
+    // stays pinned rather than silently regressing on one platform.
     const transferOnly = bucketKey(expected.dayTotalsTransferOnlyDay);
     const transferDay = allExpenses.find((e) => dayKey(e.dateMillis) === transferOnly);
     expect(transferDay?.transactionType).toBe('transfer');
+    expect(totals[transferOnly]).toBeUndefined();
     const zeroDays = Object.entries(totals)
       .filter(([, v]) => v.income === 0 && v.expense === 0)
       .map(([k]) => k);
-    expect(zeroDays).toEqual([transferOnly]);
+    expect(zeroDays).toEqual([]);
   });
 
   it('averages over the months that actually contain rows', () => {
