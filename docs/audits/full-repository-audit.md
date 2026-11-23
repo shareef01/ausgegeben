@@ -57,8 +57,13 @@ path constant is added without classifying it for account deletion.
 | `cd web && npm run test:emulator` | 21 files / **190 tests passed** |
 | `./gradlew :app:testProdDebugUnitTest :app:assembleProdDebug` | **BUILD SUCCESSFUL** (5m 45s) |
 
-The web e2e suite was run after the changes; see [test-results.md](test-results.md) for the
-two default-timeout flakes and their rerun.
+The web e2e suite was run after the changes; Phase 1 ended at 34/34 after raising two
+emulator-heavy budgets. **Phase 2 re-verification** (same host): 64 files / 712 web unit
+tests, 35/35 e2e (6.4 min), 508 Android JVM tests (15 emulator-dependent cases skipped
+offline), 15/15 of those recovery cases with the Firestore/Auth emulators, **68/68 Android
+instrumentation tests**, `lintProdDebug`, and an R8 `assembleProdRelease` that was installed
+and launched on an API 36 emulator. Exact commands and timings are in
+[test-results.md](test-results.md).
 
 ---
 
@@ -73,9 +78,9 @@ check; "Open" means documented with evidence and a reason it was not changed in 
 | F-02 | Medium | The Android selected main tab was held in a plain Compose `remember`. A configuration change or process death recreated the composition and silently returned the user to Record from Insights/Settings. | `app/.../ui/AppOverlayState.kt`; `Navigation.kt` | **Fixed** |
 | F-03 | Low | The add/edit transaction dialog used one DOM id (`add-txn-error`) for three different error regions. Today `vm.error` is a single message so only one renders, but the shared id made `aria-describedby` ambiguous the moment the regions coexist. | `web/src/views/AddTransactionView.tsx` | **Fixed** (ids split + e2e assertion) |
 | F-04 | Low | A source comment pointed at `recordGrouping.test.ts`, which does not exist; the actual suite is `viewmodels/recordDayTotals.test.ts`. | `web/src/utils/recordGrouping.ts` | **Fixed** (comment corrected) |
-| F-05 | Medium | Record's global budget bar counts only rows dated up to today (`rowsCountedToDate`), while the current-month category-budget progress on Insights counts every row in the month, including future-dated ("upcoming") rows. Both platforms behave the same way, so this is a shared semantic decision rather than a parity break. | `web/src/viewmodels/useInsightsViewModel.ts` → `CategoryBudgetInsights`; Android `InsightsViewModel.budgetExpenses` | **Open — documented** |
-| F-06 | Low | Filter/search state lives in a ViewModel (survives rotation, not process death) and the add/category overlay stacks are `remember`ed (an open sheet closes on rotation). Only the main tab is now persisted. | `AppOverlayState.kt`, `ExpenseViewModel` | **Open — documented** |
-| F-07 | Low | `deleteAccount` clears the local submission journal before `clearResidualAuthStorage`/`clearLocalFirestoreCache`; an IndexedDB failure at that point would report an error and skip the remaining local cleanup. The account and cloud data are already gone, so this is a local-hygiene edge case, not a data-loss path. | `web/src/services/authService.ts` | **Open — documented** |
+| F-05 | Medium | Record's global budget bar counts only rows dated up to today (`rowsCountedToDate`), while the current-month category-budget progress on Insights counted every row in the month, including future-dated ("upcoming") rows. Both platforms behaved the same way, so this was a shared semantic ambiguity rather than a parity break. | `web/src/viewmodels/useInsightsViewModel.ts` → `CategoryBudgetInsights`; Android `InsightsViewModel.budgetExpenses`; `categoryBudgetProgress` on both | **Fixed (additive disclosure)** |
+| F-06 | Low | Filter/search state lived in a ViewModel (survives rotation, not process death) and the add/category overlay stack was `remember`ed, so an open editor closed on rotation/process recreation. | `AppOverlayState.kt`, `ExpenseViewModel`, `AddExpenseViewModel` | **Fixed** |
+| F-07 | Medium | `deleteAccount` cleared the local submission journal before `clearResidualAuthStorage`/`clearLocalFirestoreCache`; an IndexedDB failure at that point reported an error and skipped the remaining local cleanup. The account and cloud data were already gone, so this was a local-privacy gap, not a data-loss path. | `web/src/services/authService.ts` | **Fixed (independent steps + durable retry)** |
 
 ### F-01 — transfer-only day totals (fixed)
 
@@ -121,33 +126,104 @@ but the sheet returns to the list; this remains a known gap (F-06).
 region. `e2e/addTransactionDiscard.spec.ts` now asserts that the amount input describes
 `#add-txn-amount-error` and that exactly one such node exists.
 
-### F-05 — what counts as "spent" in a category budget (open)
+### F-05 — actual, upcoming and anticipated budget spending (fixed, additive)
 
-Evidence:
+The original discrepancy was real but shared by both clients: Record's global bar used
+`rowsCountedToDate` (actual), while `categoryBudgetProgress` summed the whole current month
+(actual + future-dated rows). The fix keeps both existing primary metrics and makes the
+meaning explicit instead of guessing a new one:
 
-- Record: `monthSpent = rowsCountedToDate(...)` (`web/src/viewmodels/useRecordViewModel.ts`),
-  i.e. rows dated after tomorrow 00:00 are excluded.
-- Insights: `CategoryBudgetInsights` receives the unfiltered period rows
-  (`useInsightsViewModel.budgetExpenses`), and `categoryBudgetProgress` sums all of them.
-- Android mirrors both choices (`RecordScreen` uses `uiState.data.monthExpenses`, which is
-  to-date; `InsightsViewModel` passes `scoped`).
+- `categoryBudgetProgress(budgets, categories, expenses, cutoffMillis)` now also returns
+  `spentToDate` (before local midnight tomorrow), `upcoming` (at/after it) and `anticipated`
+  (their sum). `spent`, `percent`, `remaining` and `state` are unchanged and equal the
+  anticipated values, so no stored setting, total or rule changes.
+- When `upcoming > 0`, both clients label the category card "anticipated" and show a
+  "spent so far · upcoming" split. Record's global bar remains actual and adds an
+  "upcoming · anticipated" line. With no future rows the copy remains "spent" on web / the
+  numeric "spent" label on Android.
+- Transfers, soft-deleted rows, income and migrating categories are excluded from all three
+  on both platforms. No new Firestore read is introduced: the split is computed from the
+  rows already loaded for the month.
+- `testdata/budget-spend-parity.json` is a shared fixture consumed by
+  `web/src/utils/budgetSpendParity.test.ts` and Android `FinancialParityTest`. Cases:
+  current month (actual + upcoming + two same-content rows + transfer + deleted + migrating),
+  past month (all actual), future month (all upcoming), the local-midnight boundary, the
+  Europe/Berlin DST day, and an empty month. The no-cutoff call is asserted to keep the
+  historical "everything is spent" contract.
+- Browser coverage: `e2e/categoryBudgets.spec.ts` creates one actual and one future-dated
+  expense, sets a category and global budget, and asserts the Record disclosure and the
+  Insights split text. It is skipped only when today is the last day of the month, because
+  no future day remains in the current month.
 
-A user who logs rent for the 28th on the 5th can therefore see a lower "spent" for the
-global budget on Record than for the same category budget on Insights. Because both clients
-agree with each other, changing one platform would create a real parity break. The safe
-follow-up is a product decision (should a budget measure actual spend or committed spend for
-the month?) followed by the same change on both clients and a new parity fixture. Not
-changed in this pass.
+Remaining product decision: whether a budget warning should use anticipated (current) or
+actual spending. Changing that primary metric would change existing behaviour, so it is
+documented for owner approval rather than silently changed.
 
-### F-07 — account deletion local-cleanup ordering (open)
+### F-06 — Android filter and editor state restoration (fixed)
 
-`authService.deleteAccount` awaits `clearExpenseSubmissionJournal(user.uid)` before resetting
-the persistence flags and clearing the Firestore cache. If that IndexedDB write fails, the
-function throws before the later cleanup. The Firebase Auth identity and every cloud
-collection are already deleted, and `onAuthStateChanged` clears the signed-in UI, so the
-consequence is residual local storage rather than remote data loss. A defensive `try/catch`
-around the journal clear (matching how sign-out already treats local cleanup) would close it;
-it was left out of this pass to keep the deletion path unchanged and unverified-failure-free.
+- **Filters.** `ExpenseViewModel` takes an optional `SavedStateHandle` (Hilt supplies it; the
+  test/design-QA constructors keep working). It restores search, type, category ids, amount
+  bounds, sort and list period after process death. Values are type- and length-validated;
+  unknown/outdated values fall back to defaults. The saved owner uid must match the current
+  account, so one account's search text never appears for another. A single empty category
+  emission no longer erases restored category filters; an authoritative empty snapshot still
+  prunes them.
+- **Editor.** `AddExpenseViewModel` saves amount, note, category id, date, editing id/owner,
+  type tab, the dirty baseline and the edited row's original values. A restored edit therefore
+  remains a field-level patch (AUS-104) rather than a whole-row overwrite. The category id is
+  resolved once the category snapshot arrives; a deleted category stays unresolved and Save
+  refuses instead of guessing. `_isSaving` is deliberately not restored, so restoring can
+  never replay a save. `resetForm`, successful save, sign-out and account switch clear the
+  saved draft; a mismatched owner resets it and closes the restored overlay.
+- **Overlay.** The add/edit overlay stack is persisted with `rememberSaveable`; the main tab
+  was already persisted in F-02. The account-change reset now runs only on a genuine change,
+  so the initial composition after process death no longer closes a restored editor.
+- **Tests.** 5 new JVM tests in `AddExpenseViewModelTest` (new draft, edit with original,
+  cross-account discard, reset, stale id/no double insert) and 4 new JVM tests in
+  `ExpenseViewModelTest` (same-account restore, cross-account discard, a transient
+  account-less ViewModel not erasing the saved state, invalid values). The Activity
+  recreation instrumentation test (`MainActivityLaunchTest`) runs on an emulator and passes,
+  proving the Hilt `SavedStateHandle` injection works with the per-account store.
+
+Remaining gap: a full rotation UI test that drives a signed-in editor through Firebase is not
+in the suite; the view-model and Activity-recreation layers are covered separately.
+
+### F-07 — account deletion/local cleanup (fixed)
+
+`web/src/services/localCleanup.ts` runs every local step independently:
+
+```
+firestore-cache -> submission-journal -> onboarding-flag (delete only)
+                -> residual auth storage -> auth persistence -> trusted-device preference
+```
+
+Each step has its own try/catch; a failure is recorded and later steps still run. A durable
+marker (`ausgegeben-local-cleanup-pending-v1`) stores only `{uid, mode, requestedAt}` and is
+removed only when every step succeeds. `App` retries the marker on a later launch when no
+account is signed in; the retry is skipped while any account is active because the Firestore
+cache is origin-wide. The journal wipe is account-scoped. The marker contains no financial
+data, note, credential or token.
+
+The Firestore cache and journal wipes are bounded (20 s / 10 s) so a blocked IndexedDB
+connection cannot hang sign-out/deletion. An environment without IndexedDB is a no-op
+success; a present-but-blocked database is a recorded failure and keeps the marker. The
+cleanup uses only local APIs, so it never depends on the already-deleted Auth token.
+
+`authService.signOut`/`deleteAccount` now call the orchestrator, reset the in-memory stores
+and broadcast/tab-reset regardless, and throw `LocalCleanupError` only after every step has
+run. Settings shows a "retrying on next launch" message when the marker was persisted, or a
+"clear this site's data" message when it could not be. Neither message claims the local data
+was cleared.
+
+Tests: 13 `localCleanup.test.ts` cases (per-step failure injection, retry after partial
+failure, blocked cache timeout, marker-write failure, no retry while another account is
+signed in, corrupt/unknown marker) plus an `authService` test asserting the later steps run
+when the cache and journal fail. `clearExpenseSubmissionJournal` now returns a boolean and
+the storage reset helpers return whether storage access succeeded.
+
+Browser limitation: deleting an IndexedDB cache is not a secure-overwrite guarantee. A
+blocked database or another open tab can leave cached data until the retry or a manual
+site-data clear; the UI never reports success in that state.
 
 ---
 
@@ -184,17 +260,18 @@ The following were read and exercised, not merely skimmed:
 
 ## 5. Risks and recommendations (prioritised)
 
-1. **Decide the budget-with-future-rows contract (F-05)** and implement it identically on
-   both clients, with a parity fixture row. This is the only unresolved item that can show
-   two different euro amounts for the same month in the same app.
-2. **Run the remaining real-device gates** that this environment could not: Android
-   instrumentation (`connectedProdDebugAndroidTest`), a signed R8 release on an emulator, and
-   a TalkBack/VoiceOver pass. The JVM and Compose compile gates pass, but they cannot prove
-   runtime semantics.
+1. **Decide whether a budget warning should use anticipated or actual spending** (F-05).
+   The display now names all three metrics on both clients; changing which one drives the
+   over/warning state would alter existing behaviour and needs an owner decision.
+2. **Run the remaining manual accessibility pass** (TalkBack/VoiceOver/NVDA) and a real
+   rotation UI test with a signed-in editor. Instrumentation now runs on an API 36 emulator
+   (68 tests), and a signed R8 release was built, installed and launched; an automated
+   screen-reader audit is still outstanding.
 3. **WebKit/phone Playwright projects** (the brief's 320–430 px matrix): the suite currently
    runs Chromium desktop only; responsive specs emulate phone viewports inside Chromium.
-4. **Android process-death restoration for filters and overlays (F-06)**: move filter state
-   into a `SavedStateHandle`-backed ViewModel if drafts are required to survive process death.
+4. **Keep the e2e suite lean**: the responsive matrix now reuses one context/sign-in and
+   polls geometry (23.9 s vs 1.3 m for the overflow test; 6.7 s / 6.5 s for the two former
+   timeouts). Add WebKit only after the same context-reuse pattern.
 5. **Opportunistic CSS consolidation**: `pages.css` remains large and load-order-sensitive;
    continue the per-component pass started in Round 15 rather than a big-bang rewrite.
 
@@ -202,6 +279,10 @@ The following were read and exercised, not merely skimmed:
 
 ## 6. Verification
 
-See [test-results.md](test-results.md) for exact commands, counts, and environment limits.
-No production deployment, billing change, Firestore data mutation, or APK publication was
-performed.
+See [test-results.md](test-results.md) for exact commands, counts, timings and environment
+limits. Summary: 712 web unit tests, 146 rules tests, 190 web emulator tests, 35/35
+Playwright tests, 508 Android JVM tests (15 skipped only when emulators are absent; all 15
+pass with them), 68/68 Android instrumentation tests on API 36, `lintProdDebug`, and a signed
+R8 release build that was installed, launched, rotated and restarted on the emulator with no
+fatal error. The release APK was **not published** and no production deployment, billing
+change, Firestore data mutation or App Check enforcement change was performed.

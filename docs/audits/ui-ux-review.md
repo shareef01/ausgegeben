@@ -44,8 +44,11 @@ Only current, re-verified state is asserted below.
 |---|---|---|---|
 | **Transfer-only day totals (web)** | `computeDayTotals` created a `{0,0}` bucket for a day whose only rows are transfers; Android omitted the day. | Transfers are skipped before bucketing; both clients produce the same map. A transfer-only day still renders its date header and its rows, with no totals. | `analytics.test.ts`, `financialParity.test.ts`, Android `FinancialParityTest` |
 | **Transaction dialog error ids (web/a11y)** | Amount, category and form errors all used `id="add-txn-error"`. Only one renders today, but `aria-describedby` would resolve ambiguously as soon as two coexist. | `add-txn-amount-error`, `add-txn-category-error`, `add-txn-form-error`; each control describes its own region. | `e2e/addTransactionDiscard.spec.ts` asserts the amount input describes exactly one `#add-txn-amount-error` |
-| **Android main tab restoration** | `selectedTab` was plain `remember`; rotation/process death returned every user to Record. | Persisted as a Bundle-safe key with `rememberSaveable`, restored through `mainTabFromStorageKey`. | New `NavigationTest` (JVM), Android unit-test task |
+| **Android main tab restoration** | `selectedTab` was plain `remember`; rotation/process death returned every user to Record. | Persisted as a Bundle-safe key with `rememberSaveable`, restored through `mainTabFromStorageKey`. | New `NavigationTest` (JVM), Android unit-test task, emulator `MainActivityLaunchTest` recreation |
 | **Stale test reference** | `recordGrouping.ts` pointed at a non-existent test file. | Points at `recordDayTotals.test.ts`. | source only |
+| **Budget spend disclosure (web + Android)** | Category cards said "spent" while counting future-dated rows; Record's global bar counted only actual rows. | Both now expose actual (`spentToDate`), upcoming and anticipated totals. Cards label the anticipated value when it differs and show the split; the global bar keeps actual spending and adds the same disclosure. No primary metric or stored value changed. | `testdata/budget-spend-parity.json` on both platforms; `e2e/categoryBudgets.spec.ts` asserts both surfaces |
+| **Android filter + editor restoration** | Filters did not survive process death; an open editor closed on rotation. | `SavedStateHandle` restores search/type/categories/amount bounds/sort/period and the editor draft, baseline and original row; the overlay stack is saveable. Account-scoped and cleared on session end. | 8 new JVM tests + Activity recreation instrumentation |
+| **Web account cleanup** | One local wipe failure skipped the remaining steps after cloud/Auth deletion. | Independent steps, bounded timeouts, a privacy-safe pending marker retried on a later launch, and accurate success/warning copy. | 13 `localCleanup.test.ts` cases + `authService` failure-injection test |
 
 ### Explicitly re-checked brief targets
 
@@ -79,6 +82,24 @@ The hand-run sweep (`web/qa/responsive-audit.mjs`) extends this to 320/360/375/3
 tablets, laptops and 1440–2560 wide, landscape phones, and both themes. It requires a seeded
 demo account and the dev server; it is not part of the automated run.
 
+### Test performance (F-08)
+
+The first Phase-2 full run had 33 passes and two 30 s timeouts in `responsive.spec.ts`
+(wide Record and Insights columns). Both tests reached their final steps, so the cause was
+not an assertion race but repeated auth/layout work on a loaded host. The three matrix specs
+now create **one** context and sign in **once**, then resize/emulate the colour scheme; the
+overflow check polls document geometry instead of reading one frame, and the two long tests
+get a 120 s budget for their keyboard/geometry work. Measured on the same host:
+
+| Test | Before | After |
+|---|---|---|
+| breakpoint overflow matrix | 1.3 min | **23.9 s** |
+| wide Record (2 viewports, 40 Tab steps each) | timed out at 30 s | **6.7 s** |
+| Insights column split | timed out at 30 s | **6.5 s** |
+| whole responsive spec (9 tests) | ~2.7 min (2 failures) | **1.3 min, 9/9 pass** |
+
+No assertion was removed or weakened.
+
 ### Remaining visual risks
 
 1. **Chromium-only evidence.** WebKit and Firefox were not run. The 16px no-zoom rule in
@@ -101,8 +122,10 @@ demo account and the dev server; it is not part of the automated run.
 **Fixed / strengthened in this pass**
 
 - Distinct `aria-describedby` targets for all three transaction-error slots.
-- Android main-tab state now survives recreation, so keyboard/switch users are not thrown
-  back to the start of the app by a rotation.
+- Android main-tab, filter and editor state now survive recreation/process death, so
+  keyboard/switch users are not thrown back to the start or lose a draft.
+- Budget cards use explicit "actual / upcoming / anticipated" wording instead of an
+  unqualified "spent" that included future-dated rows.
 - Corrected a source comment that implied a grouping test existed; the behaviour itself is
   covered by 23 pipeline tests.
 
@@ -124,9 +147,8 @@ demo account and the dev server; it is not part of the automated run.
 
 - No manual VoiceOver/TalkBack/NVDA pass was run. The source-level semantics are strong, but
   announcement order and verbosity cannot be proven from code.
-- Android's `rememberSaveable` fix is verified by a JVM key-mapping test; the Compose
-  restoration itself needs an emulator/device (`StateRestorationTester` or rotation) to be
-  observed.
+- Android state restoration is covered by JVM view-model tests and an emulator Activity
+  recreation test; a signed-in editor rotation UI test is still outstanding.
 - Settings checkboxes remain native inputs styled inside full-row labels; a switch role would
   match the rest of the UI but is a design decision, not a defect.
 
@@ -148,24 +170,35 @@ demo account and the dev server; it is not part of the automated run.
 
 **Fixed**
 
-- Main tab restored across recreation (see above).
+- Main tab restored across recreation.
+- Filters (search, type, category, amount bounds, sort, list period) restored after process
+  death through `SavedStateHandle`, with foreign/invalid state discarded.
+- An open editor's draft, type tab, dirty baseline and original row are restored; the overlay
+  stack is saveable. The editor no longer closes on rotation/process recreation and a
+  restored draft cannot auto-submit.
+- Category budget cards show an explicit anticipated label plus an actual/upcoming split; the
+  Record global bar keeps actual spending and discloses upcoming/anticipated.
 
 **Open / needs a device**
 
-- An open add/edit sheet still closes on rotation (draft is in the ViewModel; only the overlay
-  stack is not saved). Filters/search also survive rotation via the ViewModel but not process
-  death.
 - TalkBack pass of the transaction note field, colour grid and rail; large-font layout at
   360dp and 200% font scale.
-- Signed R8 release on an emulator, and instrumentation (`connectedProdDebugAndroidTest`),
-  were not run in this environment.
+- A signed-in editor rotation UI test (the Activity recreation instrumentation test and the
+  view-model tests pass; the full Firebase journey is not automated).
+- The R8 release and instrumentation gaps are now closed on an API 36 emulator: 68/68
+  instrumentation tests and a signed release build that installs, launches, rotates and
+  restarts without a fatal error. A physical device and a manual screen-reader session remain
+  unverified.
 
 ---
 
 ## 6. Conclusion
 
-The interface already meets the brief's structural requirements: responsive from 320px to
-ultrawide, a coherent visual identity, visible labels on ambiguous controls, and a serious
-focus/semantics model. This pass closed a real cross-platform display divergence and an
-Android state-loss defect, tightened the editor's error wiring, and left the remaining
-semantic question (budget spend vs. future-dated rows) documented rather than guessed at.
+The interface meets the brief's structural requirements: responsive from 320px to ultrawide,
+a coherent visual identity, visible labels on ambiguous controls, and a serious
+focus/semantics model. Phase 1 closed a cross-platform display divergence and an Android
+state-loss defect; Phase 2 added an explicit actual/upcoming/anticipated budget vocabulary on
+both platforms, restored Android filters and editor drafts across process death, and made web
+local account cleanup independent and retryable. Remaining gaps are manual screen-reader and
+physical-device validation, WebKit/Firefox coverage, and the owner's decision on whether the
+budget warning should use anticipated or actual spending.

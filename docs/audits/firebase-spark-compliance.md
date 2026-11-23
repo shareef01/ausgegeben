@@ -153,7 +153,21 @@ the boundary, as the rule tests demonstrate.
 
 ---
 
-## 6. Conclusion
+## 6. Phase 2 changes with no Spark impact
+
+- **F-05 budget disclosure** is computed from the same current-month rows already loaded by
+  the Record/Insights listeners. No query, listener, index or document shape changed; the
+  new `testdata/budget-spend-parity.json` is a test fixture only.
+- **F-06 Android restoration** uses the Activity `SavedStateHandle` (app-private, Bundle-
+  backed). It adds no Firestore read, write, collection or rule; the saved state is discarded
+  on session end and at most holds one open draft.
+- **F-07 web cleanup** uses only local APIs (IndexedDB/localStorage) and a small privacy-safe
+  marker. It adds no network call, no Firebase product and no server-side job.
+- **Test changes** only add cases and reduce Playwright auth round-trips; they do not touch
+  production code paths or quotas.
+- No Firebase rules, indexes, hosting headers or App Check settings changed in Phase 2.
+
+## 7. Conclusion
 
 The project is Spark-compatible and was not changed in any way that affects billing. The
 Firestore model remains listen-light, index-aligned and rules-tested. The only infrastructure
