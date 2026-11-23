@@ -130,3 +130,37 @@ test('switching to another account on a remember-me device never shows the first
     if ((await currentUid(tab)) === b) await expect(tab.getByText(ALPHA_NOTE)).toHaveCount(0);
   }
 });
+
+test('signing out in one session-only tab leaves a different account in another tab signed in and working', async ({ context }) => {
+  const emailA = `scope-a-${test.info().workerIndex}@example.com`;
+  const emailB = `scope-b-${test.info().workerIndex}@example.com`;
+  await createVerifiedUser(emailA, PASSWORD);
+  await createVerifiedUser(emailB, PASSWORD);
+  // Independent tabs (not window.open): each keeps its own sessionStorage, so each holds
+  // its own session-only sign-in.
+  const tabA = await context.newPage();
+  await signIn(tabA, emailA, PASSWORD);
+  await addExpenseWithNote(tabA, ALPHA_NOTE);
+  const tabB = await context.newPage();
+  await signIn(tabB, emailB, PASSWORD);
+  const b = await uidForEmail(emailB);
+  await expect.poll(() => currentUid(tabB), { timeout: 15_000 }).toBe(b);
+
+  await tabA.getByRole('button', { name: en.navSettings }).click();
+  await tabA.getByRole('button', { name: en.settingsSignOut, exact: true }).click();
+  await tabA.getByRole('alertdialog').getByRole('button', { name: en.settingsSignOut }).click();
+  await tabA.locator('#auth-email').waitFor({ state: 'visible', timeout: 25_000 });
+  expect(await readLocalStorage(tabA, LOCAL_CLEANUP_PENDING_KEY)).toBeNull();
+
+  // Before the sign-out message named its account, B was signed out here as well and its
+  // Firestore instance was terminated, losing any writes not yet on the server.
+  await tabB.waitForTimeout(1_500);
+  expect(await currentUid(tabB)).toBe(b);
+  await expect(tabB.locator('#app-main')).toBeVisible();
+  await expect(tabB.locator('#auth-email')).toHaveCount(0);
+  // B's Firestore instance is still alive: a new write goes through and shows up.
+  const bNote = 'bravo-after-alpha-signed-out';
+  await addExpenseWithNote(tabB, bNote);
+  await expect(tabB.getByText(bNote)).toBeVisible({ timeout: 15_000 });
+  await expect(tabB.getByText(ALPHA_NOTE)).toHaveCount(0);
+});

@@ -135,7 +135,7 @@ describe('authService persistence integration', () => {
     });
 
     it('on a sign-out broadcast from another tab', () => {
-      let onInvalidated: (() => void) | undefined;
+      let onInvalidated: ((uid: string | null) => void) | undefined;
       vi.spyOn(firebaseServices, 'getFirebaseAuth').mockReturnValue({} as any);
       vi.spyOn(firebaseServices, 'onSessionInvalidatedBroadcast').mockImplementation((handler) => {
         onInvalidated = handler;
@@ -143,7 +143,7 @@ describe('authService persistence integration', () => {
       });
       authService.startListener();
       try {
-        onInvalidated?.();
+        onInvalidated?.(null);
         expect(replaceState).toHaveBeenCalledWith(null, '', '?tab=record');
       } finally {
         authService.stopListener();
@@ -209,7 +209,7 @@ describe('authService persistence integration', () => {
     });
 
     it("on another tab's broadcast: set until this tab's own sign-out has run", async () => {
-      let onInvalidated: (() => void) | undefined;
+      let onInvalidated: ((uid: string | null) => void) | undefined;
       vi.spyOn(firebaseServices, 'getFirebaseAuth').mockReturnValue({} as any);
       vi.spyOn(firebaseServices, 'onSessionInvalidatedBroadcast').mockImplementation((handler) => {
         onInvalidated = handler;
@@ -217,7 +217,7 @@ describe('authService persistence integration', () => {
       });
       authService.startListener();
       try {
-        onInvalidated?.();
+        onInvalidated?.(null);
         expect(useAuthStore.getState().endingSession).toBe(true);
         await vi.waitFor(() => expect(useAuthStore.getState().endingSession).toBe(false));
       } finally {
@@ -230,7 +230,7 @@ describe('authService persistence integration', () => {
     // it, so the sign-in form came back mid-wipe — the race the flag exists to prevent.
     it("a broadcast arriving during this tab's own sign-out does not lift the hold early", async () => {
       let releaseWipe!: () => void;
-      let onInvalidated: (() => void) | undefined;
+      let onInvalidated: ((uid: string | null) => void) | undefined;
       vi.spyOn(firebaseServices, 'clearLocalFirestoreCache').mockImplementation(
         () => new Promise<void>((resolve) => { releaseWipe = resolve; }),
       );
@@ -244,7 +244,7 @@ describe('authService persistence integration', () => {
         const done = authService.signOut();
         await vi.waitFor(() => expect(releaseWipe).toBeTypeOf('function'));
 
-        onInvalidated?.(); // another tab signed out too; its local signOut resolves at once
+        onInvalidated?.('u1'); // another tab signed out of the same account too; its local signOut resolves at once
         await new Promise((resolve) => setTimeout(resolve, 0));
         await new Promise((resolve) => setTimeout(resolve, 0));
         expect(useAuthStore.getState().endingSession).toBe(true); // own wipe still running
@@ -267,5 +267,113 @@ describe('authService persistence integration', () => {
       expect(useAuthStore.getState().endingSession).toBe(false);
       expect(useAuthStore.getState().endingSessionHolds).toBe(0);
     });
+  });
+
+  // Session-only tabs each hold their own session. The sign-out message used to carry no
+  // account, so signing out in one tab also signed out a different account open in another
+  // tab of the same browser.
+  describe("another tab's sign-out applies only to the same account", () => {
+    let onInvalidated: ((uid: string | null) => void) | undefined;
+    const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+    beforeEach(() => {
+      vi.spyOn(firebaseServices, 'onSessionInvalidatedBroadcast').mockImplementation((handler) => {
+        onInvalidated = handler;
+        return () => {};
+      });
+    });
+    afterEach(() => {
+      authService.stopListener();
+      useAuthStore.setState({ user: null, endingSession: false, endingSessionHolds: 0 });
+    });
+
+    it('a different account stays signed in', async () => {
+      const { signOut } = await import('firebase/auth');
+      vi.spyOn(firebaseServices, 'getFirebaseAuth').mockReturnValue({ currentUser: { uid: 'bob' } } as any);
+      useAuthStore.setState({ user: { uid: 'bob' } as any });
+      authService.startListener();
+
+      onInvalidated?.('alice');
+      await flush();
+
+      expect(signOut).not.toHaveBeenCalled();
+      expect(useAuthStore.getState().user?.uid).toBe('bob');
+      expect(useAuthStore.getState().endingSession).toBe(false);
+    });
+
+    it('the same account is signed out', async () => {
+      const { signOut } = await import('firebase/auth');
+      vi.spyOn(firebaseServices, 'getFirebaseAuth').mockReturnValue({ currentUser: { uid: 'alice' } } as any);
+      useAuthStore.setState({ user: { uid: 'alice' } as any });
+      authService.startListener();
+
+      onInvalidated?.('alice');
+      await flush();
+
+      expect(signOut).toHaveBeenCalledTimes(1);
+      expect(useAuthStore.getState().user).toBeNull();
+    });
+
+    it('a tab still restoring its session decides once Auth is ready', async () => {
+      const { signOut } = await import('firebase/auth');
+      const auth: { currentUser: { uid: string } | null; authStateReady: () => Promise<void> } = {
+        currentUser: null,
+        authStateReady: async () => { auth.currentUser = { uid: 'alice' }; },
+      };
+      vi.spyOn(firebaseServices, 'getFirebaseAuth').mockReturnValue(auth as any);
+      authService.startListener();
+
+      onInvalidated?.('alice');
+      await vi.waitFor(() => expect(signOut).toHaveBeenCalledTimes(1));
+    });
+
+    it('a signed-out tab, or one signing in to another account, is left alone', async () => {
+      const { signOut } = await import('firebase/auth');
+      const auth = { currentUser: null, authStateReady: async () => {} };
+      vi.spyOn(firebaseServices, 'getFirebaseAuth').mockReturnValue(auth as any);
+      authService.startListener();
+
+      onInvalidated?.('alice');
+      await flush();
+      await flush();
+
+      expect(signOut).not.toHaveBeenCalled();
+      expect(useAuthStore.getState().endingSession).toBe(false);
+    });
+
+    it('signOut and deleteAccount name their account in the broadcast', async () => {
+      const broadcast = vi.spyOn(firebaseServices, 'broadcastSessionInvalidated');
+      vi.spyOn(firebaseServices, 'getFirebaseAuth').mockReturnValue({ currentUser: { uid: 'alice' } } as any);
+      await authService.signOut();
+      expect(broadcast).toHaveBeenLastCalledWith('alice');
+
+      const user = { uid: 'carol', email: 'c@example.com', getIdToken: vi.fn().mockResolvedValue('t') };
+      vi.spyOn(firebaseServices, 'getFirebaseAuth').mockReturnValue({ currentUser: user } as any);
+      vi.spyOn(expenseRepository, 'markAccountDeletionPending').mockResolvedValue(undefined as any);
+      vi.spyOn(expenseRepository, 'deleteAllUserData').mockResolvedValue(undefined as any);
+      await authService.deleteAccount('password123');
+      expect(broadcast).toHaveBeenLastCalledWith('carol');
+    });
+  });
+});
+
+describe('cross-tab lifecycle messages', () => {
+  it('reads the account from scoped messages and treats legacy or empty ones as unknown', () => {
+    const read = firebaseServices.readLifecycleMessage;
+    expect(read({ type: 'session-invalidated', uid: 'alice' }, 'session-invalidated')).toEqual({ uid: 'alice' });
+    expect(read('session-invalidated', 'session-invalidated')).toEqual({ uid: null });
+    expect(read({ type: 'session-invalidated', uid: '' }, 'session-invalidated')).toEqual({ uid: null });
+    expect(read({ type: 'clear-firestore-cache', uid: 'alice' }, 'session-invalidated')).toBeNull();
+    expect(read('something-else', 'session-invalidated')).toBeNull();
+    expect(read(null, 'session-invalidated')).toBeNull();
+  });
+
+  it("closes a memory-only Firestore instance only for its own account's sign-out", () => {
+    const close = firebaseServices.peerMustCloseFirestore;
+    expect(close('alice', 'bob', false)).toBe(false); // other account, nothing on disk: keep its queue
+    expect(close('alice', 'bob', true)).toBe(true); // the shared disk cache must be released
+    expect(close('alice', 'alice', false)).toBe(true);
+    expect(close(null, 'bob', false)).toBe(true); // unknown account: as before
+    expect(close('alice', null, false)).toBe(true); // signed out: nothing to protect
   });
 });

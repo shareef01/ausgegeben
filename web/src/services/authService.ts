@@ -65,7 +65,36 @@ async function clearFirebaseAuthSessionLocally(): Promise<void> {
  * any Firestore call when it is absent, and the top-level app view unmounts the
  * signed-in UI (detaching its listeners) the same way it does for a same-tab sign-out.
  */
-function handleSessionInvalidatedElsewhere(): void {
+/**
+ * Whether another tab's sign-out of `endingUid` ends this tab's session. A null uid
+ * ("unknown account": an older build, or a sign-out with no session) applies everywhere,
+ * as before. Otherwise only a tab signed in to that same account is affected: session-only
+ * tabs each hold their own session, so a second account open beside it must stay signed in.
+ */
+export function sessionInvalidationApplies(endingUid: string | null, currentUid: string | null): boolean {
+  return endingUid === null || currentUid === endingUid;
+}
+
+function handleSessionInvalidatedElsewhere(endingUid: string | null): void {
+  const auth = getFirebaseAuth();
+  const currentUid = auth?.currentUser?.uid ?? null;
+  if (endingUid !== null && currentUid === null && auth) {
+    // No user yet: this tab may still be restoring its own session, which could be the
+    // account that just signed out. Decide once Auth has finished initializing; a tab
+    // that is signed out, or signing in to another account, is left alone.
+    void auth.authStateReady().then(
+      () => {
+        if (sessionInvalidationApplies(endingUid, auth.currentUser?.uid ?? null)) endSessionFromElsewhere();
+      },
+      () => {},
+    );
+    return;
+  }
+  if (!sessionInvalidationApplies(endingUid, currentUid)) return;
+  endSessionFromElsewhere();
+}
+
+function endSessionFromElsewhere(): void {
   // Hold the sign-in form until this tab's own Firebase session is gone: a sign-in that
   // started before the local signOut ran would otherwise be signed straight out again.
   // Its own hold: if this tab is mid-sign-out itself, finishing here must not release that.
@@ -248,7 +277,8 @@ async function finishSignOut(auth: Auth | null, uid: string | undefined): Promis
   // up to its 20 s cache timeout, and a reload or close of this tab in that window used
   // to drop the broadcast entirely, leaving other tabs signed in (measured in
   // e2e/crossTabAccounts.spec.ts). The interrupted wipe itself resumes from its marker.
-  broadcastSessionInvalidated();
+  // Scoped to this account: a different account in another tab stays signed in.
+  broadcastSessionInvalidated(uid ?? '');
   // Every local step runs even if one fails; the cleanup result decides whether the
   // sign-out can be reported as clean. An empty uid is used only for the (defensive)
   // no-session path: the journal/onboarding steps are then no-ops, while the shared
@@ -284,7 +314,7 @@ async function finishAccountDeletion(user: User): Promise<void> {
 
   // See AUTH-2: tell every other open tab this account is gone — before the local wipe,
   // for the same reason as in finishSignOut.
-  broadcastSessionInvalidated();
+  broadcastSessionInvalidated(user.uid);
   // Every local wipe is attempted even if another fails. The result is the only
   // evidence of whether residual financial data was actually removed; when it is
   // incomplete the caller shows a warning and a durable marker lets the next launch
