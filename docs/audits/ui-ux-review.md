@@ -221,3 +221,46 @@ local account cleanup independent and retryable. Phase 3 implements the owner-ap
 warning rule (red only for actual overspend, amber for projected overspend) on both clients.
 Remaining gaps are manual screen-reader and physical-device validation and WebKit/Firefox
 coverage.
+
+---
+
+## 7. Deep-audit addendum (2026-11-23, evening)
+
+### Responsive and visual pass
+
+`qa/responsive-audit.mjs` now also covers one pixel either side of the phone-range rules
+(379/380, 399–401, 429/431, 519–521) and every theme at 390 and 1440 px. Result: **740 PASS,
+0 FAIL**; the only warnings are the accepted two-line clamp on the longest category name.
+Comparing the boundary pairs, 519 vs 520 px differs only in where the Record summary
+sentence wraps, and 379 vs 380 px differs only in card width and where the longest category name wraps. All nine themes render
+without overflow or undersized targets at both widths.
+
+Fixed in this pass: German compounds now hyphenate instead of breaking mid-word (Insights
+rows, Record chips, category management), and the search and amount placeholders fit or end
+in an ellipsis instead of being cut mid-word. Android already hyphenates through its
+typography; its design-QA harness only notes "long word broken" because it cannot tell a
+hyphenated break from a bare one.
+
+Android: DesignQaMatrixTest (48 cases: 320–411 dp, font scale 1.0–2.0, German and English)
+and TouchTargetTest (6) pass on API 36. NavigationModeLayoutTest did not run (headless AVD
+without a software navigation bar).
+
+### Design scores
+
+These scores are qualitative design assessments, not objective benchmark measurements.
+
+| Aspect | Web | Android | Notes |
+|---|---|---|---|
+| Visual consistency | 9 | 9 | One token set across nine themes on web; Android offers the same named themes |
+| Typography | 9 | 9 | Web was 8: German compounds broke mid-word; fixed with locale-aware hyphenation |
+| Spacing and alignment | 9 | 9 | Boundary-width pairs line up; no overflow at any measured width |
+| Navigation | 9 | 9 | Pill bar / top bar on web, bottom bar / rail on Android, same order and labels; tab survives reload and recreation |
+| Responsive layouts | 9 | 9 | 320 px–2560 px and landscape phones measured on web; 320–411 dp at 2.0× font on Android |
+| Accessibility | 9 | 8 | Targets ≥24 px, 16 px inputs on touch, focus order and live regions measured on web. Android: touch targets and labels are tested, but no manual TalkBack session has been done and the navigation-mode test needs a windowed emulator, so it stays at 8 until that runs on a device |
+| Interaction feedback | 9 | 9 | Queued-write indicator, toasts with undo, and now an update notice that says why the screen waits |
+| Form usability | 9 | 9 | Web was 8: placeholders cut mid-word; fixed and now checked by the audit |
+| Loading, empty and error states | 9 | 9 | The error screen now warns before a reload that would lose unsynced changes; sign-out shows loading until the local wipe ends |
+| Overall design coherence | 9 | 9 | Same vocabulary and warning rules on both clients |
+
+The Android accessibility gap is a verification gap, not a known defect: closing it needs a
+TalkBack session on a device and a windowed emulator run of NavigationModeLayoutTest.

@@ -1367,6 +1367,8 @@
   -webkit-line-clamp: 2;
   line-clamp: 2;
   overflow-wrap: anywhere;
+  /* German compounds ("Haushaltsversicherung") broke mid-word with no hyphen. */
+  hyphens: auto;
 }
 
 .insights-category-card__amount {
@@ -1987,6 +1989,14 @@
   opacity: 1;
 }
 
+/* The 44px on the right is for the clear button, which only exists once there is a query.
+   Without this the German placeholder was cut mid-word ("…kategorien suche") in the
+   desktop filter column; the ellipsis covers widths where it still does not fit. */
+.record-search__input:placeholder-shown {
+  padding-right: 16px;
+  text-overflow: ellipsis;
+}
+
 .record-search__input:focus {
   border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
   box-shadow:
@@ -2206,6 +2216,7 @@
   min-width: 0;
   padding-block: 6px;
   overflow-wrap: anywhere;
+  hyphens: auto;
 }
 
 .record-category-chip--more {
@@ -2303,6 +2314,8 @@
   font-size: 0.8125rem;
   transition: all 0.15s ease;
   box-sizing: border-box;
+  /* "mindestbetrag"/"höchstbetrag" were cut mid-word at 320px and on landscape phones. */
+  text-overflow: ellipsis;
 }
 
 .record-amount-input:focus {
@@ -2659,6 +2672,7 @@
     overflow: visible;
     text-overflow: clip;
     overflow-wrap: anywhere;
+    hyphens: auto;
     line-height: 1.25;
   }
 

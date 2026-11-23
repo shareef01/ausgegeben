@@ -191,3 +191,53 @@ also waits up to 15 s for the listener-driven state instead of the 5 s locator d
 4. **Visual/manual confirmation** of the owner-approved amber projected state at large text
    and on the remaining named theme palettes; the parity and browser checks cover the state
    logic and Chromium rendering.
+
+---
+
+## 7. Deep-audit addendum (2026-11-23, evening)
+
+**Base:** `e88e124` on `fix/audit-pwa-update-cross-account` plus the uncommitted CSS and QA
+script changes listed in [full-repository-audit.md](full-repository-audit.md#7-deep-audit-addendum-2026-11-23-evening).
+Same host. Emulator suites ran with the TEMP / `jdk.net.unixdomain.tmpdir` loopback workaround.
+Nothing was deployed and no production project was contacted.
+
+### Web
+
+| Command | Result |
+|---|---|
+| `playwright test e2e/crossTabAccounts.spec.ts` (first run of the new marker assertion) | **2/2 passed** |
+| `npm run lint` / `lint:css` / `lint:hooks` / `lint:telemetry` | **all passed** (611 class tokens) |
+| `npm test` | **67 files / 757 tests passed** |
+| `npm run test:prod-env` | **3/3 passed** |
+| `npm run test:rules` | **4 files / 146 tests passed** |
+| `npm run test:emulator` | **21 files / 190 tests passed** |
+| `npm run test:e2e` | **37/37 passed** (6.0 min), including the sign-out race test that failed in the earlier baseline |
+| `npm run build` | **passed** (51 precache entries); re-run after the CSS changes: passed |
+| `node qa/responsive-audit.mjs addendum-2026-11-23 --shots --themes` | **740 PASS, 0 FAIL, 12 WARN**; 166 screenshots (gitignored) |
+
+The 12 WARN lines are one category name of ten ("Haushaltsversicherung und Nebenkosten der
+Wohnung") reaching the two-line clamp on Insights at phone widths, the residual already
+accepted in Round 15.
+
+New audit checks, each shown to fail against the defect it guards:
+
+- *Placeholders fit or end in an ellipsis*: with the fix disabled through
+  `negative-control.sh`, the audit reported 20 FAIL lines (search field from 320 px to
+  1440 px, amount fields at 320 px and on landscape phones); the file was restored and
+  verified. After the fix: 0 FAIL.
+- *QA account theme reset to system*: before the fix the stored preference read `soft_light`
+  after a `--themes` run; after it, `system`, and both reset checks pass.
+
+### Android
+
+| Command | Result |
+|---|---|
+| `gradlew testDebugUnitTest` | **520 tests, 0 failures, 15 skipped** (the emulator-backed recovery tests; no Firebase emulator was running for Android) |
+| `gradlew lintProdDebug` | **0 errors, 46 warnings**, all pre-existing (dependency versions, `ModifierParameter` and similar); none in changed files |
+| `gradlew assembleDebug` | **passed** (`app-prod-debug.apk`) |
+| `gradlew connectedProdDebugAndroidTest` on `aus_api36` (emulator-5554) | **68/68 passed**: DesignQaMatrixTest 48, TransactionRowActionsTest 8, TouchTargetTest 6, ExportFileProviderTest 2, MainActivityLaunchTest 2, MainNavigationRailTest 2 |
+
+`NavigationModeLayoutTest` produced no cases. Its parameter list is empty unless the device
+draws a software navigation bar, and the headless AVD reports none (`qemu.hw.mainkeys=1`;
+a reboot with `-prop qemu.hw.mainkeys=0` still yielded no cases). It needs a windowed AVD.
+The Pixel was not used.
