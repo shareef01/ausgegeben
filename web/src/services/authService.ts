@@ -68,11 +68,12 @@ async function clearFirebaseAuthSessionLocally(): Promise<void> {
 function handleSessionInvalidatedElsewhere(): void {
   // Hold the sign-in form until this tab's own Firebase session is gone: a sign-in that
   // started before the local signOut ran would otherwise be signed straight out again.
-  useAuthStore.getState().setEndingSession(true);
+  // Its own hold: if this tab is mid-sign-out itself, finishing here must not release that.
+  const release = useAuthStore.getState().beginEndingSession();
   useAuthStore.getState().setUser(null);
   usePreferencesStore.getState().resetPreferences();
   resetTabParamForNewSession();
-  void clearFirebaseAuthSessionLocally().finally(() => useAuthStore.getState().setEndingSession(false)).catch((error) => {
+  void clearFirebaseAuthSessionLocally().finally(release).catch((error) => {
     // Failure here leaves this tab's durable session copy behind (a reload could
     // restore it) — make that visible instead of silently ignoring it, matching how
     // broadcast-triggered cache clearing reports failures.
@@ -187,11 +188,11 @@ export const authService = {
     const uid = auth?.currentUser?.uid;
     // Until the local wipe below has finished, App shows the loading screen rather than
     // the sign-in form (see AuthStore.endingSession).
-    useAuthStore.getState().setEndingSession(true);
+    const release = useAuthStore.getState().beginEndingSession();
     try {
       await finishSignOut(auth, uid);
     } finally {
-      useAuthStore.getState().setEndingSession(false);
+      release();
     }
   },
 
@@ -224,11 +225,11 @@ export const authService = {
     // keep the sign-in form back until that wipe is done (see AuthStore.endingSession).
     // App only gates on this once the user is gone, so a failed deletion still returns
     // to the signed-in Settings screen with its error.
-    useAuthStore.getState().setEndingSession(true);
+    const release = useAuthStore.getState().beginEndingSession();
     try {
       await finishAccountDeletion(user);
     } finally {
-      useAuthStore.getState().setEndingSession(false);
+      release();
     }
   },
 

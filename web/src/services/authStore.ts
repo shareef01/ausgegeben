@@ -31,13 +31,23 @@ interface AuthStore {
    * terminated, its "keep me signed in" choice reset, and was then signed out again — in
    * every tab — when the first account's cleanup finished. App shows the loading screen
    * instead of the sign-in form while this is true.
+   *
+   * True while at least one hold is open. Several can overlap — this tab's own sign-out,
+   * another tab's sign-out broadcast arriving during it, the launch retry — and with a
+   * single boolean the first to finish cleared it while the others were still wiping.
    */
   endingSession: boolean;
+  /** Open holds behind `endingSession`; use beginEndingSession, never set this directly. */
+  endingSessionHolds: number;
   setUser: (user: User | null) => void;
   setReady: (ready: boolean) => void;
   setSyncing: (syncing: boolean) => void;
   setSyncError: (error: string | null) => void;
-  setEndingSession: (ending: boolean) => void;
+  /**
+   * Open a hold on `endingSession` for one piece of session-ending work. Returns its
+   * release; calling the release more than once has no further effect.
+   */
+  beginEndingSession: () => () => void;
 }
 
 function toAuthUser(user: User | null): AuthUser | null {
@@ -68,6 +78,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
   syncing: false,
   syncError: null,
   endingSession: false,
+  endingSessionHolds: 0,
   // Publishes a new snapshot only when something changed, so onAuthStateChanged
   // firing on every token refresh does not re-trigger user-keyed effects.
   setUser: (user) =>
@@ -78,5 +89,16 @@ export const useAuthStore = create<AuthStore>((set) => ({
   setReady: (ready) => set({ ready }),
   setSyncing: (syncing) => set({ syncing }),
   setSyncError: (syncError) => set({ syncError }),
-  setEndingSession: (endingSession) => set({ endingSession }),
+  beginEndingSession: () => {
+    set((state) => ({ endingSessionHolds: state.endingSessionHolds + 1, endingSession: true }));
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      set((state) => {
+        const holds = Math.max(0, state.endingSessionHolds - 1);
+        return { endingSessionHolds: holds, endingSession: holds > 0 };
+      });
+    };
+  },
 }));

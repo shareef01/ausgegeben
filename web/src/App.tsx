@@ -66,8 +66,8 @@ export function App(): JSX.Element {
       // failing must not keep the sign-in form away; the marker waits for the next launch.
       if (!launchCleanupRetried && hasPendingLocalCleanup()) {
         launchCleanupRetried = true;
-        useAuthStore.getState().setEndingSession(true);
-        void retryPendingLocalCleanup().finally(() => useAuthStore.getState().setEndingSession(false));
+        const release = useAuthStore.getState().beginEndingSession();
+        void retryPendingLocalCleanup().finally(release);
       }
     }
   }, [authReady, user, endingSession]);
