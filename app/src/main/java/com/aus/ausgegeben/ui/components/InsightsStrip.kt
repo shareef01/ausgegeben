@@ -23,6 +23,8 @@ import com.aus.ausgegeben.ui.theme.AppRadius
 import com.aus.ausgegeben.ui.theme.AppSpacing
 import com.aus.ausgegeben.ui.theme.financeExpenseColor
 import com.aus.ausgegeben.ui.theme.financeIncomeColor
+import com.aus.ausgegeben.ui.theme.financeWarningColor
+import com.aus.ausgegeben.ui.theme.financeWarningTextColor
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -30,15 +32,25 @@ fun BudgetProgressBar(
     spent: Double,
     budget: Double,
     currencyCode: String,
+    /** Current-month expenses dated tomorrow or later; informational, never counted as spent. */
+    upcoming: Double = 0.0,
     modifier: Modifier = Modifier
 ) {
     if (budget <= 0) return
     val ratio = (spent / budget).toFloat().coerceIn(0f, 1.5f)
     val displayRatio = ratio.coerceAtMost(1f)
     val overBudget = spent > budget
+    // Approved F-05 rule: red only when actual spending is over; amber when actual is
+    // within budget but the anticipated total (actual + upcoming) is over.
+    val projectedOver = !overBudget && spent + upcoming > budget
     val incomeColor = financeIncomeColor()
     val expenseColor = financeExpenseColor()
-    val barColor = if (overBudget) expenseColor else incomeColor
+    val warningColor = financeWarningColor()
+    val barColor = when {
+        overBudget -> expenseColor
+        projectedOver -> warningColor
+        else -> incomeColor
+    }
     val trackShape = RoundedCornerShape(AppRadius.pill)
 
     Column(
@@ -95,6 +107,32 @@ fun BudgetProgressBar(
                 ),
                 style = MaterialTheme.typography.bodySmall,
                 color = expenseColor,
+                modifier = Modifier.padding(top = AppSpacing.xs)
+            )
+        }
+        if (projectedOver) {
+            Text(
+                text = androidx.compose.ui.res.stringResource(
+                    com.aus.ausgegeben.R.string.budget_projected_exceed,
+                    com.aus.ausgegeben.util.CurrencyUtils.formatAmount(spent + upcoming - budget, currencyCode)
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = financeWarningTextColor(),
+                modifier = Modifier.padding(top = AppSpacing.xs)
+            )
+        }
+        if (upcoming > 0) {
+            // Additive clarification (F-05): the bar stays actual-spend / budget. A
+            // future-dated row is shown, with the anticipated total, so this number cannot
+            // be mistaken for money already spent.
+            Text(
+                text = androidx.compose.ui.res.stringResource(
+                    com.aus.ausgegeben.R.string.budget_upcoming_anticipated,
+                    com.aus.ausgegeben.util.CurrencyUtils.formatAmount(upcoming, currencyCode),
+                    com.aus.ausgegeben.util.CurrencyUtils.formatAmount(spent + upcoming, currencyCode)
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = AppSpacing.xs)
             )
         }

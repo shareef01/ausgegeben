@@ -177,7 +177,7 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
             />
 
             {uiState.monthlyBudget && viewingCurrentMonth ? (
-              <BudgetProgressBar spent={monthSpent} budget={uiState.monthlyBudget} currency={currency} />
+              <BudgetProgressBar spent={monthSpent} budget={uiState.monthlyBudget} currency={currency} upcoming={uiState.monthUpcoming} />
             ) : null}
           </div>
 

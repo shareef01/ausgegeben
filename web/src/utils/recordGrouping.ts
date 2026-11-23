@@ -25,7 +25,7 @@ export interface RecordRowGroup {
 /**
  * Groups the rows the list is actually showing (UX-3).
  *
- * Two rules matter here and both are asserted in `recordGrouping.test.ts`:
+ * Two rules matter here and both are asserted in `recordDayTotals.test.ts`:
  *
  *  - **Totals follow the rows.** `dayTotalsByLabel` is computed by the view model from the same
  *    filtered list that produced `expenses`, so a day header always adds up the rows beneath it.

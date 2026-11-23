@@ -5,6 +5,7 @@ import { usePreferencesStore } from '@/services/preferencesStore';
 import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
 import { prepareFirebaseFirestore } from '@/services/firebase';
+import { retryPendingLocalCleanup } from '@/services/localCleanup';
 import { applyTheme, resolveTheme, resolvedThemeName, writeStoredThemeMode } from '@/theme/tokens';
 
 const SignedInApp = lazy(async () => {
@@ -46,7 +47,13 @@ export function App(): JSX.Element {
   }, [themeMode]);
 
   useEffect(() => {
-    if (authReady && !user) usePreferencesStore.getState().resetPreferences();
+    if (authReady && !user) {
+      usePreferencesStore.getState().resetPreferences();
+      // A previous sign-out/account deletion may have been interrupted by a blocked
+      // IndexedDB connection or denied storage. Finish the local wipe now, when no
+      // account is active, so the marker never lingers across a new session.
+      void retryPendingLocalCleanup();
+    }
   }, [authReady, user]);
 
   if (!authReady) return <AppLoading />;

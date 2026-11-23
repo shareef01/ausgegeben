@@ -62,6 +62,22 @@ export function seedOnboardingForUser(uid: string): void {
 }
 
 /**
+ * Remove the per-account local onboarding marker.
+ *
+ * Called only when the account itself is deleted. It is uid-scoped, so it cannot touch
+ * another account's marker. Returns false when storage access failed, so account cleanup
+ * can report an incomplete local wipe rather than claiming success.
+ */
+export function clearStoredOnboarding(uid: string): boolean {
+  try {
+    localStorage.removeItem(onboardingStorageKey(uid));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Whether the onboarding flow should be shown.
  *
  * Three states, not two: completed, not completed, and *not known yet*. Rendering

@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { authService } from './authService';
 import * as firebaseServices from './firebase';
+import * as journal from './expenseSubmissionJournal';
+import { LocalCleanupError, LOCAL_CLEANUP_PENDING_KEY, resetLocalCleanupForTests } from './localCleanup';
 import { expenseRepository } from '@/repositories/expenseRepository';
 
 vi.mock('firebase/auth', () => ({
@@ -39,6 +41,7 @@ describe('authService persistence integration', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    resetLocalCleanupForTests();
   });
 
   it('signs in with default session persistence when rememberMe is false', async () => {
@@ -80,6 +83,21 @@ describe('authService persistence integration', () => {
     await authService.signOut();
 
     expect(firebaseServices.isPersistentStorageEnabled()).toBe(false);
+  });
+
+  it('attempts every local wipe when the Firestore cache is blocked, then reports failure', async () => {
+    const journalSpy = vi.spyOn(journal, 'clearExpenseSubmissionJournal').mockResolvedValue(false);
+    const residualSpy = vi.spyOn(firebaseServices, 'clearResidualAuthStorage');
+    vi.spyOn(firebaseServices, 'clearLocalFirestoreCache').mockRejectedValue(new Error('blocked'));
+    vi.spyOn(firebaseServices, 'getFirebaseAuth').mockReturnValue({ currentUser: { uid: 'u1' } } as any);
+
+    await expect(authService.signOut()).rejects.toBeInstanceOf(LocalCleanupError);
+
+    expect(journalSpy).toHaveBeenCalledWith('u1');
+    expect(residualSpy).toHaveBeenCalled();
+    // The account is signed out (Auth and in-memory state) even though local cleanup is
+    // incomplete; a durable marker lets the next launch finish the wipe.
+    expect(storageValues.get(LOCAL_CLEANUP_PENDING_KEY)).toContain('u1');
   });
 
   // UX-4: the shell mounts on whatever `?tab=` names, so every path that ends a session must

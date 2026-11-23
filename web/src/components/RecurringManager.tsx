@@ -18,6 +18,7 @@ import { CategoryIconTile, EmptyState, LoadingListSkeleton, SignatureText } from
 import { IconAdd, IconClose, IconDelete, IconEdit, IconPause, IconPlay, IconRepeat } from './Icons';
 import { RecurringEditor } from './RecurringEditor';
 import { formatDueDate, newTemplate, recurringCategoriesFor, scheduleText } from './recurringDraft';
+import { removeRecurringWithConflictRetry, saveRecurringWithConflictRetry } from './recurringConflictRetry';
 
 /** The Settings → Data row; opens the recurring panel. */
 export function RecurringManager() {
@@ -131,9 +132,9 @@ export function RecurringPanel({ owner, close }: { owner: string; close: () => v
     setEditing({ template: newTemplate(Date.now(), timeZone, recurringCategoriesFor(cats, 'expense')[0]?.id ?? ''), expected: null });
   };
 
-  const toggle = (row: RecurringTemplate) =>
+  const toggle = async (row: RecurringTemplate) =>
     mutate(row.id, async () => {
-      await recurringRepository.save(owner, { ...row, enabled: !row.enabled }, row.updatedAt);
+      await saveRecurringWithConflictRetry(recurringRepository, owner, row, !row.enabled);
       if (row.enabled === false) void syncRecurring();
     });
 
@@ -303,7 +304,7 @@ export function RecurringPanel({ owner, close }: { owner: string; close: () => v
         confirmLabel={t('actionDelete')}
         confirmDisabled={!!busy}
         onCancel={() => { if (!busy) setRemoving(null); }}
-        onConfirm={() => { if (removing) void mutate(removing.id, () => recurringRepository.remove(owner, removing.id, removing.updatedAt), t('recurringDeleted')); }}
+        onConfirm={() => { if (removing) void mutate(removing.id, () => removeRecurringWithConflictRetry(recurringRepository, owner, removing), t('recurringDeleted')); }}
       />
     </>
   );

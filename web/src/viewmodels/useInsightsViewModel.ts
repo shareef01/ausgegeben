@@ -10,6 +10,8 @@ import {
   computePeriodInsights,
   computeTotals,
   groupByCategory,
+  rowsCountedToDate,
+  startOfTomorrowMillis,
 } from '@/utils/analytics';
 import {
   analyticsDateRangeMillis,
@@ -247,5 +249,33 @@ export function useInsightsViewModel() {
 
   const currentMonth = thisMonthRange();
   const showCategoryBudgets = range?.[0] === currentMonth[0] && range?.[1] === currentMonth[1];
-  return { uiState, categories, budgetExpenses: expenses, budgetIncomplete, showCategoryBudgets, periodOptions, setAnalyticsPeriod, reload };
+  // F-05 disclosure for the Insights totals dock: only the current month can contain
+  // future-dated rows that are not spent yet. The primary total keeps its existing
+  // meaning; these fields only let the UI label and split it.
+  const actualExpense = showCategoryBudgets && range
+    ? computeTotals(rowsCountedToDate(expenses, range, today)).totalExpenses
+    : 0;
+  const upcomingExpense = showCategoryBudgets
+    ? computeTotals(
+        expenses.filter(
+          (e) => e.transactionType === 'expense' &&
+            e.dateMillis >= startOfTomorrowMillis(today),
+        ),
+      ).totalExpenses
+    : 0;
+  // Future-dated income inflates net cash flow exactly like future-dated expense deflates it,
+  // so the net label has to follow both sides, not just the expense split above.
+  const upcomingIncome = showCategoryBudgets
+    ? computeTotals(
+        expenses.filter(
+          (e) => e.transactionType === 'income' &&
+            e.dateMillis >= startOfTomorrowMillis(today),
+        ),
+      ).totalIncome
+    : 0;
+  // F-05: category-budget cards distinguish actual (before tomorrow) from upcoming
+  // (future-dated current-month rows). The cutoff is derived from the same local day the
+  // rest of Insights uses, so it moves at midnight without a new data read.
+  const budgetCutoffMillis = startOfTomorrowMillis(today);
+  return { uiState, categories, budgetExpenses: expenses, budgetIncomplete, showCategoryBudgets, budgetCutoffMillis, actualExpense, upcomingExpense, upcomingIncome, periodOptions, setAnalyticsPeriod, reload };
 }

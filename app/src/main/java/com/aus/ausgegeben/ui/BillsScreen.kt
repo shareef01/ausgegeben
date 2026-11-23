@@ -75,6 +75,36 @@ fun BillsScreen(
     val periodOptions = remember { analyticsPeriodOptions(monthsBack = 14) }
     val expenseTotal = uiState.totalExpenses
     val incomeTotal = uiState.totalIncome
+    // F-05: the totals dock keeps its all-period value, but the current month is labelled
+    // and split into actual vs upcoming so it cannot be read as money already spent.
+    val currentMonthRange = AnalyticsPeriod.THIS_MONTH.dateRangeMillis()
+    val isCurrentMonth = analyticsDateRangeMillis(uiState.periodKey) == currentMonthRange
+    val actualExpense = if (isCurrentMonth) {
+        uiState.budgetExpenses.asSequence()
+            .filter { it.isExpense() && it.dateMillis < uiState.budgetCutoffMillis }
+            .map { it.amount }
+            .sumMoney()
+    } else {
+        0.0
+    }
+    val upcomingExpense = if (isCurrentMonth) {
+        uiState.budgetExpenses.asSequence()
+            .filter { it.isExpense() && it.dateMillis >= uiState.budgetCutoffMillis }
+            .map { it.amount }
+            .sumMoney()
+    } else {
+        0.0
+    }
+    // Future-dated income inflates net cash flow exactly like future-dated expense deflates it,
+    // so the net label has to follow both sides, not just the expense split above.
+    val upcomingIncome = if (isCurrentMonth) {
+        uiState.budgetExpenses.asSequence()
+            .filter { it.isIncome() && it.dateMillis >= uiState.budgetCutoffMillis }
+            .map { it.amount }
+            .sumMoney()
+    } else {
+        0.0
+    }
     val selectedPeriodLabel = remember(uiState.periodKey, uiState.periodLabel, periodOptions) {
         if (uiState.periodKey == "all_time") {
             null
@@ -149,8 +179,7 @@ fun BillsScreen(
                 }
 
                 item(key = "category_budgets") {
-                    val current = AnalyticsPeriod.THIS_MONTH.dateRangeMillis()
-                    if (analyticsDateRangeMillis(uiState.periodKey) == current) CategoryBudgetProgressSection(uiState.categoryBudgetProgress, uiState.budgetIncomplete, currencyCode, onManageBudgets)
+                    if (isCurrentMonth) CategoryBudgetProgressSection(uiState.categoryBudgetProgress, uiState.budgetIncomplete, currencyCode, onManageBudgets)
                 }
                 if (uiState.isLoading) {
                     item(key = "loading") {
@@ -215,6 +244,9 @@ fun BillsScreen(
                                             InsightsStatGrid(
                                                 income = incomeTotal,
                                                 expense = expenseTotal,
+                                                actualExpense = actualExpense,
+                                                upcomingExpense = upcomingExpense,
+                                                upcomingIncome = upcomingIncome,
                                                 currencyCode = currencyCode
                                             )
                                         }
@@ -229,6 +261,9 @@ fun BillsScreen(
                                         InsightsStatGrid(
                                             income = incomeTotal,
                                             expense = expenseTotal,
+                                            actualExpense = actualExpense,
+                                            upcomingExpense = upcomingExpense,
+                                            upcomingIncome = upcomingIncome,
                                             currencyCode = currencyCode,
                                             modifier = Modifier.padding(bottom = 8.dp)
                                         )
@@ -454,25 +489,50 @@ fun BillsScreen(
 private fun InsightsStatGrid(
     income: Double,
     expense: Double,
+    actualExpense: Double,
+    upcomingExpense: Double,
+    upcomingIncome: Double,
     currencyCode: String,
     modifier: Modifier = Modifier
 ) {
     val net = income - expense
-    StatCardRow(
-        stats = listOf(
-            StatValue(stringResource(R.string.summary_spent), CurrencyUtils.formatAmount(expense, currencyCode), financeExpenseTextColor()),
-            StatValue(
-                stringResource(R.string.chart_net_label),
-                CurrencyUtils.formatAmount(net, currencyCode),
-                if (net >= 0) financeIncomeTextColor() else financeExpenseTextColor(),
-            ),
-            StatValue(stringResource(R.string.summary_earned), CurrencyUtils.formatAmount(income, currencyCode), financeIncomeTextColor()),
-        ),
-        spacing = AppSpacing.sm,
+    // The expense total is "anticipated" only when a future-dated expense is counted; the net
+    // is anticipated when either side contributes one.
+    val disclosure = totalsDisclosure(upcomingExpense, upcomingIncome)
+    Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = AppSpacing.md),
-    )
+        verticalArrangement = Arrangement.spacedBy(AppSpacing.xs),
+    ) {
+        StatCardRow(
+            stats = listOf(
+                StatValue(
+                    stringResource(if (disclosure.expenseIsAnticipated) R.string.summary_anticipated else R.string.summary_spent),
+                    CurrencyUtils.formatAmount(expense, currencyCode),
+                    financeExpenseTextColor(),
+                ),
+                StatValue(
+                    stringResource(if (disclosure.netIsAnticipated) R.string.summary_anticipated_net else R.string.chart_net_label),
+                    CurrencyUtils.formatAmount(net, currencyCode),
+                    if (net >= 0) financeIncomeTextColor() else financeExpenseTextColor(),
+                ),
+                StatValue(stringResource(R.string.summary_earned), CurrencyUtils.formatAmount(income, currencyCode), financeIncomeTextColor()),
+            ),
+            spacing = AppSpacing.sm,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (disclosure.expenseIsAnticipated) {
+            Text(
+                text = stringResource(R.string.category_budget_spent_to_date) + ": " +
+                    CurrencyUtils.formatAmount(actualExpense, currencyCode) + " · " +
+                    stringResource(R.string.category_budget_upcoming) + ": " +
+                    CurrencyUtils.formatAmount(upcomingExpense, currencyCode),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }
 
 private data class StatValue(val label: String, val value: String, val color: Color)
@@ -822,13 +882,17 @@ private fun SpendingPaceCard(
                         contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else if (overBudget != null && overBudget > 0) {
+                    // Approved warning rule: red only when actual spending is already
+                    // over; amber when actual is within but the projection is over.
+                    val actualOver = pace.budget != null && pace.actualExpenses > pace.budget
                     InsightsBadge(
                         text = stringResource(
                             R.string.insights_projected_over_budget,
                             CurrencyUtils.formatAmount(overBudget, currencyCode)
                         ),
-                        backgroundColor = financeExpenseColor().copy(alpha = 0.15f),
-                        contentColor = financeExpenseTextColor(),
+                        backgroundColor = (if (actualOver) financeExpenseColor() else financeWarningColor())
+                            .copy(alpha = 0.15f),
+                        contentColor = if (actualOver) financeExpenseTextColor() else financeWarningTextColor(),
                     )
                 } else if (pace.budget != null) {
                     InsightsBadge(

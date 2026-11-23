@@ -64,6 +64,8 @@ export interface RecordUiState {
   monthlyBudget: number | null;
   /** Current calendar month up to today (soft-deletes and rows dated after today excluded): budget bar and top category. */
   monthExpenses: Expense[];
+  /** Current-month expenses dated tomorrow or later, in currency units: committed spending shown separately. */
+  monthUpcoming: number;
   /** Day-key → [income, expense] from the full period (not search/type-filtered). */
   dayTotalsByLabel: Record<string, [number, number]>;
   loading: boolean;
@@ -90,6 +92,10 @@ export interface SpendingPace {
   projectedTotal: number;
   budget: number | null;
   projectedOverBudget: number | null;
+  /** Actual expense spending used for the projection (before future-dated rows). */
+  actualExpenses: number;
+  /** True when actual spending is already over the month's budget. */
+  actualOverBudget: boolean;
 }
 
 export interface CategoryMover {

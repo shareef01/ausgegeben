@@ -39,9 +39,11 @@ test('Settings recurring controls create, pause, edit and delete without removin
   await expect(row).toContainText(en.recurringEveryMonth);
   await expect(row).toContainText('next on');
   await row.getByRole('button', { name: en.recurringPause, exact: true }).click();
-  await expect(row).toContainText(en.recurringPaused);
+  // Pause is an online Firestore transaction; on a loaded emulator host it can take
+  // longer than the 5 s locator default while the UI updates from the listener.
+  await expect(row).toContainText(en.recurringPaused, { timeout: 15_000 });
   await row.getByRole('button', { name: en.recurringResume, exact: true }).click();
-  await expect(row).not.toContainText(en.recurringPaused);
+  await expect(row).not.toContainText(en.recurringPaused, { timeout: 15_000 });
 
   await row.getByRole('button', { name: en.recurringEdit, exact: true }).click();
   const edit = page.getByRole('dialog', { name: en.recurringEditTitle });

@@ -5,6 +5,84 @@ import { createVerifiedUser, resetAuthEmulator, resetFirestoreEmulator, signIn }
 test.beforeEach(async () => { await resetAuthEmulator(); await resetFirestoreEmulator(); });
 test.use({ reducedMotion: 'no-preference' });
 
+test('budget cards separate actual from upcoming spending', async ({ page }) => {
+  const now = new Date();
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  // The split exists only while the current month still has a future day. The parity
+  // fixtures cover the boundary deterministically; this browser check needs a real date.
+  test.skip(now.getDate() === lastDay, 'today is the last day of the month: no upcoming day remains');
+
+  await createVerifiedUser('budget-split@example.com', 'correct horse battery staple');
+  await signIn(page, 'budget-split@example.com', 'correct horse battery staple');
+
+  const categoryName = await page.evaluate(async ({ year, month, day }) => {
+    const repoPath = '/src/repositories/expenseRepository.ts';
+    const budgetPath = '/src/services/categoryBudgets.ts';
+    const prefsPath = '/src/services/preferencesStore.ts';
+    const authPath = '/src/services/authStore.ts';
+    const { expenseRepository: repo } = await import(/* @vite-ignore */ repoPath);
+    const { categoryBudgetRepository: budgets } = await import(/* @vite-ignore */ budgetPath);
+    const { usePreferencesStore } = await import(/* @vite-ignore */ prefsPath);
+    const { useAuthStore } = await import(/* @vite-ignore */ authPath);
+    await repo.ensureSeeded();
+    const cat = (await repo.getAllCategories()).find(
+      (c: { transactionType: string }) => c.transactionType === 'expense',
+    );
+    const today = new Date(year, month, day, 12);
+    const upcoming = new Date(year, month, day + 1, 12);
+    await repo.insertExpense({
+      amount: 30,
+      dateMillis: today.getTime(),
+      categoryId: cat.id,
+      note: 'actual spend',
+      transactionType: 'expense',
+    });
+    await repo.insertExpense({
+      amount: 20,
+      dateMillis: upcoming.getTime(),
+      categoryId: cat.id,
+      note: 'planned spend',
+      transactionType: 'expense',
+    });
+    await budgets.save(
+      useAuthStore.getState().user.uid,
+      { categoryId: cat.id, monthlyLimit: 40, warningThresholdPercent: 80, updatedAt: Date.now() },
+      cat.id,
+      null,
+    );
+    usePreferencesStore.getState().setMonthlyBudget(40);
+    return cat.name;
+  }, { year: now.getFullYear(), month: now.getMonth(), day: now.getDate() });
+
+  // Record: the global bar stays actual-spend / budget and discloses the upcoming row.
+  const budgetBar = page.locator('.budget-bar');
+  await expect(budgetBar).toContainText('€30.00');
+  await expect(budgetBar).toContainText('€40.00');
+  const upcomingLine = budgetBar.locator('.budget-bar__upcoming');
+  await expect(upcomingLine).toContainText(en.budgetUpcomingAnticipated.split('{')[0].trim());
+  await expect(upcomingLine).toContainText('€20.00');
+  await expect(upcomingLine).toContainText('€50.00');
+  // Actual spend is within the limit, but the anticipated total is over: amber
+  // "projected", not red "over".
+  const projectedLine = budgetBar.locator('.budget-bar__projected');
+  await expect(projectedLine).toContainText(en.budgetProjectedExceed.split('{')[0].trim());
+  await expect(projectedLine).toContainText('€10.00');
+
+  // Insights: the card labels the anticipated total and separates spent so far.
+  await page.getByRole('button', { name: en.navInsights, exact: true }).click();
+  const card = page.getByRole('region', { name: en.categoryBudgetTitle });
+  await expect(card).toContainText(categoryName);
+  await expect(card).toContainText(en.categoryBudgetAnticipated);
+  await expect(card).toContainText(en.categoryBudgetProjected);
+  await expect(card.locator('.category-budget-state--projected')).toBeVisible();
+  await expect(card.getByRole('progressbar', { name: categoryName })).toHaveAttribute('data-state', 'projected');
+  const split = card.locator('.category-budget-split');
+  await expect(split).toContainText(en.categoryBudgetSpentToDate);
+  await expect(split).toContainText('€30.00');
+  await expect(split).toContainText(en.categoryBudgetUpcoming);
+  await expect(split).toContainText('€20.00');
+});
+
 test('category budget management and current-month warning progress', async ({ page }) => {
   await createVerifiedUser('budgets@example.com', 'correct horse battery staple');
   await createVerifiedUser('budgets-b@example.com', 'correct horse battery staple');

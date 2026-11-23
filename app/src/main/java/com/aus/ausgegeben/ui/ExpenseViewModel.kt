@@ -1,5 +1,6 @@
 package com.aus.ausgegeben.ui
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aus.ausgegeben.data.CategoryActions
@@ -16,6 +17,7 @@ import com.aus.ausgegeben.util.computeSpendingInsights
 import com.aus.ausgegeben.util.dateRangeMillis
 import com.aus.ausgegeben.util.localDayFlow
 import com.aus.ausgegeben.util.rowsCountedToDate
+import com.aus.ausgegeben.util.startOfTomorrowMillis
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -52,6 +54,8 @@ data class RecordData(
     val categories: List<Category> = emptyList(),
     /** The current month up to today (rows dated after today left out): the budget bar. */
     val monthExpenses: List<Expense> = emptyList(),
+    /** Current-month rows dated tomorrow or later: committed/planned spending. */
+    val monthUpcomingExpenses: List<Expense> = emptyList(),
     val monthlyBudget: Double? = null,
     val currencyCode: String = "EUR",
     /**
@@ -77,7 +81,27 @@ class ExpenseViewModel(
     private val preferenceManager: TransactionPreferences,
     /** Start of the current local day, re-emitted when the date changes. Tests pass a fixed day. */
     localDay: Flow<Long>,
+    /**
+     * Filter persistence across process death. Null in unit tests and legacy callers; the
+     * production Hilt constructor supplies the Activity's handle.
+     */
+    private val savedStateHandle: SavedStateHandle?,
 ) : ViewModel() {
+
+    /** Unit/design-QA constructor with a fixed local day and no process-death persistence. */
+    constructor(
+        categoryActions: CategoryActions,
+        expenseActions: ExpenseActions,
+        preferenceManager: TransactionPreferences,
+        localDay: Flow<Long>,
+    ) : this(categoryActions, expenseActions, preferenceManager, localDay, null)
+
+    /** Design-QA constructor using the production local-day flow. */
+    constructor(
+        categoryActions: CategoryActions,
+        expenseActions: ExpenseActions,
+        preferenceManager: TransactionPreferences,
+    ) : this(categoryActions, expenseActions, preferenceManager, localDayFlow(), null)
 
     // Hilt uses this one. The day ticks on a timer, so unit tests use the primary constructor
     // with a fixed day: a ticking flow would keep advanceUntilIdle() running forever.
@@ -85,7 +109,21 @@ class ExpenseViewModel(
         categoryActions: CategoryActions,
         expenseActions: ExpenseActions,
         preferenceManager: TransactionPreferences,
-    ) : this(categoryActions, expenseActions, preferenceManager, localDayFlow())
+        savedStateHandle: SavedStateHandle,
+    ) : this(categoryActions, expenseActions, preferenceManager, localDayFlow(), savedStateHandle)
+
+    private companion object {
+        private const val KEY_OWNER = "recordFilters.ownerUid"
+        private const val KEY_QUERY = "recordFilters.query"
+        private const val KEY_TYPE = "recordFilters.type"
+        private const val KEY_CATEGORIES = "recordFilters.categories"
+        private const val KEY_MIN = "recordFilters.min"
+        private const val KEY_MAX = "recordFilters.max"
+        private const val KEY_SORT = "recordFilters.sort"
+        private const val KEY_PERIOD = "recordFilters.period"
+        private val MONTH_KEY = Regex("^month:20\\d{2}-(0[1-9]|1[0-2])$")
+        private val AMOUNT_INPUT = Regex("^[0-9]+([.,][0-9]{1,2})?$")
+    }
 
     private val localDayShared: Flow<Long> = localDay
         .distinctUntilChanged()
@@ -103,11 +141,19 @@ class ExpenseViewModel(
     // 1. Base data flows
     private val currencyFlow = preferenceManager.currencyFlow.distinctUntilChanged()
     private val budgetFlow = preferenceManager.monthlyBudgetFlow.distinctUntilChanged()
+    /** True once a non-empty category snapshot has been observed (see categoriesShared). */
+    private var categoriesLoaded = false
     private val categoriesShared: Flow<List<Category>> = categoryActions.allCategories
         .map { cats ->
-            val valid = cats.filter { _typeFilter.value == TransactionTypeFilter.ALL ||
-                it.transactionType == _typeFilter.value.name.lowercase(Locale.ROOT) }.map { it.id }.toSet()
-            setCategoryFilters(_composite.value.categoryIds.intersect(valid))
+            // An empty first emission (cache still warming) must not erase filters restored
+            // from SavedStateHandle. Once a non-empty snapshot has been seen, an empty list
+            // is authoritative (e.g. the last category was deleted) and must prune them.
+            if (cats.isNotEmpty()) categoriesLoaded = true
+            if (categoriesLoaded) {
+                val valid = cats.filter { _typeFilter.value == TransactionTypeFilter.ALL ||
+                    it.transactionType == _typeFilter.value.name.lowercase(Locale.ROOT) }.map { it.id }.toSet()
+                setCategoryFilters(_composite.value.categoryIds.intersect(valid))
+            }
             cats
         }
         .distinctUntilChanged()
@@ -188,7 +234,13 @@ class ExpenseViewModel(
 
     val uiState: StateFlow<RecordUiState> = combine(
         combine(listExpensesShared, categoriesShared, monthExpensesShared, budgetFlow, currencyFlow) { list, cats, month, budget, curr ->
-            RecordData(list, cats, month, budget, curr)
+            RecordData(
+                headerExpenses = list,
+                categories = cats,
+                monthExpenses = month,
+                monthlyBudget = budget,
+                currencyCode = curr,
+            )
         },
         combine(_searchQuery, _typeFilter, _listPeriod, _composite) { query, filter, period, composite ->
             RecordToolbarState(query, filter, composite.categoryIds.singleOrNull(), period, composite)
@@ -211,6 +263,7 @@ class ExpenseViewModel(
         RecordUiState(
             data.copy(
                 monthExpenses = rowsCountedToDate(data.monthExpenses, null, day),
+                monthUpcomingExpenses = data.monthExpenses.filter { it.dateMillis >= startOfTomorrowMillis(day) },
                 summaryExpenses = rowsCountedToDate(
                     data.headerExpenses,
                     recordListDateRangeMillis(toolbar.listPeriod, day),
@@ -230,9 +283,103 @@ class ExpenseViewModel(
     )
 
     init {
+        // Restore before the persistence collector starts, so the collector writes the
+        // restored filters rather than the defaults.
+        restoreFilters()
         viewModelScope.launch {
-            expenseActions.recordAccountId.distinctUntilChanged().collect { clearFilters(); _softDeletedIds.value = emptySet() }
+            combine(_searchQuery, _typeFilter, _composite, _listPeriod) { query, type, composite, period ->
+                FilterSnapshot(query, type, composite, period)
+            }.collect { persistFilters(it) }
         }
+        // Only a real account change clears filters. The first emission is the account this
+        // view model was created for — clearing it would erase filters restored from the
+        // saved state after process death.
+        var previousAccount: String? = null
+        viewModelScope.launch {
+            expenseActions.recordAccountId.distinctUntilChanged().collect { accountId ->
+                if (previousAccount != null && previousAccount != accountId) {
+                    clearFilters()
+                    _softDeletedIds.value = emptySet()
+                }
+                previousAccount = accountId
+            }
+        }
+    }
+
+    private data class FilterSnapshot(
+        val query: String,
+        val type: TransactionTypeFilter,
+        val composite: CompositeRecordFilter,
+        val period: String,
+    )
+
+    /** Restore filters saved before process death; invalid or foreign-account state is ignored. */
+    private fun restoreFilters() {
+        val handle = savedStateHandle ?: return
+        if (handle.get<String>(KEY_OWNER) != ownerUid) return
+
+        val type = handle.get<String>(KEY_TYPE)
+            ?.let { name -> runCatching { TransactionTypeFilter.valueOf(name) }.getOrNull() }
+            ?: TransactionTypeFilter.ALL
+        val sort = handle.get<String>(KEY_SORT)
+            ?.let { name -> runCatching { RecordSort.valueOf(name) }.getOrNull() }
+            ?: RecordSort.DATE_DESC
+        val period = handle.get<String>(KEY_PERIOD)?.takeIf(::isValidPeriodKey)
+            ?: RecordListPeriod.THIS_MONTH.key
+        val categories = handle.get<ArrayList<String>>(KEY_CATEGORIES)
+            ?.filterTo(linkedSetOf()) { it.isNotBlank() && it.length < 64 }
+            ?: emptySet()
+        val min = handle.get<String>(KEY_MIN)?.takeIf(::isValidAmountInput).orEmpty()
+        val max = handle.get<String>(KEY_MAX)?.takeIf(::isValidAmountInput).orEmpty()
+        val query = handle.get<String>(KEY_QUERY)?.take(200).orEmpty()
+
+        _searchQuery.value = query
+        _typeFilter.value = type
+        _composite.value = CompositeRecordFilter(
+            categoryIds = categories,
+            minInput = min,
+            maxInput = max,
+            sort = sort,
+        )
+        _listPeriod.value = period
+    }
+
+    private fun persistFilters(snapshot: FilterSnapshot) {
+        val handle = savedStateHandle ?: return
+        // The first composition after process death can create a transient account-less view
+        // model while Auth restores. It must not overwrite the real account's saved filters.
+        if (ownerUid == null) return
+        handle[KEY_OWNER] = ownerUid
+        handle[KEY_QUERY] = snapshot.query.take(200)
+        handle[KEY_TYPE] = snapshot.type.name
+        handle[KEY_CATEGORIES] = ArrayList(snapshot.composite.categoryIds)
+        handle[KEY_MIN] = snapshot.composite.minInput.take(16)
+        handle[KEY_MAX] = snapshot.composite.maxInput.take(16)
+        handle[KEY_SORT] = snapshot.composite.sort.name
+        handle[KEY_PERIOD] = snapshot.period
+    }
+
+    private fun clearSavedFilters() {
+        savedStateHandle?.keys()
+            ?.filter { it.startsWith("recordFilters.") }
+            ?.forEach { savedStateHandle.remove<Any>(it) }
+    }
+
+    private fun isValidPeriodKey(key: String): Boolean =
+        key == RecordListPeriod.THIS_MONTH.key ||
+            key == RecordListPeriod.ALL_TIME.key ||
+            MONTH_KEY.matches(key)
+
+    private fun isValidAmountInput(input: String): Boolean =
+        input.length <= 16 && (input.isEmpty() || AMOUNT_INPUT.matches(input))
+
+    override fun onCleared() {
+        // Session end (sign-out, account switch, Activity finish): do not leave a search
+        // string or filter selection behind in the Activity's saved state. Process death
+        // does not call this, so filters still restore across process recreation. A
+        // transient account-less view model must not erase the incoming account's state.
+        if (ownerUid != null) clearSavedFilters()
+        super.onCleared()
     }
 
     fun toggleCategory(id: String) {
@@ -249,6 +396,7 @@ class ExpenseViewModel(
         _searchQuery.value = ""
         _typeFilter.value = TransactionTypeFilter.ALL
         _composite.value = CompositeRecordFilter()
+        clearSavedFilters()
     }
 
     fun setSearchQuery(query: String) {

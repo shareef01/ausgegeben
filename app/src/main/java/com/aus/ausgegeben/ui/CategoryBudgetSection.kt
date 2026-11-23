@@ -306,6 +306,24 @@ fun CategoryBudgetManager(repository: AppRepository, uid: String, currency: Stri
     }
 }
 
+/**
+ * Which semantic colour the overage/remaining amount line of a category budget card takes.
+ *
+ * `over` is the only state where the amount is money already spent beyond the limit, so it is
+ * the only state that may use the expense (red) ink. `projected` means actual spending is still
+ * within budget and only the anticipated total exceeds it, so it follows the amber warning ink
+ * used by the status label directly above it. Every other state shows the remaining budget and
+ * stays neutral.
+ */
+internal enum class CategoryBudgetAmountTone { Expense, Warning, Secondary }
+
+/** Split out of the composable so the state → tone mapping is unit-testable without Compose. */
+internal fun categoryBudgetAmountTone(state: String): CategoryBudgetAmountTone = when (state) {
+    "over" -> CategoryBudgetAmountTone.Expense
+    "projected" -> CategoryBudgetAmountTone.Warning
+    else -> CategoryBudgetAmountTone.Secondary
+}
+
 @Composable
 fun CategoryBudgetProgressSection(
     progress: List<CategoryBudgetProgress>,
@@ -411,12 +429,12 @@ fun CategoryBudgetProgressSection(
                 val catColor = Color(p.category.colorInt)
                 val statusBarColor = when (p.state) {
                     "over" -> financeExpenseColor()
-                    "warning", "reached" -> financeWarningColor()
+                    "projected", "warning", "reached" -> financeWarningColor()
                     else -> financeIncomeColor()
                 }
                 val statusColor = when (p.state) {
                     "over" -> financeExpenseTextColor()
-                    "warning", "reached" -> financeWarningTextColor()
+                    "projected", "warning", "reached" -> financeWarningTextColor()
                     else -> financeIncomeTextColor()
                 }
 
@@ -458,11 +476,25 @@ fun CategoryBudgetProgressSection(
                             )
                         }
 
-                        Text(
-                            text = CurrencyUtils.formatAmount(p.spent, currency) + " / " + CurrencyUtils.formatAmount(p.budget.monthlyLimit, currency),
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            Text(
+                                text = stringResource(
+                                    if (p.upcoming > 0) R.string.category_budget_anticipated
+                                    else R.string.category_budget_spent
+                                ),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = readableSecondaryColor(),
+                            )
+                            Text(
+                                text = CurrencyUtils.formatAmount(p.spent, currency) + " / " +
+                                    CurrencyUtils.formatAmount(p.budget.monthlyLimit, currency),
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
                     }
 
                     LinearProgressIndicator(
@@ -476,6 +508,20 @@ fun CategoryBudgetProgressSection(
                             .semantics { contentDescription = p.category.name }
                     )
 
+                    if (p.upcoming > 0) {
+                        // Additive clarification (F-05): the progress above keeps its
+                        // anticipated meaning, while this line separates money already
+                        // spent from future-dated, committed rows.
+                        Text(
+                            text = stringResource(R.string.category_budget_spent_to_date) + ": " +
+                                CurrencyUtils.formatAmount(p.spentToDate, currency) + " · " +
+                                stringResource(R.string.category_budget_upcoming) + ": " +
+                                CurrencyUtils.formatAmount(p.upcoming, currency),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = readableSecondaryColor()
+                        )
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -485,19 +531,30 @@ fun CategoryBudgetProgressSection(
                             text = stringResource(
                                 when (p.state) {
                                     "over" -> R.string.category_budget_over
+                                    "projected" -> R.string.category_budget_projected
                                     "reached" -> R.string.category_budget_reached
                                     "warning" -> R.string.category_budget_warning
                                     else -> R.string.category_budget_normal
                                 }
-                            ) + " · ${kotlin.math.round(p.percent).toInt()}%",
+                            ) + " ·\u00A0${kotlin.math.round(p.percent).toInt()}%",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
                             color = statusColor
                         )
 
                         Text(
-                            text = stringResource(if (p.overspent > 0) R.string.category_budget_overspent else R.string.category_budget_remaining) + ": " + CurrencyUtils.formatAmount(if (p.overspent > 0) p.overspent else p.remaining, currency),
+                            text = stringResource(
+                                when {
+                                    p.state == "projected" -> R.string.category_budget_projected_over
+                                    p.overspent > 0 -> R.string.category_budget_overspent
+                                    else -> R.string.category_budget_remaining
+                                }
+                            ) + ": " + CurrencyUtils.formatAmount(if (p.overspent > 0) p.overspent else p.remaining, currency),
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                            color = if (p.overspent > 0) financeExpenseTextColor() else readableSecondaryColor()
+                            color = when (categoryBudgetAmountTone(p.state)) {
+                                CategoryBudgetAmountTone.Expense -> financeExpenseTextColor()
+                                CategoryBudgetAmountTone.Warning -> financeWarningTextColor()
+                                CategoryBudgetAmountTone.Secondary -> readableSecondaryColor()
+                            }
                         )
                     }
                 }

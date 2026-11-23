@@ -11,19 +11,16 @@ import {
 } from 'firebase/auth';
 import {
   broadcastSessionInvalidated,
-  clearLocalFirestoreCache,
-  clearResidualAuthStorage,
   getFirebaseAuth,
   isFirebaseConfigured,
   isPersistentAuthEnabled,
   onSessionInvalidatedBroadcast,
-  resetPersistentStorageEnabled,
   setAuthPersistenceTarget,
   setPersistentAuthEnabled,
 } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
 import { usePreferencesStore } from '@/services/preferencesStore';
-import { clearExpenseSubmissionJournal } from '@/services/expenseSubmissionJournal';
+import { LocalCleanupError, runLocalCleanup } from '@/services/localCleanup';
 import { TAB_PARAM } from '@/utils/tabHistory';
 
 let unsubscribe: (() => void) | null = null;
@@ -184,13 +181,11 @@ export const authService = {
     const auth = getFirebaseAuth();
     const uid = auth?.currentUser?.uid;
     if (auth) await signOut(auth);
-    if (uid) await clearExpenseSubmissionJournal(uid);
-    setPersistentAuthEnabled(false);
-    // Consent to durable, on-disk Firestore caching does not carry from one account to
-    // the next on a shared browser. See AUTH-1 — without this, the next person to sign
-    // in on this browser silently inherited disk-backed caching they never opted into.
-    resetPersistentStorageEnabled();
-    clearResidualAuthStorage();
+    // Every local step runs even if one fails; the cleanup result decides whether the
+    // sign-out can be reported as clean. An empty uid is used only for the (defensive)
+    // no-session path: the journal/onboarding steps are then no-ops, while the shared
+    // caches and residual credentials are still cleared.
+    const cleanup = await runLocalCleanup({ uid: uid ?? '', mode: 'sign-out' });
     useAuthStore.getState().setUser(null);
     usePreferencesStore.getState().resetPreferences();
     // Tell every other open tab this account signed out (AUTH-2) — session-only
@@ -203,7 +198,7 @@ export const authService = {
     // whichever screen the previous one was on. Reset here because the shell unmounts on sign-out
     // and cannot clean up after itself.
     resetTabParamForNewSession();
-    await clearLocalFirestoreCache();
+    if (!cleanup.complete) throw new LocalCleanupError(cleanup);
   },
 
   /** Spark-safe protocol: reauth, freeze writes, server-verified wipe, then Auth delete. */
@@ -247,26 +242,18 @@ export const authService = {
       }
     }
 
-    setPersistentAuthEnabled(false);
-    // See AUTH-1: reset the "trusted device" preference too, not just the auth
-    // persistence flag, so a deleted account's opt-in cannot carry to whoever signs
-    // into this browser next.
-    resetPersistentStorageEnabled();
-    clearResidualAuthStorage();
-    await clearExpenseSubmissionJournal(user.uid);
+    // Every local wipe is attempted even if another fails. The result is the only
+    // evidence of whether residual financial data was actually removed; when it is
+    // incomplete the caller shows a warning and a durable marker lets the next launch
+    // finish the job, without needing the deleted account's credentials.
+    const cleanup = await runLocalCleanup({ uid: user.uid, mode: 'delete-account' });
     useAuthStore.getState().setUser(null);
     usePreferencesStore.getState().resetPreferences();
     // See AUTH-2: tell every other open tab this account is gone.
     broadcastSessionInvalidated();
     // Account deletion starts on Settings; without this the next sign-in lands there (UX-4).
     resetTabParamForNewSession();
-    try {
-      await clearLocalFirestoreCache();
-    } catch (error) {
-      // The account is already gone. Do not retry deletion or misreport this as an
-      // incomplete cloud deletion merely because local IndexedDB cleanup failed.
-      throw new Error('local_cleanup_failed', { cause: error });
-    }
+    if (!cleanup.complete) throw new LocalCleanupError(cleanup);
   },
 
   isAvailable(): boolean {

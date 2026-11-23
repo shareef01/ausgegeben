@@ -282,11 +282,13 @@ export async function setPersistentStorageEnabled(enabled: boolean): Promise<voi
  * next on a shared browser — see AUTH-1. Does not itself clear the Firestore cache;
  * callers already do that separately via clearLocalFirestoreCache().
  */
-export function resetPersistentStorageEnabled(): void {
+export function resetPersistentStorageEnabled(): boolean {
   try {
     localStorage.removeItem(PERSISTENT_STORAGE_KEY);
+    return true;
   } catch {
-    // Ignore storage quota or access errors.
+    // Ignore storage quota or access errors; the caller reports failure.
+    return false;
   }
 }
 
@@ -303,24 +305,27 @@ export function isPersistentAuthEnabled(): boolean {
   }
 }
 
-export function setPersistentAuthEnabled(enabled: boolean): void {
+export function setPersistentAuthEnabled(enabled: boolean): boolean {
   try {
     if (enabled) {
       localStorage.setItem(PERSISTENT_AUTH_KEY, 'true');
     } else {
       localStorage.removeItem(PERSISTENT_AUTH_KEY);
     }
+    return true;
   } catch {
-    // Ignore storage quota or access errors
+    // Ignore storage quota or access errors; the caller reports failure.
+    return false;
   }
 }
 
 /**
  * Purges residual Firebase Auth keys from web storage so that no account
  * tokens remain in localStorage when operating in session-only mode or after signing out.
+ * Returns false when storage access itself failed, so account cleanup can report it.
  */
-export function clearResidualAuthStorage(): void {
-  if (typeof localStorage === 'undefined') return;
+export function clearResidualAuthStorage(): boolean {
+  if (typeof localStorage === 'undefined') return true;
   try {
     const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -332,8 +337,9 @@ export function clearResidualAuthStorage(): void {
     for (const key of keysToRemove) {
       localStorage.removeItem(key);
     }
+    return true;
   } catch {
-    // Ignore storage access errors
+    return false;
   }
 }
 

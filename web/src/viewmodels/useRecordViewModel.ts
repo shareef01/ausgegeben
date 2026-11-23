@@ -5,10 +5,10 @@ import { usePreferencesStore } from '@/services/preferencesStore';
 import { useToastStore } from '@/services/toastStore';
 import { getLocale, useTranslation, type Locale } from '@/i18n';
 import { thisMonthRange, analyticsDateRangeMillis } from '@/utils/periodUtils';
-import { computeDayTotals, rowsCountedToDate, topExpenseCategoryName } from '@/utils/analytics';
+import { computeDayTotals, rowsCountedToDate, startOfTomorrowMillis, topExpenseCategoryName } from '@/utils/analytics';
 import { duplicateExpensePayload } from '@/utils/duplicateExpense';
 
-import { toMinorUnits } from '@/utils/money';
+import { fromMinorUnits, toMinorUnits } from '@/utils/money';
 import { parseAmount } from '@/utils/currency';
 import { useAuthStore } from '@/services/authStore';
 import { useLocalDay } from '@/hooks/useLocalDay';
@@ -342,6 +342,16 @@ export function useRecordViewModel() {
     [monthExpenses],
   );
 
+  // F-05: current-month expenses dated tomorrow or later. Shown as a separate
+  // "upcoming/anticipated" line; never added to monthSpent or the budget progress bar.
+  const monthUpcoming = useMemo(() => {
+    const cutoff = startOfTomorrowMillis(today);
+    const minor = monthBudgetExpenses
+      .filter((e) => !softDeletedIds.has(e.id) && e.transactionType === 'expense' && e.dateMillis >= cutoff)
+      .reduce((sum, e) => sum + toMinorUnits(e.amount), 0);
+    return fromMinorUnits(minor);
+  }, [monthBudgetExpenses, softDeletedIds, today]);
+
   const summaryExpenses = useMemo(
     () => periodExpenses.filter((e) => !softDeletedIds.has(e.id)),
     [periodExpenses, softDeletedIds],
@@ -441,11 +451,12 @@ export function useRecordViewModel() {
     topExpenseCategoryName: topExpenseCategory,
     monthlyBudget,
     monthExpenses: owner.current === userId ? monthExpenses : [],
+    monthUpcoming: owner.current === userId ? monthUpcoming : 0,
     dayTotalsByLabel,
     loading: owner.current !== userId || loading,
     loadError,
     dataTruncated,
-  }), [filteredExpenses, summaryTotalsExpenses, categories, searchQuery, typeFilter, categoryIdsFilter, minAmount, maxAmount, sortOrder, activeFilterCount, listPeriod, topExpenseCategory, monthlyBudget, monthExpenses, dayTotalsByLabel, loading, loadError, dataTruncated, userId]);
+  }), [filteredExpenses, summaryTotalsExpenses, categories, searchQuery, typeFilter, categoryIdsFilter, minAmount, maxAmount, sortOrder, activeFilterCount, listPeriod, topExpenseCategory, monthlyBudget, monthExpenses, monthUpcoming, dayTotalsByLabel, loading, loadError, dataTruncated, userId]);
 
   const requestDelete = useCallback(async (id: string) => {
     const deletingUid = userId;

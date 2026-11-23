@@ -40,11 +40,18 @@ async function seedTransactions(page: Page, count = 6): Promise<void> {
 }
 
 async function expectNoHorizontalOverflow(page: Page, context: string) {
-  const { scroll, client } = await page.evaluate(() => ({
-    scroll: document.documentElement.scrollWidth,
-    client: document.documentElement.clientWidth,
-  }));
-  expect(scroll, `horizontal page scroll — ${context}`).toBeLessThanOrEqual(client + 1);
+  // Poll rather than read once: a lazily loaded tab can paint its skeleton first, and a
+  // one-shot measurement would race that frame.
+  await expect.poll(
+    async () => {
+      const { scroll, client } = await page.evaluate(() => ({
+        scroll: document.documentElement.scrollWidth,
+        client: document.documentElement.clientWidth,
+      }));
+      return scroll - client;
+    },
+    { message: `horizontal page scroll — ${context}`, timeout: 10_000 },
+  ).toBeLessThanOrEqual(1);
 }
 
 async function gotoTab(page: Page, tab: 'record' | 'insights' | 'settings') {
@@ -54,23 +61,39 @@ async function gotoTab(page: Page, tab: 'record' | 'insights' | 'settings') {
   await expect(page).toHaveURL(new RegExp(tab === 'record' ? '.*' : `tab=${tab}`));
 }
 
+/** Let the browser apply a viewport change before reading geometry (no fixed sleep). */
+async function settleLayout(page: Page) {
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
+}
+
 test('no horizontal overflow on either side of every layout breakpoint, both themes', async ({ browser }) => {
-  test.setTimeout(60_000);
+  // One context and one sign-in for the whole matrix. The old version created twelve
+  // contexts and re-authenticated twelve times, which made an otherwise fast layout check
+  // dominate the suite's runtime and time out on a loaded machine. Resizing and emulating
+  // the colour scheme exercise the same CSS transitions without the auth round-trips.
+  test.setTimeout(120_000);
   await createVerifiedUser('responsive-a@example.com', password);
+  const context = await browser.newContext({
+    viewport: { width: 767, height: 900 },
+    colorScheme: 'dark',
+  });
+  const page = await context.newPage();
+  await signIn(page, 'responsive-a@example.com', password);
+  await seedTransactions(page);
+
   for (const colorScheme of ['dark', 'light'] as const) {
+    await page.emulateMedia({ colorScheme });
     for (const width of [767, 768, 1023, 1024, 1439, 1440]) {
-      const context = await browser.newContext({ viewport: { width, height: 900 }, colorScheme });
-      const page = await context.newPage();
-      await signIn(page, 'responsive-a@example.com', password);
-      if (colorScheme === 'dark' && width === 767) await seedTransactions(page);
-      else await page.locator('.transaction-row').first().waitFor();
+      await page.setViewportSize({ width, height: 900 });
       for (const tab of ['record', 'insights', 'settings'] as const) {
         await gotoTab(page, tab);
         await expectNoHorizontalOverflow(page, `${tab} @${width} ${colorScheme}`);
       }
-      await context.close();
     }
   }
+  await context.close();
 });
 
 test('short transaction editors keep categories, notes and the CHF amount separate', async ({ browser }) => {
@@ -237,13 +260,19 @@ test('phone filters: labelled type filter and 16px / 44px inputs on touch', asyn
 });
 
 test('wide Record: columns, reading order and tab order agree, and nothing scrolls inside itself', async ({ browser }) => {
+  // Two viewports, each with a 40-step Tab walk and several geometry reads. One context and
+  // one sign-in replace the previous two of each; the budget covers the keyboard walk on a
+  // loaded emulator host, not auth.
+  test.setTimeout(120_000);
   await createVerifiedUser('responsive-wide@example.com', password);
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const page = await context.newPage();
+  await signIn(page, 'responsive-wide@example.com', password);
+  await seedTransactions(page, 8);
+
   for (const [width, height] of [[1440, 900], [1920, 1080]] as const) {
-    const context = await browser.newContext({ viewport: { width, height } });
-    const page = await context.newPage();
-    await signIn(page, 'responsive-wide@example.com', password);
-    if (width === 1440) await seedTransactions(page, 8);
-    else await page.locator('.transaction-row').first().waitFor();
+    await page.setViewportSize({ width, height });
+    await settleLayout(page);
 
     const x = async (selector: string) => (await page.locator(selector).first().boundingBox())!.x;
     const summaryX = await x('.sidebar-layout--record .widget-stack');
@@ -281,27 +310,30 @@ test('wide Record: columns, reading order and tab order agree, and nothing scrol
       }).map((el) => el.className),
     );
     expect(nested, 'a side column scrolls inside itself').toEqual([]);
-    await context.close();
   }
+  await context.close();
 });
 
 test('Insights splits the category cards by the content column, not the viewport', async ({ browser }) => {
+  test.setTimeout(120_000);
   await createVerifiedUser('responsive-insights@example.com', password);
+  const context = await browser.newContext({ viewport: { width: 1024, height: 900 } });
+  const page = await context.newPage();
+  await signIn(page, 'responsive-insights@example.com', password);
+  await seedTransactions(page, 9);
+
   const columns = async (width: number) => {
-    const context = await browser.newContext({ viewport: { width, height: 900 } });
-    const page = await context.newPage();
-    await signIn(page, 'responsive-insights@example.com', password);
-    if (width === 1024) await seedTransactions(page, 9);
-    else await page.locator('.transaction-row').first().waitFor();
+    await page.setViewportSize({ width, height: 900 });
     await gotoTab(page, 'insights');
+    await settleLayout(page);
     const cards = page.locator('.insights-breakdown .insights-category-card');
     await expect(cards.first()).toBeVisible();
     const xs = await cards.evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().left)));
-    await context.close();
     return new Set(xs).size;
   };
   // At 1024px the column beside the sidebar is ~640px: one card per row.
   expect(await columns(1024)).toBe(1);
   // At 1280px it is ~860px: two side by side.
   expect(await columns(1280)).toBe(2);
+  await context.close();
 });

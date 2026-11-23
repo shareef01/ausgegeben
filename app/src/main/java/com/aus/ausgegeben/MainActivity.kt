@@ -146,11 +146,17 @@ fun MainApp(
 
     val overlay = rememberAppOverlayState(addViewModel, expenseViewModel)
 
+    // Reset overlays only when the account actually changes. This effect also runs on the
+    // first composition; unconditionally closing would destroy an editor restored after
+    // rotation/process death before the user sees it.
+    var previousOwnerUid by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(currentUser?.uid) {
-        if (overlay.overlayStack.isNotEmpty()) {
+        val uid = currentUser?.uid
+        if (previousOwnerUid != null && previousOwnerUid != uid) {
             addViewModel.resetForm()
             overlay.closeOverlay()
         }
+        previousOwnerUid = uid
     }
 
     // Keyed on the time too, so a reminder-time change synced from another device
@@ -262,6 +268,15 @@ fun MainApp(
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
+    // A restored draft survives only for the account that wrote it (F-06). Run the check
+    // during composition, before the editor composes, so another account's amount/note can
+    // never be painted for even one frame. The mismatch is then closed in an effect.
+    val discardedForeignDraft = remember(currentUser?.uid) {
+        currentUser?.uid?.let { addViewModel.bindOwner(it) } ?: false
+    }
+    LaunchedEffect(discardedForeignDraft) {
+        if (discardedForeignDraft) overlay.closeOverlay()
+    }
     DisposableEffect(lifecycleOwner, recurringViewModel) {
         val observer=androidx.lifecycle.LifecycleEventObserver { _, event -> if(event==androidx.lifecycle.Lifecycle.Event.ON_RESUME) recurringViewModel.synchronize() }
         lifecycleOwner.lifecycle.addObserver(observer)

@@ -119,7 +119,8 @@ fun AddTransactionScreen(
     onBudgetAlert: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) }
+    val transactionType by viewModel.draftType.collectAsStateWithLifecycle()
+    val selectedTab = TransactionType.entries.indexOf(transactionType).coerceAtLeast(0)
     val amountText by viewModel.amount.collectAsStateWithLifecycle()
     val remarkText by viewModel.note.collectAsStateWithLifecycle()
 
@@ -134,7 +135,6 @@ fun AddTransactionScreen(
     val categories by viewModel.categories.collectAsStateWithLifecycle()
     val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
     val editingExpenseId by viewModel.editingExpenseId.collectAsStateWithLifecycle()
-    val loadedTransactionType by viewModel.loadedTransactionType.collectAsStateWithLifecycle()
     val dateMillis by viewModel.dateMillis.collectAsStateWithLifecycle()
     val isSaving by viewModel.isSaving.collectAsStateWithLifecycle()
     val isDraftLoading by viewModel.isDraftLoading.collectAsStateWithLifecycle()
@@ -143,18 +143,6 @@ fun AddTransactionScreen(
     val isEditing = editingExpenseId != null
     val scope = rememberCoroutineScope()
     val haptics = rememberAppHaptics()
-
-    LaunchedEffect(editingExpenseId, loadedTransactionType) {
-        if (isEditing) {
-            selectedTab = TransactionType.entries.indexOf(loadedTransactionType).coerceAtLeast(0)
-        }
-    }
-
-    val transactionType = when (selectedTab) {
-        1 -> TransactionType.INCOME
-        2 -> TransactionType.TRANSFER
-        else -> TransactionType.EXPENSE
-    }
 
     val typeAccent by animateColorAsState(
         targetValue = when (transactionType) {
@@ -190,17 +178,13 @@ fun AddTransactionScreen(
     // only "dirty" once the user actually changes something. Both the system back
     // gesture and the close button go through `requestClose`.
     //
-    // Every input is read *inside* the lambda on purpose. `isDraftLoading` and
-    // `transactionType` are values computed during composition; capturing them is the
+    // Every input is read *inside* the lambda on purpose. `isDraftLoading` and the
+    // transaction type are view-model values; capturing them during composition is the
     // same staleness class that made an earlier version of this guard miss edits
     // entirely (the composition that produced the lambda does not re-run for a keystroke
-    // that only updates the view model). Reading `selectedTab` (a state read) and the
-    // view model's loading flag at click time keeps the decision current.
-    fun typeNow(): TransactionType = when (selectedTab) {
-        1 -> TransactionType.INCOME
-        2 -> TransactionType.TRANSFER
-        else -> TransactionType.EXPENSE
-    }
+    // that only updates the view model). Reading `draftType` and the loading flag at
+    // click time keeps the decision current.
+    fun typeNow(): TransactionType = viewModel.draftType.value
 
     val requestClose: () -> Unit = {
         if (
@@ -292,15 +276,17 @@ fun AddTransactionScreen(
                                 ),
                                 selectedIndex = selectedTab,
                                 onSelected = { index ->
-                                    selectedTab = index
-                                    // A category of the old type can't be saved under the new
-                                    // type — swap to the new type's first category (like web)
-                                    // instead of leaving a doomed selection behind.
+                                    // The view model owns the type so a restored draft keeps
+                                    // the tab the user was on.
                                     val newType = when (index) {
                                         1 -> TransactionType.INCOME
                                         2 -> TransactionType.TRANSFER
                                         else -> TransactionType.EXPENSE
                                     }
+                                    viewModel.setDraftType(newType)
+                                    // A category of the old type can't be saved under the new
+                                    // type — swap to the new type's first category (like web)
+                                    // instead of leaving a doomed selection behind.
                                     val current = viewModel.selectedCategory.value
                                     if (current != null && !CategoryGroups.matches(newType, current)) {
                                         val replacement = categories.firstOrNull {

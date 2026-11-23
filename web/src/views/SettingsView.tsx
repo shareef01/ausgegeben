@@ -17,6 +17,7 @@ import { usePreferencesStore } from '@/services/preferencesStore';
 import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
 import { preferencesSync, PREFS_SYNC_ERROR_NETWORK, PREFS_SYNC_ERROR_PERMISSION } from '@/services/preferencesSync';
+import { LocalCleanupError } from '@/services/localCleanup';
 import { useTranslation, type Locale, type TranslationKey } from '@/i18n';
 import { currencyLabel, formatAmount, formatAmountForInput, parseAmount, SUPPORTED_CURRENCIES } from '@/utils/currency';
 import type { ThemeMode } from '@/models/types';
@@ -431,8 +432,11 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
         cancelLabel={t('actionCancel')}
         onConfirm={() => {
           setShowSignOutConfirm(false);
-          void authService.signOut().catch(() => {
-            useToastStore.getState().show(t('settingsLocalCleanupFailed'));
+          void authService.signOut().catch((err: unknown) => {
+            const retryable = err instanceof LocalCleanupError && err.result.retryable;
+            useToastStore.getState().show(
+              t(retryable ? 'settingsLocalCleanupRetrying' : 'settingsLocalCleanupFailed'),
+            );
           });
         }}
         onCancel={() => setShowSignOutConfirm(false)}
@@ -505,11 +509,14 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
               }
               setShowDeleteAccountConfirm(false);
               setDeletePassword('');
+              const localCleanup = err instanceof LocalCleanupError ? err.result : null;
               useToastStore.getState().show(
                 code === 'too_many_requests'
                   ? t('settingsDeleteAccountTooManyAttempts')
-                  : code === 'local_cleanup_failed'
-                    ? t('settingsLocalCleanupFailed')
+                  : localCleanup
+                    ? t(localCleanup.retryable
+                        ? 'settingsDeleteAccountLocalCleanupRetrying'
+                        : 'settingsDeleteAccountLocalCleanupFailed')
                   : code === 'deletion_incomplete'
                     ? t('settingsDeleteAccountIncomplete')
                     : t('settingsDeleteAccountFailed'),

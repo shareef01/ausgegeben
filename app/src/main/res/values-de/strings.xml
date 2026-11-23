@@ -301,12 +301,16 @@
     <!-- Finance summary -->
     <string name="summary_balance_period">netto im zeitraum · %1$s</string>
     <string name="summary_spent">ausgegeben</string>
+    <string name="summary_anticipated">voraussichtlich</string>
+    <string name="summary_anticipated_net">Voraussichtlich netto im Zeitraum</string>
     <string name="summary_earned">eingenommen</string>
 
     <!-- Insights -->
     <string name="budget_monthly_label">monatsbudget</string>
     <string name="budget_progress">%1$s / %2$s</string>
+    <string name="budget_projected_exceed">Voraussichtlich %1$s über Budget</string>
     <string name="budget_over_by">%1$s über budget</string>
+    <string name="budget_upcoming_anticipated">Anstehend %1$s · voraussichtlich %2$s</string>
 
     <!-- Bills charts -->
     <string name="bills_section_expenses">ausgaben</string>
@@ -438,10 +442,16 @@
     <string name="category_budget_unallocated">Nicht zugewiesen</string>
     <string name="category_budget_above">Über dem Gesamtbudget</string>
     <string name="category_budget_remaining">Verbleibend</string>
+    <string name="category_budget_spent">Ausgegeben</string>
+    <string name="category_budget_anticipated">Voraussichtlich</string>
+    <string name="category_budget_spent_to_date">Bisher ausgegeben</string>
+    <string name="category_budget_upcoming">Anstehend</string>
     <string name="category_budget_overspent">Überschritten um</string>
+    <string name="category_budget_projected_over">Voraussichtlich über</string>
     <string name="category_budget_warning">Warnschwelle erreicht</string>
     <string name="category_budget_reached">Budget erreicht</string>
     <string name="category_budget_over">Budget überschritten</string>
+    <string name="category_budget_projected">Voraussichtlich über Budget</string>
     <string name="category_budget_normal">Unter der Warnschwelle</string>
     <string name="category_budget_incomplete">Zwischengespeicherter Fortschritt kann unvollständig sein. Erneut verbinden, um Ausgaben und Limits zu bestätigen.</string>
     <string name="category_budget_current">Fortschritt gilt nur für den aktuellen Kalendermonat. Limits in Einstellungen verwalten.</string>

@@ -8,6 +8,7 @@ import { useInsightsViewModel } from '@/viewmodels/useInsightsViewModel';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { pluralKey, useTranslation } from '@/i18n';
 import { formatAmount, formatCompactAmount } from '@/utils/currency';
+import { totalsDisclosure } from '@/utils/insightsTotals';
 import type {
   Category,
   PeriodComparison,
@@ -23,7 +24,7 @@ import { useThemeRevision } from '@/hooks/useThemeRevision';
 export function InsightsView({ onAdd, onManageBudgets }: { onAdd?: () => void; onManageBudgets?: () => void }) {
   const { t } = useTranslation();
   const currency = usePreferencesStore((s) => s.currency);
-  const { uiState, categories, budgetExpenses, budgetIncomplete, showCategoryBudgets, periodOptions, setAnalyticsPeriod, reload } = useInsightsViewModel();
+  const { uiState, categories, budgetExpenses, budgetIncomplete, showCategoryBudgets, budgetCutoffMillis, actualExpense, upcomingExpense, upcomingIncome, periodOptions, setAnalyticsPeriod, reload } = useInsightsViewModel();
   const haptics = useHaptics();
   const hasData =
     uiState.totalExpenses > 0 ||
@@ -61,7 +62,14 @@ export function InsightsView({ onAdd, onManageBudgets }: { onAdd?: () => void; o
             </div>
 
             {!loading && hasData ? (
-              <InsightsStatGrid income={uiState.totalIncome} expense={uiState.totalExpenses} currency={currency} />
+              <InsightsStatGrid
+                income={uiState.totalIncome}
+                expense={uiState.totalExpenses}
+                actualExpense={actualExpense}
+                upcomingExpense={upcomingExpense}
+                upcomingIncome={upcomingIncome}
+                currency={currency}
+              />
             ) : null}
           </div>
         </aside>
@@ -119,6 +127,7 @@ export function InsightsView({ onAdd, onManageBudgets }: { onAdd?: () => void; o
                 expenses={budgetExpenses}
                 incomplete={budgetIncomplete}
                 onManage={onManageBudgets}
+                cutoffMillis={budgetCutoffMillis}
               />
             ) : null}
             </>
@@ -163,6 +172,7 @@ export function InsightsView({ onAdd, onManageBudgets }: { onAdd?: () => void; o
                   expenses={budgetExpenses}
                   incomplete={budgetIncomplete}
                   onManage={onManageBudgets}
+                  cutoffMillis={budgetCutoffMillis}
                 />
               ) : null}
 
@@ -182,10 +192,28 @@ export function InsightsView({ onAdd, onManageBudgets }: { onAdd?: () => void; o
   );
 }
 
-function InsightsStatGrid({ income, expense, currency }: { income: number; expense: number; currency: string }) {
+function InsightsStatGrid({
+  income,
+  expense,
+  actualExpense,
+  upcomingExpense,
+  upcomingIncome,
+  currency,
+}: {
+  income: number;
+  expense: number;
+  actualExpense: number;
+  upcomingExpense: number;
+  upcomingIncome: number;
+  currency: string;
+}) {
   const { t } = useTranslation();
   const net = income - expense;
   const netTone = net >= 0 ? 'net-positive' : 'net-negative';
+  // The expense total is "anticipated" only when a future-dated expense is counted; the net
+  // is anticipated when either side contributes one.
+  const disclosure = totalsDisclosure(upcomingExpense, upcomingIncome);
+  const hasUpcoming = disclosure.expenseIsAnticipated;
   // One size for all three totals, set by the longest (see .insights-summary-dock__value).
   const dockRef = useCssProps<HTMLDivElement>({
     '--group-money-chars': Math.max(...[expense, income, net].map((v) => formatAmount(v, currency).length), 4),
@@ -194,7 +222,16 @@ function InsightsStatGrid({ income, expense, currency }: { income: number; expen
   return (
     <div ref={dockRef} className="insights-summary-dock card" role="group" aria-label={t('screenInsights')}>
       <div className="insights-summary-dock__row insights-summary-dock__row--expense">
-        <div className="insights-summary-dock__label">{t('summarySpent')}</div>
+        <div className="insights-summary-dock__copy">
+          <div className="insights-summary-dock__label">
+            {t(hasUpcoming ? 'insightsAnticipated' : 'summarySpent')}
+          </div>
+          {hasUpcoming ? (
+            <div className="insights-summary-dock__detail">
+              {t('categoryBudgetSpentToDate')}: {formatAmount(actualExpense, currency)} · {t('categoryBudgetUpcoming')}: {formatAmount(upcomingExpense, currency)}
+            </div>
+          ) : null}
+        </div>
         <div className="insights-summary-dock__value">{formatAmount(expense, currency)}</div>
       </div>
       <div className="insights-summary-dock__row insights-summary-dock__row--income">
@@ -202,7 +239,7 @@ function InsightsStatGrid({ income, expense, currency }: { income: number; expen
         <div className="insights-summary-dock__value">{formatAmount(income, currency)}</div>
       </div>
       <div className={`insights-summary-dock__row insights-summary-dock__row--${netTone}`}>
-        <div className="insights-summary-dock__label">{t('billsNet')}</div>
+        <div className="insights-summary-dock__label">{t(disclosure.netIsAnticipated ? 'insightsAnticipatedNet' : 'billsNet')}</div>
         <div className="insights-summary-dock__value">{formatAmount(net, currency)}</div>
       </div>
     </div>
@@ -345,6 +382,9 @@ function SpendingPaceCard({ pace, currency }: { pace: SpendingPace; currency: st
   const pct = Math.min(Math.round((pace.daysElapsed / pace.daysInMonth) * 100), 100);
   const isOverBudget = pace.projectedOverBudget !== null && pace.projectedOverBudget > 0;
   const isCompleted = pace.daysElapsed >= pace.daysInMonth;
+  // Approved warning rule: only an actual overspend is red; a projection over budget
+  // while actual spending is still within it is amber.
+  const alertClass = pace.actualOverBudget ? 'insights-badge--alert' : 'insights-badge--warning';
 
   return (
     <div className="insights-metric-card card">
@@ -353,7 +393,7 @@ function SpendingPaceCard({ pace, currency }: { pace: SpendingPace; currency: st
         {isCompleted ? (
           <span className="insights-badge insights-badge--neutral">{t('insightsMonthCompleted')}</span>
         ) : isOverBudget ? (
-          <span className="insights-badge insights-badge--alert">
+          <span className={`insights-badge ${alertClass}`}>
             {t('insightsProjectedOverBudget', { amount: formatAmount(pace.projectedOverBudget!, currency) })}
           </span>
         ) : pace.budget ? (

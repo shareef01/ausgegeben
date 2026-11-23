@@ -318,12 +318,16 @@
     <!-- Finance summary -->
     <string name="summary_balance_period">Net cash flow · %1$s</string>
     <string name="summary_spent">Spent</string>
+    <string name="summary_anticipated">Anticipated</string>
+    <string name="summary_anticipated_net">Anticipated net cash flow</string>
     <string name="summary_earned">Earned</string>
 
     <!-- Insights -->
     <string name="budget_monthly_label">Monthly budget</string>
     <string name="budget_progress">%1$s / %2$s</string>
+    <string name="budget_projected_exceed">Projected %1$s over budget</string>
     <string name="budget_over_by">Over budget by %1$s</string>
+    <string name="budget_upcoming_anticipated">Upcoming %1$s · anticipated %2$s</string>
 
     <!-- Bills charts -->
     <string name="bills_section_expenses">Expenses</string>
@@ -438,10 +442,16 @@
     <string name="category_budget_unallocated">Unallocated</string>
     <string name="category_budget_above">Above global budget</string>
     <string name="category_budget_remaining">Remaining</string>
+    <string name="category_budget_spent">Spent</string>
+    <string name="category_budget_anticipated">Anticipated</string>
+    <string name="category_budget_spent_to_date">Spent so far</string>
+    <string name="category_budget_upcoming">Upcoming</string>
     <string name="category_budget_overspent">Overspent</string>
+    <string name="category_budget_projected_over">Projected over</string>
     <string name="category_budget_warning">Warning threshold reached</string>
     <string name="category_budget_reached">Budget reached</string>
     <string name="category_budget_over">Budget exceeded</string>
+    <string name="category_budget_projected">Projected to exceed budget</string>
     <string name="category_budget_normal">Below warning threshold</string>
     <string name="category_budget_incomplete">Cached progress may be incomplete. Reconnect to confirm spending and limits.</string>
     <string name="category_budget_current">Progress uses the current calendar month only. Manage limits in Settings.</string>

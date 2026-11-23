@@ -256,8 +256,9 @@ large amount under the rules ceiling, cent-boundary values (0.05/0.10/0.20/0.30)
 year boundaries at millisecond precision, a Europe/Berlin DST day, a DST-length month, and
 restore-then-recalculate (exported amounts re-aggregate to the same totals).
 
-Deliberate divergence recorded, not "fixed": a transfer-only day produces a zero entry on web
-and no entry on Android; no money differs.
+Deliberate divergence recorded at the time, since resolved (2026-11-23): a transfer-only day
+produced a zero entry on web and no entry on Android. Web now skips transfers before creating
+a day bucket, matching Android; see `docs/audits/full-repository-audit.md` (F-01).
 
 Not covered (unchanged): Firestore server-side `sumMonthExpenses` (needs the emulator and a
 composite index; its client-side counterparts are covered), and exchange-rate behaviour — the

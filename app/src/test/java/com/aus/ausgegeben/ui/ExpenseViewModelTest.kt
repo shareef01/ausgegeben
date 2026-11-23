@@ -1,6 +1,7 @@
 package com.aus.ausgegeben.ui
 
 import android.app.Application
+import androidx.lifecycle.SavedStateHandle
 import com.aus.ausgegeben.data.CategoryActions
 import com.aus.ausgegeben.data.ExpenseActions
 import com.aus.ausgegeben.data.TransactionPreferences
@@ -602,6 +603,128 @@ class ExpenseViewModelTest {
         fun emitToAll(snapshot: List<Category>) = activeIds().forEach { emitTo(it, snapshot) }
     }
 
+    // ---- F-06: filter persistence across process recreation ---------------------------
+
+    @Test
+    fun filtersRestoreAfterProcessRecreationForTheSameAccount() = runTest(dispatcher) {
+        fakeCategories.categoriesFlow.value = listOf(category)
+        fakeExpenses.accountId.value = "user-a"
+        val handle = SavedStateHandle()
+
+        val first = ExpenseViewModel(fakeCategories, fakeExpenses, fakePreferences, fixedDay, handle)
+        backgroundScope.launch { first.uiState.collect {} }
+        advanceUntilIdle()
+
+        first.setSearchQuery("milk")
+        first.setTypeFilter(TransactionTypeFilter.EXPENSE)
+        first.setCategoryFilter(category.id)
+        first.setMinAmount("10")
+        first.setMaxAmount("50")
+        first.setSort(RecordSort.AMOUNT_DESC)
+        first.setListPeriod("month:2026-03")
+        advanceUntilIdle()
+
+        val restored = ExpenseViewModel(fakeCategories, fakeExpenses, fakePreferences, fixedDay, handle)
+        backgroundScope.launch { restored.uiState.collect {} }
+        advanceUntilIdle()
+        restored.uiState.first { !it.isLoading }
+
+        val toolbar = restored.uiState.value.toolbar
+        assertEquals("milk", toolbar.searchQuery)
+        assertEquals(TransactionTypeFilter.EXPENSE, toolbar.typeFilter)
+        assertEquals(setOf(category.id), toolbar.composite.categoryIds)
+        assertEquals("10", toolbar.composite.minInput)
+        assertEquals("50", toolbar.composite.maxInput)
+        assertEquals(RecordSort.AMOUNT_DESC, toolbar.composite.sort)
+        assertEquals("month:2026-03", toolbar.listPeriod)
+    }
+
+    @Test
+    fun transientAccountlessViewModelDoesNotEraseSavedFilters() = runTest(dispatcher) {
+        fakeCategories.categoriesFlow.value = listOf(category)
+        fakeExpenses.accountId.value = "user-a"
+        val handle = SavedStateHandle()
+
+        val first = ExpenseViewModel(fakeCategories, fakeExpenses, fakePreferences, fixedDay, handle)
+        backgroundScope.launch { first.uiState.collect {} }
+        advanceUntilIdle()
+        first.setSearchQuery("milk")
+        first.setListPeriod("all_time")
+        advanceUntilIdle()
+
+        // Auth restores after the first composition, so a temporary view model can exist with
+        // no account key. It must neither overwrite nor clear the real account's saved state.
+        val anonymous = FakeExpenseActions()
+        val transient = ExpenseViewModel(fakeCategories, anonymous, fakePreferences, fixedDay, handle)
+        backgroundScope.launch { transient.uiState.collect {} }
+        advanceUntilIdle()
+
+        val restored = ExpenseViewModel(fakeCategories, fakeExpenses, fakePreferences, fixedDay, handle)
+        backgroundScope.launch { restored.uiState.collect {} }
+        advanceUntilIdle()
+        restored.uiState.first { !it.isLoading }
+
+        assertEquals("milk", restored.uiState.value.toolbar.searchQuery)
+        assertEquals(RecordListPeriod.ALL_TIME.key, restored.uiState.value.toolbar.listPeriod)
+    }
+
+    @Test
+    fun filtersFromAnotherAccountAreDiscarded() = runTest(dispatcher) {
+        fakeCategories.categoriesFlow.value = listOf(category)
+        fakeExpenses.accountId.value = "user-a"
+        val handle = SavedStateHandle()
+
+        val first = ExpenseViewModel(fakeCategories, fakeExpenses, fakePreferences, fixedDay, handle)
+        backgroundScope.launch { first.uiState.collect {} }
+        advanceUntilIdle()
+        first.setSearchQuery("private note")
+        first.setListPeriod("all_time")
+        advanceUntilIdle()
+
+        // Production clears the previous account's store before creating the new view model;
+        // a separate fake models that without mutating the old instance's account flow.
+        val otherAccount = FakeExpenseActions().apply { accountId.value = "user-b" }
+        val restored = ExpenseViewModel(fakeCategories, otherAccount, fakePreferences, fixedDay, handle)
+        backgroundScope.launch { restored.uiState.collect {} }
+        advanceUntilIdle()
+        restored.uiState.first { !it.isLoading }
+
+        val toolbar = restored.uiState.value.toolbar
+        assertEquals("", toolbar.searchQuery)
+        assertEquals(RecordListPeriod.THIS_MONTH.key, toolbar.listPeriod)
+        assertTrue(toolbar.composite.categoryIds.isEmpty())
+        assertEquals(RecordSort.DATE_DESC, toolbar.composite.sort)
+    }
+
+    @Test
+    fun invalidSavedFiltersFallBackToDefaults() = runTest(dispatcher) {
+        fakeCategories.categoriesFlow.value = listOf(category)
+        fakeExpenses.accountId.value = "user-a"
+        val handle = SavedStateHandle()
+        handle["recordFilters.ownerUid"] = "user-a"
+        handle["recordFilters.query"] = "x".repeat(500)
+        handle["recordFilters.type"] = "NOT_A_TYPE"
+        handle["recordFilters.categories"] = arrayListOf("", "x".repeat(200))
+        handle["recordFilters.min"] = "not-a-number"
+        handle["recordFilters.max"] = "9".repeat(40)
+        handle["recordFilters.sort"] = "NOT_A_SORT"
+        handle["recordFilters.period"] = "month:2026-99"
+
+        val restored = ExpenseViewModel(fakeCategories, fakeExpenses, fakePreferences, fixedDay, handle)
+        backgroundScope.launch { restored.uiState.collect {} }
+        advanceUntilIdle()
+        restored.uiState.first { !it.isLoading }
+
+        val toolbar = restored.uiState.value.toolbar
+        assertEquals("x".repeat(200), toolbar.searchQuery) // capped, not rejected
+        assertEquals(TransactionTypeFilter.ALL, toolbar.typeFilter)
+        assertTrue(toolbar.composite.categoryIds.isEmpty())
+        assertEquals("", toolbar.composite.minInput)
+        assertEquals("", toolbar.composite.maxInput)
+        assertEquals(RecordSort.DATE_DESC, toolbar.composite.sort)
+        assertEquals(RecordListPeriod.THIS_MONTH.key, toolbar.listPeriod)
+    }
+
     private class FakeCategoryActions : CategoryActions {
         val categoriesFlow = MutableStateFlow<List<Category>>(emptyList())
         override val allCategories: Flow<List<Category>> = categoriesFlow
@@ -620,6 +743,9 @@ class ExpenseViewModelTest {
         val expenses = MutableStateFlow<List<Expense>>(emptyList())
         override val allExpenses: Flow<List<Expense>> = expenses
         override val dataTruncated: MutableStateFlow<Boolean> = MutableStateFlow(false)
+        val accountId = MutableStateFlow<String?>(null)
+        override val currentRecordAccountId: String? get() = accountId.value
+        override val recordAccountId: Flow<String?> = accountId
 
         var duplicateResult: Result<Unit> = Result.success(Unit)
         var deleteResult: Result<Unit> = Result.success(Unit)

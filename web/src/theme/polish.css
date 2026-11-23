@@ -177,6 +177,21 @@
   color: var(--color-on-surface-variant);
 }
 
+.insights-summary-dock__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.insights-summary-dock__detail {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-on-surface-variant);
+  overflow-wrap: anywhere;
+}
+
 .insights-summary-dock__value {
   margin-left: auto;
   /* 36px = the row's horizontal padding. */

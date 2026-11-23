@@ -102,16 +102,22 @@ describe('analytics', () => {
     expect(topExpenseCategoryName([], { a: 'Groceries' })).toBeNull();
   });
 
-  it('computeDayTotals ignores transfers', () => {
+  it('computeDayTotals ignores transfers, including a transfer-only day', () => {
     const day = new Date(2026, 5, 10, 12).getTime();
+    const transferOnlyDay = new Date(2026, 5, 11, 12).getTime();
     const totals = computeDayTotals([
       expense({ amount: 12, transactionType: 'expense', dateMillis: day }),
       expense({ amount: 40, transactionType: 'income', dateMillis: day }),
       expense({ amount: 99, transactionType: 'transfer', dateMillis: day }),
+      expense({ amount: 5, transactionType: 'transfer', dateMillis: transferOnlyDay }),
     ]);
     const key = '2026-5-10';
     expect(totals[key]?.expense).toBe(12);
     expect(totals[key]?.income).toBe(40);
+    // Android omits a day with no income/expense rows entirely; the web must not emit a
+    // zero entry for it (financial-parity fixture: dayTotalsTransferOnlyDay).
+    expect(totals['2026-5-11']).toBeUndefined();
+    expect(Object.keys(totals)).toEqual([key]);
   });
 
   it('computeCashFlowTrend returns empty for no expenses', () => {
