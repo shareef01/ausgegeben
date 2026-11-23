@@ -166,7 +166,7 @@ describe('authService persistence integration', () => {
   // wait for that wipe: a second account signing in mid-cleanup had its Firestore instance
   // terminated and was then signed out again, in every tab, when the cleanup finished.
   describe('holds the sign-in form until the local wipe has finished', () => {
-    afterEach(() => useAuthStore.getState().setEndingSession(false));
+    afterEach(() => useAuthStore.setState({ endingSession: false, endingSessionHolds: 0 }));
 
     it('on signOut: set while the cache is being cleared, cleared afterwards', async () => {
       let release!: () => void;
@@ -223,6 +223,49 @@ describe('authService persistence integration', () => {
       } finally {
         authService.stopListener();
       }
+    });
+
+    // A sign-out broadcast from another tab can arrive while this tab is still wiping its
+    // own sign-out. With a single flag, the broadcast handler finished first and cleared
+    // it, so the sign-in form came back mid-wipe — the race the flag exists to prevent.
+    it("a broadcast arriving during this tab's own sign-out does not lift the hold early", async () => {
+      let releaseWipe!: () => void;
+      let onInvalidated: (() => void) | undefined;
+      vi.spyOn(firebaseServices, 'clearLocalFirestoreCache').mockImplementation(
+        () => new Promise<void>((resolve) => { releaseWipe = resolve; }),
+      );
+      vi.spyOn(firebaseServices, 'getFirebaseAuth').mockReturnValue({ currentUser: { uid: 'u1' } } as any);
+      vi.spyOn(firebaseServices, 'onSessionInvalidatedBroadcast').mockImplementation((handler) => {
+        onInvalidated = handler;
+        return () => {};
+      });
+      authService.startListener();
+      try {
+        const done = authService.signOut();
+        await vi.waitFor(() => expect(releaseWipe).toBeTypeOf('function'));
+
+        onInvalidated?.(); // another tab signed out too; its local signOut resolves at once
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(useAuthStore.getState().endingSession).toBe(true); // own wipe still running
+
+        releaseWipe();
+        await done;
+        expect(useAuthStore.getState().endingSession).toBe(false);
+      } finally {
+        authService.stopListener();
+      }
+    });
+
+    it('a release called twice frees only its own hold', () => {
+      const first = useAuthStore.getState().beginEndingSession();
+      const second = useAuthStore.getState().beginEndingSession();
+      first();
+      first();
+      expect(useAuthStore.getState().endingSession).toBe(true);
+      second();
+      expect(useAuthStore.getState().endingSession).toBe(false);
+      expect(useAuthStore.getState().endingSessionHolds).toBe(0);
     });
   });
 });
