@@ -58,8 +58,8 @@ path constant is added without classifying it for account deletion.
 | `./gradlew :app:testProdDebugUnitTest :app:assembleProdDebug` | **BUILD SUCCESSFUL** (5m 45s) |
 
 The web e2e suite was run after the changes; Phase 1 ended at 34/34 after raising two
-emulator-heavy budgets. **Phase 2 re-verification** (same host): 64 files / 712 web unit
-tests, 35/35 e2e (6.4 min), 508 Android JVM tests (15 emulator-dependent cases skipped
+emulator-heavy budgets. **Phase 2 re-verification** (same host): 64 files / 717 web unit
+tests, 35/35 e2e (4.5 min), 508 Android JVM tests (15 emulator-dependent cases skipped
 offline), 15/15 of those recovery cases with the Firestore/Auth emulators, **68/68 Android
 instrumentation tests**, `lintProdDebug`, and an R8 `assembleProdRelease` that was installed
 and launched on an API 36 emulator. Exact commands and timings are in
@@ -156,9 +156,12 @@ meaning explicit instead of guessing a new one:
   Insights split text. It is skipped only when today is the last day of the month, because
   no future day remains in the current month.
 
-Remaining product decision: whether a budget warning should use anticipated (current) or
-actual spending. Changing that primary metric would change existing behaviour, so it is
-documented for owner approval rather than silently changed.
+The owner approved the following warning states in Phase 3, implemented identically on both
+clients: actual over → red **Over budget**; actual within but anticipated over → amber
+**Projected to exceed budget**; both within → the existing reached/warning/normal
+indicators. `percent`, `remaining` and `overspent` remain anticipated-based; the projected
+card labels the overage "projected over" so it is not confused with actual overspending. No
+stored value or financial total changes.
 
 ### F-06 — Android filter and editor state restoration (fixed)
 
@@ -226,6 +229,34 @@ Browser limitation: deleting an IndexedDB cache is not a secure-overwrite guaran
 blocked database or another open tab can leave cached data until the retry or a manual
 site-data clear; the UI never reports success in that state.
 
+### Phase 3 — owner-approved budget warning states
+
+The owner chose the warning semantics, implemented identically on both clients:
+
+- `categoryBudgetProgress.state` is now **over** only when `spentToDate > monthlyLimit`;
+  when actual is within but anticipated exceeds it the state is **projected**; otherwise
+  the existing `reached`/`warning`/`normal` thresholds apply.
+- Web and Android cards, progress fills and status copy use red only for **over**, amber for
+  **projected**, and keep the existing normal/progress treatment. The projected card's
+  bottom line says "projected over" rather than "overspent".
+- The Insights totals dock labels its current-month expense total **anticipated** and shows
+  a `spent so far · upcoming` detail; its net label becomes **anticipated net cash flow**.
+- The spending-pace badge is amber when actual spending is within budget but the projection
+  is over, red only when actual spending already exceeds it. `SpendingPace` gains
+  `actualExpenses` (and web `actualOverBudget`) for this distinction; no projection formula
+  changed.
+- `testdata/budget-spend-parity.json` gained five boundary cases (actual over, actual at the
+  limit + one upcoming cent, reached, threshold, below threshold) in addition to the
+  existing current/past/future, midnight, DST, recurring, transfer, deleted and empty cases.
+  Web and Android both assert the same states and actual/anticipated values.
+- No stored amount, preference, rule, index, query or Firestore read changed.
+
+Visual verification captured 36 browser screenshots (375/768/1440, light/dark, plus German
+375) of auth, Record, add/edit, Insights, category budgets, Settings, backup and the delete
+dialog. One real defect was fixed: the German category line stranded the `·` before a wrapped
+percentage; the separator and percentage now wrap together. No clipping or horizontal
+overflow was found in the inspected screens.
+
 ---
 
 ## 4. Areas audited with no defect found
@@ -261,19 +292,16 @@ The following were read and exercised, not merely skimmed:
 
 ## 5. Risks and recommendations (prioritised)
 
-1. **Decide whether a budget warning should use anticipated or actual spending** (F-05).
-   The display now names all three metrics on both clients; changing which one drives the
-   over/warning state would alter existing behaviour and needs an owner decision.
-2. **Run the remaining manual accessibility pass** (TalkBack/VoiceOver/NVDA) and a real
+1. **Run the remaining manual accessibility pass** (TalkBack/VoiceOver/NVDA) and a real
    rotation UI test with a signed-in editor. Instrumentation now runs on an API 36 emulator
    (68 tests), and a signed R8 release was built, installed and launched; an automated
    screen-reader audit is still outstanding.
-3. **WebKit/phone Playwright projects** (the brief's 320–430 px matrix): the suite currently
+2. **WebKit/phone Playwright projects** (the brief's 320–430 px matrix): the suite currently
    runs Chromium desktop only; responsive specs emulate phone viewports inside Chromium.
-4. **Keep the e2e suite lean**: the responsive matrix now reuses one context/sign-in and
+3. **Keep the e2e suite lean**: the responsive matrix now reuses one context/sign-in and
    polls geometry (23.9 s vs 1.3 m for the overflow test; 6.7 s / 6.5 s for the two former
    timeouts). Add WebKit only after the same context-reuse pattern.
-5. **Opportunistic CSS consolidation**: `pages.css` remains large and load-order-sensitive;
+4. **Opportunistic CSS consolidation**: `pages.css` remains large and load-order-sensitive;
    continue the per-component pass started in Round 15 rather than a big-bang rewrite.
 
 ---
@@ -281,9 +309,11 @@ The following were read and exercised, not merely skimmed:
 ## 6. Verification
 
 See [test-results.md](test-results.md) for exact commands, counts, timings and environment
-limits. Summary: 712 web unit tests, 146 rules tests, 190 web emulator tests, 35/35
+limits. Summary: 717 web unit tests, 146 rules tests, 190 web emulator tests, 35/35
 Playwright tests, 508 Android JVM tests (15 skipped only when emulators are absent; all 15
 pass with them), 68/68 Android instrumentation tests on API 36, `lintProdDebug`, and a signed
 R8 release build that was installed, launched, rotated and restarted on the emulator with no
 fatal error. The release APK was **not published** and no production deployment, billing
-change, Firestore data mutation or App Check enforcement change was performed.
+change, Firestore data mutation or App Check enforcement change was performed. Phase 3 also
+inspected 36 browser screenshots across 375/768/1440 and both themes; Firefox and WebKit
+rendered the auth screen without page errors.

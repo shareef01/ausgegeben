@@ -49,6 +49,8 @@ Only current, re-verified state is asserted below.
 | **Budget spend disclosure (web + Android)** | Category cards said "spent" while counting future-dated rows; Record's global bar counted only actual rows. | Both now expose actual (`spentToDate`), upcoming and anticipated totals. Cards label the anticipated value when it differs and show the split; the global bar keeps actual spending and adds the same disclosure. No primary metric or stored value changed. | `testdata/budget-spend-parity.json` on both platforms; `e2e/categoryBudgets.spec.ts` asserts both surfaces |
 | **Android filter + editor restoration** | Filters did not survive process death; an open editor closed on rotation. | `SavedStateHandle` restores search/type/categories/amount bounds/sort/period and the editor draft, baseline and original row; the overlay stack is saveable. Account-scoped and cleared on session end. | 8 new JVM tests + Activity recreation instrumentation |
 | **Web account cleanup** | One local wipe failure skipped the remaining steps after cloud/Auth deletion. | Independent steps, bounded timeouts, a privacy-safe pending marker retried on a later launch, and accurate success/warning copy. | 13 `localCleanup.test.ts` cases + `authService` failure-injection test |
+| **Budget warning state (Phase 3)** | Budget cards and the pace badge treated every projected overage as red. | Red only when actual spend is over; amber **Projected to exceed budget** when actual is within but anticipated/projected is over. Cards use "projected over" instead of "overspent"; the Insights totals dock labels anticipated values and splits spent/upcoming. | Shared parity boundary cases, `e2e/categoryBudgets.spec.ts`, 36 inspected screenshots |
+| **German percent wrap** | A wrapped category line stranded the `·` before the percentage on the next line. | The separator and percentage wrap as one unit on web; Android uses a non-breaking space. | German 375 screenshot inspection |
 
 ### Explicitly re-checked brief targets
 
@@ -143,14 +145,30 @@ No assertion was removed or weakened.
   inputs meet the documented minimums; the Android colour/icon pickers now expose ≥48dp
   selectable cells.
 
+### Phase 3 visual verification
+
+Captured and inspected 36 Chromium screenshots at 375×812, 768×1024 and 1440×900, light and
+dark, plus German at 375 (auth, Record, add/edit, Insights, category-budget card, Settings,
+data/backup, delete dialog). Findings:
+
+- The approved budget states render correctly: the Record bar is amber with "projected to
+  exceed budget by €10.00" when actual is within budget, the category card is amber
+  "projected to exceed budget" with "spent so far / upcoming" and "projected over", and the
+  pace badge is amber for a projection over. A red state remains for an actual overspend.
+- The Insights totals dock now reads "anticipated €719.13" with "spent so far: €499.13 ·
+  upcoming: €220.00" and "anticipated net cash flow", resolving the apparent disagreement
+  with Record's actual summary.
+- No horizontal overflow, clipped labels or unreadable contrast was found at the inspected
+  widths. The add dialog, delete confirmation, Settings data section and auth screen remain
+  usable at 375.
+- One defect was found and fixed: the German category line wrapped with a stranded `·`
+  before the percentage; the separator and percentage now remain together.
+- Android was verified by compilation, 508 JVM tests, 68 instrumentation tests and a signed
+  release launch; no Android screenshot/device visual pass was available.
+
 **Open**
 
-- No manual VoiceOver/TalkBack/NVDA pass was run. The source-level semantics are strong, but
-  announcement order and verbosity cannot be proven from code.
-- Android state restoration is covered by JVM view-model tests and an emulator Activity
-  recreation test; a signed-in editor rotation UI test is still outstanding.
-- Settings checkboxes remain native inputs styled inside full-row labels; a switch role would
-  match the rest of the UI but is a design decision, not a defect.
+- Manual screen-reader pass and a signed-in editor rotation UI journey.
 
 ---
 
@@ -199,6 +217,7 @@ a coherent visual identity, visible labels on ambiguous controls, and a serious
 focus/semantics model. Phase 1 closed a cross-platform display divergence and an Android
 state-loss defect; Phase 2 added an explicit actual/upcoming/anticipated budget vocabulary on
 both platforms, restored Android filters and editor drafts across process death, and made web
-local account cleanup independent and retryable. Remaining gaps are manual screen-reader and
-physical-device validation, WebKit/Firefox coverage, and the owner's decision on whether the
-budget warning should use anticipated or actual spending.
+local account cleanup independent and retryable. Phase 3 implements the owner-approved
+warning rule (red only for actual overspend, amber for projected overspend) on both clients.
+Remaining gaps are manual screen-reader and physical-device validation and WebKit/Firefox
+coverage.

@@ -163,9 +163,12 @@ the boundary, as the rule tests demonstrate.
   on session end and at most holds one open draft.
 - **F-07 web cleanup** uses only local APIs (IndexedDB/localStorage) and a small privacy-safe
   marker. It adds no network call, no Firebase product and no server-side job.
+- **Phase 3 warning states** are presentation/state changes computed from the same rows. The
+  one added server read is a single `getAll` on a rare recurring revision conflict, not a
+  listener or background poll; the normal save path is unchanged.
 - **Test changes** only add cases and reduce Playwright auth round-trips; they do not touch
   production code paths or quotas.
-- No Firebase rules, indexes, hosting headers or App Check settings changed in Phase 2.
+- No Firebase rules, indexes, hosting headers or App Check settings changed in Phase 2 or 3.
 
 ## 7. Conclusion
 
