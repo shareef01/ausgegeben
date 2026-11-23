@@ -168,9 +168,15 @@ export async function reconcilePendingExpenseSubmissions(
   }
 }
 
-/** Account sign-out abandons opaque pending submissions for that account. */
-export async function clearExpenseSubmissionJournal(uid: string): Promise<void> {
-  if (typeof indexedDB === 'undefined') return;
+/**
+ * Account sign-out/cleanup abandons opaque pending submissions for that account.
+ *
+ * Returns false when IndexedDB exists but the journal could not be purged, so account
+ * cleanup can retry instead of reporting a clean sign-out. An environment without
+ * IndexedDB has nothing durable to clear and is therefore a success.
+ */
+export async function clearExpenseSubmissionJournal(uid: string): Promise<boolean> {
+  if (typeof indexedDB === 'undefined') return true;
   try {
     const db = await openDatabase();
     const transaction = db.transaction(STORE_NAME, 'readwrite');
@@ -190,8 +196,10 @@ export async function clearExpenseSubmissionJournal(uid: string): Promise<void> 
       };
     });
     await done;
+    return true;
   } catch (error) {
     console.warn('[expenseSubmissionJournal] could not clear account journal', error);
+    return false;
   }
 }
 
