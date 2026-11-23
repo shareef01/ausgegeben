@@ -95,6 +95,16 @@ fun BillsScreen(
     } else {
         0.0
     }
+    // Future-dated income inflates net cash flow exactly like future-dated expense deflates it,
+    // so the net label has to follow both sides, not just the expense split above.
+    val upcomingIncome = if (isCurrentMonth) {
+        uiState.budgetExpenses.asSequence()
+            .filter { it.isIncome() && it.dateMillis >= uiState.budgetCutoffMillis }
+            .map { it.amount }
+            .sumMoney()
+    } else {
+        0.0
+    }
     val selectedPeriodLabel = remember(uiState.periodKey, uiState.periodLabel, periodOptions) {
         if (uiState.periodKey == "all_time") {
             null
@@ -236,6 +246,7 @@ fun BillsScreen(
                                                 expense = expenseTotal,
                                                 actualExpense = actualExpense,
                                                 upcomingExpense = upcomingExpense,
+                                                upcomingIncome = upcomingIncome,
                                                 currencyCode = currencyCode
                                             )
                                         }
@@ -252,6 +263,7 @@ fun BillsScreen(
                                             expense = expenseTotal,
                                             actualExpense = actualExpense,
                                             upcomingExpense = upcomingExpense,
+                                            upcomingIncome = upcomingIncome,
                                             currencyCode = currencyCode,
                                             modifier = Modifier.padding(bottom = 8.dp)
                                         )
@@ -479,11 +491,14 @@ private fun InsightsStatGrid(
     expense: Double,
     actualExpense: Double,
     upcomingExpense: Double,
+    upcomingIncome: Double,
     currencyCode: String,
     modifier: Modifier = Modifier
 ) {
     val net = income - expense
-    val hasUpcoming = upcomingExpense > 0
+    // The expense total is "anticipated" only when a future-dated expense is counted; the net
+    // is anticipated when either side contributes one.
+    val disclosure = totalsDisclosure(upcomingExpense, upcomingIncome)
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -493,12 +508,12 @@ private fun InsightsStatGrid(
         StatCardRow(
             stats = listOf(
                 StatValue(
-                    stringResource(if (hasUpcoming) R.string.summary_anticipated else R.string.summary_spent),
+                    stringResource(if (disclosure.expenseIsAnticipated) R.string.summary_anticipated else R.string.summary_spent),
                     CurrencyUtils.formatAmount(expense, currencyCode),
                     financeExpenseTextColor(),
                 ),
                 StatValue(
-                    stringResource(if (hasUpcoming) R.string.summary_anticipated_net else R.string.chart_net_label),
+                    stringResource(if (disclosure.netIsAnticipated) R.string.summary_anticipated_net else R.string.chart_net_label),
                     CurrencyUtils.formatAmount(net, currencyCode),
                     if (net >= 0) financeIncomeTextColor() else financeExpenseTextColor(),
                 ),
@@ -507,7 +522,7 @@ private fun InsightsStatGrid(
             spacing = AppSpacing.sm,
             modifier = Modifier.fillMaxWidth(),
         )
-        if (hasUpcoming) {
+        if (disclosure.expenseIsAnticipated) {
             Text(
                 text = stringResource(R.string.category_budget_spent_to_date) + ": " +
                     CurrencyUtils.formatAmount(actualExpense, currencyCode) + " · " +

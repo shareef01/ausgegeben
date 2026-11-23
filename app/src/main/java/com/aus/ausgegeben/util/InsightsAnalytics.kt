@@ -290,3 +290,22 @@ fun computeAllTimeAverages(expenses: List<Expense>): AllTimeAverages? {
         averageMonthlyNet = avgNet,
     )
 }
+
+/**
+ * Which labels the Insights totals dock uses once future-dated rows are part of the value.
+ *
+ * The dock's totals cover every row in the selected period, so a future-dated row makes the
+ * figure larger than money already moved. The expense total is only "anticipated" when a
+ * future-dated expense is counted, but **net cash flow** is anticipated whenever either side
+ * contributes one — future-dated income inflates it just as future-dated expense deflates it.
+ * A future-income-only month therefore keeps a plain "Spent" total and an anticipated net.
+ *
+ * Mirrored in `web/src/utils/insightsTotals.ts`; both clients must answer identically.
+ */
+data class TotalsDisclosure(val expenseIsAnticipated: Boolean, val netIsAnticipated: Boolean)
+
+fun totalsDisclosure(upcomingExpense: Double, upcomingIncome: Double): TotalsDisclosure {
+    val futureExpense = CurrencyUtils.toMinorUnits(upcomingExpense) > 0L
+    val futureIncome = CurrencyUtils.toMinorUnits(upcomingIncome) > 0L
+    return TotalsDisclosure(expenseIsAnticipated = futureExpense, netIsAnticipated = futureExpense || futureIncome)
+}

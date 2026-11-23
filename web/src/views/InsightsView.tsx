@@ -8,6 +8,7 @@ import { useInsightsViewModel } from '@/viewmodels/useInsightsViewModel';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { pluralKey, useTranslation } from '@/i18n';
 import { formatAmount, formatCompactAmount } from '@/utils/currency';
+import { totalsDisclosure } from '@/utils/insightsTotals';
 import type {
   Category,
   PeriodComparison,
@@ -23,7 +24,7 @@ import { useThemeRevision } from '@/hooks/useThemeRevision';
 export function InsightsView({ onAdd, onManageBudgets }: { onAdd?: () => void; onManageBudgets?: () => void }) {
   const { t } = useTranslation();
   const currency = usePreferencesStore((s) => s.currency);
-  const { uiState, categories, budgetExpenses, budgetIncomplete, showCategoryBudgets, budgetCutoffMillis, actualExpense, upcomingExpense, periodOptions, setAnalyticsPeriod, reload } = useInsightsViewModel();
+  const { uiState, categories, budgetExpenses, budgetIncomplete, showCategoryBudgets, budgetCutoffMillis, actualExpense, upcomingExpense, upcomingIncome, periodOptions, setAnalyticsPeriod, reload } = useInsightsViewModel();
   const haptics = useHaptics();
   const hasData =
     uiState.totalExpenses > 0 ||
@@ -66,6 +67,7 @@ export function InsightsView({ onAdd, onManageBudgets }: { onAdd?: () => void; o
                 expense={uiState.totalExpenses}
                 actualExpense={actualExpense}
                 upcomingExpense={upcomingExpense}
+                upcomingIncome={upcomingIncome}
                 currency={currency}
               />
             ) : null}
@@ -195,18 +197,23 @@ function InsightsStatGrid({
   expense,
   actualExpense,
   upcomingExpense,
+  upcomingIncome,
   currency,
 }: {
   income: number;
   expense: number;
   actualExpense: number;
   upcomingExpense: number;
+  upcomingIncome: number;
   currency: string;
 }) {
   const { t } = useTranslation();
   const net = income - expense;
   const netTone = net >= 0 ? 'net-positive' : 'net-negative';
-  const hasUpcoming = upcomingExpense > 0;
+  // The expense total is "anticipated" only when a future-dated expense is counted; the net
+  // is anticipated when either side contributes one.
+  const disclosure = totalsDisclosure(upcomingExpense, upcomingIncome);
+  const hasUpcoming = disclosure.expenseIsAnticipated;
   // One size for all three totals, set by the longest (see .insights-summary-dock__value).
   const dockRef = useCssProps<HTMLDivElement>({
     '--group-money-chars': Math.max(...[expense, income, net].map((v) => formatAmount(v, currency).length), 4),
@@ -232,7 +239,7 @@ function InsightsStatGrid({
         <div className="insights-summary-dock__value">{formatAmount(income, currency)}</div>
       </div>
       <div className={`insights-summary-dock__row insights-summary-dock__row--${netTone}`}>
-        <div className="insights-summary-dock__label">{t(hasUpcoming ? 'insightsAnticipatedNet' : 'billsNet')}</div>
+        <div className="insights-summary-dock__label">{t(disclosure.netIsAnticipated ? 'insightsAnticipatedNet' : 'billsNet')}</div>
         <div className="insights-summary-dock__value">{formatAmount(net, currency)}</div>
       </div>
     </div>

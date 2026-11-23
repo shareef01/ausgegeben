@@ -263,9 +263,19 @@ export function useInsightsViewModel() {
         ),
       ).totalExpenses
     : 0;
+  // Future-dated income inflates net cash flow exactly like future-dated expense deflates it,
+  // so the net label has to follow both sides, not just the expense split above.
+  const upcomingIncome = showCategoryBudgets
+    ? computeTotals(
+        expenses.filter(
+          (e) => e.transactionType === 'income' &&
+            e.dateMillis >= startOfTomorrowMillis(today),
+        ),
+      ).totalIncome
+    : 0;
   // F-05: category-budget cards distinguish actual (before tomorrow) from upcoming
   // (future-dated current-month rows). The cutoff is derived from the same local day the
   // rest of Insights uses, so it moves at midnight without a new data read.
   const budgetCutoffMillis = startOfTomorrowMillis(today);
-  return { uiState, categories, budgetExpenses: expenses, budgetIncomplete, showCategoryBudgets, budgetCutoffMillis, actualExpense, upcomingExpense, periodOptions, setAnalyticsPeriod, reload };
+  return { uiState, categories, budgetExpenses: expenses, budgetIncomplete, showCategoryBudgets, budgetCutoffMillis, actualExpense, upcomingExpense, upcomingIncome, periodOptions, setAnalyticsPeriod, reload };
 }
