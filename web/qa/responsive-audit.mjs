@@ -11,7 +11,7 @@
  *   - nested scroll containers (a box whose content is taller than the box, inside the page)
  *   - focusable controls smaller than 24×24 CSS px (WCAG 2.5.8), and interactive text inputs
  *     under 16px on touch viewports (iOS focus-zoom)
- *   - truncated text in Insights category rows
+ *   - truncated text in Insights category rows, and input placeholders cut without an ellipsis
  *   - on Record, whether keyboard focus order follows the visual column order
  * Exit code is the number of FAIL lines. Screenshots (with --shots) go to ../docs/design-qa/responsive/<label>/.
  * --themes adds a pass over every theme at 390px and 1440px (same measurements plus a shot each).
@@ -72,6 +72,30 @@ async function signedInPage(width, height, scheme) {
     await page.locator('.transaction-row').first().waitFor({ timeout: 30000 });
   }
   return { context, page, touch };
+}
+
+/**
+ * Poll the signed-in account's stored preferences (Firestore emulator, owner access) until
+ * themeMode equals `mode`, for up to 10 s. Returns what was last read, so a reset that never
+ * lands is reported instead of silently leaking into the next run.
+ */
+async function waitForStoredTheme(page, mode) {
+  const uid = await page.evaluate(async () => {
+    const mod = await import(/* @vite-ignore */ '/src/services/authStore.ts');
+    return mod.useAuthStore.getState().user?.uid ?? null;
+  });
+  if (!uid) return { ok: false, stored: 'no signed-in user' };
+  const project = process.env.PROJECT_ID ?? 'demo-ausgegeben';
+  const url = `http://127.0.0.1:8080/v1/projects/${project}/databases/(default)/documents/users/${uid}/settings/preferences`;
+  let stored = 'unread';
+  for (let i = 0; i < 40; i++) {
+    const res = await fetch(url, { headers: { Authorization: 'Bearer owner' } }).catch(() => null);
+    if (res?.ok) stored = (await res.json()).fields?.themeMode?.stringValue ?? 'missing';
+    else stored = `HTTP ${res?.status ?? 'unreachable'}`;
+    if (stored === mode) return { ok: true, stored };
+    await page.waitForTimeout(250);
+  }
+  return { ok: false, stored };
 }
 
 async function gotoTab(page, tab) {
@@ -140,6 +164,18 @@ function measure(touch) {
   const truncated = [...document.querySelectorAll('.insights-category-card__name')]
     .filter((e) => visible(e) && (e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1)).length;
   const catNames = document.querySelectorAll('.insights-category-card__name').length;
+  // Placeholders cannot be measured with scrollWidth: compare the text's width in the
+  // input's font with the space inside its padding. Clipped text must end in an ellipsis.
+  const cutPlaceholders = [...document.querySelectorAll('input[placeholder]')]
+    .filter((e) => visible(e) && !e.value)
+    .filter((e) => {
+      const cs = getComputedStyle(e);
+      const c = document.createElement('canvas').getContext('2d');
+      c.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+      const room = e.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      return c.measureText(e.placeholder).width > room + 1 && cs.textOverflow !== 'ellipsis';
+    })
+    .map((e) => e.placeholder);
   const cardWidths = [...document.querySelectorAll('.insights-category-card')].filter(visible)
     .map((e) => Math.round(e.getBoundingClientRect().width));
 
@@ -149,7 +185,7 @@ function measure(touch) {
     nested: [...new Set(nested)].slice(0, 5),
     small: [...new Set(small)].slice(0, 8),
     tinyInputs: [...new Set(tinyInputs)],
-    truncated, catNames, cardWidths, clippedLabels,
+    truncated, catNames, cardWidths, clippedLabels, cutPlaceholders,
   };
 }
 
@@ -188,6 +224,7 @@ for (const scheme of ['dark', 'light']) {
       line(m.nested.length === 0, `no nested vertical scroll — ${at}${m.nested.length ? `: ${m.nested.join(', ')}` : ''}`);
       line(m.small.length === 0, `targets ≥24px — ${at}${m.small.length ? `: ${m.small.join(', ')}` : ''}`);
       line(m.clippedLabels.length === 0, `control labels not clipped — ${at}${m.clippedLabels.length ? `: ${m.clippedLabels.join(', ')}` : ''}`);
+      line(m.cutPlaceholders.length === 0, `placeholders fit or end in an ellipsis — ${at}${m.cutPlaceholders.length ? `: ${m.cutPlaceholders.join(', ')}` : ''}`);
       if (touch) line(m.tinyInputs.length === 0, `inputs ≥16px on touch — ${at}${m.tinyInputs.length ? `: ${m.tinyInputs.join(', ')}` : ''}`);
       if (tab === 'insights' && m.catNames) {
         const msg = `insights category names truncated ${m.truncated}/${m.catNames}, cards ${m.cardWidths.join('/')}px — ${at}`;
@@ -226,11 +263,16 @@ if (themes) {
         if (shots) await page.screenshot({ path: join(OUT, `theme-${theme}-${tab}-${w}.png`), fullPage: false });
       }
     }
-    // Leave the seeded (emulator-only) account on the system theme for the next run.
+    // Leave the seeded (emulator-only) account on the system theme for the next run. The
+    // store change reaches Firestore asynchronously; closing the context straight away
+    // dropped that push and left the account on the last theme, so every later sweep
+    // measured soft_light while labelling its shots light/dark. Wait for the stored document.
     await page.evaluate(async () => {
       const mod = await import(/* @vite-ignore */ '/src/services/preferencesStore.ts');
       mod.usePreferencesStore.getState().setThemeMode('system');
     });
+    const reset = await waitForStoredTheme(page, 'system');
+    line(reset.ok, `QA account theme reset to system @${w} (stored: ${reset.stored})`);
     await context.close();
   }
 }

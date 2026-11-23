@@ -317,3 +317,44 @@ fatal error. The release APK was **not published** and no production deployment,
 change, Firestore data mutation or App Check enforcement change was performed. Phase 3 also
 inspected 36 browser screenshots across 375/768/1440 and both themes; Firefox and WebKit
 rendered the auth screen without page errors.
+
+---
+
+## 7. Deep-audit addendum (2026-11-23, evening)
+
+Committed in `e88e124` (`fix/audit-pwa-update-cross-account`), reviewed for this addendum:
+
+| Area | What broke for a person | Fix | Evidence |
+|---|---|---|---|
+| PWA update | After a deploy, an open tab's lazily loaded screens (Add, Settings, Insights) no longer existed; opening one crashed to the error screen, whose reload discarded changes made offline that had not synced | Lazy screens are fetched while the precache is intact; a missing chunk shows a short notice and reloads only once no write is waiting; the error screen warns about unsynced changes | `staleBuild.test.ts`, `qa/pwa-update-repro.mjs` |
+| Preferences | A write still running for one account could apply its result (budget, currency, "settled") after switching to another account | Per-session generation guard on web and Android; Android no longer creates the preferences document from a cache-only "missing" answer | 6 flow tests in `preferencesSync.flow.test.ts`; `PreferencesCloudSyncTest.shouldCreateFromLocal…` |
+| Sign-out | The sign-in form appeared before the local wipe finished; a second account signing in at that moment lost its Firestore instance and was signed out again in every tab | The form waits for the wipe; the cross-tab signal is sent before the wipe, so a reload mid-sign-out cannot drop it; the launch retry is gated once per load | `authService.test.ts`, `e2e/crossTabAccounts.spec.ts` (2/2) |
+
+Fixed in this pass (uncommitted):
+
+| Area | What broke for a person | Fix | Evidence |
+|---|---|---|---|
+| Web typography | Long German category names on Insights, Record chips and category management broke mid-word with no hyphen ("Haushaltsversich / erung") | `hyphens: auto` beside the existing `overflow-wrap: anywhere` (the page's `lang` follows the UI locale) | Screenshot at 379 px now shows "Haushaltsversi- / cherung" |
+| Web forms | The search placeholder was cut mid-word ("…kategorien suche") in the desktop filter column and on tablets; the amount placeholders at 320 px and on landscape phones | While the field is empty it no longer reserves room for the clear button (which only exists with a query) and clipped text ends in an ellipsis | New audit check; negative control 20 FAIL → 0 FAIL |
+| QA tooling | `qa/responsive-audit.mjs --themes` left the shared QA account on its last theme, so every later sweep measured the soft-light theme while labelling its screenshots light/dark | The reset waits until the stored preference reads `system` and reports a FAIL if it never does | Stored value `soft_light` before, `system` after |
+
+Review notes on `e88e124` (no change made):
+
+- Android's generation guard is covered only indirectly (the `shouldCreateFromLocal` rule is
+  unit-tested; the guard itself needs a Firestore fake to test).
+- `AuthStore.endingSession` is one flag. If another tab's sign-out signal arrives while this
+  tab's own sign-out is still wiping, whichever finishes first lifts the loading screen early.
+  Fixed separately in PR #188 (the sign-in form stays held while any session-ending work runs).
+- In the account-deletion e2e test the deleting account's preferences write is refused by the
+  rules (`accountAcceptsWrites`). That is the rules doing their job, but the client could skip
+  the write once deletion has started.
+
+**Known remaining risk.** The sign-out signal between tabs carries no account id. In
+session-only mode ("keep me signed in" off), signing out in one tab also signs out a
+*different* account open in another tab of the same browser and terminates that tab's
+Firestore instance, discarding any of its writes that had not reached the server yet.
+
+**Spark compatibility.** No Cloud Functions, scheduled jobs, Storage, extensions or paid APIs
+were added; `firebase.json`, `firestore.rules`, indexes and dependencies are unchanged. All
+new logic is client-side. The diff contains no keys or credentials (only emulator
+placeholders and test fixtures).
