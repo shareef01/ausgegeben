@@ -1,4 +1,4 @@
-import { collection, doc, getDocFromServer, getDocsFromServer, onSnapshot, runTransaction, writeBatch, type Firestore } from 'firebase/firestore';
+import { collection, doc, getDocFromServer, getDocsFromServer, limit, onSnapshot, query, runTransaction, writeBatch, type Firestore } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/services/firebase';
 import { useAuthStore } from '@/services/authStore';
 import { RECURRING_COLLECTION, OCCURRENCES_COLLECTION } from '@/repositories/firestorePaths';
@@ -128,6 +128,8 @@ export function receiptState(
   return validOccurrenceReceipt(data ?? {}, expected) ? 'valid' : 'invalid';
 }
 
+/** Far above any real template count; see `observe` for why the listener has a limit at all. */
+export const LISTENER_LIMIT = 100_000;
 /** Issues recorded by the most recent reconcile pass, per owner. */
 const lastIssuesByOwner = new Map<string, RecurringIssue[]>();
 /** Whether the most recent pass, per owner, stopped at its budget with due work left. */
@@ -142,7 +144,14 @@ function eligible(data: Record<string, unknown> | undefined, type: string) {
 return {
   observe(uid: string, cb: (rows: RecurringTemplate[], incomplete: boolean, error: boolean) => void) {
     let alive = true;
-    const stop = onSnapshot(collection(db(), 'users', uid, RECURRING_COLLECTION), { includeMetadataChanges: true }, snap => {
+    // Deliberately not the plain collection query that `getAll` reads. While a listener is
+    // open on a query, the SDK answers getDocsFromServer for that same query from the
+    // listener's current view instead of asking the server, and a write made in a
+    // transaction reaches that view only later. Catch-up right after saving a template then
+    // read no templates, recorded nothing, and pausing and resuming skipped today's charge.
+    // The limit only changes the query's identity; nobody keeps anywhere near that many.
+    const listened = query(collection(db(), 'users', uid, RECURRING_COLLECTION), limit(LISTENER_LIMIT));
+    const stop = onSnapshot(listened, { includeMetadataChanges: true }, snap => {
       if (alive && useAuthStore.getState().user?.uid === uid) cb(snap.docs.map(d => ({ ...d.data(), id: d.id } as RecurringTemplate)), snap.metadata.fromCache, false);
     }, () => { if (alive && useAuthStore.getState().user?.uid === uid) cb([], true, true); });
     return () => { alive = false; stop(); };

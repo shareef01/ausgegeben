@@ -6,7 +6,7 @@ import { usePreferencesStore } from '@/services/preferencesStore';
 import { useToastStore } from '@/services/toastStore';
 import { formatAmount, colorIntToHex } from '@/utils/currency';
 import { recurringRepository } from '@/services/recurringRepository';
-import { syncRecurring, useRecurringStore } from '@/services/recurringStore';
+import { catchUpBeforeChange, syncRecurring, useRecurringStore } from '@/services/recurringStore';
 import type { RecurringTemplate } from '@/services/recurrence';
 import { expenseRepository } from '@/repositories/expenseRepository';
 import type { Category } from '@/models/types';
@@ -134,7 +134,10 @@ export function RecurringPanel({ owner, close }: { owner: string; close: () => v
 
   const toggle = async (row: RecurringTemplate) =>
     mutate(row.id, async () => {
-      await saveRecurringWithConflictRetry(recurringRepository, owner, row, !row.enabled);
+      // A charge already due is recorded before the pause, or resuming would skip it.
+      const current = await catchUpBeforeChange(owner, row);
+      if (!current) throw new Error('RECURRING_CONFLICT');
+      await saveRecurringWithConflictRetry(recurringRepository, owner, current, !row.enabled);
       if (row.enabled === false) void syncRecurring();
     });
 

@@ -5,6 +5,7 @@ import { useTranslation } from '@/i18n';
 import { useAuthStore } from '@/services/authStore';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { recurringRepository } from '@/services/recurringRepository';
+import { catchUpBeforeChange, onlyCaughtUp } from '@/services/recurringStore';
 import type { RecurringTemplate } from '@/services/recurrence';
 import { amountPlaceholder, colorIntToHex, currencySymbol } from '@/utils/currency';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
@@ -113,7 +114,16 @@ export function RecurringEditor({ owner, template, expected, categories, blocked
     setSaving(true);
     setError(null);
     try {
-      await recurringRepository.save(owner, result.template, expected);
+      let expectedAt = expected;
+      if (expected !== null) {
+        // An edit restarts the schedule after today, so a charge already due is recorded
+        // first, under the terms it was due on. That catch-up moves the revision on; only
+        // a revision that changed for that reason alone is taken as still current.
+        const fresh = await catchUpBeforeChange(owner, template);
+        if (!fresh) throw new Error('RECURRING_CONFLICT');
+        if (fresh.updatedAt !== expected && onlyCaughtUp(fresh, template)) expectedAt = fresh.updatedAt;
+      }
+      await recurringRepository.save(owner, result.template, expectedAt);
       if (useAuthStore.getState().user?.uid !== owner) return;
       haptics.success();
       onSaved();
