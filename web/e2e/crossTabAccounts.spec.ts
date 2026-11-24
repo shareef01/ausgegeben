@@ -1,6 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
 import { en } from '../src/i18n/en';
-import { createVerifiedUser, readLocalStorage, resetAuthEmulator, resetFirestoreEmulator, signIn } from './helpers';
+import {
+  createVerifiedUser,
+  PROJECT_ID,
+  readLocalStorage,
+  resetAuthEmulator,
+  resetFirestoreEmulator,
+  signIn,
+  TRUSTED_DEVICE_KEY,
+} from './helpers';
 /** Same key as LOCAL_CLEANUP_PENDING_KEY in src/services/localCleanup.ts. */
 const LOCAL_CLEANUP_PENDING_KEY = 'ausgegeben-local-cleanup-pending-v1';
 
@@ -163,4 +171,54 @@ test('signing out in one session-only tab leaves a different account in another 
   await addExpenseWithNote(tabB, bNote);
   await expect(tabB.getByText(bNote)).toBeVisible({ timeout: 15_000 });
   await expect(tabB.getByText(ALPHA_NOTE)).toHaveCount(0);
+});
+
+/** Notes of the expenses the Firestore emulator holds for `uid` (admin read, bypasses rules). */
+async function serverNotes(uid: string): Promise<string[]> {
+  const res = await fetch(
+    `http://127.0.0.1:8080/v1/projects/${PROJECT_ID}/databases/(default)/documents/users/${uid}/expenses`,
+    { headers: { Authorization: 'Bearer owner' } },
+  );
+  const body = (await res.json()) as { documents?: { fields?: { note?: { stringValue?: string } } }[] };
+  return (body.documents ?? []).map((d) => d.fields?.note?.stringValue ?? '');
+}
+
+test('another account signing out never deletes a trusted-device tab’s writes that are still waiting for the server', async ({ context }) => {
+  // The sign-out waits up to PEER_RELEASE_TIMEOUT_MS (10 s) for B before deferring the wipe.
+  test.setTimeout(90_000);
+  const emailA = `flush-a-${test.info().workerIndex}@example.com`;
+  const emailB = `flush-b-${test.info().workerIndex}@example.com`;
+  await createVerifiedUser(emailA, PASSWORD);
+  await createVerifiedUser(emailB, PASSWORD);
+  const tabA = await context.newPage();
+  await signIn(tabA, emailA, PASSWORD);
+  // B keeps its Firestore cache and write queue on disk (trusted device), the cache every
+  // tab of the origin shares. A stays session-only, so both can be signed in side by side.
+  const tabB = await context.newPage();
+  await tabB.goto('/');
+  await tabB.evaluate((key) => window.localStorage.setItem(key, 'true'), TRUSTED_DEVICE_KEY);
+  await signIn(tabB, emailB, PASSWORD);
+  const b = await uidForEmail(emailB);
+  await expect.poll(() => currentUid(tabB), { timeout: 15_000 }).toBe(b);
+  await addExpenseWithNote(tabB, 'bravo-seed');
+  await expect.poll(() => serverNotes(b), { timeout: 15_000 }).toContain('bravo-seed');
+
+  // B loses its connection to Firestore and saves an expense: it waits in the on-disk queue.
+  const unsent = 'bravo-unsent-while-offline';
+  await tabB.route('**://127.0.0.1:8080/**', (route) => route.abort());
+  await addExpenseWithNote(tabB, unsent);
+  await expect(tabB.getByText(unsent)).toBeVisible({ timeout: 15_000 });
+
+  await tabA.getByRole('button', { name: en.navSettings }).click();
+  await tabA.getByRole('button', { name: en.settingsSignOut, exact: true }).click();
+  await tabA.getByRole('alertdialog').getByRole('button', { name: en.settingsSignOut }).click();
+  await tabA.locator('#auth-email').waitFor({ state: 'visible', timeout: 30_000 });
+  // The wipe could not run without dropping B's write, so it is left pending for a retry.
+  expect(await readLocalStorage(tabA, LOCAL_CLEANUP_PENDING_KEY)).not.toBeNull();
+
+  // Before, B closed its instance at once and A deleted the shared cache with the queued
+  // write in it: once back online, the expense never reached the server.
+  await tabB.unroute('**://127.0.0.1:8080/**');
+  await expect.poll(() => serverNotes(b), { timeout: 20_000 }).toContain(unsent);
+  expect(await currentUid(tabB)).toBe(b);
 });

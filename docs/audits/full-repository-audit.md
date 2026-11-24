@@ -371,11 +371,22 @@ signed in and working". Negative controls: with the account check disabled, 2 un
 and the e2e test fail; with the Firestore guard disabled, the other account's tab logs
 "Firestore shutting down" and the e2e test fails.
 
-Still open on this path: a tab of another account that uses the on-disk cache (trusted
-device) still has to close its instance, so its writes not yet on the server are lost along
-with the shared cache. Two accounts with "keep me signed in" cannot be open side by side
-(Firebase shares one durable session per browser), so this needs one durable and one
-session-only account using a trusted-device cache at the same time.
+Trusted-device follow-up (fixed): a tab of another account that uses the on-disk cache
+still has to close its instance so the cache can be deleted, and its writes not yet on the
+server were deleted with it. That tab now sends them first and closes only once they have
+reached the server (at most 8 s); the signing-out tab waits for it (at most 10 s). If the
+writes cannot be sent (offline), the tab keeps the cache open, the cache step fails as
+"deferred", the cleanup marker stays and the sign-out shows the "will be retried" message;
+the wipe runs on a later launch. Older builds that do not answer still get the previous
+250 ms. A session ending in a page load no longer triggers the launch retry in that same
+load, so the sign-in form is not held a second time.
+
+Regression tests: 6 unit tests in `firebaseCacheClearPeers.test.ts` (real
+BroadcastChannels) and the e2e test "another account signing out never deletes a
+trusted-device tab's writes that are still waiting for the server" (B offline with a queued
+expense, A signs out, B reconnects, the expense reaches the emulator). Negative control:
+with the peer closing at once as before, the e2e test fails twice over: no cleanup marker,
+and the server never receives the queued expense.
 
 **Spark compatibility.** No Cloud Functions, scheduled jobs, Storage, extensions or paid APIs
 were added; `firebase.json`, `firestore.rules`, indexes and dependencies are unchanged. All

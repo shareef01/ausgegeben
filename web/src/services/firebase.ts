@@ -80,11 +80,131 @@ export function peerMustCloseFirestore(
   return holdsPersistentCache;
 }
 
+/**
+ * Replies to a cache-clear request (by its `requestId`) from a tab that must give up the
+ * shared on-disk cache for ANOTHER account's sign-out. "hold" says it is sending its own
+ * unsent writes first; "released" that it has closed its instance; "kept" that the writes
+ * could not be sent in time, so it stays open and the wipe has to wait.
+ */
+export const CACHE_CLEAR_HOLD = 'clear-firestore-cache-hold';
+export const CACHE_CLEAR_RELEASED = 'clear-firestore-cache-released';
+export const CACHE_CLEAR_KEPT = 'clear-firestore-cache-kept';
+/** How long a peer tries to send its unsent writes before keeping its cache open. */
+export const PEER_FLUSH_TIMEOUT_MS = 8_000;
+/** How long the clearing tab waits for holding peers; below the cleanup step's 20 s. */
+export const PEER_RELEASE_TIMEOUT_MS = 10_000;
+/** Minimum wait for peers, also the time older builds get to close without replying. */
+const PEER_CLOSE_GRACE_MS = 250;
+
+interface LifecycleChannel {
+  postMessage(message: unknown): void;
+  addEventListener(type: 'message', listener: (event: MessageEvent) => void): void;
+  removeEventListener(type: 'message', listener: (event: MessageEvent) => void): void;
+}
+
+function readRequestId(data: unknown): string | null {
+  if (typeof data !== 'object' || data === null) return null;
+  const requestId = (data as { requestId?: unknown }).requestId;
+  return typeof requestId === 'string' && requestId.length > 0 ? requestId : null;
+}
+
+/**
+ * A tab of another account that holds the shared on-disk cache. Closing it straight away
+ * threw away its writes still waiting for the server, because the clearing tab then
+ * deletes the cache they are queued in. It sends them first, and closes only once they
+ * have reached the server; if they cannot (offline), it stays open, and the clearing tab
+ * leaves the wipe pending for a later retry instead of losing them.
+ */
+export async function closeAfterFlushForPeer(
+  channel: LifecycleChannel,
+  requestId: string,
+  flush: () => Promise<unknown>,
+  close: () => Promise<void>,
+  timeoutMs = PEER_FLUSH_TIMEOUT_MS,
+): Promise<boolean> {
+  channel.postMessage({ type: CACHE_CLEAR_HOLD, requestId });
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  // A rejection (the SDK rejects when its user changes) ends the wait like a success:
+  // the queue is no longer this account's to protect.
+  const flushed = await Promise.race([
+    flush().then(() => true, () => true),
+    new Promise<boolean>((resolve) => { timer = setTimeout(() => resolve(false), timeoutMs); }),
+  ]);
+  clearTimeout(timer);
+  if (!flushed) {
+    console.warn('[firebase] another account signed out, but this tab still has unsent writes; keeping the offline cache');
+    channel.postMessage({ type: CACHE_CLEAR_KEPT, requestId });
+    return false;
+  }
+  try {
+    await close();
+  } finally {
+    channel.postMessage({ type: CACHE_CLEAR_RELEASED, requestId });
+  }
+  return true;
+}
+
+/**
+ * Resolves once every peer that answered request `requestId` with "hold" has released
+ * the cache (true), or false when one kept it or the wait timed out. Waits at least the
+ * grace period, so peers that close without replying (older builds) still get it.
+ */
+export function waitForPeerRelease(
+  channel: LifecycleChannel,
+  requestId: string,
+  graceMs = PEER_CLOSE_GRACE_MS,
+  timeoutMs = PEER_RELEASE_TIMEOUT_MS,
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    let holds = 0;
+    let graceOver = false;
+    let done = false;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const finish = (released: boolean) => {
+      if (done) return;
+      done = true;
+      channel.removeEventListener('message', onMessage);
+      timers.forEach(clearTimeout);
+      resolve(released);
+    };
+    const onMessage = (event: MessageEvent) => {
+      if (readRequestId(event.data) !== requestId) return;
+      const type = (event.data as { type?: unknown }).type;
+      if (type === CACHE_CLEAR_HOLD) holds++;
+      else if (type === CACHE_CLEAR_KEPT) finish(false);
+      else if (type === CACHE_CLEAR_RELEASED) {
+        holds = Math.max(0, holds - 1);
+        if (graceOver && holds === 0) finish(true);
+      }
+    };
+    channel.addEventListener('message', onMessage);
+    timers.push(setTimeout(() => {
+      graceOver = true;
+      if (holds === 0) finish(true);
+    }, graceMs));
+    timers.push(setTimeout(() => finish(holds === 0), timeoutMs));
+  });
+}
+
 cacheChannel?.addEventListener('message', (event) => {
   const message = readLifecycleMessage(event.data, CACHE_CLEAR_MESSAGE);
   if (!message) return;
+  const currentUid = auth?.currentUser?.uid ?? null;
   const holdsPersistentCache = firestore !== null && firestoreCachePersistent;
-  if (!peerMustCloseFirestore(message.uid, auth?.currentUser?.uid ?? null, holdsPersistentCache)) return;
+  if (!peerMustCloseFirestore(message.uid, currentUid, holdsPersistentCache)) return;
+  const requestId = readRequestId(event.data);
+  const db = firestore;
+  const sdk = firestoreSdk;
+  if (requestId && message.uid && currentUid && currentUid !== message.uid && db && sdk) {
+    void closeAfterFlushForPeer(cacheChannel, requestId, () => sdk.waitForPendingWrites(db), async () => {
+      // The clearing tab deletes the cache once every peer has let go of it.
+      if (firestore === db) firestore = null;
+      await sdk.terminate(db);
+    }).catch((error) => {
+      console.warn('[firebase] another tab requested cache clearing, but closing failed', error);
+    });
+    return;
+  }
   void clearLocalFirestoreCache(false).catch((error) => {
     console.warn('[firebase] another tab requested cache clearing, but it failed', error);
   });
@@ -247,19 +367,31 @@ export async function clearLocalFirestoreCache(notifyOtherTabs = true, endingUid
   if (typeof indexedDB === 'undefined') return;
   const sdk = firestoreSdk ?? await import('firebase/firestore');
   firestoreSdk = sdk;
+  let peersReleased = true;
   if (notifyOtherTabs && cacheChannel) {
     // `endingUid` names the account whose session is ending, so memory-only tabs of other
     // accounts keep their instance (peerMustCloseFirestore). Null: every tab closes.
-    cacheChannel.postMessage({ type: CACHE_CLEAR_MESSAGE, uid: endingUid });
-    // Give peer tabs time to terminate their SDK instance before IndexedDB deletion.
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    // Tabs of other accounts on the on-disk cache send their unsent writes before letting
+    // go of it (closeAfterFlushForPeer); wait for them before deleting it.
+    const requestId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random()}`;
+    const released = waitForPeerRelease(cacheChannel, requestId);
+    cacheChannel.postMessage({ type: CACHE_CLEAR_MESSAGE, uid: endingUid, requestId });
+    peersReleased = await released;
   }
   // IndexedDB may predate this page load even when no Firestore singleton has been
   // requested yet. Initialize solely so the SDK can terminate and clear that cache.
   const db = firestore ?? getFirebaseFirestore();
-  if (!db) return;
+  if (!db) {
+    if (!peersReleased) throw new Error('local_cache_clear_deferred');
+    return;
+  }
   firestore = null;
   await sdk.terminate(db);
+  // Another account's tab could not send its writes: deleting the cache now would drop
+  // them. Fail the step, so the cleanup marker stays and a later launch retries the wipe.
+  if (!peersReleased) throw new Error('local_cache_clear_deferred');
   let lastError: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {

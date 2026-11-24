@@ -53,6 +53,9 @@ export function App(): JSX.Element {
   }, [themeMode]);
 
   useEffect(() => {
+    // A session ending in this load runs the cleanup itself; if it left the marker, the
+    // retry waits for the next launch rather than holding the sign-in form a second time.
+    if (endingSession) launchCleanupRetried = true;
     // Not while a sign-out is still wiping: its own cleanup is running, and a concurrent
     // retry of the same marker would race it.
     if (authReady && !user && !endingSession) {
