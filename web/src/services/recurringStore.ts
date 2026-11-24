@@ -2,17 +2,32 @@ import { create } from 'zustand';
 import { useEffect, useRef } from 'react';
 import { useAuthStore } from './authStore';
 import { recurringRepository, type RecurringIssue } from './recurringRepository';
-import type { RecurringTemplate } from './recurrence';
+import { localDateAt, type RecurringTemplate } from './recurrence';
 import { runCatchUp } from './catchUpLoop';
 import { useLocalDay } from '@/hooks/useLocalDay';
 interface State { owner: string | null; rows: RecurringTemplate[]; /** The first snapshot for `owner` has arrived (tells "loading" from "empty"). */ loaded: boolean; incomplete: boolean; error: boolean; syncing: boolean; issues: RecurringIssue[]; quarantined: boolean }
 export const useRecurringStore = create<State>(() => ({owner:null,rows:[],loaded:false,incomplete:true,error:false,syncing:false,issues:[],quarantined:false}));
 let flight: { owner: string; promise: Promise<void> } | null = null;
+/** One follow-up pass, shared by every caller that asked while `flight` was running. */
+let queued: { owner: string; promise: Promise<void> } | null = null;
+/**
+ * Runs a catch-up pass that starts no earlier than this call.
+ *
+ * A pass reads the templates once, at its start. Joining a pass that was already running
+ * would miss a template saved after it started, so its charge due today stayed unrecorded
+ * until something else triggered catch-up. A call made while a pass runs therefore waits
+ * for it and then runs one more; calls made meanwhile share that follow-up.
+ */
 export function syncRecurring(): Promise<void> {
   const user=useAuthStore.getState().user;
   if (!user?.emailVerified) return Promise.resolve();
   const owner=user.uid;
-  if (flight?.owner === owner) return flight.promise;
+  if (flight?.owner === owner) {
+    if (queued?.owner === owner) return queued.promise;
+    const followUp=flight.promise.then(()=>{ if(queued?.promise===followUp) queued=null; return syncRecurring(); });
+    queued={owner,promise:followUp};
+    return followUp;
+  }
   useRecurringStore.setState({syncing:true});
   // AUS-202: keep passing until the backlog is done, while this account stays signed in.
   const pass=async()=>{ await recurringRepository.reconcile(owner); return recurringRepository.catchUpIncomplete(owner); };
@@ -31,6 +46,26 @@ export function syncRecurring(): Promise<void> {
     if(useAuthStore.getState().user?.uid===owner) useRecurringStore.setState({syncing:false});
   });
   flight={owner,promise}; return promise;
+}
+/** The fields a person chooses; everything else on a template is bookkeeping. */
+const TERMS = ['amount','categoryId','note','transactionType','frequency','interval','startDate','endDate','timeZone','enabled'] as const;
+/** `fresh` differs from `seen` only by catch-up bookkeeping (next date and revision). */
+export function onlyCaughtUp(fresh: RecurringTemplate, seen: RecurringTemplate): boolean {
+  return TERMS.every(k => fresh[k] === seen[k]);
+}
+/**
+ * Records what a template already owes before it is paused or edited, and returns the
+ * server's copy afterwards (`null` once it is gone).
+ *
+ * Saving a paused or edited template restarts it after today, so a charge due today that
+ * catch-up had not recorded yet was skipped for good: pause a new template quickly, resume
+ * it, and today's charge never appeared. Anything due under the old terms is now recorded
+ * under those terms first.
+ */
+export async function catchUpBeforeChange(owner: string, row: RecurringTemplate): Promise<RecurringTemplate | null> {
+  if (!row.enabled || row.nextDate === null || row.nextDate > localDateAt(Date.now(), row.timeZone)) return row;
+  await syncRecurring();
+  return (await recurringRepository.getAll(owner)).find(r => r.id === row.id) ?? null;
 }
 /** Mounted once by the authenticated shell; snapshots never trigger write loops. */
 export function useRecurringSync() {
