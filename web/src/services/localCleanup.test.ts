@@ -86,6 +86,14 @@ describe('account local cleanup', () => {
     vi.unstubAllGlobals();
   });
 
+  // The cache-clear message names the account, so a different account's memory-only tab
+  // keeps its Firestore instance and the writes still queued in it.
+  it('clears the Firestore cache on behalf of the account being cleaned up', async () => {
+    const { deps } = makeDeps();
+    await runLocalCleanup({ uid: 'alice', mode: 'sign-out' }, deps);
+    expect(deps.clearFirestoreCache).toHaveBeenCalledWith('alice');
+  });
+
   it('runs every delete-account step and reports a clean wipe', async () => {
     const { deps, calls, marker } = makeDeps();
     const result = await runLocalCleanup({ uid: 'alice', mode: 'delete-account' }, deps);

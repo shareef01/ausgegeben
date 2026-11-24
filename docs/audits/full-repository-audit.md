@@ -349,10 +349,33 @@ Review notes on `e88e124` (no change made):
   rules (`accountAcceptsWrites`). That is the rules doing their job, but the client could skip
   the write once deletion has started.
 
-**Known remaining risk.** The sign-out signal between tabs carries no account id. In
-session-only mode ("keep me signed in" off), signing out in one tab also signs out a
-*different* account open in another tab of the same browser and terminates that tab's
-Firestore instance, discarding any of its writes that had not reached the server yet.
+**Cross-account sign-out (fixed after the addendum).** The sign-out signal between tabs
+carried no account id. In session-only mode ("keep me signed in" off), signing out in one
+tab also signed out a *different* account open in another tab of the same browser, and the
+cache-clear signal terminated that tab's Firestore instance, discarding any of its writes
+that had not reached the server yet. Both signals now carry the account
+(`{ type, uid }`):
+
+- A tab ends its session only for its own account. A tab with no user yet waits until Auth
+  has initialized and then decides, so a tab restoring the same account's session is still
+  signed out, while one that is signed out or signing in to another account is left alone.
+- A tab closes its Firestore instance for another account's sign-out only if it holds the
+  shared on-disk cache, which has to be released before it can be deleted. A memory-only
+  instance keeps running with its write queue.
+- A message without an account (a tab still on an older build, or a sign-out with no
+  session) is handled as before, by every tab.
+
+Regression tests: 7 unit tests in `authService.test.ts`, 1 in `localCleanup.test.ts`, and
+the e2e test "signing out in one session-only tab leaves a different account in another tab
+signed in and working". Negative controls: with the account check disabled, 2 unit tests
+and the e2e test fail; with the Firestore guard disabled, the other account's tab logs
+"Firestore shutting down" and the e2e test fails.
+
+Still open on this path: a tab of another account that uses the on-disk cache (trusted
+device) still has to close its instance, so its writes not yet on the server are lost along
+with the shared cache. Two accounts with "keep me signed in" cannot be open side by side
+(Firebase shares one durable session per browser), so this needs one durable and one
+session-only account using a trusted-device cache at the same time.
 
 **Spark compatibility.** No Cloud Functions, scheduled jobs, Storage, extensions or paid APIs
 were added; `firebase.json`, `firestore.rules`, indexes and dependencies are unchanged. All

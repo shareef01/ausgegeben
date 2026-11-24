@@ -241,3 +241,24 @@ New audit checks, each shown to fail against the defect it guards:
 draws a software navigation bar, and the headless AVD reports none (`qemu.hw.mainkeys=1`;
 a reboot with `-prop qemu.hw.mainkeys=0` still yielded no cases). It needs a windowed AVD.
 The Pixel was not used.
+
+### Cross-account sign-out fix (2026-11-24)
+
+Branch `fix/cross-tab-signout-account-scope`, from `main` at `14ce4be`. Web only; Android
+has no cross-tab channel.
+
+| Command | Result |
+|---|---|
+| `npm run lint` / `lint:css` / `lint:hooks` / `lint:telemetry` | **all passed** |
+| `npm test` | **67 files / 767 tests passed**, including 8 new ones; existing cross-tab cases now pass the account explicitly |
+| `npm run test:prod-env` | **3/3 passed** |
+| `npm run test:rules` | **146 passed** |
+| `npm run test:emulator` | **190 passed** |
+| `playwright test e2e/crossTabAccounts.spec.ts e2e/authLifecycle.spec.ts` | **9/9 passed**, including the new session-only two-account test |
+| `npm run test:e2e` | **37 passed, 1 failed**: `recurring.spec.ts:13` ("Settings recurring controls create, pause, edit and delete…") |
+| `npm run build` | **passed** |
+
+The `recurring.spec.ts:13` failure does not involve sign-out. It is intermittent and predates
+this change: repeated 5 times on unchanged `main` (same tree as `14ce4be`) it failed 2 times,
+and 1 time in 3 on this branch, each time waiting for the template row "Recurring UI test"
+to appear.

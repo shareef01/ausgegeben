@@ -49,8 +49,42 @@ const cacheChannel = typeof window !== 'undefined' && typeof BroadcastChannel !=
   ? new BroadcastChannel('ausgegeben-firestore-lifecycle')
   : null;
 
+/**
+ * The account a lifecycle message is about. Messages carry `{ type, uid }`; a bare string is
+ * the format of builds before account scoping, and a missing or empty uid means a sign-out
+ * with no session. Both yield null, "unknown account", which receivers treat the old way:
+ * as applying to them.
+ */
+export function readLifecycleMessage(data: unknown, type: string): { uid: string | null } | null {
+  if (data === type) return { uid: null };
+  if (typeof data !== 'object' || data === null) return null;
+  const message = data as { type?: unknown; uid?: unknown };
+  if (message.type !== type) return null;
+  return { uid: typeof message.uid === 'string' && message.uid.length > 0 ? message.uid : null };
+}
+
+/**
+ * Whether a tab must close its Firestore instance when another tab clears the cache as
+ * account `endingUid` signs out. The on-disk cache is shared by every tab of the origin and
+ * can only be deleted once no tab holds it open, so a tab using it always closes. A
+ * memory-only instance shares nothing on disk: closing it for a different account's
+ * sign-out only threw away that account's writes still waiting for the server (two
+ * accounts side by side in session-only tabs).
+ */
+export function peerMustCloseFirestore(
+  endingUid: string | null,
+  currentUid: string | null,
+  holdsPersistentCache: boolean,
+): boolean {
+  if (!endingUid || !currentUid || currentUid === endingUid) return true;
+  return holdsPersistentCache;
+}
+
 cacheChannel?.addEventListener('message', (event) => {
-  if (event.data !== CACHE_CLEAR_MESSAGE) return;
+  const message = readLifecycleMessage(event.data, CACHE_CLEAR_MESSAGE);
+  if (!message) return;
+  const holdsPersistentCache = firestore !== null && firestoreCachePersistent;
+  if (!peerMustCloseFirestore(message.uid, auth?.currentUser?.uid ?? null, holdsPersistentCache)) return;
   void clearLocalFirestoreCache(false).catch((error) => {
     console.warn('[firebase] another tab requested cache clearing, but it failed', error);
   });
@@ -75,9 +109,14 @@ const authLifecycleChannel = typeof window !== 'undefined' && typeof BroadcastCh
   ? new BroadcastChannel('ausgegeben-auth-lifecycle')
   : null;
 
-/** Tell every other tab that this tab just signed out or deleted its account. */
-export function broadcastSessionInvalidated(): void {
-  authLifecycleChannel?.postMessage(AUTH_LIFECYCLE_MESSAGE);
+/**
+ * Tell every other tab that this tab just signed out of, or deleted, account `uid`. Tabs
+ * signed in to a different account ignore it: under session-only persistence each tab has
+ * its own session, and the old unscoped message signed out every account open in the
+ * browser. An empty uid (a sign-out with no session) reaches every tab.
+ */
+export function broadcastSessionInvalidated(uid: string): void {
+  authLifecycleChannel?.postMessage({ type: AUTH_LIFECYCLE_MESSAGE, uid });
 }
 
 /**
@@ -87,10 +126,11 @@ export function broadcastSessionInvalidated(): void {
  * requires it should pair it with the `storage` event on `PERSISTENT_AUTH_KEY`/session
  * cookies as an additional fallback; not needed for this app's supported browsers.
  */
-export function onSessionInvalidatedBroadcast(handler: () => void): () => void {
+export function onSessionInvalidatedBroadcast(handler: (uid: string | null) => void): () => void {
   if (!authLifecycleChannel) return () => {};
   const listener = (event: MessageEvent) => {
-    if (event.data === AUTH_LIFECYCLE_MESSAGE) handler();
+    const message = readLifecycleMessage(event.data, AUTH_LIFECYCLE_MESSAGE);
+    if (message) handler(message.uid);
   };
   authLifecycleChannel.addEventListener('message', listener);
   return () => authLifecycleChannel.removeEventListener('message', listener);
@@ -202,13 +242,15 @@ export function getFirebaseFirestore(): Firestore | null {
  * be confirmed. Firebase does not promise secure overwrite; this only removes the SDK
  * cache and makes any failure visible to the caller.
  */
-export async function clearLocalFirestoreCache(notifyOtherTabs = true): Promise<void> {
+export async function clearLocalFirestoreCache(notifyOtherTabs = true, endingUid: string | null = null): Promise<void> {
   // Server-side rendering and unit-test runtimes have no browser database to erase.
   if (typeof indexedDB === 'undefined') return;
   const sdk = firestoreSdk ?? await import('firebase/firestore');
   firestoreSdk = sdk;
   if (notifyOtherTabs && cacheChannel) {
-    cacheChannel.postMessage(CACHE_CLEAR_MESSAGE);
+    // `endingUid` names the account whose session is ending, so memory-only tabs of other
+    // accounts keep their instance (peerMustCloseFirestore). Null: every tab closes.
+    cacheChannel.postMessage({ type: CACHE_CLEAR_MESSAGE, uid: endingUid });
     // Give peer tabs time to terminate their SDK instance before IndexedDB deletion.
     await new Promise((resolve) => setTimeout(resolve, 250));
   }

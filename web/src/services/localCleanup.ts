@@ -72,7 +72,8 @@ export interface LocalCleanupDeps {
   clearResidualAuthStorage: () => boolean;
   disableAuthPersistence: () => boolean;
   disableStoragePreference: () => boolean;
-  clearFirestoreCache: () => Promise<void>;
+  /** `uid`: the account being cleaned up, so other accounts' memory-only tabs are left alone. */
+  clearFirestoreCache: (uid: string) => Promise<void>;
   readPending: () => PendingLocalCleanup | null;
   writePending: (pending: PendingLocalCleanup) => boolean;
   removePending: () => boolean;
@@ -142,7 +143,7 @@ const defaultDeps: LocalCleanupDeps = {
   // flag is gone, so cleanup reports it as a failed step instead of assuming success.
   disableAuthPersistence: () => setPersistentAuthEnabled(false),
   disableStoragePreference: () => resetPersistentStorageEnabled(),
-  clearFirestoreCache: () => clearLocalFirestoreCache(),
+  clearFirestoreCache: (uid) => clearLocalFirestoreCache(true, uid || null),
   readPending: () => readPendingFromStorage(),
   writePending: (pending) => writePendingToStorage(pending),
   removePending: () => removePendingFromStorage(),
@@ -196,7 +197,7 @@ async function runStep(
   switch (id) {
     case 'firestore-cache':
       await withTimeout(
-        deps.clearFirestoreCache(),
+        deps.clearFirestoreCache(options.uid),
         options.cacheTimeoutMs ?? DEFAULT_CACHE_TIMEOUT_MS,
         id,
       );
