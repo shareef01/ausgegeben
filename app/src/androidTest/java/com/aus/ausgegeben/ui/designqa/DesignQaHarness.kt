@@ -277,9 +277,17 @@ fun hasSoftwareNavigationBar(): Boolean {
     return when (mainKeys) {
         "1" -> false
         "0" -> true
-        else -> configured
+        // Recent emulator images leave the property unset and ship config_showNavigationBar
+        // false while still drawing a bar; the window manager is the authority then.
+        else -> configured || windowManagerHasNavigationBar()
     }
 }
+
+private fun windowManagerHasNavigationBar(): Boolean = runCatching {
+    InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("dumpsys window")
+        .use { pfd -> java.io.FileInputStream(pfd.fileDescriptor).bufferedReader().readText() }
+        .contains("mHasBottomNavigationBar=true")
+}.getOrDefault(false)
 
 fun isEmulator(): Boolean =
     Build.FINGERPRINT.contains("generic") || Build.HARDWARE.contains("ranchu") || Build.PRODUCT.contains("sdk")
