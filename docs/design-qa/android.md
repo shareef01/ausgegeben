@@ -1,5 +1,11 @@
 # Android design QA — font scale, navigation mode, small phones
 
+The 25 November 2026 follow-up passed all 56 layout and navigation cases on a Pixel 7. The Compose matrix covered 320dp and 411dp in English and German at 100%, 130% and 200% text size. The navigation suite exercised the real gesture and three-button bars at both widths and verified that the tabs and final transaction clear the system bar and add button.
+
+The run used an isolated debug package and synthetic fixtures. The emulator-only guard was lifted in the temporary test checkout for this device run. The repository test retains its emulator guard. The device’s original density, gesture mode and charging-screen setting were verified or restored, and the test packages were removed. The logs, captures and timings are recorded in the [UI/UX audit](../ui-ux-audit.md).
+
+## Historical audit
+
 Date: 2026-10-29 · Scope: Android Compose UI (Record, Insights, Add transaction, Settings, bottom bar).
 Companion to the web audit in [README.md](README.md).
 

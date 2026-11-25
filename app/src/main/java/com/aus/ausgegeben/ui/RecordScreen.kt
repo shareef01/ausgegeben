@@ -38,7 +38,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.animation.core.Animatable
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
@@ -49,8 +48,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aus.ausgegeben.R
@@ -139,10 +136,6 @@ fun RecordScreen(
         }
     }
 
-    // Motion: Track period/filter changes to trigger list stagger
-    val entranceKey = remember(uiState.toolbar.listPeriod, uiState.toolbar.typeFilter) { Any() }
-
-    val scope = rememberCoroutineScope()
     val haptics = rememberAppHaptics()
     val isWide = isWideScreen()
     
@@ -194,6 +187,7 @@ fun RecordScreen(
                     // showed a budget spent exactly to the cent as over budget.
                     val expenseTotal = remember(sequence) { sequence.filter { it.isExpense() }.map { it.amount }.sumMoney() }
                     val incomeTotal = remember(sequence) { sequence.filter { it.isIncome() }.map { it.amount }.sumMoney() }
+                    val transferTotal = remember(sequence) { sequence.filter { it.isTransfer() }.map { it.amount }.sumMoney() }
                     val net = remember(sequence) { 
                         sequence.filter { !it.isTransfer() }.let { seq ->
                             CurrencyUtils.roundAmount(seq.filter { it.isIncome() }.map { it.amount }.sumMoney() - seq.filter { it.isExpense() }.map { it.amount }.sumMoney())
@@ -206,7 +200,7 @@ fun RecordScreen(
                         net = net,
                         currencyCode = currencyCode,
                         periodLabel = listPeriodLabel,
-                        animateChanges = true
+                        transferTotal = transferTotal
                     )
                 }
 
@@ -225,6 +219,7 @@ fun RecordScreen(
                         }
                         BudgetProgressBar(
                             spent = monthSpent,
+                            incomplete = uiState.dataTruncated,
                             budget = budget,
                             currencyCode = currencyCode,
                             upcoming = monthUpcoming,
@@ -362,29 +357,7 @@ fun RecordScreen(
                         }
 
                         items(dayExpenses, key = { it.id }) { expense ->
-                            val revealAlpha = remember(entranceKey) { Animatable(0f) }
-                            val revealOffset = remember(entranceKey) { Animatable(32f) }
-                            
-                            LaunchedEffect(entranceKey) {
-                                // Find global index for stagger
-                                val globalIdx = allExpenses.indexOf(expense).coerceAtLeast(0)
-                                val delay = globalIdx.coerceAtMost(12) * 35
-                                launch {
-                                    revealAlpha.animateTo(1f, tween(400, delayMillis = delay))
-                                }
-                                launch {
-                                    revealOffset.animateTo(0f, spring(Spring.DampingRatioLowBouncy, Spring.StiffnessMediumLow))
-                                }
-                            }
-                            
-                            Box(
-                                modifier = Modifier
-                                    .padding(horizontal = 16.dp)
-                                    .graphicsLayer { 
-                                        alpha = revealAlpha.value
-                                        translationY = revealOffset.value
-                                    }
-                            ) {
+                            Box(modifier = Modifier.padding(horizontal = AppSpacing.md)) {
                                 // Draw card background only around the items
                                 val isFirst = expense == dayExpenses.first()
                                 val isLast = expense == dayExpenses.last()

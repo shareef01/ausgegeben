@@ -26,43 +26,30 @@
 .transaction-list-bare__rows {
   display: flex;
   flex-direction: column;
+  background: var(--color-surface);
+  border-block: 1px solid var(--hairline-divider);
 }
 
-.txn-day-header,
-.transaction-list-bare__day {
-  position: sticky;
-  top: var(--record-sticky-offset, 0px);
-  z-index: 20;
+.transaction-list-bare__rows .txn-row-wrap + .txn-row-wrap {
+  border-top: 1px solid var(--hairline-divider);
 }
 
-.txn-day-header.transaction-list-bare__day {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 0 0 10px;
-  padding: 10px 14px;
-  min-height: 44px;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--color-background) 88%, transparent);
-  backdrop-filter: blur(18px) saturate(1.2);
-  -webkit-backdrop-filter: blur(18px) saturate(1.2);
-  border: 1px solid color-mix(in srgb, var(--color-outline) 40%, transparent);
-  border-bottom-color: var(--hairline-divider, var(--glass-border));
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-background) 35%, transparent);
-  color: var(--color-on-surface-variant);
-  /* Day labels are essential context, not decoration: 13px sentence case instead of an 11px
-     all-caps micro-label — the size the design spec forbids for information a user must read. */
-  letter-spacing: 0.01em;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  text-transform: none;
+.transaction-list-bare__rows .txn-row-wrap:focus-within {
+  background: color-mix(in srgb, var(--color-on-surface) 4%, var(--color-surface));
 }
 
-[data-theme='light'] .txn-day-header.transaction-list-bare__day {
-  background: color-mix(in srgb, var(--color-background) 94%, transparent);
-  border-color: var(--hairline-divider, var(--glass-border));
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-on-background) 6%, transparent);
+@media (hover: hover) {
+  .transaction-list-bare__rows .txn-row-wrap:hover {
+    background: color-mix(in srgb, var(--color-on-surface) 4%, var(--color-surface));
+  }
+}
+
+.transaction-list-bare .action-row__content {
+  background: transparent;
+}
+
+.transaction-list-bare .transaction-row {
+  padding: 10px 8px 10px 12px;
 }
 
 [data-theme='light'] .sheet--settings {
@@ -432,9 +419,7 @@
 .fab-add {
   background: var(--color-income);
   color: var(--color-on-income, #000000);
-  box-shadow:
-    0 0 0 2px color-mix(in srgb, var(--color-income) 18%, transparent),
-    0 4px 24px color-mix(in srgb, var(--color-income) 40%, transparent);
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--color-background) 28%, transparent);
   /* In the mobile dock the FAB is a flex sibling of the pill: it must never shrink or be
      overlapped by a widening pill. */
   flex: 0 0 auto;
@@ -456,16 +441,6 @@
   transition: filter 0.2s ease, transform 0.2s ease;
 }
 
-/* Calmer glow than the mobile FAB: in the header it sits beside the nav, not over content. */
-.app-header .app-header__add {
-  box-shadow: 0 2px 12px color-mix(in srgb, var(--color-income) 28%, transparent);
-}
-
-:root[data-theme-name='lavender'] .app-header .app-header__add,
-:root[data-theme-name='soft_light'] .app-header .app-header__add {
-  box-shadow: 0 2px 12px color-mix(in srgb, var(--color-accent) 28%, transparent);
-}
-
 .app-header__add:hover {
   filter: brightness(1.08);
 }
@@ -475,7 +450,7 @@
 }
 
 .app-header__add:focus-visible {
-  outline: 2px solid var(--color-income);
+  outline: 2px solid var(--color-focus);
   outline-offset: 3px;
 }
 
@@ -496,8 +471,7 @@
   }
 }
 
-[data-theme='light'] .ledger-container,
-[data-theme='light'] .transaction-list-bare__rows {
+[data-theme='light'] .ledger-container {
   background: var(--color-surface);
 }
 

@@ -5,7 +5,7 @@
  *
  *   npx vite --port 5173  →  http://127.0.0.1:5173/qa/harness.html?section=rows&theme=dark&locale=en&currency=EUR&data=heavy
  *
- * section: summary | rows | period | cats | chart | donut | all     data: typical | heavy | edge
+ * section: summary | rows | period | cats | chart | category-ranking | all     data: typical | heavy | edge
  * window.__qa.setTheme('lavender') switches palette live (no reload), for the theme checks.
  */
 import { StrictMode, useState } from 'react';
@@ -195,11 +195,11 @@ function Chart() {
   );
 }
 
-function Donut() {
+function CategoryRanking() {
   const map = new Map<string, number>(
     CATS.filter((c) => c.transactionType === 'expense').map((c, i) => [c.id, Math.round((900 / (i + 1)) * 100) / 100]),
   );
-  return <CategoryCard title="expenses by category" map={map} categories={CATS} currency={currency} accent="var(--color-expense)" />;
+  return <CategoryCard title="expenses by category" map={map} categories={CATS} currency={currency} accent="var(--color-expense-text)" />;
 }
 
 function Summary() {
@@ -220,7 +220,7 @@ function Harness() {
       {show('rows') ? <Rows /> : null}
       {show('cats') ? <Cats /> : null}
       {show('chart') ? <Chart /> : null}
-      {show('donut') ? <Donut /> : null}
+      {show('category-ranking') ? <CategoryRanking /> : null}
     </main>
   );
 }

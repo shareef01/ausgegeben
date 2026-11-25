@@ -36,22 +36,6 @@
   color: var(--color-stat-value);
 }
 
-/* ── Transaction list ── */
-[data-theme='dark'] .transaction-list-bare .transaction-row {
-  background: transparent;
-}
-
-[data-theme='dark'] .transaction-list-bare__day,
-[data-theme='dark'] .txn-day-header {
-  background: color-mix(in srgb, var(--color-background) 90%, transparent);
-  border-color: var(--hairline-divider);
-}
-
-[data-theme='dark'] .transaction-list-bare .action-row__content,
-[data-theme='light'] .transaction-list-bare .action-row__content {
-  background: transparent;
-}
-
 /* ── Input autofill ── */
 [data-theme='dark'] input:-webkit-autofill,
 [data-theme='dark'] input:-webkit-autofill:hover,

@@ -8,6 +8,7 @@ export function useFocusTrap(
   active: boolean,
   containerRef: RefObject<HTMLElement | null>,
   onEscape?: () => void,
+  restoreFocus = true,
 ) {
   // Held in a ref, deliberately: callers build onEscape from state that changes as
   // the user types (Add transaction derives it from the unsaved-changes check). With
@@ -33,7 +34,8 @@ export function useFocusTrap(
         // tabIndex < 0: a button the page took out of the Tab order (the unchecked
         // options of a Settings radio group, AUS-303) still matches `button`, and
         // counting it here would make Tab wrap from it instead of from the real last stop.
-        (el) => !el.hasAttribute('disabled') && el.getAttribute('aria-hidden') !== 'true' && el.tabIndex >= 0,
+        (el) => !el.hasAttribute('disabled') && el.tabIndex >= 0 &&
+          !el.closest('[inert], [aria-hidden="true"]') && el.getClientRects().length > 0,
       );
 
     const focusable = getFocusable();
@@ -55,7 +57,10 @@ export function useFocusTrap(
       }
       const first = items[0];
       const last = items[items.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
+      if (!root.contains(document.activeElement)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+      } else if (e.shiftKey && document.activeElement === first) {
         e.preventDefault();
         last.focus();
       } else if (!e.shiftKey && document.activeElement === last) {
@@ -67,7 +72,7 @@ export function useFocusTrap(
     document.addEventListener('keydown', onKeyDown);
     return () => {
       document.removeEventListener('keydown', onKeyDown);
-      previouslyFocused?.focus?.();
+      if (restoreFocus) previouslyFocused?.focus();
     };
-  }, [active, containerRef]);
+  }, [active, containerRef, restoreFocus]);
 }

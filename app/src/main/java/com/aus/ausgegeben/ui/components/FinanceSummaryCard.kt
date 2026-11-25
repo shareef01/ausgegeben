@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -21,23 +22,15 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aus.ausgegeben.R
+import com.aus.ausgegeben.ui.NameAmountLayout
 import com.aus.ausgegeben.ui.theme.*
 import com.aus.ausgegeben.util.CurrencyUtils
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.*
 
 private object AuroraTokens {
-    @Composable
-    fun emeraldText() = financeIncomeTextColor()
-
-    @Composable
-    fun crimsonText() = financeExpenseTextColor()
-
     @Composable
     fun slate() = MaterialTheme.colorScheme.onSurfaceVariant
 
@@ -51,148 +44,81 @@ fun FinanceSummaryCard(
     incomeTotal: Double,
     net: Double,
     currencyCode: String,
-    periodLabel: String = "all time",
-    animateChanges: Boolean = true,
-    modifier: Modifier = Modifier
+    periodLabel: String,
+    transferTotal: Double = 0.0,
+    modifier: Modifier = Modifier,
 ) {
+    val periodAndCurrency = "$periodLabel · $currencyCode"
+    val netAmount = CurrencyUtils.formatAmount(net, currencyCode)
+    val earnedAmount = CurrencyUtils.formatAmount(incomeTotal, currencyCode)
+    val spentAmount = CurrencyUtils.formatAmount(expenseTotal, currencyCode)
     val summaryDescription = stringResource(
         R.string.desc_finance_summary,
-        periodLabel,
-        CurrencyUtils.formatAmount(net, currencyCode),
-        CurrencyUtils.formatAmount(incomeTotal, currencyCode),
-        CurrencyUtils.formatAmount(expenseTotal, currencyCode),
+        periodAndCurrency,
+        netAmount,
+        earnedAmount,
+        spentAmount,
     )
-    // Pillar 2: True Glassmorphism Container with "Hyper-Obsidian" Specular Depth
-    Box(
+    val incomeText = financeIncomeTextColor()
+    val expenseText = financeExpenseTextColor()
+    val netColor = when {
+        net > 0 -> incomeText
+        net < 0 -> expenseText
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+
+    Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs)
-            .appGlassCard(shape = RoundedCornerShape(AppRadius.sheet))
-            .glassShine()
+            .appGlassCard(shape = RoundedCornerShape(AppRadius.card))
             .semantics { contentDescription = summaryDescription }
-            .padding(vertical = AppSpacing.xl),
-        contentAlignment = Alignment.Center
+            .padding(AppSpacing.md),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                // Sentence case, like the web build: this label explains the number, it is not a
-                // decorative heading (typography parity, DW-2).
-                text = stringResource(R.string.summary_balance_period, periodLabel),
-                style = AuroraTokens.labelStyle(),
+        Text(
+            text = stringResource(R.string.summary_balance_period, periodAndCurrency),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        MoneyText(
+            text = netAmount,
+            modifier = Modifier.fillMaxWidth().padding(vertical = AppSpacing.sm),
+            color = netColor,
+            size = MoneySize.Display,
+            fontSize = 36.sp,
+        )
+        HorizontalDivider(color = appDividerColor())
+        SummaryAmountRow(stringResource(R.string.summary_earned), earnedAmount, incomeText)
+        SummaryAmountRow(stringResource(R.string.summary_spent), spentAmount, expenseText)
+        if (transferTotal > 0) {
+            SummaryAmountRow(
+                stringResource(R.string.bills_total_transfers),
+                CurrencyUtils.formatAmount(transferTotal, currencyCode),
+                financeTransferColor(),
             )
-            
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Metric scale from the design spec: 36sp SemiBold, tabular, and no glow on data.
-            // This used to be a 52sp Bold gradient with a 24px coloured shadow.
-            // Shrinks rather than breaking mid-number when a seven-digit total meets a narrow
-            // phone or large text; it only wraps if even 22sp is too wide.
-            AutoScalingText(
-                text = CurrencyUtils.formatAmount(net, currencyCode),
-                style = TextStyle(
-                    color = if (net >= 0) AuroraTokens.emeraldText() else AuroraTokens.crimsonText(),
-                    fontSize = 36.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    fontFeatureSettings = "tnum",
-                ),
-                minFontSize = 22.sp,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = AppSpacing.md),
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(IntrinsicSize.Min),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                SummaryPane(
-                    label = stringResource(R.string.summary_earned),
-                    value = CurrencyUtils.formatAmount(incomeTotal, currencyCode),
-                    color = AuroraTokens.emeraldText(),
-                    isIncome = true,
-                    modifier = Modifier.weight(1f)
-                )
-
-                Box(
-                    modifier = Modifier
-                        .width(1.dp)
-                        .fillMaxHeight()
-                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                )
-
-                SummaryPane(
-                    label = stringResource(R.string.summary_spent),
-                    value = CurrencyUtils.formatAmount(expenseTotal, currencyCode),
-                    color = AuroraTokens.crimsonText(),
-                    isIncome = false,
-                    modifier = Modifier.weight(1f)
-                )
-            }
         }
     }
 }
 
 @Composable
-private fun SummaryPane(
-    label: String,
-    value: String,
-    color: Color,
-    isIncome: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier.padding(vertical = 12.dp, horizontal = AppSpacing.xs),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        // Prominent Arrow Badge
-        Box(
-            modifier = Modifier
-                .size(28.dp)
-                .clip(CircleShape)
-                .background(color.copy(alpha = 0.12f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = if (isIncome) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward,
-                contentDescription = null,
-                tint = color,
-                modifier = Modifier.size(16.dp)
+private fun SummaryAmountRow(label: String, amount: String, amountColor: Color) {
+    NameAmountLayout(
+        modifier = Modifier.fillMaxWidth().padding(top = AppSpacing.xs),
+        name = {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        }
-        
-        Spacer(Modifier.height(8.dp))
-        
-        // Sentence case, like the "Net cash flow" eyebrow above it (web parity: .finance-stat-chip__label).
-        AutoScalingText(
-            text = label,
-            style = AuroraTokens.labelStyle(),
-            minFontSize = 9.sp,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        
-        Spacer(modifier = Modifier.height(4.dp))
-        
-        // Half the card each: "1.250.000,00" at 20sp does not fit 130dp, so it shrinks
-        // (web parity: the stat chips scale to fit, never ellipsise).
-        AutoScalingText(
-            text = value,
-            style = TextStyle(
-                color = color,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                fontFeatureSettings = "tnum"
-            ),
-            minFontSize = 13.sp,
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
+        },
+        amount = {
+            MoneyText(text = amount, color = amountColor, textAlign = TextAlign.End)
+        },
+    )
 }
+
 
 @Composable
 fun AppLoadingState(

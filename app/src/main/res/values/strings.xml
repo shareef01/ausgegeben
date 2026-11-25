@@ -326,6 +326,12 @@
     <string name="budget_monthly_label">Monthly budget</string>
     <string name="budget_progress">%1$s / %2$s</string>
     <string name="budget_projected_exceed">Projected %1$s over budget</string>
+    <string name="budget_used">%1$s used</string>
+    <string name="add_search_categories">Search categories</string>
+    <string name="add_no_matching_categories">No categories match your search</string>
+    <string name="budget_remaining">%1$s remaining</string>
+    <string name="budget_near_limit">Approaching the limit</string>
+    <string name="budget_reached">Budget reached</string>
     <string name="budget_over_by">Over budget by %1$s</string>
     <string name="budget_upcoming_anticipated">Upcoming %1$s · anticipated %2$s</string>
 
@@ -436,6 +442,7 @@
     <string name="category_budget_empty">No category budgets configured</string>
     <string name="category_budget_setup">Set up</string>
     <string name="category_budget_remove">Remove budget</string>
+    <string name="category_budget_remove_confirm">Remove the monthly limit for %1$s? Its transactions will stay in Record.</string>
     <string name="category_budget_invalid">Enter a positive amount with at most two decimals and a whole threshold from 1 to 100.</string>
     <string name="category_budget_conflict">Could not save. Check connection and reload the latest budget before retrying.</string>
     <string name="category_budget_allocated">Allocated</string>

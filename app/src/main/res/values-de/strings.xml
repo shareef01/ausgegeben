@@ -309,6 +309,12 @@
     <string name="budget_monthly_label">monatsbudget</string>
     <string name="budget_progress">%1$s / %2$s</string>
     <string name="budget_projected_exceed">Voraussichtlich %1$s über Budget</string>
+    <string name="budget_used">%1$s ausgeschöpft</string>
+    <string name="add_search_categories">Kategorien suchen</string>
+    <string name="add_no_matching_categories">Keine passenden Kategorien gefunden</string>
+    <string name="budget_remaining">%1$s verbleibend</string>
+    <string name="budget_near_limit">Limit fast erreicht</string>
+    <string name="budget_reached">Budget erreicht</string>
     <string name="budget_over_by">%1$s über budget</string>
     <string name="budget_upcoming_anticipated">Anstehend %1$s · voraussichtlich %2$s</string>
 
@@ -436,6 +442,7 @@
     <string name="category_budget_empty">Keine Kategoriebudgets eingerichtet</string>
     <string name="category_budget_setup">Einrichten</string>
     <string name="category_budget_remove">Budget entfernen</string>
+    <string name="category_budget_remove_confirm">Monatslimit für %1$s entfernen? Die Buchungen bleiben erhalten.</string>
     <string name="category_budget_invalid">Positiven Betrag mit höchstens zwei Dezimalstellen und ganze Warnschwelle von 1 bis 100 eingeben.</string>
     <string name="category_budget_conflict">Speichern fehlgeschlagen. Verbindung prüfen und aktuelles Budget vor erneutem Versuch laden.</string>
     <string name="category_budget_allocated">Zugewiesen</string>

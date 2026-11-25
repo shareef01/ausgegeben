@@ -29,6 +29,7 @@ import com.aus.ausgegeben.ui.components.*
 import com.aus.ausgegeben.ui.theme.*
 import com.aus.ausgegeben.util.CurrencyUtils
 import com.aus.ausgegeben.util.iconForCategory
+import java.text.NumberFormat
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,6 +51,7 @@ fun CategoryBudgetManager(repository: AppRepository, uid: String, currency: Stri
     LaunchedEffect(eligibleIds) { if (selected?.id !in eligibleIds) selected = null }
     val scope = rememberCoroutineScope()
     fun save(remove: Boolean) {
+        if (saving) return
         val cat = selected ?: return
         saving = true; failed = false
         scope.launch {
@@ -233,6 +235,7 @@ fun CategoryBudgetManager(repository: AppRepository, uid: String, currency: Stri
     }
 
     selected?.let { cat ->
+        var confirmRemoval by remember(cat.id) { mutableStateOf(false) }
         val parsed = CompositeRecordFilter(minInput = amount).bounds()?.first?.div(100.0)
         val percent = threshold.toIntOrNull()
         val valid = parsed != null && parsed > 0 && parsed < 1e9 && percent != null && percent in 1..100 && Regex("[0-9]+").matches(threshold)
@@ -294,14 +297,29 @@ fun CategoryBudgetManager(repository: AppRepository, uid: String, currency: Stri
                 ) {
                     Text(stringResource(R.string.action_save))
                 }
-                TextButton(
-                    onClick = { save(true) },
-                    enabled = !saving,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                ) {
-                    Text(stringResource(R.string.category_budget_remove), color = financeExpenseTextColor())
+                if (cat.id in budgetsById) {
+                    TextButton(
+                        onClick = { confirmRemoval = true },
+                        enabled = !saving,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                    ) {
+                        Text(stringResource(R.string.category_budget_remove), color = financeExpenseTextColor())
+                    }
                 }
             }
+        }
+        if (confirmRemoval) {
+            AppDestructiveConfirmDialog(
+                onDismissRequest = { confirmRemoval = false },
+                title = { Text(stringResource(R.string.category_budget_remove)) },
+                text = { AppDialogBodyText(stringResource(R.string.category_budget_remove_confirm, cat.name)) },
+                confirmLabel = stringResource(R.string.category_budget_remove),
+                dismissLabel = stringResource(R.string.action_cancel),
+                onConfirm = {
+                    confirmRemoval = false
+                    save(true)
+                },
+            )
         }
     }
 }
@@ -324,6 +342,7 @@ internal fun categoryBudgetAmountTone(state: String): CategoryBudgetAmountTone =
     else -> CategoryBudgetAmountTone.Secondary
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CategoryBudgetProgressSection(
     progress: List<CategoryBudgetProgress>,
@@ -522,40 +541,43 @@ fun CategoryBudgetProgressSection(
                         )
                     }
 
-                    Row(
+                    FlowRow(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        val percent = NumberFormat.getPercentInstance(CurrencyUtils.localeForDisplay())
+                            .format(p.percent / 100)
+                        val status = when (p.state) {
+                            "over" -> R.string.category_budget_over
+                            "projected" -> R.string.category_budget_projected
+                            "reached" -> R.string.category_budget_reached
+                            "warning" -> R.string.category_budget_warning
+                            else -> R.string.category_budget_normal
+                        }
                         Text(
-                            text = stringResource(
-                                when (p.state) {
-                                    "over" -> R.string.category_budget_over
-                                    "projected" -> R.string.category_budget_projected
-                                    "reached" -> R.string.category_budget_reached
-                                    "warning" -> R.string.category_budget_warning
-                                    else -> R.string.category_budget_normal
-                                }
-                            ) + " ·\u00A0${kotlin.math.round(p.percent).toInt()}%",
+                            text = if (incomplete && p.state == "normal") stringResource(R.string.budget_used, percent)
+                            else "${stringResource(status)} · $percent",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
                             color = statusColor
                         )
 
-                        Text(
-                            text = stringResource(
-                                when {
-                                    p.state == "projected" -> R.string.category_budget_projected_over
-                                    p.overspent > 0 -> R.string.category_budget_overspent
-                                    else -> R.string.category_budget_remaining
+                        if (!incomplete || p.overspent > 0) {
+                            Text(
+                                text = stringResource(
+                                    when {
+                                        p.state == "projected" -> R.string.category_budget_projected_over
+                                        p.overspent > 0 -> R.string.category_budget_overspent
+                                        else -> R.string.category_budget_remaining
+                                    }
+                                ) + ": " + CurrencyUtils.formatAmount(if (p.overspent > 0) p.overspent else p.remaining, currency),
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                color = when (categoryBudgetAmountTone(p.state)) {
+                                    CategoryBudgetAmountTone.Expense -> financeExpenseTextColor()
+                                    CategoryBudgetAmountTone.Warning -> financeWarningTextColor()
+                                    CategoryBudgetAmountTone.Secondary -> readableSecondaryColor()
                                 }
-                            ) + ": " + CurrencyUtils.formatAmount(if (p.overspent > 0) p.overspent else p.remaining, currency),
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                            color = when (categoryBudgetAmountTone(p.state)) {
-                                CategoryBudgetAmountTone.Expense -> financeExpenseTextColor()
-                                CategoryBudgetAmountTone.Warning -> financeWarningTextColor()
-                                CategoryBudgetAmountTone.Secondary -> readableSecondaryColor()
-                            }
-                        )
+                            )
+                        }
                     }
                 }
             }

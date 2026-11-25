@@ -8,7 +8,7 @@ import { IconCheck, IconClose } from '@/components/Icons';
 import { amountPlaceholder, colorIntToHex, currencySymbol } from '@/utils/currency';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { useToastStore } from '@/services/toastStore';
-import { useRef, useEffect, useCallback, useState, type ReactNode } from 'react';
+import { useRef, useEffect, useLayoutEffect, useCallback, useState, type ReactNode } from 'react';
 import { useCssProps } from '@/utils/cssVars';
 import { toDateInputValue, withDateInputValue } from '@/utils/periodUtils';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -21,7 +21,7 @@ interface AddTransactionViewProps {
   suspended?: boolean;
   onClose: () => void;
   onSaved: () => void;
-  onManageCategories?: () => void;
+  onManageCategories?: (type: TransactionType) => void;
 }
 
 export function AddTransactionView({
@@ -39,8 +39,16 @@ export function AddTransactionView({
   const amountInputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const catsRailRef = useRef<HTMLDivElement>(null);
+  const manageCategoriesRef = useRef<HTMLButtonElement>(null);
   const wasSuspended = useRef(false);
+  const preConfirmFocus = useRef<HTMLElement | null>(null);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const [categorySearch, setCategorySearch] = useState({ type: vm.form.transactionType, query: '' });
+  const categoryQuery = categorySearch.type === vm.form.transactionType ? categorySearch.query : '';
+  const normalizedQuery = categoryQuery.trim().toLocaleLowerCase(locale);
+  const visibleCategories = normalizedQuery
+    ? vm.categories.filter((category) => category.name.toLocaleLowerCase(locale).includes(normalizedQuery))
+    : vm.categories;
 
   // Dirty state comes from the view model, which compares the current values against
   // the ones this form opened with — for a new draft *and* for an edited transaction.
@@ -48,23 +56,44 @@ export function AddTransactionView({
   const hasUnsavedChanges = vm.isDirty;
 
   const requestClose = useCallback(() => {
-    if (suspended) return;
+    if (suspended || vm.saving) return;
     if (hasUnsavedChanges) {
+      const focused = document.activeElement;
+      preConfirmFocus.current = focused instanceof HTMLElement && dialogRef.current?.contains(focused) ? focused : null;
       haptics.light();
       setShowDiscardConfirm(true);
       return;
     }
     onClose();
-  }, [suspended, hasUnsavedChanges, haptics, onClose]);
+  }, [suspended, vm.saving, hasUnsavedChanges, haptics, onClose]);
 
   const handleEscape = useCallback(() => {
     requestClose();
   }, [requestClose]);
-  useFocusTrap(!suspended && !showDiscardConfirm, dialogRef, handleEscape);
+  // Keep the original launcher across the temporary category and discard overlays.
+  useLayoutEffect(() => {
+    const launcher = document.activeElement;
+    return () => {
+      if (launcher instanceof HTMLElement) launcher.focus({ preventScroll: true });
+    };
+  }, []);
+  useFocusTrap(!suspended && !showDiscardConfirm, dialogRef, handleEscape, false);
   useBodyScrollLock(!suspended);
 
   useEffect(() => {
-    if (vm.ready && !suspended) amountInputRef.current?.focus({ preventScroll: !wasSuspended.current });
+    if (!showDiscardConfirm && preConfirmFocus.current) {
+      preConfirmFocus.current.focus();
+      preConfirmFocus.current = null;
+    }
+  }, [showDiscardConfirm]);
+
+  useEffect(() => {
+    if (!vm.ready || suspended) return;
+    if (wasSuspended.current && manageCategoriesRef.current) {
+      manageCategoriesRef.current.focus();
+    } else {
+      amountInputRef.current?.focus({ preventScroll: !wasSuspended.current });
+    }
   }, [vm.ready, suspended]);
 
   useEffect(() => {
@@ -86,7 +115,7 @@ export function AddTransactionView({
       top: verticalOverflow ? verticalOffset : 0,
       behavior: reduceMotion ? 'auto' : 'smooth',
     });
-  }, [vm.ready, suspended, vm.form.categoryId, vm.categories]);
+  }, [vm.ready, suspended, vm.form.categoryId, vm.categories, normalizedQuery]);
 
   const { reloadCategories } = vm;
   useEffect(() => {
@@ -123,7 +152,7 @@ export function AddTransactionView({
     <div
       className={`fixed inset-0 z-[200] safe-overlay bg-background/80 backdrop-blur-xl flex items-center justify-center${suspended ? ' safe-overlay--suspended' : ''}`}
       onClick={requestClose}
-      aria-hidden={suspended || undefined}
+      inert={suspended || showDiscardConfirm || undefined}
     >
       <div
         ref={dialogRef}
@@ -143,20 +172,31 @@ export function AddTransactionView({
           <h2 id="add-txn-title" className="modal-title add-txn__title">
             <SignatureText text={vm.isEditing ? t('editTransaction') : t('addTransaction')} />
           </h2>
-          <button type="button" className="icon-btn" onClick={requestClose} aria-label={t('actionClose')}>
+          <button type="button" className="icon-btn" onClick={requestClose} aria-label={t('actionClose')} disabled={vm.saving}>
             <IconClose width={20} height={20} aria-hidden />
           </button>
         </div>
 
-        <div className="add-txn__body" {...(vm.loadFailed ? { inert: true } : {})}>
+        <form
+          id="transaction-form"
+          className="add-txn__body"
+          inert={vm.loadFailed || undefined}
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!vm.saving && !vm.loadFailed) void handleSave();
+          }}
+        >
           <IosSegmentedControl
-            aria-label={t('addTransaction')}
+            aria-label={t('recordTypeFilter')}
             options={(['expense', 'income', 'transfer'] as TransactionType[]).map((type) => ({
               value: type,
               label: t(`type${type.charAt(0).toUpperCase()}${type.slice(1)}` as 'typeExpense' | 'typeIncome' | 'typeTransfer'),
             }))}
             value={vm.form.transactionType}
-            onChange={(type) => vm.setForm((f) => ({ ...f, transactionType: type }))}
+            onChange={(type) => {
+              setCategorySearch({ type, query: '' });
+              vm.setForm((f) => ({ ...f, transactionType: type }));
+            }}
           />
 
           <div className="field add-txn__field--amount">
@@ -173,8 +213,9 @@ export function AddTransactionView({
                 onChange={(e) => vm.setAmountInput(e.target.value)}
                 disabled={vm.loadFailed}
                 aria-invalid={amountError || undefined}
-                aria-describedby={amountErrorId}
+                aria-describedby={amountErrorId ? `txn-currency ${amountErrorId}` : 'txn-currency'}
               />
+              <span id="txn-currency" className="sr-only">{currency}</span>
             </div>
             {amountError ? (
               <p id="add-txn-amount-error" className="add-txn__error" role="alert">{vm.error}</p>
@@ -197,7 +238,25 @@ export function AddTransactionView({
           </div>
 
           <div className="field add-txn__field--cats">
-            <div className="field__label" id="txn-category-label">{t('addCategoryLabel')}</div>
+            <div className="add-txn__category-header">
+              <div className="field__label" id="txn-category-label">{t('addCategoryLabel')}</div>
+              {onManageCategories ? (
+                <button ref={manageCategoriesRef} type="button" className="btn btn-secondary" onClick={() => onManageCategories(vm.form.transactionType)}>
+                  {t(vm.categories.length ? 'settingsCategories' : 'addCategory')}
+                </button>
+              ) : null}
+            </div>
+            {vm.categories.length >= 8 || categoryQuery ? (
+              <input
+                className="field__input"
+                type="search"
+                aria-label={t('addSearchCategories')}
+                placeholder={t('addSearchCategories')}
+                value={categoryQuery}
+                onChange={(e) => setCategorySearch({ type: vm.form.transactionType, query: e.target.value })}
+                onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+              />
+            ) : null}
             <div
               ref={catsRailRef}
               className="add-txn__cats"
@@ -208,15 +267,12 @@ export function AddTransactionView({
             >
               {vm.categories.length === 0 ? (
                 <div className="categories-empty add-txn__cats-empty">
-                  <p className="categories-empty__text">{t('categoriesEmptyHint')}</p>
-                  {onManageCategories ? (
-                    <button type="button" className="btn btn-primary" onClick={onManageCategories}>
-                      {t('addCategory')}
-                    </button>
-                  ) : null}
+                  <p className="categories-empty__text">{t('categoriesEmptyForType')}</p>
                 </div>
+              ) : visibleCategories.length === 0 ? (
+                <p className="categories-empty__text add-txn__cats-empty" role="status">{t('addNoMatchingCategories')}</p>
               ) : (
-                vm.categories.map((cat) => {
+                visibleCategories.map((cat) => {
                   const selected = vm.form.categoryId === cat.id;
                   return (
                     <button
@@ -262,7 +318,7 @@ export function AddTransactionView({
           {vm.error && !amountError && !categoryError ? (
             <p id="add-txn-form-error" className="add-txn__error" role="alert">{vm.error}</p>
           ) : null}
-        </div>
+        </form>
 
         <div className="add-txn__footer">
           {vm.loadFailed ? (
@@ -284,9 +340,9 @@ export function AddTransactionView({
             </>
           ) : (
             <button
-              type="button"
+              type="submit"
+              form="transaction-form"
               className="btn btn-primary add-txn__save"
-              onClick={() => void handleSave()}
               disabled={vm.saving}
             >
               {vm.saving ? (

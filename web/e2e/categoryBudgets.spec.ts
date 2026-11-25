@@ -161,6 +161,10 @@ test('category budget management and current-month warning progress', async ({ p
   await page.getByRole('button', { name: en.navSettings, exact: true }).click();
   await manager.getByRole('button', { name: new RegExp(name) }).click();
   await manager.getByRole('button', { name: en.categoryBudgetRemove }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: en.actionCancel }).click();
+  await expect(manager.getByLabel(en.categoryBudgetLimit)).toBeVisible();
+  await manager.getByRole('button', { name: en.categoryBudgetRemove }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: en.categoryBudgetRemove }).click();
   await expect(manager).toContainText(en.categoryBudgetEmpty);
   await page.getByRole('button', { name: en.navInsights, exact: true }).click();
   await expect(progress).toContainText(en.categoryBudgetEmpty);

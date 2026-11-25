@@ -5,6 +5,7 @@ import { useCategoryBudgets } from '@/viewmodels/useCategoryBudgets';
 import { useTranslation } from '@/i18n';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { CategoryIconTile } from '@/components/ui';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { formatAmount, formatAmountForInput, colorIntToHex } from '@/utils/currency';
 import { parseRecordAmount } from '@/viewmodels/useRecordViewModel';
 import type { Category, Expense } from '@/models/types';
@@ -19,6 +20,7 @@ export function CategoryBudgetManager() {
   const [selected, setSelected] = useState<string | null>(null);
   const [amount, setAmount] = useState(''), [threshold, setThreshold] = useState('80'), [revision, setRevision] = useState<number | null>(null);
   const [error, setError] = useState(false), [saving, setSaving] = useState(false);
+  const [confirmRemoval, setConfirmRemoval] = useState(false);
   useEffect(() => {
     let alive = true;
     setCategories([]); setSelected(null);
@@ -33,7 +35,7 @@ export function CategoryBudgetManager() {
   const parsed = parseRecordAmount(amount, locale), percent = Number(threshold);
   const valid = parsed != null && parsed > 0 && parsed < 1e9 && /^\d+$/.test(threshold) && percent >= 1 && percent <= 100;
   const save = async (remove = false) => {
-    if (!uid || !selected) return;
+    if (!uid || !selected || saving || (!remove && !valid)) return;
     setSaving(true); setError(false);
     try {
       await categoryBudgetRepository.save(uid, remove ? null : { categoryId: selected, monthlyLimit: parsed!, warningThresholdPercent: percent, updatedAt: Date.now() }, selected, revision);
@@ -56,9 +58,17 @@ export function CategoryBudgetManager() {
       <label className="field">{t('categoryBudgetThreshold')}<input className="field__input" inputMode="numeric" value={threshold} onChange={e => setThreshold(e.target.value)} aria-invalid={!valid} aria-describedby={!valid ? "category-budget-error" : undefined} /></label>
       {!valid && <p id="category-budget-error">{t('categoryBudgetInvalid')}</p>}{error && <p role="alert">{t('categoryBudgetConflict')}</p>}
       <div className="settings-budget-edit__actions"><button className="btn btn-primary" disabled={!valid || saving}>{t('actionSave')}</button>
-      <button type="button" className="btn btn-secondary" disabled={saving} onClick={() => void save(true)}>{t('categoryBudgetRemove')}</button>
-      <button type="button" className="btn btn-secondary" onClick={() => { setSelected(null); editorTrigger.current?.focus(); }}>{t('actionCancel')}</button></div>
+      {budgetsById.has(selected) ? <button type="button" className="btn btn-secondary" disabled={saving} onClick={() => setConfirmRemoval(true)}>{t('categoryBudgetRemove')}</button> : null}
+      <button type="button" className="btn btn-secondary" disabled={saving} onClick={() => { setSelected(null); editorTrigger.current?.focus(); }}>{t('actionCancel')}</button></div>
     </form>}
+    <ConfirmDialog
+      open={confirmRemoval && selected !== null && budgetsById.has(selected)}
+      title={t('categoryBudgetRemove')}
+      message={t('categoryBudgetRemoveConfirm', { name: categories.find(c => c.id === selected)?.name ?? '' })}
+      confirmLabel={t('categoryBudgetRemove')}
+      onConfirm={() => { setConfirmRemoval(false); void save(true); }}
+      onCancel={() => setConfirmRemoval(false)}
+    />
   </section>;
 }
 
@@ -125,7 +135,9 @@ export function CategoryBudgetInsights({
                       : 'categoryBudgetNormal')}
             </p>
           )}
-          <p>{t(p.state === 'projected' ? 'categoryBudgetProjectedOver' : p.overspent > 0 ? 'categoryBudgetOverspent' : 'categoryBudgetRemaining')}: {formatAmount(p.overspent || p.remaining, currency)}</p>
+          {(!cached || p.overspent > 0) && (
+            <p>{t(p.state === 'projected' ? 'categoryBudgetProjectedOver' : p.overspent > 0 ? 'categoryBudgetOverspent' : 'categoryBudgetRemaining')}: {formatAmount(p.overspent || p.remaining, currency)}</p>
+          )}
         </div>
       ))}
     </section>

@@ -1,13 +1,13 @@
 import { CategoryBudgetInsights } from '@/components/CategoryBudgets';
 import { useMemo } from 'react';
 import { EmptyState, LoadingListSkeleton, PageTitle } from '@/components/ui';
-import { DonutChart, segmentColor } from '@/components/DonutChart';
+import { segmentColor } from '@/theme/chartPalette';
 import { CashFlowChart, CashFlowLegend } from '@/components/CashFlowChart';
 import { AnalyticsPeriodPicker } from '@/components/PeriodSelector';
 import { useInsightsViewModel } from '@/viewmodels/useInsightsViewModel';
 import { usePreferencesStore } from '@/services/preferencesStore';
 import { pluralKey, useTranslation } from '@/i18n';
-import { formatAmount, formatCompactAmount } from '@/utils/currency';
+import { formatAmount } from '@/utils/currency';
 import { totalsDisclosure } from '@/utils/insightsTotals';
 import type {
   Category,
@@ -257,14 +257,13 @@ interface CategoryCardProps {
 const TOP_CATEGORY_COUNT = 6;
 
 export function CategoryCard({ title, map, categories, currency, accent }: CategoryCardProps) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   // segmentColor() and the "other" swatch resolve against the live palette.
   const themeRevision = useThemeRevision();
   const entries = useMemo(() => [...map.entries()].sort((a, b) => b[1] - a[1]), [map]);
   const total = useMemo(() => entries.reduce((s, [, v]) => s + v, 0), [entries]);
 
-  // Top categories plus an aggregate "other" so the donut and the percentages
-  // always account for 100% of the period, even with many small categories.
+  // Keep small categories in the total when the display groups them under "other".
   const displayEntries = useMemo(() => {
     const top = entries.slice(0, TOP_CATEGORY_COUNT);
     const restTotal = entries.slice(TOP_CATEGORY_COUNT).reduce((s, [, v]) => s + v, 0);
@@ -292,22 +291,17 @@ export function CategoryCard({ title, map, categories, currency, accent }: Categ
     // eslint-disable-next-line react-hooks/exhaustive-deps -- themeRevision invalidates resolved colours
   }, [entries, categories, t, themeRevision]);
 
-  const segments = useMemo(() => {
-    if (total <= 0) return [];
-    return displayEntries.map(({ name, value, color }) => ({ label: name, value, color }));
-  }, [displayEntries, total]);
-
   if (total <= 0) return null;
+  const percentFormat = new Intl.NumberFormat(locale, { style: 'percent' });
 
   return (
     <div className="insights-category-card card">
       <AccentTitle accent={accent}>{title}</AccentTitle>
-      <div className="insights-category-card__chart">
-        <DonutChart segments={segments} size={148} center={{ value: formatCompactAmount(total, currency) }} />
-      </div>
+      <p className="insights-category-card__total">{formatAmount(total, currency)}</p>
       <ul className="insights-category-card__list" aria-label={title}>
         {displayEntries.map(({ key, name, value, color }) => {
-          const pct = Math.round((value / total) * 100);
+          const share = value / total;
+          const percent = percentFormat.format(share);
           return (
             <li
               key={key}
@@ -315,27 +309,29 @@ export function CategoryCard({ title, map, categories, currency, accent }: Categ
               aria-label={t('insightsCategoryRowDesc', {
                 category: name,
                 amount: formatAmount(value, currency),
-                percent: String(pct),
+                percent,
                 total: formatAmount(total, currency),
               })}
             >
               <AccentDot color={color} />
               <span className="insights-category-card__name" aria-hidden>{name}</span>
               <span className="insights-category-card__amount" aria-hidden>{formatAmount(value, currency)}</span>
-              <span className="insights-category-card__pct" aria-hidden>{pct}%</span>
-              {/* Horizontal comparison bar: easier to rank categories than the
-                  donut, and it keeps its exact amount + percentage as text. */}
-              <span className="insights-category-card__bar" aria-hidden>
-                <span
-                  className="insights-category-card__bar-fill"
-                  style={{ width: `${pct}%`, backgroundColor: color }}
-                />
-              </span>
+              <span className="insights-category-card__pct" aria-hidden>{percent}</span>
+              {displayEntries.length > 1 ? <CategoryShareBar share={share} color={color} /> : null}
             </li>
           );
         })}
       </ul>
     </div>
+  );
+}
+
+function CategoryShareBar({ share, color }: { share: number; color: string }) {
+  const fillRef = useCssProps<HTMLSpanElement>({ width: `${share * 100}%`, backgroundColor: color });
+  return (
+    <span className="insights-category-card__bar" aria-hidden>
+      <span ref={fillRef} className="insights-category-card__bar-fill" />
+    </span>
   );
 }
 

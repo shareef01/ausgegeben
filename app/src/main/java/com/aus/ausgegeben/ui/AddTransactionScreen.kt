@@ -11,6 +11,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -165,10 +166,11 @@ fun AddTransactionScreen(
     )
 
     val filteredCategories = remember(transactionType, categories) {
-        categories.filter { 
-            it.id != "0" && it.name.isNotBlank() && CategoryGroups.matches(transactionType, it) 
+        categories.filter {
+            it.id != "0" && it.name.isNotBlank() && CategoryGroups.matches(transactionType, it)
         }
     }
+    var showCategorySearch by remember(transactionType) { mutableStateOf(false) }
 
     val hasAmount = (CurrencyUtils.parseAmount(amountText) ?: 0.0) > 0
     val hasCategory = selectedCategory != null
@@ -328,6 +330,9 @@ fun AddTransactionScreen(
                                 // of view, so every entry needed a scroll before a category tap.
                                 ObsidianCategoryHeader(
                                     onManage = { showManageSheet = true },
+                                    onSearch = if (filteredCategories.size >= 8) {
+                                        { showCategorySearch = true }
+                                    } else null,
                                     highlight = hasAmount && !hasCategory && !isSaving,
                                 )
 
@@ -399,6 +404,17 @@ fun AddTransactionScreen(
                 }
             }
         }
+    }
+
+    if (showCategorySearch) {
+        TransactionCategorySearch(
+            categories = filteredCategories,
+            onDismiss = { showCategorySearch = false },
+            onSelect = {
+                viewModel.onCategorySelect(it)
+                showCategorySearch = false
+            },
+        )
     }
 
     if (showManageSheet) {
@@ -673,26 +689,83 @@ private fun NoteEditor(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ObsidianCategoryHeader(onManage: () -> Unit, highlight: Boolean) {
-    Row(
+private fun ObsidianCategoryHeader(onManage: () -> Unit, onSearch: (() -> Unit)?, highlight: Boolean) {
+    FlowRow(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(horizontal = AppSpacing.md),
+        itemVerticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
-            text = stringResource(R.string.add_category_label).uppercase(),
-            style = ObsidianTokens.labelStyle().copy(
-                color = if (highlight) ObsidianTokens.expense() else ObsidianTokens.slate()
+            text = stringResource(R.string.add_category_label),
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (highlight) ObsidianTokens.expenseText() else ObsidianTokens.slate(),
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (onSearch != null) {
+                IconButton(onClick = onSearch) {
+                    Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.add_search_categories))
+                }
+            }
+            AppTextButton(
+                onClick = onManage,
+                text = stringResource(R.string.add_manage),
+                modifier = Modifier.heightIn(min = 48.dp),
+                contentColor = MaterialTheme.colorScheme.primary,
             )
-        )
-        AppTextButton(
-            onClick = onManage,
-            text = stringResource(R.string.add_manage).uppercase(),
-            contentColor = MaterialTheme.colorScheme.primary
-        )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TransactionCategorySearch(
+    categories: List<Category>,
+    onDismiss: () -> Unit,
+    onSelect: (Category) -> Unit,
+) {
+    var query by remember { mutableStateOf("") }
+    val results = remember(categories, query) {
+        categories.filter { it.name.contains(query.trim(), ignoreCase = true) }
+    }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = appSheetContainerColor(),
+        scrimColor = appSheetScrimColor(),
+        dragHandle = { AppSheetDragHandle() },
+        shape = AppSheetShape,
+    ) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = AppSpacing.md)) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                label = { Text(stringResource(R.string.add_search_categories)) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
+            if (results.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.add_no_matching_categories),
+                    modifier = Modifier.padding(vertical = AppSpacing.md),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                LazyColumn(Modifier.heightIn(max = 320.dp)) {
+                    items(results, key = { it.id }) { category ->
+                        TextButton(
+                            onClick = { onSelect(category) },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        ) {
+                            Text(category.name, modifier = Modifier.fillMaxWidth())
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -177,7 +177,13 @@ export function RecordView({ onEdit, onAdd }: RecordViewProps) {
             />
 
             {uiState.monthlyBudget && viewingCurrentMonth ? (
-              <BudgetProgressBar spent={monthSpent} budget={uiState.monthlyBudget} currency={currency} upcoming={uiState.monthUpcoming} />
+              <BudgetProgressBar
+                spent={monthSpent}
+                budget={uiState.monthlyBudget}
+                currency={currency}
+                upcoming={uiState.monthUpcoming}
+                incomplete={uiState.dataTruncated}
+              />
             ) : null}
           </div>
 
@@ -604,7 +610,7 @@ export const TransactionRow = memo(({ expense, category, currency }: {
 
       <div className="transaction-row__meta">
         <div className="transaction-row__title">{categoryName}</div>
-        {note && <div className="transaction-row__sub">{note}</div>}
+        {note && <div className="transaction-row__sub" title={note}>{note}</div>}
       </div>
 
       <div className={`transaction-row__amount ${amountMod}`}>

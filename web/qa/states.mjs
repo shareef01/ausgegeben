@@ -11,15 +11,15 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const [label = 'now'] = process.argv.slice(2);
-const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'docs', 'design-qa', 'states');
+const OUT = process.env.SCREENSHOT_DIR ?? join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'docs', 'design-qa', 'states');
 mkdirSync(OUT, { recursive: true });
-const BASE = 'http://127.0.0.1:5173';
+const BASE = process.env.BASE ?? 'http://localhost:5173';
 let failed = 0;
 const check = (name, ok, detail = '') => {
   if (!ok) failed++;
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  — ${detail}` : ''}`);
 };
-const shot = (page, name, fullPage = false) => page.screenshot({ path: join(OUT, `${label}-${name}.png`), fullPage });
+const shot = (page, name, fullPage = false) => page.screenshot({ path: join(OUT, `${label}-${name}.png`), fullPage, animations: 'disabled' });
 const overflow = (page) => page.evaluate(() => {
   const vw = innerWidth;
   const wide = [...document.querySelectorAll('body *')]
@@ -29,7 +29,7 @@ const overflow = (page) => page.evaluate(() => {
 });
 const tabs = (page, i) => page.locator('.bottom-nav-pill__item, .app-header__nav-item').nth(i).dispatchEvent('click');
 
-const browser = await chromium.launch();
+const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
 async function open(width, height, { scheme = 'dark', bigText = false } = {}) {
   const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', colorScheme: scheme });
   if (bigText) await context.addInitScript(() => {
@@ -40,7 +40,7 @@ async function open(width, height, { scheme = 'dark', bigText = false } = {}) {
     });
   });
   const page = await context.newPage();
-  await page.goto(BASE, { waitUntil: 'networkidle' });
+  await page.goto(BASE);
   return { context, page };
 }
 async function signIn(page, email, password) {
@@ -65,7 +65,6 @@ for (const [w, h, locale] of [[375, 812, 'en'], [375, 812, 'de'], [1440, 900, 'e
   });
   await signIn(page, email, 'qa-password-123');
   await page.locator('.onboarding-page').waitFor({ timeout: 20000 });
-  await page.waitForTimeout(500);
   await shot(page, `onboarding-${locale}-${w}`);
   const o = await overflow(page);
   check(`onboarding ${locale}@${w}: fits`, o.sw <= o.vw, o.wide.join(', '));
@@ -76,11 +75,10 @@ for (const [w, h, locale] of [[375, 812, 'en'], [375, 812, 'de'], [1440, 900, 'e
 {
   const { context, page } = await open(375, 812);
   await signIn(page, 'qa-empty@ausgegeben.test', 'qa-password-123');
-  await page.locator('.empty-state, .bottom-nav-pill').first().waitFor({ timeout: 20000 });
-  await page.waitForTimeout(800);
+  await page.locator('.empty-state:visible').first().waitFor({ timeout: 20000 });
   await shot(page, 'empty-record-375');
   await tabs(page, 1);
-  await page.waitForTimeout(800);
+  await page.locator('.tab-panel--active .empty-state').first().waitFor();
   await shot(page, 'empty-insights-375');
   await context.close();
 }
@@ -98,7 +96,7 @@ for (const [w, h, locale] of [[375, 812, 'en'], [375, 812, 'de'], [1440, 900, 'e
   await page.getByRole('dialog').waitFor({ state: 'detached' });
   await context.setOffline(true);
   await page.evaluate(() => dispatchEvent(new Event('offline')));
-  await page.waitForTimeout(600);
+  await page.locator('.offline-banner').waitFor();
   const banner = await page.locator('.offline-banner').count();
   check('offline: banner appears', banner === 1);
   await shot(page, 'offline-banner-375');
@@ -110,20 +108,19 @@ for (const [w, h, locale] of [[375, 812, 'en'], [375, 812, 'de'], [1440, 900, 'e
   await page.locator('.add-txn__cat').first().click();
   await shot(page, 'offline-add-filled-375');
   await page.keyboard.press('Escape');
-  await page.waitForTimeout(300);
+  await page.getByRole('alertdialog').waitFor();
   const guard = await page.getByRole('alertdialog').count();
   check('unsaved changes: Escape asks before discarding', guard === 1);
   await shot(page, 'unsaved-confirm-375');
   if (guard) await page.getByRole('alertdialog').getByRole('button').first().click(); // keep editing
-  await page.waitForTimeout(300);
   await page.locator('.add-txn__save').click();
-  await page.waitForTimeout(1200);
+  await page.locator('.toast-host').waitFor();
   const toast = (await page.locator('.toast-host').textContent()) ?? '';
   check('offline save: confirms it was queued, not saved', /warteschlange|queued|offline|in diesem tab|this tab|sobald|sync/i.test(toast), toast.trim());
   await shot(page, 'offline-queued-toast-375');
   await context.setOffline(false);
   await page.evaluate(() => dispatchEvent(new Event('online')));
-  await page.waitForTimeout(1500);
+  await page.locator('.offline-banner').waitFor({ state: 'detached' });
   check('back online: banner clears', (await page.locator('.offline-banner').count()) === 0);
   await context.close();
 }
@@ -133,19 +130,17 @@ for (const [w, h] of [[375, 812], [1440, 900]]) {
   const { context, page } = await open(w, h, { bigText: true });
   await signIn(page, 'qa-heavy@ausgegeben.test', 'qa-password-123');
   await page.locator('.transaction-row').first().waitFor({ timeout: 30000 });
-  await page.waitForTimeout(800);
   for (const [i, tab] of ['record', 'insights', 'settings'].entries()) {
     await tabs(page, i);
-    await page.waitForTimeout(900);
+    const ready = { record: '.transaction-row', insights: '.insights-category-card', settings: '.settings-account' }[tab];
+    await page.locator(`.tab-panel--active ${ready}`).first().waitFor();
     await shot(page, `text200-${tab}-${w}`);
     const o = await overflow(page);
     check(`200% text ${tab}@${w}: no sideways scroll`, o.sw <= o.vw, `${o.sw}px ${o.wide.join(', ')}`);
   }
   await tabs(page, 0);
-  await page.waitForTimeout(600);
-  await page.locator('.action-row__content').first().dispatchEvent('click');
-  await page.getByRole('dialog').waitFor();
-  await page.waitForTimeout(500);
+  await page.locator('.tab-panel--active .action-row__content').first().dispatchEvent('click');
+  await page.locator('#txn-amount').waitFor();
   await shot(page, `text200-edit-${w}`);
   const dlg = await page.evaluate(() => {
     const d = document.querySelector('[role="dialog"]');

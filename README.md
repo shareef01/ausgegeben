@@ -53,7 +53,7 @@ I built Ausgegeben because I wanted a fast, private, and distraction-free tool t
 - **Search & Filtering:** Instant client-side search by note, amount, date range, transaction type, or category.
 - **Safe Backup & Restore:** Export and import versioned, integrity-checked JSON backups with automatic safety snapshots before destructive replace operations.
 - **Privacy & Security:** Zero third-party ad networks, no analytics trackers, and strict Firebase security rules that enforce complete account isolation.
-- **Localization & Themes:** Supports English and German, multiple display currencies (EUR, USD, GBP, CHF), and light, dark, and OLED themes.
+- **Localization & Themes** — English and German, four display currencies (EUR, USD, GBP, CHF), System mode, and nine explicit palettes including AMOLED.
 - **Built for Every Screen Size:** On the web the layout adapts from a single column on phones to a three-column desktop view (summary, transactions, filters) that keeps the totals and filters in view while you scroll.
 - **Android Reminders:** Configurable daily notification reminders powered by Android WorkManager.
 
@@ -166,6 +166,8 @@ node scripts/capture-screenshots.mjs
 Ausgegeben is an active personal project designed for my daily personal use and featured on my software engineering portfolio. The codebase is maintained with strict test coverage, automated security regression gates, and reproducible builds.
 
 ---
+
+The [UI/UX audit](docs/ui-ux-audit.md) records verified changes and outstanding device checks. The [design guide](docs/ui-ux-design-spec.md) documents the shared visual rules and how to reproduce the screenshots.
 
 ## Author
 

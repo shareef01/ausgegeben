@@ -59,9 +59,11 @@ const THEME_OPTIONS: { key: ThemeMode; labelKey: TranslationKey }[] = [
 
 interface SettingsViewProps {
   onManageCategories: () => void;
+  isOnline?: boolean;
+  pendingChanges?: boolean;
 }
 
-export function SettingsView({ onManageCategories }: SettingsViewProps) {
+export function SettingsView({ onManageCategories, isOnline = true, pendingChanges = false }: SettingsViewProps) {
   const { t } = useTranslation();
   const currency = usePreferencesStore((s) => s.currency);
   const locale = usePreferencesStore((s) => s.locale);
@@ -221,7 +223,12 @@ export function SettingsView({ onManageCategories }: SettingsViewProps) {
             <div className="settings-account__meta">
               <div className="settings-account__name">{displayName}</div>
               {user.email ? <div className="settings-account__email">{user.email}</div> : null}
-              <div className="settings-account__badge">{t('settingsAccountSyncEnabled')}</div>
+              <div className="settings-account__badge">
+                {t(!user.emailVerified ? 'settingsAccountUnverified'
+                  : !isOnline ? 'settingsAccountOffline'
+                  : pendingChanges ? 'queuedWritesPending'
+                  : syncError ? 'settingsAccountSyncProblem' : 'settingsAccountSyncEnabled')}
+              </div>
             </div>
             <div className="settings-account__actions">
               <button

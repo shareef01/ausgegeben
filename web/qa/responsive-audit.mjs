@@ -4,7 +4,7 @@
  * one pixel either side of the phone-range rules at 380, 400, 430 and 520px.
  *
  *   emulators + `npx vite --mode emulator --port 5183` + `node scripts/seed-qa-data.mjs`
- *   node qa/responsive-audit.mjs <label> [base] [--shots]
+ *   node qa/responsive-audit.mjs <label> [base] [--shots] [--contrast-only]
  *
  * Per viewport × tab it reports measured facts, not impressions:
  *   - horizontal page overflow and the elements that cause it
@@ -24,6 +24,7 @@ import { fileURLToPath } from 'node:url';
 const args = process.argv.slice(2);
 const shots = args.includes('--shots');
 const themes = args.includes('--themes');
+const contrastOnly = args.includes('--contrast-only');
 const [label = 'now', base = 'http://127.0.0.1:5183'] = args.filter((a) => !a.startsWith('--'));
 const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'docs', 'design-qa', 'responsive', label);
 if (shots) mkdirSync(OUT, { recursive: true });
@@ -33,7 +34,7 @@ const VIEWPORTS = [
   // Phone-range rules: max-width 379px (ios/pages), min-width 400px (global/index),
   // min-width 430px (index), max-width 519/520px (pages). One pixel either side of each.
   [379, 800], [380, 800], [399, 800], [400, 800], [401, 800], [429, 900], [431, 900], [519, 900], [520, 900], [521, 900],
-  [600, 900], [767, 1024], [768, 1024], [820, 1180], [1023, 768], [1024, 768], [1024, 1366],
+  [600, 900], [767, 1024], [768, 1024], [820, 1180], [834, 1180], [1023, 768], [1024, 768], [1024, 1366],
   [1280, 800], [1366, 768], [1439, 900], [1440, 900], [1600, 1000], [1920, 1080], [2560, 1440],
   [844, 390], [932, 430], // phones in landscape (short height)
 ];
@@ -105,7 +106,12 @@ async function gotoTab(page, tab) {
     history.pushState(null, '', u);
     dispatchEvent(new PopStateEvent('popstate'));
   }, tab);
-  await page.waitForTimeout(700);
+  const ready = {
+    record: '.transaction-row',
+    insights: '.insights-category-card',
+    settings: '.settings-account',
+  }[tab];
+  await page.locator(`.tab-panel--active ${ready}`).first().waitFor();
 }
 
 function measure(touch) {
@@ -208,7 +214,7 @@ async function recordFocusOrder(page) {
   return seen;
 }
 
-for (const scheme of ['dark', 'light']) {
+for (const scheme of contrastOnly ? [] : ['dark', 'light']) {
   for (const [w, h] of VIEWPORTS) {
     if (scheme === 'light' && ![320, 768, 1024, 1440, 1920].includes(w)) continue;
     const { context, page, touch } = await signedInPage(w, h, scheme);
@@ -278,13 +284,13 @@ if (themes) {
 }
 
 // Toast with a long message at the narrowest phone width.
-{
+if (!contrastOnly) {
   const { context, page } = await signedInPage(320, 568, 'dark');
   await page.evaluate(async () => {
     const mod = await import(/* @vite-ignore */ '/src/services/toastStore.ts');
     mod.useToastStore.getState().show('Die Transaktion konnte nicht gespeichert werden, weil die Verbindung unterbrochen wurde', 'wiederholen', () => {});
   });
-  await page.waitForTimeout(400);
+  await page.locator('.toast-host').waitFor();
   const t = await page.evaluate(() => {
     const host = document.querySelector('.toast-host');
     if (!host) return null;
@@ -294,6 +300,62 @@ if (themes) {
   });
   line(!!t && t.left >= 0 && t.right <= t.vw && !t.clipped, `long toast fits and wraps @320: ${JSON.stringify(t)}`);
   if (shots) await page.screenshot({ path: join(OUT, 'toast-long-320.png') });
+  await context.close();
+}
+
+// Resolve rendered colors against the nearest composited CSS backgrounds.
+{
+  const { context, page } = await signedInPage(390, 844, 'dark');
+  const samples = async (selectors) => page.evaluate((targets) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 1;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const luminance = () => {
+      const [r, g, b] = [...ctx.getImageData(0, 0, 1, 1).data].slice(0, 3).map((value) => {
+        const channel = value / 255;
+        return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const paint = (color) => {
+      ctx.fillStyle = color;
+      ctx.fillRect(0, 0, 1, 1);
+    };
+    return targets.map((selector) => {
+      const element = document.querySelector(`.tab-panel--active ${selector}`);
+      if (!element) return [selector, 0];
+      const surfaces = [];
+      for (let ancestor = element; ancestor; ancestor = ancestor.parentElement) {
+        surfaces.unshift(getComputedStyle(ancestor).backgroundColor);
+      }
+      paint('#fff');
+      surfaces.forEach(paint);
+      const backdrop = luminance();
+      paint(getComputedStyle(element).color);
+      const ink = luminance();
+      return [selector, (Math.max(ink, backdrop) + 0.05) / (Math.min(ink, backdrop) + 0.05)];
+    });
+  }, selectors);
+  for (const theme of ['light', 'dark', 'amoled', 'midnight', 'ocean', 'forest', 'sunset', 'lavender', 'soft_light']) {
+    await page.evaluate(async (mode) => {
+      const { applyTheme, themePalettes } = await import('/src/theme/tokens.ts');
+      applyTheme(themePalettes[mode]);
+      document.documentElement.dataset.themeName = mode;
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    }, theme);
+    await page.locator(`html[data-theme-name="${theme}"]`).waitFor({ state: 'attached' });
+    const measurements = [];
+    for (const [tab, targets] of Object.entries({
+      record: ['.finance-summary-card__eyebrow', '.budget-bar__status', '.budget-bar__spent--over', '.transaction-row__title'],
+      insights: ['.insights-category-card__title', '.insights-category-card__total', '.insights-category-card__pct'],
+      settings: ['.settings-account__badge'],
+    })) {
+      await gotoTab(page, tab);
+      measurements.push(...await samples(targets));
+    }
+    line(measurements.every(([, ratio]) => ratio >= 4.5),
+      `text contrast ${theme}: ${measurements.map(([selector, ratio]) => `${selector} ${ratio.toFixed(2)}:1`).join(', ')}`);
+  }
   await context.close();
 }
 

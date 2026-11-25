@@ -80,9 +80,8 @@ test('editing a transaction requires confirmation before discarding changes', as
   await amount.fill('-1,23');
   await save.click();
   await expect(amount).toHaveAttribute('aria-invalid', 'true');
-  // The field error is a dedicated element and the input points at exactly it. A single
-  // shared id across all error slots made `aria-describedby` ambiguous.
-  await expect(amount).toHaveAttribute('aria-describedby', 'add-txn-amount-error');
+  // Keep the currency hint and the dedicated field error in the description.
+  await expect(amount).toHaveAttribute('aria-describedby', 'txn-currency add-txn-amount-error');
   await expect(page.locator('#add-txn-amount-error')).toHaveCount(1);
   await amount.fill('1,234.56');
   await save.click();
