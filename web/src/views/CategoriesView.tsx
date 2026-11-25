@@ -219,11 +219,11 @@ export function CategoriesView({ initialType = 'expense', onClose }: { initialTy
         aria-labelledby="categories-title"
         tabIndex={-1}
       >
-        <div className="flex items-center justify-between">
+        <div className="category-manager__header flex items-center justify-between gap-2">
           <h2 id="categories-title" className="modal-title text-2xl font-extrabold tracking-tight">
             <SignatureText text={editor ? (editor.id ? t('categoryEditTitle') : t('addCategory')) : t('settingsCategories')} />
           </h2>
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-3">
             {!editor ? (
               <button
                   type="button"

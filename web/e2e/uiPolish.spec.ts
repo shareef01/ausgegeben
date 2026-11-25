@@ -68,7 +68,14 @@ test('category search and management preserve the transaction draft and restore 
   const manager = page.getByRole('dialog', { name: en.settingsCategories });
   await expect(manager).toBeVisible();
   await expect(manager.locator('.category-manage-list')).toBeVisible();
-  expect(await manager.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+  const header = manager.locator('.category-manager__header');
+  for (const textScale of [100, 125]) {
+    await page.addStyleTag({ content: `html { font-size: ${textScale}%; }` });
+    for (const region of [manager, header]) {
+      const overflow = await region.evaluate((element) => element.scrollWidth - element.clientWidth);
+      expect(overflow, `Horizontal overflow in ${region} at ${textScale}% text size`).toBeLessThanOrEqual(1);
+    }
+  }
 });
 
 test('the budget reports actual overspend and a single income category uses a text total', async ({ page }) => {

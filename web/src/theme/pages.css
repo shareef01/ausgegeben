@@ -2505,6 +2505,12 @@
   color: var(--color-on-background);
 }
 
+.category-manager__header .modal-title {
+  min-width: 0;
+  max-width: none;
+  overflow-wrap: anywhere;
+}
+
 .category-manage-list {
   margin: 0;
   padding: 0;
