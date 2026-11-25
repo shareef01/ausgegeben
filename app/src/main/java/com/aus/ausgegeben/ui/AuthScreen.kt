@@ -4,9 +4,10 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -18,19 +19,17 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -40,60 +39,10 @@ import com.aus.ausgegeben.ui.components.AppBrandIcon
 import com.aus.ausgegeben.ui.components.AppButton
 import com.aus.ausgegeben.ui.components.AppIconButton
 import com.aus.ausgegeben.ui.components.AppTextButton
-import com.aus.ausgegeben.ui.theme.contrastColorOn
+import com.aus.ausgegeben.ui.theme.AppRadius
+import com.aus.ausgegeben.ui.theme.AppSpacing
+import com.aus.ausgegeben.ui.theme.appDividerColor
 import com.aus.ausgegeben.ui.theme.financeExpenseTextColor
-import com.aus.ausgegeben.ui.theme.financeIncomeColor
-import com.aus.ausgegeben.ui.theme.isAppDarkTheme
-import com.aus.ausgegeben.ui.theme.sectionLabelStyle
-import androidx.compose.ui.geometry.Offset
-
-private object AuthAuroraTokens {
-    @Composable
-    fun background() = MaterialTheme.colorScheme.background
-
-    @Composable
-    fun surface() = MaterialTheme.colorScheme.surface
-
-    @Composable
-    fun slate() = MaterialTheme.colorScheme.onSurfaceVariant
-
-    @Composable
-    fun emerald() = financeIncomeColor()
-
-    // Pillar 1: Ambient Aurora Background
-    @Composable
-    fun auroraBrush() = Brush.radialGradient(
-        colors = listOf(emerald().copy(alpha = if (isAppDarkTheme()) 0.15f else 0.08f), Color.Transparent),
-        radius = 1200f,
-        center = Offset(x = 0f, y = 0f)
-    )
-
-    // Pillar 2: Adaptive Glassmorphism
-    @Composable
-    fun glassBase() = if (isAppDarkTheme()) {
-        Color(0xFFFFFFFF).copy(alpha = 0.03f)
-    } else {
-        Color(0xFF000000).copy(alpha = 0.03f)
-    }
-
-    @Composable
-    fun specularBorder() = if (isAppDarkTheme()) {
-        Brush.linearGradient(
-            colors = listOf(Color.White.copy(alpha = 0.2f), Color.Transparent),
-            start = Offset(0f, 0f),
-            end = Offset(100f, 100f)
-        )
-    } else {
-        Brush.linearGradient(
-            colors = listOf(Color.Black.copy(alpha = 0.1f), Color.Transparent),
-            start = Offset(0f, 0f),
-            end = Offset(100f, 100f)
-        )
-    }
-
-    @Composable
-    fun labelStyle() = sectionLabelStyle()
-}
 
 @Composable
 fun AuthScreen(
@@ -103,16 +52,13 @@ fun AuthScreen(
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val emerald = AuthAuroraTokens.emerald()
+    val colors = MaterialTheme.colorScheme
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(AuthAuroraTokens.background())
+            .background(colors.background)
     ) {
-        // Pillar 1: Ambient Background
-        Box(modifier = Modifier.fillMaxSize().background(AuthAuroraTokens.auroraBrush()))
-
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
@@ -130,61 +76,49 @@ fun AuthScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // Branding Section - Hyper-Premium Styling
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    AppBrandIcon(size = 80)
+                    AppBrandIcon(size = 64)
                     
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(AppSpacing.sm))
                     
                     Text(
                         text = stringResource(R.string.app_name),
-                        style = TextStyle(
-                            brush = Brush.linearGradient(
-                                colors = if (isAppDarkTheme()) {
-                                    listOf(Color.White, Color(0xFFA1A1AA))
-                                } else {
-                                    listOf(Color(0xFF09090B), Color(0xFF52525B))
-                                }
-                            ),
-                            fontSize = 32.sp,
-                            fontWeight = FontWeight.Light,
-                            letterSpacing = (-1).sp
-                        )
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = colors.onBackground,
                     )
                     
                     Text(
                         text = stringResource(R.string.app_tagline),
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            letterSpacing = 2.sp,
-                            color = AuthAuroraTokens.slate().copy(alpha = 0.6f)
-                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(40.dp))
+                Spacer(modifier = Modifier.height(AppSpacing.lg))
 
-                // Pillar 2: Hero Glassmorphic Auth Card
                 Box(
                     modifier = Modifier
+                        .widthIn(max = 520.dp)
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(32.dp))
-                        .background(AuthAuroraTokens.glassBase())
+                        .clip(RoundedCornerShape(AppRadius.card))
+                        .background(colors.surface)
                         .border(
                             width = 1.dp,
-                            brush = AuthAuroraTokens.specularBorder(),
-                            shape = RoundedCornerShape(32.dp)
+                            color = appDividerColor(),
+                            shape = RoundedCornerShape(AppRadius.card)
                         )
-                        .padding(28.dp)
+                        .padding(AppSpacing.md)
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         // Dynamic Tab Selector
                         AuthTabSelector(
                             selectedTab = uiState.selectedTab,
-                            onTabSelected = viewModel::onTabSelected
+                            onTabSelected = viewModel::onTabSelected,
+                            enabled = !uiState.isLoading,
                         )
 
                         Spacer(modifier = Modifier.height(8.dp))
@@ -249,8 +183,8 @@ fun AuthScreen(
                             onClick = { viewModel.submit(onAuthenticated) },
                             enabled = !uiState.isLoading,
                             modifier = Modifier.fillMaxWidth(),
-                            containerColor = emerald,
-                            contentColor = contrastColorOn(emerald),
+                            containerColor = colors.primary,
+                            contentColor = colors.onPrimary,
                         ) {
                             if (uiState.isLoading) {
                                 CircularProgressIndicator(
@@ -259,15 +193,15 @@ fun AuthScreen(
                                         .semantics {
                                             contentDescription = uiState.loadingMessage.orEmpty()
                                         },
-                                    color = contrastColorOn(emerald),
+                                    color = colors.onPrimary,
                                     strokeWidth = 2.dp,
                                 )
                             } else {
                                 Text(
                                     text = if (uiState.selectedTab == AuthTab.SIGN_IN)
-                                        stringResource(R.string.auth_sign_in).uppercase()
-                                    else stringResource(R.string.auth_create_account).uppercase(),
-                                    style = TextStyle(fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp),
+                                        stringResource(R.string.auth_sign_in)
+                                    else stringResource(R.string.auth_create_account),
+                                    style = MaterialTheme.typography.labelLarge,
                                 )
                             }
                         }
@@ -277,7 +211,8 @@ fun AuthScreen(
                                 onClick = viewModel::sendPasswordReset,
                                 text = stringResource(R.string.auth_forgot_password),
                                 modifier = Modifier.align(Alignment.CenterHorizontally),
-                                contentColor = AuthAuroraTokens.slate(),
+                                enabled = !uiState.isLoading,
+                                contentColor = colors.onSurfaceVariant,
                             )
                         }
                     }
@@ -289,8 +224,8 @@ fun AuthScreen(
                 // cache keeps the app usable without a connection once signed in.
                 Text(
                     text = stringResource(R.string.auth_offline_hint),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = AuthAuroraTokens.slate(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -322,25 +257,28 @@ private fun AuthTopBar(onDismiss: (() -> Unit)?) {
 @Composable
 private fun AuthTabSelector(
     selectedTab: AuthTab,
-    onTabSelected: (AuthTab) -> Unit
+    onTabSelected: (AuthTab) -> Unit,
+    enabled: Boolean,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(44.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .selectableGroup()
+            .clip(RoundedCornerShape(AppRadius.interactive))
             .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
             .padding(4.dp)
     ) {
         AuthTabItem(
             label = stringResource(R.string.auth_tab_sign_in),
             isSelected = selectedTab == AuthTab.SIGN_IN,
+            enabled = enabled,
             modifier = Modifier.weight(1f),
             onClick = { onTabSelected(AuthTab.SIGN_IN) }
         )
         AuthTabItem(
             label = stringResource(R.string.auth_tab_sign_up),
             isSelected = selectedTab == AuthTab.SIGN_UP,
+            enabled = enabled,
             modifier = Modifier.weight(1f),
             onClick = { onTabSelected(AuthTab.SIGN_UP) }
         )
@@ -351,6 +289,7 @@ private fun AuthTabSelector(
 private fun AuthTabItem(
     label: String,
     isSelected: Boolean,
+    enabled: Boolean,
     modifier: Modifier,
     onClick: () -> Unit
 ) {
@@ -362,20 +301,20 @@ private fun AuthTabItem(
 
     Box(
         modifier = modifier
-            .fillMaxHeight()
+            .heightIn(min = 48.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(background)
-            .clickable(onClick = onClick),
+            .selectable(selected = isSelected, enabled = enabled, role = Role.Tab, onClick = onClick)
+            .padding(horizontal = AppSpacing.xs, vertical = AppSpacing.xs),
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = label.uppercase(),
-            style = TextStyle(
-                fontSize = 11.sp,
+            text = label,
+            style = MaterialTheme.typography.labelLarge.copy(
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                letterSpacing = 1.sp,
-                color = if (isSelected) MaterialTheme.colorScheme.onSurface else AuthAuroraTokens.slate()
-            )
+                color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+            ),
+            textAlign = TextAlign.Center,
         )
     }
 }
@@ -413,11 +352,11 @@ private fun AuthTextField(
         keyboardOptions = keyboardOptions,
         shape = RoundedCornerShape(16.dp),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = AuthAuroraTokens.emerald().copy(alpha = 0.5f),
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
             unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
             focusedContainerColor = MaterialTheme.colorScheme.surface,
             unfocusedContainerColor = Color.Transparent,
-            cursorColor = AuthAuroraTokens.emerald()
+            cursorColor = MaterialTheme.colorScheme.primary
         )
     )
 }

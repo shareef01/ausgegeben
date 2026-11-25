@@ -79,6 +79,9 @@
   --layout-breakpoint: 768px;
   --content-max-width: 100%;
   --workspace-padding: 16px;
+  --radius-card: 16px;
+  --radius-control: 12px;
+  --touch-target: 44px;
 }
 
 @media (pointer: coarse) and (max-width: 767px) {

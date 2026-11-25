@@ -13,7 +13,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const [label = 'after', base = 'http://127.0.0.1:5173'] = process.argv.slice(2);
-const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'docs', 'design-qa', label);
+const OUT = process.env.SCREENSHOT_DIR ?? join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'docs', 'design-qa', label);
 mkdirSync(OUT, { recursive: true });
 
 const SIZES = [[320, 568], [375, 667], [390, 844], [430, 932], [768, 1024], [1024, 768], [1440, 900]];
@@ -61,7 +61,7 @@ for (const currency of ['EUR', 'USD', 'GBP', 'CHF']) {
     for (const [w, h] of [[320, 568], [1440, 900]]) {
       const { context, page } = await open({ section: 'all', theme: 'dark', data: 'heavy', locale, currency }, { width: w, height: h, touch: w < 768 });
       const clipped = await page.evaluate(() => {
-        const sel = '.transaction-row__amount, .money, .finance-stat-chip__value, .finance-summary-card__balance, .donut-center__value, .insights-category-card__amount, .budget-bar__labels, .cashflow-tooltip__value, .cashflow-table__table td';
+        const sel = '.transaction-row__amount, .money, .finance-stat-chip__value, .finance-summary-card__balance, .insights-category-card__total, .insights-category-card__amount, .budget-bar__labels, .cashflow-tooltip__value, .cashflow-table__table td';
         const out = [];
         for (const e of document.querySelectorAll(sel)) {
           const r = e.getBoundingClientRect();
@@ -228,31 +228,35 @@ for (const [data, locale, currency, w] of [['heavy', 'de', 'CHF', 320], ['typica
 
 // ── 6a. Primary summary amounts are never ellipsised ──
 for (const [w, h] of [[320, 568], [1440, 900]]) {
-  const { context, page } = await open({ section: 'donut', theme: 'dark', data: 'heavy', locale: 'de', currency: 'CHF' }, { width: w, height: h });
-  const c = await page.$eval('.donut-center__value', (e) => ({ text: e.textContent, clipped: e.scrollWidth > e.clientWidth + 1 }));
-  check(`donut centre total fully visible at ${w}px`, !c.clipped, c.text ?? '');
+  const { context, page } = await open({ section: 'category-ranking', theme: 'dark', data: 'heavy', locale: 'de', currency: 'CHF' }, { width: w, height: h });
+  const c = await page.$eval('.insights-category-card__total', (e) => ({ text: e.textContent, clipped: e.scrollWidth > e.clientWidth + 1 }));
+  check(`category ranking total fully visible at ${w}px`, !c.clipped, c.text ?? '');
   await context.close();
 }
 
-// ── 6. Donut colours follow a live theme switch ──
+// ── 6. Category colors follow a live theme switch ──
 {
-  const { context, page } = await open({ section: 'donut', theme: 'dark', data: 'typical' }, { width: 390, height: 844 });
-  const stops = () => page.$$eval('.donut linearGradient stop:nth-child(2)', (els) => els.map((e) => e.getAttribute('stop-color')));
-  const dots = () => page.$$eval('.insights-category-card__dot', (els) => els.map((e) => getComputedStyle(e).getPropertyValue('--dot-color').trim()));
-  const darkStops = await stops();
-  const darkDots = await dots();
-  await page.screenshot({ path: join(OUT, 'donut-dark.png'), fullPage: true });
+  const viewport = { width: 390, height: 844 };
+  const params = { section: 'category-ranking', data: 'typical' };
+  const { context, page } = await open({ ...params, theme: 'dark' }, viewport);
+  const colors = (target) => target.locator('.insights-category-card__bar-fill').evaluateAll(
+    (els) => els.map((el) => getComputedStyle(el).backgroundColor),
+  );
+  const darkColors = await colors(page);
+  await page.screenshot({ path: join(OUT, 'category-ranking-dark.png') });
   await page.evaluate(() => window.__qa.setTheme('light'));
-  await page.waitForTimeout(300);
-  await page.screenshot({ path: join(OUT, 'donut-dark-then-light.png'), fullPage: true });
-  const lightStops = await stops();
-  const lightDots = await dots();
-  const fresh = await open({ section: 'donut', theme: 'light', data: 'typical' }, { width: 390, height: 844 });
-  const freshStops = await fresh.page.$$eval('.donut linearGradient stop:nth-child(2)', (els) => els.map((e) => e.getAttribute('stop-color')));
-  await fresh.page.screenshot({ path: join(OUT, 'donut-light-fresh.png'), fullPage: true });
+  await page.waitForFunction((before) => {
+    const fills = [...document.querySelectorAll('.insights-category-card__bar-fill')];
+    return fills.some((el, index) => getComputedStyle(el).backgroundColor !== before[index]);
+  }, darkColors);
+  const lightColors = await colors(page);
+  await page.screenshot({ path: join(OUT, 'category-ranking-dark-then-light.png') });
+  const fresh = await open({ ...params, theme: 'light' }, viewport);
+  const freshColors = await colors(fresh.page);
+  await fresh.page.screenshot({ path: join(OUT, 'category-ranking-light-fresh.png') });
   await fresh.context.close();
-  check('donut: live dark→light switch matches a fresh light load', JSON.stringify(lightStops) === JSON.stringify(freshStops),
-    `dark=${darkStops.slice(0, 2)} switched=${lightStops.slice(0, 2)} fresh=${freshStops.slice(0, 2)}; other dot ${darkDots.at(-1)}→${lightDots.at(-1)}`);
+  check('category ranking: live light colors match a fresh light load',
+    lightColors.length > 0 && JSON.stringify(lightColors) === JSON.stringify(freshColors));
   await context.close();
 }
 

@@ -1,4 +1,71 @@
-# Ausgegeben — UI/UX audit (web first, Android parity tracked separately)
+# Ausgegeben UI/UX audit
+
+## 25 November 2026
+
+The overhaul started at `f34e2ad0` with a clean working tree. The baseline web unit suite passed 691 tests and the production web build succeeded. Android built and ran the baseline unit suite using the SDK at `D:/Android/Sdk`. Firebase Auth and Firestore emulators supplied every browser account and financial record. The active project architecture is React, Zustand and repository subscriptions on web, Compose with ViewModels and repositories on Android, and a shared Firebase data model. [Financial parity fixtures](../testdata/financial-parity.json) define the currency, aggregation and transfer contracts used here.
+
+### Screen and state inventory
+
+| Surface | Reviewed entry points and states | Priority and result |
+| --- | --- | --- |
+| Shell and navigation | [MainShell](../web/src/views/MainShell.tsx), [MainActivity](../app/src/main/java/com/aus/ausgegeben/MainActivity.kt). Record, Insights, Settings, desktop header, bottom navigation and rail, browser history, skip link, verification, cached or pending writes, retry and offline status. | High. Retained labeled navigation and browser history. Settings shows verification, connectivity, queued changes or a sync problem instead of a uniform cloud badge. Pending tab-only writes retain the keep-open message. |
+| Record | [RecordView](../web/src/views/RecordView.tsx), [RecordScreen](../app/src/main/java/com/aus/ausgegeben/ui/RecordScreen.kt), [FinanceSummaryCard](../app/src/main/java/com/aus/ausgegeben/ui/components/FinanceSummaryCard.kt). Periods, summary, transfers, global budget, top category, search, type and advanced filters, category filter, grouped rows, overflow menus, undo, show-more, empty/filtered/loading and cache warnings. | High. Web summary and rows used nested cards and large rounded surfaces. Date groups now use opaque sticky headings and separators. Android now shows the currency code and transfer total, with the full width available for long values at large font sizes. Compose rows appear without per-row index scans and staggered animations. |
+| Add and edit | [AddTransactionView](../web/src/views/AddTransactionView.tsx), [AddTransactionScreen](../app/src/main/java/com/aus/ausgegeben/ui/AddTransactionScreen.kt). Type switch, amount and currency, date, category, note, submit, retry, discard, nested category management and offline save. | High. Added web category search, transaction-type-aware management and Enter-to-save from the amount and note fields. Escape restores focus to the right level, including the original launcher after discard. Android adds native category search for long collections and preserves the selected category and draft. The device pass caught a mid-word category heading at 320dp and 200% German text. The heading and its actions now wrap as groups. |
+| Categories | [CategoriesView](../web/src/views/CategoriesView.tsx), [CategoryScreen](../app/src/main/java/com/aus/ausgegeben/ui/CategoryScreen.kt). Type groups, create/edit, icon/color pickers, reorder, delete, merge and linked transaction warnings. | High. Web management opens on the draft's transaction type. Fixed a React state update during Escape dismissal. Existing deletion and migration paths remain the source of truth. |
+| Budgets | [BudgetProgressBar](../web/src/components/BudgetProgressBar.tsx), [CategoryBudgets](../web/src/components/CategoryBudgets.tsx), [InsightsStrip](../app/src/main/java/com/aus/ausgegeben/ui/components/InsightsStrip.kt), [CategoryBudgetSection](../app/src/main/java/com/aus/ausgegeben/ui/CategoryBudgetSection.kt). Global uncapped/near-limit/reached/over-budget states, category allocation, monthly limits, configurable warning threshold, edit/remove, stale revision and cached progress. | High. Both clients show actual usage above 100% while the track stops at 100%. The global near-limit cue begins at 80%. Unconfirmed remaining amounts are withheld. Category budget removal uses a destructive confirmation. |
+| Insights | [InsightsView](../web/src/views/InsightsView.tsx), [BillsScreen](../app/src/main/java/com/aus/ausgegeben/ui/BillsScreen.kt). Period picker, net cash flow, spending pace, previous period, category ranking, transfers, cash-flow chart/table, movers, averages, budget progress, no data, partial cache and errors. | Medium. Replaced repeated category rings with currency totals and ranked bars. A single category uses a text total and row. A bar encodes the unrounded ratio. Android's cash-flow axis avoids duplicate labels for a single point. |
+| Recurring | [RecurringManager](../web/src/components/RecurringManager.tsx), [RecurringEditor](../web/src/components/RecurringEditor.tsx), [Android recurring screens](../app/src/main/java/com/aus/ausgegeben/ui/RecurringManager.kt). Scheduled, paused, ended, blocked, damaged and skipped occurrences, creation, editing and removal. | Medium. Web uses its shared online signal and locale-formatted dates for stuck occurrences. The matching, catch-up and receipt logic stays in the existing repositories. |
+| Settings and data | [SettingsView](../web/src/views/SettingsView.tsx), [SettingsBackup](../web/src/views/SettingsBackup.tsx), [SettingsScreen](../app/src/main/java/com/aus/ausgegeben/ui/SettingsScreen.kt). Theme, language, currency, budget, notifications on Android, account, preferences sync, trusted-device storage, export, backup, merge/replace/undo, privacy, sign-out and account deletion. | High for destructive and recovery states. Kept the established sections and localized details. Both platforms surface verification in Account. Backup compatibility and recovery are covered by the existing suites. |
+| Authentication and onboarding | [AuthView](../web/src/views/AuthView.tsx), [AuthScreen](../app/src/main/java/com/aus/ausgegeben/ui/AuthScreen.kt), [OnboardingView](../web/src/views/OnboardingView.tsx), [OnboardingScreen](../app/src/main/java/com/aus/ausgegeben/ui/OnboardingScreen.kt), [PreferencesRecoveryView](../web/src/views/PreferencesRecoveryView.tsx), [AppLoading](../web/src/components/AppLoading.tsx). Sign-in/up, password visibility/reset/confirmation, pending/verification/error, optional onboarding steps and preferences recovery. | High for field errors. Web directs focus to actionable validation fields and announces onboarding changes. Android uses a solid surface, standard Material typography and selectable tab semantics. |
+
+### Evidence and follow-up
+
+The [current design guide](ui-ux-design-spec.md) records the token and component rules. Web browser evidence lives in `.artifacts/ui-overhaul` and is reproducible with the emulator scripts in the guide. This pass prioritised financial interpretation, input and focus recovery, visible text, and reduction of repeated information. A full assistive-technology audit still requires TalkBack and a desktop/mobile screen reader. Device IME, installed-PWA and predictive-back behaviour require device testing.
+
+| Check | Result |
+| --- | --- |
+| Web unit and build | 691 tests passed across 62 files. TypeScript, React hook, CSS class and telemetry lint were green. The production build completed. |
+| Firebase emulators | 146 Firestore rules tests and 190 repository integration tests passed using isolated local Firestore ports. |
+| Browser integration | All 36 tests in `npm run test:e2e` passed against the local Firebase emulators. The final focused rerun passed four tests covering keyboard submission, draft focus, discard and category budgets. |
+| Android build and JVM | `assembleProdDebug` and `assembleProdDebugAndroidTest` succeeded. All 494 `testProdDebugUnitTest` tests passed on the isolated rerun, including the Firebase recovery tests. |
+| Connected Android | The initial Pixel 7 run passed 45 instrumented tests. The follow-up passed 56 of 56 layout and navigation cases, including all 48 Compose cases at 320dp and 411dp and eight cases with the real gesture and three-button system bars. Both runs used an isolated package. The temporary density and navigation settings were restored after capture. |
+| Browser layout | The Chromium matrix covered 320 through 2560px, the three layout boundaries and short landscape. Geometry and focus-order checks passed. At 200% text, the three main tabs and editor were measured on phone and desktop. |
+| Component QA | All 66 harness checks passed, including amount layout for EUR, USD, GBP and CHF in English and German, keyboard interactions, cash-flow extremes and live light theme switching. |
+| Themes | The contrast probe composites CSS background colors for sampled Record, Insights and Settings labels. All nine explicit palettes passed 4.5:1 after the Light transaction-title token fix. This sampled check covers neither every component nor every WCAG criterion. |
+| Visual evidence | 65 paired primary web captures, plus before/after onboarding, empty, offline, queued, confirmation and enlarged-text states. Android produced 29 viewport images and a matrix report for Record, Insights, Add transaction and Settings. Key captures were inspected on phone, tablet and desktop. |
+| Performance | The production Insights chunk fell from 8.55 to 7.62 kB gzip. CSS fell from 24.66 to 23.77 kB gzip. Startup and scrolling measurements are below. |
+
+### Performance follow-up
+
+The web comparison used optimized local builds of `f34e2ad0` and the UI overhaul before integration with 2.1.23. Both used the same emulator-only Firebase configuration, gzip, a 1440 × 900 Chromium viewport, and the synthetic 306-transaction account. After a warmup for each build, nine alternating samples used fresh browser contexts. Auth readiness uses form visibility and two animation frames. Record and Insights readiness use the first transaction and populated category breakdown, respectively. Scroll runs traveled the same 2400 CSS pixels in 1.5 seconds. The frame interval is a requestAnimationFrame sample on the host, and main-thread work is the Chrome DevTools Protocol task-duration delta.
+
+| Web median | Baseline | UI overhaul |
+| --- | ---: | ---: |
+| Navigation to auth form ready | 129 ms | 131 ms |
+| Sign-in submit to first Record transaction | 850 ms | 854 ms |
+| Insights click to populated breakdown | 432 ms | 410 ms |
+| Record scroll p95 animation-frame interval | 33.4 ms | 16.7 ms |
+| Record scroll intervals over 25 ms | 24 | 0 |
+| Record scroll main-thread task time | 155 ms | 298 ms |
+
+Startup timings were close across the two web builds. The updated Record delivered smoother frame pacing while using more main-thread time during the measured scroll.
+
+A second run used the same builds and scroll distance with scripted scrolling and synthetic mouse-wheel input in headless Chrome. Each result is the median of five alternating runs per build with tracing disabled. The 4× setting simulates a slower CPU on the test host.
+
+| Record scroll | p95 frame interval, baseline → updated | Intervals over 25 ms, baseline → updated | Main-thread task time, baseline → updated |
+| --- | ---: | ---: | ---: |
+| Scripted, 1× | 33.4 → 16.7 ms | 31 → 0 | 147 → 298 ms |
+| Scripted, 4× | 33.4 → 33.3 ms | 30 → 11 | 718 → 1336 ms |
+| Mouse wheel, 1× | 33.4 → 16.7 ms | 31 → 0 | 75 → 126 ms |
+| Mouse wheel, 4× | 33.4 → 33.4 ms | 32 → 12 | 399 → 611 ms |
+
+Separate Chrome traces showed more time spent painting and preparing compositor layers. In the 4× mouse-wheel trace, Paint increased from 26 to 143 ms and Layerize from 76 to 173 ms. The updated build spent more time painting even though Chrome recorded fewer Paint events in that sample. Under CPU throttling the updated build still had fewer intervals over 25 ms across repeated runs, and the p95 remained around 33 ms.
+
+The Android measurements used the isolated debug build on a Pixel 7 at the original display density with the synthetic account signed in. Nine cold-process launches after one warmup produced a median first draw of 941 ms and a range of 931–966 ms. Across three Record scroll runs of six swipes each, Android reported 35 janky frames out of 816 (4.3%), with per-run p95 frame times of 26–36 ms. The launch sample measures initial display. The Android results describe this build and device.
+
+Raw samples, the Chrome traces, the Android layout report, and the navigation captures are under `.artifacts/ui-overhaul/performance`. Web trace measurements are in `trace-scroll-metrics.json`.
+
+## Historical audit, 23 October 2026
 
 **Date:** 2026-10-23 · **Base commit:** `main` @ `89d2594` · **Branch:** `ui/ux-audit-and-polish`
 **Scope of this document:** evidence-based register of confirmed defects in the *current* source, plus

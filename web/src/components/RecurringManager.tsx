@@ -12,6 +12,7 @@ import { expenseRepository } from '@/repositories/expenseRepository';
 import type { Category } from '@/models/types';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { ConfirmDialog } from './ConfirmDialog';
 import { SettingsRow } from './SettingsRow';
 import { CategoryIconTile, EmptyState, LoadingListSkeleton, SignatureText } from './ui';
@@ -46,20 +47,6 @@ export function RecurringManager() {
   );
 }
 
-function useOnline(): boolean {
-  const [online, setOnline] = useState(() => navigator.onLine);
-  useEffect(() => {
-    const update = () => setOnline(navigator.onLine);
-    window.addEventListener('online', update);
-    window.addEventListener('offline', update);
-    return () => {
-      window.removeEventListener('online', update);
-      window.removeEventListener('offline', update);
-    };
-  }, []);
-  return online;
-}
-
 type Editing = { template: RecurringTemplate; expected: number | null };
 
 /**
@@ -71,7 +58,7 @@ export function RecurringPanel({ owner, close }: { owner: string; close: () => v
   const user = useAuthStore((s) => s.user);
   const state = useRecurringStore();
   const currency = usePreferencesStore((s) => s.currency);
-  const online = useOnline();
+  const online = useOnlineStatus();
   const root = useRef<HTMLDivElement>(null);
   const [categories, setCategories] = useState<Category[] | null>(null);
   const [categoriesFailed, setCategoriesFailed] = useState(false);
@@ -218,7 +205,7 @@ export function RecurringPanel({ owner, close }: { owner: string; close: () => v
                       </div>
                       {showIssue ? (
                         <div className="recurring-row__issue" data-testid="recurring-row-issue">
-                          <p className="recurring-warning__text">{damaged ? t('recurringIssueDamaged') : t('recurringIssueStuck', { date: issue.scheduledDate })}</p>
+                          <p className="recurring-warning__text">{damaged ? t('recurringIssueDamaged') : t('recurringIssueStuck', { date: formatDueDate(issue.scheduledDate, localeTag(locale)) })}</p>
                           {!damaged && (
                             <button type="button" className="btn btn-secondary" disabled={disabled} onClick={() => setSkipping({ row, date: issue.scheduledDate })}>
                               {t('recurringSkipDate')}

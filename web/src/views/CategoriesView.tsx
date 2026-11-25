@@ -6,7 +6,7 @@ import { categoriesAfterMove } from '@/utils/categoryReorder';
 import { CategoryIconTile, EmptyState, LoadingListSkeleton, SignatureText } from '@/components/ui';
 import { useToastStore } from '@/services/toastStore';
 import { CategoryLucideIcon, CATEGORY_ICON_KEYS, categoryIconLabel } from '@/components/CategoryLucideIcon';
-import { IconBroom, IconDelete, IconCheck, IconClose, IconChevronUp, IconChevronDown } from '@/components/Icons';
+import { IconBroom, IconDelete, IconCheck, IconClose, IconChevronUp, IconChevronDown, IconEdit } from '@/components/Icons';
 import { colorIntToHex } from '@/utils/currency';
 import { CategoryValidator } from '@/utils/categoryValidator';
 import { CATEGORY_COLOR_INTS, colorIntsMatch } from '@/utils/categoryStyle';
@@ -40,11 +40,11 @@ function categoryErrorMessage(err: unknown, action: CategoryAction, t: (key: Tra
   }
 }
 
-export function CategoriesView({ onClose }: { onClose: () => void }) {
+export function CategoriesView({ initialType = 'expense', onClose }: { initialType?: TransactionType; onClose: () => void }) {
   const { t } = useTranslation();
   const showToast = useToastStore((s) => s.show);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [filter, setFilter] = useState<TransactionType>('expense');
+  const [filter, setFilter] = useState<TransactionType>(initialType);
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
   const [deleteLinkedCount, setDeleteLinkedCount] = useState(0);
   const [showDedupeConfirm, setShowDedupeConfirm] = useState(false);
@@ -56,12 +56,9 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
   const nameInputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const handleEscape = useCallback(() => {
-    setEditor((current) => {
-      if (current) return null;
-      onClose();
-      return current;
-    });
-  }, [onClose]);
+    if (editor) setEditor(null);
+    else onClose();
+  }, [editor, onClose]);
   useFocusTrap(!(deleteTarget || showDedupeConfirm), dialogRef, handleEscape);
   useBodyScrollLock(true);
 
@@ -222,11 +219,11 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
         aria-labelledby="categories-title"
         tabIndex={-1}
       >
-        <div className="flex items-center justify-between">
+        <div className="category-manager__header flex items-center justify-between gap-2">
           <h2 id="categories-title" className="modal-title text-2xl font-extrabold tracking-tight">
             <SignatureText text={editor ? (editor.id ? t('categoryEditTitle') : t('addCategory')) : t('settingsCategories')} />
           </h2>
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-3">
             {!editor ? (
               <button
                   type="button"
@@ -354,9 +351,9 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
                      <p className="categories-empty__text">{t('categoriesEmptyForType')}</p>
                    </div>
                  ) : (
-                 <div className="flex flex-col gap-3">
+                 <ul className="category-manage-list">
                    {filtered.map((cat, index) => (
-                      <div key={cat.id} className="category-manage-row card--pro p-4 flex items-center gap-3 bg-surface border border-white/5 shadow-none">
+                      <li key={cat.id} className="category-manage-row">
                           <button
                             type="button"
                             className="category-row-edit flex items-center gap-3.5 flex-1 min-w-0 text-left"
@@ -364,7 +361,8 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
                             aria-label={`${t('categoryEditTitle')}: ${cat.name}`}
                           >
                             <CategoryIconTile iconName={cat.iconName} color={colorIntToHex(cat.colorInt)} />
-                            <span className="flex-1 text-sm font-semibold text-on-background truncate">{cat.name}</span>
+                            <span className="category-row-edit__name">{cat.name}</span>
+                            <IconEdit className="category-row-edit__icon" width={16} height={16} aria-hidden />
                           </button>
                           <div className="category-manage-row__actions flex items-center gap-1.5 shrink-0">
                             <button
@@ -396,9 +394,9 @@ export function CategoriesView({ onClose }: { onClose: () => void }) {
                               <IconDelete width={18} height={18} aria-hidden />
                             </button>
                           </div>
-                      </div>
+                      </li>
                    ))}
-                 </div>
+                 </ul>
                  )}
               </div>
 

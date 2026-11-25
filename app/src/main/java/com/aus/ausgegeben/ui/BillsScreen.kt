@@ -660,8 +660,8 @@ private fun CashFlowCard(
             ) {
                 Column(modifier = Modifier.padding(end = AppSpacing.sm)) {
                     Text(
-                        text = stringResource(R.string.chart_cash_flow_title).uppercase(),
-                        style = BillsAuroraTokens.labelStyle(),
+                        text = stringResource(R.string.chart_cash_flow_title),
+                        style = MaterialTheme.typography.titleMedium,
                     )
                     Text(
                         text = stringResource(
@@ -698,11 +698,13 @@ private fun CashFlowCard(
                         color = readableSecondaryColor()
                     )
                 }
-                Text(
-                    text = trend.lastOrNull()?.label ?: "",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = readableSecondaryColor()
-                )
+                if (trend.size >= 2) {
+                    Text(
+                        text = trend.last().label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = readableSecondaryColor()
+                    )
+                }
             }
         }
     }
@@ -722,45 +724,28 @@ private fun CategoryAnalyticsIsland(
     val chartColors = remember(sorted) {
         harmonizedChartColors(sorted.map { (category, _) -> category.name to category.colorInt })
     }
-    val chartData = remember(sorted) { sorted.associate { (category, amount) -> category.name to amount } }
-
     val accentColor = when (kind) {
         AnalyticsKind.Income -> financeIncomeTextColor()
         AnalyticsKind.Transfer -> financeTransferColor()
         AnalyticsKind.Expense -> financeExpenseTextColor()
     }
-    val totalLabelRes = when (kind) {
-        AnalyticsKind.Income -> R.string.bills_total_income
-        AnalyticsKind.Transfer -> R.string.bills_total_transfers
-        AnalyticsKind.Expense -> R.string.bills_total_expense
-    }
-
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .appGlassCard()
-            .padding(horizontal = 20.dp, vertical = 24.dp)
+            .padding(horizontal = AppSpacing.lg, vertical = AppSpacing.md)
     ) {
         Column {
             Text(
-                text = title.uppercase(),
-                style = BillsAuroraTokens.labelStyle().copy(color = accentColor),
+                text = title,
+                style = MaterialTheme.typography.titleMedium.copy(color = accentColor),
                 modifier = Modifier.padding(bottom = 4.dp),
             )
-            
-            Spacer(Modifier.height(32.dp))
-
-            DonutChart(
-                data = chartData,
-                colors = chartColors,
-                centerLabel = CurrencyUtils.formatAmount(total, currencyCode, showSymbol = false),
-                centerSubLabel = stringResource(totalLabelRes).uppercase(),
-                chartSize = 180.dp,
-                currencyCode = currencyCode,
+            MoneyText(
+                text = CurrencyUtils.formatAmount(total, currencyCode),
+                size = MoneySize.Body,
             )
-
-            Spacer(Modifier.height(32.dp))
 
             Column {
                 sorted.forEachIndexed { index, (category, amount) ->
@@ -771,10 +756,10 @@ private fun CategoryAnalyticsIsland(
                         color = color,
                         currencyCode = currencyCode,
                         total = total,
+                        showBar = sorted.size > 1,
                     )
                     if (index < sorted.lastIndex) {
                         IosSeparator()
-                        Spacer(Modifier.height(12.dp))
                     }
                 }
             }
@@ -789,58 +774,74 @@ private fun CategoryMetricRow(
     color: Color,
     currencyCode: String,
     total: Double,
+    showBar: Boolean,
 ) {
-    val percent = if (total > 0) ((amount / total) * 100).toInt() else 0
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(28.dp)
-                .appGlassCard(CircleShape),
-            contentAlignment = Alignment.Center,
+    val share = if (total > 0) (amount / total).coerceIn(0.0, 1.0) else 0.0
+    val percent = java.text.NumberFormat.getPercentInstance(CurrencyUtils.localeForDisplay()).format(share)
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 modifier = Modifier
-                    .size(10.dp)
-                    .clip(CircleShape)
-                    .background(color),
+                    .size(28.dp)
+                    .appGlassCard(CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(color),
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            // The amount drops under the name when both do not fit: beside a seven-digit amount
+            // at large text, the name column was a few letters wide ("100%" split in two).
+            NameAmountLayout(
+                modifier = Modifier.weight(1f),
+                name = {
+                    Column {
+                        Text(
+                            text = category.name,
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = percent,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = BillsAuroraTokens.slate(),
+                        )
+                    }
+                },
+                amount = {
+                    Text(
+                        text = CurrencyUtils.formatAmount(amount, currencyCode),
+                        style = TextStyle(
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            fontFeatureSettings = "tnum",
+                            color = MaterialTheme.colorScheme.onSurface,
+                        ),
+                    )
+                },
             )
         }
-        Spacer(Modifier.width(12.dp))
-        // The amount drops under the name when both do not fit: beside a seven-digit amount
-        // at large text, the name column was a few letters wide ("100%" split in two).
-        NameAmountLayout(
-            modifier = Modifier.weight(1f),
-            name = {
-                Column {
-                    Text(
-                        text = category.name,
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        text = "$percent%",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = BillsAuroraTokens.slate(),
-                    )
-                }
-            },
-            amount = {
-                Text(
-                    text = CurrencyUtils.formatAmount(amount, currencyCode),
-                    style = TextStyle(
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        fontFeatureSettings = "tnum",
-                        color = MaterialTheme.colorScheme.onSurface,
-                    ),
-                )
-            },
-        )
+        if (showBar) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = AppSpacing.sm)
+                    .height(4.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.12f)),
+            ) {
+                Box(Modifier.fillMaxWidth(share.toFloat()).fillMaxHeight().background(color))
+            }
+        }
     }
 }
 

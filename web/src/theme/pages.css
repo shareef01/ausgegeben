@@ -80,7 +80,7 @@
   font-weight: 700;
   letter-spacing: 0.01em;
   text-transform: none;
-  color: var(--color-income-text);
+  color: var(--color-on-surface-variant);
 }
 
 .settings-account__actions {
@@ -1011,15 +1011,19 @@
 }
 
 .budget-bar__labels {
-  flex-wrap: wrap; /* "spent / budget" moves under the label instead of running off the card */
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
   gap: 4px 8px;
+  margin-bottom: 8px;
 }
 
 .budget-bar__labels .budget-bar__spent {
   color: var(--color-on-surface-variant);
 }
 
-.budget-bar__labels .budget-bar__spent--over {
+.budget-bar .budget-bar__spent--over {
   color: var(--color-expense-text);
 }
 
@@ -1031,28 +1035,8 @@
   height: 100%;
   width: var(--bar-width, 0%);
   border-radius: 9999px;
-  background: var(--bar-gradient, linear-gradient(90deg, var(--color-income), var(--color-income)));
-  box-shadow: 0 0 12px color-mix(in srgb, var(--bar-glow, var(--color-income)) 40%, transparent);
-  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
-  position: relative;
-}
-
-.budget-bar__fill::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 50%;
-  border-radius: 9999px 9999px 0 0;
-  background: linear-gradient(180deg, rgba(255,255,255,0.25) 0%, transparent 100%);
-}
-
-.budget-bar__over {
-  margin-top: 8px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--color-expense-text);
+  background: var(--bar-color, var(--color-accent));
+  transition: width var(--dur-base) var(--ease-out);
 }
 
 .budget-bar__upcoming {
@@ -1069,126 +1053,20 @@
   color: var(--color-warning-text);
 }
 
-/* ═══════════════════════════════════════════════════
- *  DONUT CHART
- *  ═══════════════════════════════════════════════════ */
-
-.donut-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--donut-size, 140px);
-  height: var(--donut-size, 140px);
-}
-
-.donut {
-  transform: rotate(-90deg);
-  overflow: visible;
-}
-
-.donut__track {
-  stroke-linecap: round;
-}
-
-.donut__ring {
-  filter: none;
-}
-
-.donut__seg {
-  animation-name: donut-draw;
-  animation-timing-function: linear;
-  animation-fill-mode: both;
-  transition:
-    opacity var(--dur-base, 0.26s) var(--ease-out, ease),
-    filter var(--dur-base, 0.26s) var(--ease-out, ease),
-    stroke-width var(--dur-fast, 0.16s) var(--ease-out, ease);
-}
-
-/* Hover focus — fine pointers only (sticky hover washes out donuts on Pixel) */
-@media (hover: hover) and (pointer: fine) {
-  .donut-wrap:hover .donut__seg:not(:hover) {
-    opacity: 0.38;
-    filter: saturate(0.85);
-  }
-
-  .donut__seg:hover {
-    filter: brightness(1.12) saturate(1.12);
-    stroke-width: 17.5;
-  }
-}
-
-@keyframes donut-draw {
-  from {
-    stroke-dasharray: 0 var(--seg-c);
-  }
-  to {
-    stroke-dasharray: var(--seg-len) var(--seg-c);
-  }
-}
-
-.donut-center {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  animation: donut-center-in var(--dur-base, 0.26s) var(--ease-spring, ease) both;
-  animation-delay: 0.34s;
-}
-
-@keyframes donut-center-in {
-  from {
-    opacity: 0;
-    transform: scale(0.82);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.donut-center__label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: none;
-  letter-spacing: 0.01em;
+.budget-bar__status,
+.budget-bar__hint {
+  margin: 6px 0 0;
+  font-size: 0.8125rem;
   color: var(--color-on-surface-variant);
-  margin-bottom: 4px;
+  overflow-wrap: anywhere;
 }
 
-.donut-center__value {
-  /* Sized from the donut and the string, not the viewport: 2.8vw grew the text on desktop
-     while the hole stayed 148px, and "2.717,89 CHF" was cut to "2.717,89 C…". ~0.62em is
-     the advance of a 900-weight tabular digit. */
-  font-size: clamp(
-    0.75rem,
-    calc(var(--donut-size, 140px) * 0.74 / (var(--donut-center-chars, 9) * 0.62)),
-    1.25rem
-  );
-  font-weight: 900;
-  letter-spacing: -0.035em;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-on-background);
-  max-width: 78%;
-  text-align: center;
-  line-height: 1.15;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-shadow: 0 1px 12px color-mix(in srgb, var(--color-background) 55%, transparent);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .donut__seg {
-    animation: none !important;
-  }
-
-  .donut-center {
-    animation: none !important;
-  }
+.budget-bar__status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0 12px;
+  font-weight: 600;
 }
 
 /* ── Insights main column + category breakdown ── */
@@ -1220,8 +1098,8 @@
 .insights-category-card {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  height: 100%;
+  gap: 8px;
+  align-self: start;
   min-height: 0;
   background: var(--glass-bg-elevated);
   border: 1px solid var(--surface-border);
@@ -1231,7 +1109,7 @@
 .card.insights-category-card {
   /* Outranks the generic .card padding/radius further down (was !important). */
   padding: 18px 18px 16px;
-  border-radius: 1.25rem;
+  border-radius: var(--radius-card);
 }
 
 .insights-category-card__title {
@@ -1246,26 +1124,23 @@
   color: var(--card-accent, var(--color-on-surface));
 }
 
-.insights-category-card__chart {
-  display: flex;
-  justify-content: center;
-  width: 100%;
-  padding: 4px 0 2px;
+.insights-category-card__total {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
 
 .insights-category-card__list {
   container: category-list / inline-size;
   list-style: none;
   margin: 0;
-  padding: 4px 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--color-on-surface) 3.5%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-outline) 35%, transparent);
-  overflow: hidden;
 }
 
 .insights-category-card__row {
@@ -1278,11 +1153,10 @@
   column-gap: 10px;
   row-gap: 6px;
   min-width: 0;
-  padding: 10px 12px;
+  padding: 10px 0;
   border: none;
   border-radius: 0;
   background: transparent;
-  transition: background 0.15s ease;
 }
 
 .insights-category-card__dot {
@@ -1319,8 +1193,7 @@
   }
 }
 
-/* Proportional bar under each row: the same data as the donut arc, but directly
-   comparable across categories. Decorative — the amount and percentage are text. */
+/* Amount and percentage give the accessible equivalent of the proportional bar. */
 .insights-category-card__bar {
   grid-area: bar;
   display: block;
@@ -1340,11 +1213,6 @@
   border-top: 1px solid var(--hairline-divider, rgba(255, 255, 255, 0.06));
 }
 
-.insights-category-card__row:hover {
-  background: color-mix(in srgb, var(--color-on-surface) 5%, transparent);
-  transform: none;
-}
-
 .insights-category-card__dot {
   width: 9px;
   height: 9px;
@@ -1354,18 +1222,11 @@
   box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--color-on-surface) 14%, transparent);
 }
 
-/* Two lines before clamping: names like "Haushaltsversicherung und Nebenkosten der Wohnung"
-   were cut to one line at every width, so the largest slice of the donut had no readable name. */
 .insights-category-card__name {
   min-width: 0;
   font-size: 0.8125rem;
   font-weight: 600;
   line-height: 1.3;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
   overflow-wrap: anywhere;
   /* German compounds ("Haushaltsversicherung") broke mid-word with no hyphen. */
   hyphens: auto;
@@ -1376,7 +1237,7 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   text-align: right;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .insights-category-card__pct {
@@ -2481,17 +2342,18 @@
 .transaction-row__title {
   font-size: 0.9375rem;
   font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: var(--color-on-surface);
+  overflow-wrap: anywhere;
 }
 
 .transaction-row__sub {
   font-size: 0.8125rem;
   color: var(--color-on-surface-variant);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
   margin-top: 2px;
 }
 
@@ -2643,13 +2505,50 @@
   color: var(--color-on-background);
 }
 
+.category-manager__header .modal-title {
+  min-width: 0;
+  max-width: none;
+  overflow-wrap: anywhere;
+}
+
+.category-manage-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.category-manage-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--hairline-divider);
+}
+
+.category-manage-row:last-child {
+  border-bottom: 1px solid var(--hairline-divider);
+}
+
 .category-row-edit {
   background: none;
   border: none;
   padding: 0;
+  min-height: var(--touch-target);
   cursor: pointer;
-  color: inherit;
+  color: var(--color-on-surface);
   font: inherit;
+}
+
+.category-row-edit__name {
+  flex: 1;
+  font-size: 0.875rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.category-row-edit__icon {
+  color: var(--color-on-surface-variant);
+  flex-shrink: 0;
 }
 
 .category-row-edit:focus-visible {
@@ -2658,13 +2557,13 @@
   border-radius: 10px;
 }
 
-/* Category rows: at phone widths the icon + three 44px controls left ~80px for
-   the name, so "Groceries" rendered as "Gro...". Below 520px the name wraps
-   instead of truncating and the row loses its extra horizontal padding. */
 @media (max-width: 519px) {
-  .category-manage-row {
-    gap: 10px;
-    padding: 12px;
+  .category-row-edit {
+    gap: 8px;
+  }
+
+  .category-row-edit__icon {
+    display: none;
   }
 
   .category-manage-row .category-row-edit .truncate {
@@ -3562,6 +3461,20 @@
   padding: 1.25rem 1rem;
 }
 
+.add-txn__category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.add-txn__category-header .btn {
+  min-height: var(--touch-target);
+  padding: 6px 12px;
+  font-size: 0.8125rem;
+}
+
 .add-txn .field:has(.add-txn__cats) {
   gap: 12px;
   min-height: 0;
@@ -3582,23 +3495,19 @@
   max-width: 8.5rem;
   min-height: 5.5rem;
   padding: 12px 10px;
-  border-radius: 18px;
+  border-radius: var(--radius-control);
   border: 1px solid color-mix(in srgb, var(--color-outline) 55%, transparent);
   background: color-mix(in srgb, var(--color-on-surface) 4%, var(--color-surface));
   color: var(--color-on-surface);
   text-align: center;
   cursor: pointer;
   scroll-snap-align: center;
-  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
 }
 
 .add-txn__cat:hover {
   background: color-mix(in srgb, var(--color-on-surface) 8%, var(--color-surface));
   border-color: color-mix(in srgb, var(--color-on-surface) 22%, transparent);
-}
-
-.add-txn__cat:active {
-  transform: scale(0.97);
 }
 
 .add-txn__cat:focus-visible {
@@ -3608,10 +3517,7 @@
 
 /* Selection is a control state, not a finance meaning: it used the income green even while
    entering an expense. Theme accent plus a check badge, so it never relies on colour alone. */
-/* The [data-theme] form outranks the light-theme .add-txn__cat fill further down, which used
-   to wipe the selected border and background in every light palette. */
-.add-txn__cat.add-txn__cat--selected,
-[data-theme] .add-txn__cat.add-txn__cat--selected {
+.add-txn__cat.add-txn__cat--selected {
   border-color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
   box-shadow: inset 0 0 0 1px var(--color-accent);
@@ -3721,21 +3627,110 @@
   border-top-color: var(--color-outline);
 }
 
-[data-theme='light'] .add-txn__cat {
-  background: var(--color-surface);
-  border-color: var(--color-outline);
-}
-
-[data-theme='light'] .add-txn__cat:hover {
-  background: color-mix(in srgb, var(--color-on-surface) 4%, var(--color-surface));
-}
-
-[data-theme='light'] .add-txn__cat-name {
-  color: var(--color-on-surface);
-}
-
 [data-theme='light'] .field__label {
   color: color-mix(in srgb, var(--color-on-surface) 72%, var(--color-on-surface-variant));
+}
+
+/* ── Category picker on wide screens ──
+   Phones keep the swipeable one-row rail. With a mouse that rail is a trap: the scrollbar is
+   hidden, the wheel scrolls vertically, and tiles at both edges are faded and cut off, so
+   categories past the fourth were effectively unreachable. Wrap them into a grid instead. */
+@media (min-width: 768px) {
+  .add-txn__cats {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(6.25rem, 1fr));
+    gap: 10px;
+    min-height: 0; /* the phone rail's fit-content floor would otherwise beat max-height */
+    max-height: 15rem; /* two full rows plus a peek of the third, hinting there is more */
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scroll-snap-type: none;
+    mask-image: none;
+    padding: 6px 4px;
+    scrollbar-width: thin;
+  }
+
+  .add-txn__cats::-webkit-scrollbar {
+    display: block;
+    width: 6px;
+  }
+
+  .add-txn__cats::-webkit-scrollbar-thumb {
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--color-on-surface) 22%, transparent);
+  }
+
+  .add-txn__cat {
+    min-width: 0;
+    max-width: none;
+  }
+
+  .add-txn__cats-empty {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ── Add/edit dialog on desktop (≥1024px): two columns ──
+   One 34rem column left the category grid squeezed into two and a half rows, so a row of
+   tiles was always sliced in half while most of the screen sat empty. The form fields stack
+   on the left; the categories get the whole right column, as tall as the fields beside them. */
+@media (min-width: 1024px) {
+  .add-txn {
+    max-width: 64rem;
+  }
+
+  .add-txn--loading {
+    max-width: 34rem;
+  }
+
+  .add-txn__body {
+    display: grid;
+    grid-template-columns: minmax(0, 21rem) minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto auto;
+    grid-template-areas:
+      'type cats'
+      'amount cats'
+      'date cats'
+      'note note'
+      'error error';
+    column-gap: 1.75rem;
+    row-gap: 1.25rem;
+    padding-bottom: 1.5rem;
+  }
+
+  .add-txn__body > :first-child {
+    grid-area: type;
+  }
+
+  .add-txn__field--amount {
+    grid-area: amount;
+  }
+
+  .add-txn__field--date {
+    grid-area: date;
+  }
+
+  .add-txn__field--note {
+    grid-area: note;
+  }
+
+  .add-txn__error {
+    grid-area: error;
+  }
+
+  /* Every category is shown, with no inner scroller slicing a row in half: the dialog grows
+     to fit them (up to its max-height), and only past that does the dialog body scroll. */
+  .add-txn .add-txn__field--cats {
+    grid-area: cats;
+  }
+
+  .add-txn__cats {
+    grid-template-columns: repeat(auto-fill, minmax(6.75rem, 1fr));
+    max-height: none;
+    overflow: visible;
+    align-content: start;
+  }
 }
 
 /* ═══════════════════════════════════════════════════

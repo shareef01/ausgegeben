@@ -41,7 +41,7 @@ export function OnboardingView({ onComplete }: OnboardingViewProps) {
           <p className="text-sm font-medium text-on-surface-variant">{t('authTagline')}</p>
         </div>
 
-        <div className="onboarding-slide">
+        <div className="onboarding-slide" aria-live="polite" aria-atomic="true">
           <div className="onboarding-slide__icon" aria-hidden>
             <SlideIcon width={32} height={32} />
           </div>

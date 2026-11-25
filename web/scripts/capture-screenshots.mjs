@@ -1,20 +1,8 @@
 /**
- * Captures the README web screenshots against the local emulators, so the images
- * show seeded demo data rather than anyone's real finances.
- *
- * Prerequisites:
- *   npx firebase emulators:start --only auth,firestore --project demo-ausgegeben
- *   node scripts/seed-demo-data.mjs
- *   npx vite --mode emulator --port 5173
- *
- * Then:
- *   node scripts/capture-screenshots.mjs
- *
- * 1600x1000 at deviceScaleFactor 2 (3200x2000 images): wide enough for the
- * three-column desktop layout, which starts at 1440px. Override the app URL with
- * BASE=http://localhost:5183 when the dev server runs on another port.
- * Theme comes from colorScheme because the seeded preference is themeMode:
- * 'system', which the app resolves through prefers-color-scheme.
+ * Capture the README screenshots from the local Firebase demo account.
+ * Start the emulators, run seed-demo-data.mjs and serve Vite in emulator mode.
+ * Pass --full for the phone, tablet and desktop QA captures. SCREENSHOT_DIR
+ * overrides the output folder and PW_CHROMIUM selects an installed browser.
  */
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
@@ -22,50 +10,130 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const OUT_DIR = join(__dirname, '..', '..', 'docs', 'screenshots', 'web');
+const full = process.argv.includes('--full');
+const OUT_DIR = process.env.SCREENSHOT_DIR ?? join(__dirname, '..', '..',
+  ...(full ? ['.artifacts', 'ui-overhaul', 'after'] : ['docs', 'screenshots', 'web']));
 const BASE = process.env.BASE ?? 'http://localhost:5173';
 const EMAIL = 'demo@ausgegeben.app';
 const PASSWORD = 'demo-password-123';
 
 mkdirSync(OUT_DIR, { recursive: true });
 
-async function signIn(page) {
-  await page.goto(BASE, { waitUntil: 'networkidle' });
-  await page.locator('input[type="email"]').first().fill(EMAIL);
-  await page.locator('input[type="password"]').first().fill(PASSWORD);
-  await page.locator('button[type="submit"]').first().click();
-  // The record list only renders once the seeded transactions arrive.
-  await page.getByText('Weekly groceries').first().waitFor({ timeout: 30000 });
-  await page.waitForTimeout(1200);
+async function selectTab(page, name) {
+  await page.getByRole('button', { name, exact: true }).first().click();
 }
 
-async function capture(page, name, scheme) {
-  const file = join(OUT_DIR, `${name}-${scheme}.png`);
-  await page.screenshot({ path: file });
-  console.log(`  wrote ${name}-${scheme}.png`);
-}
-
-async function run(scheme) {
-  console.log(`[${scheme}]`);
-  const browser = await chromium.launch();
+async function run(browser, { width, height, colorScheme, theme, label }) {
   const context = await browser.newContext({
-    viewport: { width: 1600, height: 1000 },
-    deviceScaleFactor: 2,
-    colorScheme: scheme,
+    viewport: { width, height },
+    deviceScaleFactor: full ? 1 : 2,
+    colorScheme,
+    reducedMotion: 'reduce',
     locale: 'en-DE',
   });
-  const page = await context.newPage();
+  try {
+    const page = await context.newPage();
+    const capture = async (name, target = page, options = {}) => {
+      await page.evaluate(() => document.fonts.ready.then(() => undefined));
+      const file = join(OUT_DIR, full ? `${label}-${name}.png` : `web-${name}-${colorScheme}.png`);
+      await target.screenshot({ path: file, animations: 'disabled', ...options });
+      console.log(`wrote ${file}`);
+    };
 
-  await signIn(page);
-  await capture(page, 'web-record', scheme);
+    await page.goto(BASE);
+    const email = page.locator('#auth-email');
+    await email.waitFor();
+    if (full) {
+      await capture('auth');
+      await page.locator('.auth-page__forgot').click();
+      await page.locator('.auth-page__error').waitFor();
+      await capture('auth-error');
+    }
+    await email.fill(EMAIL);
+    await page.locator('#auth-password').fill(PASSWORD);
+    const submit = page.locator('form button[type="submit"]');
+    if (full) {
+      let releaseLoading;
+      const ready = new Promise((resolve) => { releaseLoading = resolve; });
+      await page.route('**/src/views/SignedInApp.tsx', async (route) => {
+        await ready;
+        await route.continue();
+      });
+      try {
+        await submit.click();
+        await page.locator('.loading-screen').waitFor();
+        await capture('loading');
+      } finally {
+        releaseLoading();
+      }
+    } else {
+      await submit.click();
+    }
+    const row = page.getByText('Weekly groceries', { exact: true }).first();
+    await row.waitFor({ timeout: 30_000 });
 
-  await page.getByRole('button', { name: 'insights', exact: true }).first().click();
-  await page.waitForTimeout(2000); // donut + cash-flow chart animate in
-  await capture(page, 'web-insights', scheme);
+    if (theme) {
+      await page.evaluate(async (mode) => {
+        const { usePreferencesStore } = await import('/src/services/preferencesStore.ts');
+        usePreferencesStore.getState().setThemeMode(mode);
+      }, theme);
+      await page.locator(`html[data-theme-name="${theme}"]`).waitFor({ state: 'attached' });
+    }
+    await capture('record');
 
-  await browser.close();
+    if (full) {
+      await page.locator('.fab-add:visible').click();
+      await page.locator('#txn-amount').waitFor();
+      await capture('add');
+      await page.locator('#txn-amount').fill('42.50');
+      await page.keyboard.press('Escape');
+      await page.getByRole('alertdialog').waitFor();
+      await capture('confirm');
+      await page.getByRole('alertdialog').getByRole('button', { name: 'discard', exact: true }).click();
+      await row.click();
+      await page.locator('#txn-note').waitFor();
+      await capture('edit');
+      await page.keyboard.press('Escape');
+    }
+
+    await selectTab(page, 'insights');
+    await page.locator('.insights-category-card').first().waitFor();
+    await capture('insights');
+
+    if (full) {
+      await selectTab(page, 'settings');
+      await page.locator('.settings-account').waitFor();
+      await capture('settings', page, { fullPage: true });
+      const budgets = page.locator('.category-budgets:visible');
+      await budgets.evaluate((element) => element.scrollIntoView({ block: 'start' }));
+      await capture('budgets', budgets);
+      await page.getByRole('button', { name: /category management/i }).click();
+      await page.locator('#categories-title').waitFor();
+      await capture('categories');
+      await page.keyboard.press('Escape');
+      await page.getByRole('button', { name: /recurring transactions/i }).click();
+      await page.locator('.recurring-panel').waitFor();
+      await page.locator('.recurring-panel__new:enabled').waitFor();
+      await capture('recurring');
+      await page.locator('.recurring-panel__new').click();
+      await page.locator('#recurring-editor-title').waitFor();
+      await capture('recurring-editor');
+    }
+  } finally {
+    await context.close();
+  }
 }
 
-await run('light');
-await run('dark');
-console.log('done');
+const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
+try {
+  const variants = full ? [
+    { width: 1600, height: 1000, colorScheme: 'light', theme: 'light', label: '1600-light' },
+    { width: 390, height: 844, colorScheme: 'dark', theme: 'dark', label: '390-dark' },
+    { width: 834, height: 1000, colorScheme: 'light', theme: 'light', label: '834-light' },
+    { width: 390, height: 844, colorScheme: 'dark', theme: 'amoled', label: '390-amoled' },
+    { width: 834, height: 1000, colorScheme: 'light', theme: 'lavender', label: '834-lavender' },
+  ] : ['light', 'dark'].map((colorScheme) => ({ width: 1600, height: 1000, colorScheme }));
+  for (const variant of variants) await run(browser, variant);
+} finally {
+  await browser.close();
+}

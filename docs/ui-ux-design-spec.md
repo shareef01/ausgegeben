@@ -1,4 +1,35 @@
-# Ausgegeben — UI/UX design specification
+# Ausgegeben design guide
+
+## 25 November 2026
+
+| Design decision | Web | Android |
+| --- | --- | --- |
+| Brand and typography | Keep the geometric A and selective lowercase signature text. Use the system UI stack to preserve native controls and avoid a webfont request. | Use the bundled Inter family through [Material typography](../app/src/main/java/com/aus/ausgegeben/ui/theme/Type.kt). |
+| Surfaces | `--color-background` supports the shell, `--color-surface` contains data, `--hairline-divider` separates rows, and overlays use the existing elevated surface and scrim. Use 16px cards and 12px controls from [index.css](../web/src/theme/index.css) for the touched components. | Use the same surface roles and 16dp / 12dp card and control sizes in [DesignTokens](../app/src/main/java/com/aus/ausgegeben/ui/theme/DesignTokens.kt). |
+| Palette roles | [tokens.ts](../web/src/theme/tokens.ts) owns palette resolution. Use foreground/semantic text variants for ink and fill tokens for graphics. Use [chartPalette.ts](../web/src/theme/chartPalette.ts) for category marks and [CSSOM helpers](../web/src/utils/cssVars.ts) for dynamic scales and colors under CSP. | [ThemePalettes](../app/src/main/java/com/aus/ausgegeben/ui/theme/ThemePalettes.kt) and [AppTheme](../app/src/main/java/com/aus/ausgegeben/ui/theme/AppTheme.kt) map Material palettes and safe financial text. Interactive and finance roles can be expressed independently. |
+| Numbers | Use existing currency formatters, full amounts, tabular figures, flexible placement, and explicit spending/earning/transfer labels. Budget progress keeps actual percentage in text and caps only the graphic. | Use the same display rules with `MoneyText`, wrapping rows and the localized currency formatter. |
+| Density and navigation | Use flat day groups, explicit row actions, 44px touch controls where practical and visible focus. Use a single main column on phones, the desktop header from 768px, and three Record columns from 1440px. Keep document/visual order aligned and lean on the existing safe-area and history logic. | Use Material's rail or bottom bar, retain Android back routing, and use 48dp targets. Use lazy lists for long records and category search. |
+| Motion | Use the shared short durations and easing from [index.css](../web/src/theme/index.css), with reduced-motion settings respected. Keep numbers and rows readable as soon as they render. | Keep animation for interaction state and user navigation. Android Record rows render immediately when data is available. |
+
+The theme choices are System, Light, Dark, AMOLED, Midnight, Ocean, Forest, Sunset, Lavender and Soft Light. System follows the OS. Keep AMOLED black and verify foreground against the surface that actually renders. Preserve the label next to financial color or a progress indicator.
+
+The CSS import order lives in [index.css](../web/src/theme/index.css). Native resets and focus belong in `global.css`. Layout and day-heading placement belong in `layout.css`. Form/category/editor rules and chart/budget styles belong in `pages.css`. Shared Record group surfaces and navigation refinements belong in `polish.css`. The existing `brand.css`, `ios.css`, `oled.css`, `premium.css` and `recurring.css` still carry product-specific rules. Consolidate a component by updating its governing selectors and removing superseded rules.
+
+### Reproduce visual QA
+
+Start the Firebase Auth and Firestore emulators for `demo-ausgegeben` and run the Vite emulator server on port 5173. From `web`:
+
+```sh
+node scripts/seed-demo-data.mjs
+node scripts/seed-qa-data.mjs
+node scripts/capture-screenshots.mjs --full
+node qa/responsive-audit.mjs overhaul http://localhost:5173
+node qa/states.mjs after
+```
+
+`--full` writes screenshot evidence under `.artifacts/ui-overhaul/after`. The default capture command refreshes the README screenshots. `SCREENSHOT_DIR` changes the destination in the capture and state scripts. `PW_CHROMIUM` provides an executable override when the pinned browser is unavailable. See [Android design QA](design-qa/android.md) for the connected-device workflow.
+
+## Historical design specification
 
 **Status:** direction and inventory for Round 3. No visual code changes were made in Round 2, by
 design — this document exists so the visual pass has an agreed target instead of being improvised.

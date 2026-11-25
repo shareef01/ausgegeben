@@ -70,18 +70,12 @@
 :root[data-theme-name='lavender'] .app-header__nav-thumb,
 :root[data-theme-name='soft_light'] .app-header__nav-thumb {
   background: var(--color-accent);
-  box-shadow:
-    0 1px 0 color-mix(in srgb, #ffffff 28%, transparent) inset,
-    0 4px 16px color-mix(in srgb, var(--color-accent) 34%, transparent);
 }
 
 :root[data-theme-name='lavender'] .fab-add,
 :root[data-theme-name='soft_light'] .fab-add {
   background: var(--color-accent);
   color: var(--color-on-accent, #ffffff);
-  box-shadow:
-    0 0 0 2px color-mix(in srgb, var(--color-accent) 18%, transparent),
-    0 4px 24px color-mix(in srgb, var(--color-accent) 40%, transparent);
 }
 
 /* ── Sidebar Filters ── */
@@ -168,7 +162,6 @@
   .sidebar-panel { gap: 10px; }
   .widget-stack { gap: 10px; }
   .content-col { gap: 14px; }
-  .finance-summary-card { padding: 14px; gap: 10px; }
   .record-filters { padding: 12px; gap: 10px; }
 
   /* Insights — same density pass */
@@ -187,8 +180,8 @@
 .finance-summary-card {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 18px;
+  gap: clamp(8px, 2vw, 14px);
+  padding: clamp(12px, 3vw, 18px);
   container-type: inline-size; /* the balance below sizes itself against this width */
 }
 
@@ -250,10 +243,8 @@
   /* Information, not an alert: "most spent on Groceries" is a fact about the period, so it gets
      neutral chrome and readable type instead of an uppercase label on a red-tinted bar (DW-2). */
   margin: 0;
-  padding: 10px 14px;
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--color-outline) 30%, transparent);
-  background: color-mix(in srgb, var(--color-on-surface) 4%, transparent);
+  padding: 8px 0 0;
+  border-top: 1px solid var(--hairline-divider);
   font-size: 0.875rem;
   font-weight: 600;
   letter-spacing: 0.01em;
@@ -267,16 +258,13 @@
   align-items: center;
   gap: 10px;
   min-width: 0;
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--color-on-surface) 4%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-outline) 35%, transparent);
+  padding: 4px 0;
 }
 
 .finance-stat-chip__icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
@@ -340,57 +328,6 @@
   color: var(--color-transfer);
 }
 
-/* ── Transaction List Restoration ── */
-/* .transaction-list-bare__day styling lives in polish.css's
-   .txn-day-header.transaction-list-bare__day (the only way this class is ever
-   rendered, per RecordView.tsx) with identical values — a standalone override
-   here was pure redundant dead weight. */
-
-.transaction-list-bare__rows {
-  background: var(--glass-bg);
-  backdrop-filter: blur(24px);
-  border: 1px solid var(--surface-border);
-  border-radius: 2.5rem;
-  overflow: hidden;
-  box-shadow: var(--shadow-elevated, 0 10px 40px rgba(0, 0, 0, 0.3));
-}
-
-.transaction-list-bare__rows .txn-row-wrap {
-  position: relative;
-  transition: background-color 0.15s ease, transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.transaction-list-bare__rows .txn-row-wrap:hover {
-  background: color-mix(in srgb, var(--color-on-surface) 4%, transparent);
-}
-
-.transaction-list-bare__rows .txn-row-wrap:active {
-  transform: scale(0.98);
-}
-
-/* Inset hairline — starts after icon column so it doesn’t collide with card radius */
-.transaction-list-bare__rows .txn-row-wrap:not(:last-child)::after {
-  content: '';
-  position: absolute;
-  left: 76px; /* 24px pad + 40px icon + 12px gap */
-  right: 24px;
-  bottom: 0;
-  height: 1px;
-  background: color-mix(in srgb, var(--color-outline) 28%, transparent);
-  pointer-events: none;
-}
-
-.transaction-list-bare .action-row__content {
-  background: transparent;
-}
-
-.transaction-row {
-  border-bottom: none;
-  padding: 18px 24px;
-  background: transparent;
-}
-
-
 /* ── Most-spent card: name plus how much and what share ── */
 .record-most-spent__name,
 .record-most-spent__detail {
@@ -405,23 +342,7 @@
   opacity: 0.85;
 }
 
-/* ── Wide screens (tablet+, the sidebar layout) ──
-   Mouse-driven, so rows can be denser than the 76px touch rows; the list card and the
-   sticky day header share one corner radius so they read as a single group. */
 @media (min-width: 768px) {
-  .transaction-row {
-    padding: 10px 20px;
-  }
-
-  .transaction-list-bare__rows {
-    border-radius: 1.25rem;
-  }
-
-  .transaction-list-bare__rows .txn-row-wrap:not(:last-child)::after {
-    left: 72px; /* 20px pad + 40px icon + 12px gap */
-    right: 20px;
-  }
-
   /* The floating add button is gone on desktop, so no space needs reserving under the list. */
   .content-col {
     padding-bottom: 48px;
@@ -446,117 +367,6 @@
     min-width: 0;
     margin-top: 0;
     font-size: 0.875rem;
-  }
-}
-
-/* ── Sticky day header is opaque ──
-   It was 88–94% see-through, so once it stuck to the top the row scrolling under it
-   showed through ("Freelance" bleeding behind "Thu, Nov 05"). */
-.txn-day-header.transaction-list-bare__day,
-[data-theme] .txn-day-header.transaction-list-bare__day {
-  background: var(--color-background);
-}
-
-/* ── Category picker on wide screens ──
-   Phones keep the swipeable one-row rail. With a mouse that rail is a trap: the scrollbar is
-   hidden, the wheel scrolls vertically, and tiles at both edges are faded and cut off, so
-   categories past the fourth were effectively unreachable. Wrap them into a grid instead. */
-@media (min-width: 768px) {
-  .add-txn__cats {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(6.25rem, 1fr));
-    gap: 10px;
-    min-height: 0; /* the phone rail's fit-content floor would otherwise beat max-height */
-    max-height: 15rem; /* two full rows plus a peek of the third, hinting there is more */
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scroll-snap-type: none;
-    mask-image: none;
-    padding: 6px 4px;
-    scrollbar-width: thin;
-  }
-
-  .add-txn__cats::-webkit-scrollbar {
-    display: block;
-    width: 6px;
-  }
-
-  .add-txn__cats::-webkit-scrollbar-thumb {
-    border-radius: 3px;
-    background: color-mix(in srgb, var(--color-on-surface) 22%, transparent);
-  }
-
-  .add-txn__cat {
-    min-width: 0;
-    max-width: none;
-  }
-
-  .add-txn__cats-empty {
-    grid-column: 1 / -1;
-  }
-}
-
-/* ── Add/edit dialog on desktop (≥1024px): two columns ──
-   One 34rem column left the category grid squeezed into two and a half rows, so a row of
-   tiles was always sliced in half while most of the screen sat empty. The form fields stack
-   on the left; the categories get the whole right column, as tall as the fields beside them. */
-@media (min-width: 1024px) {
-  .add-txn {
-    max-width: 64rem;
-  }
-
-  .add-txn--loading {
-    max-width: 34rem;
-  }
-
-  .add-txn__body {
-    display: grid;
-    grid-template-columns: minmax(0, 21rem) minmax(0, 1fr);
-    grid-template-rows: auto auto auto auto auto 1fr;
-    grid-template-areas:
-      'type cats'
-      'amount cats'
-      'date cats'
-      'note cats'
-      'error cats'
-      '. cats';
-    column-gap: 1.75rem;
-    row-gap: 1.25rem;
-    padding-bottom: 1.5rem;
-  }
-
-  .add-txn__body > :first-child {
-    grid-area: type;
-  }
-
-  .add-txn__field--amount {
-    grid-area: amount;
-  }
-
-  .add-txn__field--date {
-    grid-area: date;
-  }
-
-  .add-txn__field--note {
-    grid-area: note;
-  }
-
-  .add-txn__error {
-    grid-area: error;
-  }
-
-  /* Every category is shown, with no inner scroller slicing a row in half: the dialog grows
-     to fit them (up to its max-height), and only past that does the dialog body scroll. */
-  .add-txn .add-txn__field--cats {
-    grid-area: cats;
-  }
-
-  .add-txn__cats {
-    grid-template-columns: repeat(auto-fill, minmax(6.75rem, 1fr));
-    max-height: none;
-    overflow: visible;
-    align-content: start;
   }
 }
 

@@ -45,6 +45,7 @@ fun SettingsAccountSection(
                             ?: stringResource(R.string.settings_account_cloud),
                     )
                     val accountSubtitle = when {
+                        !currentUser.isEmailVerified -> stringResource(R.string.auth_verify_required)
                         syncing -> stringResource(R.string.settings_sync_in_progress)
                         lastCloudSyncAt != null -> stringResource(
                             R.string.settings_last_synced,

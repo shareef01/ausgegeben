@@ -1,6 +1,7 @@
 import { formatAmount } from '@/utils/currency';
 import { useTranslation } from '@/i18n';
 import { useCssProps } from '@/utils/cssVars';
+import { usePreferencesStore } from '@/services/preferencesStore';
 
 interface BudgetProgressBarProps {
   spent: number;
@@ -8,46 +9,39 @@ interface BudgetProgressBarProps {
   currency: string;
   /** Current-month expenses dated tomorrow or later; informational, never counted as spent. */
   upcoming?: number;
+  incomplete?: boolean;
 }
 
-export function BudgetProgressBar({ spent, budget, currency, upcoming = 0 }: BudgetProgressBarProps) {
+export function BudgetProgressBar({ spent, budget, currency, upcoming = 0, incomplete = false }: BudgetProgressBarProps) {
   const { t } = useTranslation();
-  const ratio = budget > 0 ? Math.min(spent / budget, 1) : 0;
+  const locale = usePreferencesStore((s) => s.locale);
+  const ratio = budget > 0 ? Math.max(spent / budget, 0) : 0;
   const overBudget = budget > 0 && spent > budget;
   const anticipated = spent + upcoming;
-  // Approved F-05 rule: actual over budget is red; actual within budget but the
-  // anticipated total over is amber; only then do the existing indicators apply.
-  const projectedOver = budget > 0 && !overBudget && anticipated > budget;
-  const barGradient = overBudget
-    ? 'var(--gradient-expense)'
-    : projectedOver
-      ? 'var(--gradient-warning)'
-      : 'var(--gradient-income)';
-  const barGlow = overBudget
-    ? 'var(--color-expense)'
-    : projectedOver
-      ? 'var(--color-warning)'
-      : 'var(--color-income)';
+  const projectedOver = !overBudget && anticipated > budget;
+  const reachedBudget = spent === budget;
+  const nearLimit = ratio >= 0.8 && !overBudget && !projectedOver && !reachedBudget;
   const fillRef = useCssProps<HTMLDivElement>({
-    '--bar-width': `${ratio * 100}%`,
-    '--bar-gradient': barGradient,
-    '--bar-glow': barGlow,
+    '--bar-width': `${Math.min(ratio, 1) * 100}%`,
+    '--bar-color': overBudget ? 'var(--color-expense-text)' : projectedOver ? 'var(--color-warning)' : 'var(--color-accent)',
   });
 
   if (budget <= 0) return null;
-
-  const percent = Math.round(ratio * 100);
-  const label = `${t('budgetMonthlyLabel')}: ${formatAmount(spent, currency)} / ${formatAmount(budget, currency)}`;
-  const stateText = overBudget
+  const used = t('budgetUsed', { percent: new Intl.NumberFormat(locale, {
+    style: 'percent',
+    maximumFractionDigits: 1,
+  }).format(ratio) });
+  const status = overBudget
     ? t('budgetOverBy', { amount: formatAmount(spent - budget, currency) })
-    : projectedOver
-      ? t('budgetProjectedExceed', { amount: formatAmount(anticipated - budget, currency) })
-      : null;
-  const ariaText = stateText ? `${label}. ${stateText}` : label;
+    : reachedBudget ? t('budgetReached') : t('budgetRemaining', { amount: formatAmount(budget - spent, currency) });
+  const label = `${t('budgetMonthlyLabel')}: ${formatAmount(spent, currency)} / ${formatAmount(budget, currency)}`;
+  const projectedStatus = projectedOver
+    ? t('budgetProjectedExceed', { amount: formatAmount(anticipated - budget, currency) })
+    : null;
 
   return (
     <div className="budget-bar px-1">
-      <div className="budget-bar__labels flex justify-between items-end mb-3">
+      <div className="budget-bar__labels">
         <span className="field__label">{t('budgetMonthlyLabel')}</span>
         <span className={`text-xs font-bold tabular-nums budget-bar__spent${overBudget ? ' budget-bar__spent--over' : ''}`}>
           {formatAmount(spent, currency)} <span className="budget-bar__limit font-medium">/ {formatAmount(budget, currency)}</span>
@@ -59,16 +53,21 @@ export function BudgetProgressBar({ spent, budget, currency, upcoming = 0 }: Bud
         aria-label={label}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-valuenow={percent}
-        aria-valuetext={ariaText}
+        aria-valuenow={Math.min(100, Math.round(ratio * 100))}
+        aria-valuetext={used}
       >
         <div ref={fillRef} className="budget-bar__fill" />
       </div>
-      {stateText ? (
-        <p className={`${overBudget ? 'budget-bar__over' : 'budget-bar__projected'} tabular-nums`} role="status">
-          {stateText}
-        </p>
+      <p className="budget-bar__status tabular-nums">
+        <span>{used}</span>
+        {incomplete && !overBudget ? null : <span className={overBudget ? 'budget-bar__spent--over' : undefined}>{status}</span>}
+      </p>
+      {incomplete || nearLimit ? (
+        <p className="budget-bar__hint">{t(incomplete ? 'recordCacheIncomplete' : 'budgetNearLimit')}</p>
       ) : null}
+      {projectedStatus && (
+        <p className="budget-bar__projected tabular-nums" role="status">{projectedStatus}</p>
+      )}
       {upcoming > 0 ? (
         // F-05: the bar above stays actual-spend / budget. Future-dated rows and their
         // anticipated total are disclosed separately so "spent" cannot be misread.

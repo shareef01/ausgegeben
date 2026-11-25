@@ -39,6 +39,7 @@ import {
 import { preferencesSync } from '@/services/preferencesSync';
 import { useQueuedWritesStore } from '@/services/queuedWrites';
 import { isFirestoreCachePersistent } from '@/services/firebase';
+import type { TransactionType } from '@/models/types';
 
 type TxnOverlay = null | { type: 'add' } | { type: 'edit'; expenseId: string };
 
@@ -56,10 +57,11 @@ export function MainShell() {
     typeof window === 'undefined' ? 'record' : readTabFromSearch(window.location.search),
   );
   const [txnOverlay, setTxnOverlay] = useState<TxnOverlay>(null);
-  const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const [categoriesType, setCategoriesType] = useState<TransactionType | null>(null);
+  const categoriesOpen = categoriesType !== null;
   useEffect(() => {
     setTxnOverlay(null);
-    setCategoriesOpen(false);
+    setCategoriesType(null);
   }, [user?.uid]);
   // Fetch the on-demand screens while this build's precache still holds them: once
   // evaluated they no longer depend on the cache, so a service-worker update that takes
@@ -138,7 +140,13 @@ export function MainShell() {
       />
     ),
     insights: <InsightsView onAdd={() => setTxnOverlay({ type: 'add' })} onManageBudgets={() => selectTab('settings')} />,
-    settings: <SettingsView onManageCategories={() => setCategoriesOpen(true)} />,
+    settings: (
+      <SettingsView
+        onManageCategories={() => setCategoriesType('expense')}
+        isOnline={isOnline}
+        pendingChanges={queuedWritesPending}
+      />
+    ),
   };
 
   const resendVerification = async () => {
@@ -323,11 +331,11 @@ export function MainShell() {
             suspended={categoriesOpen}
             onClose={() => setTxnOverlay(null)}
             onSaved={() => setTxnOverlay(null)}
-            onManageCategories={() => setCategoriesOpen(true)}
+            onManageCategories={setCategoriesType}
           />
         </Suspense>
       ) : null}
-      {categoriesOpen ? (
+      {categoriesType ? (
         <Suspense
           fallback={
             <div className="overlay-loading" role="status" aria-busy="true" aria-live="polite">
@@ -335,7 +343,7 @@ export function MainShell() {
             </div>
           }
         >
-          <CategoriesView onClose={() => setCategoriesOpen(false)} />
+          <CategoriesView initialType={categoriesType} onClose={() => setCategoriesType(null)} />
         </Suspense>
       ) : null}
 

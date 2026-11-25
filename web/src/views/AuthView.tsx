@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useAuthStore } from '@/services/authStore';
 import { authService } from '@/services/authService';
 import { useTranslation } from '@/i18n';
@@ -18,6 +18,9 @@ export function AuthView() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const confirmationRef = useRef<HTMLInputElement>(null);
   const firebaseReady = authService.isAvailable();
   const passwordTooShort = tab === 'signup' && password.length > 0 && password.length < 8;
   const passwordMismatch = tab === 'signup' && confirmPassword.length > 0 && password !== confirmPassword;
@@ -38,6 +41,7 @@ export function AuthView() {
     error === t('authErrorInvalid');
 
   const switchTab = (next: 'signin' | 'signup') => {
+    if (busy) return;
     setTab(next);
     setError(null);
     setInfo(null);
@@ -49,14 +53,17 @@ export function AuthView() {
     setInfo(null);
     if (!email.trim()) {
       setError(t('authErrorEmailRequired'));
+      emailRef.current?.focus();
       return;
     }
     if (tab === 'signup' && password.length < 8) {
       setError(t('authErrorWeakPassword'));
+      passwordRef.current?.focus();
       return;
     }
     if (tab === 'signup' && password !== confirmPassword) {
       setError(t('authErrorPasswordMismatch'));
+      confirmationRef.current?.focus();
       return;
     }
     setBusy(true);
@@ -84,8 +91,10 @@ export function AuthView() {
     setInfo(null);
     if (!email.trim()) {
       setError(t('authErrorEmailRequired'));
+      emailRef.current?.focus();
       return;
     }
+    if (!emailRef.current?.reportValidity()) return;
     setBusy(true);
     try {
       await authService.sendPasswordResetEmail(email);
@@ -141,6 +150,7 @@ export function AuthView() {
             <label htmlFor="auth-email" className="field__label">{t('authEmail')}</label>
             <input
               id="auth-email"
+              ref={emailRef}
               className="field__input"
               type="email"
               autoComplete="email"
@@ -156,6 +166,7 @@ export function AuthView() {
             <div className="auth-page__password">
               <input
                 id="auth-password"
+                ref={passwordRef}
                 className="field__input auth-page__password-input"
                 type={showPassword ? 'text' : 'password'}
                 autoComplete={tab === 'signup' ? 'new-password' : 'current-password'}
@@ -188,6 +199,7 @@ export function AuthView() {
               <label htmlFor="auth-confirm-password" className="field__label">{t('authConfirmPassword')}</label>
               <input
                 id="auth-confirm-password"
+                ref={confirmationRef}
                 className="field__input"
                 type={showPassword ? 'text' : 'password'}
                 autoComplete="new-password"
@@ -233,7 +245,7 @@ export function AuthView() {
 
           <button
             type="submit"
-            className="btn btn-primary w-full py-3.5 rounded-xl text-sm hover:brightness-110 active:scale-[0.98] transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="btn btn-primary w-full"
             disabled={submitDisabled}
           >
             <span key={busy ? 'busy' : tab} className="auth-page__submit-label">
