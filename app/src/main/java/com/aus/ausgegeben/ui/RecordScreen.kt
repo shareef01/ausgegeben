@@ -515,6 +515,14 @@ private fun RecordListToolbar(
     val searchLabel = stringResource(R.string.record_search)
     val monthPickerLabel = stringResource(R.string.record_pick_month)
     val typeFilterLabels = TransactionTypeFilter.entries.map { it.localizedLabel(context) }
+    val typeFilterTints = TransactionTypeFilter.entries.map { type ->
+        when (type) {
+            TransactionTypeFilter.ALL -> null
+            TransactionTypeFilter.EXPENSE -> financeExpenseTextColor()
+            TransactionTypeFilter.INCOME -> financeIncomeTextColor()
+            TransactionTypeFilter.TRANSFER -> financeTransferColor()
+        }
+    }
     val typeFilterIcons = remember {
         listOf(
             Icons.AutoMirrored.Rounded.List,
@@ -635,9 +643,11 @@ private fun RecordListToolbar(
             ) {
                 IosSegmentedControl(
                     options = typeFilterLabels,
-                    selectedIndex = TransactionTypeFilter.entries.indexOf(typeFilter),
+                    selectedIndex = typeFilter.ordinal,
                     onSelected = { index -> onTypeFilter(TransactionTypeFilter.entries[index]) },
                     icons = typeFilterIcons,
+                    accent = typeFilterTints[typeFilter.ordinal],
+                    iconTints = typeFilterTints,
                     modifier = Modifier.weight(1f),
                 )
                 IconButton(onClick = onFilterClick, modifier = Modifier.size(actionSize)) {

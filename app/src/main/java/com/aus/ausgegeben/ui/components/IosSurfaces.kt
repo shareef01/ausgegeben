@@ -243,6 +243,7 @@ fun IosSeparator(modifier: Modifier = Modifier, insetStart: Dp = 0.dp) {
  *   monochrome callers are unchanged; the add-transaction screen passes the
  *   transaction-type colour so the choice being made is visible at a glance
  *   rather than only legible from the label text.
+ * @param iconTints Optional per-segment icon colors, including while unselected.
  */
 @Composable
 fun IosSegmentedControl(
@@ -252,6 +253,7 @@ fun IosSegmentedControl(
     modifier: Modifier = Modifier,
     icons: List<ImageVector>? = null,
     accent: Color? = null,
+    iconTints: List<Color?>? = null,
 ) {
     val safeIndex = selectedIndex.coerceIn(0, (options.size - 1).coerceAtLeast(0))
     val containerShape = RoundedCornerShape(AppRadius.pill)
@@ -320,7 +322,8 @@ fun IosSegmentedControl(
                         Icon(
                             imageVector = icons[index],
                             contentDescription = null,
-                            tint = if (selected) MaterialTheme.colorScheme.onSurface else readableSecondaryColor(),
+                            tint = iconTints?.getOrNull(index)
+                                ?: if (selected) MaterialTheme.colorScheme.onSurface else readableSecondaryColor(),
                             modifier = Modifier.size(20.dp),
                         )
                     } else {
