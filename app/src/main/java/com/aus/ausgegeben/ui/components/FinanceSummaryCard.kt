@@ -1,12 +1,15 @@
 package com.aus.ausgegeben.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowDownward
+import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -17,9 +20,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -38,6 +44,7 @@ private object AuroraTokens {
     fun labelStyle() = sectionLabelStyle()
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun FinanceSummaryCard(
     expenseTotal: Double,
@@ -48,77 +55,117 @@ fun FinanceSummaryCard(
     transferTotal: Double = 0.0,
     modifier: Modifier = Modifier,
 ) {
-    val periodAndCurrency = "$periodLabel · $currencyCode"
-    val netAmount = CurrencyUtils.formatAmount(net, currencyCode)
-    val earnedAmount = CurrencyUtils.formatAmount(incomeTotal, currencyCode)
-    val spentAmount = CurrencyUtils.formatAmount(expenseTotal, currencyCode)
-    val summaryDescription = stringResource(
-        R.string.desc_finance_summary,
-        periodAndCurrency,
-        netAmount,
-        earnedAmount,
-        spentAmount,
-    )
-    val incomeText = financeIncomeTextColor()
-    val expenseText = financeExpenseTextColor()
+    val incomeColor = financeIncomeTextColor()
+    val expenseColor = financeExpenseTextColor()
     val netColor = when {
-        net > 0 -> incomeText
-        net < 0 -> expenseText
+        net > 0.0 -> incomeColor
+        net < 0.0 -> expenseColor
         else -> MaterialTheme.colorScheme.onSurface
     }
+    val earned = stringResource(R.string.summary_earned)
+    val spent = stringResource(R.string.summary_spent)
+    val income = CurrencyUtils.formatAmount(incomeTotal, currencyCode)
+    val expenses = CurrencyUtils.formatAmount(expenseTotal, currencyCode)
 
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = AppSpacing.md, vertical = AppSpacing.xs)
-            .appGlassCard(shape = RoundedCornerShape(AppRadius.card))
-            .semantics { contentDescription = summaryDescription }
-            .padding(AppSpacing.md),
+            .appGlassCard(shape = RoundedCornerShape(AppRadius.sheet))
+            .semantics { isTraversalGroup = true }
+            .padding(horizontal = AppSpacing.md, vertical = AppSpacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = stringResource(R.string.summary_balance_period, periodAndCurrency),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            text = stringResource(R.string.summary_balance_period, "$periodLabel · $currencyCode"),
+            modifier = Modifier.semantics { heading() },
+            style = sectionLabelStyle(),
             textAlign = TextAlign.Center,
         )
+        Spacer(Modifier.height(AppSpacing.sm))
         MoneyText(
-            text = netAmount,
-            modifier = Modifier.fillMaxWidth().padding(vertical = AppSpacing.sm),
+            text = CurrencyUtils.formatAmount(net, currencyCode),
+            modifier = Modifier.fillMaxWidth(),
             color = netColor,
             size = MoneySize.Display,
             fontSize = 36.sp,
         )
-        HorizontalDivider(color = appDividerColor())
-        SummaryAmountRow(stringResource(R.string.summary_earned), earnedAmount, incomeText)
-        SummaryAmountRow(stringResource(R.string.summary_spent), spentAmount, expenseText)
-        if (transferTotal > 0) {
-            SummaryAmountRow(
-                stringResource(R.string.bills_total_transfers),
-                CurrencyUtils.formatAmount(transferTotal, currencyCode),
-                financeTransferColor(),
-            )
+        Spacer(Modifier.height(AppSpacing.lg))
+
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val fontScale = LocalDensity.current.fontScale.coerceAtLeast(1f)
+            if (maxWidth >= 224.dp * fontScale) {
+                Row(
+                    modifier = Modifier.height(IntrinsicSize.Min),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SummaryPane(earned, income, incomeColor, Icons.Rounded.ArrowUpward, Modifier.weight(1f))
+                    VerticalDivider(Modifier.fillMaxHeight(), color = appDividerColor())
+                    SummaryPane(spent, expenses, expenseColor, Icons.Rounded.ArrowDownward, Modifier.weight(1f))
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.sm)) {
+                    SummaryPane(earned, income, incomeColor, Icons.Rounded.ArrowUpward, Modifier.fillMaxWidth())
+                    HorizontalDivider(color = appDividerColor())
+                    SummaryPane(spent, expenses, expenseColor, Icons.Rounded.ArrowDownward, Modifier.fillMaxWidth())
+                }
+            }
+        }
+
+        if (transferTotal > 0.0) {
+            Spacer(Modifier.height(AppSpacing.md))
+            HorizontalDivider(color = appDividerColor())
+            Spacer(Modifier.height(AppSpacing.sm))
+            val label = stringResource(R.string.bills_section_transfers)
+            val amount = CurrencyUtils.formatAmount(transferTotal, currencyCode)
+            FlowRow(
+                modifier = Modifier.fillMaxWidth().semantics { isTraversalGroup = true },
+                horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs, Alignment.CenterHorizontally),
+                itemVerticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(label, style = MaterialTheme.typography.bodySmall, color = readableSecondaryColor())
+                MoneyText(amount, color = MaterialTheme.colorScheme.onSurface)
+            }
         }
     }
 }
 
 @Composable
-private fun SummaryAmountRow(label: String, amount: String, amountColor: Color) {
-    NameAmountLayout(
-        modifier = Modifier.fillMaxWidth().padding(top = AppSpacing.xs),
-        name = {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        },
-        amount = {
-            MoneyText(text = amount, color = amountColor, textAlign = TextAlign.End)
-        },
-    )
+private fun SummaryPane(
+    label: String,
+    amount: String,
+    color: Color,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .semantics { isTraversalGroup = true }
+            .padding(horizontal = AppSpacing.xs),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(color.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
+        }
+        Spacer(Modifier.height(AppSpacing.xs))
+        Text(label, style = sectionLabelStyle(), textAlign = TextAlign.Center)
+        Spacer(Modifier.height(AppSpacing.xxs))
+        MoneyText(
+            text = amount,
+            modifier = Modifier.fillMaxWidth(),
+            color = color,
+            size = MoneySize.Title,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+        )
+    }
 }
-
 
 @Composable
 fun AppLoadingState(
