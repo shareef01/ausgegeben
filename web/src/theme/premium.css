@@ -237,6 +237,10 @@
 .finance-summary-card__stats > .finance-stat-chip {
   flex: 1 1 calc(50% - 4px);
   min-width: min-content;
+  /* The chips have no chrome of their own, so left-aligned content left the row hugging the left
+     edge under a centred balance and footnote, with the right third of the card empty. Centring
+     each chip in its half balances the row; a chip that wraps to its own row stays centred too. */
+  justify-content: center;
 }
 
 .record-most-spent {
